@@ -1,6 +1,7 @@
 import React from 'react';
 import { Student } from '../../../types';
 import { formatDisplayDate } from '../../../lib/utils';
+import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 
 interface ProfileTabProps {
   student: Student;
@@ -25,6 +26,9 @@ export function ProfileTab({ student }: ProfileTabProps) {
         <div className="md:col-span-2">
           <FormField label="TRẠNG THÁI" value={Array.isArray(student.status) ? student.status.join(', ') : student.status} />
         </div>
+      </div>
+      <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-sm shadow-slate-200/50">
+        <CustomFieldDetails moduleKey="students" values={student.customFields ?? {}} />
       </div>
     </div>
   );

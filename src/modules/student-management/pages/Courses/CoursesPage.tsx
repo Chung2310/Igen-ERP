@@ -38,6 +38,12 @@ import {
   ErpSubmitButton,
   ErpTableHead,
 } from '../../components/Erp/ErpUI';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 import { Pagination } from '../../components/ui/Pagination';
 
 type CourseViewMode = 'list' | 'grid';
@@ -68,6 +74,7 @@ interface CreateCoursePayload {
   fee: string;
   duration: string;
   maxLearners: number;
+  customFields?: CustomFieldValues;
 }
 
 const ACTIVE_COURSE_STATUS: Course['status'] = 'Hoạt động';
@@ -119,6 +126,79 @@ function getCategoryColor(category: string): string {
 export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
   const { userProfile: user } = useAuth();
+  const {
+    fields: stdFields,
+    activeFields: activeStdFields,
+    archivedFields: archivedStdFields,
+    updateField: updateStdField,
+    archiveField: archiveStdField,
+    restoreField: restoreStdField,
+    deleteField: deleteStdField
+  } = useStandardFields("courses");
+
+  const manageable = canManageCustomFields(user?.role);
+  const [stdEditorOpen, setStdEditorOpen] = useState(false);
+  const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+
+  const openEditStdField = (field: StandardFieldConfig) => {
+    setEditingStdField(getAdaptedFieldDefinition(field, "courses"));
+    setStdEditorOpen(true);
+  };
+
+  const handleStdFieldSubmit = (input: CreateFieldInput) => {
+    if (editingStdField) {
+      updateStdField(editingStdField.key, {
+        label: input.label,
+        placeholder: input.placeholder,
+        isRequired: input.isRequired,
+        isVisible: input.isVisible,
+      });
+    }
+  };
+
+  const archiveStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
+      archiveStdField(field.key);
+    }
+  };
+
+  const deleteStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
+      deleteStdField(field.key);
+    }
+  };
+
+  const renderFieldActions = (fieldKey: string) => {
+    if (!manageable) return null;
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    if (!fieldConfig) return null;
+    return (
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
+        <span>|</span>
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
+        <span>|</span>
+        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      </div>
+    );
+  };
+
+  const isFieldVisible = (fieldKey: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+  };
+  const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.label : defaultLabel;
+  };
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
+  };
+  const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.isRequired : defaultRequired;
+  };
   const usesCourseFeePolicy = true;
   const courseFeeLabel = 'Học phí niêm yết';
   const courseCodePlaceholder = 'Ví dụ: ENG-TOEIC';
@@ -188,14 +268,26 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
 
   const handleAddCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newCourse.code || !newCourse.title || !newCourse.duration || !newCourse.category || (usesCourseFeePolicy && !newCourse.fee)) {
-      toast.error('Vui lòng nhập đầy đủ thông tin khóa học.');
+    const missingFields: string[] = [];
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'code' && !newCourse.code) missingFields.push(f.label);
+        if (f.key === 'title' && !newCourse.title) missingFields.push(f.label);
+        if (f.key === 'category' && !newCourse.category) missingFields.push(f.label);
+        if (f.key === 'duration' && !newCourse.duration) missingFields.push(f.label);
+        if (f.key === 'fee' && !newCourse.fee) missingFields.push(f.label);
+        if (f.key === 'maxLearners' && !newCourse.maxLearners) missingFields.push(f.label);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      toast.error(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
     }
 
-    if (usesCourseFeePolicy) {
+    if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = newCourse.fee.replace(/\D/g, '');
-      if (!numericFee || Number.isNaN(Number(numericFee))) {
+      if (newCourse.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
         toast.error('Học phí phải là một số hợp lệ.');
         return;
       }
@@ -207,9 +299,11 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
         code: newCourse.code.toUpperCase(),
         title: newCourse.title,
         category: newCourse.category,
-        fee: usesCourseFeePolicy ? `${formatVND(newCourse.fee)}d` : '0d',
+        fee: usesCourseFeePolicy && isFieldVisible('fee') ? `${formatVND(newCourse.fee)}d` : '0d',
         duration: newCourse.duration,
         maxLearners: newCourse.maxLearners === '' ? 20 : newCourse.maxLearners,
+        customFields: newCourse.customFields,
+        ...(resolvedCenter ? { companyCode: resolvedCenter } : {}),
       };
 
       await apiFetch<MutationResponse>('/courses', {
@@ -228,18 +322,31 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       setIsSubmitting(false);
     }
   };
+
   const handleEditCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingCourse) return;
 
-    if (!editForm.code || !editForm.title || !editForm.duration || !editForm.category || (usesCourseFeePolicy && !editForm.fee)) {
-      toast.error('Vui lòng nhập đầy đủ thông tin khóa học.');
+    const missingFields: string[] = [];
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'code' && !editForm.code) missingFields.push(f.label);
+        if (f.key === 'title' && !editForm.title) missingFields.push(f.label);
+        if (f.key === 'category' && !editForm.category) missingFields.push(f.label);
+        if (f.key === 'duration' && !editForm.duration) missingFields.push(f.label);
+        if (f.key === 'fee' && !editForm.fee) missingFields.push(f.label);
+        if (f.key === 'maxLearners' && !editForm.maxLearners) missingFields.push(f.label);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      toast.error(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
     }
 
-    if (usesCourseFeePolicy) {
+    if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = editForm.fee.replace(/\D/g, '');
-      if (!numericFee || Number.isNaN(Number(numericFee))) {
+      if (editForm.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
         toast.error('Học phí phải là một số hợp lệ.');
         return;
       }
@@ -248,12 +355,14 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     setIsSubmitting(true);
     try {
       const payload = {
+        expectedVersion: editingCourse.__v,
         code: editForm.code.toUpperCase(),
         title: editForm.title,
         category: editForm.category,
-        fee: usesCourseFeePolicy ? `${formatVND(editForm.fee)}d` : '0d',
+        fee: usesCourseFeePolicy && isFieldVisible('fee') ? `${formatVND(editForm.fee)}d` : '0d',
         duration: editForm.duration,
         maxLearners: editForm.maxLearners === '' ? 20 : editForm.maxLearners,
+        customFields: editForm.customFields,
       };
 
       await apiFetch<MutationResponse>(`/courses/${editingCourse.id}`, {
@@ -598,83 +707,145 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       {showAddModal && (
         <ErpModal title="Thêm chương trình học mới" onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleAddCourse} className="space-y-4">
-            <ErpField label="Mã khóa học">
-              <ErpInput
-                type="text"
-                required
-                placeholder={courseCodePlaceholder}
-                value={newCourse.code}
-                onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
-              />
-            </ErpField>
+            {isFieldVisible('code') && (
+              <div className="relative group/std">
+                {renderFieldActions('code')}
+                <ErpField label={getFieldLabel('code', 'Mã khóa học')}>
+                  <ErpInput
+                    type="text"
+                    required={isFieldRequired('code', true)}
+                    placeholder={getFieldPlaceholder('code', courseCodePlaceholder)}
+                    value={newCourse.code}
+                    onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
+                  />
+                </ErpField>
+              </div>
+            )}
 
-            <ErpField label="Tên chương trình đào tạo">
-              <ErpInput
-                type="text"
-                required
-                placeholder={courseTitlePlaceholder}
-                value={newCourse.title}
-                onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-              />
-            </ErpField>
+            {isFieldVisible('title') && (
+              <div className="relative group/std">
+                {renderFieldActions('title')}
+                <ErpField label={getFieldLabel('title', 'Tên chương trình đào tạo')}>
+                  <ErpInput
+                    type="text"
+                    required={isFieldRequired('title', true)}
+                    placeholder={getFieldPlaceholder('title', courseTitlePlaceholder)}
+                    value={newCourse.title}
+                    onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
+                  />
+                </ErpField>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
-              <ErpField label="Phân loại">
-                <ErpSelect
-                  value={newCourse.category}
-                  onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
+              {isFieldVisible('category') && (
+                <div className="relative group/std">
+                  {renderFieldActions('category')}
+                  <ErpField label={getFieldLabel('category', 'Phân loại')}>
+                    <ErpSelect
+                      value={newCourse.category}
+                      onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </ErpSelect>
+                  </ErpField>
+                </div>
+              )}
+              {isFieldVisible('duration') && (
+                <div className="relative group/std">
+                  {renderFieldActions('duration')}
+                  <ErpField label={getFieldLabel('duration', 'Thời lượng')}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('duration', true)}
+                      placeholder={getFieldPlaceholder('duration', courseDurationPlaceholder)}
+                      value={newCourse.duration}
+                      onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
+                    />
+                  </ErpField>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {isFieldVisible('fee') && (
+                <div className="relative group/std">
+                  {renderFieldActions('fee')}
+                  <ErpField label={getFieldLabel('fee', 'Học phí niêm yết (VND)')}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('fee', true)}
+                      placeholder={getFieldPlaceholder('fee', 'Vi du: 5.500.000')}
+                      value={newCourse.fee}
+                      onChange={(e) => setNewCourse({ ...newCourse, fee: formatVND(e.target.value) })}
+                    />
+                  </ErpField>
+                </div>
+              )}
+              {isFieldVisible('maxLearners') && (
+                <div className="relative group/std">
+                  {renderFieldActions('maxLearners')}
+                  <ErpField label={getFieldLabel('maxLearners', 'Tối đa học viên lớp')}>
+                    <ErpInput
+                      type="number"
+                      min={0}
+                      required={isFieldRequired('maxLearners', false)}
+                      value={newCourse.maxLearners}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          setNewCourse({ ...newCourse, maxLearners: '' });
+                          return;
+                        }
+
+                        const parsed = parseInt(value, 10);
+                        setNewCourse({ ...newCourse, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
+                      }}
+                      onBlur={() => {
+                        if (newCourse.maxLearners === '' || typeof newCourse.maxLearners !== 'number' || newCourse.maxLearners < 0) {
+                          setNewCourse({ ...newCourse, maxLearners: 20 });
+                        }
+                      }}
+                    />
+                  </ErpField>
+                </div>
+              )}
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="courses"
+              values={newCourse.customFields}
+              onChange={(customFields) => setNewCourse((previous) => ({ ...previous, customFields }))}
+              mode="create"
+              disabled={isSubmitting}
+              tenantId={resolvedCenter}
+            />
+
+            {manageable && archivedStdFields.length ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {archivedStdFields.map((field) => (
+                    <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                      <span>{field.label}</span>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        aria-label={`Khôi phục ${field.label}`}
+                        onClick={() => restoreStdField(field.key)}
+                      >
+                        Khôi phục
+                      </button>
+                    </li>
                   ))}
-                </ErpSelect>
-              </ErpField>
-              <ErpField label="Thời lượng">
-                <ErpInput
-                  type="text"
-                  required
-                  placeholder={courseDurationPlaceholder}
-                  value={newCourse.duration}
-                  onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
-                />
-              </ErpField>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <ErpField label="Học phí niêm yết (VND)">
-                <ErpInput
-                  type="text"
-                  required
-                  placeholder="Vi du: 5.500.000"
-                  value={newCourse.fee}
-                  onChange={(e) => setNewCourse({ ...newCourse, fee: formatVND(e.target.value) })}
-                />
-              </ErpField>
-              <ErpField label="Tối đa học viên lớp">
-                <ErpInput
-                  type="number"
-                  min={0}
-                  value={newCourse.maxLearners}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') {
-                      setNewCourse({ ...newCourse, maxLearners: '' });
-                      return;
-                    }
-
-                    const parsed = parseInt(value, 10);
-                    setNewCourse({ ...newCourse, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
-                  }}
-                  onBlur={() => {
-                    if (newCourse.maxLearners === '' || typeof newCourse.maxLearners !== 'number' || newCourse.maxLearners < 0) {
-                      setNewCourse({ ...newCourse, maxLearners: 20 });
-                    }
-                  }}
-                />
-              </ErpField>
-            </div>
+                </ul>
+              </div>
+            ) : null}
 
             <ErpSubmitButton>{isSubmitting ? 'Đang khởi tạo...' : 'Khởi tạo chương trình'}</ErpSubmitButton>
           </form>
@@ -684,83 +855,145 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       {editingCourse && (
         <ErpModal title={`Chỉnh sửa chương trình học: ${editingCourse.code}`} onClose={() => setEditingCourse(null)}>
           <form onSubmit={handleEditCourse} className="space-y-4">
-            <ErpField label="Mã khóa học">
-              <ErpInput
-                type="text"
-                required
-                placeholder={courseCodePlaceholder}
-                value={editForm.code}
-                onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
-              />
-            </ErpField>
+            {isFieldVisible('code') && (
+              <div className="relative group/std">
+                {renderFieldActions('code')}
+                <ErpField label={getFieldLabel('code', 'Mã khóa học')}>
+                  <ErpInput
+                    type="text"
+                    required={isFieldRequired('code', true)}
+                    placeholder={getFieldPlaceholder('code', courseCodePlaceholder)}
+                    value={editForm.code}
+                    onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                  />
+                </ErpField>
+              </div>
+            )}
 
-            <ErpField label="Tên chương trình đào tạo">
-              <ErpInput
-                type="text"
-                required
-                placeholder={courseTitlePlaceholder}
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              />
-            </ErpField>
+            {isFieldVisible('title') && (
+              <div className="relative group/std">
+                {renderFieldActions('title')}
+                <ErpField label={getFieldLabel('title', 'Tên chương trình đào tạo')}>
+                  <ErpInput
+                    type="text"
+                    required={isFieldRequired('title', true)}
+                    placeholder={getFieldPlaceholder('title', courseTitlePlaceholder)}
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  />
+                </ErpField>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
-              <ErpField label="Phân loại">
-                <ErpSelect
-                  value={editForm.category}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
+              {isFieldVisible('category') && (
+                <div className="relative group/std">
+                  {renderFieldActions('category')}
+                  <ErpField label={getFieldLabel('category', 'Phân loại')}>
+                    <ErpSelect
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </ErpSelect>
+                  </ErpField>
+                </div>
+              )}
+              {isFieldVisible('duration') && (
+                <div className="relative group/std">
+                  {renderFieldActions('duration')}
+                  <ErpField label={getFieldLabel('duration', 'Thời lượng')}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('duration', true)}
+                      placeholder={getFieldPlaceholder('duration', courseDurationPlaceholder)}
+                      value={editForm.duration}
+                      onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
+                    />
+                  </ErpField>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {isFieldVisible('fee') && (
+                <div className="relative group/std">
+                  {renderFieldActions('fee')}
+                  <ErpField label={getFieldLabel('fee', 'Học phí niêm yết (VND)')}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('fee', true)}
+                      placeholder={getFieldPlaceholder('fee', 'Vi du: 5.500.000')}
+                      value={editForm.fee}
+                      onChange={(e) => setEditForm({ ...editForm, fee: formatVND(e.target.value) })}
+                    />
+                  </ErpField>
+                </div>
+              )}
+              {isFieldVisible('maxLearners') && (
+                <div className="relative group/std">
+                  {renderFieldActions('maxLearners')}
+                  <ErpField label={getFieldLabel('maxLearners', 'Tối đa học viên lớp')}>
+                    <ErpInput
+                      type="number"
+                      min={0}
+                      required={isFieldRequired('maxLearners', false)}
+                      value={editForm.maxLearners}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          setEditForm({ ...editForm, maxLearners: '' });
+                          return;
+                        }
+
+                        const parsed = parseInt(value, 10);
+                        setEditForm({ ...editForm, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
+                      }}
+                      onBlur={() => {
+                        if (editForm.maxLearners === '' || typeof editForm.maxLearners !== 'number' || editForm.maxLearners < 0) {
+                          setEditForm({ ...editForm, maxLearners: 20 });
+                        }
+                      }}
+                    />
+                  </ErpField>
+                </div>
+              )}
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="courses"
+              values={editForm.customFields}
+              onChange={(customFields) => setEditForm((previous) => ({ ...previous, customFields }))}
+              mode="edit"
+              disabled={isSubmitting}
+              tenantId={resolvedCenter || editingCourse.ownerId}
+            />
+
+            {manageable && archivedStdFields.length ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {archivedStdFields.map((field) => (
+                    <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                      <span>{field.label}</span>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        aria-label={`Khôi phục ${field.label}`}
+                        onClick={() => restoreStdField(field.key)}
+                      >
+                        Khôi phục
+                      </button>
+                    </li>
                   ))}
-                </ErpSelect>
-              </ErpField>
-              <ErpField label="Thời lượng">
-                <ErpInput
-                  type="text"
-                  required
-                  placeholder={courseDurationPlaceholder}
-                  value={editForm.duration}
-                  onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
-                />
-              </ErpField>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <ErpField label="Học phí niêm yết (VND)">
-                <ErpInput
-                  type="text"
-                  required
-                  placeholder="Vi du: 5.500.000"
-                  value={editForm.fee}
-                  onChange={(e) => setEditForm({ ...editForm, fee: formatVND(e.target.value) })}
-                />
-              </ErpField>
-              <ErpField label="Tối đa học viên lớp">
-                <ErpInput
-                  type="number"
-                  min={0}
-                  value={editForm.maxLearners}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '') {
-                      setEditForm({ ...editForm, maxLearners: '' });
-                      return;
-                    }
-
-                    const parsed = parseInt(value, 10);
-                    setEditForm({ ...editForm, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
-                  }}
-                  onBlur={() => {
-                    if (editForm.maxLearners === '' || typeof editForm.maxLearners !== 'number' || editForm.maxLearners < 0) {
-                      setEditForm({ ...editForm, maxLearners: 20 });
-                    }
-                  }}
-                />
-              </ErpField>
-            </div>
+                </ul>
+              </div>
+            ) : null}
 
             <ErpSubmitButton disabled={isSubmitting}>{isSubmitting ? 'Đang cập nhật...' : 'Cập nhật khóa học'}</ErpSubmitButton>
           </form>
@@ -833,6 +1066,15 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
         onCancel={() => setDeleteConfirm(DEFAULT_DELETE_CONFIRM)}
         confirmText="Xác nhận xóa"
         cancelText="Hủy bỏ"
+      />
+
+      <CustomFieldEditorModal
+        open={stdEditorOpen}
+        moduleKey="courses"
+        initialField={editingStdField}
+        onClose={() => setStdEditorOpen(false)}
+        onSubmit={handleStdFieldSubmit}
+        isStandard={true}
       />
     </div>
   );

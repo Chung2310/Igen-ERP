@@ -3,6 +3,13 @@ import { Student } from "../models/student.model";
 import { IExam } from "../interfaces/exam.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 
 const MOTORBIKE_LICENSE_PREFIXES = ['A1', 'A2', 'A3', 'A4'];
 const CAR_LICENSE_PREFIXES = ['B1', 'B2', 'C', 'D', 'E', 'F', 'FB', 'FC', 'FD', 'FE'];
@@ -84,10 +91,13 @@ interface InvalidImportPreview {
 }
 
 export class ExamService {
-  static async createExam(ownerId: string, data: ExamCreateData): Promise<IExam> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createExam(ownerId: string, data: ExamCreateData, context: CustomFieldWriteContext): Promise<IExam> {
     logger.info(`[Exam] Creating exam for ownerId=${ownerId}, data=${JSON.stringify(data)}`);
+    const writeData = await this.customFieldWrites.prepareCreate(context, data);
     const exam = new Exam({
-      ...data,
+      ...writeData,
       ownerId,
     });
     const savedExam = await exam.save();
@@ -136,22 +146,30 @@ export class ExamService {
     return await Exam.findOne(query);
   }
 
-  static async updateExam(ownerId: string | string[], id: string, data: ExamUpdateData): Promise<IExam | null> {
+  static async updateExam(
+    ownerId: string | string[],
+    id: string,
+    data: ExamUpdateData,
+    context: CustomFieldWriteContext,
+  ): Promise<IExam | null> {
     logger.info(`[Exam] Updating exam: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = { _id: id };
     if (ownerId !== "ALL") {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    const existingExam = await Exam.findOne(query);
+    if (!existingExam) return null;
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existingExam.ownerId) } : context;
+    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existingExam, data);
     const updatedExam = await Exam.findOneAndUpdate(
-      query,
-      { $set: data },
+      { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { $set: writeData, $inc: { __v: 1 } },
       { new: true, runValidators: true }
     );
     if (updatedExam) {
       logger.info(`[Exam] Exam updated successfully: id=${id}`);
-    } else {
-      logger.warn(`[Exam] Exam update failed/not found: id=${id}, ownerId=${ownerId}`);
-    }
+    } else throw new CustomFieldWriteConflictError();
     return updatedExam;
   }
 

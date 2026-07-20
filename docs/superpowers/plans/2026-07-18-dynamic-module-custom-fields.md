@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Cho phép Super Admin, Admin và Leader tạo, cấu hình và nhập trường dữ liệu động ngay trong form Thêm của mọi module quản lý học viên, đồng thời áp dụng trường đó cho toàn công ty và cho mọi bản ghi cũ.
+**Goal:** Cho phép Super Admin, Admin và Leader tạo, cấu hình và nhập trường dữ liệu động tại sáu form tạo chính: Học viên, Khóa học, Lớp học, Đợt thi, Tài nguyên và Đối tác.
 
 **Architecture:** Lưu định nghĩa trường theo `tenantId + moduleKey` trong collection riêng và lưu giá trị trên từng bản ghi dưới `customFields`. Server dựng validation từ định nghĩa trường ở thời điểm ghi; frontend dùng một renderer và editor dùng chung rồi tích hợp lần lượt vào các form module hiện tại.
 
@@ -18,6 +18,7 @@
 - Không xóa cứng định nghĩa hoặc giá trị trường đã sử dụng.
 - Không xây dựng màn hình quản lý trường động trong trang Cài đặt.
 - Không chuyển các trường cố định hiện tại sang `customFields`.
+- Không áp dụng cho Học phí, Thông báo hoặc các form hành động phụ như thêm học viên vào đợt thi, mức hoa hồng, khoản chi trả và danh mục.
 
 ---
 
@@ -45,8 +46,8 @@
 
 **Model/module hiện tại cần mở rộng**
 
-- Interfaces và models: `student`, `course`, `batch`, `exam`, `payment`, `notification`, `resource`, `partner`.
-- Validation và service create/update tương ứng của tám module trên.
+- Interfaces và models: `student`, `course`, `batch`, `exam`, `resource`, `partner`.
+- Validation và service create/update tương ứng của sáu module trên.
 - Form Thêm/Sửa/Chi tiết tương ứng trên frontend.
 
 ---
@@ -100,7 +101,7 @@ Expected: FAIL vì các file/module chưa tồn tại.
 - [ ] **Step 3: Tạo contract và schema tối thiểu**
 
 ```ts
-export const MODULE_KEYS = ["students", "courses", "batches", "exams", "payments", "notifications", "resources", "partners"] as const;
+export const MODULE_KEYS = ["students", "courses", "batches", "exams", "resources", "partners"] as const;
 export type ModuleKey = typeof MODULE_KEYS[number];
 
 export const DYNAMIC_FIELD_TYPES = [
@@ -254,14 +255,14 @@ git add server/modules/student-management/validations/custom-field.validation.ts
 git commit -m "feat: expose tenant custom field API"
 ```
 
-### Task 4: Runtime validation và `customFields` trên tám model
+### Task 4: Runtime validation và `customFields` trên sáu model
 
 **Files:**
 - Create: `server/modules/student-management/services/custom-field-value.service.ts`
 - Test: `server/modules/student-management/services/custom-field-value.service.test.ts`
-- Modify: `server/modules/student-management/interfaces/{student,course,batch,exam,payment,notification,resource,partner}.interface.ts`
-- Modify: `server/modules/student-management/models/{student,course,batch,exam,payment,notification,resource,partner}.model.ts`
-- Modify: `server/modules/student-management/validations/{student,course,batch,exam,payment,notification,resource,partner}.validation.ts`
+- Modify: `server/modules/student-management/interfaces/{student,course,batch,exam,resource,partner}.interface.ts`
+- Modify: `server/modules/student-management/models/{student,course,batch,exam,resource,partner}.model.ts`
+- Modify: `server/modules/student-management/validations/{student,course,batch,exam,resource,partner}.validation.ts`
 
 **Interfaces:**
 - Produces: `validateCustomFieldValues({ tenantId, moduleKey, values, mode }): Promise<CustomFieldValues>` với `mode: "create" | "update"`.
@@ -339,13 +340,13 @@ git commit -m "feat: validate custom values across student modules"
 ### Task 5: Gắn validation vào create/update services
 
 **Files:**
-- Modify: `server/modules/student-management/controllers/{student,course,batch,exam,payment,notification,resource,partner}.controller.ts`
-- Modify: `server/modules/student-management/services/{student,course,batch,exam,payment,notification,resource,partner}.service.ts`
+- Modify: `server/modules/student-management/controllers/{student,course,batch,exam,resource,partner}.controller.ts`
+- Modify: `server/modules/student-management/services/{student,course,batch,exam,resource,partner}.service.ts`
 - Test: `server/modules/student-management/services/custom-field-write-integration.test.ts`
 
 **Interfaces:**
 - Consumes: `validateCustomFieldValues` từ Task 4.
-- Produces: mọi create/update của tám entity lưu payload đã sanitize.
+- Produces: mọi create/update của sáu entity lưu payload đã sanitize.
 
 - [ ] **Step 1: Viết test tích hợp service thất bại**
 
@@ -597,12 +598,9 @@ git add src/modules/student-management/pages/Courses src/modules/student-managem
 git commit -m "feat: add custom fields to academic modules"
 ```
 
-### Task 10: Tích hợp Học phí, Thông báo, Tài nguyên và Đối tác
+### Task 10: Tích hợp Tài nguyên và Đối tác
 
 **Files:**
-- Modify: `src/modules/student-management/components/Fees/AddPaymentModal.tsx`
-- Modify: `src/modules/student-management/pages/Fees/FeesPage.tsx`
-- Modify: `src/modules/student-management/pages/Notifications/NotificationsPage.tsx`
 - Modify: `src/modules/student-management/pages/Resources/components/AddResourceModal.tsx`
 - Modify: `src/modules/student-management/pages/Resources/ResourcesPage.tsx`
 - Modify: `src/modules/student-management/pages/Partners/components/AddPartnerModal.tsx`
@@ -610,7 +608,7 @@ git commit -m "feat: add custom fields to academic modules"
 - Modify: matching entity types in `src/modules/student-management/types.ts`
 - Test: `src/modules/student-management/custom-fields/OperationsModuleCustomFields.test.tsx`
 
-- [ ] **Step 1: Viết test thất bại cho bốn module**
+- [ ] **Step 1: Viết test thất bại cho hai module**
 
 Mỗi module kiểm tra form Thêm gửi đúng `customFields`, detail hiển thị giá trị, role guard của nút editor và giá trị form cố định được giữ khi cấu hình field thay đổi.
 
@@ -622,7 +620,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Tích hợp theo module key**
 
-Payments dùng `payments`, Notifications dùng `notifications`, Resources dùng `resources`, Partners dùng `partners`. Không áp dụng field definition của entity cha cho modal hành động phụ như thanh toán hoa hồng hay gán học viên; các action này không tạo bản ghi top-level của module.
+Resources dùng `resources`, Partners dùng `partners`. Không tích hợp Học phí, Thông báo hoặc modal hành động phụ như thanh toán hoa hồng, thêm mức hoa hồng, thêm khoản chi trả, thêm danh mục hay gán học viên.
 
 - [ ] **Step 4: Chạy test, typecheck, build**
 
@@ -631,8 +629,8 @@ Run: test Step 2, `npm run typecheck`, `npm run build`. Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/modules/student-management/components/Fees src/modules/student-management/pages/Fees src/modules/student-management/pages/Notifications src/modules/student-management/pages/Resources src/modules/student-management/pages/Partners src/modules/student-management/types.ts
-git commit -m "feat: add custom fields to operations modules"
+git add src/modules/student-management/pages/Resources src/modules/student-management/pages/Partners src/modules/student-management/types.ts
+git commit -m "feat: add custom fields to resources and partners"
 ```
 
 ### Task 11: Hồi quy, audit và nghiệm thu toàn hệ thống
@@ -644,9 +642,9 @@ git commit -m "feat: add custom fields to operations modules"
 
 - [ ] **Step 1: Viết acceptance matrix**
 
-Backend test matrix: 4 roles × 8 module keys; tenant A/B isolation; create/update/read old record; hidden/archived/required; duplicate key; unknown key; incompatible type change; all 18 field types; upload metadata boundaries.
+Backend test matrix: 4 roles × 6 module keys; tenant A/B isolation; create/update/read old record; hidden/archived/required; duplicate key; unknown key; incompatible type change; all 18 field types; upload metadata boundaries.
 
-Frontend test matrix: role visibility, create/edit/detail on 8 module keys, preserving dirty form state, editor errors, upload retry, archive restore values.
+Frontend test matrix: role visibility, create/edit/detail on 6 module keys, preserving dirty form state, editor errors, upload retry, archive restore values.
 
 - [ ] **Step 2: Chạy toàn bộ test liên quan**
 
@@ -663,7 +661,7 @@ Expected: tất cả test PASS; typecheck/build exit code 0.
 
 - [ ] **Step 3: Kiểm tra thủ công**
 
-Đăng nhập lần lượt bằng Super Admin, Admin, Leader và user thường. Tại mỗi tab Học viên, Khóa học, Lớp học, Lịch thi, Học phí, Thông báo, Tài nguyên, Đối tác: mở form Thêm; tạo một field phù hợp; lưu bản ghi; mở Sửa và Chi tiết; xác nhận user thường không thấy editor. Tạo field bắt buộc sau khi đã có bản ghi cũ và xác nhận chỉ thao tác Lưu form Sửa bị chặn.
+Đăng nhập lần lượt bằng Super Admin, Admin, Leader và user thường. Tại mỗi tab Học viên, Khóa học, Lớp học, Lịch thi, Tài nguyên và Đối tác: mở form Thêm; tạo một field phù hợp; lưu bản ghi; mở Sửa và Chi tiết; xác nhận user thường không thấy editor. Tạo field bắt buộc sau khi đã có bản ghi cũ và xác nhận chỉ thao tác Lưu form Sửa bị chặn.
 
 - [ ] **Step 4: Rà soát an toàn dữ liệu**
 

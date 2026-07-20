@@ -1,0 +1,920 @@
+﻿===== FILE: server/modules/student-management/utils/custom-field-pattern.util.ts =====
+export const MAX_CUSTOM_FIELD_PATTERN_LENGTH = 500;
+export const MAX_CUSTOM_FIELD_PATTERN_INPUT_LENGTH = 4_096;
+
+type GroupState = { hasAlternation: boolean; hasQuantifier: boolean };
+
+/**
+ * Conservative linear scan for constructs that can make a user-defined regular
+ * expression unsafe for synchronous server-side evaluation.
+ */
+export function isSafeCustomFieldPattern(pattern: string): boolean {
+  if (!pattern || pattern.length > MAX_CUSTOM_FIELD_PATTERN_LENGTH) return false;
+
+  const groups: GroupState[] = [{ hasAlternation: false, hasQuantifier: false }];
+  let escaped = false;
+  let inCharacterClass = false;
+  let lastClosedGroup: GroupState | undefined;
+  let quantifierCount = 0;
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (escaped) {
+      if (!inCharacterClass && (/[1-9]/.test(character) || character === "k")) return false;
+      escaped = false;
+      lastClosedGroup = undefined;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === "[" && !inCharacterClass) {
+      inCharacterClass = true;
+      lastClosedGroup = undefined;
+      continue;
+    }
+    if (character === "]" && inCharacterClass) {
+      inCharacterClass = false;
+      continue;
+    }
+    if (inCharacterClass) continue;
+
+    if (character === "(") {
+      if (pattern[index + 1] === "?") {
+        if (pattern[index + 2] !== ":") return false;
+        index += 2;
+      }
+      groups.push({ hasAlternation: false, hasQuantifier: false });
+      lastClosedGroup = undefined;
+      continue;
+    }
+    if (character === ")") {
+      if (groups.length === 1) return false;
+      const closedGroup = groups.pop()!;
+      const parentGroup = groups[groups.length - 1];
+      parentGroup.hasAlternation ||= closedGroup.hasAlternation;
+      parentGroup.hasQuantifier ||= closedGroup.hasQuantifier;
+      lastClosedGroup = closedGroup;
+      continue;
+    }
+    if (character === "|") {
+      groups[groups.length - 1].hasAlternation = true;
+      lastClosedGroup = undefined;
+      continue;
+    }
+
+    const isSimpleQuantifier = character === "*" || character === "+" || character === "?";
+    const isRangeQuantifier = character === "{" && /^\{\d+(?:,\d*)?\}/.test(pattern.slice(index));
+    if (isSimpleQuantifier || isRangeQuantifier) {
+      quantifierCount += 1;
+      if (quantifierCount > 1) return false;
+      if (lastClosedGroup?.hasQuantifier || lastClosedGroup?.hasAlternation) return false;
+      groups[groups.length - 1].hasQuantifier = true;
+      if (isRangeQuantifier) index += pattern.slice(index).indexOf("}");
+      lastClosedGroup = undefined;
+      continue;
+    }
+    lastClosedGroup = undefined;
+  }
+
+  return !escaped && !inCharacterClass && groups.length === 1;
+}
+
+===== FILE: server/modules/student-management/services/custom-field-value.service.ts =====
+import type {
+  CustomFieldValue,
+  CustomFieldValues,
+  DynamicFieldType,
+  ModuleKey,
+} from "../interfaces/custom-field.interface";
+import { CustomFieldDefinition } from "../models/custom-field-definition.model";
+import {
+  isSafeCustomFieldPattern,
+  MAX_CUSTOM_FIELD_PATTERN_INPUT_LENGTH,
+} from "../utils/custom-field-pattern.util";
+
+export type CustomFieldValueDefinition = {
+  key: string;
+  label: string;
+  type: DynamicFieldType;
+  defaultValue?: CustomFieldValue;
+  options?: Array<{ label: string; value: string }>;
+  validation?: Record<string, unknown>;
+  isVisible: boolean;
+  isRequired: boolean;
+  isArchived: boolean;
+};
+
+export type CustomFieldValueRepository = {
+  find(filter: { tenantId: string; moduleKey: ModuleKey }):
+    | CustomFieldValueDefinition[]
+    | PromiseLike<CustomFieldValueDefinition[]>;
+};
+
+export type ValidateCustomFieldValuesInput = {
+  tenantId: string;
+  moduleKey: ModuleKey;
+  values: unknown;
+  mode: "create" | "update";
+};
+
+const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+const FILE_KEYS = new Set(["url", "fileName", "mimeType", "size"]);
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isMissing(value: unknown): boolean {
+  return value === null
+    || value === undefined
+    || (typeof value === "string" && value.trim() === "")
+    || (Array.isArray(value) && value.length === 0);
+}
+
+function fail(label: string, message: string): never {
+  throw new Error(`${label}: ${message}`);
+}
+
+function stringValue(value: unknown, label: string): string {
+  if (typeof value !== "string") fail(label, "giÃ¡ trá»‹ pháº£i lÃ  chuá»—i.");
+  return value.trim();
+}
+
+function enforceTextConstraints(value: string, definition: CustomFieldValueDefinition): void {
+  const validation = definition.validation ?? {};
+  const minLength = validation.minLength;
+  const maxLength = validation.maxLength;
+  if (typeof minLength === "number" && value.length < minLength) {
+    fail(definition.label, `giÃ¡ trá»‹ pháº£i cÃ³ Ã­t nháº¥t ${minLength} kÃ½ tá»±.`);
+  }
+  if (typeof maxLength === "number" && value.length > maxLength) {
+    fail(definition.label, `giÃ¡ trá»‹ chá»‰ Ä‘Æ°á»£c cÃ³ tá»‘i Ä‘a ${maxLength} kÃ½ tá»±.`);
+  }
+  if (typeof validation.pattern === "string") {
+    if (!isSafeCustomFieldPattern(validation.pattern)) {
+      fail(definition.label, "cáº¥u hÃ¬nh biá»ƒu thá»©c kiá»ƒm tra khÃ´ng an toÃ n.");
+    }
+    if (value.length > MAX_CUSTOM_FIELD_PATTERN_INPUT_LENGTH) {
+      fail(definition.label, "giÃ¡ trá»‹ quÃ¡ dÃ i Ä‘á»ƒ kiá»ƒm tra báº±ng biá»ƒu thá»©c.");
+    }
+    let pattern: RegExp;
+    try {
+      pattern = new RegExp(validation.pattern);
+    } catch {
+      fail(definition.label, "cáº¥u hÃ¬nh biá»ƒu thá»©c kiá»ƒm tra khÃ´ng há»£p lá»‡.");
+    }
+    if (!pattern.test(value)) fail(definition.label, "giÃ¡ trá»‹ khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng yÃªu cáº§u.");
+  }
+}
+
+function decimalPlaces(value: number): number {
+  const match = value.toString().match(/\.(\d+)(?:e([+-]?\d+))?$/i);
+  if (match) return Math.max(0, match[1].length - Number(match[2] ?? 0));
+  const exponent = value.toString().match(/e-(\d+)$/i);
+  return exponent ? Number(exponent[1]) : 0;
+}
+
+function numericValue(value: unknown, definition: CustomFieldValueDefinition): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    fail(definition.label, "giÃ¡ trá»‹ pháº£i lÃ  sá»‘ há»¯u háº¡n.");
+  }
+  if (definition.type === "percent" && (value < 0 || value > 100)) {
+    fail(definition.label, "pháº§n trÄƒm pháº£i náº±m trong khoáº£ng 0 Ä‘áº¿n 100.");
+  }
+  const validation = definition.validation ?? {};
+  if (typeof validation.min === "number" && value < validation.min) {
+    fail(definition.label, `giÃ¡ trá»‹ khÃ´ng Ä‘Æ°á»£c nhá» hÆ¡n ${validation.min}.`);
+  }
+  if (typeof validation.max === "number" && value > validation.max) {
+    fail(definition.label, `giÃ¡ trá»‹ khÃ´ng Ä‘Æ°á»£c lá»›n hÆ¡n ${validation.max}.`);
+  }
+  if (typeof validation.decimals === "number" && decimalPlaces(value) > validation.decimals) {
+    fail(definition.label, `giÃ¡ trá»‹ chá»‰ Ä‘Æ°á»£c cÃ³ tá»‘i Ä‘a ${validation.decimals} chá»¯ sá»‘ tháº­p phÃ¢n.`);
+  }
+  return value;
+}
+
+function isValidDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime())
+    && date.getUTCFullYear() === Number(match[1])
+    && date.getUTCMonth() + 1 === Number(match[2])
+    && date.getUTCDate() === Number(match[3]);
+}
+
+function isValidTime(value: string): boolean {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,9})?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/.test(value);
+}
+
+function isValidDateTime(value: string): boolean {
+  const datePart = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}T/.test(value)
+    && isValidDate(datePart)
+    && Number.isFinite(Date.parse(value));
+}
+
+function dateValue(value: unknown, definition: CustomFieldValueDefinition): string {
+  const normalized = stringValue(value, definition.label);
+  const validation = definition.validation ?? {};
+  if (definition.type === "date") {
+    if (!isValidDate(normalized)) fail(definition.label, "giÃ¡ trá»‹ ngÃ y khÃ´ng há»£p lá»‡.");
+    if (typeof validation.minDate === "string" && normalized < validation.minDate) {
+      fail(definition.label, `ngÃ y khÃ´ng Ä‘Æ°á»£c trÆ°á»›c ${validation.minDate}.`);
+    }
+    if (typeof validation.maxDate === "string" && normalized > validation.maxDate) {
+      fail(definition.label, `ngÃ y khÃ´ng Ä‘Æ°á»£c sau ${validation.maxDate}.`);
+    }
+  } else if (definition.type === "time") {
+    if (!isValidTime(normalized)) fail(definition.label, "giÃ¡ trá»‹ giá» khÃ´ng há»£p lá»‡.");
+    const comparable = normalized.slice(0, 5);
+    if (typeof validation.minTime === "string" && comparable < validation.minTime) {
+      fail(definition.label, `giá» khÃ´ng Ä‘Æ°á»£c trÆ°á»›c ${validation.minTime}.`);
+    }
+    if (typeof validation.maxTime === "string" && comparable > validation.maxTime) {
+      fail(definition.label, `giá» khÃ´ng Ä‘Æ°á»£c sau ${validation.maxTime}.`);
+    }
+  } else {
+    if (!isValidDateTime(normalized)) fail(definition.label, "giÃ¡ trá»‹ ngÃ y giá» khÃ´ng há»£p lá»‡.");
+    const timestamp = Date.parse(normalized);
+    if (typeof validation.minDateTime === "string" && timestamp < Date.parse(validation.minDateTime)) {
+      fail(definition.label, `ngÃ y giá» khÃ´ng Ä‘Æ°á»£c trÆ°á»›c ${validation.minDateTime}.`);
+    }
+    if (typeof validation.maxDateTime === "string" && timestamp > Date.parse(validation.maxDateTime)) {
+      fail(definition.label, `ngÃ y giá» khÃ´ng Ä‘Æ°á»£c sau ${validation.maxDateTime}.`);
+    }
+  }
+  return normalized;
+}
+
+function optionValues(definition: CustomFieldValueDefinition): Set<string> {
+  return new Set((definition.options ?? []).map(option => option.value));
+}
+
+function singleSelectValue(value: unknown, definition: CustomFieldValueDefinition): string {
+  const normalized = stringValue(value, definition.label);
+  if (!optionValues(definition).has(normalized)) {
+    fail(definition.label, "giÃ¡ trá»‹ khÃ´ng thuá»™c cÃ¡c lá»±a chá»n Ä‘Æ°á»£c phÃ©p.");
+  }
+  return normalized;
+}
+
+function multiSelectValue(value: unknown, definition: CustomFieldValueDefinition): string[] {
+  if (!Array.isArray(value) || value.some(item => typeof item !== "string")) {
+    fail(definition.label, "giÃ¡ trá»‹ pháº£i lÃ  danh sÃ¡ch lá»±a chá»n.");
+  }
+  const normalized = value.map(item => item.trim());
+  if (normalized.some(item => !item || !optionValues(definition).has(item))) {
+    fail(definition.label, "danh sÃ¡ch chá»©a lá»±a chá»n khÃ´ng Ä‘Æ°á»£c phÃ©p.");
+  }
+  if (new Set(normalized).size !== normalized.length) {
+    fail(definition.label, "cÃ¡c lá»±a chá»n khÃ´ng Ä‘Æ°á»£c trÃ¹ng nhau.");
+  }
+  return normalized;
+}
+
+type FileValue = { url: string; fileName: string; mimeType?: string; size?: number };
+
+function fileValue(value: unknown, definition: CustomFieldValueDefinition): FileValue {
+  if (!isPlainObject(value)
+    || Object.keys(value).some(key => UNSAFE_KEYS.has(key) || !FILE_KEYS.has(key))
+    || typeof value.url !== "string"
+    || typeof value.fileName !== "string"
+    || !value.url.trim()
+    || !value.fileName.trim()) {
+    fail(definition.label, "metadata tá»‡p khÃ´ng há»£p lá»‡.");
+  }
+  if (value.mimeType !== undefined && (typeof value.mimeType !== "string" || !value.mimeType.trim())) {
+    fail(definition.label, "Ä‘á»‹nh dáº¡ng tá»‡p khÃ´ng há»£p lá»‡.");
+  }
+  if (value.size !== undefined && (typeof value.size !== "number" || !Number.isFinite(value.size) || value.size < 0)) {
+    fail(definition.label, "dung lÆ°á»£ng tá»‡p khÃ´ng há»£p lá»‡.");
+  }
+  const normalized: FileValue = { url: value.url.trim(), fileName: value.fileName.trim() };
+  if (typeof value.mimeType === "string") normalized.mimeType = value.mimeType.trim();
+  if (typeof value.size === "number") normalized.size = value.size;
+
+  const validation = definition.validation ?? {};
+  const allowedMimeTypes = validation.allowedMimeTypes;
+  if (Array.isArray(allowedMimeTypes)
+    && allowedMimeTypes.every(item => typeof item === "string")
+    && (!normalized.mimeType || !allowedMimeTypes.includes(normalized.mimeType))) {
+    fail(definition.label, "Ä‘á»‹nh dáº¡ng tá»‡p khÃ´ng Ä‘Æ°á»£c phÃ©p.");
+  }
+  if (typeof validation.maxSizeMb === "number"
+    && normalized.size !== undefined
+    && normalized.size > validation.maxSizeMb * 1024 * 1024) {
+    fail(definition.label, `dung lÆ°á»£ng tá»‡p khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ ${validation.maxSizeMb} MB.`);
+  }
+  return normalized;
+}
+
+function normalizeValue(value: unknown, definition: CustomFieldValueDefinition): CustomFieldValue {
+  switch (definition.type) {
+    case "shortText":
+    case "longText": {
+      const normalized = stringValue(value, definition.label);
+      enforceTextConstraints(normalized, definition);
+      return normalized;
+    }
+    case "email": {
+      const normalized = stringValue(value, definition.label).toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) fail(definition.label, "Ä‘á»‹a chá»‰ email khÃ´ng há»£p lá»‡.");
+      enforceTextConstraints(normalized, definition);
+      return normalized;
+    }
+    case "phone": {
+      const normalized = stringValue(value, definition.label);
+      if (!/^\+?[0-9][0-9 ()-]*$/.test(normalized)) fail(definition.label, "sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng há»£p lá»‡.");
+      enforceTextConstraints(normalized, definition);
+      return normalized;
+    }
+    case "url": {
+      const normalized = stringValue(value, definition.label);
+      try {
+        const parsed = new URL(normalized);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("unsupported protocol");
+      } catch {
+        fail(definition.label, "URL khÃ´ng há»£p lá»‡.");
+      }
+      enforceTextConstraints(normalized, definition);
+      return normalized;
+    }
+    case "number":
+    case "percent":
+    case "currency":
+      return numericValue(value, definition);
+    case "date":
+    case "time":
+    case "dateTime":
+      return dateValue(value, definition);
+    case "singleSelect":
+      return singleSelectValue(value, definition);
+    case "multiSelect":
+      return multiSelectValue(value, definition);
+    case "checkbox":
+    case "switch":
+      if (typeof value !== "boolean") fail(definition.label, "giÃ¡ trá»‹ pháº£i lÃ  boolean.");
+      return value;
+    case "file":
+    case "image":
+      return fileValue(value, definition);
+    case "multiImage": {
+      if (!Array.isArray(value)) fail(definition.label, "giÃ¡ trá»‹ pháº£i lÃ  danh sÃ¡ch áº£nh.");
+      const maxFiles = definition.validation?.maxFiles;
+      if (typeof maxFiles === "number" && value.length > maxFiles) {
+        fail(definition.label, `chá»‰ Ä‘Æ°á»£c táº£i tá»‘i Ä‘a ${maxFiles} tá»‡p.`);
+      }
+      return value.map(item => fileValue(item, definition));
+    }
+  }
+}
+
+export function createCustomFieldValueValidator(repository: CustomFieldValueRepository) {
+  return async function validateCustomFieldValues(
+    input: ValidateCustomFieldValuesInput,
+  ): Promise<CustomFieldValues> {
+    if (!isPlainObject(input.values)) {
+      throw new Error("GiÃ¡ trá»‹ trÆ°á»ng tÃ¹y chá»‰nh pháº£i lÃ  má»™t Ä‘á»‘i tÆ°á»£ng thuáº§n.");
+    }
+    const keys = Object.keys(input.values);
+    if (keys.some(key => UNSAFE_KEYS.has(key))) {
+      throw new Error("GiÃ¡ trá»‹ trÆ°á»ng tÃ¹y chá»‰nh chá»©a khÃ³a khÃ´ng an toÃ n.");
+    }
+
+    const definitions = await repository.find({ tenantId: input.tenantId, moduleKey: input.moduleKey });
+    if (definitions.some(definition => UNSAFE_KEYS.has(definition.key))) {
+      throw new Error("Äá»‹nh nghÄ©a trÆ°á»ng tÃ¹y chá»‰nh chá»©a khÃ³a khÃ´ng an toÃ n.");
+    }
+    const definitionsByKey = new Map(definitions.map(definition => [definition.key, definition]));
+    for (const key of keys) {
+      if (!definitionsByKey.has(key)) {
+        throw new Error(`TrÆ°á»ng tÃ¹y chá»‰nh "${key}" khÃ´ng Ä‘Æ°á»£c Ä‘á»‹nh nghÄ©a.`);
+      }
+    }
+
+    const result = Object.create(null) as CustomFieldValues;
+    for (const definition of definitions) {
+      if (definition.isArchived || !definition.isVisible) continue;
+      const supplied = Object.prototype.hasOwnProperty.call(input.values, definition.key);
+      let value = supplied ? input.values[definition.key] : undefined;
+      if (!supplied && input.mode === "create" && !isMissing(definition.defaultValue)) {
+        value = definition.defaultValue;
+      }
+      if (isMissing(value)) {
+        if (definition.isRequired) fail(definition.label, "trÆ°á»ng nÃ y lÃ  báº¯t buá»™c.");
+        continue;
+      }
+      result[definition.key] = normalizeValue(value, definition);
+    }
+    return result;
+  };
+}
+
+const defaultRepository = CustomFieldDefinition as unknown as CustomFieldValueRepository;
+
+export const validateCustomFieldValues = createCustomFieldValueValidator(defaultRepository);
+
+===== FILE: server/modules/student-management/services/custom-field-value.service.test.ts =====
+import assert from "node:assert/strict";
+import test from "node:test";
+import { Schema } from "mongoose";
+import type { DynamicFieldType } from "../interfaces/custom-field.interface";
+import { Batch } from "../models/batch.model";
+import { Course } from "../models/course.model";
+import { Exam } from "../models/exam.model";
+import { Partner } from "../models/partner.model";
+import { Resource } from "../models/resource.model";
+import { Student } from "../models/student.model";
+import { createBatchSchema, updateBatchSchema } from "../validations/batch.validation";
+import { createCourseSchema, updateCourseSchema } from "../validations/course.validation";
+import { createExamSchema, updateExamSchema } from "../validations/exam.validation";
+import { createPartnerSchema, updatePartnerSchema } from "../validations/partner.validation";
+import { createResourceSchema, updateResourceSchema } from "../validations/resource.validation";
+import { createStudentSchema, updateStudentSchema } from "../validations/student.validation";
+import {
+  createCustomFieldValueValidator,
+  type CustomFieldValueDefinition,
+  type CustomFieldValueRepository,
+} from "./custom-field-value.service";
+
+function field(
+  key: string,
+  label: string,
+  type: DynamicFieldType,
+  overrides: Partial<CustomFieldValueDefinition> = {},
+): CustomFieldValueDefinition {
+  return {
+    key,
+    label,
+    type,
+    isVisible: true,
+    isRequired: false,
+    isArchived: false,
+    ...overrides,
+  };
+}
+
+function validatorFor(definitions: CustomFieldValueDefinition[]) {
+  const queries: Array<Record<string, unknown>> = [];
+  const repository: CustomFieldValueRepository = {
+    async find(filter) {
+      queries.push(filter);
+      return definitions;
+    },
+  };
+  return { validate: createCustomFieldValueValidator(repository), queries };
+}
+
+const baseInput = { tenantId: "IGEN", moduleKey: "students" as const, mode: "create" as const };
+
+test("queries definitions by trusted tenant and module", async () => {
+  const { validate, queries } = validatorFor([]);
+  await validate({ ...baseInput, values: {} });
+  assert.deepEqual(queries, [{ tenantId: "IGEN", moduleKey: "students" }]);
+});
+
+test("accepts and normalizes all 18 field types", async () => {
+  const definitions = [
+    field("short", "TÃªn ngáº¯n", "shortText"),
+    field("long", "MÃ´ táº£", "longText"),
+    field("email", "Email", "email"),
+    field("phone", "Äiá»‡n thoáº¡i", "phone"),
+    field("url", "Website", "url"),
+    field("number", "Sá»‘ lÆ°á»£ng", "number"),
+    field("percent", "Pháº§n trÄƒm", "percent"),
+    field("currency", "Há»c phÃ­", "currency"),
+    field("date", "NgÃ y", "date"),
+    field("time", "Giá»", "time"),
+    field("dateTime", "NgÃ y giá»", "dateTime"),
+    field("single", "Má»™t lá»±a chá»n", "singleSelect", { options: [{ label: "A", value: "a" }] }),
+    field("multi", "Nhiá»u lá»±a chá»n", "multiSelect", { options: [{ label: "A", value: "a" }, { label: "B", value: "b" }] }),
+    field("checkbox", "Äá»“ng Ã½", "checkbox"),
+    field("switch", "KÃ­ch hoáº¡t", "switch"),
+    field("file", "Tá»‡p", "file"),
+    field("image", "áº¢nh", "image"),
+    field("multiImage", "Bá»™ áº£nh", "multiImage"),
+  ];
+  const { validate } = validatorFor(definitions);
+  const result = await validate({
+    ...baseInput,
+    values: {
+      short: "  Nguyá»…n VÄƒn A  ", long: "  Ná»™i dung  ", email: "  USER@Example.COM ",
+      phone: "  +84 912 345 678  ", url: "  https://example.com/path  ", number: 0,
+      percent: 100, currency: 2500000, date: " 2026-07-18 ", time: " 08:30 ",
+      dateTime: " 2026-07-18T08:30:00+07:00 ", single: " a ", multi: [" a ", "b"],
+      checkbox: false, switch: true,
+      file: { url: " https://example.com/a.pdf ", fileName: " a.pdf ", mimeType: " application/pdf ", size: 10 },
+      image: { url: "https://example.com/a.png", fileName: "a.png" },
+      multiImage: [{ url: "https://example.com/1.png", fileName: "1.png", mimeType: "image/png", size: 20 }],
+    },
+  });
+
+  assert.equal(Object.getPrototypeOf(result), null);
+  assert.deepEqual({ ...result }, {
+    short: "Nguyá»…n VÄƒn A", long: "Ná»™i dung", email: "user@example.com", phone: "+84 912 345 678",
+    url: "https://example.com/path", number: 0, percent: 100, currency: 2500000,
+    date: "2026-07-18", time: "08:30", dateTime: "2026-07-18T08:30:00+07:00",
+    single: "a", multi: ["a", "b"], checkbox: false, switch: true,
+    file: { url: "https://example.com/a.pdf", fileName: "a.pdf", mimeType: "application/pdf", size: 10 },
+    image: { url: "https://example.com/a.png", fileName: "a.png" },
+    multiImage: [{ url: "https://example.com/1.png", fileName: "1.png", mimeType: "image/png", size: 20 }],
+  });
+});
+
+test("requires visible required values on both create and update while treating zero and false as present", async () => {
+  const { validate } = validatorFor([
+    field("photo", "áº¢nh há»c viÃªn", "image", { isRequired: true }),
+    field("score", "Äiá»ƒm", "number", { isRequired: true }),
+    field("confirmed", "XÃ¡c nháº­n", "checkbox", { isRequired: true }),
+  ]);
+  for (const mode of ["create", "update"] as const) {
+    await assert.rejects(
+      validate({ ...baseInput, mode, values: { score: 0, confirmed: false } }),
+      /áº¢nh há»c viÃªn.*báº¯t buá»™c/i,
+    );
+  }
+  const image = { url: "https://example.com/a.png", fileName: "a.png" };
+  assert.deepEqual({ ...await validate({ ...baseInput, values: { photo: image, score: 0, confirmed: false } }) }, {
+    photo: image, score: 0, confirmed: false,
+  });
+});
+
+test("omits hidden and archived fields and never requires them", async () => {
+  const { validate } = validatorFor([
+    field("hiddenRequired", "TrÆ°á»ng áº©n", "shortText", { isVisible: false, isRequired: true }),
+    field("archivedRequired", "TrÆ°á»ng lÆ°u trá»¯", "shortText", { isArchived: true, isRequired: true }),
+  ]);
+  const result = await validate({
+    ...baseInput,
+    mode: "update",
+    values: { hiddenRequired: "secret", archivedRequired: "legacy" },
+  });
+  assert.deepEqual({ ...result }, {});
+});
+
+test("rejects unknown and prototype-pollution keys", async () => {
+  const { validate } = validatorFor([]);
+  await assert.rejects(validate({ ...baseInput, values: { unknownKey: "x" } }), /unknownKey.*khÃ´ng Ä‘Æ°á»£c Ä‘á»‹nh nghÄ©a/i);
+  for (const key of ["__proto__", "prototype", "constructor"]) {
+    const values = Object.create(null) as Record<string, unknown>;
+    values[key] = "x";
+    await assert.rejects(validate({ ...baseInput, values }), /khÃ³a.*khÃ´ng an toÃ n/i);
+  }
+});
+
+test("rejects unsafe definition keys even when the client omits them", async () => {
+  for (const key of ["__proto__", "prototype", "constructor"]) {
+    const { validate } = validatorFor([field(key, "Unsafe definition", "shortText")]);
+    await assert.rejects(validate({ ...baseInput, values: {} }), /Ä‘á»‹nh nghÄ©a.*khÃ³a khÃ´ng an toÃ n/i);
+  }
+});
+
+test("rejects values that are not plain objects", async () => {
+  const { validate } = validatorFor([]);
+  for (const values of [null, [], new Date(), "text", 1]) {
+    await assert.rejects(validate({ ...baseInput, values }), /Ä‘á»‘i tÆ°á»£ng/i);
+  }
+});
+
+test("applies nonempty defaults only for absent create keys and validates the default", async () => {
+  const definitions = [
+    field("level", "Cáº¥p Ä‘á»™", "singleSelect", { options: [{ label: "A", value: "a" }], defaultValue: "a" }),
+    field("empty", "GiÃ¡ trá»‹ trá»‘ng", "shortText", { defaultValue: "   " }),
+  ];
+  const { validate } = validatorFor(definitions);
+  assert.deepEqual({ ...await validate({ ...baseInput, values: {} }) }, { level: "a" });
+  assert.deepEqual({ ...await validate({ ...baseInput, mode: "update", values: {} }) }, {});
+  assert.deepEqual({ ...await validate({ ...baseInput, values: { level: null } }) }, {});
+
+  const invalidDefault = validatorFor([
+    field("level", "Cáº¥p Ä‘á»™", "singleSelect", { options: [{ label: "A", value: "a" }], defaultValue: "b" }),
+  ]).validate;
+  await assert.rejects(invalidDefault({ ...baseInput, values: {} }), /Cáº¥p Ä‘á»™.*lá»±a chá»n/i);
+});
+
+test("does not mutate the input or reuse nested file objects", async () => {
+  const { validate } = validatorFor([field("file", "Tá»‡p", "file")]);
+  const originalFile = { url: " https://example.com/a.pdf ", fileName: " a.pdf " };
+  const values = { file: originalFile };
+  const result = await validate({ ...baseInput, values });
+  assert.deepEqual(values, { file: { url: " https://example.com/a.pdf ", fileName: " a.pdf " } });
+  assert.notEqual(result, values);
+  assert.notEqual(result.file, originalFile);
+});
+
+test("rejects invalid text, numeric, date, select, boolean and file values with the field label", async () => {
+  const cases: Array<[CustomFieldValueDefinition, unknown, RegExp]> = [
+    [field("email", "Email liÃªn há»‡", "email"), "not-an-email", /Email liÃªn há»‡.*email/i],
+    [field("phone", "Äiá»‡n thoáº¡i", "phone"), "abc", /Äiá»‡n thoáº¡i.*Ä‘iá»‡n thoáº¡i/i],
+    [field("url", "Website", "url"), "not-a-url", /Website.*URL/i],
+    [field("number", "Sá»‘ lÆ°á»£ng", "number"), Number.NaN, /Sá»‘ lÆ°á»£ng.*sá»‘ há»¯u háº¡n/i],
+    [field("percent", "Tá»· lá»‡", "percent"), 101, /Tá»· lá»‡.*0.*100/i],
+    [field("date", "NgÃ y sinh", "date"), "2026-02-30", /NgÃ y sinh.*ngÃ y/i],
+    [field("time", "Giá» há»c", "time"), "25:00", /Giá» há»c.*giá»/i],
+    [field("dateTime", "Lá»‹ch háº¹n", "dateTime"), "2026-07-18", /Lá»‹ch háº¹n.*ngÃ y giá»/i],
+    [field("select", "Háº¡ng", "singleSelect", { options: [{ label: "A", value: "a" }] }), "b", /Háº¡ng.*lá»±a chá»n/i],
+    [field("multi", "Ká»¹ nÄƒng", "multiSelect", { options: [{ label: "A", value: "a" }] }), ["a", "a"], /Ká»¹ nÄƒng.*trÃ¹ng/i],
+    [field("flag", "XÃ¡c nháº­n", "switch"), 1, /XÃ¡c nháº­n.*boolean/i],
+    [field("file", "Há»“ sÆ¡", "file"), { url: "", fileName: "a.pdf" }, /Há»“ sÆ¡.*tá»‡p/i],
+    [field("images", "áº¢nh", "multiImage"), { url: "x", fileName: "x" }, /áº¢nh.*danh sÃ¡ch/i],
+  ];
+  for (const [definition, value, pattern] of cases) {
+    const { validate } = validatorFor([definition]);
+    await assert.rejects(validate({ ...baseInput, values: { [definition.key]: value } }), pattern);
+  }
+});
+
+test("enforces text, number and date definition constraints", async () => {
+  const definitions = [
+    field("code", "MÃ£ há»“ sÆ¡", "shortText", { validation: { minLength: 3, maxLength: 5, pattern: "^[A-Z]+$" } }),
+    field("amount", "Sá»‘ tiá»n", "currency", { validation: { min: 10, max: 20, decimals: 2 } }),
+    field("date", "NgÃ y nháº­p há»c", "date", { validation: { minDate: "2026-01-01", maxDate: "2026-12-31" } }),
+    field("time", "Giá» há»c", "time", { validation: { minTime: "08:00", maxTime: "17:00" } }),
+    field("appointment", "Lá»‹ch háº¹n", "dateTime", { validation: { minDateTime: "2026-07-18T00:00:00Z", maxDateTime: "2026-07-19T00:00:00Z" } }),
+  ];
+  const { validate } = validatorFor(definitions);
+  await assert.rejects(validate({ ...baseInput, values: { code: "AB", amount: 15, date: "2026-06-01", time: "09:00", appointment: "2026-07-18T08:00:00Z" } }), /MÃ£ há»“ sÆ¡.*Ã­t nháº¥t 3/i);
+  await assert.rejects(validate({ ...baseInput, values: { code: "ABC", amount: 15.123, date: "2026-06-01", time: "09:00", appointment: "2026-07-18T08:00:00Z" } }), /Sá»‘ tiá»n.*2.*tháº­p phÃ¢n/i);
+  await assert.rejects(validate({ ...baseInput, values: { code: "ABC", amount: 15, date: "2027-01-01", time: "09:00", appointment: "2026-07-18T08:00:00Z" } }), /NgÃ y nháº­p há»c.*2026-12-31/i);
+  await assert.rejects(validate({ ...baseInput, values: { code: "ABC", amount: 15, date: "2026-06-01", time: "07:00", appointment: "2026-07-18T08:00:00Z" } }), /Giá» há»c.*08:00/i);
+  await assert.rejects(validate({ ...baseInput, values: { code: "ABC", amount: 15, date: "2026-06-01", time: "09:00", appointment: "2026-07-20T08:00:00Z" } }), /Lá»‹ch háº¹n.*2026-07-19/i);
+});
+
+test("rejects nested unsafe pattern wrappers and oversized input before constructing native RegExp", async () => {
+  const NativeRegExp = globalThis.RegExp;
+  let constructed = false;
+  globalThis.RegExp = function forbiddenRegExpConstruction() {
+    constructed = true;
+    throw new Error("native RegExp must not be constructed");
+  } as unknown as RegExpConstructor;
+
+  try {
+    const oversized = validatorFor([
+      field("code", "MÃ£ há»“ sÆ¡", "shortText", { validation: { pattern: "^a+$" } }),
+    ]).validate;
+
+    const unsafeErrors: unknown[] = [];
+    let oversizedError: unknown;
+    for (let wrapperDepth = 1; wrapperDepth <= 4; wrapperDepth += 1) {
+      const pattern = `^${"(".repeat(wrapperDepth)}(a+)${")".repeat(wrapperDepth)}+$`;
+      const unsafe = validatorFor([
+        field("code", "MÃ£ há»“ sÆ¡", "shortText", { validation: { pattern } }),
+      ]).validate;
+      try {
+        await unsafe({ ...baseInput, values: { code: `${"a".repeat(5_000)}!` } });
+      } catch (error) {
+        unsafeErrors.push(error);
+      }
+    }
+    try {
+      await oversized({ ...baseInput, values: { code: "a".repeat(4_097) } });
+    } catch (error) {
+      oversizedError = error;
+    }
+
+    assert.equal(unsafeErrors.length, 4);
+    for (const error of unsafeErrors) {
+      assert.match(String(error), /MÃ£ há»“ sÆ¡.*biá»ƒu thá»©c.*khÃ´ng an toÃ n/i);
+    }
+    assert.match(String(oversizedError), /MÃ£ há»“ sÆ¡.*quÃ¡ dÃ i.*biá»ƒu thá»©c/i);
+    assert.equal(constructed, false);
+  } finally {
+    globalThis.RegExp = NativeRegExp;
+  }
+});
+
+test("rejects multiple sibling quantifiers before constructing native RegExp", async () => {
+  const NativeRegExp = globalThis.RegExp;
+  let constructed = false;
+  globalThis.RegExp = function forbiddenRegExpConstruction() {
+    constructed = true;
+    throw new Error("native RegExp must not be constructed");
+  } as unknown as RegExpConstructor;
+
+  try {
+    const validate = validatorFor([
+      field("code", "MÃ£ há»“ sÆ¡", "shortText", { validation: { pattern: "^a*a*a*a*a*a*b$" } }),
+    ]).validate;
+    let unsafeError: unknown;
+    try {
+      await validate({ ...baseInput, values: { code: "aaaaab" } });
+    } catch (error) {
+      unsafeError = error;
+    }
+    assert.match(String(unsafeError), /MÃ£ há»“ sÆ¡.*biá»ƒu thá»©c.*khÃ´ng an toÃ n/i);
+    assert.equal(constructed, false);
+  } finally {
+    globalThis.RegExp = NativeRegExp;
+  }
+});
+
+test("accepts one quantifier and does not count noncapturing group syntax", async () => {
+  const validate = validatorFor([
+    field("code", "MÃ£ há»“ sÆ¡", "shortText", { validation: { pattern: "^(?:ab)+$" } }),
+  ]).validate;
+  assert.deepEqual({ ...await validate({ ...baseInput, values: { code: "abab" } }) }, { code: "abab" });
+});
+
+test("enforces file MIME type, maxSizeMb and maxFiles constraints", async () => {
+  const definition = field("photos", "áº¢nh há»“ sÆ¡", "multiImage", {
+    validation: { allowedMimeTypes: ["image/png"], maxSizeMb: 1, maxFiles: 2 },
+  });
+  const { validate } = validatorFor([definition]);
+  await assert.rejects(validate({ ...baseInput, values: { photos: [{ url: "x", fileName: "x.jpg", mimeType: "image/jpeg", size: 10 }] } }), /áº¢nh há»“ sÆ¡.*Ä‘á»‹nh dáº¡ng/i);
+  await assert.rejects(validate({ ...baseInput, values: { photos: [{ url: "x", fileName: "x.png", mimeType: "image/png", size: 1024 * 1024 + 1 }] } }), /áº¢nh há»“ sÆ¡.*1 MB/i);
+  await assert.rejects(validate({ ...baseInput, values: { photos: [1, 2, 3].map(index => ({ url: `x${index}`, fileName: `${index}.png`, mimeType: "image/png", size: 10 })) } }), /áº¢nh há»“ sÆ¡.*tá»‘i Ä‘a 2/i);
+});
+
+test("treats null, undefined, blank strings and empty arrays as missing", async () => {
+  for (const value of [null, undefined, "   ", []]) {
+    const { validate } = validatorFor([field("required", "TrÆ°á»ng báº¯t buá»™c", "shortText", { isRequired: true })]);
+    await assert.rejects(validate({ ...baseInput, values: { required: value } }), /TrÆ°á»ng báº¯t buá»™c.*báº¯t buá»™c/i);
+  }
+});
+
+test("all six models expose customFields as Mixed with an empty default", () => {
+  for (const model of [Student, Course, Batch, Exam, Resource, Partner]) {
+    const path = model.schema.path("customFields");
+    assert.ok(path, `${model.modelName} lacks customFields`);
+    assert.equal(path.instance, "Mixed");
+    assert.deepEqual(path.getDefault(null, false), {});
+    assert.equal(path.options.type, Schema.Types.Mixed);
+  }
+});
+
+test("all six create and update Joi schemas accept customFields but reject unrelated top-level keys", () => {
+  const createCases = [
+    [createStudentSchema, { fullName: "A", phone: "0900000000", registrationDate: "2026-07-18", customFields: { nickname: "A" } }],
+    [createCourseSchema, { code: "C1", title: "Course", category: "General", duration: "3 months", customFields: { level: "a" } }],
+    [createBatchSchema, { code: "B1", courseId: "course", daysOfWeek: [1], startTime: "08:00", endTime: "09:00", startDate: "2026-07-18", endDate: "2026-08-18", customFields: { room: "A" } }],
+    [createExamSchema, { name: "Exam", status: "Sáº¯p diá»…n ra", tentativeDate: "2026-07-18", location: "HCM", customFields: { note: "A" } }],
+    [createResourceSchema, { name: "Room", type: "ROOM", identifier: "R1", capacity: "20", customFields: { floor: 2 } }],
+    [createPartnerSchema, { name: "Partner", phone: "0900000000", customFields: { area: "south" } }],
+  ] as const;
+  const updateSchemas = [updateStudentSchema, updateCourseSchema, updateBatchSchema, updateExamSchema, updateResourceSchema, updatePartnerSchema];
+  for (const [schema, value] of createCases) {
+    assert.equal(schema.validate(value).error, undefined);
+    assert.match(schema.validate({ ...value, unrelatedTopLevel: true }).error?.message ?? "", /unrelatedTopLevel.*not allowed/i);
+  }
+  for (const schema of updateSchemas) {
+    assert.equal(schema.validate({ customFields: { arbitraryEnvelope: true } }).error, undefined);
+    assert.match(schema.validate({ unrelatedTopLevel: true }).error?.message ?? "", /unrelatedTopLevel.*not allowed/i);
+  }
+});
+
+===== FILE: server/modules/student-management/validations/custom-field.validation.ts =====
+import Joi from "joi";
+import { DYNAMIC_FIELD_TYPES, MODULE_KEYS } from "../interfaces/custom-field.interface";
+import { isSafeCustomFieldPattern, MAX_CUSTOM_FIELD_PATTERN_LENGTH } from "../utils/custom-field-pattern.util";
+
+const objectIdPattern = /^[0-9a-fA-F]{24}$/;
+const selectTypes = ["singleSelect", "multiSelect"] as const;
+const textTypes = ["shortText", "longText", "email", "phone", "url"] as const;
+const numericTypes = ["number", "percent", "currency"] as const;
+const dateTypes = ["date", "time", "dateTime"] as const;
+const fileTypes = ["file", "image", "multiImage"] as const;
+const MAX_FILE_SIZE_MB = 100;
+
+const safePatternSchema = Joi.string().max(MAX_CUSTOM_FIELD_PATTERN_LENGTH).custom((value, helpers) => (
+  isSafeCustomFieldPattern(value) ? value : helpers.error("string.pattern.unsafe")
+));
+
+const optionSchema = Joi.object({
+  label: Joi.string().trim().min(1).required(),
+  value: Joi.string().trim().min(1).required(),
+}).unknown(false);
+
+const textValidationSchema = Joi.object({
+  minLength: Joi.number().integer().min(0),
+  maxLength: Joi.number().integer().min(0),
+  pattern: safePatternSchema,
+}).unknown(false);
+
+const numericValidationSchema = Joi.object({
+  min: Joi.number(),
+  max: Joi.number(),
+  decimals: Joi.number().integer().min(0).max(10),
+}).unknown(false);
+
+const dateValidationSchema = Joi.object({
+  minDate: Joi.string().isoDate(),
+  maxDate: Joi.string().isoDate(),
+  minTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/),
+  maxTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/),
+  minDateTime: Joi.string().isoDate(),
+  maxDateTime: Joi.string().isoDate(),
+}).unknown(false);
+
+const fileValidationSchema = Joi.object({
+  maxSizeMb: Joi.number().min(1).max(MAX_FILE_SIZE_MB),
+  maxFiles: Joi.number().integer().positive(),
+  allowedMimeTypes: Joi.array().items(Joi.string().trim().min(1)).unique(),
+}).unknown(false);
+
+const emptyValidationSchema = Joi.object({}).unknown(false);
+
+const validationSchema = Joi.object({
+  minLength: Joi.number().integer().min(0),
+  maxLength: Joi.number().integer().min(0),
+  pattern: safePatternSchema,
+  min: Joi.number(),
+  max: Joi.number(),
+  decimals: Joi.number().integer().min(0).max(10),
+  minDate: Joi.string().isoDate(),
+  maxDate: Joi.string().isoDate(),
+  minTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/),
+  maxTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/),
+  minDateTime: Joi.string().isoDate(),
+  maxDateTime: Joi.string().isoDate(),
+  maxSizeMb: Joi.number().min(1).max(MAX_FILE_SIZE_MB),
+  maxFiles: Joi.number().integer().positive(),
+  allowedMimeTypes: Joi.array().items(Joi.string().trim().min(1)).unique(),
+}).unknown(false);
+
+function withTypeSpecificValidation(schema: Joi.ObjectSchema) {
+  const typedSchema = schema
+    .when(Joi.object({ type: Joi.valid(...textTypes) }).unknown(), { then: Joi.object({ validation: textValidationSchema }) })
+    .when(Joi.object({ type: Joi.valid(...numericTypes) }).unknown(), { then: Joi.object({ validation: numericValidationSchema }) })
+    .when(Joi.object({ type: Joi.valid(...dateTypes) }).unknown(), { then: Joi.object({ validation: dateValidationSchema }) })
+    .when(Joi.object({ type: Joi.valid(...fileTypes) }).unknown(), { then: Joi.object({ validation: fileValidationSchema }) })
+    .when(Joi.object({ type: Joi.valid("singleSelect", "multiSelect", "checkbox", "switch") }).unknown(), { then: Joi.object({ validation: emptyValidationSchema }) });
+
+  return typedSchema.custom((value, helpers) => {
+    const validation = (helpers.original as { validation?: unknown }).validation;
+    if (validation && typeof validation === "object" && ["__proto__", "prototype", "constructor"].some(key => Object.prototype.hasOwnProperty.call(validation, key))) {
+      return helpers.error("any.invalid");
+    }
+    return value;
+  });
+}
+
+function requireSelectOptions(schema: Joi.ObjectSchema) {
+  return schema.when(Joi.object({ type: Joi.valid(...selectTypes) }).unknown(), {
+    then: Joi.object({ options: sharedFieldSchema.options.required() }),
+  });
+}
+
+const fileValueSchema = Joi.object({
+  url: Joi.string().uri().required(),
+  fileName: Joi.string().trim().min(1).required(),
+  mimeType: Joi.string().trim().min(1),
+  size: Joi.number().min(0),
+}).unknown(false);
+
+const defaultValueSchema = Joi.alternatives().try(
+  Joi.string(),
+  Joi.number(),
+  Joi.boolean(),
+  Joi.valid(null),
+  Joi.array().items(Joi.string()),
+  fileValueSchema,
+  Joi.array().items(fileValueSchema),
+);
+
+const sharedFieldSchema = {
+  label: Joi.string().trim().min(1).max(200),
+  type: Joi.string().valid(...DYNAMIC_FIELD_TYPES),
+  placeholder: Joi.string().allow("").max(500),
+  defaultValue: defaultValueSchema,
+  options: Joi.array().items(optionSchema).min(1).unique((left, right) => left.label === right.label || left.value === right.value),
+  validation: validationSchema,
+  isVisible: Joi.boolean(),
+  isRequired: Joi.boolean(),
+  order: Joi.number().integer().min(0),
+  moduleKey: Joi.forbidden(),
+  tenantId: Joi.forbidden(),
+  key: Joi.forbidden(),
+  createdBy: Joi.forbidden(),
+  updatedBy: Joi.forbidden(),
+};
+
+export const moduleParamSchema = Joi.object({
+  moduleKey: Joi.string().valid(...MODULE_KEYS).required(),
+}).unknown(false);
+
+export const fieldParamsSchema = Joi.object({
+  moduleKey: Joi.string().valid(...MODULE_KEYS).required(),
+  id: Joi.string().pattern(objectIdPattern).required(),
+}).unknown(false);
+
+export const listQuerySchema = Joi.object({
+  includeArchived: Joi.boolean().truthy("true").falsy("false").default(false),
+}).unknown(false);
+
+export const createFieldSchema = requireSelectOptions(withTypeSpecificValidation(Joi.object({
+  ...sharedFieldSchema,
+  label: sharedFieldSchema.label.required(),
+  type: sharedFieldSchema.type.required(),
+})
+  .unknown(false)));
+
+export const updateFieldSchema = requireSelectOptions(withTypeSpecificValidation(Joi.object(sharedFieldSchema)
+  .min(1)
+  .unknown(false)));
+

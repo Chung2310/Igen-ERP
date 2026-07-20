@@ -19,6 +19,13 @@ import {
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
 import { TimeInput24 } from '../../../../components/common/TimeInput24';
+import { useAuth } from '../../../../context/AuthContext';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
 const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc'];
 
@@ -79,6 +86,80 @@ const notifyBatchMutation = () => {
 
 export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
+  const { userProfile: user } = useAuth();
+  const {
+    fields: stdFields,
+    activeFields: activeStdFields,
+    archivedFields: archivedStdFields,
+    updateField: updateStdField,
+    archiveField: archiveStdField,
+    restoreField: restoreStdField,
+    deleteField: deleteStdField
+  } = useStandardFields("batches");
+
+  const manageable = canManageCustomFields(user?.role);
+  const [stdEditorOpen, setStdEditorOpen] = useState(false);
+  const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+
+  const openEditStdField = (field: StandardFieldConfig) => {
+    setEditingStdField(getAdaptedFieldDefinition(field, "batches"));
+    setStdEditorOpen(true);
+  };
+
+  const handleStdFieldSubmit = (input: CreateFieldInput) => {
+    if (editingStdField) {
+      updateStdField(editingStdField.key, {
+        label: input.label,
+        placeholder: input.placeholder,
+        isRequired: input.isRequired,
+        isVisible: input.isVisible,
+      });
+    }
+  };
+
+  const archiveStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
+      archiveStdField(field.key);
+    }
+  };
+
+  const deleteStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
+      deleteStdField(field.key);
+    }
+  };
+
+  const renderFieldActions = (fieldKey: string) => {
+    if (!manageable) return null;
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    if (!fieldConfig) return null;
+    return (
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
+        <span>|</span>
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
+        <span>|</span>
+        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      </div>
+    );
+  };
+
+  const isFieldVisible = (fieldKey: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+  };
+  const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.label : defaultLabel;
+  };
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
+  };
+  const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.isRequired : defaultRequired;
+  };
 
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading } = useBatches(resolvedCenter);
@@ -156,18 +237,41 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.code || !form.courseId || !form.startDate || !form.endDate) {
-      toast.error('Vui lòng nhập đầy đủ thông tin lớp học.');
+    const missingFields: string[] = [];
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'code' && !form.code) missingFields.push(f.label);
+        if (f.key === 'courseId' && !form.courseId) missingFields.push(f.label);
+        if (f.key === 'startDate' && !form.startDate) missingFields.push(f.label);
+        if (f.key === 'endDate' && !form.endDate) missingFields.push(f.label);
+        if (f.key === 'schedule') {
+          if (form.daysOfWeek.length === 0 || !form.startTime || !form.endTime) {
+            missingFields.push(f.label);
+          }
+        }
+        if (f.key === 'room' && !form.location) missingFields.push(f.label);
+        if (f.key === 'teacherId' && !form.instructorId) missingFields.push(f.label);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      toast.error(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
     }
-    if (form.daysOfWeek.length === 0) {
+
+    if (isFieldVisible('schedule') && form.daysOfWeek.length === 0) {
       toast.error('Vui lòng chọn ít nhất một ngày học trong tuần.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const payload = { ...form, code: form.code.toUpperCase() };
+      const payload = {
+        ...form,
+        code: form.code.toUpperCase(),
+        ...(editingId ? { expectedVersion: batches.find((batch) => batch.id === editingId)?.__v } : {}),
+        ...(!editingId && resolvedCenter ? { companyCode: resolvedCenter } : {}),
+      };
       if (editingId) {
         await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
         toast.success(`Đã cập nhật lớp ${payload.code}.`);
@@ -425,119 +529,138 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 </h4>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Mã lớp">
-                  <div className="relative">
-                    <ErpInput
-                      type="text"
-                      required
-                      placeholder="Ví dụ: K32"
-                      value={form.code}
-                      onChange={(e) => setForm({ ...form, code: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Tag className="w-4 h-4" />
-                    </div>
+                {isFieldVisible('code') && (
+                  <div className="relative group/std">
+                    {renderFieldActions('code')}
+                    <ErpField label={getFieldLabel('code', 'Mã lớp')}>
+                      <div className="relative">
+                        <ErpInput
+                          type="text"
+                          required={isFieldRequired('code', true)}
+                          placeholder={getFieldPlaceholder('code', 'Ví dụ: K32')}
+                          value={form.code}
+                          onChange={(e) => setForm({ ...form, code: e.target.value })}
+                          className="pl-10"
+                        />
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                          <Tag className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </ErpField>
                   </div>
-                </ErpField>
-                <ErpField label="Khóa học">
-                  <div className="relative">
-                    <ErpSelect
-                      required
-                      value={form.courseId}
-                      onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-                      className="pl-10"
-                    >
-                      <option value="" disabled>-- Chọn khóa học --</option>
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
-                      ))}
-                    </ErpSelect>
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                      <BookOpen className="w-4 h-4" />
-                    </div>
+                )}
+                {isFieldVisible('courseId') && (
+                  <div className="relative group/std">
+                    {renderFieldActions('courseId')}
+                    <ErpField label={getFieldLabel('courseId', 'Khóa học')}>
+                      <div className="relative">
+                        <ErpSelect
+                          required={isFieldRequired('courseId', true)}
+                          value={form.courseId}
+                          onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+                          className="pl-10"
+                        >
+                          <option value="" disabled>-- Chọn khóa học --</option>
+                          {courses.map((c) => (
+                            <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
+                          ))}
+                        </ErpSelect>
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
+                          <BookOpen className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </ErpField>
                   </div>
-                </ErpField>
+                )}
               </div>
 
-              <ErpField label="Giảng viên phụ trách">
-                <div className="relative">
-                  <ErpSelect
-                    value={form.instructorId}
-                    onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
-                    className="pl-10"
-                  >
-                    <option value="">— Chưa gán giảng viên —</option>
-                    {instructors.map((i) => (
-                      <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
-                    ))}
-                  </ErpSelect>
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
+              {isFieldVisible('teacherId') && (
+                <div className="relative group/std">
+                  {renderFieldActions('teacherId')}
+                  <ErpField label={getFieldLabel('teacherId', 'Giảng viên phụ trách')}>
+                    <div className="relative">
+                      <ErpSelect
+                        value={form.instructorId}
+                        required={isFieldRequired('teacherId', false)}
+                        onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
+                        className="pl-10"
+                      >
+                        <option value="">— Chưa gán giảng viên —</option>
+                        {instructors.map((i) => (
+                          <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
+                        ))}
+                      </ErpSelect>
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
+                        <GraduationCap className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </ErpField>
                 </div>
-              </ErpField>
+              )}
             </div>
 
             {/* Section 2: Lịch học & Khung giờ */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-brand-primary" />
-                  Lịch học & Khung giờ
-                </h4>
-              </div>
-
-              <ErpField label="Ngày học trong tuần">
-                <div className="grid grid-cols-7 gap-1 mt-1">
-                  {DAY_OPTIONS.map((d) => (
-                    <button
-                      key={d.value}
-                      type="button"
-                      onClick={() => toggleDay(d.value)}
-                      className={cn(
-                        "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
-                        form.daysOfWeek.includes(d.value)
-                          ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
-                          : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
-                      )}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
+            {isFieldVisible('schedule') && (
+              <div className="space-y-4 pt-2 relative group/std">
+                {renderFieldActions('schedule')}
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-brand-primary" />
+                    {getFieldLabel('schedule', 'Lịch học & Khung giờ')}
+                  </h4>
                 </div>
-              </ErpField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Giờ bắt đầu">
-                  <div className="relative">
-                    <TimeInput24
-                      required
-                      value={form.startTime}
-                      onChange={(v) => setForm({ ...form, startTime: v })}
-                      className={cn(erpInputClass(darkMode), "pl-10")}
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Clock className="w-4 h-4" />
-                    </div>
+                <ErpField label="Ngày học trong tuần">
+                  <div className="grid grid-cols-7 gap-1 mt-1">
+                    {DAY_OPTIONS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        onClick={() => toggleDay(d.value)}
+                        className={cn(
+                          "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
+                          form.daysOfWeek.includes(d.value)
+                            ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
+                            : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
                   </div>
                 </ErpField>
-                <ErpField label="Giờ kết thúc">
-                  <div className="relative">
-                    <TimeInput24
-                      required
-                      value={form.endTime}
-                      onChange={(v) => setForm({ ...form, endTime: v })}
-                      className={cn(erpInputClass(darkMode), "pl-10")}
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Clock className="w-4 h-4" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <ErpField label="Giờ bắt đầu">
+                    <div className="relative">
+                      <TimeInput24
+                        required={isFieldRequired('schedule', true)}
+                        value={form.startTime}
+                        onChange={(v) => setForm({ ...form, startTime: v })}
+                        className={cn(erpInputClass(darkMode), "pl-10")}
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                        <Clock className="w-4 h-4" />
+                      </div>
                     </div>
-                  </div>
-                </ErpField>
+                  </ErpField>
+                  <ErpField label="Giờ kết thúc">
+                    <div className="relative">
+                      <TimeInput24
+                        required={isFieldRequired('schedule', true)}
+                        value={form.endTime}
+                        onChange={(v) => setForm({ ...form, endTime: v })}
+                        className={cn(erpInputClass(darkMode), "pl-10")}
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </ErpField>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Section 3: Thời gian & Địa điểm */}
             <div className="space-y-4 pt-2">
@@ -550,51 +673,89 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Ngày khai giảng">
-                  <div className="relative">
-                    <ErpInput
-                      type="date"
-                      required
-                      value={form.startDate}
-                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </div>
+                {isFieldVisible('startDate') && (
+                  <div className="relative group/std">
+                    {renderFieldActions('startDate')}
+                    <ErpField label={getFieldLabel('startDate', 'Ngày khai giảng')}>
+                      <div className="relative">
+                        <ErpInput
+                          type="date"
+                          required={isFieldRequired('startDate', true)}
+                          value={form.startDate}
+                          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                          className="pl-10"
+                        />
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </ErpField>
                   </div>
-                </ErpField>
-                <ErpField label="Ngày kết thúc">
-                  <div className="relative">
-                    <ErpInput
-                      type="date"
-                      required
-                      value={form.endDate}
-                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </div>
+                )}
+                {isFieldVisible('endDate') && (
+                  <div className="relative group/std">
+                    {renderFieldActions('endDate')}
+                    <ErpField label={getFieldLabel('endDate', 'Ngày bế giảng')}>
+                      <div className="relative">
+                        <ErpInput
+                          type="date"
+                          required={isFieldRequired('endDate', true)}
+                          value={form.endDate}
+                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                          className="pl-10"
+                        />
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </ErpField>
                   </div>
-                </ErpField>
+                )}
               </div>
 
-              <ErpField label="Địa điểm (tùy chọn)">
-                <div className="relative">
-                  <ErpInput
-                    type="text"
-                    placeholder="Ví dụ: Phòng 201 / Sân tập số 2"
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    className="pl-10"
-                  />
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                    <MapPin className="w-4 h-4" />
-                  </div>
+              {isFieldVisible('room') && (
+                <div className="relative group/std">
+                  {renderFieldActions('room')}
+                  <ErpField label={getFieldLabel('room', 'Địa điểm (tùy chọn)')}>
+                    <div className="relative">
+                      <ErpInput
+                        type="text"
+                        required={isFieldRequired('room', false)}
+                        placeholder={getFieldPlaceholder('room', 'Ví dụ: Phòng 201 / Sân tập số 2')}
+                        value={form.location}
+                        onChange={(e) => setForm({ ...form, location: e.target.value })}
+                        className="pl-10"
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-405">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </ErpField>
                 </div>
-              </ErpField>
+              )}
             </div>
+
+            {manageable && archivedStdFields.length ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {archivedStdFields.map((field) => (
+                    <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                      <span>{field.label}</span>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        aria-label={`Khôi phục ${field.label}`}
+                        onClick={() => restoreStdField(field.key)}
+                      >
+                        Khôi phục
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             {/* Custom submit button */}
             <button
@@ -695,6 +856,15 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         onCancel={() => setDeleteConfirm({ isOpen: false, id: '', code: '' })}
         confirmText="Xác nhận xóa"
         cancelText="Hủy bỏ"
+      />
+
+      <CustomFieldEditorModal
+        open={stdEditorOpen}
+        moduleKey="batches"
+        initialField={editingStdField}
+        onClose={() => setStdEditorOpen(false)}
+        onSubmit={handleStdFieldSubmit}
+        isStandard={true}
       />
     </div>
   );

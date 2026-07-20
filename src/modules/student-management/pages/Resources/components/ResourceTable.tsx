@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, Clock, CheckCircle, Wrench, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Wrench, Trash2, Pencil } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ResourceItem } from '../../../types';
 import { ErpCard, ErpTableHead } from '../../../components/Erp/ErpUI';
@@ -8,6 +8,7 @@ import { todayStr, getTypeColor } from '../utils';
 interface ResourceTableProps {
   resources: ResourceItem[];
   onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
   onDelete: (r: ResourceItem) => void;
   footer?: React.ReactNode;
@@ -16,6 +17,7 @@ interface ResourceTableProps {
 export function ResourceTable({
   resources,
   onBook,
+  onEdit,
   onToggleMaintenance,
   onDelete,
   footer,
@@ -33,6 +35,7 @@ export function ResourceTable({
                 key={resource.id}
                 resource={resource}
                 onBook={onBook}
+                onEdit={onEdit}
                 onToggleMaintenance={onToggleMaintenance}
                 onDelete={onDelete}
               />
@@ -49,6 +52,7 @@ interface ResourceTableRowProps {
   key?: React.Key;
   resource: ResourceItem;
   onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
   onDelete: (r: ResourceItem) => void;
 }
@@ -56,6 +60,7 @@ interface ResourceTableRowProps {
 function ResourceTableRow({
   resource,
   onBook,
+  onEdit,
   onToggleMaintenance,
   onDelete,
 }: ResourceTableRowProps) {
@@ -120,6 +125,16 @@ function ResourceTableRow({
       </td>
       <td className="py-2.5 px-4 text-left">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEdit(resource)}
+            title="Chỉnh sửa tài nguyên"
+            className={cn(
+              "p-1.5 rounded-lg transition-colors border cursor-pointer",
+              darkMode ? "text-slate-400 hover:text-cyan-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-500 hover:text-cyan-600 bg-slate-50 hover:bg-cyan-50 border-slate-200/60"
+            )}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => onToggleMaintenance(resource)}
             title={resource.status === 'MAINTENANCE' ? 'Kết thúc bảo trì' : 'Chuyển sang bảo trì'}

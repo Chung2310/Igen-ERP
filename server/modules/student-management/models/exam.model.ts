@@ -3,6 +3,7 @@ import { IExam } from "../interfaces/exam.interface";
 
 const examSchema = new Schema<IExam>(
   {
+    customFields: { type: Schema.Types.Mixed, default: {} },
     name: { type: String, required: true, trim: true },
     status: {
       type: String,

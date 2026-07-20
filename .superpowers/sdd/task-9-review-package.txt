@@ -1,0 +1,3309 @@
+﻿===== FILE: src/modules/student-management/types.ts =====
+/**
+ * Student Types
+ */
+
+import type { CustomFieldValues } from './custom-fields/types';
+
+export interface UploadedFile {
+  name: string;
+  url: string;
+  type: string;
+  uploadedAt: string;
+}
+
+export type StudentStatus = 'Chá» KSK' | 'ÄÃ£ KSK' | 'ÄÃ£ ná»™p HS' | 'Äang há»c' | 'Äang thi' | 'ÄÃ£ Ä‘áº­u' | 'Thi láº¡i' | 'Nghá»‰ há»c' | 'Ná»£ há»c phÃ­';
+
+export interface DrivingStudent {
+  id: string;
+  fullName: string;
+  slug?: string;
+  email?: string;
+  phone: string;
+  referral?: string;
+  birthday: string;
+  idCard: string;
+  idCardFront?: string;
+  idCardBack?: string;
+  /** Háº¡ng báº±ng lÃ¡i â€” thÃ´ng tin riÃªng ngÃ nh lÃ¡i xe, há»c viÃªn ngÃ nh khÃ¡c Ä‘á»ƒ trá»‘ng */
+  rank?: string;
+  courseId?: string;
+  registrationDate: string;
+  enrollmentDate?: string;
+  fee: string; // This is the TOTAL fee string (e.g. "12,000,000")
+  paidAmount?: number; // Total amount paid so far
+  address: string;
+  status: StudentStatus[];
+  ownerId: string;
+  centerId?: string;
+  partnerId?: string;
+  healthCheckDate?: string;
+  healthCheckNotes?: string;
+  healthCheckFiles?: UploadedFile[];
+  idCardFrontFile?: UploadedFile;
+  idCardBackFile?: UploadedFile;
+  portraitFile?: UploadedFile;
+  customFields?: CustomFieldValues;
+  
+  // Progress tracking
+  progress?: {
+    theory: { completed: boolean; score?: number; lastDate?: string };
+    practice: { hoursDone: number; totalHours: number };
+    cabin: { hoursDone: number; totalHours: number };
+    dat: { kmDone: number; totalKm: number };
+    sim: { completed: boolean; lastDate?: string };
+  };
+
+  // Exam History
+  exams?: {
+    id: string;
+    name: string;
+    date: string;
+    type: 'Tá»‘t nghiá»‡p' | 'SÃ¡t háº¡ch';
+    status: 'Sáº¯p thi' | 'ÄÃ£ thi';
+    result?: {
+      theory: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      practice: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      simulation?: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      overall: 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³' | 'Sáº¯p thi' | 'Váº¯ng thi';
+    };
+  }[];
+
+  // Payment History (Detailed)
+  paymentHistory?: {
+    id: string;
+    amount: number;
+    date: string;
+    method: 'Tiá»n máº·t' | 'Chuyá»ƒn khoáº£n';
+    note?: string;
+    recipient: string;
+  }[];
+
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  examId?: string;
+  examName?: string;
+  examDate?: string;
+}
+
+export interface FeePayment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  date: string;
+  note?: string;
+  ownerId: string;
+  createdAt?: Date | string;
+}
+
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  content: string;
+  recipients: string; // e.g. "Táº¥t cáº£ há»c viÃªn Ä‘ang há»c"
+  recipientCount: number;
+  channels: string[]; // ["Zalo OA", "SMS"]
+  status: 'ÄÃ£ gá»­i' | 'Äang gá»­i' | 'Tháº¥t báº¡i';
+  ownerId: string;
+  createdAt: Date | string;
+}
+
+export interface RankSetting {
+  id: string;
+  rank: string;
+  label: string;
+  fee: string;
+  modules: string[]; // ["LÃ½ thuyáº¿t", "Thá»±c hÃ nh", ...]
+  ownerId: string;
+}
+
+export interface AreaSetting {
+  id: string;
+  name: string;
+  studentCount?: number;
+  ownerId: string;
+}
+
+export interface PaymentStage {
+  id: string;
+  name: string;
+  order: number;
+  ownerId: string;
+}
+
+export type Student = DrivingStudent;
+
+export type ExamStatus = 'Sáº¯p diá»…n ra' | 'ÄÃ£ xÃ¡c nháº­n' | 'ÄÃ£ hoÃ n thÃ nh' | 'ÄÃ£ há»§y';
+
+export interface ExamSession {
+  id: string;
+  name: string;
+  status: ExamStatus;
+  /** Háº¡ng báº±ng lÃ¡i â€” riÃªng ngÃ nh lÃ¡i xe, ká»³ thi ngÃ nh khÃ¡c Ä‘á»ƒ trá»‘ng */
+  rank?: string;
+  area?: string;
+  tentativeDate: string;
+  officialDate?: string;
+  location: string;
+  studentCount: number;
+  passCount: number;
+  failCount: number;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+// ==== ERP: KhÃ³a há»c / Giáº£ng viÃªn / TÃ i nguyÃªn / Lá»‹ch tá»•ng há»£p ====
+
+export type CourseCategory = string;
+export type CourseStatus = 'Hoáº¡t Ä‘á»™ng' | 'Táº¡m dá»«ng';
+
+export interface Course {
+  id: string;
+  code: string;
+  title: string;
+  category: CourseCategory;
+  fee: string;
+  duration: string;
+  maxLearners: number;
+  activeBatches: number;
+  status: CourseStatus;
+  ownerId: string;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export type ManagedUser = {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: 'superadmin' | 'admin' | 'user';
+  centerId: string;
+  createdBy?: string;
+  isActive?: boolean;
+  bankAccountNo?: string;
+  bankId?: string;
+  businessType?: 'driving' | 'language' | 'general';
+  maxUsersLimit?: number;
+  permissions?: string[];
+};
+
+export type BatchStatus = 'Sáº¯p khai giáº£ng' | 'Äang há»c' | 'ÄÃ£ káº¿t thÃºc';
+
+export interface Batch {
+  id: string;
+  code: string;
+  courseId: string;
+  instructorId?: string;
+  learnerIds: string[];
+  daysOfWeek: number[]; // 0 = Chá»§ nháº­t ... 6 = Thá»© 7
+  startTime: string;    // HH:mm
+  endTime: string;      // HH:mm
+  location?: string;
+  startDate: string;    // YYYY-MM-DD
+  endDate: string;      // YYYY-MM-DD
+  status: BatchStatus;
+  ownerId: string;
+  // ThÃ´ng tin server gáº¯n kÃ¨m Ä‘á»ƒ hiá»ƒn thá»‹
+  courseCode: string;
+  courseTitle: string;
+  maxLearners: number;
+  instructorName: string;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+// PhÃ¢n loáº¡i tÃ i nguyÃªn lÃ  chuá»—i Ä‘á»™ng (quáº£n lÃ½ qua /resources/categories);
+// cÃ¡c giÃ¡ trá»‹ cÅ© 'ROOM' | 'VEHICLE' | 'EQUIPMENT' váº«n há»£p lá»‡ vá»›i dá»¯ liá»‡u Ä‘Ã£ cÃ³.
+export type ResourceType = string;
+export type ResourceStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
+
+export interface ResourceBooking {
+  id?: string;
+  purpose: string;
+  by: string;
+  date: string;      // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string;   // HH:mm
+}
+
+export interface ResourceItem {
+  id: string;
+  name: string;
+  type: ResourceType;
+  identifier: string;
+  capacity: string;
+  status: ResourceStatus;
+  bookings: ResourceBooking[];
+  ownerId: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  type: 'class' | 'exam' | 'resource';
+  date: string; // YYYY-MM-DD
+  time: string;
+  details: string;
+}
+
+export interface StudentStats {
+  totalStudents: number;
+  averageGPA: number;
+  attendanceRate: number;
+  atRiskCount: number;
+}
+
+export interface PartnerPayout {
+  id: string;
+  amount: number;
+  date: string;
+  method: string;
+  note?: string;
+}
+
+export interface PartnerReferredStudent {
+  _id: string;
+  fullName: string;
+  phone: string;
+  registrationDate: string;
+  status: string[];
+  commission: number;
+}
+
+export interface Partner {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  commissionType: 'fixed' | 'percentage';
+  commissionValue: number;
+  bankName?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
+  isActive: boolean;
+  notes?: string;
+  ownerId: string;
+  referredStudentsCount: number;
+  totalCommission: number;
+  totalPaid: number;
+  unpaidBalance: number;
+  referredStudents: PartnerReferredStudent[];
+  payoutHistory: PartnerPayout[];
+  levelName?: string;
+  totalReferredTuition?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommissionLevel {
+  _id: string;
+  name: string;
+  minTuition: number;
+  commissionRate: number;
+  ownerId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+===== FILE: src/modules/student-management/pages/Courses/CoursesPage.tsx =====
+import React, { useEffect, useState } from 'react';
+import {
+  BookOpen,
+  Calendar,
+  DollarSign,
+  Layers,
+  LayoutGrid,
+  List,
+  Pause,
+  Play,
+  Plus,
+  Tag,
+  Trash2,
+  Users,
+  Pencil,
+} from 'lucide-react';
+import { cn, formatVND } from '../../lib/utils';
+import { apiFetch } from '../../lib/api';
+import { toast } from '../../../../pages/Toast';
+import { useCourses } from '../../hooks/useCourses';
+import { useCourseCategories } from '../../hooks/useCourseCategories';
+import { useAuth } from '../../../../context/AuthContext';
+import { Course } from '../../types';
+import {
+  ErpCard,
+  ErpConfirmModal,
+  ErpEmptyState,
+  ErpField,
+  ErpFilterRail,
+  ErpFilterTab,
+  ErpInput,
+  ErpLoadingState,
+  ErpModal,
+  ErpPageHeader,
+  ErpPrimaryButton,
+  ErpSearchBar,
+  ErpSelect,
+  ErpSubmitButton,
+  ErpTableHead,
+} from '../../components/Erp/ErpUI';
+import { Pagination } from '../../components/ui/Pagination';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+
+type CourseViewMode = 'list' | 'grid';
+
+interface DeleteConfirmState {
+  isOpen: boolean;
+  id: string;
+  name: string;
+}
+
+interface NewCourseFormState {
+  code: string;
+  title: string;
+  category: string;
+  fee: string;
+  duration: string;
+  maxLearners: number | '';
+  customFields: CustomFieldValues;
+}
+
+interface MutationResponse {
+  success: boolean;
+}
+
+interface CreateCoursePayload {
+  code: string;
+  title: string;
+  category: string;
+  fee: string;
+  duration: string;
+  maxLearners: number;
+  customFields: CustomFieldValues;
+}
+
+const ACTIVE_COURSE_STATUS: Course['status'] = 'Hoáº¡t Ä‘á»™ng';
+const PAUSED_COURSE_STATUS: Course['status'] = 'Táº¡m dá»«ng';
+
+const DEFAULT_DELETE_CONFIRM: DeleteConfirmState = {
+  isOpen: false,
+  id: '',
+  name: '',
+};
+
+const DEFAULT_NEW_COURSE: NewCourseFormState = {
+  code: '',
+  title: '',
+  category: '',
+  fee: '',
+  duration: '',
+  maxLearners: 20,
+  customFields: {},
+};
+
+const CATEGORY_COLORS = [
+  'bg-indigo-500/10 text-indigo-400 border border-indigo-500/15',
+  'bg-violet-500/10 text-violet-400 border border-violet-500/15',
+  'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/15',
+  'bg-pink-500/10 text-pink-400 border border-pink-500/15',
+  'bg-amber-500/10 text-amber-400 border border-amber-500/15',
+  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/15',
+] as const;
+
+function getStoredViewMode(): CourseViewMode {
+  const storedMode = localStorage.getItem('erp_view_mode_courses');
+  return storedMode === 'list' || storedMode === 'grid' ? storedMode : 'grid';
+}
+
+function getCategoryColor(category: string): string {
+  if (category === 'LÃ¡i xe') return 'bg-brand-primary/10 text-brand-primary border border-brand-primary/15';
+  if (category === 'Ngoáº¡i ngá»¯') return 'bg-sky-500/10 text-sky-400 border border-sky-500/15';
+  if (category === 'Ká»¹ nÄƒng') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15';
+  if (category === 'KhÃ¡c') return 'bg-slate-500/10 text-slate-400 border border-slate-500/15';
+
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) {
+    hash = category.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+}
+
+export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
+  const darkMode = false;
+  const { userProfile: user } = useAuth();
+  const usesCourseFeePolicy = true;
+  const courseFeeLabel = 'Há»c phÃ­ niÃªm yáº¿t';
+  const courseCodePlaceholder = 'VÃ­ dá»¥: ENG-TOEIC';
+  const courseTitlePlaceholder = 'VÃ­ dá»¥: Luyá»‡n thi TOEIC 650+ cam káº¿t chuáº©n Ä‘áº§u ra';
+  const courseDurationPlaceholder = 'VÃ­ dá»¥: 3 thÃ¡ng / 8 tuáº§n';
+
+  const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
+  const { courses, loading } = useCourses(resolvedCenter);
+  const { categories, loading: categoriesLoading } = useCourseCategories(resolvedCenter);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
+  const [viewMode, setViewMode] = useState<CourseViewMode>(getStoredViewMode);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>(DEFAULT_DELETE_CONFIRM);
+  const [newCourse, setNewCourse] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editForm, setEditForm] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
+
+  const pageSize = viewMode === 'grid' ? 6 : 8;
+
+  useEffect(() => {
+    if (categories.length > 0 && !newCourse.category) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNewCourse((prev) => ({ ...prev, category: categories[0].name }));
+    }
+  }, [categories, newCourse.category]);
+
+  useEffect(() => {
+    if (editingCourse) {
+      setTimeout(() => {
+        setEditForm({
+          code: editingCourse.code || '',
+          title: editingCourse.title || '',
+          category: editingCourse.category || '',
+          fee: editingCourse.fee || '',
+          duration: editingCourse.duration || '',
+          maxLearners: editingCourse.maxLearners || 20,
+          customFields: editingCourse.customFields || {},
+        });
+      }, 0);
+    }
+  }, [editingCourse]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, categoryFilter, viewMode]);
+
+  const updateViewMode = (nextViewMode: CourseViewMode) => {
+    setViewMode(nextViewMode);
+    localStorage.setItem('erp_view_mode_courses', nextViewMode);
+  };
+
+  const resetNewCourse = () => {
+    setNewCourse({
+      ...DEFAULT_NEW_COURSE,
+      category: categories[0]?.name || '',
+    });
+  };
+
+  const handleAddCourse = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!newCourse.code || !newCourse.title || !newCourse.duration || !newCourse.category || (usesCourseFeePolicy && !newCourse.fee)) {
+      toast.error('Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin khÃ³a há»c.');
+      return;
+    }
+
+    if (usesCourseFeePolicy) {
+      const numericFee = newCourse.fee.replace(/\D/g, '');
+      if (!numericFee || Number.isNaN(Number(numericFee))) {
+        toast.error('Há»c phÃ­ pháº£i lÃ  má»™t sá»‘ há»£p lá»‡.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload: CreateCoursePayload = {
+        code: newCourse.code.toUpperCase(),
+        title: newCourse.title,
+        category: newCourse.category,
+        fee: usesCourseFeePolicy ? `${formatVND(newCourse.fee)}d` : '0d',
+        duration: newCourse.duration,
+        maxLearners: newCourse.maxLearners === '' ? 20 : newCourse.maxLearners,
+        customFields: newCourse.customFields,
+      };
+
+      await apiFetch<MutationResponse>('/courses', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      window.dispatchEvent(new Event('course-mutation'));
+      setShowAddModal(false);
+      resetNewCourse();
+      toast.success(`ÄÃ£ thÃªm má»›i khÃ³a há»c ${payload.code} thÃ nh cÃ´ng!`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi táº¡o khÃ³a há»c.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  const handleEditCourse = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+
+    if (!editForm.code || !editForm.title || !editForm.duration || !editForm.category || (usesCourseFeePolicy && !editForm.fee)) {
+      toast.error('Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin khÃ³a há»c.');
+      return;
+    }
+
+    if (usesCourseFeePolicy) {
+      const numericFee = editForm.fee.replace(/\D/g, '');
+      if (!numericFee || Number.isNaN(Number(numericFee))) {
+        toast.error('Há»c phÃ­ pháº£i lÃ  má»™t sá»‘ há»£p lá»‡.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        code: editForm.code.toUpperCase(),
+        title: editForm.title,
+        category: editForm.category,
+        fee: usesCourseFeePolicy ? `${formatVND(editForm.fee)}d` : '0d',
+        duration: editForm.duration,
+        maxLearners: editForm.maxLearners === '' ? 20 : editForm.maxLearners,
+        customFields: editForm.customFields,
+      };
+
+      await apiFetch<MutationResponse>(`/courses/${editingCourse.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+
+      window.dispatchEvent(new Event('course-mutation'));
+      setEditingCourse(null);
+      toast.success(`ÄÃ£ cáº­p nháº­t khÃ³a há»c ${payload.code} thÃ nh cÃ´ng!`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi cáº­p nháº­t khÃ³a há»c.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  const handleToggleStatus = async (course: Course) => {
+    const nextStatus: Course['status'] = course.status === ACTIVE_COURSE_STATUS ? PAUSED_COURSE_STATUS : ACTIVE_COURSE_STATUS;
+    try {
+      await apiFetch<MutationResponse>(`/courses/${course.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      window.dispatchEvent(new Event('course-mutation'));
+      toast.success(`KhÃ³a há»c ${course.code} Ä‘Ã£ chuyá»ƒn sang "${nextStatus}".`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi cáº­p nháº­t khÃ³a há»c.';
+      toast.error(msg);
+    }
+  };
+
+  const handleDelete = async (course: Course) => {
+    try {
+      await apiFetch<MutationResponse>(`/courses/${course.id}`, { method: 'DELETE' });
+      window.dispatchEvent(new Event('course-mutation'));
+      toast.success(`ÄÃ£ xÃ³a khÃ³a há»c ${course.code}.`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi xÃ³a khÃ³a há»c.';
+      toast.error(msg);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+
+    setIsCategorySubmitting(true);
+    try {
+      await apiFetch<MutationResponse>('/courses/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      window.dispatchEvent(new Event('course-category-mutation'));
+      setNewCategoryName('');
+      toast.success('ÄÃ£ thÃªm phÃ¢n loáº¡i má»›i thÃ nh cÃ´ng!');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi táº¡o phÃ¢n loáº¡i.';
+      toast.error(msg);
+    } finally {
+      setIsCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!deleteConfirm.id) return;
+    try {
+      await apiFetch<MutationResponse>(`/courses/categories/${deleteConfirm.id}`, {
+        method: 'DELETE',
+      });
+      window.dispatchEvent(new Event('course-category-mutation'));
+      toast.success('ÄÃ£ xÃ³a phÃ¢n loáº¡i thÃ nh cÃ´ng.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi xÃ³a.';
+      toast.error(msg);
+    } finally {
+      setDeleteConfirm(DEFAULT_DELETE_CONFIRM);
+    }
+  };
+  const filteredCourses = courses.filter((course) => {
+    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalPages = Math.ceil(filteredCourses.length / pageSize);
+  const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="space-y-4 text-left">
+      <ErpPageHeader
+        title="Danh má»¥c khÃ³a há»c"
+        subtitle="Thiáº¿t láº­p chÆ°Æ¡ng trÃ¬nh Ä‘Ã o táº¡o vÃ  lá»›p há»c hÃ nh chÃ­nh"
+        action={
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className={cn(
+                'px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0 shadow-sm',
+                darkMode
+                  ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+              )}
+            >
+              Quáº£n lÃ½ phÃ¢n loáº¡i
+            </button>
+            <ErpPrimaryButton onClick={() => setShowAddModal(true)}>
+              ThÃªm khÃ³a há»c má»›i
+            </ErpPrimaryButton>
+          </div>
+        }
+      />
+
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="TÃ¬m theo tÃªn hoáº·c mÃ£ khÃ³a há»c..." />
+        <div className="flex flex-wrap items-center gap-3">
+          <ErpFilterRail>
+            <ErpFilterTab active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>
+              Táº¥t cáº£
+            </ErpFilterTab>
+            {categories.map((cat) => (
+              <ErpFilterTab key={cat.id} active={categoryFilter === cat.name} onClick={() => setCategoryFilter(cat.name)}>
+                {cat.name}
+              </ErpFilterTab>
+            ))}
+          </ErpFilterRail>
+
+          <div className={cn('flex items-center border p-0.5 rounded-lg gap-0.5 shrink-0 shadow-sm', darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50')}>
+            <button
+              type="button"
+              onClick={() => updateViewMode('list')}
+              className={cn(
+                'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
+                viewMode === 'list'
+                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-855 shadow-sm')
+                  : 'text-slate-400 hover:text-slate-600'
+              )}
+              title="Hiá»ƒn thá»‹ dáº¡ng danh sÃ¡ch"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => updateViewMode('grid')}
+              className={cn(
+                'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
+                viewMode === 'grid'
+                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-855 shadow-sm')
+                  : 'text-slate-400 hover:text-slate-600'
+              )}
+              title="Hiá»ƒn thá»‹ dáº¡ng lÆ°á»›i"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {loading && courses.length === 0 ? (
+        <ErpCard><ErpLoadingState message="Äang táº£i danh má»¥c khÃ³a há»c..." /></ErpCard>
+      ) : filteredCourses.length === 0 ? (
+        <ErpCard>
+          <ErpEmptyState
+            icon={BookOpen}
+            title="ChÆ°a cÃ³ khÃ³a há»c nÃ o"
+            subtitle="Báº¥m 'ThÃªm khÃ³a há»c má»›i' Ä‘á»ƒ khá»Ÿi táº¡o chÆ°Æ¡ng trÃ¬nh Ä‘Ã o táº¡o Ä‘áº§u tiÃªn."
+          />
+        </ErpCard>
+      ) : viewMode === 'grid' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedCourses.map((course) => (
+              <div
+                key={course.id}
+                className={cn(
+                  'p-4 rounded-2xl border flex flex-col justify-between transition-all duration-300 group',
+                  darkMode
+                    ? 'bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-brand-primary/20'
+                    : 'bg-white border-slate-100 hover:border-brand-primary/20 shadow-sm shadow-slate-100/50'
+                )}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className={cn('text-[10px] font-black uppercase tracking-widest', darkMode ? 'text-slate-500' : 'text-slate-400')}>{course.code}</span>
+                    <span className={cn(
+                      'px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider',
+                      getCategoryColor(course.category)
+                    )}>
+                      {course.category}
+                    </span>
+                  </div>
+
+                  <h4 className={cn('text-sm font-black line-clamp-1 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-850 group-hover:text-slate-950')}>{course.title}</h4>
+
+                  <div className={cn('grid grid-cols-2 gap-y-2.5 gap-x-2 pt-2 text-[10px] font-bold border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-550 border-slate-100')}>
+                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {course.duration}</div>
+                    {usesCourseFeePolicy && (
+                      <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-slate-400" /> {course.fee}</div>
+                    )}
+                    <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> Max: {course.maxLearners} HV</div>
+                    <div className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-slate-400" /> {course.activeBatches} lá»›p Ä‘ang cháº¡y</div>
+                  </div>
+                </div>
+
+                <div className={cn('flex items-center justify-between pt-3 mt-2 border-t', darkMode ? 'border-slate-800/30' : 'border-slate-100')}>
+                  <span className={cn(
+                    'px-1.5 py-0.5 rounded text-[9px] font-black uppercase border',
+                    course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                  )}>
+                    {course.status}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleToggleStatus(course)}
+                      title={course.status === ACTIVE_COURSE_STATUS ? 'Táº¡m dá»«ng khÃ³a há»c' : 'KÃ­ch hoáº¡t láº¡i khÃ³a há»c'}
+                      className={cn(
+                        'flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase rounded-lg transition-all border cursor-pointer shadow-sm',
+                        darkMode
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60'
+                      )}
+                    >
+                      {course.status === ACTIVE_COURSE_STATUS
+                        ? <><Pause className="w-3 h-3 text-amber-500" /> Táº¡m dá»«ng</>
+                        : <><Play className="w-3 h-3 text-brand-primary" /> KÃ­ch hoáº¡t</>}
+                    </button>
+                    <button
+                      onClick={() => setEditingCourse(course)}
+                      title="Chá»‰nh sá»­a khÃ³a há»c"
+                      className={cn(
+                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        darkMode
+                          ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-400 border-transparent'
+                          : 'bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 border-slate-200/60'
+                      )}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(course)}
+                      title="XÃ³a khÃ³a há»c"
+                      className={cn(
+                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        darkMode
+                          ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent'
+                          : 'bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-550 border-slate-200/60'
+                      )}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <ErpCard className="overflow-hidden">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredCourses.length}
+              pageSize={pageSize}
+              itemName="khÃ³a há»c"
+            />
+          </ErpCard>
+        </div>
+      ) : (
+        <ErpCard className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <ErpTableHead columns={['MÃ£', 'TÃªn khÃ³a há»c', 'PhÃ¢n loáº¡i', 'Thá»i lÆ°á»£ng', courseFeeLabel, 'Quy mÃ´', 'Tráº¡ng thÃ¡i', 'Thao tÃ¡c']} />
+              <tbody className={cn('divide-y', darkMode ? 'divide-slate-800/30' : 'divide-slate-100')}>
+                {paginatedCourses.map((course) => (
+                  <tr key={course.id} className={cn('transition-colors hover:bg-slate-50/50', darkMode ? 'text-slate-355 hover:bg-slate-800/10' : 'text-slate-600')}>
+                    <td className="py-2 px-4 font-black text-sm">{course.code}</td>
+                    <td className="py-2 px-4 font-bold">{course.title}</td>
+                    <td className="py-2 px-4">
+                      <span className={cn('px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider', getCategoryColor(course.category))}>
+                        {course.category}
+                      </span>
+                    </td>
+                    <td className="py-2 px-4 font-bold">{course.duration}</td>
+                    <td className="py-2 px-4 font-bold">{usesCourseFeePolicy ? course.fee : 'KhÃ´ng Ã¡p dá»¥ng'}</td>
+                    <td className="py-2 px-4 font-bold">{course.maxLearners} HV ({course.activeBatches} lá»›p)</td>
+                    <td className="py-2 px-4">
+                      <span className={cn(
+                        'px-1.5 py-0.5 rounded text-[9px] font-black uppercase border',
+                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                      )}>
+                        {course.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggleStatus(course)}
+                          className={cn(
+                            'flex items-center gap-1 px-2 py-1 text-[9px] font-black uppercase rounded-lg transition-all border cursor-pointer shadow-sm',
+                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60'
+                          )}
+                        >
+                          {course.status === ACTIVE_COURSE_STATUS ? <Pause className="w-3 h-3 text-amber-500" /> : <Play className="w-3 h-3 text-brand-primary" />}
+                        </button>
+                        <button
+                          onClick={() => setEditingCourse(course)}
+                          className={cn(
+                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                            darkMode ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-455 border-transparent' : 'bg-slate-50 hover:bg-indigo-50 text-slate-450 hover:text-indigo-550 border-slate-200/60'
+                          )}
+                          title="Chá»‰nh sá»­a khÃ³a há»c"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(course)}
+                          className={cn(
+                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                            darkMode ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-455 border-transparent' : 'bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60'
+                          )}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredCourses.length}
+            pageSize={pageSize}
+            itemName="khÃ³a há»c"
+          />
+        </ErpCard>
+      )}
+
+      {showAddModal && (
+        <ErpModal title="ThÃªm chÆ°Æ¡ng trÃ¬nh há»c má»›i" onClose={() => setShowAddModal(false)}>
+          <form onSubmit={handleAddCourse} className="space-y-4">
+            <ErpField label="MÃ£ khÃ³a há»c">
+              <ErpInput
+                type="text"
+                required
+                placeholder={courseCodePlaceholder}
+                value={newCourse.code}
+                onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
+              />
+            </ErpField>
+
+            <ErpField label="TÃªn chÆ°Æ¡ng trÃ¬nh Ä‘Ã o táº¡o">
+              <ErpInput
+                type="text"
+                required
+                placeholder={courseTitlePlaceholder}
+                value={newCourse.title}
+                onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
+              />
+            </ErpField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <ErpField label="PhÃ¢n loáº¡i">
+                <ErpSelect
+                  value={newCourse.category}
+                  onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </ErpSelect>
+              </ErpField>
+              <ErpField label="Thá»i lÆ°á»£ng">
+                <ErpInput
+                  type="text"
+                  required
+                  placeholder={courseDurationPlaceholder}
+                  value={newCourse.duration}
+                  onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
+                />
+              </ErpField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <ErpField label="Há»c phÃ­ niÃªm yáº¿t (VND)">
+                <ErpInput
+                  type="text"
+                  required
+                  placeholder="Vi du: 5.500.000"
+                  value={newCourse.fee}
+                  onChange={(e) => setNewCourse({ ...newCourse, fee: formatVND(e.target.value) })}
+                />
+              </ErpField>
+              <ErpField label="Tá»‘i Ä‘a há»c viÃªn lá»›p">
+                <ErpInput
+                  type="number"
+                  min={0}
+                  value={newCourse.maxLearners}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      setNewCourse({ ...newCourse, maxLearners: '' });
+                      return;
+                    }
+
+                    const parsed = parseInt(value, 10);
+                    setNewCourse({ ...newCourse, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
+                  }}
+                  onBlur={() => {
+                    if (newCourse.maxLearners === '' || typeof newCourse.maxLearners !== 'number' || newCourse.maxLearners < 0) {
+                      setNewCourse({ ...newCourse, maxLearners: 20 });
+                    }
+                  }}
+                />
+              </ErpField>
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="courses"
+              values={newCourse.customFields}
+              onChange={(customFields) => setNewCourse((previous) => ({ ...previous, customFields }))}
+              mode="create"
+              disabled={isSubmitting}
+            />
+
+            <ErpSubmitButton>{isSubmitting ? 'Äang khá»Ÿi táº¡o...' : 'Khá»Ÿi táº¡o chÆ°Æ¡ng trÃ¬nh'}</ErpSubmitButton>
+          </form>
+        </ErpModal>
+      )}
+
+      {editingCourse && (
+        <ErpModal title={`Chá»‰nh sá»­a chÆ°Æ¡ng trÃ¬nh há»c: ${editingCourse.code}`} onClose={() => setEditingCourse(null)}>
+          <form onSubmit={handleEditCourse} className="space-y-4">
+            <ErpField label="MÃ£ khÃ³a há»c">
+              <ErpInput
+                type="text"
+                required
+                placeholder={courseCodePlaceholder}
+                value={editForm.code}
+                onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+              />
+            </ErpField>
+
+            <ErpField label="TÃªn chÆ°Æ¡ng trÃ¬nh Ä‘Ã o táº¡o">
+              <ErpInput
+                type="text"
+                required
+                placeholder={courseTitlePlaceholder}
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              />
+            </ErpField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <ErpField label="PhÃ¢n loáº¡i">
+                <ErpSelect
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </ErpSelect>
+              </ErpField>
+              <ErpField label="Thá»i lÆ°á»£ng">
+                <ErpInput
+                  type="text"
+                  required
+                  placeholder={courseDurationPlaceholder}
+                  value={editForm.duration}
+                  onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
+                />
+              </ErpField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <ErpField label="Há»c phÃ­ niÃªm yáº¿t (VND)">
+                <ErpInput
+                  type="text"
+                  required
+                  placeholder="Vi du: 5.500.000"
+                  value={editForm.fee}
+                  onChange={(e) => setEditForm({ ...editForm, fee: formatVND(e.target.value) })}
+                />
+              </ErpField>
+              <ErpField label="Tá»‘i Ä‘a há»c viÃªn lá»›p">
+                <ErpInput
+                  type="number"
+                  min={0}
+                  value={editForm.maxLearners}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      setEditForm({ ...editForm, maxLearners: '' });
+                      return;
+                    }
+
+                    const parsed = parseInt(value, 10);
+                    setEditForm({ ...editForm, maxLearners: Number.isNaN(parsed) ? 20 : Math.max(0, parsed) });
+                  }}
+                  onBlur={() => {
+                    if (editForm.maxLearners === '' || typeof editForm.maxLearners !== 'number' || editForm.maxLearners < 0) {
+                      setEditForm({ ...editForm, maxLearners: 20 });
+                    }
+                  }}
+                />
+              </ErpField>
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="courses"
+              values={editForm.customFields}
+              onChange={(customFields) => setEditForm((previous) => ({ ...previous, customFields }))}
+              mode="edit"
+              disabled={isSubmitting}
+            />
+
+            <ErpSubmitButton disabled={isSubmitting}>{isSubmitting ? 'Äang cáº­p nháº­t...' : 'Cáº­p nháº­t khÃ³a há»c'}</ErpSubmitButton>
+          </form>
+        </ErpModal>
+      )}
+
+      {showCategoryModal && (
+        <ErpModal title="Quáº£n lÃ½ phÃ¢n loáº¡i khÃ³a há»c" onClose={() => setShowCategoryModal(false)}>
+          <div className="space-y-6">
+            <form onSubmit={handleAddCategory} className="flex gap-2">
+              <div className="flex-1">
+                <ErpInput
+                  type="text"
+                  required
+                  placeholder="Nháº­p tÃªn phÃ¢n loáº¡i má»›i..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isCategorySubmitting}
+                className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold transition-all hover:bg-brand-primary/95 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> ThÃªm
+              </button>
+            </form>
+
+            <div className="space-y-2">
+              <h5 className={cn('text-xs font-black uppercase tracking-wider', darkMode ? 'text-slate-400' : 'text-slate-500')}>Danh sÃ¡ch phÃ¢n loáº¡i hiá»‡n táº¡i</h5>
+              {categoriesLoading ? (
+                <p className="text-xs text-slate-400">Äang táº£i...</p>
+              ) : categories.length === 0 ? (
+                <p className="text-xs text-slate-400">ChÆ°a cÃ³ phÃ¢n loáº¡i nÃ o.</p>
+              ) : (
+                <div className={cn('border rounded-2xl p-2 max-h-60 overflow-y-auto divide-y', darkMode ? 'border-slate-800 divide-slate-800/40' : 'border-slate-100 divide-slate-100/60')}>
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between py-2.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-3.5 h-3.5 text-slate-400" />
+                        <span className={cn('text-xs font-bold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{cat.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm({ isOpen: true, id: cat.id, name: cat.name })}
+                        title="XÃ³a phÃ¢n loáº¡i"
+                        className={cn(
+                          'p-1.5 rounded-lg transition-all border cursor-pointer',
+                          darkMode
+                            ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border-transparent'
+                            : 'bg-slate-50 hover:bg-rose-55 text-slate-450 hover:text-rose-600 border-slate-200/60'
+                        )}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </ErpModal>
+      )}
+
+      <ErpConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="XÃ³a phÃ¢n loáº¡i khÃ³a há»c"
+        message={`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a phÃ¢n loáº¡i "${deleteConfirm.name}" khÃ´ng? HÃ nh Ä‘á»™ng nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.`}
+        onConfirm={handleDeleteCategory}
+        onCancel={() => setDeleteConfirm(DEFAULT_DELETE_CONFIRM)}
+        confirmText="XÃ¡c nháº­n xÃ³a"
+        cancelText="Há»§y bá»"
+      />
+    </div>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Batches/BatchesPage.tsx =====
+import React, { useState } from 'react';
+import {
+  School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
+  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin
+} from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { apiFetch } from '../../lib/api';
+import { toast } from '../../../../pages/Toast';
+import { useBatches } from '../../hooks/useBatches';
+import { useCourses } from '../../hooks/useCourses';
+import { authService } from '../../../../services/authService';
+import { useStudents } from '../../hooks/useStudents';
+import { Batch, BatchStatus } from '../../types';
+import {
+  ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
+  ErpModal, ErpField, ErpInput, ErpSelect,
+  ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead,
+  erpInputClass
+} from '../../components/Erp/ErpUI';
+import { Pagination } from '../../components/ui/Pagination';
+import { TimeInput24 } from '../../../../components/common/TimeInput24';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+
+const BATCH_STATUSES: BatchStatus[] = ['Sáº¯p khai giáº£ng', 'Äang há»c', 'ÄÃ£ káº¿t thÃºc'];
+
+// Thá»© trong tuáº§n theo giÃ¡ trá»‹ getDay(): 0 = CN ... 6 = T7, hiá»ƒn thá»‹ theo thá»© tá»± T2 â†’ CN
+const DAY_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: 'T2' },
+  { value: 2, label: 'T3' },
+  { value: 3, label: 'T4' },
+  { value: 4, label: 'T5' },
+  { value: 5, label: 'T6' },
+  { value: 6, label: 'T7' },
+  { value: 0, label: 'CN' },
+];
+
+const formatDays = (days: number[]) =>
+  DAY_OPTIONS.filter(d => (days || []).includes(d.value)).map(d => d.label).join(', ');
+
+const formatDate = (d: string) => (d ? d.split('-').reverse().join('/') : '');
+
+const statusStyle = (status: BatchStatus) => {
+  if (status === 'Äang há»c') return "bg-emerald-500/10 text-emerald-400 border-emerald-500/15";
+  if (status === 'Sáº¯p khai giáº£ng') return "bg-sky-500/10 text-sky-400 border-sky-500/15";
+  return "bg-slate-500/10 text-slate-400 border-slate-500/15";
+};
+
+interface BatchForm {
+  code: string;
+  courseId: string;
+  instructorId: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  status: BatchStatus;
+  customFields: CustomFieldValues;
+}
+
+const EMPTY_FORM: BatchForm = {
+  code: '',
+  courseId: '',
+  instructorId: '',
+  daysOfWeek: [],
+  startTime: '18:00',
+  endTime: '20:00',
+  location: '',
+  startDate: '',
+  endDate: '',
+  status: 'Sáº¯p khai giáº£ng',
+  customFields: {},
+};
+
+/** Báº¯n sá»± kiá»‡n Ä‘á»ƒ cÃ¡c hook liÃªn quan tá»± refetch (lá»›p, khÃ³a há»c, giáº£ng viÃªn, lá»‹ch) */
+const notifyBatchMutation = () => {
+  window.dispatchEvent(new Event('batch-mutation'));
+  window.dispatchEvent(new Event('course-mutation'));
+  window.dispatchEvent(new Event('user-mutation'));
+};
+
+export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
+  const darkMode = false;
+
+  const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
+  const { batches, loading } = useBatches(resolvedCenter);
+  const { courses } = useCourses(resolvedCenter);
+  const [users, setUsers] = useState<any[]>([]);
+  React.useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        let data;
+        if (selectedCenter && selectedCenter !== 'all') {
+          data = await authService.getUsersByCompany(selectedCenter);
+        } else {
+          data = await authService.getAllUsers();
+        }
+        setUsers(data || []);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+    fetchUsers();
+  }, [selectedCenter]);
+  const instructors = users.filter(u => u.role === 'user');
+  const { students } = useStudents(resolvedCenter);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [manageLearnersId, setManageLearnersId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; code: string }>({
+    isOpen: false,
+    id: '',
+    code: '',
+  });
+
+  // Láº¥y báº£n má»›i nháº¥t tá»« danh sÃ¡ch Ä‘á»ƒ modal há»c viÃªn khÃ´ng bá»‹ dá»¯ liá»‡u cÅ© sau refetch
+  const manageBatch = manageLearnersId ? batches.find(b => b.id === manageLearnersId) : undefined;
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '' });
+    setShowFormModal(true);
+  };
+
+  const openEditModal = (batch: Batch) => {
+    setEditingId(batch.id);
+    setForm({
+      code: batch.code,
+      courseId: batch.courseId,
+      instructorId: batch.instructorId || '',
+      daysOfWeek: batch.daysOfWeek || [],
+      startTime: batch.startTime,
+      endTime: batch.endTime,
+      location: batch.location || '',
+      startDate: batch.startDate,
+      endDate: batch.endDate,
+      status: batch.status,
+      customFields: batch.customFields || {},
+    });
+    setShowFormModal(true);
+  };
+
+  const toggleDay = (day: number) => {
+    setForm(prev => ({
+      ...prev,
+      daysOfWeek: prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day],
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.code || !form.courseId || !form.startDate || !form.endDate) {
+      toast.error('Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin lá»›p há»c.');
+      return;
+    }
+    if (form.daysOfWeek.length === 0) {
+      toast.error('Vui lÃ²ng chá»n Ã­t nháº¥t má»™t ngÃ y há»c trong tuáº§n.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = { ...form, code: form.code.toUpperCase() };
+      if (editingId) {
+        await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        toast.success(`ÄÃ£ cáº­p nháº­t lá»›p ${payload.code}.`);
+      } else {
+        await apiFetch('/batches', { method: 'POST', body: JSON.stringify(payload) });
+        toast.success(`ÄÃ£ má»Ÿ lá»›p ${payload.code} thÃ nh cÃ´ng!`);
+      }
+      notifyBatchMutation();
+      setShowFormModal(false);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi lÆ°u lá»›p há»c.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChangeStatus = async (batch: Batch, status: BatchStatus) => {
+    try {
+      await apiFetch(`/batches/${batch.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      notifyBatchMutation();
+      toast.success(`Lá»›p ${batch.code} Ä‘Ã£ chuyá»ƒn sang "${status}".`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi cáº­p nháº­t tráº¡ng thÃ¡i.';
+      toast.error(msg);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm.id) return;
+    try {
+      await apiFetch(`/batches/${deleteConfirm.id}`, { method: 'DELETE' });
+      notifyBatchMutation();
+      toast.success(`ÄÃ£ xÃ³a lá»›p ${deleteConfirm.code}.`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi xÃ³a lá»›p.';
+      toast.error(msg);
+    } finally {
+      setDeleteConfirm({ isOpen: false, id: '', code: '' });
+    }
+  };
+
+  const handleAddLearner = async () => {
+    if (!manageBatch || !selectedStudentId) return;
+    try {
+      await apiFetch(`/batches/${manageBatch.id}/learners`, {
+        method: 'POST',
+        body: JSON.stringify({ studentId: selectedStudentId }),
+      });
+      notifyBatchMutation();
+      setSelectedStudentId('');
+      toast.success('ÄÃ£ thÃªm há»c viÃªn vÃ o lá»›p.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi thÃªm há»c viÃªn.';
+      toast.error(msg);
+    }
+  };
+
+  const handleRemoveLearner = async (studentId: string) => {
+    if (!manageBatch) return;
+    try {
+      await apiFetch(`/batches/${manageBatch.id}/learners/${studentId}`, { method: 'DELETE' });
+      notifyBatchMutation();
+      toast.success('ÄÃ£ bá» há»c viÃªn khá»i lá»›p.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi bá» há»c viÃªn.';
+      toast.error(msg);
+    }
+  };
+
+  const filteredBatches = batches.filter(b => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (b.code || '').toLowerCase().includes(term) ||
+      (b.courseTitle || '').toLowerCase().includes(term) ||
+      (b.instructorName || '').toLowerCase().includes(term);
+    const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+  const totalPages = Math.ceil(filteredBatches.length / pageSize);
+  const paginatedBatches = filteredBatches.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter]);
+
+  const availableStudents = manageBatch
+    ? students.filter(s => !manageBatch.learnerIds.includes(s.id))
+    : [];
+  const enrolledStudents = manageBatch
+    ? manageBatch.learnerIds
+      .map(id => students.find(s => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s)
+    : [];
+
+  return (
+    <div className="space-y-4 text-left">
+      <ErpPageHeader
+        title="Lá»›p & Khai giáº£ng"
+        subtitle="Má»Ÿ lá»›p theo khÃ³a há»c, xáº¿p lá»‹ch Ä‘á»‹nh ká»³, gÃ¡n giáº£ng viÃªn & há»c viÃªn"
+        action={
+          <ErpPrimaryButton onClick={openCreateModal}>
+            Má»Ÿ lá»›p má»›i
+          </ErpPrimaryButton>
+        }
+      />
+
+      {/* Controls */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="TÃ¬m theo mÃ£ lá»›p, khÃ³a há»c, giáº£ng viÃªn..." />
+        <ErpFilterRail>
+          <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
+            Táº¥t cáº£
+          </ErpFilterTab>
+          {BATCH_STATUSES.map((st) => (
+            <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
+              {st}
+            </ErpFilterTab>
+          ))}
+        </ErpFilterRail>
+      </div>
+
+      {/* Batch table */}
+      {loading && batches.length === 0 ? (
+        <ErpCard><ErpLoadingState message="Äang táº£i danh sÃ¡ch lá»›p..." /></ErpCard>
+      ) : filteredBatches.length === 0 ? (
+        <ErpCard>
+          <ErpEmptyState
+            icon={School}
+            title="ChÆ°a cÃ³ lá»›p nÃ o"
+            subtitle="Báº¥m 'Má»Ÿ lá»›p má»›i' Ä‘á»ƒ khai giáº£ng lá»›p Ä‘áº§u tiÃªn cho má»™t khÃ³a há»c."
+          />
+        </ErpCard>
+      ) : (
+        <ErpCard className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <ErpTableHead columns={['MÃ£ lá»›p', 'KhÃ³a há»c', 'Giáº£ng viÃªn', 'Lá»‹ch há»c', 'Thá»i gian', 'SÄ© sá»‘', 'Tráº¡ng thÃ¡i', 'Thao tÃ¡c']} />
+              <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
+                {paginatedBatches.map((b) => (
+                  <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
+                    <td className="py-2 px-4 font-black text-sm">{b.code}</td>
+                    <td className="py-2 px-4">
+                      <p className="font-bold">{b.courseTitle}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.courseCode}</p>
+                    </td>
+                    <td className="py-2 px-4 font-bold">
+                      {b.instructorName ? (
+                        <span className="flex items-center gap-1.5">
+                          <GraduationCap className="w-3.5 h-3.5 text-slate-400" /> {b.instructorName}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">ChÆ°a gÃ¡n</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-4 font-bold">
+                      <p>{formatDays(b.daysOfWeek)}</p>
+                      <p className="text-[9px] text-slate-400">{b.startTime} - {b.endTime}{b.location ? ` â€¢ ${b.location}` : ''}</p>
+                    </td>
+                    <td className="py-2 px-4 font-bold whitespace-nowrap">
+                      {formatDate(b.startDate)} â†’ {formatDate(b.endDate)}
+                    </td>
+                    <td className="py-2 px-4">
+                      <button
+                        onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
+                        title="Quáº£n lÃ½ há»c viÃªn trong lá»›p"
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
+                          darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
+                        )}
+                      >
+                        <Users className="w-3 h-3 text-brand-primary" />
+                        {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} HV
+                      </button>
+                    </td>
+                    <td className="py-2 px-4">
+                      <select
+                        value={b.status}
+                        onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
+                        className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border outline-none cursor-pointer",
+                          statusStyle(b.status),
+                          darkMode ? "bg-slate-900" : "bg-white"
+                        )}
+                      >
+                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                      </select>
+                    </td>
+                    <td className="py-2 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => openEditModal(b)}
+                          title="Chá»‰nh sá»­a lá»›p"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60"
+                          )}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })}
+                          title="XÃ³a lá»›p"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60"
+                          )}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setManageLearnersId(b.id)}
+                          title="Quáº£n lÃ½ há»c viÃªn"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
+                          )}
+                        >
+                          <Users className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredBatches.length}
+            pageSize={pageSize}
+            itemName="lá»›p há»c"
+          />
+        </ErpCard>
+      )}
+
+      {/* Create / Edit Batch Modal */}
+      {showFormModal && (
+        <ErpModal title={editingId ? 'Chá»‰nh sá»­a lá»›p há»c' : 'Má»Ÿ lá»›p má»›i'} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Section 1: ThÃ´ng tin lá»›p há»c */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <School className="w-4 h-4 text-brand-primary" />
+                  ThÃ´ng tin lá»›p há»c
+                </h4>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <ErpField label="MÃ£ lá»›p">
+                  <div className="relative">
+                    <ErpInput
+                      type="text"
+                      required
+                      placeholder="VÃ­ dá»¥: K32"
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
+                      className="pl-10"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+                <ErpField label="KhÃ³a há»c">
+                  <div className="relative">
+                    <ErpSelect
+                      required
+                      value={form.courseId}
+                      onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+                      className="pl-10"
+                    >
+                      <option value="" disabled>-- Chá»n khÃ³a há»c --</option>
+                      {courses.map((c) => (
+                        <option key={c.id} value={c.id}>{c.code} â€” {c.title}</option>
+                      ))}
+                    </ErpSelect>
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+              </div>
+
+              <ErpField label="Giáº£ng viÃªn phá»¥ trÃ¡ch">
+                <div className="relative">
+                  <ErpSelect
+                    value={form.instructorId}
+                    onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
+                    className="pl-10"
+                  >
+                    <option value="">â€” ChÆ°a gÃ¡n giáº£ng viÃªn â€”</option>
+                    {instructors.map((i) => (
+                      <option key={i.uid} value={i.uid}>{i.displayName} (NhÃ¢n viÃªn)</option>
+                    ))}
+                  </ErpSelect>
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
+                </div>
+              </ErpField>
+            </div>
+
+            {/* Section 2: Lá»‹ch há»c & Khung giá» */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-brand-primary" />
+                  Lá»‹ch há»c & Khung giá»
+                </h4>
+              </div>
+
+              <ErpField label="NgÃ y há»c trong tuáº§n">
+                <div className="grid grid-cols-7 gap-1 mt-1">
+                  {DAY_OPTIONS.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => toggleDay(d.value)}
+                      className={cn(
+                        "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
+                        form.daysOfWeek.includes(d.value)
+                          ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
+                          : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
+                      )}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </ErpField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <ErpField label="Giá» báº¯t Ä‘áº§u">
+                  <div className="relative">
+                    <TimeInput24
+                      required
+                      value={form.startTime}
+                      onChange={(v) => setForm({ ...form, startTime: v })}
+                      className={cn(erpInputClass(darkMode), "pl-10")}
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+                <ErpField label="Giá» káº¿t thÃºc">
+                  <div className="relative">
+                    <TimeInput24
+                      required
+                      value={form.endTime}
+                      onChange={(v) => setForm({ ...form, endTime: v })}
+                      className={cn(erpInputClass(darkMode), "pl-10")}
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+              </div>
+            </div>
+
+            {/* Section 3: Thá»i gian & Äá»‹a Ä‘iá»ƒm */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <CalendarRange className="w-4 h-4 text-brand-primary" />
+                  Thá»i gian & Äá»‹a Ä‘iá»ƒm
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <ErpField label="NgÃ y khai giáº£ng">
+                  <div className="relative">
+                    <ErpInput
+                      type="date"
+                      required
+                      value={form.startDate}
+                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                      className="pl-10"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+                <ErpField label="NgÃ y káº¿t thÃºc">
+                  <div className="relative">
+                    <ErpInput
+                      type="date"
+                      required
+                      value={form.endDate}
+                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                      className="pl-10"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                  </div>
+                </ErpField>
+              </div>
+
+              <ErpField label="Äá»‹a Ä‘iá»ƒm (tÃ¹y chá»n)">
+                <div className="relative">
+                  <ErpInput
+                    type="text"
+                    placeholder="VÃ­ dá»¥: PhÃ²ng 201 / SÃ¢n táº­p sá»‘ 2"
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    className="pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                </div>
+              </ErpField>
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="batches"
+              values={form.customFields}
+              onChange={(customFields) => setForm((previous) => ({ ...previous, customFields }))}
+              mode={editingId ? 'edit' : 'create'}
+              disabled={isSubmitting}
+            />
+
+            {/* Custom submit button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2 bg-gradient-to-r from-brand-primary to-sky-600 hover:from-brand-primary/95 hover:to-sky-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-md shadow-brand-primary/10 hover:shadow-brand-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              ) : (
+                <School className="w-4 h-4" />
+              )}
+              {isSubmitting ? 'Äang lÆ°u...' : editingId ? 'LÆ°u thay Ä‘á»•i' : 'Khai giáº£ng lá»›p'}
+            </button>
+          </form>
+        </ErpModal>
+      )}
+
+      {/* Manage Learners Modal */}
+      {manageBatch && (
+        <ErpModal
+          title={`Há»c viÃªn lá»›p ${manageBatch.code}`}
+          onClose={() => setManageLearnersId(null)}
+          maxWidth="max-w-lg"
+        >
+          <div className="space-y-6">
+            <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
+              {manageBatch.courseTitle} â€¢ SÄ© sá»‘: {manageBatch.learnerIds.length}
+              {manageBatch.maxLearners ? `/${manageBatch.maxLearners}` : ''} há»c viÃªn
+            </p>
+
+            {/* Add learner */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <ErpSelect
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                >
+                  <option value="">-- Chá»n há»c viÃªn Ä‘á»ƒ thÃªm vÃ o lá»›p --</option>
+                  {availableStudents.map((s) => (
+                    <option key={s.id} value={s.id}>{s.fullName} ({s.phone})</option>
+                  ))}
+                </ErpSelect>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddLearner}
+                disabled={!selectedStudentId}
+                className="px-3.5 py-2 bg-brand-primary text-white rounded-lg text-xs font-bold transition-all hover:bg-brand-primary/95 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
+              >
+                <UserPlus className="w-3.5 h-3.5" /> ThÃªm
+              </button>
+            </div>
+
+            {/* Enrolled learners */}
+            <div className="space-y-2">
+              <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
+                Danh sÃ¡ch há»c viÃªn trong lá»›p
+              </h5>
+              {enrolledStudents.length === 0 ? (
+                <p className="text-xs text-slate-400">Lá»›p chÆ°a cÃ³ há»c viÃªn nÃ o.</p>
+              ) : (
+                <div className={cn("border rounded-xl p-1 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
+                  {enrolledStudents.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between py-1.5 px-2">
+                      <div>
+                        <p className={cn("text-xs font-bold", darkMode ? "text-slate-200" : "text-slate-700")}>{s.fullName}</p>
+                        <p className="text-[9px] text-slate-400">{s.phone}{s.rank ? ` â€¢ Háº¡ng ${s.rank}` : ''}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLearner(s.id)}
+                        title="Bá» khá»i lá»›p"
+                        className={cn(
+                          "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                          darkMode
+                            ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-400 border-transparent"
+                            : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border-slate-200/60"
+                        )}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </ErpModal>
+      )}
+
+      {/* Confirm Delete Modal */}
+      <ErpConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="XÃ³a lá»›p há»c"
+        message={`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a lá»›p "${deleteConfirm.code}" khÃ´ng? Danh sÃ¡ch há»c viÃªn trong lá»›p sáº½ bá»‹ gá»¡ liÃªn káº¿t. HÃ nh Ä‘á»™ng nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: '', code: '' })}
+        confirmText="XÃ¡c nháº­n xÃ³a"
+        cancelText="Há»§y bá»"
+      />
+    </div>
+  );
+}
+
+===== FILE: src/modules/student-management/components/Exams/AddExamModal.tsx =====
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Save, ChevronDown, Loader2, Calendar } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import { ExamSession } from '../../types';
+import { toast } from '../../../../pages/Toast';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+
+interface AddExamModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: (exam: ExamSession) => void;
+  initialData?: ExamSession | null;
+}
+
+export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExamModalProps) {
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    rank: '',
+    tentativeDate: '',
+    location: '',
+    customFields: {} as CustomFieldValues,
+  });
+
+  const dateInputRef = React.useRef<HTMLInputElement>(null);
+  const [localTentativeDate, setLocalTentativeDate] = useState('');
+
+  useEffect(() => {
+    if (document.activeElement !== dateInputRef.current) {
+      setLocalTentativeDate(formData.tentativeDate);
+    }
+  }, [formData.tentativeDate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (initialData) {
+        let formattedDate = '';
+        if (initialData.tentativeDate) {
+          const parts = initialData.tentativeDate.split('/');
+          if (parts.length === 3) {
+            formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          }
+        }
+
+        setFormData({
+          name: initialData.name || '',
+          rank: initialData.rank || '',
+          tentativeDate: formattedDate,
+          location: initialData.location || '',
+          customFields: initialData.customFields || {},
+        });
+      } else {
+        setFormData({
+          name: '',
+          rank: '',
+          tentativeDate: '',
+          location: '',
+          customFields: {},
+        });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [initialData, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.tentativeDate || !formData.location) {
+      toast.warning('Vui lÃ²ng Ä‘iá»n Ä‘áº§y Ä‘á»§ cÃ¡c trÆ°á»ng báº¯t buá»™c (*)');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const dateParts = formData.tentativeDate.split('-');
+      const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+      if (initialData) {
+        const updateData = {
+          name: formData.name,
+          rank: formData.rank,
+          tentativeDate: formattedDate,
+          location: formData.location,
+          customFields: formData.customFields,
+        };
+
+        const res = await apiFetch(`/exams/${initialData.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updateData),
+        });
+
+        toast.success('ÄÃ£ cáº­p nháº­t Ä‘á»£t thi thÃ nh cÃ´ng!');
+        onSuccess({ ...initialData, ...updateData, id: res.data?._id || res.data?.id || initialData.id });
+      } else {
+        const examData = {
+          ...formData,
+          tentativeDate: formattedDate,
+          status: 'Sáº¯p diá»…n ra',
+        };
+
+        const res = await apiFetch('/exams', {
+          method: 'POST',
+          body: JSON.stringify(examData),
+        });
+
+        toast.success('ÄÃ£ táº¡o Ä‘á»£t thi thÃ nh cÃ´ng!');
+        onSuccess({ 
+          ...examData, 
+          status: 'Sáº¯p diá»…n ra',
+          studentCount: 0,
+          passCount: 0,
+          failCount: 0,
+          id: res.data?._id || res.data?.id 
+        });
+      }
+
+      window.dispatchEvent(new Event('exam-mutation'));
+      onClose();
+      setFormData({
+        name: '',
+        rank: '',
+        tentativeDate: '',
+        location: '',
+        customFields: {},
+      });
+    } catch (error) {
+      console.error('Error creating/updating exam:', error);
+      toast.error('Lá»—i khi xá»­ lÃ½ Ä‘á»£t thi: ' + (error instanceof Error ? error.message : 'KhÃ´ng rÃµ nguyÃªn nhÃ¢n'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 30 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
+        >
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 flex-shrink-0">
+            <h2 className="text-base font-bold text-slate-800">
+              {initialData ? 'Chá»‰nh sá»­a Ä‘á»£t thi' : 'Táº¡o Ä‘á»£t thi má»›i'}
+            </h2>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="p-1.5 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50"
+            >
+              <X className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+
+          <form className="p-5 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                  TÃªn Ä‘á»£t thi <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="VÃ­ dá»¥: Äá»£t thi Ã” tÃ´ - ThÃ¡ng 3/2026"
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                    NhÃ³m thi
+                  </label>
+                  <input
+                    type="text"
+                    name="rank"
+                    value={formData.rank}
+                    onChange={handleInputChange}
+                    placeholder="Nháº­p nhÃ³m thi"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
+                  />
+                </div>
+
+                 <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                    NgÃ y thi dá»± kiáº¿n <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      ref={dateInputRef}
+                      type="date"
+                      name="tentativeDate"
+                      value={localTentativeDate}
+                      onChange={(e) => {
+                        setLocalTentativeDate(e.target.value);
+                        handleInputChange(e);
+                      }}
+                      required
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                  Äá»‹a Ä‘iá»ƒm thi <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="VÃ­ dá»¥: Trung tÃ¢m sÃ¡t háº¡ch quáº­n 1"
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
+                />
+              </div>
+            </div>
+
+            <CustomFieldsSection
+              moduleKey="exams"
+              values={formData.customFields}
+              onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+              mode={initialData ? 'edit' : 'create'}
+              disabled={isSubmitting}
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-3 mt-4 border-t border-slate-50 flex-shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+              >
+                Há»§y
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
+              >
+                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {isSubmitting ? 'Äang lÆ°u...' : initialData ? 'Cáº­p nháº­t Ä‘á»£t thi' : 'Táº¡o Ä‘á»£t thi'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+}
+
+===== FILE: src/modules/student-management/components/Exams/ExamCard.tsx =====
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  ChevronDown, UserPlus, Edit3, Trash2,
+  CheckCircle2, Map, UserMinus, RefreshCw,
+  Download, Upload, Calendar as CalendarIcon
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { cn } from '../../lib/utils';
+import { DrivingStudent, ExamSession, ExamStatus } from '../../types';
+import { apiFetch } from '../../lib/api';
+import { toast } from '../../../../pages/Toast';
+import { useAuth } from '../../../../context/AuthContext';
+import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './ExcelImportPreviewModal';
+import { CustomFieldDetails } from '../../custom-fields/CustomFieldDetails';
+
+const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
+  try {
+    let headers = ['Há» vÃ  tÃªn', 'Sá»‘ Ä‘iá»‡n thoáº¡i', 'Káº¿t quáº£ thi'];
+    let data: (string | number)[][] = students.map(s => {
+      const examEntry = s.exams?.find(e => e.id === exam.id);
+      const overall = examEntry?.result?.overall || 'ChÆ°a cÃ³';
+      return [s.fullName, s.phone, overall];
+    });
+    if (data.length === 0) {
+      data = [
+        ['Nguyá»…n VÄƒn A (Máº«u)', '0987654321', 'Äáº­u'],
+        ['Tráº§n Thá»‹ B (Máº«u)', '0912345678', 'ChÆ°a cÃ³']
+      ];
+    }
+    const cols = [{ wch: 25 }, { wch: 18 }, { wch: 15 }];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws['!cols'] = cols;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Káº¿t quáº£ thi");
+    XLSX.writeFile(wb, `mau_ket_qua_thi_${exam.name.replace(/\s+/g, '_')}.xlsx`);
+  } catch (error) {
+    console.error("Error generating exam template:", error);
+  }
+};
+
+const handleExportResults = (exam: ExamSession, students: DrivingStudent[]) => {
+  try {
+    const headers = ['Há» vÃ  tÃªn', 'Sá»‘ Ä‘iá»‡n thoáº¡i', 'Tráº¡ng thÃ¡i há»c', 'Káº¿t quáº£ thi'];
+    const data = students.map(s => {
+      const examEntry = s.exams?.find(e => e.id === exam.id);
+      const overall = examEntry?.result?.overall || 'ChÆ°a cÃ³';
+      return [s.fullName, s.phone, Array.isArray(s.status) ? s.status.join(', ') : s.status, overall];
+    });
+    const cols = [{ wch: 25 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws['!cols'] = cols;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Danh sÃ¡ch há»c viÃªn");
+    XLSX.writeFile(wb, `ket_qua_thi_${exam.name.replace(/\s+/g, '_')}.xlsx`);
+  } catch (error) {
+    console.error("Error exporting exam results:", error);
+  }
+};
+
+const formatExcelPhone = (phoneVal: unknown): string => {
+  if (phoneVal === undefined || phoneVal === null) return '';
+  let clean = String(phoneVal).trim().replace(/[\s.-]/g, '');
+  if (!clean) return '';
+  if (clean.startsWith('84') && clean.length === 11) {
+    clean = '0' + clean.slice(2);
+  }
+  if (clean.startsWith('+84')) {
+    clean = '0' + clean.slice(3);
+  }
+  if (/^[1-9]\d{8}$/.test(clean)) {
+    clean = '0' + clean;
+  }
+  return clean;
+};
+
+export interface ExamCardProps {
+  exam: ExamSession;
+  assignedStudents: DrivingStudent[];
+  getStatusInfo: (status: ExamStatus) => { 
+    color: string; 
+    icon: React.ComponentType<{ className?: string }>; 
+    label: string; 
+  };
+  onDelete: () => void | Promise<unknown>;
+  onEdit: () => void | Promise<unknown>;
+  onStatusClick: () => void | Promise<unknown>;
+  onAssignClick: () => void | Promise<unknown>;
+  onUnassignStudent?: (studentId: string) => void | Promise<unknown>;
+  onUpdateStudentResult?: (studentId: string, result: 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³') => void | Promise<unknown>;
+}
+
+export const ExamCard: React.FC<ExamCardProps> = ({ 
+  exam, 
+  assignedStudents, 
+  getStatusInfo, 
+  onDelete, 
+  onEdit, 
+  onStatusClick, 
+  onAssignClick, 
+  onUnassignStudent, 
+  onUpdateStudentResult 
+}) => {
+  const { userProfile: user } = useAuth();
+  const businessType = 'general';
+  const status = getStatusInfo(exam.status);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [validPreviewList, setValidPreviewList] = useState<PreviewStudent[]>([]);
+  const [invalidPreviewList, setInvalidPreviewList] = useState<InvalidStudent[]>([]);
+  const [rawResults, setRawResults] = useState<{ phone: string; overallResult: 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³' }[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  
+
+  const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as (string | number | boolean | null | undefined)[][];
+
+        if (rows.length < 2) {
+          alert("File Excel rá»—ng hoáº·c thiáº¿u dá»¯ liá»‡u.");
+          return;
+        }
+
+        // Map columns
+        const headers = rows[0].map(h => h ? String(h).trim().toLowerCase() : '');
+        const phoneIdx = headers.findIndex(h => h.includes("Ä‘iá»‡n thoáº¡i") || h.includes("sÄ‘t") || h.includes("phone"));
+        const resultIdx = headers.findIndex(h => h.includes("káº¿t quáº£") || h.includes("result") || h.includes("overall"));
+
+        if (phoneIdx === -1 || resultIdx === -1) {
+          const foundHeaders = headers.filter(Boolean).join(", ");
+          alert(`KhÃ´ng tÃ¬m tháº¥y cÃ¡c cá»™t cáº§n thiáº¿t ('Sá»‘ Ä‘iá»‡n thoáº¡i' vÃ  'Káº¿t quáº£ thi') trong file Excel.\n\nCÃ¡c cá»™t tÃ¬m tháº¥y trong file cá»§a báº¡n: ${foundHeaders || "KhÃ´ng cÃ³ cá»™t nÃ o"}`);
+          return;
+        }
+
+        const resultsList: { phone: string; overallResult: 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³' }[] = [];
+        const importErrors: string[] = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
+            continue;
+          }
+
+          const phone = formatExcelPhone(row[phoneIdx]);
+          let overallResult = row[resultIdx] ? String(row[resultIdx]).trim() : 'ChÆ°a cÃ³';
+
+          if (!phone) {
+            importErrors.push(`DÃ²ng ${i + 1}: Thiáº¿u Sá»‘ Ä‘iá»‡n thoáº¡i.`);
+            continue;
+          }
+
+          if (phone.includes("0987654321") || phone.includes("0912345678")) {
+            continue;
+          }
+
+          const rawResult = overallResult.toLowerCase().trim();
+          if (rawResult === 'Ä‘áº­u' || rawResult === 'pass') {
+            overallResult = 'Äáº­u';
+          } else if (rawResult === 'trÆ°á»£t' || rawResult === 'fail' || rawResult === 'rá»›t') {
+            overallResult = 'TrÆ°á»£t';
+          } else if (rawResult === 'chÆ°a cÃ³' || rawResult === 'pending' || rawResult === '') {
+            overallResult = 'ChÆ°a cÃ³';
+          } else {
+            importErrors.push(`DÃ²ng ${i + 1} (SÄT ${phone}): Káº¿t quáº£ thi "${overallResult}" khÃ´ng há»£p lá»‡ (chá»‰ cháº¥p nháº­n: Äáº­u, TrÆ°á»£t, ChÆ°a cÃ³).`);
+            continue;
+          }
+
+          resultsList.push({
+            phone,
+            overallResult: overallResult as 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³'
+          });
+        }
+
+        if (importErrors.length > 0 && resultsList.length === 0) {
+          alert(`File Excel khÃ´ng há»£p lá»‡. Chi tiáº¿t cÃ¡c dÃ²ng lá»—i:\n- ${importErrors.join('\n- ')}`);
+          return;
+        }
+
+        if (resultsList.length === 0) {
+          alert("KhÃ´ng tÃ¬m tháº¥y dÃ²ng dá»¯ liá»‡u nÃ o há»£p lá»‡ trong file Excel.");
+          return;
+        }
+
+        // Call validation API to get previews
+        setIsImporting(true);
+        try {
+          interface ImportPreviewResponse {
+            success: boolean;
+            error?: string;
+            valid?: PreviewStudent[];
+            invalid?: InvalidStudent[];
+          }
+          const res = await apiFetch<ImportPreviewResponse>(`/exams/${exam.id}/import-results`, {
+            method: 'POST',
+            body: JSON.stringify({ results: resultsList, preview: true })
+          });
+
+          if (res.success) {
+            // Include client-side format errors in the invalid list for previewing
+            const clientInvalid = importErrors.map(err => ({
+              phone: 'â€”',
+              fullName: 'Lá»—i Ä‘á»‹nh dáº¡ng dÃ²ng',
+              reason: err
+            }));
+
+            setValidPreviewList(res.valid || []);
+            setInvalidPreviewList([...(res.invalid || []), ...clientInvalid]);
+            setRawResults(resultsList);
+            setIsPreviewOpen(true);
+          } else {
+            toast.error(res.error || "KhÃ´ng thá»ƒ kiá»ƒm tra dá»¯ liá»‡u Excel.");
+          }
+        } catch (error: unknown) {
+          console.error("Error previewing import:", error);
+          const msg = error instanceof Error ? error.message : "Lá»—i káº¿t ná»‘i khi táº£i dá»¯ liá»‡u lÃªn.";
+          toast.error(msg);
+        } finally {
+          setIsImporting(false);
+        }
+
+      } catch (err) {
+        console.error("Failed to process Excel file:", err);
+        alert("Lá»—i xá»­ lÃ½ file Excel.");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = ''; // Reset input element
+  };
+
+  const handleConfirmImport = async () => {
+    setIsImporting(true);
+    try {
+      interface ConfirmImportResponse {
+        success: boolean;
+        error?: string;
+        successCount?: number;
+        failedCount?: number;
+      }
+      const res = await apiFetch<ConfirmImportResponse>(`/exams/${exam.id}/import-results`, {
+        method: 'POST',
+        body: JSON.stringify({ results: rawResults, preview: false })
+      });
+
+      if (res.success) {
+        toast.success(`ÄÃ£ cáº­p nháº­t káº¿t quáº£: ${res.successCount} thÃ nh cÃ´ng, ${res.failedCount} tháº¥t báº¡i.`);
+        window.dispatchEvent(new Event("student-mutation"));
+        window.dispatchEvent(new Event("exam-mutation"));
+        setIsPreviewOpen(false);
+      } else {
+        toast.error(res.error || "Nháº­p káº¿t quáº£ thi tá»« Excel tháº¥t báº¡i.");
+      }
+    } catch (error: unknown) {
+      console.error("Error confirming import:", error);
+      const msg = error instanceof Error ? error.message : "Lá»—i khi nháº­p káº¿t quáº£ thi.";
+      toast.error(msg);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const showStudentRank = businessType !== 'general' && (!!exam.rank || assignedStudents.some(s => s.rank));
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-xl border border-slate-200 border-l-[4px] shadow-sm hover:shadow transition-all overflow-hidden"
+      style={{ borderLeftColor: exam.status === 'Sáº¯p diá»…n ra' ? '#f59e0b' : exam.status === 'ÄÃ£ xÃ¡c nháº­n' ? '#3b82f6' : exam.status === 'ÄÃ£ hoÃ n thÃ nh' ? '#10b981' : '#e2e8f0' }}
+    >
+      <div className="p-2.5 sm:p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 sm:gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{exam.name}</h3>
+            <div className="flex flex-wrap items-center gap-1">
+              <button 
+                onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
+                title="Thay Ä‘á»•i tráº¡ng thÃ¡i Ä‘á»£t thi"
+                className={cn("flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-semibold border hover:opacity-80 transition-opacity active:scale-95 cursor-pointer", status.color)}
+              >
+                <status.icon className="w-3 h-3" /> {status.label}
+              </button>
+              {exam.rank && (
+                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-700 rounded text-[9px] font-bold border border-cyan-100">
+                  {exam.rank}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-1.5 group">
+              <div className="p-1 rounded bg-slate-50 group-hover:bg-slate-100 transition-colors border border-slate-100/50">
+                <CalendarIcon className="w-3 h-3 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Dá»± kiáº¿n</p>
+                <p className="text-[11px] font-bold text-slate-700 mt-0.5">{exam.tentativeDate}</p>
+              </div>
+            </div>
+
+            {exam.officialDate && (
+              <div className="flex items-center gap-1.5 group">
+                <div className="p-1 rounded bg-emerald-50 group-hover:bg-emerald-100 transition-colors border border-emerald-100/50">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide leading-none">ChÃ­nh thá»©c</p>
+                  <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{exam.officialDate}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 group">
+              <div className="p-1 rounded bg-slate-50 group-hover:bg-slate-100 transition-colors border border-slate-100/50">
+                <Map className="w-3 h-3 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Äá»‹a Ä‘iá»ƒm</p>
+                <p className="text-[11px] font-bold text-slate-700 mt-0.5 truncate max-w-[150px] sm:max-w-[250px]">{exam.location}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-50">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
+              <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{exam.studentCount}</p>
+              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">Há»c viÃªn</p>
+            </div>
+            <div className="flex-1 sm:flex-none px-2 py-1 bg-emerald-50 rounded-lg text-center min-w-[45px] sm:min-w-[50px] border border-emerald-100/30">
+              <p className="text-sm sm:text-base font-extrabold text-emerald-600 leading-none">{exam.passCount}</p>
+              <p className="text-[8px] sm:text-[9px] font-bold text-emerald-500 mt-0.5 uppercase tracking-wide">Äáº­u</p>
+            </div>
+            <div className="flex-1 sm:flex-none px-2 py-1 bg-rose-50 rounded-lg text-center min-w-[45px] sm:min-w-[50px] border border-rose-100/30">
+              <p className="text-sm sm:text-base font-extrabold text-rose-600 leading-none">{exam.failCount}</p>
+              <p className="text-[8px] sm:text-[9px] font-bold text-rose-500 mt-0.5 uppercase tracking-wide">TrÆ°á»£t</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
+              title="Xáº¿p há»c viÃªn"
+              className="p-1 rounded-md text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              title="Sá»­a Ä‘á»£t thi"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              title="XÃ³a Ä‘á»£t thi"
+              className="p-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-all shadow-md shadow-rose-100 active:scale-95 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
+              title="Cáº­p nháº­t tráº¡ng thÃ¡i"
+              className="p-1 rounded-md text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+            <div className="hidden sm:block w-px h-5 bg-slate-100 mx-0.5" />
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+              title={isExpanded ? "Thu gá»n" : "Xem há»c viÃªn"}
+              className={cn(
+                "p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-50 transition-all border border-slate-100 active:scale-95 cursor-pointer",
+                isExpanded && "bg-slate-50 text-slate-600 border-slate-200"
+              )}
+            >
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isExpanded && "rotate-180")} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Student List */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+             initial={{ height: 0, opacity: 0 }}
+             animate={{ height: "auto", opacity: 1 }}
+             exit={{ height: 0, opacity: 0 }}
+             transition={{ duration: 0.2 }}
+             className="border-t border-slate-100 bg-slate-50/50 overflow-hidden"
+          >
+            <div className="p-3 space-y-2">
+              <CustomFieldDetails moduleKey="exams" values={exam.customFields || {}} />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Danh sÃ¡ch há»c viÃªn Ä‘Äƒng kÃ½ ({assignedStudents.length} há»c viÃªn)
+                  </h4>
+                  <p className="text-[9px] text-slate-400 font-medium mt-0.5 max-w-md">
+                    * File Excel nháº­p cáº§n chá»©a cÃ¡c cá»™t: <strong className="text-slate-500">Sá»‘ Ä‘iá»‡n thoáº¡i</strong> vÃ  <strong className="text-slate-500">Káº¿t quáº£ thi</strong> (Äáº­u / TrÆ°á»£t / ChÆ°a cÃ³). Táº£i file máº«u bÃªn cáº¡nh Ä‘á»ƒ xem vÃ­ dá»¥.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleDownloadTemplate(exam, assignedStudents)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-bold transition-all border border-cyan-100/50 cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Download className="w-3 h-3" />
+                    Táº£i máº«u Excel
+                  </button>
+                  {assignedStudents.length > 0 && (
+                    <button
+                      onClick={() => handleExportResults(exam, assignedStudents)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold transition-all border border-blue-100/50 cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Download className="w-3 h-3" />
+                      Xuáº¥t káº¿t quáº£
+                    </button>
+                  )}
+                  <label className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold transition-all border border-emerald-100/50 cursor-pointer shadow-sm active:scale-95">
+                    <Upload className="w-3 h-3" />
+                    Nháº­p tá»« Excel
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls"
+                      onChange={handleUploadExcel}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {assignedStudents.length === 0 ? (
+                <p className="text-xs text-slate-450 italic">Äá»£t thi nÃ y chÆ°a xáº¿p há»c viÃªn nÃ o.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/60 border-b border-slate-100">
+                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Há»c viÃªn</th>
+                        {showStudentRank && <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Háº¡ng</th>}
+                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Tráº¡ng thÃ¡i há»c</th>
+                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Káº¿t quáº£</th>
+                        <th className="px-2.5 py-1.5 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignedStudents.map((student) => {
+                        const examEntry = student.exams?.find(e => e.id === exam.id);
+                        const resultText = examEntry?.result?.overall || 'ChÆ°a cÃ³';
+                        
+                        return (
+                          <tr key={student.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                            <td className="px-2.5 py-1.5">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold text-slate-800">{student.fullName}</span>
+                                <span className="text-[9px] font-medium text-slate-400 mt-0.5">{student.phone}</span>
+                              </div>
+                            </td>
+                            {showStudentRank && (
+                              <td className="px-2.5 py-1.5 text-center">
+                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-[9px] font-black uppercase">
+                                  {student.rank || 'N/A'}
+                                </span>
+                              </td>
+                            )}
+                            <td className="px-2.5 py-1.5">
+                              <span className={cn(
+                                "px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase",
+                                (Array.isArray(student.status) ? student.status.includes('ÄÃ£ Ä‘áº­u') : student.status === 'ÄÃ£ Ä‘áº­u') ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                                (Array.isArray(student.status) ? student.status.includes('Äang thi') : student.status === 'Äang thi') ? "bg-cyan-50 text-cyan-600 border border-cyan-100" :
+                                "bg-slate-50 text-slate-500 border border-slate-100"
+                              )}>
+                                {Array.isArray(student.status) ? student.status.join(', ') : student.status}
+                              </span>
+                            </td>
+                            <td className="px-2.5 py-1.5 text-center">
+                              <select
+                                value={resultText}
+                                onChange={async (e) => {
+                                  const val = e.target.value as "Äáº­u" | "TrÆ°á»£t" | "ChÆ°a cÃ³";
+                                  onUpdateStudentResult?.(student.id, val);
+                                }}
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase outline-none border cursor-pointer transition-all focus:ring-2",
+                                  resultText === 'Äáº­u' ? "bg-emerald-50 text-emerald-600 border-emerald-100 focus:ring-emerald-500/10" :
+                                  resultText === 'TrÆ°á»£t' ? "bg-rose-50 text-rose-600 border-rose-100 focus:ring-rose-500/10" :
+                                  "bg-slate-50 text-slate-500 border-slate-200 focus:ring-slate-500/10"
+                                )}
+                              >
+                                <option value="ChÆ°a cÃ³" className="bg-white text-slate-700 font-bold uppercase">ChÆ°a cÃ³</option>
+                                <option value="Äáº­u" className="bg-white text-emerald-600 font-bold uppercase">Äáº­u</option>
+                                <option value="TrÆ°á»£t" className="bg-white text-rose-600 font-bold uppercase">TrÆ°á»£t</option>
+                              </select>
+                            </td>
+                            <td className="px-2.5 py-1.5 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a há»c viÃªn ${student.fullName} khá»i Ä‘á»£t thi nÃ y?`)) {
+                                    onUnassignStudent?.(student.id);
+                                  }
+                                }}
+                                title="XÃ³a khá»i Ä‘á»£t thi"
+                                className="p-1 rounded bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors cursor-pointer"
+                              >
+                                <UserMinus className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ExcelImportPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        validList={validPreviewList}
+        invalidList={invalidPreviewList}
+        onConfirm={handleConfirmImport}
+        isSubmitting={isImporting}
+      />
+    </motion.div>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Exams/ExamsPage.tsx =====
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import {
+  Plus, Download, Printer,
+  ChevronDown, Trash2,
+  ClipboardList, CheckCircle2, Clock, Users as UsersIcon,
+  X
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { cn } from '../../lib/utils';
+import { apiFetch } from '../../lib/api';
+import { useExams } from '../../hooks/useExams';
+import { useStudents } from '../../hooks/useStudents';
+import { ExamSession, ExamStatus } from '../../types';
+import { AddExamModal } from '../../components/Exams/AddExamModal';
+import { ExamStatusModal } from '../../components/Exams/ExamStatusModal';
+import { AssignStudentModal } from '../../components/Exams/AssignStudentModal';
+import { ExamCard } from '../../components/Exams/ExamCard';
+import { toast } from '../../../../pages/Toast';
+import { Pagination } from '../../components/ui/Pagination';
+
+export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
+  const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
+  const { exams, loading: examsLoading } = useExams(resolvedCenter);
+  const { students } = useStudents(resolvedCenter);
+
+  const [activeTab, setActiveTab] = useState<'exams' | 'students'>('exams');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<ExamSession | null>(null);
+  const [statusModalExam, setStatusModalExam] = useState<ExamSession | null>(null);
+  const [assignModalExam, setAssignModalExam] = useState<ExamSession | null>(null);
+  const [deleteModalExam, setDeleteModalExam] = useState<ExamSession | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Stats
+  const stats = {
+    totalExams: exams.length,
+    upcoming: exams.filter(e => e.status === 'Sáº¯p diá»…n ra' || e.status === 'ÄÃ£ xÃ¡c nháº­n').length,
+    confirmed: exams.filter(e => e.status === 'ÄÃ£ xÃ¡c nháº­n').length,
+    completed: exams.filter(e => e.status === 'ÄÃ£ hoÃ n thÃ nh').length,
+    unassignedStudents: students.filter(s => s.status.includes('Äang há»c')).length // Example logic
+  };
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [rankFilter, setRankFilter] = useState('Táº¥t cáº£ háº¡ng');
+  // Háº¡ng báº±ng â€” riÃªng ngÃ nh lÃ¡i xe; chá»‰ hiá»‡n filter khi cÃ³ dá»¯ liá»‡u
+  const hasRankData = React.useMemo(() => exams.some(e => e.rank), [exams]);
+  const rankOptions = React.useMemo(() => {
+    const ranks = [...new Set(exams.map(e => e.rank).filter(Boolean))] as string[];
+    return ['Táº¥t cáº£ háº¡ng', ...ranks.sort()];
+  }, [exams]);
+
+  const [statusFilter, setStatusFilter] = useState('Táº¥t cáº£');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchQuery, rankFilter, statusFilter, fromDate, toDate, selectedCenter]);
+
+  // Helper to parse DD/MM/YYYY to Date object
+  const parseDateString = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/').map(Number);
+    if (parts.length === 3) {
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const filteredExams = exams.filter(exam => {
+    if (hasRankData && rankFilter !== 'Táº¥t cáº£ háº¡ng' && exam.rank !== rankFilter) return false;
+
+    if (statusFilter !== 'Táº¥t cáº£' && exam.status !== statusFilter) return false;
+    if (searchQuery && !exam.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
+    // Date filter
+    const examDateStr = exam.officialDate || exam.tentativeDate;
+    if (examDateStr) {
+      const examDate = parseDateString(examDateStr);
+      if (examDate) {
+        if (fromDate) {
+          const from = new Date(fromDate);
+          from.setHours(0, 0, 0, 0);
+          examDate.setHours(0, 0, 0, 0);
+          if (examDate < from) return false;
+        }
+        if (toDate) {
+          const to = new Date(toDate);
+          to.setHours(23, 59, 59, 999);
+          examDate.setHours(0, 0, 0, 0);
+          if (examDate > to) return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredExams.length / pageSize);
+  const paginatedExams = filteredExams.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const getStatusInfo = (status: ExamStatus) => {
+    switch (status) {
+      case 'ÄÃ£ hoÃ n thÃ nh':
+        return { color: 'text-emerald-500 bg-emerald-50 border-emerald-100', icon: CheckCircle2, label: 'ÄÃ£ hoÃ n thÃ nh' };
+      case 'Sáº¯p diá»…n ra':
+        return { color: 'text-amber-500 bg-amber-50 border-amber-100', icon: Clock, label: 'Sáº¯p diá»…n ra' };
+      case 'ÄÃ£ xÃ¡c nháº­n':
+        return { color: 'text-blue-500 bg-blue-50 border-blue-100', icon: CheckCircle2, label: 'ÄÃ£ xÃ¡c nháº­n' };
+      case 'ÄÃ£ há»§y':
+        return { color: 'text-rose-500 bg-rose-50 border-rose-100', icon: X, label: 'ÄÃ£ há»§y' };
+      default:
+        return { color: 'text-slate-500 bg-slate-50 border-slate-100', icon: ClipboardList, label: status };
+    }
+  };
+
+  const handleDeleteExam = async () => {
+    if (!deleteModalExam) return;
+
+    setIsDeleting(true);
+    try {
+      await apiFetch(`/exams/${deleteModalExam.id}`, { method: 'DELETE' });
+      window.dispatchEvent(new Event("exam-mutation"));
+      setDeleteModalExam(null);
+      toast.success("XÃ³a Ä‘á»£t thi thÃ nh cÃ´ng!");
+    } catch (error: unknown) {
+      console.error("Error deleting exam:", error);
+      const msg = error instanceof Error ? error.message : "CÃ³ lá»—i xáº£y ra khi xÃ³a Ä‘á»£t thi.";
+      toast.error(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditExam = (exam: ExamSession) => {
+    setEditingExam(exam);
+    setIsAddModalOpen(true);
+  };
+
+  const handleStatusUpdate = (exam: ExamSession) => {
+    setStatusModalExam(exam);
+  };
+
+  const handleAssignStudent = (exam: ExamSession) => {
+    setAssignModalExam(exam);
+  };
+
+  const handleExport = () => {
+    if (filteredExams.length === 0) {
+      toast.warning('KhÃ´ng cÃ³ dá»¯ liá»‡u Ä‘á»£t thi Ä‘á»ƒ xuáº¥t.');
+      return;
+    }
+
+    const headers = ['TÃªn Ä‘á»£t thi', 'Háº¡ng', 'Tráº¡ng thÃ¡i', 'NgÃ y dá»± kiáº¿n', 'NgÃ y chÃ­nh thá»©c', 'Äá»‹a Ä‘iá»ƒm', 'Sá»‘ há»c viÃªn', 'Äáº­u', 'TrÆ°á»£t'];
+
+    const rows = filteredExams.map(exam => [
+      exam.name,
+      exam.rank || '',
+      exam.status,
+      exam.tentativeDate,
+      exam.officialDate || '',
+      exam.location,
+      exam.studentCount,
+      exam.passCount,
+      exam.failCount
+    ]);
+
+    try {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 25 }, // TÃªn Ä‘á»£t thi
+        { wch: 10 }, // Háº¡ng
+        { wch: 15 }, // Tráº¡ng thÃ¡i
+        { wch: 15 }, // NgÃ y dá»± kiáº¿n
+        { wch: 15 }, // NgÃ y chÃ­nh thá»©c
+        { wch: 25 }, // Äá»‹a Ä‘iá»ƒm
+        { wch: 12 }, // Sá»‘ há»c viÃªn
+        { wch: 10 }, // Äáº­u
+        { wch: 10 }  // TrÆ°á»£t
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Danh sÃ¡ch Ä‘á»£t thi");
+      XLSX.writeFile(wb, `danh_sach_lich_thi_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`);
+      toast.success('Xuáº¥t file Excel thÃ nh cÃ´ng.');
+    } catch (error) {
+      console.error('Error exporting exams to excel:', error);
+      toast.error('CÃ³ lá»—i xáº£y ra khi xuáº¥t file Excel.');
+    }
+  };
+
+  const handlePrint = () => {
+    if (filteredExams.length === 0) {
+      toast.warning('KhÃ´ng cÃ³ dá»¯ liá»‡u Ä‘á»£t thi Ä‘á»ƒ in.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) {
+      toast.error('TrÃ¬nh duyá»‡t Ä‘Ã£ cháº·n cá»­a sá»• báº­t lÃªn. Vui lÃ²ng cho phÃ©p báº­t lÃªn Ä‘á»ƒ in hoáº·c má»Ÿ á»©ng dá»¥ng trong tab má»›i.');
+      return;
+    }
+
+    const rowsHtml = filteredExams.map(exam => `
+      <tr>
+        <td style="padding: 10px; border: 1px solid #ddd;">${exam.name}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${exam.rank || '-'}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${exam.status}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${exam.tentativeDate}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${exam.officialDate || '-'}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${exam.location}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${exam.studentCount}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #10b981;">${exam.passCount}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: #f43f5e;">${exam.failCount}</td>
+      </tr>
+    `).join('');
+
+    const printContent = `
+      <html>
+        <head>
+          <title>Danh sÃ¡ch lá»‹ch thi - ${new Date().toLocaleDateString('vi-VN')}</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #334155; }
+            h1 { text-align: center; color: #1e293b; margin-bottom: 5px; }
+            p.info { text-align: center; margin-bottom: 30px; color: #64748b; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; font-size: 12px; padding: 12px; border: 1px solid #ddd; }
+            tr:nth-child(even) { background-color: #fcfcfc; }
+            .footer { margin-top: 30px; text-align: right; font-size: 12px; font-style: italic; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>DANH SÃCH Lá»ŠCH THI</h1>
+          <p class="info">NgÃ y xuáº¥t: ${new Date().toLocaleDateString('vi-VN')} | Tá»•ng sá»‘: ${filteredExams.length} Ä‘á»£t thi</p>
+          <table>
+            <thead>
+              <tr>
+                <th>TÃªn Ä‘á»£t thi</th>
+                <th>Háº¡ng</th>
+                <th>Tráº¡ng thÃ¡i</th>
+                <th>Dá»± kiáº¿n</th>
+                <th>ChÃ­nh thá»©c</th>
+                <th>Äá»‹a Ä‘iá»ƒm</th>
+                <th>HV</th>
+                <th>Äáº­u</th>
+                <th>TrÆ°á»£t</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">
+            Xuáº¥t bá»Ÿi Há»‡ thá»‘ng Quáº£n lÃ½ ÄÃ o táº¡o & Há»c viÃªn iGen
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Lá»‹ch thi</h1>
+          <p className="text-slate-400 text-xs font-medium mt-0.5">Quáº£n lÃ½ Ä‘á»£t thi, gáº¯n há»c viÃªn vÃ  theo dÃµi káº¿t quáº£</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> Xuáº¥t
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" /> In
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider shadow-md shadow-cyan-100 hover:bg-cyan-700 transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" /> Táº¡o Ä‘á»£t thi
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 no-print">
+        <StatCard label="Tá»•ng Ä‘á»£t thi" value={stats.totalExams} icon={ClipboardList} color="text-cyan-600" bgColor="bg-cyan-50" />
+        <StatCard label="Sáº¯p diá»…n ra" value={stats.upcoming} icon={Clock} color="text-orange-500" bgColor="bg-orange-50" />
+        <StatCard label="ÄÃ£ xÃ¡c nháº­n" value={stats.confirmed} icon={CheckCircle2} color="text-emerald-500" bgColor="bg-emerald-50" />
+        <StatCard label="ÄÃ£ hoÃ n thÃ nh" value={stats.completed} icon={CheckCircle2} color="text-sky-500" bgColor="bg-sky-50" />
+        <StatCard label="HV chÆ°a cÃ³ lá»‹ch" value={stats.unassignedStudents} icon={UsersIcon} color="text-purple-500" bgColor="bg-purple-50" />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 sm:gap-4 border-b border-slate-200 mt-1 overflow-x-auto no-scrollbar no-print">
+        <button
+          onClick={() => setActiveTab('exams')}
+          className={cn(
+            "flex items-center gap-1 px-1.5 py-2 text-xs font-bold transition-all relative whitespace-nowrap cursor-pointer",
+            activeTab === 'exams' ? "text-cyan-600" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <ClipboardList className="w-3.5 h-3.5" /> Äá»£t thi
+          {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />}
+        </button>
+        <button
+          onClick={() => setActiveTab('students')}
+          className={cn(
+            "flex items-center gap-1 px-1.5 py-2 text-xs font-bold transition-all relative whitespace-nowrap cursor-pointer",
+            activeTab === 'students' ? "text-cyan-600" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <UsersIcon className="w-3.5 h-3.5" /> HV chÆ°a cÃ³ lá»‹ch
+          {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />}
+        </button>
+      </div>
+
+      {activeTab === 'exams' ? (
+        <>
+          {/* Filters */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 bg-white p-1.5 rounded-xl border border-slate-100 shadow-sm no-print">
+            <FilterItem label="Tá»« ngÃ y">
+              <input
+                type="date"
+                value={fromDate}
+                placeholder="Tá»« ngÃ y..."
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full bg-transparent outline-none text-[11px] font-bold relative"
+              />
+            </FilterItem>
+            <FilterItem label="Äáº¿n ngÃ y">
+              <input
+                type="date"
+                value={toDate}
+                placeholder="Äáº¿n ngÃ y..."
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full bg-transparent outline-none text-[11px] font-bold relative"
+              />
+            </FilterItem>
+            {hasRankData && (
+              <FilterSelect label="Háº¡ng báº±ng" value={rankFilter} onChange={setRankFilter} options={rankOptions} />
+            )}
+
+            <FilterSelect label="Tráº¡ng thÃ¡i" value={statusFilter} onChange={setStatusFilter} options={['Táº¥t cáº£', 'Sáº¯p diá»…n ra', 'ÄÃ£ xÃ¡c nháº­n', 'ÄÃ£ hoÃ n thÃ nh']} />
+            <div className="flex items-end pb-1 col-span-2 sm:col-span-1">
+              <button
+                onClick={() => {
+                  setRankFilter('Táº¥t cáº£ háº¡ng');
+                  setStatusFilter('Táº¥t cáº£');
+                  setSearchQuery('');
+                  setFromDate('');
+                  setToDate('');
+                }}
+                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors h-7"
+              >
+                <X className="w-3 h-3" /> XÃ³a lá»c
+              </button>
+            </div>
+          </div>
+
+          {/* Exam List */}
+          <div className="space-y-3">
+            {examsLoading ? (
+              <div className="py-20 text-center text-slate-400 text-sm italic">Äang náº¡p dá»¯ liá»‡u Ä‘á»£t thi...</div>
+            ) : paginatedExams.length === 0 ? (
+              <div className="py-20 bg-white rounded-3xl border border-slate-100 text-center text-slate-400 text-sm italic">KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t thi nÃ o.</div>
+            ) : paginatedExams.map((exam) => (
+              <ExamCard
+                key={exam.id}
+                exam={exam}
+                assignedStudents={students.filter(s => s.examId === exam.id)}
+                getStatusInfo={getStatusInfo}
+                onDelete={() => setDeleteModalExam(exam)}
+                onEdit={() => handleEditExam(exam)}
+                onStatusClick={() => handleStatusUpdate(exam)}
+                onAssignClick={() => handleAssignStudent(exam)}
+                onUnassignStudent={async (studentId) => {
+                  try {
+                    await apiFetch(`/exams/${exam.id}/unassign`, {
+                      method: 'POST',
+                      body: JSON.stringify({ studentId })
+                    });
+                    window.dispatchEvent(new Event("student-mutation"));
+                    window.dispatchEvent(new Event("exam-mutation"));
+                    toast.success("ÄÃ£ xÃ³a há»c viÃªn khá»i Ä‘á»£t thi.");
+                  } catch (error) {
+                    console.error("Error unassigning student:", error);
+                    toast.error("CÃ³ lá»—i xáº£y ra khi xÃ³a há»c viÃªn khá»i Ä‘á»£t thi.");
+                  }
+                }}
+                onUpdateStudentResult={async (studentId, overallResult) => {
+                  try {
+                    await apiFetch(`/exams/${exam.id}/students/${studentId}/result`, {
+                      method: 'POST',
+                      body: JSON.stringify({ overallResult })
+                    });
+                    window.dispatchEvent(new Event("student-mutation"));
+                    window.dispatchEvent(new Event("exam-mutation"));
+                    toast.success("Cáº­p nháº­t káº¿t quáº£ thi thÃ nh cÃ´ng.");
+                  } catch (error) {
+                    console.error("Error updating student result:", error);
+                    toast.error("CÃ³ lá»—i xáº£y ra khi cáº­p nháº­t káº¿t quáº£ thi.");
+                  }
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredExams.length}
+            pageSize={pageSize}
+            itemName="Ä‘á»£t thi"
+            className="mt-4 shadow-sm bg-white rounded-3xl border border-slate-100"
+          />
+        </>
+      ) : (
+        <div className="py-20 bg-white rounded-3xl border border-slate-100 text-center text-slate-400 text-sm italic">Danh sÃ¡ch há»c viÃªn chÆ°a cÃ³ lá»‹ch thi.</div>
+      )}
+
+      {/* Add Exam Modal */}
+      <AddExamModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingExam(null);
+        }}
+        onSuccess={() => { }}
+        initialData={editingExam}
+      />
+
+      <ExamStatusModal
+        isOpen={!!statusModalExam}
+        exam={statusModalExam}
+        onClose={() => setStatusModalExam(null)}
+        onSuccess={() => { }}
+      />
+
+      <AssignStudentModal
+        isOpen={!!assignModalExam}
+        exam={assignModalExam}
+        onClose={() => setAssignModalExam(null)}
+        onSuccess={() => { }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalExam && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteModalExam(null)}
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="relative bg-white rounded-3xl shadow-2xl border border-slate-100 p-8 max-w-sm w-full text-center"
+          >
+            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 className="w-8 h-8 text-rose-500" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900 mb-2">XÃ¡c nháº­n xÃ³a</h3>
+            <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+              Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a Ä‘á»£t thi <span className="font-bold text-slate-800">"{deleteModalExam.name}"</span>?
+              Dá»¯ liá»‡u cá»§a há»c viÃªn trong Ä‘á»£t thi nÃ y sáº½ bá»‹ xÃ³a khá»i lá»‹ch.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModalExam(null)}
+                className="flex-1 px-6 py-3 bg-slate-50 text-slate-400 font-bold rounded-2xl hover:bg-slate-100 transition-all border border-slate-100"
+              >
+                Há»§y bá»
+              </button>
+              <button
+                onClick={handleDeleteExam}
+                disabled={isDeleting}
+                className="flex-1 px-6 py-3 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDeleting ? 'Äang xÃ³a...' : 'ÄÃºng, xÃ³a nÃ³'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bgColor: string;
+}
+
+function StatCard({ label, value, icon: Icon, color, bgColor }: StatCardProps) {
+  return (
+    <div className="bg-white p-1.5 px-2.5 rounded-lg border border-slate-100 shadow-sm flex items-center gap-2.5">
+      <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", bgColor)}>
+        <Icon className={cn("w-3.5 h-3.5", color)} />
+      </div>
+      <div>
+        <p className="text-sm font-bold text-slate-900 leading-none">{value}</p>
+        <p className="text-[9px] font-semibold text-slate-550 uppercase tracking-wider mt-0.5">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+interface FilterItemProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function FilterItem({ label, children }: FilterItemProps) {
+  return (
+    <div className="space-y-0.5">
+      <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider">{label}</label>
+      <div className="bg-slate-50 px-2 py-1 rounded-md border border-slate-100 h-7 flex items-center relative">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+interface FilterSelectProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+}
+
+function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
+  return (
+    <div className="space-y-0.5">
+      <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider">{label}</label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-7 bg-slate-50 px-2 pr-7 rounded-md border border-slate-100 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/5 transition-all"
+        >
+          {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+      </div>
+    </div>
+  );
+}
+
+
+

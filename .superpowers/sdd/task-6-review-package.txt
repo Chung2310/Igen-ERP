@@ -1,0 +1,755 @@
+﻿===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\api.ts =====
+import { apiFetch } from "../lib/api";
+import { createMaxSizeMb, type CreateFieldInput, type FieldDefinition, type ModuleKey, type UpdateFieldInput } from "./types";
+
+type ApiResponse<T> = { success: boolean; data: T };
+type ApiFieldDefinition = FieldDefinition & { _id?: string };
+
+const basePath = "/student-management/custom-fields";
+
+function normalizeField(field: ApiFieldDefinition): FieldDefinition {
+  const { _id, ...definition } = field;
+  return { ...definition, id: field.id ?? _id ?? "" };
+}
+
+function validateFileSizeLimit(input: CreateFieldInput | UpdateFieldInput): void {
+  const validation = input.validation as { maxSizeMb?: unknown } | undefined;
+  if (validation?.maxSizeMb !== undefined) createMaxSizeMb(validation.maxSizeMb as number);
+}
+
+export async function listCustomFields(moduleKey: ModuleKey, includeArchived = false): Promise<FieldDefinition[]> {
+  const path = `${basePath}/${moduleKey}`;
+  const response = includeArchived
+    ? await apiFetch<ApiResponse<ApiFieldDefinition[]>>(path, { params: { includeArchived: true } })
+    : await apiFetch<ApiResponse<ApiFieldDefinition[]>>(path);
+  return response.data.map(normalizeField);
+}
+
+export async function createCustomField(moduleKey: ModuleKey, input: CreateFieldInput): Promise<FieldDefinition> {
+  validateFileSizeLimit(input);
+  const response = await apiFetch<ApiResponse<ApiFieldDefinition>>(`${basePath}/${moduleKey}`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return normalizeField(response.data);
+}
+
+export async function updateCustomField(moduleKey: ModuleKey, id: string, input: UpdateFieldInput): Promise<FieldDefinition> {
+  validateFileSizeLimit(input);
+  const response = await apiFetch<ApiResponse<ApiFieldDefinition>>(`${basePath}/${moduleKey}/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+  return normalizeField(response.data);
+}
+
+export async function archiveCustomField(moduleKey: ModuleKey, id: string): Promise<FieldDefinition> {
+  const response = await apiFetch<ApiResponse<ApiFieldDefinition>>(`${basePath}/${moduleKey}/${id}/archive`, { method: "POST" });
+  return normalizeField(response.data);
+}
+
+export async function restoreCustomField(moduleKey: ModuleKey, id: string): Promise<FieldDefinition> {
+  const response = await apiFetch<ApiResponse<ApiFieldDefinition>>(`${basePath}/${moduleKey}/${id}/restore`, { method: "POST" });
+  return normalizeField(response.data);
+}
+
+===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\permissions.test.ts =====
+import { describe, expect, it } from "vitest";
+import { canManageCustomFields } from "./permissions";
+import { createMaxSizeMb, DYNAMIC_FIELD_TYPES, MODULE_KEYS } from "./types";
+
+describe("custom field frontend contracts", () => {
+  it("exposes exactly the six supported module keys", () => {
+    expect(MODULE_KEYS).toEqual(["students", "courses", "batches", "exams", "resources", "partners"]);
+  });
+
+  it("exposes every backend dynamic field type", () => {
+    expect(DYNAMIC_FIELD_TYPES).toEqual([
+      "shortText", "longText", "email", "phone", "url", "number", "percent",
+      "currency", "date", "time", "dateTime", "singleSelect", "multiSelect",
+      "checkbox", "switch", "file", "image", "multiImage",
+    ]);
+  });
+
+  it("allows only field-management roles", () => {
+    expect(canManageCustomFields("superadmin")).toBe(true);
+    expect(canManageCustomFields("admin")).toBe(true);
+    expect(canManageCustomFields("manager")).toBe(true);
+    expect(canManageCustomFields("Leader")).toBe(false);
+    expect(canManageCustomFields("user")).toBe(false);
+    expect(canManageCustomFields(null)).toBe(false);
+    expect(canManageCustomFields()).toBe(false);
+  });
+
+  it("only creates canonical file-size limits from 1 through 100 MB", () => {
+    expect(createMaxSizeMb(1)).toBe(1);
+    expect(createMaxSizeMb(100)).toBe(100);
+    expect(() => createMaxSizeMb(0.5)).toThrow(/1.*100/);
+    expect(() => createMaxSizeMb(101)).toThrow(/1.*100/);
+  });
+});
+
+===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\permissions.ts =====
+export function canManageCustomFields(role?: string | null): boolean {
+  return role === "superadmin" || role === "admin" || role === "manager";
+}
+
+===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\types.ts =====
+export const MODULE_KEYS = ["students", "courses", "batches", "exams", "resources", "partners"] as const;
+export type ModuleKey = typeof MODULE_KEYS[number];
+
+export const DYNAMIC_FIELD_TYPES = [
+  "shortText", "longText", "email", "phone", "url", "number", "percent",
+  "currency", "date", "time", "dateTime", "singleSelect", "multiSelect",
+  "checkbox", "switch", "file", "image", "multiImage",
+] as const;
+export type DynamicFieldType = typeof DYNAMIC_FIELD_TYPES[number];
+
+export type FieldOption = { label: string; value: string };
+export type FileMetadata = { url: string; fileName: string; mimeType?: string; size?: number };
+export type CustomFieldValue = string | number | boolean | string[] | FileMetadata | FileMetadata[] | null;
+export type CustomFieldValues = Record<string, CustomFieldValue>;
+
+declare const maxSizeMbBrand: unique symbol;
+export type MaxSizeMb = number & { readonly [maxSizeMbBrand]: "MaxSizeMb" };
+
+export function createMaxSizeMb(value: number): MaxSizeMb {
+  if (!Number.isFinite(value) || value < 1 || value > 100) {
+    throw new RangeError("maxSizeMb must be between 1 and 100.");
+  }
+  return value as MaxSizeMb;
+}
+
+export type TextValidation = { minLength?: number; maxLength?: number; pattern?: string };
+export type NumericValidation = { min?: number; max?: number; decimals?: number };
+export type DateValidation = {
+  minDate?: string;
+  maxDate?: string;
+  minTime?: string;
+  maxTime?: string;
+  minDateTime?: string;
+  maxDateTime?: string;
+};
+export type FileValidation = { maxSizeMb?: MaxSizeMb; maxFiles?: number; allowedMimeTypes?: string[] };
+export type FieldValidation = TextValidation | NumericValidation | DateValidation | FileValidation | Record<string, never>;
+
+export interface FieldDefinition {
+  id: string;
+  tenantId: string;
+  moduleKey: ModuleKey;
+  key: string;
+  label: string;
+  type: DynamicFieldType;
+  placeholder?: string;
+  defaultValue?: CustomFieldValue;
+  options?: FieldOption[];
+  validation?: FieldValidation;
+  isVisible: boolean;
+  isRequired: boolean;
+  isArchived: boolean;
+  order: number;
+  createdBy: string;
+  updatedBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreateFieldInput = {
+  label: string;
+  type: DynamicFieldType;
+  placeholder?: string;
+  defaultValue?: CustomFieldValue;
+  options?: FieldOption[];
+  validation?: FieldValidation;
+  isVisible?: boolean;
+  isRequired?: boolean;
+};
+
+export type UpdateFieldInput = Partial<CreateFieldInput> & { order?: number };
+
+===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\useCustomFields.test.tsx =====
+// @vitest-environment jsdom
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "../lib/api";
+import {
+  archiveCustomField,
+  createCustomField,
+  listCustomFields,
+  restoreCustomField,
+  updateCustomField,
+} from "./api";
+import type { FieldDefinition } from "./types";
+import { useCustomFields } from "./useCustomFields";
+
+vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+
+const mockedApiFetch = vi.mocked(apiFetch);
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+const mountedRoots = new Set<Root>();
+
+const field = (id: string, order: number, overrides: Partial<FieldDefinition> = {}): FieldDefinition => ({
+  id,
+  tenantId: "IGEN",
+  moduleKey: "students",
+  key: `field${id}`,
+  label: `Field ${id}`,
+  type: "shortText",
+  isVisible: true,
+  isRequired: false,
+  isArchived: false,
+  order,
+  createdBy: "admin",
+  updatedBy: "admin",
+  createdAt: "2026-07-18T00:00:00.000Z",
+  updatedAt: "2026-07-18T00:00:00.000Z",
+  ...overrides,
+});
+
+const response = <T,>(data: T) => ({ success: true, data });
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => { resolve = nextResolve; });
+  return { promise, resolve };
+}
+
+async function waitFor(assertion: () => void) {
+  let lastError: unknown;
+  for (let attempts = 0; attempts < 50; attempts += 1) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    }
+  }
+  throw lastError;
+}
+
+function renderHook<Result, Props>(hook: (props: Props) => Result, initialProps: Props) {
+  const container = document.createElement("div");
+  const root: Root = createRoot(container);
+  mountedRoots.add(root);
+  let current!: Result;
+
+  function Harness({ props }: { props: Props }) {
+    current = hook(props);
+    return null;
+  }
+
+  const render = async (props: Props) => {
+    await act(async () => { root.render(<Harness props={props} />); });
+  };
+
+  return {
+    get result() { return { current }; },
+    rerender: render,
+    unmount: async () => {
+      await act(async () => { root.unmount(); });
+      mountedRoots.delete(root);
+    },
+    ready: () => render(initialProps),
+  };
+}
+
+beforeEach(() => {
+  mockedApiFetch.mockReset();
+});
+
+afterEach(async () => {
+  await act(async () => {
+    mountedRoots.forEach((root) => root.unmount());
+  });
+  mountedRoots.clear();
+});
+
+describe("custom field API", () => {
+  it("uses the student-management base path and sends exact mutation requests", async () => {
+    mockedApiFetch
+      .mockResolvedValueOnce(response([field("1", 1)]))
+      .mockResolvedValueOnce(response(field("2", 2)))
+      .mockResolvedValueOnce(response(field("2", 3, { label: "Renamed" })))
+      .mockResolvedValueOnce(response(field("2", 3, { isArchived: true, isVisible: false })))
+      .mockResolvedValueOnce(response(field("2", 3)));
+
+    await expect(listCustomFields("students")).resolves.toEqual([field("1", 1)]);
+    await createCustomField("students", { label: "New field", type: "shortText" });
+    await updateCustomField("students", "2", { label: "Renamed", order: 3 });
+    await archiveCustomField("students", "2");
+    await restoreCustomField("students", "2");
+
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(1, "/student-management/custom-fields/students");
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(2, "/student-management/custom-fields/students", {
+      method: "POST",
+      body: JSON.stringify({ label: "New field", type: "shortText" }),
+    });
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(3, "/student-management/custom-fields/students/2", {
+      method: "PATCH",
+      body: JSON.stringify({ label: "Renamed", order: 3 }),
+    });
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(4, "/student-management/custom-fields/students/2/archive", { method: "POST" });
+    expect(mockedApiFetch).toHaveBeenNthCalledWith(5, "/student-management/custom-fields/students/2/restore", { method: "POST" });
+  });
+
+  it("requests archived definitions only when explicitly asked", async () => {
+    mockedApiFetch.mockResolvedValue(response([]));
+    await listCustomFields("courses", true);
+    expect(mockedApiFetch).toHaveBeenCalledWith("/student-management/custom-fields/courses", {
+      params: { includeArchived: true },
+    });
+  });
+
+  it("rejects invalid file-size limits before making a request", async () => {
+    await expect(createCustomField("students", {
+      label: "Upload",
+      type: "file",
+      validation: { maxSizeMb: 0.5 } as never,
+    })).rejects.toThrow(/1.*100/);
+    await expect(updateCustomField("students", "2", {
+      validation: { maxSizeMb: 101 } as never,
+    })).rejects.toThrow(/1.*100/);
+    expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts boundary file-size limits", async () => {
+    mockedApiFetch.mockResolvedValue(response(field("1", 1)));
+    await createCustomField("students", {
+      label: "Upload",
+      type: "file",
+      validation: { maxSizeMb: 1 } as never,
+    });
+    await updateCustomField("students", "1", {
+      validation: { maxSizeMb: 100 } as never,
+    });
+    expect(mockedApiFetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useCustomFields", () => {
+  it("loads active fields in order on mount", async () => {
+    mockedApiFetch.mockResolvedValue(response([field("late", 20), field("early", 1)]));
+
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    expect(hook.result.current.error).toBeNull();
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["early", "late"]);
+  });
+
+  it("ignores an old module response after the module changes", async () => {
+    const students = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    const courses = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    mockedApiFetch.mockReturnValueOnce(students.promise).mockReturnValueOnce(courses.promise);
+
+    const hook = renderHook(({ moduleKey }: { moduleKey: "students" | "courses" }) => useCustomFields(moduleKey), { moduleKey: "students" });
+    await hook.ready();
+    await hook.rerender({ moduleKey: "courses" });
+    courses.resolve(response([field("course", 1, { moduleKey: "courses" })]));
+    await waitFor(() => expect(hook.result.current.fields.map((item) => item.id)).toEqual(["course"]));
+    students.resolve(response([field("student", 1)]));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["course"]);
+  });
+
+  it("updates local state, sorts it, and emits a change after mutations", async () => {
+    const initial = field("existing", 2);
+    const created = field("created", 1);
+    const updated = field("existing", 3, { label: "Updated" });
+    const archived = field("created", 1, { isArchived: true, isVisible: false });
+    const restored = field("created", 0);
+    mockedApiFetch
+      .mockResolvedValueOnce(response([initial]))
+      .mockResolvedValueOnce(response(created))
+      .mockResolvedValueOnce(response(updated))
+      .mockResolvedValueOnce(response(archived))
+      .mockResolvedValueOnce(response(restored));
+    const changeListener = vi.fn();
+    window.addEventListener("custom-fields:changed", changeListener);
+
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    await act(async () => { await hook.result.current.createField({ label: "Created", type: "shortText" }); });
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["created", "existing"]);
+    await act(async () => { await hook.result.current.updateField("existing", { label: "Updated", order: 3 }); });
+    expect(hook.result.current.fields.map((item) => item.label)).toEqual(["Field created", "Updated"]);
+    await act(async () => { await hook.result.current.archiveField("created"); });
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["existing"]);
+    await act(async () => { await hook.result.current.restoreField("created"); });
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["created", "existing"]);
+    expect(changeListener).toHaveBeenCalledTimes(4);
+    expect((changeListener.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ moduleKey: "students", sourceId: expect.any(String) });
+
+    await hook.unmount();
+    window.removeEventListener("custom-fields:changed", changeListener);
+  });
+
+  it("refreshes peer hook instances without a duplicate self-fetch", async () => {
+    const created = field("created", 1);
+    mockedApiFetch
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response(created))
+      .mockResolvedValueOnce(response([created]));
+    const first = renderHook(() => useCustomFields("students"), undefined);
+    const second = renderHook(() => useCustomFields("students"), undefined);
+    await first.ready();
+    await second.ready();
+    await waitFor(() => expect(first.result.current.loading || second.result.current.loading).toBe(false));
+
+    await act(async () => { await first.result.current.createField({ label: "Created", type: "shortText" }); });
+    await act(async () => { await Promise.resolve(); });
+    expect(second.result.current.fields.map((item) => item.id)).toEqual(["created"]);
+    expect(mockedApiFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("ignores an event re-dispatched with its own stable source id", async () => {
+    mockedApiFetch
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response(field("created", 1)));
+    const events: CustomEvent[] = [];
+    const listener = (event: Event) => events.push(event as CustomEvent);
+    window.addEventListener("custom-fields:changed", listener);
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    await act(async () => { await hook.result.current.createField({ label: "Created", type: "shortText" }); });
+
+    window.dispatchEvent(new CustomEvent("custom-fields:changed", { detail: events[0].detail }));
+    await act(async () => { await Promise.resolve(); });
+    expect(mockedApiFetch).toHaveBeenCalledTimes(2);
+    window.removeEventListener("custom-fields:changed", listener);
+  });
+
+  it("does not apply or broadcast a delayed mutation after switching modules", async () => {
+    const create = deferred<ReturnType<typeof response<FieldDefinition>>>();
+    mockedApiFetch
+      .mockResolvedValueOnce(response([]))
+      .mockReturnValueOnce(create.promise)
+      .mockResolvedValueOnce(response([field("course", 1, { moduleKey: "courses" })]));
+    const events = vi.fn();
+    window.addEventListener("custom-fields:changed", events);
+    const hook = renderHook(({ moduleKey }: { moduleKey: "students" | "courses" }) => useCustomFields(moduleKey), { moduleKey: "students" });
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    const pending = hook.result.current.createField({ label: "Late", type: "shortText" });
+    await hook.rerender({ moduleKey: "courses" });
+    await waitFor(() => expect(hook.result.current.fields.map((item) => item.id)).toEqual(["course"]));
+    create.resolve(response(field("late", 2)));
+    await expect(pending).resolves.toMatchObject({ id: "late" });
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["course"]);
+    expect(hook.result.current.error).toBeNull();
+    expect(events).not.toHaveBeenCalled();
+    window.removeEventListener("custom-fields:changed", events);
+  });
+
+  it("prevents a refresh started before a mutation from overwriting mutation state", async () => {
+    const refresh = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    mockedApiFetch
+      .mockResolvedValueOnce(response([field("initial", 1)]))
+      .mockReturnValueOnce(refresh.promise)
+      .mockResolvedValueOnce(response(field("created", 2)));
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.fields.map((item) => item.id)).toEqual(["initial"]));
+    let pendingRefresh!: Promise<void>;
+    await act(async () => {
+      pendingRefresh = hook.result.current.refresh();
+      await Promise.resolve();
+    });
+    await act(async () => { await hook.result.current.createField({ label: "Created", type: "shortText" }); });
+    refresh.resolve(response([field("stale", 1)]));
+    await act(async () => { await pendingRefresh; });
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["initial", "created"]);
+    expect(hook.result.current.loading).toBe(false);
+  });
+
+  it("keeps loading true until every overlapping current-module refresh settles", async () => {
+    const first = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    const second = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    mockedApiFetch
+      .mockResolvedValueOnce(response([]))
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+
+    let firstRefresh!: Promise<void>;
+    let secondRefresh!: Promise<void>;
+    await act(async () => {
+      firstRefresh = hook.result.current.refresh();
+      secondRefresh = hook.result.current.refresh();
+      await Promise.resolve();
+    });
+    expect(hook.result.current.loading).toBe(true);
+    first.resolve(response([field("first", 1)]));
+    await act(async () => { await firstRefresh; });
+    expect(hook.result.current.loading).toBe(true);
+    second.resolve(response([field("second", 2)]));
+    await act(async () => { await secondRefresh; });
+    expect(hook.result.current.loading).toBe(false);
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["second"]);
+  });
+
+  it("prevents a refresh started while a mutation is pending from overwriting its success", async () => {
+    const mutation = deferred<ReturnType<typeof response<FieldDefinition>>>();
+    const refresh = deferred<ReturnType<typeof response<FieldDefinition[]>>>();
+    mockedApiFetch
+      .mockResolvedValueOnce(response([field("initial", 1)]))
+      .mockReturnValueOnce(mutation.promise)
+      .mockReturnValueOnce(refresh.promise);
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.fields.map((item) => item.id)).toEqual(["initial"]));
+
+    let pendingMutation!: Promise<FieldDefinition>;
+    await act(async () => {
+      pendingMutation = hook.result.current.createField({ label: "Created", type: "shortText" });
+      await Promise.resolve();
+    });
+    const pendingRefresh = hook.result.current.refresh();
+    mutation.resolve(response(field("created", 2)));
+    await act(async () => { await pendingMutation; });
+    refresh.resolve(response([field("stale", 1)]));
+    await act(async () => { await pendingRefresh; });
+
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["initial", "created"]);
+  });
+
+  it("applies a refresh started after a mutation succeeds", async () => {
+    mockedApiFetch
+      .mockResolvedValueOnce(response([field("initial", 1)]))
+      .mockResolvedValueOnce(response(field("created", 2)))
+      .mockResolvedValueOnce(response([field("server", 1)]));
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.fields.map((item) => item.id)).toEqual(["initial"]));
+    await act(async () => { await hook.result.current.createField({ label: "Created", type: "shortText" }); });
+    await act(async () => { await hook.result.current.refresh(); });
+
+    expect(hook.result.current.fields.map((item) => item.id)).toEqual(["server"]);
+  });
+
+  it("does not refresh a peer that has switched modules, but accepts its new-module events", async () => {
+    const created = field("created", 1);
+    const course = field("course", 1, { moduleKey: "courses" });
+    mockedApiFetch
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response([]))
+      .mockResolvedValueOnce(response(created))
+      .mockResolvedValueOnce(response([course]));
+    const first = renderHook(() => useCustomFields("students"), undefined);
+    const second = renderHook(({ moduleKey }: { moduleKey: "students" | "courses" }) => useCustomFields(moduleKey), { moduleKey: "students" });
+    await first.ready();
+    await second.ready();
+    await second.rerender({ moduleKey: "courses" });
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    await act(async () => { await first.result.current.createField({ label: "Created", type: "shortText" }); });
+    expect(mockedApiFetch).toHaveBeenCalledTimes(4);
+    window.dispatchEvent(new CustomEvent("custom-fields:changed", { detail: { moduleKey: "courses", sourceId: "other" } }));
+    await waitFor(() => expect(second.result.current.fields.map((item) => item.id)).toEqual(["course"]));
+  });
+
+  it("does not update an unmounted hook from a delayed mutation", async () => {
+    const create = deferred<ReturnType<typeof response<FieldDefinition>>>();
+    mockedApiFetch.mockResolvedValueOnce(response([])).mockReturnValueOnce(create.promise);
+    const events = vi.fn();
+    window.addEventListener("custom-fields:changed", events);
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    const pending = hook.result.current.createField({ label: "Late", type: "shortText" });
+    await hook.unmount();
+    create.resolve(response(field("late", 1)));
+    await expect(pending).resolves.toMatchObject({ id: "late" });
+    expect(events).not.toHaveBeenCalled();
+    window.removeEventListener("custom-fields:changed", events);
+  });
+
+  it("surfaces readable errors while preserving rejected mutation promises", async () => {
+    mockedApiFetch.mockRejectedValueOnce(new Error("Could not load fields"));
+    const hook = renderHook(() => useCustomFields("students"), undefined);
+    await hook.ready();
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    expect(hook.result.current.error).toBe("Could not load fields");
+
+    mockedApiFetch.mockRejectedValueOnce(new Error("Duplicate field"));
+    let mutationError: unknown;
+    await act(async () => {
+      try {
+        await hook.result.current.createField({ label: "Duplicate", type: "shortText" });
+      } catch (caught) {
+        mutationError = caught;
+      }
+    });
+    expect(mutationError).toBeInstanceOf(Error);
+    expect((mutationError as Error).message).toBe("Duplicate field");
+    expect(hook.result.current.error).toBe("Duplicate field");
+  });
+});
+
+===== FILE: D:\Công ty Igen\Các dự án công ty\Igen-ERP\src\modules\student-management\custom-fields\useCustomFields.ts =====
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  archiveCustomField,
+  createCustomField,
+  listCustomFields,
+  restoreCustomField,
+  updateCustomField,
+} from "./api";
+import type { CreateFieldInput, FieldDefinition, ModuleKey, UpdateFieldInput } from "./types";
+
+let sourceSequence = 0;
+
+export type UseCustomFieldsResult = {
+  fields: FieldDefinition[];
+  loading: boolean;
+  error: string | null;
+  refresh(): Promise<void>;
+  createField(input: CreateFieldInput): Promise<FieldDefinition>;
+  updateField(id: string, input: UpdateFieldInput): Promise<FieldDefinition>;
+  archiveField(id: string): Promise<void>;
+  restoreField(id: string): Promise<FieldDefinition>;
+};
+
+function sortFields(fields: FieldDefinition[]): FieldDefinition[] {
+  return [...fields].sort((left, right) => left.order - right.order);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : "KhÃ´ng thá»ƒ táº£i trÆ°á»ng tÃ¹y chá»‰nh. Vui lÃ²ng thá»­ láº¡i.";
+}
+
+export function useCustomFields(moduleKey: ModuleKey): UseCustomFieldsResult {
+  const [fields, setFields] = useState<FieldDefinition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const refreshCounts = useRef(new Map<ModuleKey, number>());
+  const currentModule = useRef(moduleKey);
+  const mounted = useRef(false);
+  const sourceId = useRef<string | null>(null);
+
+  currentModule.current = moduleKey;
+  if (!sourceId.current) sourceId.current = `custom-fields-${++sourceSequence}`;
+
+  const isActiveModule = useCallback((targetModule: ModuleKey) => (
+    mounted.current && currentModule.current === targetModule
+  ), []);
+
+  const refresh = useCallback(async () => {
+    const requestedModule = moduleKey;
+    if (!isActiveModule(requestedModule)) return;
+    const version = ++requestVersion.current;
+    refreshCounts.current.set(requestedModule, (refreshCounts.current.get(requestedModule) ?? 0) + 1);
+    setLoading(true);
+    setError(null);
+    try {
+      const definitions = await listCustomFields(requestedModule);
+      if (isActiveModule(requestedModule) && requestVersion.current === version) {
+        setFields(sortFields(definitions));
+      }
+    } catch (caught) {
+      if (isActiveModule(requestedModule) && requestVersion.current === version) {
+        setError(errorMessage(caught));
+      }
+    } finally {
+      const remaining = Math.max(0, (refreshCounts.current.get(requestedModule) ?? 1) - 1);
+      if (remaining === 0) {
+        refreshCounts.current.delete(requestedModule);
+      } else {
+        refreshCounts.current.set(requestedModule, remaining);
+      }
+      if (isActiveModule(requestedModule) && remaining === 0) {
+        setLoading(false);
+      }
+    }
+  }, [isActiveModule, moduleKey]);
+
+  useEffect(() => {
+    mounted.current = true;
+    void refresh();
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ moduleKey?: ModuleKey; sourceId?: string }>).detail;
+      if (detail?.moduleKey !== moduleKey || detail.sourceId === sourceId.current) return;
+      void refresh();
+    };
+    window.addEventListener("custom-fields:changed", onChanged);
+    return () => {
+      mounted.current = false;
+      window.removeEventListener("custom-fields:changed", onChanged);
+    };
+  }, [moduleKey, refresh]);
+
+  const dispatchChanged = useCallback((changedModule: ModuleKey) => {
+    if (!isActiveModule(changedModule)) return;
+    window.dispatchEvent(new CustomEvent("custom-fields:changed", {
+      detail: { moduleKey: changedModule, sourceId: sourceId.current },
+    }));
+  }, [isActiveModule]);
+
+  const mergeDefinition = useCallback((definition: FieldDefinition) => {
+    setFields((current) => {
+      const index = current.findIndex((field) => field.id === definition.id);
+      if (definition.isArchived) {
+        if (index < 0) return current;
+        return current.filter((field) => field.id !== definition.id);
+      }
+      const next = index < 0
+        ? [...current, definition]
+        : current.map((field) => field.id === definition.id ? definition : field);
+      return sortFields(next);
+    });
+  }, []);
+
+  const runMutation = useCallback(async <T,>(
+    mutationModule: ModuleKey,
+    mutation: () => Promise<T>,
+    apply: (result: T) => void,
+  ): Promise<T> => {
+    ++requestVersion.current;
+    if (isActiveModule(mutationModule)) setError(null);
+    try {
+      const result = await mutation();
+      if (isActiveModule(mutationModule)) {
+        ++requestVersion.current;
+        apply(result);
+        dispatchChanged(mutationModule);
+      }
+      return result;
+    } catch (caught) {
+      if (isActiveModule(mutationModule)) setError(errorMessage(caught));
+      throw caught;
+    }
+  }, [dispatchChanged, isActiveModule]);
+
+  const createField = useCallback(async (input: CreateFieldInput) => {
+    const mutationModule = moduleKey;
+    return runMutation(mutationModule, () => createCustomField(mutationModule, input), mergeDefinition);
+  }, [mergeDefinition, moduleKey, runMutation]);
+
+  const updateField = useCallback(async (id: string, input: UpdateFieldInput) => {
+    const mutationModule = moduleKey;
+    return runMutation(mutationModule, () => updateCustomField(mutationModule, id, input), mergeDefinition);
+  }, [mergeDefinition, moduleKey, runMutation]);
+
+  const archiveField = useCallback(async (id: string) => {
+    const mutationModule = moduleKey;
+    await runMutation(mutationModule, () => archiveCustomField(mutationModule, id), mergeDefinition);
+  }, [mergeDefinition, moduleKey, runMutation]);
+
+  const restoreField = useCallback(async (id: string) => {
+    const mutationModule = moduleKey;
+    return runMutation(mutationModule, () => restoreCustomField(mutationModule, id), mergeDefinition);
+  }, [mergeDefinition, moduleKey, runMutation]);
+
+  return { fields, loading, error, refresh, createField, updateField, archiveField, restoreField };
+}
+

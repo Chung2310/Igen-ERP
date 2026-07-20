@@ -1,0 +1,373 @@
+﻿===== FILE: server/modules/student-management/services/custom-field.service.ts =====
+import type { DynamicFieldType, IFieldDefinition, ModuleKey } from "../interfaces/custom-field.interface";
+import { CustomFieldDefinition } from "../models/custom-field-definition.model";
+import { User } from "../models/user.model";
+import { Student } from "../models/student.model";
+import { Course } from "../models/course.model";
+import { Batch } from "../models/batch.model";
+import { Exam } from "../models/exam.model";
+import { Resource } from "../models/resource.model";
+import { Partner } from "../models/partner.model";
+
+export type CustomFieldContext = { tenantId: string; actorId: string };
+export type FieldOption = { label: string; value: string };
+export type CreateFieldInput = {
+  moduleKey: ModuleKey;
+  label: string;
+  type: DynamicFieldType;
+  placeholder?: string;
+  defaultValue?: IFieldDefinition["defaultValue"];
+  options?: FieldOption[];
+  validation?: Record<string, unknown>;
+  isVisible?: boolean;
+  isRequired?: boolean;
+};
+export type UpdateFieldInput = Omit<Partial<CreateFieldInput>, "moduleKey"> & { order?: number };
+
+type QueryableModel = {
+  find(filter: Record<string, unknown>): { sort(sort: Record<string, 1 | -1>): Promise<IFieldDefinition[]> };
+  findOne(filter: Record<string, unknown>): PromiseLike<IFieldDefinition | null> & { sort(sort: Record<string, 1 | -1>): Promise<IFieldDefinition | null> };
+  create(input: Record<string, unknown>): Promise<IFieldDefinition>;
+  findOneAndUpdate(filter: Record<string, unknown>, update: Record<string, unknown>, options: Record<string, unknown>): Promise<IFieldDefinition | null>;
+};
+type UserModel = { find(filter: Record<string, unknown>): { select(fields: string): Promise<Array<{ _id: unknown }> > } };
+type EntityModel = { exists(filter: Record<string, unknown>): Promise<unknown> };
+
+export type CustomFieldServiceDependencies = {
+  fieldDefinitions: QueryableModel;
+  users: UserModel;
+  entityModels: Record<ModuleKey, EntityModel>;
+};
+
+const SELECT_TYPES = new Set<DynamicFieldType>(["singleSelect", "multiSelect"]);
+const RESERVED_KEYS = new Set(["_id", "ownerId", "tenantId", "customFields", "createdAt", "updatedAt"]);
+
+const defaultDependencies: CustomFieldServiceDependencies = {
+  fieldDefinitions: CustomFieldDefinition as unknown as QueryableModel,
+  users: User as unknown as UserModel,
+  entityModels: {
+    students: Student as unknown as EntityModel,
+    courses: Course as unknown as EntityModel,
+    batches: Batch as unknown as EntityModel,
+    exams: Exam as unknown as EntityModel,
+    resources: Resource as unknown as EntityModel,
+    partners: Partner as unknown as EntityModel,
+  },
+};
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === 11000;
+}
+
+function domainDuplicateError(): Error {
+  return new Error("TrÆ°á»ng tÃ¹y chá»‰nh nÃ y Ä‘Ã£ bá»‹ trÃ¹ng. Vui lÃ²ng thá»­ láº¡i.");
+}
+
+function makeKey(label: string): string {
+  const words = label
+    .trim()
+    .toLocaleLowerCase("vi")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Ä‘/g, "d")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return words.map((word, index) => index === 0 ? word : word[0].toUpperCase() + word.slice(1)).join("");
+}
+
+function validateKey(label: string): string {
+  const key = makeKey(label);
+  const raw = label.trim();
+  if (!key) throw new Error("TÃªn trÆ°á»ng khÃ´ng há»£p lá»‡.");
+  if (RESERVED_KEYS.has(key) || RESERVED_KEYS.has(raw)) throw new Error("TÃªn trÆ°á»ng nÃ y dÃ nh riÃªng cho há»‡ thá»‘ng.");
+  return key;
+}
+
+function normalizeOptions(type: DynamicFieldType, options: FieldOption[] | undefined): FieldOption[] | undefined {
+  if (!SELECT_TYPES.has(type)) return undefined;
+  const normalized = (options ?? []).map(option => ({ label: option.label?.trim(), value: option.value?.trim() }));
+  if (!normalized.length || normalized.some(option => !option.label || !option.value)) {
+    throw new Error("TrÆ°á»ng lá»±a chá»n pháº£i cÃ³ Ã­t nháº¥t má»™t lá»±a chá»n há»£p lá»‡.");
+  }
+  const values = new Set(normalized.map(option => option.value));
+  const labels = new Set(normalized.map(option => option.label));
+  if (values.size !== normalized.length || labels.size !== normalized.length) {
+    throw new Error("CÃ¡c lá»±a chá»n khÃ´ng Ä‘Æ°á»£c trÃ¹ng nhau.");
+  }
+  return normalized as FieldOption[];
+}
+
+function mutableValues(input: UpdateFieldInput): Record<string, unknown> {
+  const allowed = ["label", "type", "placeholder", "defaultValue", "validation", "isVisible", "isRequired", "order"] as const;
+  return Object.fromEntries(allowed.filter(key => Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
+}
+
+export class CustomFieldService {
+  constructor(private readonly dependencies: CustomFieldServiceDependencies = defaultDependencies) {}
+
+  async list(tenantId: string, moduleKey: ModuleKey, includeArchived = false): Promise<IFieldDefinition[]> {
+    const filter: Record<string, unknown> = { tenantId, moduleKey };
+    if (!includeArchived) filter.isArchived = false;
+    return this.dependencies.fieldDefinitions.find(filter).sort({ order: 1 });
+  }
+
+  async create(context: CustomFieldContext, input: CreateFieldInput): Promise<IFieldDefinition> {
+    const key = validateKey(input.label);
+    const options = normalizeOptions(input.type, input.options);
+    const existing = await this.dependencies.fieldDefinitions.find({ tenantId: context.tenantId, moduleKey: input.moduleKey }).sort({ order: -1 });
+    const usedKeys = new Set(existing.map(field => field.key));
+    let candidate = key;
+    let suffix = 2;
+    while (usedKeys.has(candidate)) candidate = `${key}${suffix++}`;
+    const order = existing.length ? Math.max(...existing.map(field => field.order ?? 0)) + 1 : 1;
+    const document: Record<string, unknown> = {
+      tenantId: context.tenantId, moduleKey: input.moduleKey, key: candidate, label: input.label.trim(), type: input.type,
+      isVisible: input.isVisible ?? true, isRequired: input.isVisible === false ? false : (input.isRequired ?? false),
+      isArchived: false, order, createdBy: context.actorId, updatedBy: context.actorId,
+    };
+    for (const key of ["placeholder", "defaultValue", "validation"] as const) if (input[key] !== undefined) document[key] = input[key];
+    if (options) document.options = options;
+    try {
+      return await this.dependencies.fieldDefinitions.create(document);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) throw domainDuplicateError();
+      throw error;
+    }
+  }
+
+  async update(context: CustomFieldContext, id: string, input: UpdateFieldInput): Promise<IFieldDefinition> {
+    const field = await this.dependencies.fieldDefinitions.findOne({ _id: id, tenantId: context.tenantId });
+    if (!field) throw new Error("KhÃ´ng tÃ¬m tháº¥y trÆ°á»ng tÃ¹y chá»‰nh.");
+    const targetType = input.type ?? field.type;
+    if (input.type && input.type !== field.type && await this.hasStoredValues(context.tenantId, field.moduleKey, field.key)) {
+      throw new Error("KhÃ´ng thá»ƒ thay Ä‘á»•i loáº¡i trÆ°á»ng khi Ä‘Ã£ cÃ³ dá»¯ liá»‡u lÆ°u trá»¯.");
+    }
+    if (input.label !== undefined) validateKey(input.label);
+    const update = mutableValues(input);
+    if (update.isVisible === false) update.isRequired = false;
+    const options = normalizeOptions(targetType, input.options ?? field.options);
+    if (options) update.options = options;
+    const operation: Record<string, unknown> = { $set: { ...update, updatedBy: context.actorId } };
+    if (!options) operation.$unset = { options: 1 };
+    try {
+      const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate({ _id: id, tenantId: context.tenantId }, operation, { new: true, runValidators: true });
+      if (!updated) throw new Error("KhÃ´ng tÃ¬m tháº¥y trÆ°á»ng tÃ¹y chá»‰nh.");
+      return updated;
+    } catch (error) {
+      if (isDuplicateKeyError(error)) throw domainDuplicateError();
+      throw error;
+    }
+  }
+
+  async archive(context: CustomFieldContext, id: string): Promise<IFieldDefinition> {
+    const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate(
+      { _id: id, tenantId: context.tenantId },
+      { $set: { isArchived: true, isVisible: false, isRequired: false, updatedBy: context.actorId } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error("KhÃ´ng tÃ¬m tháº¥y trÆ°á»ng tÃ¹y chá»‰nh.");
+    return updated;
+  }
+
+  async restore(context: CustomFieldContext, id: string): Promise<IFieldDefinition> {
+    const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate(
+      { _id: id, tenantId: context.tenantId },
+      { $set: { isArchived: false, isVisible: true, isRequired: false, updatedBy: context.actorId } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error("KhÃ´ng tÃ¬m tháº¥y trÆ°á»ng tÃ¹y chá»‰nh.");
+    return updated;
+  }
+
+  async hasStoredValues(tenantId: string, moduleKey: ModuleKey, key: string): Promise<boolean> {
+    const users = await this.dependencies.users.find({ companyCode: tenantId }).select("_id");
+    const ownerIds = users.map(user => String(user._id));
+    if (!ownerIds.length) return false;
+    const valuePath = `customFields.${key}`;
+    const found = await this.dependencies.entityModels[moduleKey].exists({
+      ownerId: { $in: ownerIds },
+      [valuePath]: { $exists: true, $nin: [null, "", []] },
+    });
+    return Boolean(found);
+  }
+}
+
+===== FILE: server/modules/student-management/services/custom-field.service.test.ts =====
+import assert from "node:assert/strict";
+import test from "node:test";
+import { CustomFieldService, type CustomFieldServiceDependencies } from "./custom-field.service";
+
+type Field = Record<string, any>;
+
+function matches(value: unknown, condition: unknown): boolean {
+  if (condition && typeof condition === "object") {
+    const operators = condition as { $in?: unknown[]; $nin?: unknown[]; $exists?: boolean };
+    if (operators.$exists !== undefined && (value !== undefined) !== operators.$exists) return false;
+    if (operators.$in && !operators.$in.includes(value)) return false;
+    if (operators.$nin && operators.$nin.some(disallowed => JSON.stringify(disallowed) === JSON.stringify(value))) return false;
+    if (operators.$in || operators.$nin || operators.$exists !== undefined) return true;
+  }
+  return value === condition;
+}
+
+function createDependencies(fields: Field[] = [], storedValues: Field[] = []): {
+  dependencies: CustomFieldServiceDependencies;
+  fields: Field[];
+  calls: { users: Field[]; entities: Field[] };
+} {
+  const calls = { users: [] as Field[], entities: [] as Field[] };
+  const definitionModel = {
+    find(filter: Field) {
+      return {
+        sort: async (sort: Field) => fields
+          .filter(field => Object.entries(filter).every(([key, value]) => matches(field[key], value)))
+          .sort((a, b) => sort.order ? (sort.order as number) * (a.order - b.order) : 0),
+      };
+    },
+    findOne(filter: Field) {
+      const result = fields.find(field => Object.entries(filter).every(([key, value]) => matches(field[key], value))) ?? null;
+      return { sort: async () => result, then: (resolve: (value: Field | null) => unknown) => Promise.resolve(result).then(resolve) };
+    },
+    async create(input: Field) {
+      const duplicate = fields.some(field => field.tenantId === input.tenantId && field.moduleKey === input.moduleKey && field.key === input.key);
+      if (duplicate) throw Object.assign(new Error("duplicate"), { code: 11000 });
+      const created = { _id: String(fields.length + 1), ...input };
+      fields.push(created);
+      return created;
+    },
+    async findOneAndUpdate(filter: Field, update: Field) {
+      const field = fields.find(candidate => Object.entries(filter).every(([key, value]) => matches(candidate[key], value))) ?? null;
+      if (!field) return null;
+      Object.assign(field, update.$set);
+      return field;
+    },
+  };
+  const userModel = {
+    find(filter: Field) {
+      calls.users.push(filter);
+      return { select: async () => [{ _id: "owner-a" }, { _id: "owner-b" }] };
+    },
+  };
+  const entityModel = {
+    async exists(filter: Field) {
+      calls.entities.push(filter);
+      return storedValues.some(row => Object.entries(filter).every(([key, value]) => {
+        if (key === "ownerId") return matches(row.ownerId, value);
+        if (key.startsWith("customFields.")) return matches(row.customFields?.[key.slice("customFields.".length)], value);
+        return matches(row[key], value);
+      })) ? { _id: "entity" } : null;
+    },
+  };
+
+  return {
+    dependencies: {
+      fieldDefinitions: definitionModel as any,
+      users: userModel as any,
+      entityModels: {
+        students: entityModel as any, courses: entityModel as any, batches: entityModel as any,
+        exams: entityModel as any, resources: entityModel as any, partners: entityModel as any,
+      },
+    },
+    fields,
+    calls,
+  };
+}
+
+const context = { tenantId: "tenant-a", actorId: "actor-a" };
+const selectOptions = [{ label: "Má»›i", value: "new" }, { label: "CÅ©", value: "old" }];
+
+test("creates a Vietnamese label with a stable camelCase ASCII key", async () => {
+  const { dependencies } = createDependencies();
+  const created = await new CustomFieldService(dependencies).create(context, { moduleKey: "students", label: "Äá»‹a chá»‰ liÃªn há»‡", type: "shortText" });
+  assert.equal(created.key, "diaChiLienHe");
+});
+
+test("suffixes a colliding key and sets the next order across archived fields", async () => {
+  const { dependencies } = createDependencies([
+    { _id: "1", tenantId: "tenant-a", moduleKey: "students", key: "diaChi", order: 2, isArchived: false },
+    { _id: "2", tenantId: "tenant-a", moduleKey: "students", key: "other", order: 7, isArchived: true },
+  ]);
+  const created = await new CustomFieldService(dependencies).create(context, { moduleKey: "students", label: "Äá»‹a chá»‰", type: "shortText" });
+  assert.equal(created.key, "diaChi2");
+  assert.equal(created.order, 8);
+});
+
+test("lists active fields by default and includes archived fields on request", async () => {
+  const { dependencies } = createDependencies([
+    { tenantId: "tenant-a", moduleKey: "courses", key: "active", order: 2, isArchived: false },
+    { tenantId: "tenant-a", moduleKey: "courses", key: "archived", order: 1, isArchived: true },
+  ]);
+  const service = new CustomFieldService(dependencies);
+  assert.deepEqual((await service.list("tenant-a", "courses")).map(field => field.key), ["active"]);
+  assert.deepEqual((await service.list("tenant-a", "courses", true)).map(field => field.key), ["archived", "active"]);
+});
+
+test("makes hidden fields optional and archives/restores without hard deletion", async () => {
+  const { dependencies, fields } = createDependencies([{ _id: "field-1", tenantId: "tenant-a", moduleKey: "students", key: "note", type: "shortText", isVisible: true, isRequired: true, isArchived: false }]);
+  const service = new CustomFieldService(dependencies);
+  const hidden = await service.update(context, "field-1", { isVisible: false, isRequired: true });
+  assert.equal(hidden.isRequired, false);
+  const archived = await service.archive(context, "field-1");
+  assert.equal(archived.isArchived, true);
+  assert.equal(archived.isVisible, false);
+  assert.equal(archived.isRequired, false);
+  const restored = await service.restore(context, "field-1");
+  assert.equal(restored.isArchived, false);
+  assert.equal(restored.isVisible, true);
+  assert.equal(restored.isRequired, false);
+  assert.equal(fields.length, 1);
+});
+
+test("blocks a type change only when the field has stored values", async () => {
+  const withValues = createDependencies([{ _id: "field-1", tenantId: "tenant-a", moduleKey: "students", key: "score", type: "number" }], [{ ownerId: "owner-a", customFields: { score: 0 } }]);
+  await assert.rejects(() => new CustomFieldService(withValues.dependencies).update(context, "field-1", { type: "shortText" }), /khÃ´ng thá»ƒ thay Ä‘á»•i loáº¡i/i);
+  const withoutValues = createDependencies([{ _id: "field-1", tenantId: "tenant-a", moduleKey: "students", key: "score", type: "number" }]);
+  const updated = await new CustomFieldService(withoutValues.dependencies).update(context, "field-1", { type: "shortText" });
+  assert.equal(updated.type, "shortText");
+});
+
+test("uses only the fixed selected module registry and scopes values to tenant owners", async () => {
+  const { dependencies, calls } = createDependencies([], [{ ownerId: "owner-b", customFields: { level: false } }]);
+  const hasValues = await new CustomFieldService(dependencies).hasStoredValues("tenant-a", "partners", "level");
+  assert.equal(hasValues, true);
+  assert.deepEqual(calls.users[0], { companyCode: "tenant-a" });
+  assert.deepEqual(calls.entities[0], { ownerId: { $in: ["owner-a", "owner-b"] }, "customFields.level": { $exists: true, $nin: [null, "", []] } });
+});
+
+test("treats false and zero as stored values, while null, empty strings, and empty arrays are absent", async () => {
+  for (const [value, expected] of [[false, true], [0, true], [null, false], ["", false], [[], false]] as const) {
+    const { dependencies } = createDependencies([], [{ ownerId: "owner-a", customFields: { value } }]);
+    assert.equal(await new CustomFieldService(dependencies).hasStoredValues("tenant-a", "students", "value"), expected);
+  }
+});
+
+test("requires unique non-empty select options and removes options from non-select fields", async () => {
+  const { dependencies } = createDependencies();
+  const service = new CustomFieldService(dependencies);
+  await assert.rejects(() => service.create(context, { moduleKey: "students", label: "Tráº¡ng thÃ¡i", type: "singleSelect", options: [{ label: "", value: "new" }] }), /lá»±a chá»n/i);
+  await assert.rejects(() => service.create(context, { moduleKey: "students", label: "Tráº¡ng thÃ¡i", type: "multiSelect", options: [{ label: "Má»›i", value: "new" }, { label: "TrÃ¹ng", value: "new" }] }), /trÃ¹ng/i);
+  const created = await service.create(context, { moduleKey: "students", label: "Ghi chÃº", type: "shortText", options: selectOptions });
+  assert.equal(created.options, undefined);
+});
+
+test("rejects labels that become empty or reserved keys", async () => {
+  const { dependencies } = createDependencies();
+  const service = new CustomFieldService(dependencies);
+  await assert.rejects(() => service.create(context, { moduleKey: "students", label: "!!!", type: "shortText" }), /khÃ´ng há»£p lá»‡/i);
+  await assert.rejects(() => service.create(context, { moduleKey: "students", label: "tenant id", type: "shortText" }), /dÃ nh riÃªng/i);
+});
+
+test("does not cross tenant boundaries when updating and maps duplicate keys to a Vietnamese domain error", async () => {
+  const foreign = createDependencies([{ _id: "field-1", tenantId: "tenant-b", moduleKey: "students", key: "name", type: "shortText" }]);
+  await assert.rejects(() => new CustomFieldService(foreign.dependencies).update(context, "field-1", { label: "KhÃ¡c" }), /khÃ´ng tÃ¬m tháº¥y/i);
+  const duplicate = createDependencies([{ tenantId: "tenant-a", moduleKey: "students", key: "ten", order: 1 }]);
+  duplicate.dependencies.fieldDefinitions = {
+    ...duplicate.dependencies.fieldDefinitions,
+    find: () => ({ sort: async () => [] }),
+  } as any;
+  await assert.rejects(() => new CustomFieldService(duplicate.dependencies).create(context, { moduleKey: "students", label: "TÃªn", type: "shortText" }), /trÃ¹ng/i);
+});
+

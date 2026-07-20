@@ -24,9 +24,11 @@ export const createPartnerSchema = Joi.object({
   isActive: Joi.boolean().optional(),
   notes: Joi.string().allow("").optional(),
   centerId: Joi.string().allow("").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updatePartnerSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   name: Joi.string().optional(),
   phone: Joi.string().optional(),
   email: Joi.string().email().allow("").optional(),
@@ -37,6 +39,7 @@ export const updatePartnerSchema = Joi.object({
   bankAccountName: Joi.string().allow("").optional(),
   isActive: Joi.boolean().optional(),
   notes: Joi.string().allow("").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const createPayoutSchema = Joi.object({

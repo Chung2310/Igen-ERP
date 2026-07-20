@@ -2,6 +2,8 @@
  * Student Types
  */
 
+import type { CustomFieldValues } from './custom-fields/types';
+
 export interface UploadedFile {
   name: string;
   url: string;
@@ -40,6 +42,8 @@ export interface DrivingStudent {
   idCardFrontFile?: UploadedFile;
   idCardBackFile?: UploadedFile;
   portraitFile?: UploadedFile;
+  customFields?: CustomFieldValues;
+  __v?: number;
   
   // Progress tracking
   progress?: {
@@ -145,6 +149,8 @@ export interface ExamSession {
   studentCount: number;
   passCount: number;
   failCount: number;
+  customFields?: CustomFieldValues;
+  __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -165,6 +171,8 @@ export interface Course {
   activeBatches: number;
   status: CourseStatus;
   ownerId: string;
+  customFields?: CustomFieldValues;
+  __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -205,6 +213,8 @@ export interface Batch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  customFields?: CustomFieldValues;
+  __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -232,6 +242,8 @@ export interface ResourceItem {
   status: ResourceStatus;
   bookings: ResourceBooking[];
   ownerId: string;
+  customFields?: CustomFieldValues;
+  __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -282,6 +294,8 @@ export interface Partner {
   isActive: boolean;
   notes?: string;
   ownerId: string;
+  customFields?: CustomFieldValues;
+  __v?: number;
   referredStudentsCount: number;
   totalCommission: number;
   totalPaid: number;

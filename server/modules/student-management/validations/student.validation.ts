@@ -52,9 +52,11 @@ export const createStudentSchema = Joi.object({
   ).optional(),
   centerId: Joi.string().allow("").optional(),
   partnerId: Joi.string().allow("").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateStudentSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   fullName: Joi.string().optional(),
   phone: Joi.string().optional(),
   email: Joi.string().email().allow("").optional(),
@@ -109,6 +111,7 @@ export const updateStudentSchema = Joi.object({
   idCardBack: Joi.string().allow("").optional(),
   centerId: Joi.string().allow("").optional(),
   partnerId: Joi.string().allow("").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const publicRegisterStudentSchema = Joi.object({

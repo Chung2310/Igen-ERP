@@ -4,6 +4,13 @@ import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 
 interface StudentFilters {
   page?: number | string;
@@ -118,16 +125,27 @@ async function ensureUniqueFieldsInScope(
 }
 
 export class StudentService {
-  static async createStudent(ownerId: string, ownerScope: string | string[], data: StudentCreateData): Promise<IStudent> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createStudent(
+    ownerId: string,
+    ownerScope: string | string[],
+    data: StudentCreateData,
+    context?: CustomFieldWriteContext,
+  ): Promise<IStudent> {
     logger.info(`[Student] Creating student for ownerId=${ownerId}, phone=${data.phone}`);
 
+    const writeData = context
+      ? await this.customFieldWrites.prepareCreate(context, data)
+      : data;
+
     const normalizedPayload = {
-      ...data,
-      email: typeof data.email === "string" ? normalizeEmail(data.email) : data.email,
-      phone: normalizePhone(data.phone),
-      idCard: typeof data.idCard === "string" ? normalizeIdCard(data.idCard) : data.idCard,
-      fee: normalizeFee(data.fee),
-      courseId: typeof data.courseId === "string" ? data.courseId.trim() : data.courseId,
+      ...writeData,
+      email: typeof writeData.email === "string" ? normalizeEmail(writeData.email) : writeData.email,
+      phone: normalizePhone(String(writeData.phone ?? "")),
+      idCard: typeof writeData.idCard === "string" ? normalizeIdCard(writeData.idCard) : writeData.idCard,
+      fee: normalizeFee(writeData.fee),
+      courseId: typeof writeData.courseId === "string" ? writeData.courseId.trim() : writeData.courseId,
     };
 
     await ensureUniqueFieldsInScope(ownerScope, normalizedPayload);
@@ -196,74 +214,79 @@ export class StudentService {
     ownerId: string | string[],
     ownerScope: string | string[],
     id: string,
-    data: StudentUpdateData
+    data: StudentUpdateData,
+    context: CustomFieldWriteContext,
   ): Promise<IStudent | null> {
     logger.info(`[Student] Updating student: id=${id}, ownerId=${ownerId}`);
-
-    if (data.fullName) {
-      data.slug = slugify(String(data.fullName));
-    }
-    if (typeof data.idCard === "string") {
-      data.idCard = normalizeIdCard(data.idCard);
-    }
-    if (typeof data.email === "string") {
-      data.email = normalizeEmail(data.email);
-    }
-    if (typeof data.phone === "string") {
-      data.phone = normalizePhone(data.phone);
-    }
-    if (typeof data.fee !== "undefined") {
-      data.fee = normalizeFee(data.fee);
-    }
-    if (typeof data.courseId === "string") {
-      data.courseId = data.courseId.trim();
-    }
-
-    await ensureUniqueFieldsInScope(ownerScope, data, id);
 
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
     };
+    const existingStudent = await Student.findOne(query);
+    if (!existingStudent) return null;
 
-    if (data.paymentHistory && Array.isArray(data.paymentHistory)) {
-      const history = data.paymentHistory as Record<string, unknown>[];
-      data.paidAmount = history.reduce((sum: number, item) => sum + (Number(item?.amount) || 0), 0);
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existingStudent.ownerId) } : context;
+    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existingStudent, data);
 
+    if (writeData.fullName) {
+      writeData.slug = slugify(String(writeData.fullName));
+    }
+    if (typeof writeData.idCard === "string") {
+      writeData.idCard = normalizeIdCard(writeData.idCard);
+    }
+    if (typeof writeData.email === "string") {
+      writeData.email = normalizeEmail(writeData.email);
+    }
+    if (typeof writeData.phone === "string") {
+      writeData.phone = normalizePhone(writeData.phone);
+    }
+    if (typeof writeData.fee !== "undefined") {
+      writeData.fee = normalizeFee(writeData.fee);
+    }
+    if (typeof writeData.courseId === "string") {
+      writeData.courseId = writeData.courseId.trim();
+    }
+
+    await ensureUniqueFieldsInScope(ownerScope, writeData, id);
+
+    if (writeData.paymentHistory && Array.isArray(writeData.paymentHistory)) {
+      const history = writeData.paymentHistory as Record<string, unknown>[];
+      writeData.paidAmount = history.reduce((sum: number, item) => sum + (Number(item?.amount) || 0), 0);
+    }
+
+    const updatedStudent = await Student.findOneAndUpdate(
+      { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { $set: writeData, $inc: { __v: 1 } },
+      { new: true, runValidators: true }
+    );
+    if (!updatedStudent) throw new CustomFieldWriteConflictError();
+
+    if (writeData.paymentHistory && Array.isArray(writeData.paymentHistory)) {
       try {
-        const oldStudent = await Student.findOne(query);
-        if (oldStudent && oldStudent.paymentHistory) {
-          const oldHistory = oldStudent.paymentHistory;
-          const newHistory = (data.paymentHistory || []) as Record<string, unknown>[];
-          const studentOwnerId = oldStudent.ownerId;
+        const oldHistory = existingStudent.paymentHistory || [];
+        const newHistory = writeData.paymentHistory as Record<string, unknown>[];
+        const studentOwnerId = existingStudent.ownerId;
 
-          for (const oldItem of oldHistory) {
-            const stillExists = newHistory.some((newItem) => String(newItem.id) === String(oldItem.id));
-            if (!stillExists) {
-              await Payment.deleteOne({ _id: oldItem.id, ownerId: studentOwnerId });
-            }
+        for (const oldItem of oldHistory) {
+          const stillExists = newHistory.some((newItem) => String(newItem.id) === String(oldItem.id));
+          if (!stillExists) {
+            await Payment.deleteOne({ _id: oldItem.id, ownerId: studentOwnerId });
           }
+        }
 
-          for (const newItem of newHistory) {
-            const oldItem = oldHistory.find((oi) => String(oi.id) === String(newItem.id));
-            if (oldItem) {
-              const amountChanged = Number(newItem.amount) !== Number(oldItem.amount);
-              const dateChanged = String(newItem.date) !== String(oldItem.date);
-              const noteChanged = String(newItem.note || "") !== String(oldItem.note || "");
-
-              if (amountChanged || dateChanged || noteChanged) {
-                await Payment.updateOne(
-                  { _id: newItem.id as string, ownerId: studentOwnerId },
-                  {
-                    $set: {
-                      amount: Number(newItem.amount),
-                      date: newItem.date,
-                      note: newItem.note,
-                    },
-                  }
-                );
-              }
-            }
+        for (const newItem of newHistory) {
+          const oldItem = oldHistory.find((item) => String(item.id) === String(newItem.id));
+          if (!oldItem) continue;
+          const amountChanged = Number(newItem.amount) !== Number(oldItem.amount);
+          const dateChanged = String(newItem.date) !== String(oldItem.date);
+          const noteChanged = String(newItem.note || "") !== String(oldItem.note || "");
+          if (amountChanged || dateChanged || noteChanged) {
+            await Payment.updateOne(
+              { _id: newItem.id as string, ownerId: studentOwnerId },
+              { $set: { amount: Number(newItem.amount), date: newItem.date, note: newItem.note } },
+            );
           }
         }
       } catch (err) {
@@ -271,16 +294,7 @@ export class StudentService {
       }
     }
 
-    const updatedStudent = await Student.findOneAndUpdate(
-      query,
-      { $set: data },
-      { new: true, runValidators: true }
-    );
-    if (updatedStudent) {
-      logger.info(`[Student] Student updated successfully: id=${id}`);
-    } else {
-      logger.warn(`[Student] Student update failed/not found: id=${id}, ownerId=${ownerId}`);
-    }
+    logger.info(`[Student] Student updated successfully: id=${id}`);
     return updatedStudent;
   }
 

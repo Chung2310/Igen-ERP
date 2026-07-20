@@ -3,6 +3,7 @@ import { StudentService } from "../services/student.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class StudentController {
   static async create(req: AuthRequest, res: Response) {
@@ -21,7 +22,11 @@ export class StudentController {
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
-      const student = await StudentService.createStudent(ownerId, centerOwnerIds, req.body);
+      const student = await StudentService.createStudent(ownerId, centerOwnerIds, req.body, {
+        tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
+        moduleKey: "students",
+        actorRole: req.user!.role,
+      });
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";
@@ -56,14 +61,21 @@ export class StudentController {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const centerOwnerIds = await getCenterOwnerIds(req.user!);
-      const student = await StudentService.updateStudent(ownerId, centerOwnerIds, req.params.id, req.body);
+      const student = await StudentService.updateStudent(ownerId, centerOwnerIds, req.params.id, req.body, {
+        tenantId: req.user!.companyCode || req.user!.centerId,
+        moduleKey: "students",
+        actorRole: req.user!.role,
+      });
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de cap nhat." });
       }
       res.json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";
-      res.status(400).json({ success: false, error: msg });
+      const status = typeof (error as { status?: unknown })?.status === "number"
+        ? (error as { status: number }).status
+        : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 
@@ -137,6 +149,8 @@ export class StudentController {
               companyCode: teacher.companyCode || teacher.centerId,
             });
 
+      // Public registration has no dynamic-field UI and is intentionally exempt
+      // from admin-form custom-field requirements.
       const student = await StudentService.createStudent(teacherId, teacherScope, payload);
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {

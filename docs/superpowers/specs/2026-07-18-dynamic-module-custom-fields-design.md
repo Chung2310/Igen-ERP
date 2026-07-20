@@ -8,7 +8,7 @@ Ví dụ: khi Admin thêm trường ảnh trong form Thêm học viên, trườn
 
 ## 2. Phạm vi
 
-- Áp dụng cho tất cả module có form tạo mới, chẳng hạn Học viên, Khóa học, Lớp học, Lịch thi, Học phí, Thông báo, Tài nguyên và Đối tác.
+- Áp dụng tại sáu form tạo bản ghi chính: Thêm học viên, Thêm khóa học mới, Mở lớp mới, Tạo đợt thi, Khai báo tài nguyên mới và Khai báo đối tác mới.
 - Nút **+ Thêm trường** nằm bên trong form tạo mới của từng module.
 - Không xây dựng màn hình quản lý trường động trong trang Cài đặt.
 - Cấu hình trường hiện có được chỉnh sửa trực tiếp tại form tạo mới.
@@ -163,3 +163,4 @@ Tắt hiển thị hoặc lưu trữ không xóa giá trị đã nhập. Không 
 - Không tự động chuyển toàn bộ trường cố định hiện tại sang `customFields`.
 - Không xóa cứng dữ liệu trường động đã được sử dụng.
 - Không chạy migration hàng loạt để chèn khóa rỗng vào mọi bản ghi cũ.
+- Không áp dụng cho các form hành động phụ hoặc module ngoài sáu điểm đã chốt, bao gồm Học phí, Thông báo, thêm học viên vào đợt thi, mức hoa hồng, khoản chi trả và danh mục.

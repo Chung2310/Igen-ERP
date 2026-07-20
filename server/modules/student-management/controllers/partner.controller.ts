@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
 import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class PartnerController {
   static async create(req: AuthRequest, res: Response, next: NextFunction) {
@@ -16,7 +17,11 @@ export class PartnerController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
-      const partner = await PartnerService.createPartner(ownerId, req.body);
+      const partner = await PartnerService.createPartner(ownerId, req.body, {
+        tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
+        moduleKey: "partners",
+        actorRole: req.user!.role,
+      });
       res.status(201).json({ success: true, data: partner });
     } catch (error: unknown) {
       next(error);
@@ -75,7 +80,11 @@ export class PartnerController {
   static async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.updatePartner(ownerId, req.params.id, req.body);
+      const partner = await PartnerService.updatePartner(ownerId, req.params.id, req.body, {
+        tenantId: req.user!.companyCode || req.user!.centerId,
+        moduleKey: "partners",
+        actorRole: req.user!.role,
+      });
       if (!partner) {
         return res.status(404).json({ success: false, error: "Khong tim thay doi tac de cap nhat." });
       }

@@ -11,6 +11,7 @@ const payoutSchema = new Schema({
 
 const partnerSchema = new Schema<IPartner>(
   {
+    customFields: { type: Schema.Types.Mixed, default: {} },
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true, index: true },
     email: { type: String, lowercase: true, trim: true, default: "" },

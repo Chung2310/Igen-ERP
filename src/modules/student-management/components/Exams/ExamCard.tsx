@@ -12,6 +12,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './ExcelImportPreviewModal';
+import { CustomFieldDetails } from '../../custom-fields/CustomFieldDetails';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
   try {
@@ -406,6 +407,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
              className="border-t border-slate-100 bg-slate-50/50 overflow-hidden"
           >
             <div className="p-3 space-y-2">
+              <CustomFieldDetails moduleKey="exams" values={exam.customFields || {}} />
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">

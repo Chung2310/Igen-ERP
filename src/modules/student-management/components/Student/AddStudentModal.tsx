@@ -10,6 +10,12 @@ import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -21,6 +27,79 @@ interface AddStudentModalProps {
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, students, selectedCenter }: AddStudentModalProps) {
   const { userProfile: user } = useAuth();
+  const {
+    fields: stdFields,
+    activeFields: activeStdFields,
+    archivedFields: archivedStdFields,
+    updateField: updateStdField,
+    archiveField: archiveStdField,
+    restoreField: restoreStdField,
+    deleteField: deleteStdField
+  } = useStandardFields("students");
+
+  const manageable = canManageCustomFields(user?.role);
+  const [stdEditorOpen, setStdEditorOpen] = useState(false);
+  const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+
+  const openEditStdField = (field: StandardFieldConfig) => {
+    setEditingStdField(getAdaptedFieldDefinition(field, "students"));
+    setStdEditorOpen(true);
+  };
+
+  const handleStdFieldSubmit = (input: CreateFieldInput) => {
+    if (editingStdField) {
+      updateStdField(editingStdField.key, {
+        label: input.label,
+        placeholder: input.placeholder,
+        isRequired: input.isRequired,
+        isVisible: input.isVisible,
+      });
+    }
+  };
+
+  const archiveStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
+      archiveStdField(field.key);
+    }
+  };
+
+  const deleteStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
+      deleteStdField(field.key);
+    }
+  };
+
+  const renderFieldActions = (fieldKey: string) => {
+    if (!manageable) return null;
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    if (!fieldConfig) return null;
+    return (
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
+        <span>|</span>
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
+        <span>|</span>
+        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      </div>
+    );
+  };
+
+  const isFieldVisible = (fieldKey: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+  };
+  const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.label : defaultLabel;
+  };
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
+  };
+  const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.isRequired : defaultRequired;
+  };
   
   const { batches } = useBatches();
   const { centers } = useAdminCenters();
@@ -72,27 +151,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     fee: '',
     address: '',
     email: '',
+    customFields: {} as CustomFieldValues,
   });
-
-  const getRequiredFieldsConfig = () => {
-    const saved = localStorage.getItem('requiredFieldsConfig');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing requiredFieldsConfig', e);
-      }
-    }
-    return {
-      fullName: true,
-      phone: true,
-      birthday: false,
-      idCard: false,
-      email: false
-    };
-  };
-
-  const requiredFields = getRequiredFieldsConfig();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,11 +163,19 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     }
 
     const missingFields: string[] = [];
-    if (requiredFields.fullName && !formData.fullName) missingFields.push('Họ và tên');
-    if (requiredFields.phone && !formData.phone) missingFields.push('Số điện thoại');
-    if (requiredFields.birthday && !formData.birthday) missingFields.push('Ngày sinh');
-    if (requiredFields.idCard && !formData.idCard) missingFields.push('CCCD/CMND');
-    if (requiredFields.email && !formData.email) missingFields.push('Email');
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
+        if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
+        if (f.key === 'referral' && !formData.referral && referralMode === 'custom') missingFields.push(f.label);
+        if (f.key === 'referral' && referralMode === 'partner' && !formData.partnerId) missingFields.push(f.label);
+        if (f.key === 'birthday' && !formData.birthday) missingFields.push(f.label);
+        if (f.key === 'idCard' && !formData.idCard) missingFields.push(f.label);
+        if (f.key === 'enrollmentDate' && !formData.enrollmentDate) missingFields.push(f.label);
+        if (f.key === 'address' && !formData.address) missingFields.push(f.label);
+        if (f.key === 'email' && !formData.email) missingFields.push(f.label);
+      }
+    });
 
     if (missingFields.length > 0) {
       const message = `Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`;
@@ -186,6 +254,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           fee: '',
           address: '',
           email: '',
+          customFields: {},
         });
         setReferralMode('none');
         setBatchId('');
@@ -266,166 +335,250 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                <FormInput
-                  label="Họ và tên"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  required={requiredFields.fullName}
-                  placeholder="Nhập họ và tên..."
-                />
-                <FormInput
-                  label="Số điện thoại"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  required={requiredFields.phone}
-                  placeholder="Nhập số điện thoại..."
-                />
-                <FormInput
-                  label="Email học viên"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required={requiredFields.email}
-                  placeholder="Nhập địa chỉ email..."
-                  className="sm:col-span-2"
-                />
+                {isFieldVisible('fullName') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('fullName')}
+                    <FormInput
+                      label={getFieldLabel('fullName', 'Họ và tên')}
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('fullName', true)}
+                      placeholder={getFieldPlaceholder('fullName', 'Nhập họ và tên...')}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('phone') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('phone')}
+                    <FormInput
+                      label={getFieldLabel('phone', 'Số điện thoại')}
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('phone', true)}
+                      placeholder={getFieldPlaceholder('phone', 'Nhập số điện thoại...')}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('email') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('email')}
+                    <FormInput
+                      label={getFieldLabel('email', 'Email học viên')}
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('email', false)}
+                      placeholder={getFieldPlaceholder('email', 'Nhập địa chỉ email...')}
+                    />
+                  </div>
+                )}
 
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Nguồn giới thiệu
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="relative">
-                      <select
-                        value={referralMode}
-                        onChange={(e) => {
-                          const mode = e.target.value as 'none' | 'partner' | 'custom';
-                          setReferralMode(mode);
-                          if (mode === 'none') {
-                            setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
-                          } else if (mode === 'custom') {
-                            setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
-                          } else {
-                            setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                      >
-                        <option value="none">Không có giới thiệu</option>
-                        <option value="partner">Đối tác / CTV hệ thống</option>
-                        <option value="custom">Nhập người giới thiệu khác</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
-
-                    {referralMode === 'partner' && (
+                {isFieldVisible('referral') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('referral')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
+                      {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
                         <select
-                          value={formData.partnerId}
+                          value={referralMode}
                           onChange={(e) => {
-                            const pId = e.target.value;
-                            const pObj = partners.find(p => p._id === pId);
-                            setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
+                            const mode = e.target.value as 'none' | 'partner' | 'custom';
+                            setReferralMode(mode);
+                            if (mode === 'none') {
+                              setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
+                            } else if (mode === 'custom') {
+                              setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
+                            } else {
+                              setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
+                            }
                           }}
                           className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
                         >
-                          <option value="">-- Chọn đối tác --</option>
-                          {partners.map(p => (
-                            <option key={p._id} value={p._id}>
-                              {p.name} ({p.phone})
-                            </option>
-                          ))}
+                          <option value="none">Không có giới thiệu</option>
+                          <option value="partner">Đối tác / CTV hệ thống</option>
+                          <option value="custom">Nhập người giới thiệu khác</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       </div>
-                    )}
 
-                    {referralMode === 'custom' && (
-                      <input
-                        type="text"
-                        name="referral"
-                        value={formData.referral}
-                        onChange={handleInputChange}
-                        placeholder="Nhập tên người giới thiệu..."
-                        className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-cyan-600 transition-all"
-                      />
-                    )}
+                      {referralMode === 'partner' && (
+                        <div className="relative">
+                          <select
+                            value={formData.partnerId}
+                            onChange={(e) => {
+                              const pId = e.target.value;
+                              const pObj = partners.find(p => p._id === pId);
+                              setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
+                            }}
+                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
+                          >
+                            <option value="">-- Chọn đối tác --</option>
+                            {partners.map(p => (
+                              <option key={p._id} value={p._id}>
+                                {p.name} ({p.phone})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                      )}
+
+                      {referralMode === 'custom' && (
+                        <input
+                          type="text"
+                          name="referral"
+                          value={formData.referral}
+                          onChange={handleInputChange}
+                          placeholder={getFieldPlaceholder('referral', 'Nhập tên người giới thiệu...')}
+                          className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-cyan-600 transition-all"
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <FormInput
-                  label="Ngày sinh"
-                  name="birthday"
-                  type="date"
-                  value={toInputDate(formData.birthday)}
-                  onChange={handleInputChange}
-                  required={requiredFields.birthday}
-                />
-                <FormInput
-                  label="CCCD / CMND"
-                  name="idCard"
-                  value={formData.idCard}
-                  onChange={handleInputChange}
-                  required={requiredFields.idCard}
-                  placeholder="Nhập số CCCD (12 số)..."
-                />
+                {isFieldVisible('birthday') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('birthday')}
+                    <FormInput
+                      label={getFieldLabel('birthday', 'Ngày sinh')}
+                      name="birthday"
+                      type="date"
+                      value={toInputDate(formData.birthday)}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('birthday', false)}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('idCard') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('idCard')}
+                    <FormInput
+                      label={getFieldLabel('idCard', 'CCCD / CMND')}
+                      name="idCard"
+                      value={formData.idCard}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('idCard', false)}
+                      placeholder={getFieldPlaceholder('idCard', 'Nhập số CCCD (12 số)...')}
+                    />
+                  </div>
+                )}
                 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Xếp vào lớp (tùy chọn)
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={batchId}
-                      onChange={(e) => setBatchId(e.target.value)}
-                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                    >
-                      <option value="">-- Chưa xếp lớp --</option>
-                      {batches
-                        .filter(b => b.status !== 'Đã kết thúc')
-                        .map(b => (
-                          <option key={b.id} value={b.id}>
-                            {b.code} — {b.courseTitle}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                {isFieldVisible('batchId') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('batchId')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
+                      {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={batchId}
+                        onChange={(e) => setBatchId(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
+                      >
+                        <option value="">-- Chưa xếp lớp --</option>
+                        {batches
+                          .filter(b => b.status !== 'Đã kết thúc')
+                          .map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.code} — {b.courseTitle}
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <FormInput
-                  label="Ngày đăng ký"
-                  name="registrationDate"
-                  value={formData.registrationDate}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-                <FormInput
-                  label="Ngày nhập học"
-                  name="enrollmentDate"
-                  type="date"
-                  value={toInputDate(formData.enrollmentDate)}
-                  onChange={handleInputChange}
-                />
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Học phí đã chốt
-                  </label>
-                  <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">
-                    Sẽ lấy tự động từ khóa học khi xếp lớp.
+                {isFieldVisible('registrationDate') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('registrationDate')}
+                    <FormInput
+                      label={getFieldLabel('registrationDate', 'Ngày đăng ký')}
+                      name="registrationDate"
+                      value={formData.registrationDate}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('registrationDate', false)}
+                      readOnly
+                    />
                   </div>
-                </div>
-                <FormInput
-                  label="Địa chỉ"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  placeholder="Nhập địa chỉ..."
-                  className="sm:col-span-2"
-                />
+                )}
+                {isFieldVisible('enrollmentDate') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('enrollmentDate')}
+                    <FormInput
+                      label={getFieldLabel('enrollmentDate', 'Ngày nhập học')}
+                      name="enrollmentDate"
+                      type="date"
+                      value={toInputDate(formData.enrollmentDate)}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('enrollmentDate', false)}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('fee') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('fee')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('fee', 'Học phí đã chốt')}{' '}
+                      {isFieldRequired('fee', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">
+                      {getFieldPlaceholder('fee', 'Sẽ lấy tự động từ khóa học khi xếp lớp.')}
+                    </div>
+                  </div>
+                )}
+                {isFieldVisible('address') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('address')}
+                    <FormInput
+                      label={getFieldLabel('address', 'Địa chỉ')}
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('address', false)}
+                      placeholder={getFieldPlaceholder('address', 'Nhập địa chỉ...')}
+                    />
+                  </div>
+                )}
               </div>
+
+              <CustomFieldsSection
+                moduleKey="students"
+                values={formData.customFields}
+                onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+                mode="create"
+                disabled={isSubmitting}
+                tenantId={selectedCenterId || undefined}
+              />
+
+              {manageable && archivedStdFields.length ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                  <ul className="mt-2 divide-y divide-slate-100">
+                    {archivedStdFields.map((field) => (
+                      <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                        <span>{field.label}</span>
+                        <button
+                          type="button"
+                          disabled={isSubmitting}
+                          className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors"
+                          aria-label={`Khôi phục ${field.label}`}
+                          onClick={() => restoreStdField(field.key)}
+                        >
+                          Khôi phục
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-end gap-4 pt-4 mt-2 border-t border-slate-50 flex-shrink-0">
                 <button
@@ -449,6 +602,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           </motion.div>
         </div>
       )}
+
+      <CustomFieldEditorModal
+        open={stdEditorOpen}
+        moduleKey="students"
+        initialField={editingStdField}
+        onClose={() => setStdEditorOpen(false)}
+        onSubmit={handleStdFieldSubmit}
+        isStandard={true}
+      />
     </AnimatePresence>
   );
 }

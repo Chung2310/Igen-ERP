@@ -1,9 +1,11 @@
 import { Document } from "mongoose";
+import type { CustomFieldValues } from "./custom-field.interface";
 
 export type CourseCategory = string;
 export type CourseStatus = 'Hoạt động' | 'Tạm dừng';
 
 export interface ICourse extends Document {
+  customFields?: CustomFieldValues;
   code: string;
   title: string;
   category: CourseCategory;

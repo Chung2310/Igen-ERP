@@ -28,6 +28,7 @@ export function ResourcesPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingResource, setEditingResource] = useState<ResourceItem | null>(null);
   const [bookingResource, setBookingResource] = useState<ResourceItem | null>(null);
 
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
@@ -127,7 +128,7 @@ export function ResourcesPage() {
             >
               Quản lý phân loại
             </button>
-            <ErpPrimaryButton onClick={() => setShowAddModal(true)}>
+            <ErpPrimaryButton onClick={() => { setEditingResource(null); setShowAddModal(true); }}>
               Khai báo tài nguyên mới
             </ErpPrimaryButton>
           </div>
@@ -199,6 +200,7 @@ export function ResourcesPage() {
                 key={r.id}
                 resource={r}
                 onBook={setBookingResource}
+                onEdit={setEditingResource}
                 onToggleMaintenance={handleToggleMaintenance}
                 onDelete={handleDelete}
                 onCancelBooking={handleCancelBooking}
@@ -220,6 +222,7 @@ export function ResourcesPage() {
         <ResourceTable
           resources={paginatedResources}
           onBook={setBookingResource}
+          onEdit={setEditingResource}
           onToggleMaintenance={handleToggleMaintenance}
           onDelete={handleDelete}
           footer={
@@ -237,10 +240,11 @@ export function ResourcesPage() {
 
       {/* Add Resource Modal */}
       <AddResourceModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        isOpen={showAddModal || !!editingResource}
+        onClose={() => { setShowAddModal(false); setEditingResource(null); }}
         categories={categories}
         onSuccess={refreshResources}
+        resource={editingResource || undefined}
       />
 
       {/* Booking Modal */}

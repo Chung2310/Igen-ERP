@@ -1,0 +1,1840 @@
+﻿===== FILE: src/modules/student-management/types.ts =====
+/**
+ * Student Types
+ */
+
+import type { CustomFieldValues } from './custom-fields/types';
+
+export interface UploadedFile {
+  name: string;
+  url: string;
+  type: string;
+  uploadedAt: string;
+}
+
+export type StudentStatus = 'Chá» KSK' | 'ÄÃ£ KSK' | 'ÄÃ£ ná»™p HS' | 'Äang há»c' | 'Äang thi' | 'ÄÃ£ Ä‘áº­u' | 'Thi láº¡i' | 'Nghá»‰ há»c' | 'Ná»£ há»c phÃ­';
+
+export interface DrivingStudent {
+  id: string;
+  fullName: string;
+  slug?: string;
+  email?: string;
+  phone: string;
+  referral?: string;
+  birthday: string;
+  idCard: string;
+  idCardFront?: string;
+  idCardBack?: string;
+  /** Háº¡ng báº±ng lÃ¡i â€” thÃ´ng tin riÃªng ngÃ nh lÃ¡i xe, há»c viÃªn ngÃ nh khÃ¡c Ä‘á»ƒ trá»‘ng */
+  rank?: string;
+  courseId?: string;
+  registrationDate: string;
+  enrollmentDate?: string;
+  fee: string; // This is the TOTAL fee string (e.g. "12,000,000")
+  paidAmount?: number; // Total amount paid so far
+  address: string;
+  status: StudentStatus[];
+  ownerId: string;
+  centerId?: string;
+  partnerId?: string;
+  healthCheckDate?: string;
+  healthCheckNotes?: string;
+  healthCheckFiles?: UploadedFile[];
+  idCardFrontFile?: UploadedFile;
+  idCardBackFile?: UploadedFile;
+  portraitFile?: UploadedFile;
+  customFields?: CustomFieldValues;
+  
+  // Progress tracking
+  progress?: {
+    theory: { completed: boolean; score?: number; lastDate?: string };
+    practice: { hoursDone: number; totalHours: number };
+    cabin: { hoursDone: number; totalHours: number };
+    dat: { kmDone: number; totalKm: number };
+    sim: { completed: boolean; lastDate?: string };
+  };
+
+  // Exam History
+  exams?: {
+    id: string;
+    name: string;
+    date: string;
+    type: 'Tá»‘t nghiá»‡p' | 'SÃ¡t háº¡ch';
+    status: 'Sáº¯p thi' | 'ÄÃ£ thi';
+    result?: {
+      theory: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      practice: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      simulation?: number | 'Äáº¡t' | 'KhÃ´ng Ä‘áº¡t';
+      overall: 'Äáº­u' | 'TrÆ°á»£t' | 'ChÆ°a cÃ³' | 'Sáº¯p thi' | 'Váº¯ng thi';
+    };
+  }[];
+
+  // Payment History (Detailed)
+  paymentHistory?: {
+    id: string;
+    amount: number;
+    date: string;
+    method: 'Tiá»n máº·t' | 'Chuyá»ƒn khoáº£n';
+    note?: string;
+    recipient: string;
+  }[];
+
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  examId?: string;
+  examName?: string;
+  examDate?: string;
+}
+
+export interface FeePayment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  date: string;
+  note?: string;
+  ownerId: string;
+  createdAt?: Date | string;
+}
+
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  content: string;
+  recipients: string; // e.g. "Táº¥t cáº£ há»c viÃªn Ä‘ang há»c"
+  recipientCount: number;
+  channels: string[]; // ["Zalo OA", "SMS"]
+  status: 'ÄÃ£ gá»­i' | 'Äang gá»­i' | 'Tháº¥t báº¡i';
+  ownerId: string;
+  createdAt: Date | string;
+}
+
+export interface RankSetting {
+  id: string;
+  rank: string;
+  label: string;
+  fee: string;
+  modules: string[]; // ["LÃ½ thuyáº¿t", "Thá»±c hÃ nh", ...]
+  ownerId: string;
+}
+
+export interface AreaSetting {
+  id: string;
+  name: string;
+  studentCount?: number;
+  ownerId: string;
+}
+
+export interface PaymentStage {
+  id: string;
+  name: string;
+  order: number;
+  ownerId: string;
+}
+
+export type Student = DrivingStudent;
+
+export type ExamStatus = 'Sáº¯p diá»…n ra' | 'ÄÃ£ xÃ¡c nháº­n' | 'ÄÃ£ hoÃ n thÃ nh' | 'ÄÃ£ há»§y';
+
+export interface ExamSession {
+  id: string;
+  name: string;
+  status: ExamStatus;
+  /** Háº¡ng báº±ng lÃ¡i â€” riÃªng ngÃ nh lÃ¡i xe, ká»³ thi ngÃ nh khÃ¡c Ä‘á»ƒ trá»‘ng */
+  rank?: string;
+  area?: string;
+  tentativeDate: string;
+  officialDate?: string;
+  location: string;
+  studentCount: number;
+  passCount: number;
+  failCount: number;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+// ==== ERP: KhÃ³a há»c / Giáº£ng viÃªn / TÃ i nguyÃªn / Lá»‹ch tá»•ng há»£p ====
+
+export type CourseCategory = string;
+export type CourseStatus = 'Hoáº¡t Ä‘á»™ng' | 'Táº¡m dá»«ng';
+
+export interface Course {
+  id: string;
+  code: string;
+  title: string;
+  category: CourseCategory;
+  fee: string;
+  duration: string;
+  maxLearners: number;
+  activeBatches: number;
+  status: CourseStatus;
+  ownerId: string;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export type ManagedUser = {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: 'superadmin' | 'admin' | 'user';
+  centerId: string;
+  createdBy?: string;
+  isActive?: boolean;
+  bankAccountNo?: string;
+  bankId?: string;
+  businessType?: 'driving' | 'language' | 'general';
+  maxUsersLimit?: number;
+  permissions?: string[];
+};
+
+export type BatchStatus = 'Sáº¯p khai giáº£ng' | 'Äang há»c' | 'ÄÃ£ káº¿t thÃºc';
+
+export interface Batch {
+  id: string;
+  code: string;
+  courseId: string;
+  instructorId?: string;
+  learnerIds: string[];
+  daysOfWeek: number[]; // 0 = Chá»§ nháº­t ... 6 = Thá»© 7
+  startTime: string;    // HH:mm
+  endTime: string;      // HH:mm
+  location?: string;
+  startDate: string;    // YYYY-MM-DD
+  endDate: string;      // YYYY-MM-DD
+  status: BatchStatus;
+  ownerId: string;
+  // ThÃ´ng tin server gáº¯n kÃ¨m Ä‘á»ƒ hiá»ƒn thá»‹
+  courseCode: string;
+  courseTitle: string;
+  maxLearners: number;
+  instructorName: string;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+// PhÃ¢n loáº¡i tÃ i nguyÃªn lÃ  chuá»—i Ä‘á»™ng (quáº£n lÃ½ qua /resources/categories);
+// cÃ¡c giÃ¡ trá»‹ cÅ© 'ROOM' | 'VEHICLE' | 'EQUIPMENT' váº«n há»£p lá»‡ vá»›i dá»¯ liá»‡u Ä‘Ã£ cÃ³.
+export type ResourceType = string;
+export type ResourceStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
+
+export interface ResourceBooking {
+  id?: string;
+  purpose: string;
+  by: string;
+  date: string;      // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string;   // HH:mm
+}
+
+export interface ResourceItem {
+  id: string;
+  name: string;
+  type: ResourceType;
+  identifier: string;
+  capacity: string;
+  status: ResourceStatus;
+  bookings: ResourceBooking[];
+  ownerId: string;
+  customFields?: CustomFieldValues;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  type: 'class' | 'exam' | 'resource';
+  date: string; // YYYY-MM-DD
+  time: string;
+  details: string;
+}
+
+export interface StudentStats {
+  totalStudents: number;
+  averageGPA: number;
+  attendanceRate: number;
+  atRiskCount: number;
+}
+
+export interface PartnerPayout {
+  id: string;
+  amount: number;
+  date: string;
+  method: string;
+  note?: string;
+}
+
+export interface PartnerReferredStudent {
+  _id: string;
+  fullName: string;
+  phone: string;
+  registrationDate: string;
+  status: string[];
+  commission: number;
+}
+
+export interface Partner {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  commissionType: 'fixed' | 'percentage';
+  commissionValue: number;
+  bankName?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
+  isActive: boolean;
+  notes?: string;
+  ownerId: string;
+  customFields?: CustomFieldValues;
+  referredStudentsCount: number;
+  totalCommission: number;
+  totalPaid: number;
+  unpaidBalance: number;
+  referredStudents: PartnerReferredStudent[];
+  payoutHistory: PartnerPayout[];
+  levelName?: string;
+  totalReferredTuition?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommissionLevel {
+  _id: string;
+  name: string;
+  minTuition: number;
+  commissionRate: number;
+  ownerId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+===== FILE: src/modules/student-management/pages/Resources/components/AddResourceModal.tsx =====
+import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../../../lib/api';
+import { toast } from '../../../../../pages/Toast';
+import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
+import { CustomFieldsSection } from '../../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../custom-fields/types';
+import type { ResourceItem } from '../../../types';
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface AddResourceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categories: Category[];
+  onSuccess: () => void;
+  resource?: ResourceItem;
+}
+
+export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resource }: AddResourceModalProps) {
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [newResource, setNewResource] = useState({
+    name: '',
+    type: '',
+    identifier: '',
+    capacity: '',
+    customFields: {} as CustomFieldValues,
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setNewResource(resource ? {
+      name: resource.name || '',
+      type: resource.type || '',
+      identifier: resource.identifier || '',
+      capacity: resource.capacity || '',
+      customFields: resource.customFields || {},
+    } : {
+      name: '',
+      type: '',
+      identifier: '',
+      capacity: '',
+      customFields: {},
+    });
+  }, [isOpen, resource]);
+
+  const selectedType = newResource.type || categories[0]?.name || '';
+
+  const handleAddResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newResource.name || !newResource.identifier || !newResource.capacity || !selectedType) {
+      toast.error('Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin tÃ i nguyÃªn.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiFetch(resource ? `/student-resources/${resource.id}` : '/student-resources', {
+        method: resource ? 'PATCH' : 'POST',
+        body: JSON.stringify({
+          ...newResource,
+          type: selectedType,
+          identifier: newResource.identifier.toUpperCase(),
+        }),
+      });
+      toast.success(resource
+        ? `ÄÃ£ cáº­p nháº­t tÃ i nguyÃªn ${newResource.name}!`
+        : `ÄÃ£ thÃªm má»›i tÃ i nguyÃªn ${newResource.name} vÃ o danh sÃ¡ch!`);
+      setNewResource({
+        name: '',
+        type: '',
+        identifier: '',
+        capacity: '',
+        customFields: {},
+      });
+      onSuccess();
+      onClose();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi khai bÃ¡o tÃ i nguyÃªn.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <ErpModal title={resource ? 'Cáº­p nháº­t tÃ i nguyÃªn' : 'Khai bÃ¡o tÃ i nguyÃªn má»›i'} onClose={onClose}>
+      <form onSubmit={handleAddResource} className="space-y-4">
+        <ErpField label="TÃªn gá»i tÃ i nguyÃªn">
+          <ErpInput
+            type="text"
+            required
+            placeholder="VÃ­ dá»¥: PhÃ²ng Lab thá»±c hÃ nh 102"
+            value={newResource.name}
+            onChange={(e) => setNewResource({ ...newResource, name: e.target.value })}
+          />
+        </ErpField>
+
+        <div className="grid grid-cols-2 gap-4">
+          <ErpField label="PhÃ¢n loáº¡i">
+            <ErpSelect
+              required
+              value={selectedType}
+              onChange={(e) => setNewResource({ ...newResource, type: e.target.value })}
+            >
+              <option value="" disabled>-- Chá»n phÃ¢n loáº¡i --</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </ErpSelect>
+          </ErpField>
+          <ErpField label="MÃ£ nháº­n diá»‡n / Sá»‘ phÃ²ng">
+            <ErpInput
+              type="text"
+              required
+              placeholder="VÃ­ dá»¥: P.102, MT-01, MC-02"
+              value={newResource.identifier}
+              onChange={(e) => setNewResource({ ...newResource, identifier: e.target.value })}
+            />
+          </ErpField>
+        </div>
+
+        <ErpField label="Sá»©c chá»©a / Kháº£ nÄƒng Ä‘Ã¡p á»©ng">
+          <ErpInput
+            type="text"
+            required
+            placeholder="VÃ­ dá»¥: 30 ngÆ°á»i / 2 ngÆ°á»i / 1 bá»™"
+            value={newResource.capacity}
+            onChange={(e) => setNewResource({ ...newResource, capacity: e.target.value })}
+          />
+        </ErpField>
+
+        <CustomFieldsSection
+          moduleKey="resources"
+          values={newResource.customFields}
+          onChange={(customFields) => setNewResource((previous) => ({ ...previous, customFields }))}
+          mode={resource ? 'edit' : 'create'}
+          disabled={isSubmitting}
+        />
+
+        <ErpSubmitButton disabled={isSubmitting}>
+          {isSubmitting ? 'Äang lÆ°u...' : resource ? 'Cáº­p nháº­t tÃ i nguyÃªn' : 'Khai bÃ¡o tÃ i nguyÃªn'}
+        </ErpSubmitButton>
+      </form>
+    </ErpModal>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Resources/components/ResourceCard.tsx =====
+import React, { useMemo } from 'react';
+import { CheckCircle, Clock, AlertTriangle, UserCheck, Trash2, Wrench, X, Pencil } from 'lucide-react';
+import { cn } from '../../../lib/utils';
+import { ResourceItem } from '../../../types';
+import { todayStr, getTypeColor } from '../utils';
+import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+
+interface ResourceCardProps {
+  key?: React.Key;
+  resource: ResourceItem;
+  onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
+  onToggleMaintenance: (r: ResourceItem) => void;
+  onDelete: (r: ResourceItem) => void;
+  onCancelBooking: (r: ResourceItem, bookingId?: string) => void;
+}
+
+export function ResourceCard({
+  resource,
+  onBook,
+  onEdit,
+  onToggleMaintenance,
+  onDelete,
+  onCancelBooking,
+}: ResourceCardProps) {
+  const darkMode = false;
+
+  const currentBooking = useMemo(() => {
+    const today = todayStr();
+    const hhmm = new Date().toTimeString().slice(0, 5);
+    return resource.bookings.find(b => b.date === today && b.startTime <= hhmm && b.endTime > hhmm);
+  }, [resource.bookings]);
+
+  const upcomingBookings = useMemo(() => {
+    const today = todayStr();
+    const hhmm = new Date().toTimeString().slice(0, 5);
+    return resource.bookings
+      .filter(b => {
+        if (b.date < today) return false;
+        if (b.date === today && b.startTime <= hhmm && b.endTime > hhmm) return false;
+        return true;
+      })
+      .sort((a, b) => (a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date)))
+      .slice(0, 2);
+  }, [resource.bookings]);
+
+  const isOccupied = !!currentBooking;
+
+  return (
+    <div
+      className={cn(
+        "p-3 rounded-xl border flex flex-col justify-between transition-all duration-300 group",
+        darkMode
+          ? "bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-brand-primary/20"
+          : "bg-white border-slate-200 hover:border-brand-primary/20 shadow-sm shadow-slate-100/50"
+      )}
+    >
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className={cn("text-[9px] font-black uppercase tracking-widest", darkMode ? "text-slate-500" : "text-slate-400")}>
+            {resource.identifier}
+          </span>
+          <span className={cn(
+            "px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider",
+            getTypeColor(resource.type)
+          )}>
+            {resource.type}
+          </span>
+        </div>
+
+        <h4 className={cn("text-xs font-black line-clamp-1 text-left mt-1", darkMode ? "text-slate-100" : "text-slate-800")}>
+          {resource.name}
+        </h4>
+        <p className={cn("text-[9px] font-bold text-left", darkMode ? "text-slate-400" : "text-slate-550")}>
+          Kháº£ nÄƒng Ä‘Ã¡p á»©ng: <span className={cn("font-black", darkMode ? "text-slate-200" : "text-slate-705")}>{resource.capacity}</span>
+        </p>
+
+        {/* Status Section */}
+        <div className={cn("pt-3 border-t space-y-2", darkMode ? "border-slate-800/30" : "border-slate-100")}>
+          {resource.status === 'MAINTENANCE' ? (
+            <div className="flex items-center gap-1.5 text-rose-500 text-xs font-bold text-left">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+              <span>Äang báº£o trÃ¬ sá»­a chá»¯a</span>
+            </div>
+          ) : isOccupied && currentBooking ? (
+            <div className={cn("p-2 border rounded-lg space-y-1 text-left", darkMode ? "bg-brand-primary/10 border-brand-primary/20" : "bg-cyan-50/50 border-cyan-100/60")}>
+              <div className="flex items-center gap-1.5 text-brand-primary text-[9px] font-black uppercase">
+                <Clock className="w-3 h-3" />
+                <span>Äang báº­n: {currentBooking.startTime} - {currentBooking.endTime}</span>
+              </div>
+              <p className={cn("text-[9px] font-black truncate", darkMode ? "text-slate-200" : "text-slate-800")}>
+                {currentBooking.purpose}
+              </p>
+              <p className="text-[8px] font-bold text-slate-500">ÄÄƒng kÃ½ bá»Ÿi: {currentBooking.by}</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-emerald-500 text-xs font-bold text-left">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Sáºµn sÃ ng sá»­ dá»¥ng</span>
+            </div>
+          )}
+
+          {/* Upcoming bookings */}
+          {upcomingBookings.length > 0 && (
+            <div className="space-y-1.5">
+              {upcomingBookings.map((b) => (
+                <div key={b.id} className={cn(
+                  "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-[9px] font-bold",
+                  darkMode ? "bg-slate-800/40 border-slate-700/40 text-slate-355" : "bg-slate-50 border-slate-100 text-slate-655"
+                )}>
+                  <span className="truncate">
+                    {b.date.split('-').reverse().join('/')} â€¢ {b.startTime}-{b.endTime} â€¢ {b.purpose} ({b.by})
+                  </span>
+                  <button
+                    onClick={() => onCancelBooking(resource, b.id)}
+                    title="Há»§y lá»‹ch Ä‘áº·t"
+                    className="text-slate-400 hover:text-rose-500 transition-colors flex-shrink-0 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <CustomFieldDetails moduleKey="resources" values={resource.customFields || {}} />
+        </div>
+      </div>
+
+      <div className={cn("flex items-center justify-between pt-2.5 mt-1.5 border-t", darkMode ? "border-slate-800/30" : "border-slate-100")}>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onEdit(resource)}
+            title="Chá»‰nh sá»­a tÃ i nguyÃªn"
+            className={cn(
+              "p-1 rounded-md transition-colors border cursor-pointer",
+              darkMode ? "text-slate-500 hover:text-cyan-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-400 hover:text-cyan-600 bg-slate-55 hover:bg-cyan-50 border-slate-205"
+            )}
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => onToggleMaintenance(resource)}
+            title={resource.status === 'MAINTENANCE' ? 'Káº¿t thÃºc báº£o trÃ¬' : 'Chuyá»ƒn sang báº£o trÃ¬'}
+            className={cn(
+              "p-1 rounded-md transition-colors border cursor-pointer",
+              darkMode ? "text-slate-500 hover:text-amber-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-400 hover:text-amber-500 bg-slate-55 hover:bg-slate-100 border-slate-205"
+            )}
+          >
+            <Wrench className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => onDelete(resource)}
+            title="XÃ³a tÃ i nguyÃªn"
+            className={cn(
+              "p-1 rounded-md transition-colors border cursor-pointer",
+              darkMode ? "text-slate-500 hover:text-rose-455 bg-slate-800 hover:bg-slate-750 border-transparent" : "text-slate-400 hover:text-rose-500 bg-slate-55 hover:bg-rose-50 border-slate-205"
+            )}
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+        <button
+          disabled={resource.status === 'MAINTENANCE'}
+          onClick={() => onBook(resource)}
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border cursor-pointer",
+            resource.status !== 'MAINTENANCE'
+              ? "bg-brand-primary hover:bg-brand-primary/95 border-transparent text-white shadow-md active:scale-95"
+              : (darkMode ? "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed" : "bg-slate-100 text-slate-400 border-slate-200/50 cursor-not-allowed")
+          )}
+        >
+          <UserCheck className="w-3 h-3" />
+          Äáº·t mÆ°á»£n
+        </button>
+      </div>
+    </div>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Resources/components/ResourceTable.tsx =====
+import React, { useMemo } from 'react';
+import { AlertTriangle, Clock, CheckCircle, Wrench, Trash2, Pencil } from 'lucide-react';
+import { cn } from '../../../lib/utils';
+import { ResourceItem } from '../../../types';
+import { ErpCard, ErpTableHead } from '../../../components/Erp/ErpUI';
+import { todayStr, getTypeColor } from '../utils';
+
+interface ResourceTableProps {
+  resources: ResourceItem[];
+  onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
+  onToggleMaintenance: (r: ResourceItem) => void;
+  onDelete: (r: ResourceItem) => void;
+  footer?: React.ReactNode;
+}
+
+export function ResourceTable({
+  resources,
+  onBook,
+  onEdit,
+  onToggleMaintenance,
+  onDelete,
+  footer,
+}: ResourceTableProps) {
+  const darkMode = false;
+
+  return (
+    <ErpCard className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs text-left border-collapse">
+          <ErpTableHead columns={['MÃ£ nháº­n diá»‡n', 'TÃªn tÃ i nguyÃªn', 'PhÃ¢n loáº¡i', 'Kháº£ nÄƒng Ä‘Ã¡p á»©ng', 'Hiá»‡n tráº¡ng', 'Thao tÃ¡c']} />
+          <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
+            {resources.map((resource) => (
+              <ResourceTableRow
+                key={resource.id}
+                resource={resource}
+                onBook={onBook}
+                onEdit={onEdit}
+                onToggleMaintenance={onToggleMaintenance}
+                onDelete={onDelete}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {footer}
+    </ErpCard>
+  );
+}
+
+interface ResourceTableRowProps {
+  key?: React.Key;
+  resource: ResourceItem;
+  onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
+  onToggleMaintenance: (r: ResourceItem) => void;
+  onDelete: (r: ResourceItem) => void;
+}
+
+function ResourceTableRow({
+  resource,
+  onBook,
+  onEdit,
+  onToggleMaintenance,
+  onDelete,
+}: ResourceTableRowProps) {
+  const darkMode = false;
+
+  const currentBooking = useMemo(() => {
+    const today = todayStr();
+    const hhmm = new Date().toTimeString().slice(0, 5);
+    return resource.bookings.find(b => b.date === today && b.startTime <= hhmm && b.endTime > hhmm);
+  }, [resource.bookings]);
+
+  const upcomingBookings = useMemo(() => {
+    const today = todayStr();
+    const hhmm = new Date().toTimeString().slice(0, 5);
+    return resource.bookings
+      .filter(b => {
+        if (b.date < today) return false;
+        if (b.date === today && b.startTime <= hhmm && b.endTime > hhmm) return false;
+        return true;
+      })
+      .sort((a, b) => (a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date)))
+      .slice(0, 2);
+  }, [resource.bookings]);
+
+  const isOccupied = !!currentBooking;
+
+  return (
+    <tr className={cn("transition-colors", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600 hover:bg-slate-50/40")}>
+      <td className="py-2.5 px-4 font-black text-sm text-left">{resource.identifier}</td>
+      <td className="py-2.5 px-4 font-bold text-left">{resource.name}</td>
+      <td className="py-2.5 px-4 text-left">
+        <span className={cn(
+          "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider",
+          getTypeColor(resource.type)
+        )}>
+          {resource.type}
+        </span>
+      </td>
+      <td className="py-2.5 px-4 font-bold text-left">{resource.capacity}</td>
+      <td className="py-2.5 px-4 space-y-1 text-left">
+        {resource.status === 'MAINTENANCE' ? (
+          <span className="inline-flex items-center gap-1 text-rose-500 font-bold text-[10px]">
+            <AlertTriangle className="w-3.5 h-3.5" /> Báº£o trÃ¬
+          </span>
+        ) : isOccupied && currentBooking ? (
+          <div className="space-y-0.5">
+            <span className="inline-flex items-center gap-1 text-brand-primary font-black text-[10px]">
+              <Clock className="w-3 h-3" /> Äang báº­n ({currentBooking.startTime}-{currentBooking.endTime})
+            </span>
+            <div className="text-[9px] text-slate-400 font-bold truncate max-w-xs">{currentBooking.purpose} ({currentBooking.by})</div>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-emerald-500 font-bold text-[10px]">
+            <CheckCircle className="w-3.5 h-3.5" /> Sáºµn sÃ ng
+          </span>
+        )}
+        {upcomingBookings.length > 0 && (
+          <div className="text-[8px] text-slate-400 font-bold">
+            Lá»‹ch sáº¯p tá»›i: {upcomingBookings.map(b => `${b.startTime}-${b.endTime}`).join(', ')}
+          </div>
+        )}
+      </td>
+      <td className="py-2.5 px-4 text-left">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEdit(resource)}
+            title="Chá»‰nh sá»­a tÃ i nguyÃªn"
+            className={cn(
+              "p-1.5 rounded-lg transition-colors border cursor-pointer",
+              darkMode ? "text-slate-400 hover:text-cyan-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-500 hover:text-cyan-600 bg-slate-50 hover:bg-cyan-50 border-slate-200/60"
+            )}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onToggleMaintenance(resource)}
+            title={resource.status === 'MAINTENANCE' ? 'Káº¿t thÃºc báº£o trÃ¬' : 'Chuyá»ƒn sang báº£o trÃ¬'}
+            className={cn(
+              "p-1.5 rounded-lg transition-colors border cursor-pointer",
+              darkMode ? "text-slate-400 hover:text-amber-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-500 hover:text-amber-500 bg-slate-50 hover:bg-slate-100 border-slate-200/60"
+            )}
+          >
+            <Wrench className="w-3.5 h-3.5" />
+          </button>
+          <button
+            disabled={resource.status === 'MAINTENANCE'}
+            onClick={() => onBook(resource)}
+            className={cn(
+              "px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all border cursor-pointer",
+              resource.status !== 'MAINTENANCE'
+                ? "bg-brand-primary text-white border-transparent"
+                : "bg-slate-100 text-slate-400 border-slate-200/50 cursor-not-allowed"
+            )}
+          >
+            Äáº·t mÆ°á»£n
+          </button>
+          <button
+            onClick={() => onDelete(resource)}
+            title="XÃ³a tÃ i nguyÃªn"
+            className={cn(
+              "p-1.5 rounded-lg transition-colors border cursor-pointer",
+              darkMode ? "text-slate-450 hover:text-rose-455 bg-slate-800 hover:bg-rose-900/40 border-transparent" : "text-slate-500 hover:text-rose-500 bg-slate-50 hover:bg-rose-550 border-slate-200/60"
+            )}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Resources/ResourcesPage.tsx =====
+import React, { useState, useMemo } from 'react';
+import { List, LayoutGrid, Warehouse } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { apiFetch } from '../../lib/api';
+import { toast } from '../../../../pages/Toast';
+import { useResources } from '../../hooks/useResources';
+import { useResourceCategories } from '../../hooks/useResourceCategories';
+import { ResourceItem } from '../../types';
+import {
+  ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
+  ErpEmptyState, ErpLoadingState, ErpCard
+} from '../../components/Erp/ErpUI';
+import { Pagination } from '../../components/ui/Pagination';
+
+import { AddResourceModal } from './components/AddResourceModal';
+import { BookingModal } from './components/BookingModal';
+import { ManageCategoriesModal } from './components/ManageCategoriesModal';
+import { ResourceCard } from './components/ResourceCard';
+import { ResourceTable } from './components/ResourceTable';
+
+export function ResourcesPage() {
+  const darkMode = false;
+
+  const { resources, loading } = useResources();
+  const { categories, loading: categoriesLoading } = useResourceCategories();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingResource, setEditingResource] = useState<ResourceItem | null>(null);
+  const [bookingResource, setBookingResource] = useState<ResourceItem | null>(null);
+
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    return (localStorage.getItem('erp_view_mode_resources') as 'list' | 'grid') || 'grid';
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = viewMode === 'grid' ? 6 : 8;
+
+  // Tab lá»c = phÃ¢n loáº¡i Ä‘ang quáº£n lÃ½ + cÃ¡c phÃ¢n loáº¡i cÅ© cÃ²n xuáº¥t hiá»‡n trong dá»¯ liá»‡u
+  const typeOptions = useMemo(() => {
+    const options = categories.map(c => c.name);
+    for (const r of resources) {
+      if (!options.includes(r.type)) options.push(r.type);
+    }
+    return options;
+  }, [categories, resources]);
+
+  const handleCancelBooking = async (resource: ResourceItem, bookingId?: string) => {
+    if (!bookingId) return;
+    try {
+      await apiFetch(`/student-resources/${resource.id}/bookings/${bookingId}`, { method: 'DELETE' });
+      window.dispatchEvent(new Event('resource-mutation'));
+      toast.success('ÄÃ£ há»§y lá»‹ch Ä‘áº·t.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi há»§y lá»‹ch.';
+      toast.error(msg);
+    }
+  };
+
+  const handleToggleMaintenance = async (resource: ResourceItem) => {
+    const nextStatus = resource.status === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
+    try {
+      await apiFetch(`/student-resources/${resource.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      window.dispatchEvent(new Event('resource-mutation'));
+      toast.success(nextStatus === 'MAINTENANCE'
+        ? `${resource.name}: chuyá»ƒn sang tráº¡ng thÃ¡i báº£o trÃ¬.`
+        : `${resource.name}: Ä‘Ã£ sáºµn sÃ ng sá»­ dá»¥ng trá»Ÿ láº¡i.`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi cáº­p nháº­t tráº¡ng thÃ¡i.';
+      toast.error(msg);
+    }
+  };
+
+  const handleDelete = async (resource: ResourceItem) => {
+    try {
+      await apiFetch(`/student-resources/${resource.id}`, { method: 'DELETE' });
+      window.dispatchEvent(new Event('resource-mutation'));
+      toast.success(`ÄÃ£ xÃ³a tÃ i nguyÃªn ${resource.name}.`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'CÃ³ lá»—i xáº£y ra khi xÃ³a tÃ i nguyÃªn.';
+      toast.error(msg);
+    }
+  };
+
+  const filteredResources = resources.filter(r => {
+    const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.identifier.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === 'all' || r.type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+  const totalPages = Math.ceil(filteredResources.length / pageSize);
+  const paginatedResources = filteredResources.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [searchTerm, typeFilter, viewMode]);
+
+  const refreshResources = () => {
+    window.dispatchEvent(new Event('resource-mutation'));
+  };
+
+  const refreshCategories = () => {
+    window.dispatchEvent(new Event('resource-category-mutation'));
+  };
+
+  return (
+    <div className="space-y-6 text-left">
+      <ErpPageHeader
+        title="Quáº£n lÃ½ Thiáº¿t bá»‹ & TÃ i nguyÃªn"
+        subtitle="Khá»Ÿi táº¡o, theo dÃµi hiá»‡n tráº¡ng vÃ  phÃ¢n phá»‘i phÃ²ng há»c, thiáº¿t bá»‹ vÃ  cÃ´ng cá»¥ giáº£ng dáº¡y"
+        action={
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0",
+                darkMode
+                  ? "bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700"
+                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+              )}
+            >
+              Quáº£n lÃ½ phÃ¢n loáº¡i
+            </button>
+            <ErpPrimaryButton onClick={() => { setEditingResource(null); setShowAddModal(true); }}>
+              Khai bÃ¡o tÃ i nguyÃªn má»›i
+            </ErpPrimaryButton>
+          </div>
+        }
+      />
+
+      {/* Controls */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="TÃ¬m tÃ i nguyÃªn báº±ng tÃªn hoáº·c sá»‘ nháº­n diá»‡n..." />
+        <div className="flex flex-wrap items-center gap-4">
+          <ErpFilterRail>
+            <ErpFilterTab active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+              Táº¥t cáº£
+            </ErpFilterTab>
+            {typeOptions.map((type) => (
+              <ErpFilterTab key={type} active={typeFilter === type} onClick={() => setTypeFilter(type)}>
+                {type}
+              </ErpFilterTab>
+            ))}
+          </ErpFilterRail>
+
+          <div className={cn("flex items-center border p-1 rounded-xl gap-0.5 shrink-0", darkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50")}>
+            <button
+              type="button"
+              onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_resources', 'list'); }}
+              className={cn(
+                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
+                viewMode === 'list'
+                  ? (darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-855 shadow-sm")
+                  : "text-slate-400 hover:text-slate-650"
+              )}
+              title="Hiá»ƒn thá»‹ dáº¡ng danh sÃ¡ch"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setViewMode('grid'); localStorage.setItem('erp_view_mode_resources', 'grid'); }}
+              className={cn(
+                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
+                viewMode === 'grid'
+                  ? (darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-855 shadow-sm")
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+              title="Hiá»ƒn thá»‹ dáº¡ng lÆ°á»›i"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid or List Content */}
+      {loading && resources.length === 0 ? (
+        <ErpCard><ErpLoadingState message="Äang táº£i danh sÃ¡ch tÃ i nguyÃªn..." /></ErpCard>
+      ) : filteredResources.length === 0 ? (
+        <ErpCard>
+          <ErpEmptyState
+            icon={Warehouse}
+            title="ChÆ°a cÃ³ tÃ i nguyÃªn nÃ o"
+            subtitle="Báº¥m 'Khai bÃ¡o tÃ i nguyÃªn má»›i' Ä‘á»ƒ thÃªm phÃ²ng há»c, thiáº¿t bá»‹ hoáº·c cÃ´ng cá»¥ giáº£ng dáº¡y."
+          />
+        </ErpCard>
+      ) : viewMode === 'grid' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedResources.map((r) => (
+              <ResourceCard
+                key={r.id}
+                resource={r}
+                onBook={setBookingResource}
+                onEdit={setEditingResource}
+                onToggleMaintenance={handleToggleMaintenance}
+                onDelete={handleDelete}
+                onCancelBooking={handleCancelBooking}
+              />
+            ))}
+          </div>
+          <ErpCard className="overflow-hidden">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredResources.length}
+              pageSize={pageSize}
+              itemName="tÃ i nguyÃªn"
+            />
+          </ErpCard>
+        </div>
+      ) : (
+        <ResourceTable
+          resources={paginatedResources}
+          onBook={setBookingResource}
+          onEdit={setEditingResource}
+          onToggleMaintenance={handleToggleMaintenance}
+          onDelete={handleDelete}
+          footer={
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredResources.length}
+              pageSize={pageSize}
+              itemName="tÃ i nguyÃªn"
+            />
+          }
+        />
+      )}
+
+      {/* Add Resource Modal */}
+      <AddResourceModal
+        isOpen={showAddModal || !!editingResource}
+        onClose={() => { setShowAddModal(false); setEditingResource(null); }}
+        categories={categories}
+        onSuccess={refreshResources}
+        resource={editingResource || undefined}
+      />
+
+      {/* Booking Modal */}
+      <BookingModal
+        bookingResource={bookingResource}
+        onClose={() => setBookingResource(null)}
+        onSuccess={refreshResources}
+      />
+
+      {/* Manage Categories Modal */}
+      <ManageCategoriesModal
+        isOpen={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        categories={categories}
+        categoriesLoading={categoriesLoading}
+        onSuccess={refreshCategories}
+      />
+    </div>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Partners/components/AddPartnerModal.tsx =====
+import React, { useState, useEffect } from 'react';
+import { toast } from '../../../../../pages/Toast';
+import { useAuth } from '../../../../../context/AuthContext';
+import { useAdminCenters } from '../../../hooks/useAdminCenters';
+import { apiFetch } from '../../../lib/api';
+import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
+import { formatVND } from '../../../lib/utils';
+import { Loader2 } from 'lucide-react';
+import { Partner } from '../../../types';
+import { CustomFieldsSection } from '../../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../custom-fields/types';
+
+interface AddPartnerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  partner?: Partner;
+}
+
+export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPartnerModalProps) {
+  
+  const { userProfile: user } = useAuth();
+  const { centers } = useAdminCenters();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    commissionType: 'fixed' as 'fixed' | 'percentage',
+    commissionValue: '',
+    bankName: '',
+    bankAccountNo: '',
+    bankAccountName: '',
+    isActive: true,
+    notes: '',
+    centerId: '',
+    customFields: {} as CustomFieldValues,
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (partner) {
+      setFormData({
+          name: partner.name || '',
+          phone: partner.phone || '',
+          email: partner.email || '',
+          commissionType: partner.commissionType || 'fixed',
+          commissionValue: partner.commissionType === 'fixed'
+            ? formatVND(String(partner.commissionValue))
+            : String(partner.commissionValue),
+          bankName: partner.bankName || '',
+          bankAccountNo: partner.bankAccountNo || '',
+          bankAccountName: partner.bankAccountName || '',
+          isActive: partner.isActive !== false,
+          notes: partner.notes || '',
+          centerId: partner.ownerId || '',
+          customFields: partner.customFields || {},
+      });
+    } else {
+      setFormData({
+          name: '',
+          phone: '',
+          email: '',
+          commissionType: 'fixed',
+          commissionValue: '',
+          bankName: '',
+          bankAccountNo: '',
+          bankAccountName: '',
+          isActive: true,
+          notes: '',
+          centerId: '',
+          customFields: {},
+      });
+    }
+  }, [partner, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      toast.error('Vui lÃ²ng Ä‘iá»n Ä‘áº§y Ä‘á»§ tÃªn vÃ  sá»‘ Ä‘iá»‡n thoáº¡i.');
+      return;
+    }
+
+    if (user?.role === 'superadmin' && !partner && !formData.centerId) {
+      toast.error('Vui lÃ²ng chá»n trung tÃ¢m quáº£n lÃ½ cho Ä‘á»‘i tÃ¡c nÃ y.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const url = partner ? `/partners/${partner._id}` : '/partners';
+      const method = partner ? 'PATCH' : 'POST';
+
+      const payload = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        bankName: formData.bankName,
+        bankAccountNo: formData.bankAccountNo,
+        bankAccountName: formData.bankAccountName,
+        isActive: formData.isActive,
+        notes: formData.notes,
+        customFields: formData.customFields,
+        ...(user?.role === 'superadmin' && !partner ? { centerId: formData.centerId } : {}),
+      };
+
+      const res = await apiFetch(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.success) {
+        toast.success(partner ? 'ÄÃ£ cáº­p nháº­t thÃ´ng tin Ä‘á»‘i tÃ¡c thÃ nh cÃ´ng!' : 'ÄÃ£ thÃªm Ä‘á»‘i tÃ¡c má»›i thÃ nh cÃ´ng!');
+        onSuccess();
+        onClose();
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Lá»—i lÆ°u thÃ´ng tin Ä‘á»‘i tÃ¡c.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <ErpModal title={partner ? 'Cáº­p nháº­t Ä‘á»‘i tÃ¡c' : 'ThÃªm Ä‘á»‘i tÃ¡c má»›i'} onClose={onClose} maxWidth="max-w-2xl">
+      <form onSubmit={handleSubmit} className="space-y-4 text-left grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {user?.role === 'superadmin' && !partner && (
+          <div className="md:col-span-2">
+            <ErpField label="Trung tÃ¢m quáº£n lÃ½ *">
+              <ErpSelect name="centerId" value={formData.centerId} onChange={handleInputChange} required>
+                <option value="">-- Chá»n trung tÃ¢m quáº£n lÃ½ --</option>
+                {centers.map(center => (
+                  <option key={center.uid} value={center.uid}>
+                    {center.displayName} ({center.email})
+                  </option>
+                ))}
+              </ErpSelect>
+            </ErpField>
+          </div>
+        )}
+
+        <ErpField label="TÃªn Ä‘á»‘i tÃ¡c / Cá»™ng tÃ¡c viÃªn *">
+          <ErpInput
+            name="name"
+            required
+            value={formData.name}
+            onChange={handleInputChange}
+            placeholder="Nháº­p tÃªn Ä‘á»‘i tÃ¡c..."
+          />
+        </ErpField>
+
+        <ErpField label="Sá»‘ Ä‘iá»‡n thoáº¡i *">
+          <ErpInput
+            name="phone"
+            required
+            value={formData.phone}
+            onChange={handleInputChange}
+            placeholder="Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i..."
+          />
+        </ErpField>
+
+        <ErpField label="Email">
+          <ErpInput
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            placeholder="Nháº­p Ä‘á»‹a chá»‰ email..."
+          />
+        </ErpField>
+
+        <ErpField label="Tráº¡ng thÃ¡i hoáº¡t Ä‘á»™ng">
+          <ErpSelect
+            name="isActive"
+            value={formData.isActive ? 'true' : 'false'}
+            onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
+          >
+            <option value="true">Äang hoáº¡t Ä‘á»™ng</option>
+            <option value="false">NgÆ°ng hoáº¡t Ä‘á»™ng</option>
+          </ErpSelect>
+        </ErpField>
+
+        <div className="md:col-span-2 border-t border-slate-100 my-2 pt-2">
+          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Quy táº¯c tÃ­nh hoa há»“ng</h4>
+          <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+            Há»‡ thá»‘ng sáº½ tá»± Ä‘á»™ng xáº¿p cáº¥p báº­c (Level) hoa há»“ng cho Ä‘á»‘i tÃ¡c dá»±a trÃªn tá»•ng doanh sá»‘ há»c phÃ­ tÃ­ch lÅ©y mÃ  há» giá»›i thiá»‡u Ä‘Æ°á»£c. Tá»· lá»‡ hoa há»“ng (%) sáº½ thay Ä‘á»•i tÆ°Æ¡ng á»©ng theo tá»«ng má»‘c cáº¥u hÃ¬nh chung.
+          </p>
+        </div>
+
+        <div className="md:col-span-2 border-t border-slate-100 my-2 pt-2">
+          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">TÃ i khoáº£n ngÃ¢n hÃ ng chi tráº£</h4>
+        </div>
+
+        <ErpField label="NgÃ¢n hÃ ng (VietQR)">
+          <ErpSelect
+            name="bankName"
+            value={formData.bankName}
+            onChange={handleInputChange}
+          >
+            <option value="">-- Chá»n ngÃ¢n hÃ ng --</option>
+            <option value="mbbank">MBBank (MB)</option>
+            <option value="vietcombank">Vietcombank (VCB)</option>
+            <option value="techcombank">Techcombank (TCB)</option>
+            <option value="vietinbank">Vietinbank (CTG)</option>
+            <option value="bidv">BIDV</option>
+            <option value="agribank">Agribank (VBA)</option>
+            <option value="acb">ACB</option>
+            <option value="sacombank">Sacombank (STB)</option>
+            <option value="tpbank">TPBank (TPB)</option>
+            <option value="vpbank">VPBank (VPB)</option>
+          </ErpSelect>
+        </ErpField>
+
+        <ErpField label="Sá»‘ tÃ i khoáº£n">
+          <ErpInput
+            name="bankAccountNo"
+            value={formData.bankAccountNo}
+            onChange={(e) => setFormData(prev => ({ ...prev, bankAccountNo: e.target.value.replace(/\D/g, '') }))}
+            placeholder="Nháº­p sá»‘ tÃ i khoáº£n..."
+          />
+        </ErpField>
+
+        <ErpField label="TÃªn chá»§ tÃ i khoáº£n">
+          <ErpInput
+            name="bankAccountName"
+            value={formData.bankAccountName}
+            onChange={handleInputChange}
+            placeholder="Nháº­p tÃªn chá»§ tÃ i khoáº£n (viáº¿t hoa khÃ´ng dáº¥u)..."
+          />
+        </ErpField>
+
+        <ErpField label="Ghi chÃº">
+          <ErpInput
+            name="notes"
+            value={formData.notes}
+            onChange={handleInputChange}
+            placeholder="Ghi chÃº thÃªm vá» Ä‘á»‘i tÃ¡c nÃ y..."
+          />
+        </ErpField>
+
+        <div className="md:col-span-2">
+          <CustomFieldsSection
+            moduleKey="partners"
+            values={formData.customFields}
+            onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+            mode={partner ? 'edit' : 'create'}
+            disabled={isSubmitting}
+          />
+        </div>
+
+        <div className="md:col-span-2 mt-4">
+          <ErpSubmitButton disabled={isSubmitting}>
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Äang lÆ°u...
+              </span>
+            ) : (
+              partner ? 'Cáº­p nháº­t Ä‘á»‘i tÃ¡c' : 'Khai bÃ¡o Ä‘á»‘i tÃ¡c'
+            )}
+          </ErpSubmitButton>
+        </div>
+      </form>
+    </ErpModal>
+  );
+}
+
+===== FILE: src/modules/student-management/pages/Partners/components/PartnerDetailModal.tsx =====
+import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../../../lib/api';
+import { ErpModal, ErpCard, ErpLoadingState, ErpEmptyState } from '../../../components/Erp/ErpUI';
+import { formatVND, cn, getBankDisplayName } from '../../../lib/utils';
+import { AddPayoutModal } from './AddPayoutModal';
+import { Handshake, Phone, Mail, Landmark, FileText, Plus, Landmark as BankIcon, Users, CheckCircle } from 'lucide-react';
+import { Partner, PartnerPayout, PartnerReferredStudent } from '../../../types';
+import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+
+interface PartnerDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  partnerId: string;
+  onMutation?: () => void;
+}
+
+export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: PartnerDetailModalProps) {
+  const [partner, setPartner] = useState<Partner | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'info' | 'students' | 'payouts'>('info');
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+
+  const fetchPartnerDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`/partners/${partnerId}`);
+      if (res.success && res.data) {
+        setPartner(res.data);
+      }
+    } catch (error) {
+      console.error('Lá»—i khi táº£i chi tiáº¿t Ä‘á»‘i tÃ¡c:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [partnerId]);
+
+  useEffect(() => {
+    if (isOpen && partnerId) {
+      setTimeout(() => {
+        fetchPartnerDetail();
+        setActiveTab('info');
+      }, 0);
+    }
+  }, [isOpen, partnerId, fetchPartnerDetail]);
+
+  const handlePayoutSuccess = () => {
+    fetchPartnerDetail();
+    if (onMutation) onMutation();
+  };
+
+  const getStatusBadge = (statusArray: string[] | string) => {
+    const status = Array.isArray(statusArray) ? statusArray[0] : statusArray;
+    switch (status) {
+      case 'ÄÃ£ Ä‘áº­u':
+        return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">ÄÃ£ Ä‘áº­u</span>;
+      case 'Thi láº¡i':
+      case 'TrÆ°á»£t':
+        return <span className="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-[10px] font-bold">Thi láº¡i / TrÆ°á»£t</span>;
+      case 'Äang há»c':
+        return <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">Äang há»c</span>;
+      case 'Chá» KSK':
+        return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold">Chá» KSK</span>;
+      default:
+        return <span className="px-2.5 py-1 bg-slate-55 bg-slate-100 text-slate-700 rounded-full text-[10px] font-bold">{status || 'KhÃ¡c'}</span>;
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <ErpModal title="Há»“ sÆ¡ Ä‘á»‘i tÃ¡c & CTV" onClose={onClose} maxWidth="max-w-4xl">
+      {loading ? (
+        <ErpLoadingState message="Äang táº£i há»“ sÆ¡ Ä‘á»‘i tÃ¡c..." />
+      ) : !partner ? (
+        <ErpEmptyState icon={Handshake} title="KhÃ´ng tÃ¬m tháº¥y Ä‘á»‘i tÃ¡c" />
+      ) : (
+        <div className="space-y-6 text-left">
+          {/* Header Stats Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-150/40">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Äá»‘i tÃ¡c</span>
+              <h4 className="text-base font-black text-slate-800 truncate">{partner.name}</h4>
+              <p className="text-[10px] font-bold text-slate-500">{partner.phone}</p>
+            </div>
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Giá»›i thiá»‡u</span>
+              <h4 className="text-base font-black text-slate-800">{partner.referredStudentsCount} há»c viÃªn</h4>
+              <p className="text-[10px] font-bold text-slate-500">
+                Cáº¥p báº­c: {' '}
+                {partner.levelName === 'Máº·c Ä‘á»‹nh'
+                  ? 'Máº·c Ä‘á»‹nh (1%)'
+                  : `${partner.levelName} (${partner.commissionValue}%)`
+                }
+              </p>
+            </div>
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">ÄÃ£ chi tráº£</span>
+              <h4 className="text-base font-black text-emerald-600">{formatVND(String(partner.totalPaid))}</h4>
+              <p className="text-[10px] font-bold text-slate-500">Tá»•ng hoa há»“ng: {formatVND(String(partner.totalCommission))}</p>
+            </div>
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Hoa há»“ng cÃ²n ná»£</span>
+              <h4 className="text-base font-black text-rose-600">{formatVND(String(partner.unpaidBalance))}</h4>
+              {partner.unpaidBalance > 0 && (
+                <button
+                  onClick={() => setShowPayoutModal(true)}
+                  className="mt-1 flex items-center gap-1 text-[10px] font-black text-cyan-600 hover:text-cyan-700 transition-colors uppercase tracking-wider cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" /> Chi tráº£ ngay
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-slate-200/60 gap-4">
+            <button
+              onClick={() => setActiveTab('info')}
+              className={cn(
+                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                activeTab === 'info'
+                  ? "border-cyan-600 text-cyan-600 font-bold"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              )}
+            >
+              Há»“ sÆ¡ & Thanh toÃ¡n
+            </button>
+            <button
+              onClick={() => setActiveTab('students')}
+              className={cn(
+                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                activeTab === 'students'
+                  ? "border-cyan-600 text-cyan-600 font-bold"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              )}
+            >
+              Há»c viÃªn giá»›i thiá»‡u ({partner.referredStudentsCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('payouts')}
+              className={cn(
+                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                activeTab === 'payouts'
+                  ? "border-cyan-600 text-cyan-600 font-bold"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              )}
+            >
+              Lá»‹ch sá»­ chi tráº£ ({(partner.payoutHistory || []).length})
+            </button>
+          </div>
+
+          {/* Tabs Content */}
+          <div className="space-y-4 pt-2">
+            {activeTab === 'info' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-2">
+                    <Handshake className="w-4 h-4 text-cyan-600" />
+                    ThÃ´ng tin liÃªn há»‡
+                  </h4>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      <Phone className="w-4 h-4 text-slate-400" />
+                      <span>Sá»‘ Ä‘iá»‡n thoáº¡i: {partner.phone}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      <Mail className="w-4 h-4 text-slate-400" />
+                      <span>Email: {partner.email || '(ChÆ°a cung cáº¥p)'}</span>
+                    </div>
+                    {partner.notes && (
+                      <div className="flex items-start gap-3 text-xs font-semibold text-slate-600">
+                        <FileText className="w-4 h-4 text-slate-400 mt-0.5" />
+                        <span>Ghi chÃº: {partner.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-2">
+                    <BankIcon className="w-4 h-4 text-cyan-600" />
+                    TÃ i khoáº£n nháº­n hoa há»“ng
+                  </h4>
+                  {partner.bankAccountNo ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                        <Landmark className="w-4 h-4 text-slate-400" />
+                        <span>NgÃ¢n hÃ ng: <span className="font-bold text-slate-800">{getBankDisplayName(partner.bankName) || 'N/A'}</span></span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                        <CheckCircle className="w-4 h-4 text-slate-400" />
+                        <span>Sá»‘ tÃ i khoáº£n: <span className="font-bold text-slate-800 tracking-wider">{partner.bankAccountNo}</span></span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                        <Users className="w-4 h-4 text-slate-400" />
+                        <span>Chá»§ tÃ i khoáº£n: <span className="font-bold text-slate-800 uppercase">{partner.bankAccountName || 'N/A'}</span></span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400 italic">ChÆ°a bá»• sung tÃ i khoáº£n ngÃ¢n hÃ ng chi tráº£.</p>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <CustomFieldDetails moduleKey="partners" values={partner.customFields || {}} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'students' && (
+              <ErpCard className="overflow-hidden border border-slate-100">
+                {partner.referredStudents.length === 0 ? (
+                  <ErpEmptyState
+                    icon={Users}
+                    title="ChÆ°a giá»›i thiá»‡u há»c viÃªn nÃ o"
+                    subtitle="TÃ i khoáº£n nÃ y chÆ°a Ä‘Æ°á»£c gÃ¡n giá»›i thiá»‡u cho báº¥t ká»³ há»c viÃªn nÃ o trong há»‡ thá»‘ng."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-semibold">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <th className="py-4 px-6 text-left">Há» vÃ  tÃªn</th>
+                          <th className="py-4 px-6 text-left">Sá»‘ Ä‘iá»‡n thoáº¡i</th>
+                          <th className="py-4 px-6 text-left">NgÃ y nháº­p há»c</th>
+                          <th className="py-4 px-6 text-left">Tráº¡ng thÃ¡i</th>
+                          <th className="py-4 px-6 text-right">Hoa há»“ng tÃ­ch lÅ©y</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {partner.referredStudents.map((student: PartnerReferredStudent) => (
+                          <tr key={student._id} className="hover:bg-slate-50/50 transition-all text-slate-700">
+                            <td className="py-4 px-6 font-bold text-slate-900">{student.fullName}</td>
+                            <td className="py-4 px-6">{student.phone}</td>
+                            <td className="py-4 px-6">{student.registrationDate}</td>
+                            <td className="py-4 px-6">{getStatusBadge(student.status)}</td>
+                            <td className="py-4 px-6 text-right font-black text-cyan-600">
+                              {formatVND(String(student.commission))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </ErpCard>
+            )}
+
+            {activeTab === 'payouts' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Lá»‹ch sá»­ thanh toÃ¡n chi tiáº¿t</h4>
+                  <button
+                    onClick={() => setShowPayoutModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border border-cyan-100/50"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Ghi nháº­n chi tráº£
+                  </button>
+                </div>
+
+                <ErpCard className="overflow-hidden border border-slate-100">
+                  {(!partner.payoutHistory || partner.payoutHistory.length === 0) ? (
+                    <ErpEmptyState
+                      icon={Landmark}
+                      title="ChÆ°a cÃ³ lá»‹ch sá»­ thanh toÃ¡n"
+                      subtitle="Báº¥m nÃºt 'Ghi nháº­n chi tráº£' Ä‘á»ƒ ghi chÃ©p láº¡i cÃ¡c láº§n chuyá»ƒn tiá»n hoa há»“ng cho Ä‘á»‘i tÃ¡c nÃ y."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs font-semibold">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <th className="py-4 px-6 text-left">NgÃ y chi</th>
+                            <th className="py-4 px-6 text-left">PhÆ°Æ¡ng thá»©c</th>
+                            <th className="py-4 px-6 text-left">Ghi chÃº giao dá»‹ch</th>
+                            <th className="py-4 px-6 text-right">Sá»‘ tiá»n tráº£</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {partner.payoutHistory.map((payout: PartnerPayout) => (
+                            <tr key={payout.id} className="hover:bg-slate-50/50 transition-all text-slate-700">
+                              <td className="py-4 px-6 font-bold">{payout.date}</td>
+                              <td className="py-4 px-6">
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded text-[10px] font-bold",
+                                  payout.method === 'Tiá»n máº·t' ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"
+                                )}>
+                                  {payout.method}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-slate-500 italic max-w-xs truncate">{payout.note || '(KhÃ´ng cÃ³)'}</td>
+                              <td className="py-4 px-6 text-right font-black text-slate-900">{formatVND(String(payout.amount))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </ErpCard>
+              </div>
+            )}
+          </div>
+
+          {/* Add Payout Modal Popup */}
+          <AddPayoutModal
+            isOpen={showPayoutModal}
+            onClose={() => setShowPayoutModal(false)}
+            onSuccess={handlePayoutSuccess}
+            partnerId={partner._id}
+            partnerName={partner.name}
+            unpaidBalance={partner.unpaidBalance}
+            bankName={partner.bankName}
+            bankAccountNo={partner.bankAccountNo}
+            bankAccountName={partner.bankAccountName}
+          />
+        </div>
+      )}
+    </ErpModal>
+  );
+}
+
+===== FILE: src/modules/student-management/custom-fields/OperationsModuleCustomFields.test.tsx =====
+// @vitest-environment jsdom
+import { act, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "../lib/api";
+import type { Partner, ResourceItem } from "../types";
+import { AddResourceModal } from "../pages/Resources/components/AddResourceModal";
+import { ResourceCard } from "../pages/Resources/components/ResourceCard";
+import { AddPartnerModal } from "../pages/Partners/components/AddPartnerModal";
+import { PartnerDetailModal } from "../pages/Partners/components/PartnerDetailModal";
+
+vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin" } }) }));
+vi.mock("../hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
+vi.mock("../../../../pages/Toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("../pages/Partners/components/AddPayoutModal", () => ({ AddPayoutModal: () => null }));
+vi.mock("../custom-fields/CustomFieldsSection", () => ({
+  CustomFieldsSection: ({ moduleKey, values, onChange }: { moduleKey: string; values: Record<string, unknown>; onChange(values: Record<string, unknown>): void }) => (
+    <input aria-label={`custom-${moduleKey}`} value={String(values.extra ?? "")} onChange={(event) => onChange({ ...values, extra: event.target.value })} />
+  ),
+}));
+vi.mock("../custom-fields/CustomFieldDetails", () => ({
+  CustomFieldDetails: ({ moduleKey, values }: { moduleKey: string; values: Record<string, unknown> }) => <span>{`details-${moduleKey}-${String(values.extra ?? "")}`}</span>,
+}));
+
+const mockedApiFetch = vi.mocked(apiFetch);
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+const roots = new Set<{ root: Root; container: HTMLDivElement }>();
+
+function render(node: ReactNode) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  roots.add({ root, container });
+  act(() => root.render(node));
+  return { container, rerender(next: ReactNode) { act(() => root.render(next)); } };
+}
+
+function change(element: HTMLInputElement, value: string) {
+  if (!element) throw new Error(`Missing input. Body: ${document.body.textContent}`);
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function submit(form: HTMLFormElement) {
+  await act(async () => {
+    form.requestSubmit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+async function flush() {
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+}
+
+const resource = {
+  id: "resource-1", name: "Room 1", type: "Room", identifier: "R01", capacity: "20", status: "AVAILABLE",
+  bookings: [], ownerId: "owner", customFields: { extra: "resource-existing" },
+} as ResourceItem;
+
+const partner = {
+  _id: "partner-1", name: "Partner One", phone: "0900000000", commissionType: "fixed", commissionValue: 0,
+  isActive: true, ownerId: "owner", referredStudentsCount: 0, totalCommission: 0, totalPaid: 0, unpaidBalance: 0,
+  referredStudents: [], payoutHistory: [], customFields: { extra: "partner-existing" },
+} as Partner;
+
+beforeEach(() => mockedApiFetch.mockResolvedValue({ success: true, data: { _id: "created" } }));
+
+afterEach(() => {
+  roots.forEach(({ root, container }) => { act(() => root.unmount()); container.remove(); });
+  roots.clear();
+  vi.clearAllMocks();
+});
+
+describe("resource and partner custom-field integration", () => {
+  it("keeps resource values through errors, sends create/update payloads, hydrates edit, and renders card details", async () => {
+    const onClose = vi.fn();
+    const props = { isOpen: true, onClose, onSuccess: vi.fn(), categories: [{ id: "room", name: "Room" }] };
+    const view = render(<AddResourceModal {...props} />);
+    const form = view.container.querySelector("form")!;
+    const inputs = form.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    change(inputs[0], "New room"); change(inputs[1], "r02"); change(inputs[2], "30");
+    change(form.querySelector('[aria-label="custom-resources"]')!, "resource-dirty");
+
+    mockedApiFetch.mockRejectedValueOnce(new Error("server validation"));
+    await submit(form);
+    expect((view.container.querySelector('[aria-label="custom-resources"]') as HTMLInputElement).value).toBe("resource-dirty");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(JSON.parse(String(mockedApiFetch.mock.calls[0][1]?.body)).customFields).toEqual({ extra: "resource-dirty" });
+
+    view.rerender(<AddResourceModal {...props} resource={resource} />);
+    await flush();
+    expect((view.container.querySelector('[aria-label="custom-resources"]') as HTMLInputElement).value).toBe("resource-existing");
+    mockedApiFetch.mockResolvedValueOnce({ success: true });
+    await submit(view.container.querySelector("form")!);
+    const update = mockedApiFetch.mock.calls.find(([path]) => path === "/student-resources/resource-1");
+    expect(update?.[1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(update?.[1]?.body)).customFields).toEqual({ extra: "resource-existing" });
+
+    const card = render(<ResourceCard resource={resource} onBook={vi.fn()} onEdit={vi.fn()} onToggleMaintenance={vi.fn()} onDelete={vi.fn()} onCancelBooking={vi.fn()} />);
+    expect(card.container.textContent).toContain("details-resources-resource-existing");
+  });
+
+  it("keeps partner values through errors, sends create/update payloads, hydrates edit, and renders modal details", async () => {
+    const onClose = vi.fn();
+    const props = { isOpen: true, onClose, onSuccess: vi.fn() };
+    const view = render(<AddPartnerModal {...props} />);
+    await flush();
+    const form = view.container.querySelector("form")!;
+    change(form.querySelector('[name="name"]')!, "New partner");
+    change(form.querySelector('[name="phone"]')!, "0911111111");
+    change(form.querySelector('[aria-label="custom-partners"]')!, "partner-dirty");
+
+    mockedApiFetch.mockRejectedValueOnce(new Error("server validation"));
+    await submit(form);
+    expect((view.container.querySelector('[aria-label="custom-partners"]') as HTMLInputElement).value).toBe("partner-dirty");
+    expect(onClose).not.toHaveBeenCalled();
+    const create = mockedApiFetch.mock.calls.find(([path]) => path === "/partners");
+    expect(JSON.parse(String(create?.[1]?.body)).customFields).toEqual({ extra: "partner-dirty" });
+
+    view.rerender(<AddPartnerModal {...props} partner={partner} />);
+    await flush();
+    expect((view.container.querySelector('[aria-label="custom-partners"]') as HTMLInputElement).value).toBe("partner-existing");
+    mockedApiFetch.mockResolvedValueOnce({ success: true });
+    await submit(view.container.querySelector("form")!);
+    const update = mockedApiFetch.mock.calls.find(([path]) => path === "/partners/partner-1");
+    expect(update?.[1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(update?.[1]?.body)).customFields).toEqual({ extra: "partner-existing" });
+
+    mockedApiFetch.mockResolvedValueOnce({ success: true, data: partner });
+    const detail = render(<PartnerDetailModal isOpen onClose={vi.fn()} partnerId={partner._id} />);
+    await flush();
+    expect(detail.container.textContent).toContain("details-partners-partner-existing");
+  });
+});
+

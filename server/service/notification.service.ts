@@ -172,7 +172,7 @@ export const notificationService = {
         read: false,
         action: {
           tab: "NHÂN SỰ",
-          subTab: "GIAO VIỆC KANBAN",
+          subTab: "Giao Việc",
         },
       });
       console.log(`[notificationService] Đã gửi thông báo giao việc mới cho User ID: ${task.assigneeUid}`);
@@ -190,7 +190,7 @@ export const notificationService = {
       title: "Công việc được giao lại",
       body: `Bạn được giao công việc "${task.title}". Hạn chót: ${new Date(task.dueDate).toLocaleString("vi-VN")}.`,
       type: "task", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,
-      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+      action: { tab: "NHÂN SỰ", subTab: "Giao Việc" },
     });
   },
 
@@ -200,7 +200,7 @@ export const notificationService = {
       title: "Hạn chót công việc đã thay đổi",
       body: `Công việc "${task.title}" có hạn mới: ${new Date(task.dueDate).toLocaleString("vi-VN")}.`,
       type: "task", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,
-      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+      action: { tab: "NHÂN SỰ", subTab: "Giao Việc" },
     });
   },
 
@@ -216,7 +216,7 @@ export const notificationService = {
       title: "Trạng thái công việc thay đổi",
       body: `Công việc "${task.title}" chuyển sang "${labels[task.status] || task.status}".`,
       type: "task", companyCode: task.companyCode, recipientUid, read: false,
-      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+      action: { tab: "NHÂN SỰ", subTab: "Giao Việc" },
     })));
   },
 

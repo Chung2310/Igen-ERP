@@ -1,8 +1,10 @@
 import { Document } from "mongoose";
+import type { CustomFieldValues } from "./custom-field.interface";
 
 export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc';
 
 export interface IBatch extends Document {
+  customFields?: CustomFieldValues;
   code: string;
   courseId: string;
   instructorId?: string;

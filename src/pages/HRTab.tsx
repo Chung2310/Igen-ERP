@@ -134,7 +134,7 @@ export default function HRTab() {
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-2 overflow-x-auto -mx-1 px-1">
-          {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO", "QUY TRÌNH", "LỊCH"].map((tab) => (
+          {["SƠ ĐỒ TỔ CHỨC", "Giao Việc", "ĐÀO TẠO", "QUY TRÌNH", "LỊCH"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
@@ -188,7 +188,7 @@ export default function HRTab() {
           />
         )}
 
-        {subTab === "GIAO VIỆC KANBAN" && (
+        {subTab === "Giao Việc" && (
           <KanbanTab
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
@@ -222,7 +222,7 @@ export default function HRTab() {
             usersList={usersList}
             onNavigateToKanban={(taskId) => {
               sessionStorage.setItem("targetKanbanTaskId", taskId);
-              setSubTab("GIAO VIỆC KANBAN");
+              setSubTab("Giao Việc");
             }}
           />
         )}

@@ -457,6 +457,7 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
         }}
         onSuccess={() => { }}
         initialData={editingExam}
+        tenantId={resolvedCenter || editingExam?.ownerId}
       />
 
       <ExamStatusModal
