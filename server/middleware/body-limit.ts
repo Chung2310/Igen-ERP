@@ -5,6 +5,7 @@ const LARGE_BODY_ROUTES = [
   "/api/v1/media/upload",
   "/api/v1/resources/drive/upload",
   "/api/v1/integrations/google-drive/upload",
+  "/api/v1/assignments/public/upload",
 ];
 
 export function isLargeBodyRoute(pathname: string): boolean {

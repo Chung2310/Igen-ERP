@@ -7,6 +7,7 @@ import { EmailService, SmtpSettings } from "./email.service";
 import jwt from "jsonwebtoken";
 import { getJwtAccessSecret } from "../../../config/env";
 import { emitToUser } from "../../../socket";
+import { cloudinaryService } from "../../../service/cloudinary.service";
 import { logger } from "../config/logger";
 import { IAssignment } from "../interfaces/assignment.interface";
 
@@ -160,6 +161,12 @@ export class AssignmentService {
       SubmissionModel.findOne({ assignmentId: decodedToken.assignmentId, studentId: decodedToken.studentId }),
     ]);
     return { assignment, student, submission };
+  }
+
+  static async uploadProofFile(decodedToken: any, fileBase64: string): Promise<string> {
+    // Xác thực token gắn đúng học viên/lớp/bài tập trước khi cho upload minh chứng
+    await this.validateSubmissionContext(decodedToken);
+    return cloudinaryService.uploadMedia(fileBase64, "igen_erp/assignments/submissions");
   }
 
   static async submitProof(decodedToken: any, data: any): Promise<any> {

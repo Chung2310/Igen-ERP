@@ -78,6 +78,21 @@ export class AssignmentController {
     }
   }
 
+  static async uploadProofFile(req: AuthRequest, res: Response) {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Thiếu liên kết mã hóa bài tập." });
+      }
+      const decoded = await AssignmentService.verifySubmissionToken(token);
+      const url = await AssignmentService.uploadProofFile(decoded, req.body.file);
+      res.json({ success: true, url });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi tải tệp minh chứng lên.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
   static async submitProof(req: AuthRequest, res: Response) {
     try {
       const token = req.query.token as string;
