@@ -16,10 +16,10 @@ export class FaceManagementError extends Error {
   }
 }
 
-type ApiResponse<T> = {
-  data?: T;
+type ApiErrorResponse = {
   error?: string;
   message?: string;
+  reasonCode?: string;
 };
 
 export function canManageFaces(
@@ -52,16 +52,17 @@ async function request<T>(userId: string, init?: RequestInit): Promise<T> {
 
   const payload = response.status === 204
     ? undefined
-    : await response.json() as ApiResponse<T>;
+    : await response.json();
 
   if (!response.ok) {
+    const errorPayload = payload as ApiErrorResponse | undefined;
     throw new FaceManagementError(
-      payload?.message || payload?.error || response.statusText,
+      errorPayload?.message || errorPayload?.error || errorPayload?.reasonCode || response.statusText,
       response.status,
     );
   }
 
-  return payload?.data as T;
+  return payload as T;
 }
 
 export function getFaceEnrollmentStatus(userId: string): Promise<FaceEnrollmentStatus> {
