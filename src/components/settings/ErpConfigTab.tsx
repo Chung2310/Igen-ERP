@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Sliders, Bell, MapPin } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { useAuth } from "../../context/AuthContext";
+import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 
 export default function ErpConfigTab() {
   const { userProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState<"general" | "workHours">("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -122,7 +124,35 @@ export default function ErpConfigTab() {
 
   return (
     <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
+      {/* Tab bar nội bộ của Cấu hình ERP */}
+      {canManageLocation && (
+        <div className="flex gap-2 border-b border-gray-100 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("general")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+              activeTab === "general" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Cấu hình chung
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("workHours")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+              activeTab === "workHours" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Giờ làm việc nhân viên
+          </button>
+        </div>
+      )}
+
+      {activeTab === "workHours" && canManageLocation && <EmployeeWorkHoursTab />}
+
       {/* Preferences Section */}
+      {activeTab === "general" && (
+      <>
       <div>
         <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
           <Sliders className="h-5 w-5 text-purple-500" />
@@ -297,6 +327,8 @@ export default function ErpConfigTab() {
             </div>
           </form>
         </div>
+      )}
+      </>
       )}
     </div>
   );
