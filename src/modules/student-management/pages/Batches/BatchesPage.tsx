@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
-  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin
+  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -24,6 +24,7 @@ import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
@@ -62,7 +63,6 @@ interface BatchForm {
   startDate: string;
   endDate: string;
   status: BatchStatus;
-  customFields?: CustomFieldValues;
 }
 
 const EMPTY_FORM: BatchForm = {
@@ -76,7 +76,6 @@ const EMPTY_FORM: BatchForm = {
   startDate: '',
   endDate: '',
   status: 'Sắp khai giảng',
-  customFields: {},
 };
 
 /** Bắn sự kiện để các hook liên quan tự refetch (lớp, khóa học, giảng viên, lịch) */
@@ -131,10 +130,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     }
   };
 
-  const [isEditingFields, setIsEditingFields] = useState(false);
-
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable || !isEditingFields) return null;
+    if (!manageable) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -195,6 +192,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manageLearnersId, setManageLearnersId] = useState<string | null>(null);
+  const [assignmentBatchId, setAssignmentBatchId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
@@ -209,7 +207,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
   const openCreateModal = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '', customFields: {} });
+    setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '' });
     setShowFormModal(true);
   };
 
@@ -226,7 +224,6 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       startDate: batch.startDate,
       endDate: batch.endDate,
       status: batch.status,
-      customFields: batch.customFields || {},
     });
     setShowFormModal(true);
   };
@@ -502,6 +499,16 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         >
                           <Users className="w-3 h-3" />
                         </button>
+                        <button
+                          onClick={() => setAssignmentBatchId(b.id)}
+                          title="Giao bài tập"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
+                          )}
+                        >
+                          <ClipboardList className="w-3 h-3" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -740,17 +747,6 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
               )}
             </div>
 
-            <CustomFieldsSection
-              moduleKey="batches"
-              values={form.customFields || {}}
-              onChange={(customFields) => setForm((previous) => ({ ...previous, customFields }))}
-              mode={editingId ? 'edit' : 'create'}
-              disabled={isSubmitting}
-              tenantId={resolvedCenter || batches.find((batch) => batch.id === editingId)?.ownerId}
-              isEditingFields={isEditingFields}
-              onToggleEditingFields={setIsEditingFields}
-            />
-
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
@@ -882,6 +878,20 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         onSubmit={handleStdFieldSubmit}
         isStandard={true}
       />
+
+      {assignmentBatchId && (() => {
+        const assignmentBatch = batches.find(b => b.id === assignmentBatchId);
+        if (!assignmentBatch) return null;
+        const batchStudents = students.filter(s => assignmentBatch.learnerIds.includes(s.id));
+        return (
+          <AssignmentModal
+            isOpen={true}
+            batch={assignmentBatch}
+            students={batchStudents}
+            onClose={() => setAssignmentBatchId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

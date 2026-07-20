@@ -57,6 +57,17 @@ export const submitProofSchema = Joi.object({
   })
 });
 
+export const uploadProofFileSchema = Joi.object({
+  file: Joi.string()
+    .pattern(/^data:(image|application|video)\/[a-zA-Z0-9.+-]+;base64,/)
+    .required()
+    .messages({
+      "any.required": "Trường 'file' là bắt buộc và không thể thiếu.",
+      "string.empty": "Nội dung 'file' không được để trống.",
+      "string.pattern.base": "Tệp minh chứng phải là dữ liệu ảnh/tài liệu được mã hóa base64 hợp lệ.",
+    }),
+});
+
 export const gradeSubmissionSchema = Joi.object({
   score: Joi.number().min(0).max(10).required().messages({
     "any.required": "Điểm số là bắt buộc.",

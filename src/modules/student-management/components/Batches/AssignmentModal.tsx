@@ -148,19 +148,20 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           return;
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const response = await fetch("/api/v1/media/upload", {
-          method: "POST",
-          body: formData,
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
         });
 
-        if (!response.ok) {
-          throw new Error("Không thể tải tệp lên server.");
+        const data = await apiFetch("/media/upload", {
+          method: "POST",
+          body: JSON.stringify({ file: base64, folder: "igen_erp/assignments" }),
+        });
+        if (!data?.url) {
+          throw new Error(data?.message || "Không thể tải tệp lên server.");
         }
-
-        const data = await response.json();
         setNewAttachments((prev) => [
           ...prev,
           {

@@ -16,6 +16,7 @@ interface FetchOptions extends RequestInit {
 
 interface ApiErrorResponse {
   error?: string;
+  message?: string;
 }
 
 interface RefreshTokenResponse {
@@ -64,7 +65,7 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
           const retryRes = await fetch(url.toString(), { ...options, headers });
           if (!retryRes.ok) {
             const errData = await retryRes.json() as ApiErrorResponse;
-            throw new Error(errData.error || "Yêu cầu thử lại thất bại.");
+            throw new Error(errData.error || errData.message || "Yêu cầu thử lại thất bại.");
           }
           return await retryRes.json() as T;
         }
@@ -80,10 +81,8 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
 
   const data = await response.json() as T | ApiErrorResponse;
   if (!response.ok) {
-    const errorMessage = typeof data === 'object' && data !== null && 'error' in data
-      ? data.error
-      : undefined;
-    throw new Error(errorMessage || "Yêu cầu thất bại.");
+    const errorPayload = typeof data === 'object' && data !== null ? data as ApiErrorResponse : undefined;
+    throw new Error(errorPayload?.error || errorPayload?.message || "Yêu cầu thất bại.");
   }
 
   return data as T;

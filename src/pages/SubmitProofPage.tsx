@@ -121,6 +121,14 @@ export default function SubmitProofPage() {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+
   const uploadFiles = async (files: File[]) => {
     setUploading(true);
     try {
@@ -130,19 +138,18 @@ export default function SubmitProofPage() {
           continue;
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
+        const base64 = await fileToBase64(file);
 
-        const response = await fetch("/api/v1/media/upload", {
+        const response = await fetch(`/api/v1/assignments/public/upload?token=${encodeURIComponent(token || "")}`, {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file: base64 }),
         });
 
-        if (!response.ok) {
-          throw new Error(`Tải tệp ${file.name} thất bại.`);
-        }
-
         const data = await response.json();
+        if (!response.ok || !data.success || !data.url) {
+          throw new Error(data.error || `Tải tệp ${file.name} thất bại.`);
+        }
         setUploadedFiles((prev) => [
           ...prev,
           {

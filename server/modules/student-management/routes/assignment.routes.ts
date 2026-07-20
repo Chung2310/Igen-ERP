@@ -5,6 +5,7 @@ import { validate } from "../middlewares/validate.middleware";
 import {
   createAssignmentSchema,
   submitProofSchema,
+  uploadProofFileSchema,
   gradeSubmissionSchema
 } from "../validations/assignment.validation";
 import { idParamSchema } from "../validations/student.validation";
@@ -14,6 +15,7 @@ const router = Router();
 
 // Public routes for student submission (via encrypted JWT token in query parameter)
 router.get("/public/detail", AssignmentController.getPublicDetail);
+router.post("/public/upload", validate(uploadProofFileSchema), AssignmentController.uploadProofFile);
 router.post("/public/submit", validate(submitProofSchema), AssignmentController.submitProof);
 router.post("/public/cancel", AssignmentController.cancelSubmission);
 
