@@ -9,6 +9,7 @@ import { useCustomFields } from "../../custom-fields/useCustomFields";
 import { AddStudentModal } from "./AddStudentModal";
 import { EditStudentModal } from "./EditStudentModal";
 import { ProfileTab } from "./DetailTabs/ProfileTab";
+import { toast } from "../../../../pages/Toast";
 
 vi.mock("motion/react", () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => children,
@@ -196,7 +197,7 @@ describe("student custom-field integration", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /lưu học viên/i }));
-    expect(await screen.findByText("Trường Màu yêu thích là bắt buộc")).toBeTruthy();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Trường Màu yêu thích là bắt buộc"));
     expect(screen.getByDisplayValue("Tím")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
     const request = mockedApiFetch.mock.calls.find(([endpoint]) => endpoint === "/students/student-1")?.[1];

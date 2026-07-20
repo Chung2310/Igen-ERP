@@ -14,15 +14,38 @@ export type CustomFieldsSectionProps = {
   mode: "create" | "edit";
   disabled?: boolean;
   tenantId?: string;
+  isEditingFields?: boolean;
+  onToggleEditingFields?(val: boolean): void;
 };
 
-export function CustomFieldsSection({ moduleKey, values, onChange, errors = {}, mode, disabled = false, tenantId }: CustomFieldsSectionProps) {
+export function CustomFieldsSection({
+  moduleKey,
+  values,
+  onChange,
+  errors = {},
+  mode,
+  disabled = false,
+  tenantId,
+  isEditingFields,
+  onToggleEditingFields
+}: CustomFieldsSectionProps) {
   const { userProfile } = useAuth();
   const { fields, archivedFields, loading, error, refresh, createField, updateField, archiveField, restoreField, deleteField } = useCustomFields(moduleKey, tenantId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const manageable = canManageCustomFields(userProfile?.role);
   const activeFields = useMemo(() => [...fields].filter((field) => !field.isArchived && field.isVisible).sort((left, right) => left.order - right.order), [fields]);
+
+  const [localIsEditingFields, setLocalIsEditingFields] = useState(false);
+  const isEditing = isEditingFields !== undefined ? isEditingFields : localIsEditingFields;
+
+  const toggleEditing = () => {
+    if (onToggleEditingFields) {
+      onToggleEditingFields(!isEditing);
+    } else {
+      setLocalIsEditingFields(!isEditing);
+    }
+  };
 
   const openCreate = () => { setEditing(null); setEditorOpen(true); };
   const openEdit = (field: FieldDefinition) => { setEditing(field); setEditorOpen(true); };
@@ -44,14 +67,28 @@ export function CustomFieldsSection({ moduleKey, values, onChange, errors = {}, 
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Thông tin bổ sung</h3>
         {manageable ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={openCreate}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all disabled:opacity-50"
-          >
-            + Thêm trường
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={toggleEditing}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
+                isEditing
+                  ? "border-cyan-600 bg-cyan-50 text-cyan-600 hover:bg-cyan-100/50"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {isEditing ? "Xong" : "Chỉnh sửa trường"}
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={openCreate}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all disabled:opacity-50"
+            >
+              + Thêm trường
+            </button>
+          </div>
         ) : null}
       </div>
       {error ? <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"><span>{error}</span><button type="button" className="font-semibold underline" onClick={() => void refresh()}>Thử lại</button></div> : null}
@@ -59,7 +96,7 @@ export function CustomFieldsSection({ moduleKey, values, onChange, errors = {}, 
       <div className="space-y-4">
         {activeFields.map((field) => (
           <div key={field.id} className="relative space-y-1">
-            {manageable ? (
+            {manageable && isEditing ? (
               <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
                 <button type="button" disabled={disabled} aria-label={`Chỉnh sửa ${field.label}`} title="Chỉnh sửa" className="hover:text-cyan-600 transition-colors" onClick={() => openEdit(field)}>Sửa</button>
                 <span>|</span>
