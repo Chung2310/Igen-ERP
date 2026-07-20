@@ -170,8 +170,10 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     }
   };
 
+  const [isEditingFields, setIsEditingFields] = useState(false);
+
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable) return null;
+    if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -826,6 +828,8 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               mode="create"
               disabled={isSubmitting}
               tenantId={resolvedCenter}
+              isEditingFields={isEditingFields}
+              onToggleEditingFields={setIsEditingFields}
             />
 
             {manageable && archivedStdFields.length ? (
@@ -974,6 +978,8 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               mode="edit"
               disabled={isSubmitting}
               tenantId={resolvedCenter || editingCourse.ownerId}
+              isEditingFields={isEditingFields}
+              onToggleEditingFields={setIsEditingFields}
             />
 
             {manageable && archivedStdFields.length ? (

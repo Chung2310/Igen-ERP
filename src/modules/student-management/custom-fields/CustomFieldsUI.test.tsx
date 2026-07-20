@@ -209,7 +209,7 @@ describe("CustomFieldsSection", () => {
     const { rerender } = render(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X", fixed: "keep" }} onChange={onChange} mode="create" />);
     expect(screen.queryByRole("button", { name: /thêm trường/i })).toBeNull();
     mockedUseAuth.mockReturnValue({ userProfile: { role: "manager" } } as ReturnType<typeof useAuth>);
-    rerender(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X", fixed: "keep" }} onChange={onChange} mode="create" />);
+    rerender(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X", fixed: "keep" }} onChange={onChange} mode="create" isEditingFields={true} />);
     fireEvent.click(screen.getByRole("button", { name: /thêm trường/i }));
     fireEvent.change(screen.getByLabelText(/nhãn trường/i), { target: { value: "Mới" } });
     fireEvent.click(screen.getByRole("button", { name: /^lưu$/i }));

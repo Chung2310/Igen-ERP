@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 import type { IFaceEnrollmentAudit } from "../interface/face-enrollment.interface";
 
@@ -41,5 +41,5 @@ FaceEnrollmentAuditSchema.index({ companyCode: 1, targetUserId: 1, attemptedAt: 
 FaceEnrollmentAuditSchema.index({ actorId: 1, attemptedAt: -1 });
 
 export const FaceEnrollmentAuditModel =
-  models.FaceEnrollmentAudit ||
+  mongoose.models.FaceEnrollmentAudit ||
   model<IFaceEnrollmentAudit>("FaceEnrollmentAudit", FaceEnrollmentAuditSchema);

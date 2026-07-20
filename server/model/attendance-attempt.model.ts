@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 import type { IAttendanceAttempt } from "../interface/attendance-attempt.interface";
 const EvidenceSchema = new Schema({ publicId: String, resourceType: String, type: String, format: String, bytes: Number }, { _id: false });
 const schema = new Schema<IAttendanceAttempt>({
@@ -13,4 +13,4 @@ const schema = new Schema<IAttendanceAttempt>({
   evidenceDeleteAfter: { type: Date, immutable: true, index: true }, evidenceDeletedAt: Date,
 }, { versionKey: false });
 schema.index({ companyCode: 1, attemptedAt: -1 });
-export const AttendanceAttemptModel = models.AttendanceAttempt || model<IAttendanceAttempt>("AttendanceAttempt", schema);
+export const AttendanceAttemptModel = mongoose.models.AttendanceAttempt || model<IAttendanceAttempt>("AttendanceAttempt", schema);
