@@ -44,6 +44,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
   admin: [
     "user:read", "user:manage",
+    "face:manage",
     "crm:read", "crm:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
