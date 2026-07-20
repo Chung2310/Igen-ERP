@@ -208,10 +208,10 @@ export class BatchService {
     ownerId: string,
     actor: BatchActor,
     data: BatchData,
-    context: CustomFieldWriteContext = { tenantId: ownerId, moduleKey: "batches", actorRole: actor.role },
+    context?: CustomFieldWriteContext,
   ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
-    const writeData = await this.customFieldWrites.prepareCreate(context, data);
+    const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
     const existing = await Batch.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
@@ -276,18 +276,14 @@ export class BatchService {
     actor: BatchActor,
     id: string,
     data: BatchData,
-    context: CustomFieldWriteContext = {
-      tenantId: Array.isArray(ownerId) ? ownerId[0] : ownerId,
-      moduleKey: "batches",
-      actorRole: actor.role,
-    },
+    context?: CustomFieldWriteContext,
   ): Promise<EnrichedBatch | null> {
     logger.info(`[Batch] Updating batch: id=${id}`);
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
     if (!batch) return null;
     const expectedVersion = expectedVersionOf(data);
-    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
-    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, batch, data);
+    const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
+    const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
 
     if (writeData.code && String(writeData.code).toUpperCase() !== batch.code) {
       const dup = await Batch.findOne({ ownerId: batch.ownerId, code: String(writeData.code).toUpperCase() });
@@ -315,12 +311,19 @@ export class BatchService {
     }
 
     const previousInstructorId = batch.instructorId;
-    const saved = await Batch.findOneAndUpdate(
-      { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
-      { $set: writeData, $inc: { __v: 1 } },
-      { new: true, runValidators: true },
-    );
-    if (!saved) throw new CustomFieldWriteConflictError();
+    let saved: IBatch;
+    if (context) {
+      const updated = await Batch.findOneAndUpdate(
+        { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+        { $set: writeData, $inc: { __v: 1 } },
+        { new: true, runValidators: true },
+      );
+      if (!updated) throw new CustomFieldWriteConflictError();
+      saved = updated;
+    } else {
+      batch.set(writeData);
+      saved = await batch.save();
+    }
     const enriched = (await enrichBatches([saved]))[0];
 
     // Thông báo cho giáo viên khi được phân công vào lớp (mới gán hoặc đổi giáo viên).
