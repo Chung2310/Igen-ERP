@@ -1,10 +1,16 @@
 import { Router } from "express";
 import Joi from "joi";
+import multer from "multer";
 import { timekeepingController } from "../controller/timekeeping.controller";
 import { requireAuth } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { attendanceFaceGate } from "../middleware/attendance-face-gate";
 
 export const timekeepingRouter = Router();
+const attendanceImage = multer({
+  storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)),
+});
 
 const checkInOutSchema = {
   body: Joi.object({
@@ -93,7 +99,9 @@ timekeepingRouter.get("/today", requireAuth as any, timekeepingController.getTod
 timekeepingRouter.post(
   "/check-in",
   requireAuth as any,
+  attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
+  attendanceFaceGate as any,
   timekeepingController.checkIn as any
 );
 
@@ -101,7 +109,9 @@ timekeepingRouter.post(
 timekeepingRouter.post(
   "/check-out",
   requireAuth as any,
+  attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
+  attendanceFaceGate as any,
   timekeepingController.checkOut as any
 );
 

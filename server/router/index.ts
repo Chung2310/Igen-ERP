@@ -20,6 +20,7 @@ import { requireAuth } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
+import { faceManagementRouter } from "./face-management.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -52,6 +53,7 @@ apiRouter.use("/permissions", permissionRouter);
 
 // Gắn kết router phụ của Cấu hình gán quyền cho Role theo doanh nghiệp
 apiRouter.use("/role-permissions", rolePermissionRouter);
+apiRouter.use("/face-management", faceManagementRouter);
 
 // Gắn kết router ví của người dùng & nạp tiền PayOS
 apiRouter.use("/wallet", walletRouter);
