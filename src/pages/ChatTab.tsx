@@ -36,6 +36,7 @@ import {
   StopCircle,
   Video,
   Cloud,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useChatUnread } from "../context/ChatUnreadContext";
@@ -1569,6 +1570,7 @@ export default function ChatTab() {
 
   // Format Room display Name
   const getRoomName = (room: ChatRoom) => {
+    if (room.isChatbot) return "Trợ lý AI";
     if (room.isGroup) return room.name || "Nhóm trò chuyện";
 
     // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
@@ -1585,6 +1587,7 @@ export default function ChatTab() {
 
   // Format Room display Avatar
   const getRoomAvatar = (room: ChatRoom) => {
+    if (room.isChatbot) return "ai-avatar";
     if (room.isGroup) return room.avatarURL || "";
 
     // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
@@ -1824,12 +1827,14 @@ export default function ChatTab() {
                     >
                       {/* Avatar */}
                       <div className="relative h-11 w-11 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
-                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
+                        {roomAvatar && roomAvatar !== "cloud-avatar" && roomAvatar !== "ai-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
                             {roomAvatar === "cloud-avatar" ? (
                               <Cloud className="h-5 w-5 text-indigo-600" />
+                            ) : roomAvatar === "ai-avatar" ? (
+                              <Bot className="h-5 w-5 text-indigo-600" />
                             ) : room.isGroup ? (
                               <Users className="h-5 w-5 text-slate-500" />
                             ) : (
@@ -1837,8 +1842,8 @@ export default function ChatTab() {
                             )}
                           </div>
                         )}
-                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
-                          <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                        {!room.isGroup && (room.members.length > 1 || room.isChatbot) && (room.isChatbot || onlineStatus) && (
+                          <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${room.isChatbot || onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
                         )}
                       </div>
 
@@ -1908,12 +1913,14 @@ export default function ChatTab() {
                 </button>
 
                 <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-gray-200">
-                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
+                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
                       {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
                         <Cloud className="h-5 w-5 text-indigo-600" />
+                      ) : getRoomAvatar(activeRoom) === "ai-avatar" ? (
+                        <Bot className="h-5 w-5 text-indigo-600" />
                       ) : activeRoom.isGroup ? (
                         <Users className="h-5 w-5 text-slate-500" />
                       ) : (
@@ -1921,14 +1928,14 @@ export default function ChatTab() {
                       )}
                     </div>
                   )}
-                  {!activeRoom.isGroup && activeRoom.members.length > 1 && getOtherUserStatus(activeRoom) === "online" && (
+                  {!activeRoom.isGroup && (activeRoom.members.length > 1 || activeRoom.isChatbot) && (activeRoom.isChatbot || getOtherUserStatus(activeRoom) === "online") && (
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
                   <p className="truncate text-[10px] text-gray-400">
-                    {activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
+                    {activeRoom.isChatbot ? "Trợ lý ảo AI" : activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                   </p>
                 </div>
               </div>
@@ -2111,37 +2118,41 @@ export default function ChatTab() {
                         (nextMsgSenderId === msgSenderId) &&
                         (Math.abs(new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 60 * 1000);
 
-                      const showSenderName = !isMe && activeRoom.isGroup && !isPrevSameSender;
-                      const showAvatar = !isMe && activeRoom.isGroup && !isNextSameSender;
-
-
-                      return (
-                        <div key={msg._id} className={`flex flex-col ${index === 0 ? "" : isPrevSameSender ? "mt-1" : "mt-3.5"}`}>
-                          {showDateHeader && (
-                            <div className="flex justify-center my-3">
-                              <span className="rounded-full bg-slate-200/60 px-3 py-1 text-[10px] font-semibold text-slate-500 shadow-xs">
-                                {new Date(msg.createdAt).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                              </span>
-                            </div>
-                          )}
-
-                          <div id={`msg-${msg._id}`} className={`flex w-full items-start gap-3 group/msg ${isMe ? "justify-end" : "justify-start"}`}>
-                            {/* Member Avatar in Group Chat */}
-                            {!isMe && activeRoom.isGroup && (
-                              showAvatar ? (
-                                <div className="h-8 w-8 rounded-lg bg-slate-200 overflow-hidden border border-gray-100 mt-1 shrink-0">
-                                  {msg.senderPhoto ? (
-                                    <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-500">
-                                      {msg.senderName.charAt(0).toUpperCase()}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="w-8 shrink-0" /> /* Spacer to keep bubbles aligned */
-                              )
-                            )}
+                       const showSenderName = !isMe && activeRoom.isGroup && !isPrevSameSender;
+                       const showAvatar = !isMe && (activeRoom.isGroup || activeRoom.isChatbot) && !isNextSameSender;
+ 
+ 
+                       return (
+                         <div key={msg._id} className={`flex flex-col ${index === 0 ? "" : isPrevSameSender ? "mt-1" : "mt-3.5"}`}>
+                           {showDateHeader && (
+                             <div className="flex justify-center my-3">
+                               <span className="rounded-full bg-slate-200/60 px-3 py-1 text-[10px] font-semibold text-slate-500 shadow-xs">
+                                 {new Date(msg.createdAt).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                               </span>
+                             </div>
+                           )}
+ 
+                           <div id={`msg-${msg._id}`} className={`flex w-full items-start gap-3 group/msg ${isMe ? "justify-end" : "justify-start"}`}>
+                             {/* Member Avatar in Group Chat or Chatbot */}
+                             {!isMe && (activeRoom.isGroup || activeRoom.isChatbot) && (
+                               showAvatar ? (
+                                 <div className="h-8 w-8 rounded-lg bg-slate-200 overflow-hidden border border-gray-100 mt-1 shrink-0 flex items-center justify-center">
+                                   {activeRoom.isChatbot ? (
+                                     <div className="flex h-full w-full items-center justify-center bg-indigo-50">
+                                       <Bot className="h-4 w-4 text-indigo-600" />
+                                     </div>
+                                   ) : msg.senderPhoto ? (
+                                     <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
+                                   ) : (
+                                     <div className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-500">
+                                       {msg.senderName.charAt(0).toUpperCase()}
+                                     </div>
+                                   )}
+                                 </div>
+                               ) : (
+                                 <div className="w-8 shrink-0" /> /* Spacer to keep bubbles aligned */
+                               )
+                             )}
 
                             {/* Message actions toolbar (appears on hover) */}
                             <div className={`opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 shrink-0 self-center bg-white border border-gray-100 shadow-xs rounded-xl p-0.5 ${isMe ? "order-first" : "order-last"}`}>
@@ -2650,12 +2661,14 @@ export default function ChatTab() {
                         {/* Header info */}
                         <div className="flex flex-col items-center text-center pb-5 border-b border-gray-100">
                           <div className="relative h-16 w-16 rounded-2xl bg-slate-100 overflow-hidden border border-gray-200 mb-3 shadow-md">
-                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
+                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
                               <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600 bg-indigo-50">
                                 {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
                                   <Cloud className="h-7 w-7 text-indigo-600" />
+                                ) : getRoomAvatar(activeRoom) === "ai-avatar" ? (
+                                  <Bot className="h-7 w-7 text-indigo-600" />
                                 ) : activeRoom.isGroup ? (
                                   <Users className="h-7 w-7 text-slate-500" />
                                 ) : (
@@ -2666,12 +2679,28 @@ export default function ChatTab() {
                           </div>
                           <h4 className="font-bold text-slate-800 text-base">{getRoomName(activeRoom)}</h4>
                           <p className="text-xs text-gray-400 mt-1">
-                            {activeRoom.isGroup ? "Phòng chat nhóm" : "Phòng chat riêng 1-1"}
+                            {activeRoom.isChatbot ? "Trợ lý ảo AI Doanh nghiệp" : activeRoom.isGroup ? "Phòng chat nhóm" : "Phòng chat riêng 1-1"}
                           </p>
                         </div>
 
-                        {/* Member list section */}
-                        {activeRoom.isGroup && (
+                        {/* Member list or AI Capabilities section */}
+                        {activeRoom.isChatbot ? (
+                          <div className="mt-5 space-y-3.5">
+                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khả năng hỗ trợ</h5>
+                            <div className="text-xs text-slate-600 space-y-2 leading-relaxed bg-indigo-50/30 p-3.5 rounded-2xl border border-indigo-100/30 shadow-xs">
+                              <p>🤖 <strong>Trợ lý AI</strong> được tích hợp dữ liệu thời gian thực của doanh nghiệp để hỗ trợ bạn:</p>
+                              <ul className="list-disc list-inside space-y-1.5 pl-1 text-slate-500 font-medium">
+                                <li>Tra cứu tồn kho & sản phẩm</li>
+                                <li>Kiểm tra tiến độ Kanban Task & dự án</li>
+                                <li>Xem số dư ví cá nhân</li>
+                                <li>Tư vấn nghiệp vụ ERP chung</li>
+                              </ul>
+                              <p className="text-[10px] text-gray-400 italic pt-2 border-t border-slate-100">
+                                Dữ liệu được bảo mật tuyệt đối theo phạm vi tài khoản của bạn.
+                              </p>
+                            </div>
+                          </div>
+                        ) : activeRoom.isGroup && (
                           <div className="mt-5">
                             <div className="flex items-center justify-between mb-3">
                               <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thành viên ({activeRoom.members.length})</h5>
