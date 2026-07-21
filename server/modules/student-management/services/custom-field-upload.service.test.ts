@@ -38,3 +38,43 @@ test("rejects a declared MIME mismatch and enforces definition size from actual 
   const oversized = new CustomFieldUploadService({ async findOne() { return tinyLimit as any; } }, async () => { throw new Error("must not upload"); });
   await assert.rejects(() => oversized.upload("tenant-a", "students", "field-1", file()), /dung lượng/i);
 });
+
+test("accepts docx and doc matching rules", async () => {
+  const docxField = {
+    ...definition,
+    type: "file",
+    validation: { maxSizeMb: 10, allowedMimeTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] }
+  };
+  const docxService = new CustomFieldUploadService(
+    { async findOne() { return docxField as any; } },
+    async () => ({ secure_url: "https://cdn.example/doc.docx", public_id: "tenant-a/students/doc/asset" })
+  );
+  // docx magic bytes is ZIP: [0x50, 0x4b, 0x03, 0x04]
+  const docxFile = {
+    buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]),
+    mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    originalname: "test.docx",
+    size: 7
+  } as Express.Multer.File;
+  const docxResult = await docxService.upload("tenant-a", "students", "field-1", docxFile);
+  assert.equal(docxResult.mimeType, "application/zip"); // actual mime type detected from buffer
+
+  const docField = {
+    ...definition,
+    type: "file",
+    validation: { maxSizeMb: 10, allowedMimeTypes: ["application/msword"] }
+  };
+  const docService = new CustomFieldUploadService(
+    { async findOne() { return docField as any; } },
+    async () => ({ secure_url: "https://cdn.example/doc.doc", public_id: "tenant-a/students/doc/asset" })
+  );
+  // doc magic bytes is OLE: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+  const docFile = {
+    buffer: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+    mimetype: "application/msword",
+    originalname: "test.doc",
+    size: 8
+  } as Express.Multer.File;
+  const docResult = await docService.upload("tenant-a", "students", "field-1", docFile);
+  assert.equal(docResult.mimeType, "application/x-ole-storage"); // actual mime type detected from buffer
+});
