@@ -25,6 +25,7 @@ import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -101,6 +102,7 @@ export default function CalendarTab({
   // Data States
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [appliedHolidays, setAppliedHolidays] = useState<WorkCalendarDay[]>([]);
 
   // Timekeeping logs state
   const [logs, setLogs] = useState<any[]>([]);
@@ -314,6 +316,16 @@ export default function CalendarTab({
   useEffect(() => {
     fetchCalendarItems();
   }, [selectedCompanyCode]);
+
+  useEffect(() => {
+    if (!selectedCompanyCode) return;
+    companyWorkCalendarService
+      .list(year, true)
+      .then(setAppliedHolidays)
+      .catch(() => setAppliedHolidays([]));
+  }, [selectedCompanyCode, year]);
+
+  const holidayByDate = new Map(appliedHolidays.map((h) => [h.date, h]));
 
   useEffect(() => {
     if (currentSubTab === "attendance" && selectedCompanyCode) {
@@ -1706,14 +1718,18 @@ export default function CalendarTab({
                   {calendarDays.map(({ date: dayDate, isCurrentMonth }, index) => {
                     const dayItems = filteredItems.filter((item) => itemMatchesDay(item, dayDate));
                     const dayIsToday = isToday(dayDate);
+                    const holiday = holidayByDate.get(formatLocalDate(dayDate));
 
                     return (
                       <div
                         key={index}
                         onClick={() => handleDayClick(dayDate)}
-                        className={`min-h-[100px] p-2.5 border rounded-2xl flex flex-col justify-between transition-all hover:bg-indigo-50/20 hover:border-indigo-100 hover:shadow-md hover:-translate-y-0.5 duration-300 cursor-pointer ${isCurrentMonth
-                            ? "bg-white border-slate-100/80 shadow-3xs"
-                            : "bg-slate-50/30 border-slate-50/50 text-slate-350"
+                        title={holiday?.name}
+                        className={`min-h-[100px] p-2.5 border rounded-2xl flex flex-col justify-between transition-all hover:bg-indigo-50/20 hover:border-indigo-100 hover:shadow-md hover:-translate-y-0.5 duration-300 cursor-pointer ${holiday
+                            ? "bg-rose-50/40 border-rose-100/70"
+                            : isCurrentMonth
+                              ? "bg-white border-slate-100/80 shadow-3xs"
+                              : "bg-slate-50/30 border-slate-50/50 text-slate-350"
                           } ${dayIsToday
                             ? "ring-2 ring-indigo-500 ring-offset-2 bg-gradient-to-br from-indigo-50/20 to-violet-50/20 border-indigo-200/50 shadow-sm shadow-indigo-500/5"
                             : ""
@@ -1737,6 +1753,12 @@ export default function CalendarTab({
                             </span>
                           )}
                         </div>
+
+                        {holiday && (
+                          <div className="text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
+                            🎌 {holiday.name}
+                          </div>
+                        )}
 
                         {/* Day events visual list */}
                         <div className="flex-1 flex flex-col gap-1.5 overflow-hidden max-h-[75px]">

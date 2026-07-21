@@ -4,7 +4,7 @@
 /* eslint-disable no-empty */
 /* eslint-disable react-hooks/immutability */
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -27,6 +27,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { isModuleEnabled } from "../config/modules";
 import { authService } from "../services/authService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
@@ -35,6 +36,7 @@ import { toast } from "../pages/Toast";
 import { UserProfile } from "../types";
 import { DashboardSummary } from "../types/dashboard";
 import LowStockModal from "../components/inventory/LowStockModal";
+import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
 
 type DashboardView = "overview" | "revenue";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
@@ -118,6 +120,11 @@ const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: b
 
 export default function DashboardTab() {
   const { userProfile } = useAuth();
+  const canSeeHr = isModuleEnabled(userProfile?.enabledModules, "hr");
+  const canSeeInventory = isModuleEnabled(userProfile?.enabledModules, "inventory");
+  const canSeeResource = isModuleEnabled(userProfile?.enabledModules, "resource");
+  const canSeeChat = isModuleEnabled(userProfile?.enabledModules, "chat");
+  const canSeeStudent = isModuleEnabled(userProfile?.enabledModules, "student");
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
@@ -142,6 +149,7 @@ export default function DashboardTab() {
   const [revenueTrendData, setRevenueTrendData] = useState<Array<{ label: string; value: number }>>([]);
   const [productSegments, setProductSegments] = useState<Array<{ label: string; value: number; color: string }>>([]);
   const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
+  const [todayWorkCalendar, setTodayWorkCalendar] = useState<{ date: string; isWorkingDay: boolean; label?: string } | null>(null);
   const [isTimekeepingLoading, setIsTimekeepingLoading] = useState<boolean>(false);
 
   type DateFilterType = "day" | "month" | "year" | "custom";
@@ -157,6 +165,12 @@ export default function DashboardTab() {
 
   useEffect(() => {
     const loadEmployeeData = async () => {
+      if (!canSeeHr) {
+        setEmployeeCount("0");
+        setNewHiresCount(0);
+        setRawEmployees([]);
+        return;
+      }
       if (!userProfile) {
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
@@ -204,10 +218,19 @@ export default function DashboardTab() {
     };
 
     loadEmployeeData();
-  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, canSeeHr]);
 
   // Subscribe to inventory products to compute total products
   useEffect(() => {
+    if (!canSeeInventory) {
+      setRawProducts([]);
+      setTotalProducts("0");
+      setLowStockCount("0");
+      setLowStockItems([]);
+      setOverstockItems([]);
+      setTotalInventoryValue("0");
+      return;
+    }
     let unsubProducts: any = null;
     try {
       unsubProducts = inventoryProductService.subscribe((products) => {
@@ -241,10 +264,14 @@ export default function DashboardTab() {
     return () => {
       if (unsubProducts && typeof unsubProducts === "function") unsubProducts();
     };
-  }, []);
+  }, [canSeeInventory]);
 
   // Subscribe to stock logs to compute pending outbound shipments
   useEffect(() => {
+    if (!canSeeInventory) {
+      setRawStockLogs([]);
+      return;
+    }
     let unsubLogs: any = null;
     try {
       unsubLogs = inventoryStockLogService.subscribe((logs) => {
@@ -258,11 +285,12 @@ export default function DashboardTab() {
     return () => {
       if (unsubLogs && typeof unsubLogs === "function") unsubLogs();
     };
-  }, []);
+  }, [canSeeInventory]);
 
   const getAccessToken = () => localStorage.getItem("accessToken") || "";
 
   const fetchTodayTimekeeping = async () => {
+    if (!canSeeHr) return;
     setIsTimekeepingLoading(true);
     try {
       const token = getAccessToken();
@@ -274,7 +302,8 @@ export default function DashboardTab() {
       });
       if (res.ok) {
         const result = await res.json();
-        setTodayTimekeeping(result.data);
+        setTodayTimekeeping(result.data?.log ?? null);
+        setTodayWorkCalendar(result.data?.workCalendar ?? null);
       }
     } catch (err) {
       console.error("Lỗi khi tải trạng thái chấm công:", err);
@@ -284,10 +313,10 @@ export default function DashboardTab() {
   };
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && canSeeHr) {
       fetchTodayTimekeeping();
     }
-  }, [userProfile]);
+  }, [userProfile, canSeeHr]);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
@@ -297,7 +326,7 @@ export default function DashboardTab() {
 
     const loadSummary = () => {
       dashboardService
-        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .getSummary({ filter: dateFilter as any, startDate: customStartDate, endDate: customEndDate })
         .then((data) => {
           if (!cancelled) setSummary(data);
         })
@@ -760,7 +789,7 @@ export default function DashboardTab() {
 
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
           <div className="inline-flex rounded-xl bg-slate-100/80 p-1 w-fit">
-            {tabs.map((tab) => {
+            {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
               return (
                 <button
@@ -838,12 +867,18 @@ export default function DashboardTab() {
           trendData={revenueTrendData}
           newHiresCount={newHiresCount}
           todayTimekeeping={todayTimekeeping}
+          todayWorkCalendar={todayWorkCalendar}
           isTimekeepingLoading={isTimekeepingLoading}
           onRefreshTimekeeping={fetchTodayTimekeeping}
           summary={summary}
+          canSeeHr={canSeeHr}
+          canSeeInventory={canSeeInventory}
+          canSeeResource={canSeeResource}
+          canSeeChat={canSeeChat}
+          canSeeStudent={canSeeStudent}
         />
       )}
-      {activeView === "revenue" && (
+      {activeView === "revenue" && canSeeInventory && (
         <RevenuePanel
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
@@ -874,9 +909,15 @@ function OverviewPanel({
   trendData,
   newHiresCount,
   todayTimekeeping,
+  todayWorkCalendar,
   isTimekeepingLoading,
   onRefreshTimekeeping,
   summary,
+  canSeeHr,
+  canSeeInventory,
+  canSeeResource,
+  canSeeChat,
+  canSeeStudent,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -892,9 +933,15 @@ function OverviewPanel({
   trendData: Array<{ label: string; value: number }>;
   newHiresCount: number;
   todayTimekeeping: any;
+  todayWorkCalendar: { date: string; isWorkingDay: boolean; label?: string } | null;
   isTimekeepingLoading: boolean;
   onRefreshTimekeeping: () => void;
   summary: DashboardSummary | null;
+  canSeeHr: boolean;
+  canSeeInventory: boolean;
+  canSeeResource: boolean;
+  canSeeChat: boolean;
+  canSeeStudent: boolean;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
 
@@ -923,14 +970,15 @@ function OverviewPanel({
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
-        <TimekeepingWidget
+        {canSeeHr && <TimekeepingWidget
           todayTimekeeping={todayTimekeeping}
+          todayWorkCalendar={todayWorkCalendar}
           isLoading={isTimekeepingLoading}
           onRefresh={onRefreshTimekeeping}
-        />
+        />}
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ModuleCard
+          {canSeeHr && <ModuleCard
             icon={Users}
             tone="amber"
             title="Nhân sự"
@@ -940,13 +988,13 @@ function OverviewPanel({
             footerValue={`+${newHiresCount}`}
             progress={Math.min(100, (parseInt(employeeCount) || 0) > 0 ? Math.round((newHiresCount / (parseInt(employeeCount) || 1)) * 100) : 0)}
             onClick={() => goToTab("NHÂN SỰ")}
-          />
-          <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
+          />}
+          {canSeeInventory && <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />}
         </div>
 
         {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <ModuleCard
+          {canSeeHr && <ModuleCard
             icon={KanbanSquare}
             tone="indigo"
             title="Dự án & Công việc"
@@ -962,8 +1010,8 @@ function OverviewPanel({
             alert
             lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
             onClick={() => goToTab("NHÂN SỰ", "kanban")}
-          />
-          <ModuleCard
+          />}
+          {canSeeStudent && <ModuleCard
             icon={GraduationCap}
             tone="emerald"
             title="Học viên"
@@ -977,8 +1025,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
-          />
-          <ModuleCard
+          />}
+          {canSeeStudent && <ModuleCard
             icon={Wallet}
             tone="amber"
             title="Học phí & Công nợ"
@@ -996,8 +1044,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
-          />
-          <ModuleCard
+          />}
+          {canSeeHr && <ModuleCard
             icon={UserCheck}
             tone="blue"
             title="Chấm công hôm nay"
@@ -1011,8 +1059,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("NHÂN SỰ", "lich")}
-          />
-          <ModuleCard
+          />}
+          {canSeeChat && <ModuleCard
             icon={MessageSquare}
             tone="slate"
             title="Trò chuyện"
@@ -1022,8 +1070,8 @@ function OverviewPanel({
             footerValue={summary ? String(summary.chat.roomCount) : "..."}
             progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
             onClick={() => goToTab("TRÒ CHUYỆN")}
-          />
-          <ModuleCard
+          />}
+          {canSeeResource && <ModuleCard
             icon={FolderOpen}
             tone="indigo"
             title="Tài nguyên"
@@ -1037,8 +1085,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
-          />
-          <ModuleCard
+          />}
+          {canSeeHr && <ModuleCard
             icon={BookOpen}
             tone="emerald"
             title="Đào tạo"
@@ -1052,11 +1100,11 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("NHÂN SỰ", "dao-tao")}
-          />
+          />}
         </div>
 
         {/* Biểu đồ tổng quát các module */}
-        {summary && (
+        {summary && canSeeHr && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             <DonutCard
               title="Trạng thái công việc"
@@ -1100,7 +1148,7 @@ function OverviewPanel({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6">
+        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
@@ -1108,9 +1156,9 @@ function OverviewPanel({
             </div>
             <BarChart data={trendData} />
           </div>
-        </div>
+        </div>}
 
-        <div className="grid grid-cols-1 gap-6">
+        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1153,7 +1201,7 @@ function OverviewPanel({
             )}
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
-        </div>
+        </div>}
       </div>
 
       <aside className="rounded-3xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm flex flex-col justify-start">
@@ -1171,6 +1219,7 @@ function OverviewPanel({
           {[
             {
               icon: AlertTriangle,
+              moduleKey: "inventory",
               title: lowStockItems.length > 0 ? `${lowStockItems[0].name} có nguy cơ cạn kho` : "Kho hiện ổn định",
               body: lowStockItems.length > 0
                 ? `AI dự báo sản phẩm ${lowStockItems[0].name} có tồn ${lowStockItems[0].stock}, thấp hơn ngưỡng cảnh báo ${lowStockItems[0].minStockAlert}.`
@@ -1188,6 +1237,7 @@ function OverviewPanel({
             },
             {
               icon: Bot,
+              moduleKey: undefined,
               title: "Tự động hóa CSKH bằng AI",
               body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
               action: "Trải nghiệm AI Agent",
@@ -1196,7 +1246,7 @@ function OverviewPanel({
                 onRecommendAgent();
               },
             },
-          ].map((item) => (
+          ].filter((item) => !item.moduleKey || canSeeInventory).map((item) => (
             <AiInsightCard key={item.title} {...item} />
           ))}
         </div>
@@ -1554,17 +1604,45 @@ function Legend({ color, label, value }: any) {
   );
 }
 
+export function getTimekeepingStatusDisplay(
+  hasCheckIn: boolean,
+  hasCheckOut: boolean,
+  timekeepingStatus: string | undefined,
+  workCalendar: { date: string; isWorkingDay: boolean; label?: string } | null
+): { statusText: string; statusColor: string; statusBadge: string } {
+  const isNonWorkingDay = workCalendar != null && !workCalendar.isWorkingDay;
+
+  if (hasCheckIn) {
+    if (hasCheckOut) {
+      return { statusText: "Đã hoàn thành chấm công", statusColor: "bg-blue-500", statusBadge: "bg-blue-50 text-blue-700 ring-blue-500/10" };
+    }
+    return timekeepingStatus === "Late"
+      ? { statusText: "Đã check-in (Muộn)", statusColor: "bg-amber-500", statusBadge: "bg-amber-50 text-amber-700 ring-amber-500/10" }
+      : { statusText: "Đã check-in (Đúng giờ)", statusColor: "bg-emerald-500", statusBadge: "bg-emerald-50 text-emerald-700 ring-emerald-500/10" };
+  }
+
+  if (isNonWorkingDay) {
+    return { statusText: workCalendar?.label || "Ngày nghỉ", statusColor: "bg-slate-400", statusBadge: "bg-slate-50 text-slate-600 ring-slate-500/10" };
+  }
+
+  return { statusText: "Chưa chấm công", statusColor: "bg-rose-500", statusBadge: "bg-rose-50 text-rose-700 ring-rose-500/10" };
+}
+
 function TimekeepingWidget({
   todayTimekeeping,
+  todayWorkCalendar,
   isLoading,
   onRefresh,
 }: {
   todayTimekeeping: any;
+  todayWorkCalendar: { date: string; isWorkingDay: boolean; label?: string } | null;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
   const [checking, setChecking] = useState<"in" | "out" | null>(null);
   const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+  const [cameraAction, setCameraAction] = useState<"in" | "out" | null>(null);
+  const pendingCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     if (navigator.permissions && navigator.permissions.query) {
@@ -1581,6 +1659,16 @@ function TimekeepingWidget({
     }
   }, []);
 
+  const FACE_REASON_MESSAGES: Record<string, string> = {
+    invalid_image: "Ảnh không hợp lệ, vui lòng chụp lại.",
+    no_face: "Không phát hiện khuôn mặt trong ảnh.",
+    multiple_faces: "Ảnh có nhiều khuôn mặt, vui lòng chụp lại một mình.",
+    spoof_detected: "Hệ thống nghi ngờ ảnh giả mạo (ảnh chụp qua màn hình/ảnh in). Vui lòng chụp trực tiếp.",
+    face_mismatch: "Khuôn mặt không khớp với hồ sơ đã đăng ký.",
+    not_registered: "Bạn chưa đăng ký khuôn mặt. Vui lòng liên hệ quản trị viên.",
+    model_unavailable: "Hệ thống nhận diện khuôn mặt tạm thời không khả dụng. Vui lòng thử lại sau.",
+  };
+
   const handleAction = async (type: "in" | "out") => {
     if (!navigator.geolocation) {
       toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
@@ -1589,34 +1677,13 @@ function TimekeepingWidget({
 
     setChecking(type);
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
-          const res = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            },
-            body: JSON.stringify({
-              latitude,
-              longitude,
-              deviceInfo: navigator.userAgent,
-            }),
-          });
-          const result = await res.json();
-          if (res.ok) {
-            toast.success(result.message || `Check-${type} thành công!`);
-            onRefresh();
-          } else {
-            toast.error(result.message || `Không thể Check-${type}.`);
-          }
-        } catch (err) {
-          toast.error("Lỗi kết nối khi gửi dữ liệu chấm công.");
-        } finally {
-          setChecking(null);
-        }
+      (position) => {
+        pendingCoordsRef.current = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setChecking(null);
+        setCameraAction(type);
       },
       (error) => {
         setChecking(null);
@@ -1639,6 +1706,44 @@ function TimekeepingWidget({
     );
   };
 
+  const handleCameraCapture = async (image: Blob) => {
+    const type = cameraAction;
+    const coords = pendingCoordsRef.current;
+    if (!type || !coords) {
+      throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", image, "attendance.jpg");
+    formData.append("latitude", String(coords.latitude));
+    formData.append("longitude", String(coords.longitude));
+    formData.append("deviceInfo", navigator.userAgent);
+
+    const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: formData,
+      });
+    } catch {
+      throw new Error("Lỗi kết nối khi gửi dữ liệu chấm công.");
+    }
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reasonMessage = result.reasonCode ? FACE_REASON_MESSAGES[result.reasonCode] : undefined;
+      throw new Error(reasonMessage || result.message || `Không thể Check-${type}.`);
+    }
+
+    toast.success(result.message || `Check-${type} thành công!`);
+    pendingCoordsRef.current = null;
+    onRefresh();
+  };
+
   const hasCheckIn = !!todayTimekeeping?.checkIn;
   const hasCheckOut = !!todayTimekeeping?.checkOut;
 
@@ -1648,20 +1753,12 @@ function TimekeepingWidget({
     return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
-  let statusText = "Chưa chấm công";
-  let statusColor = "bg-rose-500";
-  let statusBadge = "bg-rose-50 text-rose-700 ring-rose-500/10";
-  if (hasCheckIn) {
-    if (hasCheckOut) {
-      statusText = "Đã hoàn thành chấm công";
-      statusColor = "bg-blue-500";
-      statusBadge = "bg-blue-50 text-blue-700 ring-blue-500/10";
-    } else {
-      statusText = todayTimekeeping.status === "Late" ? "Đã check-in (Muộn)" : "Đã check-in (Đúng giờ)";
-      statusColor = todayTimekeeping.status === "Late" ? "bg-amber-500" : "bg-emerald-500";
-      statusBadge = todayTimekeeping.status === "Late" ? "bg-amber-50 text-amber-700 ring-amber-500/10" : "bg-emerald-50 text-emerald-700 ring-emerald-500/10";
-    }
-  }
+  const { statusText, statusColor, statusBadge } = getTimekeepingStatusDisplay(
+    hasCheckIn,
+    hasCheckOut,
+    todayTimekeeping?.status,
+    todayWorkCalendar
+  );
 
   return (
     <div className="w-full bg-white/70 backdrop-blur-md border border-slate-150 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all hover:shadow-md duration-300 flex flex-col gap-4">
@@ -1752,6 +1849,17 @@ function TimekeepingWidget({
           <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-600" />
           <span className="text-[11px] font-semibold text-left">Bạn đã chặn quyền truy cập vị trí. Vui lòng mở cài đặt trình duyệt, cho phép quyền truy cập vị trí và tải lại trang để chấm công.</span>
         </div>
+      )}
+
+      {cameraAction && (
+        <AttendanceCameraModal
+          action={cameraAction}
+          onCapture={handleCameraCapture}
+          onClose={() => {
+            pendingCoordsRef.current = null;
+            setCameraAction(null);
+          }}
+        />
       )}
     </div>
   );

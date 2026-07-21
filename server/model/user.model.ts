@@ -95,6 +95,18 @@ const ElevenLabsAccessSchema = new Schema(
   { _id: false }
 );
 
+const WorkHoursConfigSchema = new Schema(
+  {
+    useCustom: { type: Boolean, default: false },
+    checkInLimit: { type: String, default: "08:30" },
+    checkOutLimit: { type: String, default: "17:30" },
+    lunchBreakStart: { type: String, default: "12:00" },
+    lunchBreakEnd: { type: String, default: "13:00" },
+    workingDays: { type: [Number], default: [1, 2, 3, 4, 5] },
+  },
+  { _id: false }
+);
+
 const SuperAdminSecuritySchema = new Schema({
   totpEnabled: { type: Boolean, default: false },
   totpSecretEncrypted: { type: String, select: false },
@@ -132,6 +144,21 @@ const UserSchema = new Schema<IUser>({
   companyName: { type: String },
   permissions: { type: [String], default: [] },
   superAdminSecurity: { type: SuperAdminSecuritySchema },
+  workHoursConfig: { type: WorkHoursConfigSchema, default: undefined },
+  
+  // SMTP Configuration
+  smtpHost: { type: String },
+  smtpPort: { type: Number },
+  smtpSecure: { type: Boolean },
+  smtpUser: { type: String },
+  smtpPass: { type: String },
+  smtpFrom: { type: String },
+  smtpSandboxEmail: { type: String },
+
+  // SaaS / Business limits
+  businessType: { type: String, enum: ["driving", "language", "general"], default: "general" },
+  isActive: { type: Boolean, default: true },
+  maxUsersLimit: { type: Number },
 }, { toJSON: { transform: removeSuperAdminSecrets }, toObject: { transform: removeSuperAdminSecrets } });
 
 UserSchema.index(

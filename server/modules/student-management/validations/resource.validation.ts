@@ -4,6 +4,7 @@ const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const createResourceSchema = Joi.object({
+  companyCode: Joi.string().trim().min(1).optional(),
   name: Joi.string().required().messages({
     "any.required": "Tên tài nguyên là bắt buộc.",
     "string.empty": "Tên tài nguyên không được để trống.",
@@ -19,14 +20,17 @@ export const createResourceSchema = Joi.object({
     "any.required": "Sức chứa là bắt buộc.",
   }),
   status: Joi.string().valid("AVAILABLE", "OCCUPIED", "MAINTENANCE").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateResourceSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   name: Joi.string().optional(),
   type: Joi.string().optional(),
   identifier: Joi.string().optional(),
   capacity: Joi.string().optional(),
   status: Joi.string().valid("AVAILABLE", "OCCUPIED", "MAINTENANCE").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const createBookingSchema = Joi.object({

@@ -191,6 +191,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.5",
     changeFrequency: "weekly",
   },
+  "HƯỚNG DẪN": {
+    title: "Hướng dẫn sử dụng - Cẩm nang thao tác hệ thống",
+    description:
+      "Hướng dẫn sử dụng chi tiết từng phân hệ trong iGen ERP bằng ngôn ngữ giản dị, trực quan dành cho người dùng không chuyên.",
+    keywords:
+      "hướng dẫn sử dụng, cẩm nang erp, tài liệu hướng dẫn, igen erp, hỗ trợ sử dụng",
+    path: "/huong-dan",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "weekly",
+  },
 };
 
 export const PUBLIC_SEO_PAGES: SeoMeta[] = [

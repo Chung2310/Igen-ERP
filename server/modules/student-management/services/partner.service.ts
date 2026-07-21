@@ -5,6 +5,13 @@ import { ICommissionLevel } from "../interfaces/commission-level.interface";
 import { IPartner } from "../interfaces/partner.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 
 interface PartnerFilters {
   page?: number | string;
@@ -15,6 +22,7 @@ interface PartnerFilters {
 }
 
 interface PartnerData {
+  [key: string]: unknown;
   name: string;
   phone: string;
   email?: string;
@@ -176,15 +184,22 @@ export interface ReferredStudentItem {
 }
 
 export class PartnerService {
-  static async createPartner(ownerId: string, data: PartnerData): Promise<EnrichedPartner> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createPartner(
+    ownerId: string,
+    data: PartnerData,
+    context: CustomFieldWriteContext,
+  ): Promise<EnrichedPartner> {
     logger.info(`[Partner] Creating partner name=${data.name}, phone=${data.phone} for ownerId=${ownerId}`);
     
-    const existing = await Partner.findOne({ ownerId, phone: data.phone });
+    const writeData = await this.customFieldWrites.prepareCreate(context, data);
+    const existing = await Partner.findOne({ ownerId, phone: writeData.phone });
     if (existing) {
       throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho đối tác của trung tâm.`);
     }
 
-    const partner = new Partner({ ...data, ownerId });
+    const partner = new Partner({ ...writeData, ownerId });
     const saved = await partner.save();
     logger.info(`[Partner] Partner created: id=${saved._id}`);
     
@@ -352,7 +367,8 @@ export class PartnerService {
   static async updatePartner(
     ownerId: string | string[],
     id: string,
-    data: Partial<PartnerData>
+    data: Partial<PartnerData>,
+    context: CustomFieldWriteContext,
   ): Promise<EnrichedPartner | null> {
     logger.info(`[Partner] Updating partner: id=${id}`);
     
@@ -361,15 +377,23 @@ export class PartnerService {
       throw new Error("Không tìm thấy đối tác.");
     }
 
-    if (data.phone && data.phone !== partner.phone) {
-      const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: data.phone });
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(partner.ownerId) } : context;
+    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, partner, data);
+
+    if (writeData.phone && writeData.phone !== partner.phone) {
+      const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: writeData.phone });
       if (dup) {
         throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho một đối tác khác.`);
       }
     }
 
-    partner.set(data);
-    const saved = await partner.save();
+    const saved = await Partner.findOneAndUpdate(
+      { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { $set: writeData, $inc: { __v: 1 } },
+      { new: true, runValidators: true },
+    );
+    if (!saved) throw new CustomFieldWriteConflictError();
     
     const enriched = await enrichPartners([saved]);
     return enriched[0];

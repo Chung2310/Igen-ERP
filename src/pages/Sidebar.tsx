@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Users,
   Wallet,
+  BookOpen,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -24,6 +25,7 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
+import { filterEnabledTabs } from "../config/modules";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -134,7 +136,8 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   // Trên mobile drawer luôn ở dạng mở rộng; thu gọn chỉ là hành vi desktop
   const isCollapsed = isCollapsedState && !isMobile;
   // Loại các module bị ẩn tạm khỏi thanh điều hướng
-  const menuItems = [...baseMenuItems];
+  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
+  const menuItems = baseMenuItems.filter((item) => enabledTabs.has(item.label));
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
@@ -162,6 +165,14 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     desc: "Thông tin cá nhân và cấu hình",
     icon: Settings,
     tone: "slate",
+  });
+
+  menuItems.push({
+    label: "HƯỚNG DẪN",
+    title: "Hướng dẫn sử dụng",
+    desc: "Tài liệu thao tác cho từng phân hệ",
+    icon: BookOpen,
+    tone: "green",
   });
 
   return (

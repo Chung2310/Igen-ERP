@@ -57,7 +57,11 @@ export default function AuthPage() {
 
     setLoading(true);
     try {
-      await loginWithEmail(email.trim(), password.trim(), rememberMe);
+      const result = await loginWithEmail(email.trim(), password.trim(), rememberMe);
+      if (result.status === "challenge_required") {
+        window.location.href = "/super-admin";
+        return;
+      }
     } catch (err: any) {
       console.error(err);
       const msg = parseFirebaseError(err, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");

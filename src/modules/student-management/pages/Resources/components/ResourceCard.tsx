@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
-import { CheckCircle, Clock, AlertTriangle, UserCheck, Trash2, Wrench, X } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, UserCheck, Trash2, Wrench, X, Pencil } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ResourceItem } from '../../../types';
 import { todayStr, getTypeColor } from '../utils';
+import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 
 interface ResourceCardProps {
   key?: React.Key;
   resource: ResourceItem;
   onBook: (r: ResourceItem) => void;
+  onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
   onDelete: (r: ResourceItem) => void;
   onCancelBooking: (r: ResourceItem, bookingId?: string) => void;
@@ -16,6 +18,7 @@ interface ResourceCardProps {
 export function ResourceCard({
   resource,
   onBook,
+  onEdit,
   onToggleMaintenance,
   onDelete,
   onCancelBooking,
@@ -119,11 +122,23 @@ export function ResourceCard({
               ))}
             </div>
           )}
+
+          <CustomFieldDetails moduleKey="resources" values={resource.customFields || {}} />
         </div>
       </div>
 
       <div className={cn("flex items-center justify-between pt-2.5 mt-1.5 border-t", darkMode ? "border-slate-800/30" : "border-slate-100")}>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => onEdit(resource)}
+            title="Chỉnh sửa tài nguyên"
+            className={cn(
+              "p-1 rounded-md transition-colors border cursor-pointer",
+              darkMode ? "text-slate-500 hover:text-cyan-400 bg-slate-800 hover:bg-slate-700 border-transparent" : "text-slate-400 hover:text-cyan-600 bg-slate-55 hover:bg-cyan-50 border-slate-205"
+            )}
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
           <button
             onClick={() => onToggleMaintenance(resource)}
             title={resource.status === 'MAINTENANCE' ? 'Kết thúc bảo trì' : 'Chuyển sang bảo trì'}

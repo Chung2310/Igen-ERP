@@ -138,7 +138,10 @@ interface OpenedTab {
 }
 
 export default function ResourceTab() {
-  const { userProfile, setActiveTab, refreshProfile } = useAuth();
+  const { userProfile, refreshProfile } = useAuth();
+  const userProfileAny = userProfile as any;
+  const userProfileId = userProfile?.uid || userProfileAny?.id || "";
+
   const [subTab, setSubTab] = useSubTabRouter<ResourceSubTabType>(RESOURCE_SUB_TAB_ROUTES, "TÀI LIỆU KHÁC");
   const [openedTabs, setOpenedTabs] = useState<OpenedTab[]>([
     { id: "explorer", title: "Thẻ mới", type: "explorer" }
@@ -163,8 +166,8 @@ export default function ResourceTab() {
     setLocalItemsCount({ count, total });
   }, []);
 
-  const isConnected = userProfile?.googleDriveIntegration?.isConnected;
-  const driveEmail = userProfile?.googleDriveIntegration?.driveEmail;
+  const isConnected = userProfileAny?.googleDriveIntegration?.isConnected;
+  const driveEmail = userProfileAny?.googleDriveIntegration?.driveEmail;
 
   // Space management
   const [selectedSpace, setSelectedSpace] = useState<string>("personal");
@@ -177,9 +180,9 @@ export default function ResourceTab() {
 
   useEffect(() => {
     if (userProfile) {
-      setSelectedOwnerId(userProfile.uid || userProfile.id);
+      setSelectedOwnerId(userProfileId);
     }
-  }, [userProfile]);
+  }, [userProfile, userProfileId]);
 
   // Listen to ?id= query param to switch space & subTab
   useEffect(() => {
@@ -217,7 +220,7 @@ export default function ResourceTab() {
   }, [window.location.search, userProfile]);
 
   // Dùng uid ổn định làm dep để tránh infinite loop khi object userProfile thay đổi reference
-  const userUid = userProfile?.uid || userProfile?.id;
+  const userUid = userProfileId;
   const userRole = userProfile?.role;
   const userCompanyCode = userProfile?.companyCode;
 
@@ -571,7 +574,7 @@ export default function ResourceTab() {
     if (moveTarget) {
       // Khi mở modal, browse từ thư mục gốc của space đích
       const rootId = moveSpace === "personal"
-        ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+        ? (userProfileAny?.googleDriveIntegration?.rootFolderId || "root")
         : (rooms.find(r => r._id === moveSpace)?.driveFolderId || "root");
       void fetchMoveFolders(moveSpace, rootId);
     }
@@ -696,7 +699,7 @@ export default function ResourceTab() {
 
   const fetchResources = async () => {
     const targetUser = allStaff.find(u => (u.uid || u.id) === selectedOwnerId);
-    const targetIsConnected = selectedOwnerId === (userProfile?.uid || userProfile?.id)
+    const targetIsConnected = selectedOwnerId === userProfileId
       ? isConnected
       : targetUser?.googleDriveIntegration?.isConnected;
 
@@ -745,12 +748,12 @@ export default function ResourceTab() {
   // Reset selectedOwnerId to current user if switching to GOOGLE DRIVE and viewing another employee's space
   useEffect(() => {
     if (subTab === "GOOGLE DRIVE") {
-      const myId = userProfile?.uid || userProfile?.id || "";
+      const myId = userProfileId;
       if (selectedSpace === "personal" && selectedOwnerId !== myId) {
         setSelectedOwnerId(myId);
       }
     }
-  }, [subTab, selectedSpace, selectedOwnerId, userProfile]);
+  }, [subTab, selectedSpace, selectedOwnerId, userProfileId]);
 
 
 
@@ -797,10 +800,10 @@ export default function ResourceTab() {
     if (!room) return false;
 
     const memberInfo = room.members.find(
-      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+      (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
     );
     const isRoomAdmin = memberInfo?.role === "admin";
-    const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+    const isCreator = String(room.creatorId) === String(userProfileId);
     const isUploader = memberInfo?.canUploadDrive === true;
 
     return isAdmin || isRoomAdmin || isCreator || isUploader;
@@ -814,10 +817,10 @@ export default function ResourceTab() {
     if (!room) return false;
 
     const memberInfo = room.members.find(
-      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+      (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
     );
     const isRoomAdmin = memberInfo?.role === "admin";
-    const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+    const isCreator = String(room.creatorId) === String(userProfileId);
 
     return isAdmin || isRoomAdmin || isCreator;
   };
@@ -1603,7 +1606,7 @@ export default function ResourceTab() {
     const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
     const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
     const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
-    const isRoomAdmin = room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id))?.role === "admin";
+    const isRoomAdmin = room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfileId))?.role === "admin";
     
     // Check if the current user has edit permission for this space
     const canEdit = (() => {
@@ -1611,16 +1614,16 @@ export default function ResourceTab() {
       if (isCreatorOrAdmin) return true;
       if (!room) return false;
       const memberInfo = room.members.find(
-        (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+        (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
       );
       const isRoomAdmin = memberInfo?.role === "admin";
-      const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+      const isCreator = String(room.creatorId) === String(userProfileId);
       const isUploader = memberInfo?.canUploadDrive === true;
       return isRoomAdmin || isCreator || isUploader;
     })();
 
-    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfile?.uid || userProfile?.id);
-    const isRoomCreator = room && String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfileId);
+    const isRoomCreator = room && String(room.creatorId) === String(userProfileId);
     const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin || isRoomCreator || isMyFile;
 
     const { Icon, iconColor } = isFolder 
@@ -1746,7 +1749,7 @@ export default function ResourceTab() {
                     setActiveMenuId(null);
                     // Mở modal, browse từ thư mục gốc của space hiện tại
                     const rootId = selectedSpace === "personal"
-                      ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+                      ? (userProfileAny?.googleDriveIntegration?.rootFolderId || "root")
                       : (rooms.find(r => r._id === selectedSpace)?.driveFolderId || "root");
                     setMoveTarget(resource);
                     setMoveSpace(selectedSpace);
@@ -1971,7 +1974,7 @@ export default function ResourceTab() {
                     {selectedSpace === "personal" ? (
                       <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-black shrink-0">
                         {getInitials(
-                          selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                          selectedOwnerId === userProfileId
                             ? (userProfile?.displayName || "Cá nhân")
                             : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "NV")
                         )}
@@ -1984,7 +1987,7 @@ export default function ResourceTab() {
                     
                     <span className="uppercase">
                       {selectedSpace === "personal" 
-                        ? (selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                        ? (selectedOwnerId === userProfileId
                             ? (userProfile?.displayName || "Cá nhân")
                             : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "Nhân viên")
                           )
@@ -2000,11 +2003,11 @@ export default function ResourceTab() {
                       <button
                         onClick={() => {
                           setSelectedSpace("personal");
-                          setSelectedOwnerId(userProfile?.uid || userProfile?.id || "");
+                          setSelectedOwnerId(userProfileId);
                           setShowSpaceDropdown(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
-                          selectedSpace === "personal" && selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                          selectedSpace === "personal" && selectedOwnerId === userProfileId
                             ? "bg-blue-50 text-blue-600" 
                             : "hover:bg-slate-50 text-slate-700"
                         }`}
@@ -2022,7 +2025,7 @@ export default function ResourceTab() {
                           <div className="text-[9px] text-slate-400 font-bold px-2.5 py-1 uppercase tracking-wider text-left">Không gian nhân sự</div>
                           <div className="max-h-48 overflow-y-auto">
                             {allStaff
-                              .filter(u => (u.uid || u.id) !== (userProfile?.uid || userProfile?.id))
+                              .filter(u => (u.uid || u.id) !== userProfileId)
                               .map((u) => {
                                 const isSelected = selectedSpace === "personal" && selectedOwnerId === (u.uid || u.id);
                                 return (
@@ -2181,7 +2184,7 @@ export default function ResourceTab() {
                   </div>
 
                   {/* Right side actions */}
-                  <div className="flex items-center gap-2 overflow-x-auto max-w-full">
+                  <div className="flex items-center gap-2 overflow-visible max-w-full">
                     {/* Filters icon button */}
                     {subTab === "TÀI LIỆU KHÁC" && (
                       <button
@@ -2211,7 +2214,7 @@ export default function ResourceTab() {
                     </button>
 
                     {/* Popover Add Button */}
-                    {!viewingTrash && localFolderId !== "chat-attachments" && (
+                    {!viewingTrash && (subTab === "TÀI LIỆU KHÁC" ? localFolderId !== "chat-attachments" : true) && (
                       <div className="relative" ref={addMenuRef}>
                         <button
                           onClick={() => setShowAddMenu(!showAddMenu)}
@@ -2668,8 +2671,7 @@ export default function ResourceTab() {
                                   <div className="w-32">Kích thước</div>
                                   <div className="w-12 text-center"></div>
                                 </div>
-
-                                {/* Table Body */}
+                      {/* Table Body */}
                                 <div className="divide-y divide-slate-100">
                                   {(() => {
                                     const driveListTotalPagesInner = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
@@ -2690,18 +2692,18 @@ export default function ResourceTab() {
                                       if (isCreatorOrAdmin) return true;
                                       if (!room) return false;
                                       const memberInfo = room.members.find(
-                                        (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+                                        (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
                                       );
                                       const isRoomAdminLocal = memberInfo?.role === "admin";
-                                      const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+                                      const isCreator = String(room.creatorId) === String(userProfileId);
                                       const isUploader = memberInfo?.canUploadDrive === true;
                                       return isRoomAdminLocal || isCreator || isUploader;
                                     })();
 
-                                    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfile?.uid || userProfile?.id);
-                                    const isRoomCreator = room && String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+                                    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfileId);
+                                    const isRoomCreator = room && String(room.creatorId) === String(userProfileId);
                                     const memberInfo = room?.members.find(
-                                      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+                                      (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
                                     );
                                     const isRoomAdminCheck = memberInfo?.role === "admin";
                                     const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdminCheck || isRoomCreator || isMyFile;
@@ -3501,7 +3503,7 @@ export default function ResourceTab() {
                   })
                   .map((member: any) => {
                     const isOwner = String(rooms.find(r => r._id === selectedSpace)?.creatorId) === String(getMemberId(member.userId));
-                    const isMe = String(getMemberId(member.userId)) === String(userProfile?.uid || userProfile?.id);
+                    const isMe = String(getMemberId(member.userId)) === String(userProfileId);
                     
                     return (
                       <div key={String(getMemberId(member.userId))} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition">
@@ -3643,7 +3645,7 @@ export default function ResourceTab() {
                           <button
                             onClick={() => {
                               setMoveSpace("personal");
-                              setMoveFolderId(userProfile?.googleDriveIntegration?.rootFolderId || "root");
+                              setMoveFolderId(userProfileAny?.googleDriveIntegration?.rootFolderId || "root");
                               setMoveBreadcrumbs([]);
                               setShowMoveSpaceDropdown(false);
                             }}
@@ -3738,7 +3740,7 @@ export default function ResourceTab() {
                 <button
                   onClick={() => {
                     const rootId = moveSpace === "personal"
-                      ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+                      ? (userProfileAny?.googleDriveIntegration?.rootFolderId || "root")
                       : (rooms.find(r => r._id === moveSpace)?.driveFolderId || "root");
                     setMoveFolderId(rootId);
                     setMoveBreadcrumbs([]);
@@ -3916,13 +3918,13 @@ export default function ResourceTab() {
         const canEdit = (() => {
           if (selectedSpace === "personal") return !!isConnected;
           if (isCreatorOrAdmin) return true;
-          const memberInfo = room?.members?.find((m: any) => getMemberId(m.userId) === userProfile?._id || getMemberId(m.userId) === getMemberId(userProfile));
-          return memberInfo?.role === "admin" || room?.createdBy === userProfile?._id;
+           const memberInfo = room?.members?.find((m: any) => getMemberId(m.userId) === userProfileId);
+          return memberInfo?.role === "admin" || room?.createdBy === userProfileId;
         })();
         const canDelete = canEdit;
         if (!canEdit) return null;
         const rootId = selectedSpace === "personal"
-          ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+          ? (userProfileAny?.googleDriveIntegration?.rootFolderId || "root")
           : (rooms.find(r => r._id === selectedSpace)?.driveFolderId || "root");
         return ReactDOM.createPortal(
           <div

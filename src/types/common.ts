@@ -9,7 +9,8 @@ export type TabType =
   | "QUẢN LÝ HỌC VIÊN"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"
-  | "CÀI ĐẶT";
+  | "CÀI ĐẶT"
+  | "HƯỚNG DẪN";
 
 export interface GoogleDriveIntegration {
   isConnected: boolean;
@@ -23,6 +24,7 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   role: "user" | "manager" | "admin" | "superadmin";
+  permissions?: string[];
   createdAt: any;
   jobTitle?: string;
   department?: string;
@@ -33,6 +35,8 @@ export interface UserProfile {
   division?: string;
   companyCode?: string;
   companyName?: string;
+  /** Module nghiệp vụ được bật cho doanh nghiệp. Thiếu hoặc rỗng = bật tất cả. */
+  enabledModules?: string[];
 }
 
 export interface CompanyProfile {
@@ -41,6 +45,7 @@ export interface CompanyProfile {
   name: string;
   createdAt: any;
   ownerEmail: string;
+  enabledModules?: string[];
 }
 
 export interface TelegramLinkStatus {

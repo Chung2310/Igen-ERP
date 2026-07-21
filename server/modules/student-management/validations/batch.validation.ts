@@ -4,6 +4,7 @@ const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const createBatchSchema = Joi.object({
+  companyCode: Joi.string().trim().min(1).optional(),
   code: Joi.string().required().messages({
     "any.required": "Mã lớp là bắt buộc.",
     "string.empty": "Mã lớp không được để trống.",
@@ -35,9 +36,11 @@ export const createBatchSchema = Joi.object({
     "string.pattern.base": "Ngày kết thúc phải có định dạng YYYY-MM-DD.",
   }),
   status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateBatchSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   code: Joi.string().optional(),
   courseId: Joi.string().optional(),
   instructorId: Joi.string().allow("", null).optional(),
@@ -48,6 +51,7 @@ export const updateBatchSchema = Joi.object({
   startDate: Joi.string().pattern(datePattern).optional(),
   endDate: Joi.string().pattern(datePattern).optional(),
   status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const addLearnerSchema = Joi.object({

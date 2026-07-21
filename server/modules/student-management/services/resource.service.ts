@@ -1,6 +1,13 @@
 import { Resource } from "../models/resource.model";
 import { IResource, IResourceBooking } from "../interfaces/resource.interface";
 import { logger } from "../config/logger";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 
 interface ResourceFilters {
   page?: number | string;
@@ -26,9 +33,12 @@ function isOverlapping(a: IResourceBooking, b: IResourceBooking): boolean {
 }
 
 export class ResourceService {
-  static async createResource(ownerId: string, data: ResourceData): Promise<IResource> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createResource(ownerId: string, data: ResourceData, context: CustomFieldWriteContext): Promise<IResource> {
     logger.info(`[Resource] Creating resource for ownerId=${ownerId}, name=${data.name}`);
-    const resource = new Resource({ ...data, ownerId });
+    const writeData = await this.customFieldWrites.prepareCreate(context, data);
+    const resource = new Resource({ ...writeData, ownerId });
     const saved = await resource.save();
     logger.info(`[Resource] Resource created: id=${saved._id}, name=${saved.name}`);
     return saved;
@@ -62,13 +72,26 @@ export class ResourceService {
     return await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
   }
 
-  static async updateResource(ownerId: string | string[], id: string, data: ResourceData): Promise<IResource | null> {
+  static async updateResource(
+    ownerId: string | string[],
+    id: string,
+    data: ResourceData,
+    context: CustomFieldWriteContext,
+  ): Promise<IResource | null> {
     logger.info(`[Resource] Updating resource: id=${id}`);
-    return await Resource.findOneAndUpdate(
-      { _id: id, ...buildOwnerQuery(ownerId) },
-      { $set: data },
+    const query = { _id: id, ...buildOwnerQuery(ownerId) };
+    const existing = await Resource.findOne(query);
+    if (!existing) return null;
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existing.ownerId) } : context;
+    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existing, data);
+    const updated = await Resource.findOneAndUpdate(
+      { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { $set: writeData, $inc: { __v: 1 } },
       { new: true, runValidators: true }
     );
+    if (!updated) throw new CustomFieldWriteConflictError();
+    return updated;
   }
 
   static async deleteResource(ownerId: string | string[], id: string): Promise<IResource | null> {

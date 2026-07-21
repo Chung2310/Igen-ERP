@@ -24,7 +24,7 @@ interface HeaderProps {
 const searchIndex = [
   { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
   { label: "Sơ đồ tổ chức", tab: "NHÂN SỰ" as TabType, subTab: "SƠ ĐỒ TỔ CHỨC", keywords: "hr so do to chuc nhan su phong ban" },
-  { label: "Giao việc Kanban", tab: "NHÂN SỰ" as TabType, subTab: "GIAO VIỆC KANBAN", keywords: "hr giao viec kanban task list cong viec" },
+  { label: "Giao Việc", tab: "NHÂN SỰ" as TabType, subTab: "Giao Việc", keywords: "hr giao viec  task list cong viec" },
   { label: "Đào tạo e-Learning", tab: "NHÂN SỰ" as TabType, subTab: "ĐÀO TẠO", keywords: "onboarding hoc tap dao tao kien thuc video" },
   { label: "Danh mục Kho & Sản phẩm", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DANH MỤC", keywords: "kho hang san pham price danh muc gia ban" },
   { label: "Nhập / Xuất kho hàng", tab: "KHO & SẢN PHẨM" as TabType, subTab: "NHẬP / XUẤT KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
@@ -424,7 +424,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "Giao Việc");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -520,7 +520,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "Giao Việc");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -563,7 +563,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                     <div className="space-y-1">
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "Giao Việc");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}

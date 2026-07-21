@@ -52,7 +52,8 @@ interface AddPaymentModalProps {
 }
 
 export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaymentModalProps) {
-  const { userProfile: user } = useAuth();
+  const { userProfile } = useAuth();
+  const user = userProfile as any;
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [amount, setAmount] = useState('');

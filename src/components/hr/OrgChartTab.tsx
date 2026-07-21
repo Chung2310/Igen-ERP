@@ -1239,7 +1239,7 @@ export default function OrgChartTab({
 
             {/* Chart footer notification guide */}
             <div className="p-3 bg-white border-t border-gray-200 select-none text-center text-xs text-gray-400 font-medium">
-              💡 Nhấn chọn nhân sự để hiển thị liên kết vận hành Kanban / e-Learning của thành viên đó
+              💡 Nhấn chọn nhân sự để hiển thị liên kết vận hành Giao việc / Đào tạo của thành viên đó
             </div>
           </div>
         </div>

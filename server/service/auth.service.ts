@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
+import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TelegramSessionModel } from "../model/telegram-session.model";
 import { TelegramLinkTokenModel } from "../model/telegram-link-token.model";
@@ -12,6 +13,10 @@ import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
 import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
+import { sanitizeModuleKeys } from "../config/module-keys";
+import { resolveCompanyModuleUpdate } from "./auth-company-modules";
+import { clearModuleCache } from "../middleware/require-module";
+import { createCompanyAdminUser } from "../utils/company-admin-user";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -110,6 +115,15 @@ export const authService = {
 
       if (!user) {
         throw new Error("Không tìm thấy thông tin tài khoản.");
+      }
+
+      if (decoded.sid) {
+        const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
+        const now = Date.now();
+        const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
+        if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
+          throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
+        }
       }
 
       const payload = {
@@ -215,7 +229,7 @@ export const authService = {
    * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
    */
   async registerCompanyAndAdmin(data: any): Promise<any> {
-    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword } = data;
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules } = data;
     const normalizedCode = companyCode.toUpperCase().trim();
     const emailLower = ownerEmail.toLowerCase().trim();
 
@@ -236,29 +250,19 @@ export const authService = {
       code: normalizedCode,
       name: companyName.trim(),
       ownerEmail: emailLower,
+      enabledModules: sanitizeModuleKeys(enabledModules),
       createdAt: new Date(),
     });
     await newCompany.save();
 
     // 4. Tạo tài khoản admin của doanh nghiệp đó
-    const hashedPassword = await bcrypt.hash(ownerPassword, 10);
-    const adminUser = new UserModel({
-      email: emailLower,
-      password: hashedPassword,
-      displayName: ownerName.trim(),
-      role: "admin",
-      createdAt: new Date(),
+    const adminUser = await createCompanyAdminUser({
       companyCode: normalizedCode,
-      companyName: companyName.trim(),
-      jobTitle: "CEO",
-      department: "Ban Giám Đốc",
-      division: "Ban Giám Đốc",
-      level: 1,
-      status: "offline",
-      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`
+      companyName,
+      ownerName,
+      ownerEmail: emailLower,
+      ownerPassword,
     });
-
-    await adminUser.save();
     return { company: newCompany, admin: adminUser };
   },
 
@@ -401,7 +405,7 @@ export const authService = {
   /**
    * Cập nhật thông tin doanh nghiệp (Superadmin only)
    */
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<ICompany> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; enabledModules?: string[] }): Promise<ICompany> {
     const company = await CompanyModel.findById(companyId);
     if (!company) {
       throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
@@ -413,6 +417,7 @@ export const authService = {
     const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
     const newName = updateData.name ? updateData.name.trim() : undefined;
     const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
+    const newEnabledModules = resolveCompanyModuleUpdate(updateData);
 
     // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
     if (newCode && newCode !== oldCode) {
@@ -461,8 +466,12 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
+    if (newEnabledModules !== undefined) company.enabledModules = newEnabledModules;
 
-    return await company.save();
+    const savedCompany = await company.save();
+    clearModuleCache(oldCode);
+    clearModuleCache(savedCompany.code);
+    return savedCompany;
   },
 
   async getCompanyDriveConfig(companyCode: string): Promise<any> {

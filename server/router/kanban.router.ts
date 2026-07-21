@@ -172,7 +172,7 @@ kanbanRouter.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
         title: overdue ? "Công việc đã quá hạn" : "Công việc sắp đến hạn",
         body: `Công việc "${task.title}" ${overdue ? "đã quá hạn" : "sẽ đến hạn trong 24 giờ"}.`,
         type: "task", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,
-        action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+        action: { tab: "NHÂN SỰ", subTab: "Giao Việc" },
       });
     }));    return res.json({ status: "success", data: tasks.map(toClient) });
   } catch (error) {

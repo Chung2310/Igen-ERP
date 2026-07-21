@@ -107,10 +107,18 @@ export function BatchFormModal({
       const payload = { ...form, code: form.code.toUpperCase() };
       if (editingId) {
         await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
-        toast.success(`Đã cập nhật lớp ${payload.code}.`);
+        if (payload.instructorId && payload.instructorId !== batchToEdit?.instructorId) {
+          toast.success(`Đã cập nhật lớp ${payload.code} và gửi email thông báo cho giảng viên mới!`);
+        } else {
+          toast.success(`Đã cập nhật lớp ${payload.code}.`);
+        }
       } else {
         await apiFetch('/batches', { method: 'POST', body: JSON.stringify(payload) });
-        toast.success(`Đã mở lớp ${payload.code} thành công!`);
+        if (payload.instructorId) {
+          toast.success(`Đã mở lớp ${payload.code} thành công và đang gửi email thông báo cho giảng viên!`);
+        } else {
+          toast.success(`Đã mở lớp ${payload.code} thành công!`);
+        }
       }
       onSuccess();
       onClose();

@@ -10,12 +10,14 @@ import {
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { SETTINGS_SUB_TAB_ROUTES, type SettingsSubTabType } from "../router/subTabRoutes";
+import { canManageFaces } from "../services/faceManagementService";
 
 // Lazy-loaded subcomponents
 const ProfileTab = lazy(() => import("../components/settings/ProfileTab"));
 const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
 const GoogleDriveTab = lazy(() => import("../components/settings/GoogleDriveTab"));
+const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -27,6 +29,14 @@ export default function SettingsTab() {
 
   // Sub-tabs in Settings
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<SettingsSubTabType>(SETTINGS_SUB_TAB_ROUTES, "profile");
+  const faceManagementAllowed = canManageFaces(userProfile);
+
+  // Deep links to the face tab fall back to profile when unauthorized
+  React.useEffect(() => {
+    if (activeSubTab === "face-recognition" && !faceManagementAllowed) {
+      setActiveSubTab("profile");
+    }
+  }, [activeSubTab, faceManagementAllowed, setActiveSubTab]);
 
 
   // Synchronize display name and photo url from context if it updates
@@ -142,6 +152,17 @@ export default function SettingsTab() {
           >
             Google Drive
           </button>
+          {faceManagementAllowed && (
+            <button
+              onClick={() => setActiveSubTab("face-recognition")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeSubTab === "face-recognition"
+                ? "bg-white text-gray-800 shadow-xs"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Nhận diện khuôn mặt
+            </button>
+          )}
         </div>
       </div>
 
@@ -213,6 +234,7 @@ export default function SettingsTab() {
             {activeSubTab === "security" && <SecurityTab />}
             {activeSubTab === "erp" && <ErpConfigTab />}
             {activeSubTab === "google-drive" && <GoogleDriveTab />}
+            {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
           </Suspense>
         </div>
 

@@ -55,6 +55,7 @@ export interface ChatRoom {
   members: ChatRoomMember[];
   lastMessage?: ChatMessage;
   avatarURL?: string;
+  isChatbot?: boolean;
   pinnedMessageIds?: (string | ChatMessage)[];
   unreadCount?: number;
   onlyAdminsCanMessage?: boolean;

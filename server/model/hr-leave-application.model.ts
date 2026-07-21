@@ -16,6 +16,8 @@ const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
     rejectReason: { type: String },
     note: { type: String },
     approvedBy: { type: String, index: true },
+    chargeableDays: { type: Number, min: 0 },
+    chargeableDates: { type: [String], default: undefined },
   },
   {
     timestamps: true,

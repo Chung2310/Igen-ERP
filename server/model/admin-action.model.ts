@@ -22,7 +22,7 @@ const AdminActionSchema = new Schema<IAdminAction>({
   requestHash: { type: String, required: true },
   status: { type: String, enum: ["reserved", "running", "succeeded", "partial", "failed"], required: true },
   result: { type: Schema.Types.Mixed },
-  error: { code: { type: String }, message: { type: String, required: true } },
+  error: { code: { type: String }, message: { type: String } },
   completedAt: { type: Date },
 }, { timestamps: true });
 

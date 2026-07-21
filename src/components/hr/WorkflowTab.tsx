@@ -712,7 +712,7 @@ export default function WorkflowTab({
         setParticipants(json.data.workflow.participants);
       }
       toast.success(
-        `Đã tạo công việc và ${json.data?.tasksCreated ?? 0} task Kanban cho bước đầu tiên.`
+        `Đã tạo công việc và ${json.data?.tasksCreated ?? 0} task cho bước đầu tiên.`
       );
       fetchWfTasks();
     } catch (err: any) {
@@ -751,7 +751,7 @@ export default function WorkflowTab({
       const archived = json?.data?.tasksArchived ?? 0;
       toast.success(
         archived > 0
-          ? `Đã xóa công việc và lưu trữ ${archived} task Kanban chưa hoàn thành.`
+          ? `Đã xóa công việc và lưu trữ ${archived} task  chưa hoàn thành.`
           : "Đã xóa công việc."
       );
       fetchWfTasks();
@@ -777,7 +777,7 @@ export default function WorkflowTab({
         if (res.status === 409 && !force) {
           askConfirm(
             "Xác nhận chuyển bước",
-            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."} Bạn vẫn muốn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`,
+            `${j?.message || "Còn task  chưa hoàn thành ở bước hiện tại."} Bạn vẫn muốn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng công việc.`,
             () => advanceParticipantApi(pid, nextStepId, true),
             "Chuyển bước",
             "Hủy"
@@ -786,7 +786,7 @@ export default function WorkflowTab({
         }
         throw new Error(j?.message || "Không thể chuyển bước.");
       }
-      toast.success("Đã chuyển bước và khởi tạo công việc Kanban mới.");
+      toast.success("Đã chuyển bước và khởi tạo công việc mới.");
 
       const wfRes = await fetch(`/api/v1/crud/workflows/${activeId}`, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
@@ -871,7 +871,7 @@ export default function WorkflowTab({
         {wizardOpen && (
           <NewWorkflowWizard
             usersList={usersList}
-            initialData={wizardData || undefined}
+            initialData={wizardData ? (wizardData as any) : undefined}
             onClose={() => {
               setWizardOpen(false);
               setWizardData(null);
@@ -1029,7 +1029,7 @@ export default function WorkflowTab({
         </span>
         <label
           className={`ml-auto flex items-center gap-1.5 ${canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
-          title="Khi mọi task Kanban của bước hiện tại hoàn thành, case tự chuyển sang bước kế tiếp"
+          title="Khi mọi task của bước hiện tại hoàn thành, case tự chuyển sang bước kế tiếp"
         >
           <input
             type="checkbox"
@@ -1248,7 +1248,7 @@ export default function WorkflowTab({
                                   tasks: pStepTasks,
                                 })
                               }
-                              title="Nhấp để xem chi tiết công việc Kanban"
+                              title="Nhấp để xem chi tiết công việc "
                             >
                               <div className="flex items-center justify-between text-[9px] font-extrabold text-indigo-700 uppercase mb-1">
                                 <span>Tiến độ case ({doneCaseTasks}/{caseTasks.length})</span>
@@ -1442,7 +1442,7 @@ export default function WorkflowTab({
                 <label className="block font-bold text-gray-500 mb-1.5 font-sans">Quy trình *</label>
                 <select
                   disabled
-                  style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                  style={{ appearance: "auto", WebkitAppearance: "auto" as any, width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
                   className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-slate-50 border border-gray-200 text-slate-500 rounded-xl font-sans cursor-not-allowed"
                 >
                   <option>{wfName}</option>
@@ -1467,7 +1467,7 @@ export default function WorkflowTab({
                   <select
                     value={partDraft.userUid}
                     onChange={(e) => setPartDraft({ ...partDraft, userUid: e.target.value })}
-                    style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                    style={{ appearance: "auto", WebkitAppearance: "auto" as any, width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
                     className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
                     <option value="">Theo người gán ở từng bước</option>
@@ -1617,7 +1617,7 @@ export default function WorkflowTab({
                               setSelectedPartTasks(null);
                               onNavigateToKanban(String(task._id || task.id));
                             }}
-                            title="Mở trên bảng Kanban"
+                            title="Mở trên bảng công việc"
                             className={`p-1 rounded-md transition-colors ${isDark
                                 ? "text-zinc-500 hover:bg-zinc-800 hover:text-indigo-400"
                                 : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"

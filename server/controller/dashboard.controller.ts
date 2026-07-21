@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { dashboardService, DashboardRange } from "../service/dashboard.service";
+import { getEnabledModulesForCompany } from "../middleware/require-module";
 
 /**
  * Quy đổi bộ lọc thời gian của trang tổng quan thành khoảng ngày cụ thể.
@@ -68,11 +69,16 @@ export const dashboardController = {
         });
       }
 
+      const enabledModules = req.user.companyCode
+        ? await getEnabledModulesForCompany(req.user.companyCode)
+        : undefined;
+
       const data = await dashboardService.getSummary(
         {
           id: req.user.id,
           role: req.user.role,
           companyCode: req.user.companyCode,
+          enabledModules,
         },
         range
       );

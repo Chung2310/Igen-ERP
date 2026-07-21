@@ -4,12 +4,18 @@ import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
+import { useBatches } from '../../hooks/useBatches';
 import { useAdminCenters } from '../../hooks/useAdminCenters';
-import { useCourses } from '../../hooks/useCourses';
-import { formatVND, toInputDate, toDisplayDate, compressImage } from '../../lib/utils';
-import { Student, Partner, UploadedFile } from '../../types';
+import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
+import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
-import { FormInput, UploadCard } from './components/StudentFormFields';
+import { FormInput } from './components/StudentFormFields';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -21,15 +27,91 @@ interface AddStudentModalProps {
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, students, selectedCenter }: AddStudentModalProps) {
   const { userProfile: user } = useAuth();
+  const {
+    fields: stdFields,
+    activeFields: activeStdFields,
+    archivedFields: archivedStdFields,
+    updateField: updateStdField,
+    archiveField: archiveStdField,
+    restoreField: restoreStdField,
+    deleteField: deleteStdField
+  } = useStandardFields("students");
+
+  const manageable = canManageCustomFields(user?.role);
+  const [stdEditorOpen, setStdEditorOpen] = useState(false);
+  const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+
+  const openEditStdField = (field: StandardFieldConfig) => {
+    setEditingStdField(getAdaptedFieldDefinition(field, "students"));
+    setStdEditorOpen(true);
+  };
+
+  const handleStdFieldSubmit = (input: CreateFieldInput) => {
+    if (editingStdField) {
+      updateStdField(editingStdField.key, {
+        label: input.label,
+        placeholder: input.placeholder,
+        isRequired: input.isRequired,
+        isVisible: input.isVisible,
+      });
+    }
+  };
+
+  const archiveStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
+      archiveStdField(field.key);
+    }
+  };
+
+  const deleteStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
+      deleteStdField(field.key);
+    }
+  };
+
+  const [isEditingFields, setIsEditingFields] = useState(false);
+
+  const renderFieldActions = (fieldKey: string) => {
+    if (!manageable || !isEditingFields) return null;
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    if (!fieldConfig) return null;
+    return (
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
+        <span>|</span>
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
+        <span>|</span>
+        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      </div>
+    );
+  };
+
+  const isFieldVisible = (fieldKey: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+  };
+  const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.label : defaultLabel;
+  };
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
+  };
+  const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.isRequired : defaultRequired;
+  };
   
+  const { batches } = useBatches();
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState('');
   const [selectedCenterId, setSelectedCenterId] = useState<string>(() => {
     return selectedCenter && selectedCenter !== 'all' ? selectedCenter : '';
   });
   const [prevSelectedCenter, setPrevSelectedCenter] = useState(selectedCenter);
-  const { courses } = useCourses(user?.role === 'superadmin' ? selectedCenterId : undefined);
 
   if (selectedCenter !== prevSelectedCenter) {
     setPrevSelectedCenter(selectedCenter);
@@ -66,88 +148,13 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     partnerId: '',
     birthday: '',
     idCard: '',
-    courseId: '',
     registrationDate: new Date().toLocaleDateString('vi-VN'),
     enrollmentDate: '',
     fee: '',
     address: '',
     email: '',
-    idCardFrontFile: undefined as UploadedFile | undefined,
-    idCardBackFile: undefined as UploadedFile | undefined,
-    portraitFile: undefined as UploadedFile | undefined,
+    customFields: {} as CustomFieldValues,
   });
-
-  const [uploadingField, setUploadingField] = useState<'idCardFrontFile' | 'idCardBackFile' | 'portraitFile' | null>(null);
-
-  const handleUploadFile = async (field: 'idCardFrontFile' | 'idCardBackFile' | 'portraitFile', file?: File) => {
-    if (!file) return;
-    setUploadingField(field);
-    try {
-      const compressedFile = await compressImage(file);
-      const body = new FormData();
-      body.append('file', compressedFile);
-      const res = await apiFetch('/upload', { method: 'POST', body });
-      if (res.success && res.data) {
-        setFormData(prev => ({
-          ...prev,
-          [field]: {
-            name: res.data.name,
-            url: res.data.url,
-            type: res.data.type,
-            uploadedAt: res.data.uploadedAt || new Date().toISOString(),
-          }
-        }));
-        toast.success('Tải ảnh thành công!');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(error instanceof Error ? error.message : 'Không thể tải ảnh lên.');
-    } finally {
-      setUploadingField(null);
-    }
-  };
-
-  const handleCourseChange = (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
-    setFormData(prev => ({
-      ...prev,
-      courseId: courseId,
-      fee: course ? formatVND(course.fee) : '',
-    }));
-  };
-
-  const getStudentFormConfig = () => {
-    const ownerId = user?.centerId || user?.uid || 'default';
-    const configKey = `studentFormConfig_${ownerId}`;
-    const saved = localStorage.getItem(configKey);
-    const defaults: Record<string, { visible: boolean; required: boolean }> = {
-      email:           { visible: true,  required: false },
-      birthday:        { visible: true,  required: false },
-      idCard:          { visible: true,  required: false },
-      address:         { visible: true,  required: false },
-      referral:        { visible: true,  required: false },
-      idCardFrontFile: { visible: false, required: false },
-      idCardBackFile:  { visible: false, required: false },
-      portraitFile:    { visible: false, required: false },
-    };
-    if (saved) {
-      try {
-        return { ...defaults, ...JSON.parse(saved) };
-      } catch (e) {
-        console.error('Error parsing studentFormConfig', e);
-      }
-    }
-    return defaults;
-  };
-
-  const formConfig = getStudentFormConfig();
-  const requiredFields = {
-    fullName: true,
-    phone: true,
-    birthday: formConfig.birthday?.required ?? false,
-    idCard: formConfig.idCard?.required ?? false,
-    email: formConfig.email?.required ?? false,
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,14 +165,19 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     }
 
     const missingFields: string[] = [];
-    if (requiredFields.fullName && !formData.fullName) missingFields.push('Họ và tên');
-    if (requiredFields.phone && !formData.phone) missingFields.push('Số điện thoại');
-    if (requiredFields.birthday && !formData.birthday) missingFields.push('Ngày sinh');
-    if (requiredFields.idCard && !formData.idCard) missingFields.push('CCCD/CMND');
-    if (requiredFields.email && !formData.email) missingFields.push('Email');
-    if (formConfig.idCardFrontFile?.required && !formData.idCardFrontFile) missingFields.push('Ảnh CCCD mặt trước');
-    if (formConfig.idCardBackFile?.required && !formData.idCardBackFile) missingFields.push('Ảnh CCCD mặt sau');
-    if (formConfig.portraitFile?.required && !formData.portraitFile) missingFields.push('Ảnh chân dung');
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
+        if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
+        if (f.key === 'referral' && !formData.referral && referralMode === 'custom') missingFields.push(f.label);
+        if (f.key === 'referral' && referralMode === 'partner' && !formData.partnerId) missingFields.push(f.label);
+        if (f.key === 'birthday' && !formData.birthday) missingFields.push(f.label);
+        if (f.key === 'idCard' && !formData.idCard) missingFields.push(f.label);
+        if (f.key === 'enrollmentDate' && !formData.enrollmentDate) missingFields.push(f.label);
+        if (f.key === 'address' && !formData.address) missingFields.push(f.label);
+        if (f.key === 'email' && !formData.email) missingFields.push(f.label);
+      }
+    });
 
     if (missingFields.length > 0) {
       const message = `Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`;
@@ -193,13 +205,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
       return;
     }
 
-    if (!formData.courseId) {
-      const message = "Vui lòng chọn khóa học đăng ký.";
-      setErrorMsg(message);
-      toast.error(message);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const res = await apiFetch('/students', {
@@ -208,7 +213,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           ...formData,
           birthday: toDisplayDate(formData.birthday),
           enrollmentDate: toDisplayDate(formData.enrollmentDate),
-          fee: formData.fee,
+          fee: '',
           idCardFront: '',
           idCardBack: '',
           status: ['Đang học'],
@@ -220,6 +225,19 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
       if (res.success && res.data) {
         const studentWithId = { id: res.data._id, ...res.data };
+
+        if (batchId) {
+          try {
+            await apiFetch(`/batches/${batchId}/learners`, {
+              method: 'POST',
+              body: JSON.stringify({ studentId: res.data._id }),
+            });
+            window.dispatchEvent(new Event('batch-mutation'));
+          } catch (batchError: unknown) {
+            const msg = batchError instanceof Error ? batchError.message : 'Không thể xếp lớp.';
+            toast.warning(`Đã tạo học viên nhưng chưa xếp được vào lớp: ${msg}`);
+          }
+        }
 
         window.dispatchEvent(new Event('student-mutation'));
         toast.success('Đã lưu hồ sơ học viên thành công!');
@@ -233,14 +251,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           partnerId: '',
           birthday: '',
           idCard: '',
-          courseId: '',
           registrationDate: new Date().toLocaleDateString('vi-VN'),
           enrollmentDate: '',
           fee: '',
           address: '',
           email: '',
+          customFields: {},
         });
         setReferralMode('none');
+        setBatchId('');
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');
       }
     } catch (error: unknown) {
@@ -318,38 +337,52 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                <FormInput
-                  label="Họ và tên"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  required={requiredFields.fullName}
-                  placeholder="Nhập họ và tên..."
-                />
-                <FormInput
-                  label="Số điện thoại"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  required={requiredFields.phone}
-                  placeholder="Nhập số điện thoại..."
-                />
-                {formConfig.email?.visible !== false && (
-                  <FormInput
-                    label="Email học viên"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required={requiredFields.email}
-                    placeholder="Nhập địa chỉ email..."
-                    className="sm:col-span-2"
-                  />
+                {isFieldVisible('fullName') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('fullName')}
+                    <FormInput
+                      label={getFieldLabel('fullName', 'Họ và tên')}
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('fullName', true)}
+                      placeholder={getFieldPlaceholder('fullName', 'Nhập họ và tên...')}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('phone') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('phone')}
+                    <FormInput
+                      label={getFieldLabel('phone', 'Số điện thoại')}
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('phone', true)}
+                      placeholder={getFieldPlaceholder('phone', 'Nhập số điện thoại...')}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('email') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('email')}
+                    <FormInput
+                      label={getFieldLabel('email', 'Email học viên')}
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('email', false)}
+                      placeholder={getFieldPlaceholder('email', 'Nhập địa chỉ email...')}
+                    />
+                  </div>
                 )}
 
-                {formConfig.referral?.visible !== false && (
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                      Nguồn giới thiệu
+                {isFieldVisible('referral') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('referral')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
+                      {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
@@ -403,7 +436,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                           name="referral"
                           value={formData.referral}
                           onChange={handleInputChange}
-                          placeholder="Nhập tên người giới thiệu..."
+                          placeholder={getFieldPlaceholder('referral', 'Nhập tên người giới thiệu...')}
                           className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-cyan-600 transition-all"
                         />
                       )}
@@ -411,113 +444,145 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   </div>
                 )}
 
-                {formConfig.birthday?.visible !== false && (
-                  <FormInput
-                    label="Ngày sinh"
-                    name="birthday"
-                    type="date"
-                    value={toInputDate(formData.birthday)}
-                    onChange={handleInputChange}
-                    required={requiredFields.birthday}
-                  />
+                {isFieldVisible('birthday') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('birthday')}
+                    <FormInput
+                      label={getFieldLabel('birthday', 'Ngày sinh')}
+                      name="birthday"
+                      type="date"
+                      value={toInputDate(formData.birthday)}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('birthday', false)}
+                    />
+                  </div>
                 )}
-                {formConfig.idCard?.visible !== false && (
-                  <FormInput
-                    label="CCCD / CMND"
-                    name="idCard"
-                    value={formData.idCard}
-                    onChange={handleInputChange}
-                    required={requiredFields.idCard}
-                    placeholder="Nhập số CCCD (12 số)..."
-                  />
+                {isFieldVisible('idCard') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('idCard')}
+                    <FormInput
+                      label={getFieldLabel('idCard', 'CCCD / CMND')}
+                      name="idCard"
+                      value={formData.idCard}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('idCard', false)}
+                      placeholder={getFieldPlaceholder('idCard', 'Nhập số CCCD (12 số)...')}
+                    />
+                  </div>
                 )}
                 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Khóa học đăng ký *
-                  </label>
-                  <div className="relative">
-                    <select
-                      name="courseId"
-                      value={formData.courseId}
-                      onChange={(e) => handleCourseChange(e.target.value)}
-                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                    >
-                      <option value="">-- Chọn khóa học --</option>
-                      {courses.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.code} — {c.title}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                {isFieldVisible('batchId') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('batchId')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
+                      {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={batchId}
+                        onChange={(e) => setBatchId(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
+                      >
+                        <option value="">-- Chưa xếp lớp --</option>
+                        {batches
+                          .filter(b => b.status !== 'Đã kết thúc')
+                          .map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.code} — {b.courseTitle}
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <FormInput
-                  label="Ngày đăng ký"
-                  name="registrationDate"
-                  value={formData.registrationDate}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-                <FormInput
-                  label="Ngày nhập học"
-                  name="enrollmentDate"
-                  type="date"
-                  value={toInputDate(formData.enrollmentDate)}
-                  onChange={handleInputChange}
-                />
-                <FormInput
-                  label="Học phí đã chốt (VND)"
-                  name="fee"
-                  value={formData.fee}
-                  onChange={handleInputChange}
-                  placeholder="Nhập học phí đã chốt..."
-                />
-                {formConfig.address?.visible !== false && (
-                  <FormInput
-                    label="Địa chỉ"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    placeholder="Nhập địa chỉ..."
-                    className="sm:col-span-2"
-                  />
+                {isFieldVisible('registrationDate') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('registrationDate')}
+                    <FormInput
+                      label={getFieldLabel('registrationDate', 'Ngày đăng ký')}
+                      name="registrationDate"
+                      value={formData.registrationDate}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('registrationDate', false)}
+                      readOnly
+                    />
+                  </div>
+                )}
+                {isFieldVisible('enrollmentDate') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('enrollmentDate')}
+                    <FormInput
+                      label={getFieldLabel('enrollmentDate', 'Ngày nhập học')}
+                      name="enrollmentDate"
+                      type="date"
+                      value={toInputDate(formData.enrollmentDate)}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('enrollmentDate', false)}
+                    />
+                  </div>
+                )}
+                {isFieldVisible('fee') && (
+                  <div className="relative group/std space-y-1">
+                    {renderFieldActions('fee')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('fee', 'Học phí đã chốt')}{' '}
+                      {isFieldRequired('fee', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">
+                      {getFieldPlaceholder('fee', 'Sẽ lấy tự động từ khóa học khi xếp lớp.')}
+                    </div>
+                  </div>
+                )}
+                {isFieldVisible('address') && (
+                  <div className="sm:col-span-2 relative group/std space-y-1">
+                    {renderFieldActions('address')}
+                    <FormInput
+                      label={getFieldLabel('address', 'Địa chỉ')}
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('address', false)}
+                      placeholder={getFieldPlaceholder('address', 'Nhập địa chỉ...')}
+                    />
+                  </div>
                 )}
               </div>
 
-              {(formConfig.idCardFrontFile?.visible || formConfig.idCardBackFile?.visible || formConfig.portraitFile?.visible) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                  {formConfig.idCardFrontFile?.visible && (
-                    <UploadCard
-                      label="CCCD mặt trước"
-                      file={formData.idCardFrontFile}
-                      isUploading={uploadingField === 'idCardFrontFile'}
-                      onFileChange={(file) => handleUploadFile('idCardFrontFile', file)}
-                      onRemove={() => setFormData(prev => ({ ...prev, idCardFrontFile: undefined }))}
-                    />
-                  )}
-                  {formConfig.idCardBackFile?.visible && (
-                    <UploadCard
-                      label="CCCD mặt sau"
-                      file={formData.idCardBackFile}
-                      isUploading={uploadingField === 'idCardBackFile'}
-                      onFileChange={(file) => handleUploadFile('idCardBackFile', file)}
-                      onRemove={() => setFormData(prev => ({ ...prev, idCardBackFile: undefined }))}
-                    />
-                  )}
-                  {formConfig.portraitFile?.visible && (
-                    <UploadCard
-                      label="Ảnh chân dung"
-                      file={formData.portraitFile}
-                      isUploading={uploadingField === 'portraitFile'}
-                      onFileChange={(file) => handleUploadFile('portraitFile', file)}
-                      onRemove={() => setFormData(prev => ({ ...prev, portraitFile: undefined }))}
-                    />
-                  )}
+              <CustomFieldsSection
+                moduleKey="students"
+                values={formData.customFields}
+                onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+                mode="create"
+                disabled={isSubmitting}
+                tenantId={selectedCenterId || undefined}
+                isEditingFields={isEditingFields}
+                onToggleEditingFields={setIsEditingFields}
+              />
+
+              {manageable && archivedStdFields.length ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                  <ul className="mt-2 divide-y divide-slate-100">
+                    {archivedStdFields.map((field) => (
+                      <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                        <span>{field.label}</span>
+                        <button
+                          type="button"
+                          disabled={isSubmitting}
+                          className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors"
+                          aria-label={`Khôi phục ${field.label}`}
+                          onClick={() => restoreStdField(field.key)}
+                        >
+                          Khôi phục
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              )}
+              ) : null}
 
               <div className="flex items-center justify-end gap-4 pt-4 mt-2 border-t border-slate-50 flex-shrink-0">
                 <button
@@ -541,6 +606,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           </motion.div>
         </div>
       )}
+
+      <CustomFieldEditorModal
+        open={stdEditorOpen}
+        moduleKey="students"
+        initialField={editingStdField}
+        onClose={() => setStdEditorOpen(false)}
+        onSubmit={handleStdFieldSubmit}
+        isStandard={true}
+      />
     </AnimatePresence>
   );
 }

@@ -23,7 +23,8 @@ window.fetch = async function (input, init) {
     if (
       urlString.includes("/auth/refresh-token") ||
       urlString.includes("/auth/login") ||
-      urlString.includes("/auth/register")
+      urlString.includes("/auth/register") ||
+      urlString.includes("/super-admin/auth/")
     ) {
       return response;
     }

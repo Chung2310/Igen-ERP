@@ -18,17 +18,17 @@ import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
 import { isSuperAdminPath } from "./router/superAdminRoute";
+import { resolveEnabledTab } from "./config/modules";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
-const ChatbotWidget = lazy(() =>
-  import("./components/common/ChatbotWidget").then((m) => ({ default: m.ChatbotWidget }))
-);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
+const QRCheckinPage = lazy(() => import("./modules/student-management/pages/QRCheckin/QRCheckinPage"));
+const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -39,12 +39,19 @@ function AppContent() {
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
   const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
   const isDeletionPage = currentPath === "/user-data-deletion" || currentPath === "/user-data-deletion.html";
+  const isSubmitProofPage = currentPath === "/public/submit-proof" || currentPath === "/public/submit-proof.html";
   const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
-  const isPublicPage = isLandingGuestPage || isLegalPublicPage;
+  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage;
 
   const { activeTab, setActiveTab } = useTabRouter({
+
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
+  const resolvedActiveTab = resolveEnabledTab(activeTab, userProfile?.enabledModules);
+
+  React.useEffect(() => {
+    if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);
+  }, [activeTab, resolvedActiveTab, setActiveTab]);
 
   React.useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -129,6 +136,15 @@ function AppContent() {
     );
   }
 
+  if (isSubmitProofPage) {
+    return (
+      <Suspense fallback={<AuthLoader />}>
+        <SubmitProofPage />
+      </Suspense>
+    );
+  }
+
+
   if (isLegalPublicPage) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between py-10 px-4 font-sans overflow-y-auto">
@@ -204,9 +220,9 @@ function AppContent() {
 
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
-      <SEOHead meta={getSeoForTab(activeTab)} />
+      <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
       <Sidebar
-        activeTab={activeTab}
+        activeTab={resolvedActiveTab}
         setActiveTab={setActiveTab}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
@@ -214,7 +230,7 @@ function AppContent() {
 
       <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
         <Header
-          currentTab={activeTab}
+          currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
           onMenuClick={() => setMobileNavOpen(true)}
         />
@@ -225,14 +241,9 @@ function AppContent() {
           }`}
           id="primary_page_container"
         >
-          <AppRouterView activeTab={activeTab} userProfile={userProfile} />
+          <AppRouterView activeTab={resolvedActiveTab} userProfile={userProfile} />
         </main>
       </div>
-
-      {/* Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp */}
-      <Suspense fallback={null}>
-        <ChatbotWidget />
-      </Suspense>
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
@@ -247,6 +258,18 @@ function normalizePublicPath(pathname: string) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith("/attendance/checkin/")) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-900 flex justify-center items-center text-xs font-semibold text-slate-400">
+          Đang tải trang điểm danh...
+        </div>
+      }>
+        <QRCheckinPage />
+      </Suspense>
+    );
+  }
+
   if (isSuperAdminPath(window.location.pathname)) {
     return <SuperAdminShell />;
   }

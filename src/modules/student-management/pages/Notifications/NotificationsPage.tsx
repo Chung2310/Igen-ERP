@@ -350,10 +350,10 @@ export function NotificationsPage() {
   });
 
   const vietqrConfig = {
-    enabled: user?.bankQrEnabled !== false,
-    bankId: localVietqrConfig?.bankId || user?.bankId || '',
-    accountNo: localVietqrConfig?.accountNo || user?.bankAccountNo || '',
-    accountName: localVietqrConfig?.accountName || user?.bankAccountName || user?.displayName || '',
+    enabled: (user as any)?.bankQrEnabled !== false,
+    bankId: localVietqrConfig?.bankId || (user as any)?.bankId || '',
+    accountNo: localVietqrConfig?.accountNo || (user as any)?.bankAccountNo || '',
+    accountName: localVietqrConfig?.accountName || (user as any)?.bankAccountName || user?.displayName || '',
     template: localVietqrConfig?.template || '[Mã HV] - [Họ tên] - Nộp học phí khóa {hang}'
   };
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);

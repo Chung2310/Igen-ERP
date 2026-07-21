@@ -38,6 +38,7 @@ export interface CompanyFormState {
   ownerName: string;
   ownerEmail: string;
   ownerPassword: string;
+  enabledModules: string[];
 }
 
 export interface CompanyEditFormState {
@@ -45,4 +46,5 @@ export interface CompanyEditFormState {
   name: string;
   code: string;
   ownerEmail: string;
+  enabledModules: string[];
 }
