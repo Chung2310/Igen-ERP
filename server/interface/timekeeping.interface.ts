@@ -15,6 +15,6 @@ export interface ITimekeepingLog extends Document {
   date: string; // YYYY-MM-DD
   checkIn?: ITimekeepingDetail;
   checkOut?: ITimekeepingDetail;
-  status: "Present" | "Late" | "Absent" | "Approved-Leave";
+  status: "Present" | "Late" | "Left-Early" | "Half-Day" | "Late-Left-Early" | "Absent" | "Approved-Leave";
   note?: string;
 }

@@ -19,7 +19,7 @@ const TimekeepingLogSchema = new Schema<ITimekeepingLog>({
   date: { type: String, required: true, index: true },
   checkIn: { type: TimekeepingDetailSchema, default: null },
   checkOut: { type: TimekeepingDetailSchema, default: null },
-  status: { type: String, enum: ["Present", "Late", "Absent", "Approved-Leave"], default: "Present", index: true },
+  status: { type: String, enum: ["Present", "Late", "Left-Early", "Half-Day", "Late-Left-Early", "Absent", "Approved-Leave"], default: "Present", index: true },
   note: { type: String, default: "" },
 });
 
