@@ -4,7 +4,7 @@
 /* eslint-disable no-empty */
 /* eslint-disable react-hooks/immutability */
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -36,6 +36,7 @@ import { toast } from "../pages/Toast";
 import { UserProfile } from "../types";
 import { DashboardSummary } from "../types/dashboard";
 import LowStockModal from "../components/inventory/LowStockModal";
+import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
 
 type DashboardView = "overview" | "revenue";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
@@ -1640,6 +1641,8 @@ function TimekeepingWidget({
 }) {
   const [checking, setChecking] = useState<"in" | "out" | null>(null);
   const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+  const [cameraAction, setCameraAction] = useState<"in" | "out" | null>(null);
+  const pendingCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     if (navigator.permissions && navigator.permissions.query) {
@@ -1656,6 +1659,16 @@ function TimekeepingWidget({
     }
   }, []);
 
+  const FACE_REASON_MESSAGES: Record<string, string> = {
+    invalid_image: "Ảnh không hợp lệ, vui lòng chụp lại.",
+    no_face: "Không phát hiện khuôn mặt trong ảnh.",
+    multiple_faces: "Ảnh có nhiều khuôn mặt, vui lòng chụp lại một mình.",
+    spoof_detected: "Hệ thống nghi ngờ ảnh giả mạo (ảnh chụp qua màn hình/ảnh in). Vui lòng chụp trực tiếp.",
+    face_mismatch: "Khuôn mặt không khớp với hồ sơ đã đăng ký.",
+    not_registered: "Bạn chưa đăng ký khuôn mặt. Vui lòng liên hệ quản trị viên.",
+    model_unavailable: "Hệ thống nhận diện khuôn mặt tạm thời không khả dụng. Vui lòng thử lại sau.",
+  };
+
   const handleAction = async (type: "in" | "out") => {
     if (!navigator.geolocation) {
       toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
@@ -1664,34 +1677,13 @@ function TimekeepingWidget({
 
     setChecking(type);
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
-          const res = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            },
-            body: JSON.stringify({
-              latitude,
-              longitude,
-              deviceInfo: navigator.userAgent,
-            }),
-          });
-          const result = await res.json();
-          if (res.ok) {
-            toast.success(result.message || `Check-${type} thành công!`);
-            onRefresh();
-          } else {
-            toast.error(result.message || `Không thể Check-${type}.`);
-          }
-        } catch (err) {
-          toast.error("Lỗi kết nối khi gửi dữ liệu chấm công.");
-        } finally {
-          setChecking(null);
-        }
+      (position) => {
+        pendingCoordsRef.current = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setChecking(null);
+        setCameraAction(type);
       },
       (error) => {
         setChecking(null);
@@ -1712,6 +1704,44 @@ function TimekeepingWidget({
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
+  };
+
+  const handleCameraCapture = async (image: Blob) => {
+    const type = cameraAction;
+    const coords = pendingCoordsRef.current;
+    if (!type || !coords) {
+      throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", image, "attendance.jpg");
+    formData.append("latitude", String(coords.latitude));
+    formData.append("longitude", String(coords.longitude));
+    formData.append("deviceInfo", navigator.userAgent);
+
+    const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: formData,
+      });
+    } catch {
+      throw new Error("Lỗi kết nối khi gửi dữ liệu chấm công.");
+    }
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reasonMessage = result.reasonCode ? FACE_REASON_MESSAGES[result.reasonCode] : undefined;
+      throw new Error(reasonMessage || result.message || `Không thể Check-${type}.`);
+    }
+
+    toast.success(result.message || `Check-${type} thành công!`);
+    pendingCoordsRef.current = null;
+    onRefresh();
   };
 
   const hasCheckIn = !!todayTimekeeping?.checkIn;
@@ -1819,6 +1849,17 @@ function TimekeepingWidget({
           <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-600" />
           <span className="text-[11px] font-semibold text-left">Bạn đã chặn quyền truy cập vị trí. Vui lòng mở cài đặt trình duyệt, cho phép quyền truy cập vị trí và tải lại trang để chấm công.</span>
         </div>
+      )}
+
+      {cameraAction && (
+        <AttendanceCameraModal
+          action={cameraAction}
+          onCapture={handleCameraCapture}
+          onClose={() => {
+            pendingCoordsRef.current = null;
+            setCameraAction(null);
+          }}
+        />
       )}
     </div>
   );
