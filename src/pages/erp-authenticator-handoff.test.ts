@@ -24,16 +24,9 @@ test("completing an ERP challenge hydrates the profile or clears the invalid tok
   assert.match(source, /setUserProfile\(profile\)/);
 });
 
-test("normal ERP login opens the authenticator dialog without changing routes", () => {
+test("normal ERP login redirects superadmin accounts to the dedicated super-admin login page", () => {
   const authPageSource = readFileSync(new URL("./AuthPage.tsx", import.meta.url), "utf8");
-  assert.match(authPageSource, /const\s+\{\s*loginWithEmail,\s*completeErpChallenge\s*\}\s*=\s*useAuth\(\)/);
-  assert.match(authPageSource, /useState<ErpLoginChallenge\s*\|\s*null>\(null\)/);
+  assert.match(authPageSource, /const\s+\{\s*loginWithEmail\s*\}\s*=\s*useAuth\(\)/);
   assert.match(authPageSource, /const result = await loginWithEmail\(/);
-  assert.match(authPageSource, /if\s*\(result\.status\s*===\s*["']challenge_required["']\)\s*\{\s*setChallenge\(result\)/);
-  assert.match(authPageSource, /<ErpAuthenticatorDialog/);
-  assert.match(authPageSource, /challenge=\{challenge\}/);
-  assert.match(authPageSource, /onAuthenticated=\{completeErpChallenge\}/);
-  assert.match(authPageSource, /onCancel=\{\(\)\s*=>\s*setChallenge\(null\)\}/);
-  assert.doesNotMatch(authPageSource, /window\.location\.pathname\s*=\s*["']\/super-admin["']/);
-  assert.doesNotMatch(source, /window\.location\.pathname\s*=\s*["']\/super-admin["']/);
+  assert.match(authPageSource, /if\s*\(result\.status\s*===\s*["']challenge_required["']\)\s*\{\s*window\.location\.href\s*=\s*["']\/super-admin["']/);
 });

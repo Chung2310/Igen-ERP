@@ -93,9 +93,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(profile as any);
       setUserProfile(profile);
       toast.success("Đăng nhập tài khoản thành công!");
-      if (profile.role === "superadmin") {
-        window.location.href = "/super-admin";
-      }
       return { status: "authenticated" };
     } catch (error: any) {
       console.error("[loginWithEmail] Error:", error);
@@ -116,9 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(profile as any);
     setUserProfile(profile);
-    if (profile.role === "superadmin") {
-      window.location.href = "/super-admin";
-    }
   };
 
   const registerWithEmail = async (email: string, password: string, displayName: string, rememberMe: boolean = true) => {
