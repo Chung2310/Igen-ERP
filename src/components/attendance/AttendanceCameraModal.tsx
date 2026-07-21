@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, RefreshCw, X } from "lucide-react";
 import {
   cameraErrorMessage,
@@ -110,9 +111,9 @@ export default function AttendanceCameraModal({
 
   const actionLabel = action === "in" ? "Check-in" : "Check-out";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-200 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -203,6 +204,7 @@ export default function AttendanceCameraModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
