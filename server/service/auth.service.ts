@@ -16,6 +16,7 @@ import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 import { sanitizeModuleKeys } from "../config/module-keys";
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
+import { createCompanyAdminUser } from "../utils/company-admin-user";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -255,24 +256,13 @@ export const authService = {
     await newCompany.save();
 
     // 4. Tạo tài khoản admin của doanh nghiệp đó
-    const hashedPassword = await bcrypt.hash(ownerPassword, 10);
-    const adminUser = new UserModel({
-      email: emailLower,
-      password: hashedPassword,
-      displayName: ownerName.trim(),
-      role: "admin",
-      createdAt: new Date(),
+    const adminUser = await createCompanyAdminUser({
       companyCode: normalizedCode,
-      companyName: companyName.trim(),
-      jobTitle: "CEO",
-      department: "Ban Giám Đốc",
-      division: "Ban Giám Đốc",
-      level: 1,
-      status: "offline",
-      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`
+      companyName,
+      ownerName,
+      ownerEmail: emailLower,
+      ownerPassword,
     });
-
-    await adminUser.save();
     return { company: newCompany, admin: adminUser };
   },
 
