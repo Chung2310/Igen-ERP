@@ -3,10 +3,11 @@ import { Sliders, Bell, MapPin } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { useAuth } from "../../context/AuthContext";
 import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
+import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
 
 export default function ErpConfigTab() {
   const { userProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<"general" | "workHours">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar">("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -138,6 +139,13 @@ export default function ErpConfigTab() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("workCalendar")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
+            Lịch nghỉ lễ
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("workHours")}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === "workHours" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -149,6 +157,7 @@ export default function ErpConfigTab() {
       )}
 
       {activeTab === "workHours" && canManageLocation && <EmployeeWorkHoursTab />}
+      {activeTab === "workCalendar" && canManageLocation && <CompanyWorkCalendarTab />}
 
       {/* Preferences Section */}
       {activeTab === "general" && (

@@ -7,6 +7,19 @@ import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
+import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
+
+export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
+  return !!leave && leave.status !== "approved" && leave.type === "leave";
+}
+
+export async function computeChargeableSnapshot(
+  companyCode: string,
+  leave: { startDate: Date | string; endDate: Date | string }
+): Promise<{ chargeableDates: string[]; chargeableDays: number }> {
+  const chargeableDates = await listWorkingDates(companyCode, toVietnamDate(new Date(leave.startDate)), toVietnamDate(new Date(leave.endDate)));
+  return { chargeableDates, chargeableDays: chargeableDates.length };
+}
 
 export const crudController = {
   /**
@@ -220,6 +233,15 @@ export const crudController = {
               });
             }
           }
+        }
+      }
+
+      if (modelName === "hr-leave-applications" && req.body.status === "approved") {
+        const leave = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
+        if (shouldSnapshotChargeableDays(leave)) {
+          const { chargeableDates, chargeableDays } = await computeChargeableSnapshot(companyCode, leave as { startDate: Date; endDate: Date });
+          req.body.chargeableDates = chargeableDates;
+          req.body.chargeableDays = chargeableDays;
         }
       }
 

@@ -5,6 +5,7 @@ import { timekeepingController } from "../controller/timekeeping.controller";
 import { requireAuth } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { attendanceFaceGate } from "../middleware/attendance-face-gate";
+import { companyWorkCalendarController } from "../controller/company-work-calendar.controller";
 
 export const timekeepingRouter = Router();
 const attendanceImage = multer({
@@ -144,3 +145,26 @@ timekeepingRouter.patch(
   validateRequest(updateWorkHoursSchema),
   timekeepingController.updateEmployeeWorkHours as any
 );
+
+
+const localDate = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/);
+const calendarDayType = Joi.string().valid("holiday", "substitute_holiday", "working_override");
+const calendarYearSchema = { body: Joi.object({ year: Joi.number().integer().min(2000).max(2200).required() }).unknown(false) };
+const createCalendarDaySchema = { body: Joi.object({
+  date: localDate.required(), name: Joi.string().trim().min(1).max(200).required(),
+  dayType: calendarDayType.required(), isApplied: Joi.boolean().optional(),
+}).unknown(false) };
+const updateCalendarDaySchema = {
+  params: Joi.object({ id: Joi.string().hex().length(24).required() }),
+  body: Joi.object({
+    date: localDate.optional(), name: Joi.string().trim().min(1).max(200).optional(),
+    dayType: calendarDayType.optional(), isApplied: Joi.boolean().optional(),
+    adminReason: Joi.string().trim().max(500).optional(),
+  }).min(1).unknown(false),
+};
+
+timekeepingRouter.get("/work-calendar", requireAuth as any, companyWorkCalendarController.list as any);
+timekeepingRouter.post("/work-calendar/sync", requireAuth as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
+timekeepingRouter.post("/work-calendar", requireAuth as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
+timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
+timekeepingRouter.get("/work-calendar/:id/audit", requireAuth as any, companyWorkCalendarController.audit as any);
