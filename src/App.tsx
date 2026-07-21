@@ -23,9 +23,6 @@ import { resolveEnabledTab } from "./config/modules";
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
-const ChatbotWidget = lazy(() =>
-  import("./components/common/ChatbotWidget").then((m) => ({ default: m.ChatbotWidget }))
-);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -247,11 +244,6 @@ function AppContent() {
           <AppRouterView activeTab={resolvedActiveTab} userProfile={userProfile} />
         </main>
       </div>
-
-      {/* Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp */}
-      <Suspense fallback={null}>
-        <ChatbotWidget />
-      </Suspense>
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />

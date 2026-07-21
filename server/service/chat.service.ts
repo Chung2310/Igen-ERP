@@ -27,9 +27,52 @@ export const chatService = {
    * Lấy danh sách các phòng chat mà người dùng tham gia
    */
   async getRooms(userId: string, companyCode: string): Promise<any[]> {
+    // Tự động tạo phòng "Trợ lý AI" nếu chưa có
+    let chatbotRoom = await ChatRoomModel.findOne({
+      isChatbot: true,
+      companyCode,
+      creatorId: userId,
+    }).exec();
+
+    if (!chatbotRoom) {
+      const newChatbot = new ChatRoomModel({
+        isGroup: false,
+        isChatbot: true,
+        name: "Trợ lý AI",
+        companyCode,
+        creatorId: userId,
+        members: [{ userId, role: "admin", joinedAt: new Date() }],
+      });
+      const savedChatbot = await newChatbot.save();
+
+      // Seed tin nhắn chào mừng mặc định của trợ lý AI
+      const CHATBOT_SENDER_ID = new mongoose.Types.ObjectId("6582a82d6b38c201a4e21bc5");
+      const welcomeMessage = new ChatMessageModel({
+        roomId: savedChatbot._id,
+        senderId: CHATBOT_SENDER_ID,
+        senderName: "Trợ lý AI",
+        senderPhoto: "ai-avatar",
+        content: `Chào bạn! Tôi là **trợ lý ảo AI** của hệ thống iGen ERP.
+
+Tôi có thể giúp bạn tra cứu nhanh dữ liệu doanh nghiệp:
+- **Khách hàng (CRM)** — pipeline, trạng thái, giá trị cơ hội.
+- **Kho hàng** — tồn kho, mặt hàng sắp hết, giá trị tồn.
+- **Dự án & công việc** — tiến độ, phân bổ trạng thái.
+- **Marketing & tài chính** — nội dung, số dư ví.
+
+Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
+        attachments: [],
+        readBy: [userId],
+      });
+      const savedMsg = await welcomeMessage.save();
+      savedChatbot.lastMessage = savedMsg._id;
+      await savedChatbot.save();
+    }
+
     // Tự động tạo phòng "Cloud của tôi" nếu chưa có
     let cloudRoom = await ChatRoomModel.findOne({
       isGroup: false,
+      isChatbot: { $ne: true },
       companyCode,
       creatorId: userId,
       $expr: { $eq: [{ $size: "$members" }, 1] },
@@ -76,9 +119,14 @@ export const chatService = {
       })
     );
 
-    // Sắp xếp các phòng chat: phòng nào được ghim (isPinned: true) bởi userId sẽ xếp lên đầu,
-    // sau đó sắp xếp theo thời gian cập nhật mới nhất (updatedAt giảm dần)
+    // Sắp xếp các phòng chat:
+    // 1. Trợ lý AI (isChatbot === true) luôn lên trên cùng tuyệt đối
+    // 2. Phòng nào được ghim (isPinned: true) bởi userId xếp tiếp theo
+    // 3. Sau đó sắp xếp theo thời gian cập nhật mới nhất (updatedAt giảm dần)
     withUnread.sort((a, b) => {
+      if (a.isChatbot && !b.isChatbot) return -1;
+      if (!a.isChatbot && b.isChatbot) return 1;
+
       const aMember = a.members.find((m: any) => m.userId && (m.userId._id || m.userId).toString() === userId);
       const bMember = b.members.find((m: any) => m.userId && (m.userId._id || m.userId).toString() === userId);
       const aPinned = aMember?.isPinned ? 1 : 0;

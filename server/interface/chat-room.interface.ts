@@ -18,6 +18,7 @@ export interface IChatRoom extends Document {
   avatarURL?: string;
   pinnedMessageIds?: (Types.ObjectId | string | any)[];
   onlyAdminsCanMessage?: boolean;
+  isChatbot?: boolean;
   driveFolderId?: string;
   driveGeneralAccess?: "restricted" | "company";
   createdAt: Date;
