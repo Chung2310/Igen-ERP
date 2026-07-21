@@ -44,6 +44,10 @@ export function ToastContainer() {
       const newId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       setToasts((prev) => {
+        if (message.includes("Module chưa được kích hoạt") && localStorage.getItem("hide_module_disabled_toast") === "true") {
+          return prev;
+        }
+
         // Prevent identical messages from appearing multiple times concurrently
         const isDuplicate = prev.some((t) => t.message === message);
         if (isDuplicate) return prev;
@@ -135,6 +139,17 @@ export function ToastContainer() {
                   className="mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-[10px] font-bold shadow-md cursor-pointer transition-all active:scale-95 pointer-events-auto font-sans"
                 >
                   <Wallet className="h-3 w-3" /> Nạp tiền ngay
+                </button>
+              )}
+              {t.message.includes("Module chưa được kích hoạt") && (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem("hide_module_disabled_toast", "true");
+                    removeToast(t.id);
+                  }}
+                  className="mt-1.5 block text-[10px] font-normal text-rose-700 hover:text-rose-900 hover:underline cursor-pointer pointer-events-auto transition-colors font-sans"
+                >
+                  (không bao giờ hiển thị thông báo này nữa)
                 </button>
               )}
             </div>
