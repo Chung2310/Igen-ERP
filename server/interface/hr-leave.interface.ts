@@ -24,6 +24,8 @@ export interface IHRLeaveApplication extends Document {
   rejectReason?: string;
   note?: string;
   approvedBy?: string;
+  chargeableDays?: number;
+  chargeableDates?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
