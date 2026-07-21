@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
+import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TelegramSessionModel } from "../model/telegram-session.model";
 import { TelegramLinkTokenModel } from "../model/telegram-link-token.model";
@@ -113,6 +114,15 @@ export const authService = {
 
       if (!user) {
         throw new Error("Không tìm thấy thông tin tài khoản.");
+      }
+
+      if (decoded.sid) {
+        const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
+        const now = Date.now();
+        const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
+        if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
+          throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
+        }
       }
 
       const payload = {
