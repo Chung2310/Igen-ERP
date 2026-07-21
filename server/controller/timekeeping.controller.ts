@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { UserModel } from "../model/user.model";
+import { getDayContext, toVietnamDate } from "../service/company-work-calendar.service";
 
 // Haversine formula to compute distance in meters
 function calculateHaversineDistance(
@@ -104,7 +105,9 @@ export const timekeepingController = {
   async getTodayStatus(req: AuthenticatedRequest, res: Response) {
     try {
       const uid = req.user?.id;
+      const companyCode = req.user?.companyCode || "SYSTEM";
       const todayStr = getLocalDateString();
+      const vietnamDate = toVietnamDate();
 
       if (!uid) {
         return res.status(401).json({
@@ -114,9 +117,17 @@ export const timekeepingController = {
       }
 
       const log = await TimekeepingLogModel.findOne({ uid, date: todayStr }).lean();
+      const dayContext = await getDayContext(companyCode, vietnamDate);
       return res.status(200).json({
         status: "success",
-        data: log || null,
+        data: {
+          log: log || null,
+          workCalendar: {
+            date: dayContext.date,
+            isWorkingDay: dayContext.isWorkingDay,
+            label: dayContext.label,
+          },
+        },
       });
     } catch (error: any) {
       console.error("[timekeepingController.getTodayStatus] Error:", error);

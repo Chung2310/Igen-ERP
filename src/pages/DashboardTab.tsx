@@ -148,6 +148,7 @@ export default function DashboardTab() {
   const [revenueTrendData, setRevenueTrendData] = useState<Array<{ label: string; value: number }>>([]);
   const [productSegments, setProductSegments] = useState<Array<{ label: string; value: number; color: string }>>([]);
   const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
+  const [todayWorkCalendar, setTodayWorkCalendar] = useState<{ date: string; isWorkingDay: boolean; label?: string } | null>(null);
   const [isTimekeepingLoading, setIsTimekeepingLoading] = useState<boolean>(false);
 
   type DateFilterType = "day" | "month" | "year" | "custom";
@@ -300,7 +301,8 @@ export default function DashboardTab() {
       });
       if (res.ok) {
         const result = await res.json();
-        setTodayTimekeeping(result.data);
+        setTodayTimekeeping(result.data?.log ?? null);
+        setTodayWorkCalendar(result.data?.workCalendar ?? null);
       }
     } catch (err) {
       console.error("Lỗi khi tải trạng thái chấm công:", err);
@@ -864,6 +866,7 @@ export default function DashboardTab() {
           trendData={revenueTrendData}
           newHiresCount={newHiresCount}
           todayTimekeeping={todayTimekeeping}
+          todayWorkCalendar={todayWorkCalendar}
           isTimekeepingLoading={isTimekeepingLoading}
           onRefreshTimekeeping={fetchTodayTimekeeping}
           summary={summary}
@@ -905,6 +908,7 @@ function OverviewPanel({
   trendData,
   newHiresCount,
   todayTimekeeping,
+  todayWorkCalendar,
   isTimekeepingLoading,
   onRefreshTimekeeping,
   summary,
@@ -928,6 +932,7 @@ function OverviewPanel({
   trendData: Array<{ label: string; value: number }>;
   newHiresCount: number;
   todayTimekeeping: any;
+  todayWorkCalendar: { date: string; isWorkingDay: boolean; label?: string } | null;
   isTimekeepingLoading: boolean;
   onRefreshTimekeeping: () => void;
   summary: DashboardSummary | null;
@@ -966,6 +971,7 @@ function OverviewPanel({
       <div className="space-y-6">
         {canSeeHr && <TimekeepingWidget
           todayTimekeeping={todayTimekeeping}
+          todayWorkCalendar={todayWorkCalendar}
           isLoading={isTimekeepingLoading}
           onRefresh={onRefreshTimekeeping}
         />}
@@ -1597,12 +1603,38 @@ function Legend({ color, label, value }: any) {
   );
 }
 
+export function getTimekeepingStatusDisplay(
+  hasCheckIn: boolean,
+  hasCheckOut: boolean,
+  timekeepingStatus: string | undefined,
+  workCalendar: { date: string; isWorkingDay: boolean; label?: string } | null
+): { statusText: string; statusColor: string; statusBadge: string } {
+  const isNonWorkingDay = workCalendar != null && !workCalendar.isWorkingDay;
+
+  if (hasCheckIn) {
+    if (hasCheckOut) {
+      return { statusText: "Đã hoàn thành chấm công", statusColor: "bg-blue-500", statusBadge: "bg-blue-50 text-blue-700 ring-blue-500/10" };
+    }
+    return timekeepingStatus === "Late"
+      ? { statusText: "Đã check-in (Muộn)", statusColor: "bg-amber-500", statusBadge: "bg-amber-50 text-amber-700 ring-amber-500/10" }
+      : { statusText: "Đã check-in (Đúng giờ)", statusColor: "bg-emerald-500", statusBadge: "bg-emerald-50 text-emerald-700 ring-emerald-500/10" };
+  }
+
+  if (isNonWorkingDay) {
+    return { statusText: workCalendar?.label || "Ngày nghỉ", statusColor: "bg-slate-400", statusBadge: "bg-slate-50 text-slate-600 ring-slate-500/10" };
+  }
+
+  return { statusText: "Chưa chấm công", statusColor: "bg-rose-500", statusBadge: "bg-rose-50 text-rose-700 ring-rose-500/10" };
+}
+
 function TimekeepingWidget({
   todayTimekeeping,
+  todayWorkCalendar,
   isLoading,
   onRefresh,
 }: {
   todayTimekeeping: any;
+  todayWorkCalendar: { date: string; isWorkingDay: boolean; label?: string } | null;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
@@ -1691,20 +1723,12 @@ function TimekeepingWidget({
     return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
-  let statusText = "Chưa chấm công";
-  let statusColor = "bg-rose-500";
-  let statusBadge = "bg-rose-50 text-rose-700 ring-rose-500/10";
-  if (hasCheckIn) {
-    if (hasCheckOut) {
-      statusText = "Đã hoàn thành chấm công";
-      statusColor = "bg-blue-500";
-      statusBadge = "bg-blue-50 text-blue-700 ring-blue-500/10";
-    } else {
-      statusText = todayTimekeeping.status === "Late" ? "Đã check-in (Muộn)" : "Đã check-in (Đúng giờ)";
-      statusColor = todayTimekeeping.status === "Late" ? "bg-amber-500" : "bg-emerald-500";
-      statusBadge = todayTimekeeping.status === "Late" ? "bg-amber-50 text-amber-700 ring-amber-500/10" : "bg-emerald-50 text-emerald-700 ring-emerald-500/10";
-    }
-  }
+  const { statusText, statusColor, statusBadge } = getTimekeepingStatusDisplay(
+    hasCheckIn,
+    hasCheckOut,
+    todayTimekeeping?.status,
+    todayWorkCalendar
+  );
 
   return (
     <div className="w-full bg-white/70 backdrop-blur-md border border-slate-150 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all hover:shadow-md duration-300 flex flex-col gap-4">
