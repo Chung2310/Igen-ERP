@@ -94,7 +94,7 @@ export default function PrivacyPolicy() {
   const meta = {
     title: `Privacy Policy | ${BRAND_NAME}`,
     description: `Privacy Policy for ${BRAND_NAME}, including account data, connected platform data, TikTok Shop integration data and deletion rights.`,
-    keywords: "privacy policy, TikTok Shop API, user data deletion, iGen ERP",
+    keywords: "privacy policy, TikTok Shop, user data deletion, iGen ERP",
     path: "/privacy-policy",
   };
 

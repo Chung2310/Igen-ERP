@@ -55,7 +55,7 @@ export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
           )}
         </div>
 
-        <p className="font-mono text-[10px] tracking-wide text-gray-400">SKU: {product.sku}</p>
+        <p className="font-mono text-[10px] tracking-wide text-gray-400">Mã sản phẩm: {product.sku}</p>
         <h4 className="mt-1.5 line-clamp-2 min-h-10 text-[13px] font-bold leading-5 text-slate-800">{product.name}</h4>
         
         <div className="mt-2 flex flex-wrap gap-1.5 items-center">

@@ -32,7 +32,7 @@ export const workflowLinkController = {
 
       return res.status(201).json({
         status: "success",
-        message: "Đã tạo công việc và khởi tạo task Kanban cho bước đầu tiên.",
+        message: "Đã tạo công việc và khởi tạo việc trên bảng giao việc cho bước đầu tiên.",
         data: result,
       });
     } catch (error: any) {
@@ -97,7 +97,7 @@ export const workflowLinkController = {
 
       return res.status(200).json({
         status: "success",
-        message: `Đã xóa công việc và lưu trữ ${result.tasksArchived} task Kanban chưa hoàn thành.`,
+        message: `Đã xóa công việc và lưu trữ ${result.tasksArchived} việc chưa hoàn thành.`,
         data: { tasksArchived: result.tasksArchived },
       });
     } catch (error: any) {

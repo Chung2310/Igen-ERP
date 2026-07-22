@@ -153,7 +153,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     menuItems.push({
       label: "VÍ & NẠP TIỀN",
       title: "Ví & Nạp tiền",
-      desc: "Số dư ví và cổng PayOS",
+      desc: "Số dư ví và nạp tiền",
       icon: Wallet,
       tone: "blue",
     });

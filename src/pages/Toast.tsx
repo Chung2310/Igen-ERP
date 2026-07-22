@@ -44,7 +44,7 @@ export function ToastContainer() {
       const newId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       setToasts((prev) => {
-        if (message.includes("Module chưa được kích hoạt") && localStorage.getItem("hide_module_disabled_toast") === "true") {
+        if (message.includes("Phân hệ chưa được kích hoạt") && localStorage.getItem("hide_module_disabled_toast") === "true") {
           return prev;
         }
 
@@ -141,7 +141,7 @@ export function ToastContainer() {
                   <Wallet className="h-3 w-3" /> Nạp tiền ngay
                 </button>
               )}
-              {t.message.includes("Module chưa được kích hoạt") && (
+              {t.message.includes("Phân hệ chưa được kích hoạt") && (
                 <button 
                   onClick={() => {
                     localStorage.setItem("hide_module_disabled_toast", "true");

@@ -195,7 +195,7 @@ test("custom-field router returns JSON 400 for invalid module, id, body, and que
 
 test("student-management router exposes the literal documented custom field endpoint", async () => {
   const routerSource = readFileSync(new URL("../router.ts", import.meta.url), "utf8");
-  assert.match(routerSource, /studentManagementRouter\.use\("\/student-management\/custom-fields", customFieldRoutes\)/);
+  assert.match(routerSource, /studentManagementRouter\.use\("\/student-management\/custom-fields", (?:[^,]+, )*customFieldRoutes\)/);
 });
 
 test("controller derives tenant and actor from authentication and normalizes hidden required fields in the service", async () => {

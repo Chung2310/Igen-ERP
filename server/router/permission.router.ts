@@ -17,8 +17,8 @@ const createPermissionSchema = {
       "string.empty": "Tên mã quyền không được để trống.",
     }),
     module: Joi.string().required().messages({
-      "any.required": "Module quyền là bắt buộc.",
-      "string.empty": "Module quyền không được để trống.",
+      "any.required": "Phân hệ của quyền là bắt buộc.",
+      "string.empty": "Phân hệ của quyền không được để trống.",
     }),
     description: Joi.string().optional().allow(""),
   }),
@@ -35,7 +35,7 @@ const updatePermissionSchema = {
       "string.empty": "Tên mã quyền không được để trống.",
     }),
     module: Joi.string().optional().messages({
-      "string.empty": "Module quyền không được để trống.",
+      "string.empty": "Phân hệ của quyền không được để trống.",
     }),
     description: Joi.string().optional().allow(""),
   }),

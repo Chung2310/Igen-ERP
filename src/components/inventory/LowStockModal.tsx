@@ -33,7 +33,7 @@ export function LowStockModal({ products, onClose }: Props) {
               <table className="w-full table-auto text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="p-4">SKU</th>
+                    <th className="p-4">Mã sản phẩm</th>
                     <th className="p-4">Tên sản phẩm</th>
                     <th className="p-4">Kho</th>
                     <th className="p-4">Ngưỡng cảnh báo</th>

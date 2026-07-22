@@ -122,7 +122,7 @@ export const notificationService = {
       if (!managers || managers.length === 0) return;
 
       const title = `⚠️ Cảnh báo tồn kho: ${product.name}`;
-      const body = `Sản phẩm "${product.name}"${product.sku ? ` (SKU: ${product.sku})` : ""} hiện chỉ còn ${product.stock} sản phẩm trong kho, dưới định mức cảnh báo. Vui lòng kiểm tra và nhập hàng.`;
+      const body = `Sản phẩm "${product.name}"${product.sku ? ` (Mã sản phẩm: ${product.sku})` : ""} hiện chỉ còn ${product.stock} sản phẩm trong kho, dưới định mức cảnh báo. Vui lòng kiểm tra và nhập hàng.`;
 
       const notificationPromises = managers.map((m) =>
         this.createNotification({

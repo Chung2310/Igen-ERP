@@ -39,7 +39,7 @@ export default function LandingPage() {
 
   const meta = {
     title: `${BRAND_NAME} - Nền tảng quản trị doanh nghiệp tích hợp AI`,
-    description: "Giải pháp ERP thế hệ mới tích hợp AI giúp quản trị doanh nghiệp, CRM đa kênh Facebook, Zalo, TikTok, quản lý nhân sự HRM và kho vận tối ưu.",
+    description: "Giải pháp ERP thế hệ mới tích hợp AI giúp quản trị doanh nghiệp, quản lý khách hàng đa kênh Facebook, Zalo, TikTok, quản lý nhân sự và kho vận tối ưu.",
     keywords: "igen erp, erp tich hop ai, omni channel crm, quan ly kho, nhan su hrm, tiktok api integration",
     path: "/",
   };
@@ -47,13 +47,13 @@ export default function LandingPage() {
   const features = [
     {
       icon: <MessageSquare className="h-6 w-6 text-blue-600" />,
-      title: "Omni-Channel CRM",
+      title: "Quản lý khách hàng đa kênh",
       desc: "Quản lý hội thoại tập trung từ Facebook, Zalo và TikTok Shop. Tự động phân chia khách hàng cho nhân viên sale."
     },
     {
       icon: <ShoppingBag className="h-6 w-6 text-emerald-600" />,
       title: "Quản lý Kho & Sản phẩm",
-      desc: "Theo dõi tồn kho theo SKU thực tế, tự động cập nhật số lượng khi có đơn hàng mới từ các kênh thương mại điện tử."
+      desc: "Theo dõi tồn kho theo mã sản phẩm thực tế, tự động cập nhật số lượng khi có đơn hàng mới từ các kênh thương mại điện tử."
     },
     {
       icon: <Users className="h-6 w-6 text-purple-600" />,
@@ -109,7 +109,7 @@ export default function LandingPage() {
                     <p className="text-[10px] text-slate-400 pl-5">Vận hành doanh nghiệp tổng thể</p>
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-900 text-xs flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5 text-teal-600" /> Sales CRM & OmniChat</h5>
+                    <h5 className="font-bold text-slate-900 text-xs flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5 text-teal-600" /> Quản lý khách hàng và hộp thư đa kênh</h5>
                     <p className="text-[10px] text-slate-400 pl-5">Inbox tập trung Facebook, Zalo, TikTok</p>
                   </div>
                   <div>
@@ -129,7 +129,7 @@ export default function LandingPage() {
               {integrationsOpen && (
                 <div className="absolute left-1/2 -translate-x-1/2 top-full w-56 bg-white border border-slate-100 rounded-2xl p-4 shadow-xl animate-scale-in text-left space-y-3 z-50">
                   <a href="#tich-hop-tiktok" className="block hover:bg-slate-50 p-1.5 rounded-lg transition-colors">
-                    <span className="font-bold text-slate-800 text-xs block">TikTok Shop API</span>
+                    <span className="font-bold text-slate-800 text-xs block">TikTok Shop </span>
                     <span className="text-[9px] text-slate-400">Đồng bộ đơn hàng, kho, chat</span>
                   </a>
                   <div className="p-1.5">
@@ -289,7 +289,7 @@ export default function LandingPage() {
 
                 <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/30 text-left space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">OmniChat Inbox & Khách hàng TikTok Shop</span>
+                    <span className="text-xs font-bold text-slate-700">Hộp thư đa kênh và khách hàng TikTok Shop</span>
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-md uppercase">Đang chạy</span>
                   </div>
                   <div className="space-y-2">
@@ -363,7 +363,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
-            {/* Mockup 1: OmniChat Inbox */}
+            {/* Bản minh họa 1: Hộp thư đa kênh */}
             <div className="border border-slate-200/80 rounded-3xl bg-white shadow-lg overflow-hidden flex flex-col h-[380px]">
               <div className="bg-slate-900 px-4 py-3 flex items-center justify-between text-white">
                 <div className="flex items-center gap-2">
@@ -371,7 +371,7 @@ export default function LandingPage() {
                   <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-400 tracking-wider">OMNICHAT INBOX - HỘP THƯ TẬP TRUNG</span>
+                <span className="text-[10px] font-semibold text-slate-400 tracking-wider">HỘP THƯ ĐA KÊNH - TẬP TRUNG TIN NHẮN</span>
                 <span className="text-[10px] bg-blue-600 px-2 py-0.5 rounded font-bold">LIVE</span>
               </div>
               <div className="flex flex-1 overflow-hidden bg-slate-50/20">
@@ -564,7 +564,7 @@ export default function LandingPage() {
                     Đồng bộ Tin nhắn & Chat
                   </h4>
                   <p className="text-xs text-slate-400 pl-3.5 leading-relaxed">
-                    Quản lý toàn bộ tin nhắn từ khách hàng TikTok Shop ngay trên phần CRM OmniChat của ERP, tăng tốc thời gian phản hồi.
+                    Quản lý toàn bộ tin nhắn từ khách hàng TikTok Shop ngay trong hộp thư đa kênh của ERP, tăng tốc thời gian phản hồi.
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -784,7 +784,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-slate-500 leading-relaxed text-[11px]">
-                Nền tảng ERP toàn diện tích hợp Trí tuệ Nhân tạo (AI). Giải quyết bài toán quản trị vận hành, nhân sự HRM, quản trị kho hàng và sales CRM đa kênh trên cùng một hệ thống duy nhất.
+                Nền tảng ERP toàn diện tích hợp Trí tuệ Nhân tạo (AI). Giải quyết bài toán quản trị vận hành, nhân sự HRM, quản trị kho hàng và quản lý khách hàng đa kênh trên cùng một hệ thống duy nhất.
               </p>
               <div className="space-y-2 text-slate-500 pt-2 border-t border-slate-900">
                 <div className="flex items-center gap-2">
@@ -807,9 +807,9 @@ export default function LandingPage() {
               <h4 className="font-bold text-white uppercase tracking-wider text-[10px] border-b border-slate-900 pb-2">Giải pháp sản phẩm</h4>
               <ul className="space-y-2.5">
                 <li><span className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Hệ thống ERP quản trị lõi</span></li>
-                <li><a href="#tinh-nang" className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Sales CRM & OmniChat</a></li>
+                <li><a href="#tinh-nang" className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Quản lý khách hàng và hộp thư đa kênh</a></li>
                 <li><span className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Quản trị nhân sự HRM</span></li>
-                <li><span className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Quản lý Kho & Tồn kho SKU</span></li>
+                <li><span className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Quản lý kho và tồn kho theo mã sản phẩm</span></li>
                 <li><span className="hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Marketing AI (HeyGen Videos)</span></li>
               </ul>
             </div>
@@ -818,9 +818,9 @@ export default function LandingPage() {
             <div className="lg:col-span-2 text-left space-y-4">
               <h4 className="font-bold text-white uppercase tracking-wider text-[10px] border-b border-slate-900 pb-2">Kết nối & Tích hợp</h4>
               <ul className="space-y-2.5">
-                <li><a href="#tich-hop-tiktok" className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> TikTok Shop API (Official)</a></li>
-                <li><span className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Facebook Graph API</span></li>
-                <li><span className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Zalo Business API</span></li>
+                <li><a href="#tich-hop-tiktok" className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> TikTok Shop  (Official)</a></li>
+                <li><span className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Kết nối Facebook</span></li>
+                <li><span className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Kết nối Zalo doanh nghiệp</span></li>
                 <li><a href="#tich-hop-tiktok" className="hover:text-white transition-colors flex items-center gap-1.5"><ChevronRight className="h-3 w-3 text-slate-600" /> Quy trình cấp quyền OAuth</a></li>
               </ul>
             </div>

@@ -1180,7 +1180,7 @@ function OverviewPanel({
                     <div key={p.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition-colors">
                       <div className="min-w-0 flex-1 pr-3">
                         <p className="truncate text-sm font-bold text-gray-800">{p.name}</p>
-                        <p className="text-xs text-gray-500">SKU: {p.sku} · Định mức: {p.minStockAlert}</p>
+                        <p className="text-xs text-gray-500">Mã sản phẩm: {p.sku} · Định mức: {p.minStockAlert}</p>
                       </div>
                       <div className="flex items-center gap-2.5 shrink-0">
                         <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 ring-1 ring-rose-500/10">
@@ -1196,7 +1196,7 @@ function OverviewPanel({
             {lowStockItems.length > 0 && (
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-gray-500">Tổng số sản phẩm yếu:</span>
-                <span className="font-mono text-base font-extrabold text-rose-600">{lowStockCount} SKU</span>
+                <span className="font-mono text-base font-extrabold text-rose-600">{lowStockCount} mã sản phẩm</span>
               </div>
             )}
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}

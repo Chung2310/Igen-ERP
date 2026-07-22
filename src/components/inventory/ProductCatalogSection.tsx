@@ -117,7 +117,7 @@ export function ProductCatalogSection({
             </div>
             <input
               type="text"
-              placeholder="Tìm theo tên sản phẩm, mã SKU..."
+              placeholder="Tìm theo tên hoặc mã sản phẩm..."
               className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
               value={searchProduct}
               onChange={(event) => setSearchProduct(event.target.value)}
