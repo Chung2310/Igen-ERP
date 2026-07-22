@@ -10,7 +10,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return superAdminRequest(`/api/v1/super-admin${path}`, init) as Promise<T>;
 }
 function requireReason(reason: string) { if (!reason.trim()) throw new Error("A written reason is required"); }
-function mutate(tenantId: string, userId: string, path: string, input: Mutation) { requireReason(input.reason); return request<{ actionId: string }>(`/users/${encodeURIComponent(userId)}${path}?tenantId=${encodeURIComponent(tenantId)}`, { method: "POST", body: JSON.stringify(input) }); }
+function mutate(tenantId: string, userId: string, path: string, input: Mutation) { requireReason(input.reason); return request<{ actionId: string }>(`/users/${encodeURIComponent(userId)}${path}?tenantId=${encodeURIComponent(tenantId)}`, { method: "POST", headers: { "idempotency-key": crypto.randomUUID() }, body: JSON.stringify(input) }); }
 
 export const superAdminUserAccessService = {
   search: (tenantId: string, filters: { page?: number; limit?: number; q?: string } = {}) => request<UserSearchResult>(`/users?${new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20), ...(filters.q ? { q: filters.q } : {}) })}`),
