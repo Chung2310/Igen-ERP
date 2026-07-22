@@ -6,6 +6,7 @@ import { googleOAuthService } from "../service/google-oauth.service";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import { CompanyModel } from "../model/company.model";
 import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
+import { recordUserActivity } from "../middleware/user-activity";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -78,6 +79,11 @@ export const authController = {
 
       const userObj = user.toObject();
       delete userObj.password;
+      void recordUserActivity({
+        userId: String(user._id), companyCode: user.companyCode || "SYSTEM", actionType: "auth.login",
+        category: "authentication", result: "success", method: "POST", route: "/api/v1/auth/login",
+        description: "Đăng nhập thành công", ...getSuperAdminRequestMetadata(req),
+      });
 
       return res.status(200).json({
         status: "success",
@@ -86,6 +92,14 @@ export const authController = {
         user: userObj,
       });
     } catch (error: any) {
+      const attemptedEmail = String(req.body?.email || "").trim().toLowerCase();
+      if (attemptedEmail) void UserModel.findOne({ email: attemptedEmail }).select("_id companyCode").lean().then((attemptedUser: any) => {
+        if (attemptedUser) return recordUserActivity({
+          userId: String(attemptedUser._id), companyCode: attemptedUser.companyCode || "SYSTEM", actionType: "auth.login",
+          category: "authentication", result: "failure", method: "POST", route: "/api/v1/auth/login",
+          description: "Đăng nhập thất bại", ...getSuperAdminRequestMetadata(req),
+        });
+      }).catch(() => undefined);
       console.error("[authController.login] Error:", error);
       return res.status(401).json({
         status: "error",

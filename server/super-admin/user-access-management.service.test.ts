@@ -17,7 +17,7 @@ test("impersonation needs a reason and never targets superadmin", async () => {
   await assert.rejects(() => service.startImpersonation({ tenantId: "SYSTEM", userId: "u1", reason: "incident" }));
 });
 
-test("assignRole rejects a second Super Admin account", async () => {
+test("assignRole rejects every Super Admin promotion", async () => {
   const service = createUserAccessManagementService({
     users: {
       findOtherSuperAdmin: async () => ({ _id: "root", email: "root@example.com" }),
@@ -29,6 +29,26 @@ test("assignRole rejects a second Super Admin account", async () => {
 
   await assert.rejects(
     () => service.assignRole({ tenantId: "SYSTEM", userId: "other", role: "superadmin" }),
-    /already exists/i,
+    /cannot be assigned/i,
+  );
+});
+
+test("assignRole cannot promote users or demote the sole Super Admin", async () => {
+  const regularService = createUserAccessManagementService({
+    users: { find: async () => ({ _id: "user", role: "user", save: async () => {} }) },
+    sessions: {}, audit: async () => {},
+  });
+  await assert.rejects(
+    () => regularService.assignRole({ tenantId: "SYSTEM", userId: "user", role: "superadmin" }),
+    /cannot be assigned/i,
+  );
+
+  const rootService = createUserAccessManagementService({
+    users: { find: async () => ({ _id: "root", role: "superadmin", save: async () => {} }) },
+    sessions: {}, audit: async () => {},
+  });
+  await assert.rejects(
+    () => rootService.assignRole({ tenantId: "SYSTEM", userId: "root", role: "admin" }),
+    /cannot be changed/i,
   );
 });
