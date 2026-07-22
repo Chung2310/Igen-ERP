@@ -51,20 +51,28 @@ describe("TenantModuleDialog", () => {
     expect(screen.queryByRole("textbox", { name: "Email chủ sở hữu" })).toBeNull();
   });
 
-  it("updates selected modules with just a reason", async () => {
+  it("updates selected modules without a manually entered reason", async () => {
     vi.mocked(superAdminTenantService.updateModules).mockResolvedValue({ actionId: "a1", result: detail.tenant });
+    vi.mocked(superAdminTenantService.detail).mockResolvedValue({
+      ...detail,
+      tenant: {
+        ...detail.tenant,
+        enabledModules: ["hr", "inventory", "resource", "chat", "student"],
+      },
+    });
     const onSaved = vi.fn();
     render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={onSaved} />);
     await screen.findByText("Công ty ACME");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Kho & Sản phẩm" }));
-    fireEvent.change(screen.getByLabelText("Lý do thay đổi"), { target: { value: "Mở lại module kho" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Nhân sự" }));
+    expect(screen.queryByLabelText("Lý do thay đổi")).toBeNull();
+    expect((screen.getByRole("button", { name: "Lưu thay đổi" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
     await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledTimes(1));
     expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
-      enabledModules: ["hr", "inventory", "chat"],
-      reason: "Mở lại module kho",
+      enabledModules: ["inventory", "resource", "chat", "student"],
+      reason: "Cập nhật cấu hình module",
     });
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
@@ -93,7 +101,6 @@ describe("TenantModuleDialog", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Nhân sự" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Trò chuyện" }));
-    fireEvent.change(screen.getByLabelText("Lý do thay đổi"), { target: { value: "Tắt module" } });
 
     expect(screen.getByText("Doanh nghiệp phải có ít nhất một module.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Lưu thay đổi" }) as HTMLButtonElement).disabled).toBe(true);
@@ -104,7 +111,6 @@ describe("TenantModuleDialog", () => {
     render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={vi.fn()} />);
     await screen.findByText("Công ty ACME");
 
-    fireEvent.change(screen.getByLabelText("Lý do thay đổi"), { target: { value: "Thay đổi module" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
     expect(await screen.findByText("Không thể cập nhật (req-1)")).toBeTruthy();

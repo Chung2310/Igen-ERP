@@ -13,7 +13,6 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [selected, setSelected] = React.useState<ModuleKey[]>([]);
-  const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -62,13 +61,13 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   };
 
   const save = async () => {
-    if (!reason.trim() || selected.length === 0) return;
+    if (selected.length === 0) return;
     setSaving(true);
     setError("");
     try {
       await superAdminTenantService.updateModules(code, {
         enabledModules: selected,
-        reason: reason.trim(),
+        reason: "Cập nhật cấu hình module",
       });
       onSaved();
     } catch (cause: any) {
@@ -78,7 +77,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
     }
   };
 
-  const canSave = !loading && selected.length > 0 && Boolean(reason.trim()) && !saving;
+  const canSave = !loading && selected.length > 0 && !saving;
 
   const setLifecycleStatus = async (lifecycleStatus: "active" | "suspended") => {
     if (!statusReason.trim()) return;
@@ -141,10 +140,6 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
                 ))}
               </div>
               {selected.length === 0 && <p className="mt-2 text-xs text-amber-300">Doanh nghiệp phải có ít nhất một module.</p>}
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-400">Lý do thay đổi<input aria-label="Lý do thay đổi" value={reason} onChange={(event) => setReason(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" /></label>
             </div>
 
             <div className="rounded-xl border border-white/10 bg-slate-950/50 p-4">
