@@ -28,6 +28,7 @@ export interface UserProfile {
   createdAt: any;
   jobTitle?: string;
   department?: string;
+  jobDescriptionLink?: string;
   phone?: string;
   level?: number;
   parentId?: string;
