@@ -1214,13 +1214,6 @@ export default function OrgChartTab({
             >
               {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
             </button>
-        <div className="h-full min-h-[500px]" id="org_chart_block">
-          {/* Interactive Tree viewport diagram */}
-          <div className="w-full h-full bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
-            <div className="absolute top-4 left-4 bg-white/85 border px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-500 select-none z-10 flex items-center gap-1 shadow-2xs">
-              <span>🖱️ Giữ chuột trái kéo để xem sơ đồ</span>
-            </div>
-
             <div
               ref={containerRef}
               onMouseDown={handleMouseDown}
