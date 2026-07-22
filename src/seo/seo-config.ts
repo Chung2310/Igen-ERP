@@ -170,11 +170,11 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "monthly",
   },
   "VÍ & NẠP TIỀN": {
-    title: "Ví & Nạp tiền - Nạp tiền tài khoản qua PayOS",
+    title: "Ví & Nạp tiền - Nạp tiền trực tuyến",
     description:
-      "Quản lý ví tài khoản cá nhân, xem số dư và nạp tiền nhanh chóng bằng QR Code qua cổng thanh toán PayOS.",
+      "Quản lý ví tài khoản cá nhân, xem số dư và nạp tiền nhanh chóng bằng mã QR qua cổng thanh toán trực tuyến.",
     keywords:
-      "ví tài khoản, nạp tiền erp, payos nạp tiền, vietqr, nạp tiền ngân hàng, số dư ví erp",
+      "ví tài khoản, nạp tiền erp, vietqr, nạp tiền ngân hàng, số dư ví erp",
     path: "/vi-nap-tien",
     robots: "noindex, nofollow",
     priority: "0.5",

@@ -226,7 +226,7 @@ export default function WalletTab() {
               <ShieldCheck className="h-3.5 w-3.5 text-blue-200" /> Giả Lập
             </div>
             <Wallet className="mx-auto h-12 w-12 text-blue-100 mb-3 animate-bounce" />
-            <h2 className="text-xl font-bold tracking-tight">CỔNG THANH TOÁN iGEN PAYOS</h2>
+            <h2 className="text-xl font-bold tracking-tight">CỔNG THANH TOÁN iGEN</h2>
             <p className="text-xs text-blue-150 mt-1 opacity-90">Mô phỏng VietQR Chuyển Khoản Ngân Hàng</p>
           </div>
 
@@ -350,7 +350,7 @@ export default function WalletTab() {
                 </div>
                 
                 <div className="flex justify-between items-center text-[10px] text-white/75 font-mono">
-                  <span>ACTIVE WALLET</span>
+                  <span>Ví hoạt động</span>
                   <span>iGEN ERP</span>
                 </div>
               </div>
@@ -415,7 +415,7 @@ export default function WalletTab() {
                   ) : (
                     <>
                       <CreditCard className="h-4 w-4" />
-                      <span>Nạp tiền trực tuyến (PayOS)</span>
+                      <span>Nạp tiền trực tuyến</span>
                     </>
                   )}
                 </button>

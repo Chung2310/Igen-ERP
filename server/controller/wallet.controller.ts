@@ -196,7 +196,7 @@ export const walletController = {
           console.error("[PayOS SDK Error] Khong the tao link thanh toan:", payosErr);
           return res.status(500).json({
             status: "error",
-            message: "Lỗi kết nối với cổng thanh toán PayOS. Vui lòng thử lại sau.",
+            message: "Lỗi kết nối với cổng thanh toán. Vui lòng thử lại sau.",
             details: payosErr.message,
           });
         }
