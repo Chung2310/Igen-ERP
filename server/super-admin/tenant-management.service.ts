@@ -5,7 +5,8 @@ import { createCompanyAdminUser } from "../utils/company-admin-user";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
 export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }
-const db: TenantRepository = { create: async t => (await CompanyModel.create(t)).toObject() as TenantRecord, list: async () => await CompanyModel.find({}).sort({createdAt:-1}).lean() as any, get: async c => await CompanyModel.findOne({code:c}).lean() as any, update: async(c,u) => await CompanyModel.findOneAndUpdate({code:c},{$set:u},{new:true,runValidators:true}).lean() as any };
+const normalize=(t:any)=>t?{...t,lifecycleStatus:t.lifecycleStatus||"active"}:t;
+const db: TenantRepository = { create: async t => (await CompanyModel.create(t)).toObject() as TenantRecord, list: async () => ((await CompanyModel.find({}).sort({createdAt:-1}).lean()) as any[]).map(normalize), get: async c => normalize(await CompanyModel.findOne({code:c}).lean()), update: async(c,u) => normalize(await CompanyModel.findOneAndUpdate({code:c},{$set:u},{new:true,runValidators:true}).lean()) };
 const next:Record<TenantLifecycleStatus,TenantLifecycleStatus[]>={active:["suspended","archived"],suspended:["active","archived"],archived:["active"],"scheduled-deletion":[]};
 const code=(v:string)=>{const c=String(v||"").trim().toUpperCase();if(!c)throw Error("Tenant code is required");return c}; const needed=(t:TenantRecord|null,c:string)=>{if(!t)throw Error(`Tenant ${c} not found`);return t};
 
