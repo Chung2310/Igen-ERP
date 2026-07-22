@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2 } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { authService, getAccessToken } from "../services/authService";
@@ -133,23 +133,35 @@ export default function HRTab() {
       <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
-      <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 shrink-0" id="hr_sub_tabs_bar">
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1">
-          {["SƠ ĐỒ TỔ CHỨC", "Giao Việc", "ĐÀO TẠO", "QUY TRÌNH", "LỊCH"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setSubTab(tab as HRSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer shrink-0 ${subTab === tab
-                  ? "bg-slate-800 text-white border-slate-800 shadow-xs"
-                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
+      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shrink-0" id="hr_sub_tabs_bar">
+        <div className="flex gap-1 overflow-x-auto select-none">
+          {[
+            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
+            { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
+            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
+            { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
+            { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+          ].map((tab) => {
+            const isActive = subTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSubTab(tab.id as HRSubTabType)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  isActive
+                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
-            >
-              {tab}
-            </button>
-          ))}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 pb-2 sm:pb-0">
           {/* SaaS Multi-tenant Company Filter for Superadmin */}
           {userProfile?.role === "superadmin" && (
             <div className="flex items-center gap-2">

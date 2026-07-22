@@ -1058,7 +1058,6 @@ export default function UserAdminTab() {
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
               <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Tạo vai trò tùy chỉnh và thiết lập danh sách quyền tương ứng cho nhân sự.</p>
             </div>
             <button
               onClick={() => {

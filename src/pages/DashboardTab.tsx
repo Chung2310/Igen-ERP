@@ -25,6 +25,8 @@ import {
   Clock3,
   MessageSquare,
   CheckCircle2,
+  LayoutDashboard,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { isModuleEnabled } from "../config/modules";
@@ -41,9 +43,9 @@ import AttendanceCameraModal from "../components/attendance/AttendanceCameraModa
 type DashboardView = "overview" | "revenue";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
 
-const tabs: Array<{ id: DashboardView; label: string }> = [
-  { id: "overview", label: "Tổng quan" },
-  { id: "revenue", label: "Phân tích doanh thu" },
+const tabs: Array<{ id: DashboardView; label: string; icon: any }> = [
+  { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
+  { id: "revenue", label: "Phân tích doanh thu", icon: TrendingUp },
 ];
 
 const toneClass: Record<Tone, { soft: string; text: string; fill: string; strong: string }> = {
@@ -777,30 +779,33 @@ export default function DashboardTab() {
 
   return (
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
-      <div className="mb-8 flex flex-col gap-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="font-sans text-xl font-bold tracking-tight text-slate-900">
               {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
             </h1>
-            <p className="mt-2 text-sm text-gray-655">Hôm nay, {todayLabel}</p>
+            <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
-          <div className="inline-flex rounded-xl bg-slate-100/80 p-1 w-fit">
+        <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-1 overflow-x-auto select-none">
             {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
+              const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${isActive
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-gray-500 hover:bg-white/50 hover:text-gray-800"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                    isActive
+                      ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
                 >
-                  {tab.label}
+                  <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}

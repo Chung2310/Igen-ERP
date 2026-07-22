@@ -63,6 +63,7 @@ interface BatchForm {
   startDate: string;
   endDate: string;
   status: BatchStatus;
+  customFields?: CustomFieldValues;
 }
 
 const EMPTY_FORM: BatchForm = {
@@ -76,6 +77,7 @@ const EMPTY_FORM: BatchForm = {
   startDate: '',
   endDate: '',
   status: 'Sắp khai giảng',
+  customFields: {},
 };
 
 /** Bắn sự kiện để các hook liên quan tự refetch (lớp, khóa học, giảng viên, lịch) */
@@ -101,6 +103,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const manageable = canManageCustomFields(user?.role);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+  const [isEditingFields, setIsEditingFields] = useState(false);
 
   const openEditStdField = (field: StandardFieldConfig) => {
     setEditingStdField(getAdaptedFieldDefinition(field, "batches"));
@@ -131,7 +134,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   };
 
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable) return null;
+    if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -224,6 +227,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       startDate: batch.startDate,
       endDate: batch.endDate,
       status: batch.status,
+      customFields: batch.customFields || {},
     });
     setShowFormModal(true);
   };
@@ -378,7 +382,6 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     <div className="space-y-4 text-left">
       <ErpPageHeader
         title="Lớp & Khai giảng"
-        subtitle="Mở lớp theo khóa học, xếp lịch định kỳ, gán giảng viên & học viên"
         action={
           <ErpPrimaryButton onClick={openCreateModal}>
             Mở lớp mới
@@ -746,6 +749,17 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 </div>
               )}
             </div>
+
+            <CustomFieldsSection
+              moduleKey="batches"
+              values={form.customFields}
+              onChange={(customFields) => setForm((previous) => ({ ...previous, customFields }))}
+              mode={editingId ? "edit" : "create"}
+              disabled={isSubmitting}
+              tenantId={resolvedCenter}
+              isEditingFields={isEditingFields}
+              onToggleEditingFields={setIsEditingFields}
+            />
 
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">

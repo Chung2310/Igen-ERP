@@ -295,8 +295,7 @@ export default function WalletTab() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
-          <p className="text-xs text-gray-500 mt-1">Quản lý ngân sách cá nhân, nạp tiền trực tuyến bằng mã QR nhanh chóng.</p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
         </div>
         <button
           onClick={handleRefresh}
@@ -421,10 +420,6 @@ export default function WalletTab() {
                 </button>
               </form>
 
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3 text-[10px] text-gray-400 leading-normal">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-blue-500" />
-                <span>Bảo mật giao dịch bằng mã QR 24/7. Các khoản tiền sẽ được ghi nhận tự động vào số dư ví của bạn ngay sau khi hoàn tất chuyển khoản.</span>
-              </div>
             </div>
 
           </div>

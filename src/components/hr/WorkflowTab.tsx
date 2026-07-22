@@ -970,19 +970,6 @@ export default function WorkflowTab({
         >
           <ArrowLeft className="h-4 w-4" /> Danh sách
         </button>
-        <div className="h-5 w-px bg-gray-200" />
-        <input
-          value={wfName}
-          readOnly
-          placeholder="Tên quy trình"
-          className="w-52 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-bold text-slate-700 outline-none cursor-default"
-        />
-        <input
-          value={wfCategory}
-          readOnly
-          placeholder="Nhóm (ví dụ: Hướng dẫn nhân viên mới)"
-          className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-slate-600 outline-none cursor-default"
-        />
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={openAddParticipant}

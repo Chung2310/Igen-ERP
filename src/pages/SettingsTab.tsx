@@ -5,7 +5,10 @@ import {
   Calendar,
   Image as ImageIcon,
   Sliders,
-  Building2
+  Building2,
+  Shield,
+  HardDrive,
+  UserCheck
 } from "lucide-react";
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
@@ -107,62 +110,40 @@ export default function SettingsTab() {
     <div className="h-full flex flex-col font-sans overflow-y-auto pr-2 pb-6" id="settings_tab_container">
 
       {/* Title Header with Glassmorphism Header */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-md p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-md p-5 rounded-2xl border border-gray-200/80 shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Sliders className="h-5 w-5 text-indigo-650" />
+          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2 tracking-tight">
+            <Sliders className="h-5 w-5 text-indigo-600" />
             Cài đặt Hệ thống & Cá nhân
           </h1>
-          <p className="text-xs text-gray-500 mt-1">Cấu hình thông tin hồ sơ của bạn và tùy chỉnh tham số vận hành của iGen ERP.</p>
         </div>
-        <div className="flex gap-2 bg-gray-150/70 p-1 rounded-xl border border-gray-200 max-w-full overflow-x-auto">
-          <button
-            onClick={() => setActiveSubTab("profile")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "profile"
-              ? "bg-white text-gray-800 shadow-xs"
-              : "text-gray-500 hover:text-gray-700"
-              }`}
-          >
-            Hồ sơ cá nhân
-          </button>
-          <button
-            onClick={() => setActiveSubTab("security")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "security"
-              ? "bg-white text-gray-800 shadow-xs"
-              : "text-gray-500 hover:text-gray-700"
-              }`}
-          >
-            Bảo mật
-          </button>
-          <button
-            onClick={() => setActiveSubTab("erp")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "erp"
-              ? "bg-white text-gray-800 shadow-xs"
-              : "text-gray-500 hover:text-gray-700"
-              }`}
-          >
-            Cấu hình ERP
-          </button>
-          <button
-            onClick={() => setActiveSubTab("google-drive")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "google-drive"
-              ? "bg-white text-gray-800 shadow-xs"
-              : "text-gray-500 hover:text-gray-700"
-              }`}
-          >
-            Google Drive
-          </button>
-          {faceManagementAllowed && (
-            <button
-              onClick={() => setActiveSubTab("face-recognition")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeSubTab === "face-recognition"
-                ? "bg-white text-gray-800 shadow-xs"
-                : "text-gray-500 hover:text-gray-700"
+        <div className="flex gap-1 overflow-x-auto select-none border-b border-slate-200/80 pb-0">
+          {[
+            { id: "profile", label: "Hồ sơ cá nhân", icon: User },
+            { id: "security", label: "Bảo mật", icon: Shield },
+            { id: "erp", label: "Cấu hình ERP", icon: Sliders },
+            { id: "google-drive", label: "Google Drive", icon: HardDrive },
+            ...(faceManagementAllowed
+              ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
+              : []),
+          ].map((tab) => {
+            const isActive = activeSubTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  isActive
+                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
-            >
-              Nhận diện khuôn mặt
-            </button>
-          )}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

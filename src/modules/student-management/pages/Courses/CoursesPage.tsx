@@ -461,7 +461,6 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     <div className="space-y-4 text-left">
       <ErpPageHeader
         title="Danh mục khóa học"
-        subtitle="Thiết lập chương trình đào tạo và lớp học hành chính"
         action={
           <div className="flex gap-2">
             <button
