@@ -125,6 +125,7 @@ export default function HRTab() {
     parentId: usr.parentId,
     status: usr.status || "offline",
     division: usr.division || "Khối Vận Hành",
+    jobDescriptionLink: usr.jobDescriptionLink || "",
   }));
 
   return (
