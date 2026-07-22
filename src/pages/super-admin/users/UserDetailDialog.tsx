@@ -3,6 +3,7 @@ import { ShieldAlert, X } from "lucide-react";
 import { superAdminUserAccessService, type SuperAdminUser } from "../../../services/superAdminUserAccessService";
 import { ImpersonationDialog } from "./ImpersonationDialog";
 import { RolePermissionEditor } from "./RolePermissionEditor";
+import { UserActivityTimeline } from "./UserActivityTimeline";
 
 type Props = {
   tenantId: string;
@@ -107,9 +108,13 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
 
             <section className="rounded-xl border border-white/10 p-4">
               <h4 className="mb-3 font-bold">Vai trò và quyền truy cập</h4>
-              <RolePermissionEditor tenantId={tenantId} role={user.role} permissions={user.permissions || []} onSave={(role, permissions, editReason) => run(() => superAdminUserAccessService.assignRole(tenantId, userId, role, permissions, { reason: editReason }), "Đã cập nhật vai trò và quyền.", true, true).then(() => undefined)} />
+              {user.role === "superadmin" ? (
+                <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-200">Role Super Admin duy nhất được hệ thống bảo vệ và không thể thay đổi.</p>
+              ) : (
+                <RolePermissionEditor tenantId={tenantId} role={user.role} permissions={user.permissions || []} onSave={(role, permissions, editReason) => run(() => superAdminUserAccessService.assignRole(tenantId, userId, role, permissions, { reason: editReason }), "Đã cập nhật vai trò và quyền.", true, true).then(() => undefined)} />
+              )}
             </section>
-
+            <UserActivityTimeline tenantId={tenantId} userId={userId} />
             <ImpersonationDialog onStart={(impersonationReason, durationMinutes) => run(() => superAdminUserAccessService.startImpersonation(tenantId, userId, { reason: impersonationReason, durationMinutes }), "Đã bắt đầu phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} onStop={(impersonationReason) => run(() => superAdminUserAccessService.stopImpersonation(tenantId, userId, { reason: impersonationReason }), "Đã kết thúc phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} />
           </div>
         )}

@@ -15,6 +15,7 @@ vi.mock("../../../services/superAdminUserAccessService", () => ({
     assignRole: vi.fn(),
     startImpersonation: vi.fn(),
     stopImpersonation: vi.fn(),
+    activity: vi.fn(),
   },
 }));
 
@@ -32,6 +33,7 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(superAdminUserAccessService.detail).mockResolvedValue(user);
+  vi.mocked(superAdminUserAccessService.activity).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
 });
 
 describe("UserDetailDialog", () => {
@@ -75,6 +77,15 @@ describe("UserDetailDialog", () => {
     expect(await screen.findByText("Đã cập nhật vai trò và quyền.")).toBeTruthy();
   });
 
+  it("does not offer Super Admin and protects the sole Super Admin role", async () => {
+    vi.mocked(superAdminUserAccessService.detail).mockResolvedValue({ ...user, role: "superadmin" });
+    render(<UserDetailDialog tenantId="SYSTEM" userId="user-1" onClose={vi.fn()} />);
+    await screen.findByText("Mai Nguyễn");
+
+    expect(screen.queryByRole("option", { name: "Super Admin" })).toBeNull();
+    expect(screen.queryByLabelText("Vai trò")).toBeNull();
+    expect(screen.getByText("Role Super Admin duy nhất được hệ thống bảo vệ và không thể thay đổi.")).toBeTruthy();
+  });
   it("starts a controlled impersonation session", async () => {
     vi.mocked(superAdminUserAccessService.startImpersonation).mockResolvedValue({ actionId: "action-3" });
     render(<UserDetailDialog tenantId="SYSTEM" userId="user-1" onClose={vi.fn()} />);

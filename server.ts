@@ -17,6 +17,7 @@ import { selectiveBodyParser, isLargeBodyRoute } from "./server/middleware/body-
 import { globalApiRateLimiter } from "./server/middleware/rate-limit";
 import { ddosConfig } from "./server/config/ddos";
 import { superAdminAuthService } from "./server/service/super-admin-auth.service";
+import { userActivityMiddleware } from "./server/middleware/user-activity";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -273,6 +274,7 @@ async function startServer() {
   });
 
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
+  app.use("/api/v1", userActivityMiddleware());
   app.use("/api/v1", apiRouter);
 
   // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)

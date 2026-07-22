@@ -1,5 +1,8 @@
 export interface SuperAdminUser { _id: string; email: string; displayName?: string; role: string; status?: string; lockedAt?: string; permissions?: string[]; }
 export interface UserSearchResult { data: SuperAdminUser[]; total: number; page: number; limit: number; }
+export type UserActivityCategory = "authentication" | "data" | "communication" | "configuration" | "security" | "business";
+export interface UserActivityEvent { eventId: string; userId: string; companyCode: string; actionType: string; category: UserActivityCategory; result: "success" | "failure"; method?: string; route?: string; description: string; sourceIp?: string; userAgent?: string; occurredAt: string; }
+export interface UserActivityResult { data: UserActivityEvent[]; total: number; page: number; limit: number; }
 type Mutation = { reason: string; password?: string; token?: string; step?: number; [key: string]: unknown };
 
 import { superAdminRequest } from "./superAdminRequest";
@@ -12,6 +15,13 @@ function mutate(tenantId: string, userId: string, path: string, input: Mutation)
 export const superAdminUserAccessService = {
   search: (tenantId: string, filters: { page?: number; limit?: number; q?: string } = {}) => request<UserSearchResult>(`/users?${new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20), ...(filters.q ? { q: filters.q } : {}) })}`),
   detail: (tenantId: string, userId: string) => request<SuperAdminUser>(`/users/${encodeURIComponent(userId)}?tenantId=${encodeURIComponent(tenantId)}`),
+  activity: (tenantId: string, userId: string, filters: { from?: string; to?: string; category?: UserActivityCategory | ""; page?: number; limit?: number } = {}) => {
+    const query = new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20) });
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    if (filters.category) query.set("category", filters.category);
+    return request<UserActivityResult>(`/users/${encodeURIComponent(userId)}/activity?${query}`);
+  },
   lock: (tenantId: string, userId: string, input: Mutation) => mutate(tenantId, userId, "/lock", input),
   unlock: (tenantId: string, userId: string, input: Mutation) => mutate(tenantId, userId, "/unlock", input),
   revokeSessions: (tenantId: string, userId: string, input: Mutation) => mutate(tenantId, userId, "/sessions/revoke", input),
