@@ -1,7 +1,7 @@
 import React from "react";
 import { User, Mail, Lock, X, RefreshCw, Link2, Upload, Eye } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
-import { resourceService } from "../../services/resourceService";
+import { authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 
 export interface UserFormModalProps {
@@ -72,11 +72,11 @@ export function UserFormModal({
 
     setUploadingJobDescription(true);
     try {
-      const uploaded = await resourceService.uploadToDrive(file);
-      setUserJobDescriptionLink(uploaded.webViewLink || uploaded.webContentLink || "");
+      const url = await authService.uploadFile(file);
+      setUserJobDescriptionLink(url);
       toast.success("Đã tải lên mô tả công việc.");
     } catch (error: any) {
-      toast.error(error?.message || "Tải file mô tả công việc lên Google Drive thất bại.");
+      toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");
     } finally {
       setUploadingJobDescription(false);
     }

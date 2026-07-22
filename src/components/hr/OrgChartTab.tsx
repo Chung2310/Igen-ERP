@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
-import { resourceService } from "../../services/resourceService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
@@ -387,11 +386,11 @@ export default function OrgChartTab({
 
     setUploading(true);
     try {
-      const uploaded = await resourceService.uploadToDrive(file);
-      setLink(uploaded.webViewLink || uploaded.webContentLink || "");
+      const url = await authService.uploadFile(file);
+      setLink(url);
       toast.success("Đã tải lên mô tả công việc.");
     } catch (error: any) {
-      toast.error(error?.message || "Tải file mô tả công việc lên Google Drive thất bại.");
+      toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");
     } finally {
       setUploading(false);
     }
