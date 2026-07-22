@@ -45,7 +45,8 @@ export class TenantManagementService {
 
   async transitionLifecycle(v:string,target:Exclude<TenantLifecycleStatus,"scheduled-deletion">){
     const c=code(v),t=needed(await this.tenants.get(c),c);
-    if(!next[t.lifecycleStatus].includes(target))throw Error(`Invalid lifecycle transition from ${t.lifecycleStatus} to ${target}`);
+    const currentStatus=t.lifecycleStatus||"active";
+    if(!next[currentStatus].includes(target))throw Error(`Invalid lifecycle transition from ${currentStatus} to ${target}`);
     const now=new Date();
     const updated=needed(await this.tenants.update(c,{lifecycleStatus:target,lifecycleChangedAt:now}),c);
     await UserModel.updateMany({companyCode:c},{$set:{disabledAt: target==="active" ? null : now}});
