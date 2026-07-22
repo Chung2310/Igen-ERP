@@ -16,7 +16,10 @@ import {
   UserPlus,
   Maximize2,
   Minimize2,
-  Edit
+  Edit,
+  Link2,
+  Upload,
+  Eye
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
@@ -342,6 +345,9 @@ export default function OrgChartTab({
   const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager">("user");
+  const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
+  const [uploadingAddJobDescription, setUploadingAddJobDescription] = useState(false);
+  const addJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit Employee States
   const [isEditing, setIsEditing] = useState(false);
@@ -353,6 +359,10 @@ export default function OrgChartTab({
   const [editPhone, setEditPhone] = useState("");
   const [editLevel, setEditLevel] = useState<number>(4);
   const [editParentId, setEditParentId] = useState("");
+  const [editJobDescriptionLink, setEditJobDescriptionLink] = useState("");
+  const [uploadingEditJobDescription, setUploadingEditJobDescription] = useState(false);
+  const [showJobDescriptionPreview, setShowJobDescriptionPreview] = useState(false);
+  const editJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Reset editing state when selected employee changes
@@ -370,7 +380,28 @@ export default function OrgChartTab({
     setEditPhone(selectedEmp.phone && selectedEmp.phone !== "Chưa cập nhật" ? selectedEmp.phone : "");
     setEditLevel(selectedEmp.level || 4);
     setEditParentId(selectedEmp.parentId || "");
+    setEditJobDescriptionLink(selectedEmp.jobDescriptionLink || "");
     setIsEditing(true);
+  };
+
+  const handleJobDescriptionFileChange = async (e: React.ChangeEvent<HTMLInputElement>, target: "add" | "edit") => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const setUploading = target === "add" ? setUploadingAddJobDescription : setUploadingEditJobDescription;
+    const setLink = target === "add" ? setAddJobDescriptionLink : setEditJobDescriptionLink;
+
+    setUploading(true);
+    try {
+      const url = await authService.uploadFile(file);
+      setLink(url);
+      toast.success("Đã tải lên mô tả công việc.");
+    } catch (error: any) {
+      toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleEditEmployeeSave = async () => {
@@ -409,6 +440,7 @@ export default function OrgChartTab({
         department: editDepartment.trim(),
         phone: editPhone.trim() || "",
         parentId: editParentId || null,
+        jobDescriptionLink: editJobDescriptionLink.trim() || "",
       };
 
       await authService.updateUser(selectedEmp.id, updateData);
@@ -425,6 +457,7 @@ export default function OrgChartTab({
         department: updateData.department,
         phone: updateData.phone || "Chưa cập nhật",
         parentId: updateData.parentId || undefined,
+        jobDescriptionLink: updateData.jobDescriptionLink || "",
       };
       setSelectedEmp(updatedNode);
     } catch (err) {
@@ -588,6 +621,7 @@ export default function OrgChartTab({
   useEffect(() => {
     if (!isAddModalOpen) {
       setAddDepartment("Phòng Kỹ Thuật");
+      setAddJobDescriptionLink("");
     }
   }, [isAddModalOpen]);
 
@@ -705,7 +739,9 @@ export default function OrgChartTab({
         managerLevel,
         deptName,
         deptName,
-        addPhone.trim()
+        addPhone.trim(),
+        undefined,
+        addJobDescriptionLink.trim() || undefined
       );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
@@ -723,6 +759,7 @@ export default function OrgChartTab({
       setAddParentId("");
       setAddRole("user");
       setAddDepartment("Phòng Kỹ Thuật");
+      setAddJobDescriptionLink("");
 
       await fetchUsers();
       if (compCode) {
@@ -1177,6 +1214,12 @@ export default function OrgChartTab({
             >
               {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
             </button>
+        <div className="h-full min-h-[500px]" id="org_chart_block">
+          {/* Interactive Tree viewport diagram */}
+          <div className="w-full h-full bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
+            <div className="absolute top-4 left-4 bg-white/85 border px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-500 select-none z-10 flex items-center gap-1 shadow-2xs">
+              <span>🖱️ Giữ chuột trái kéo để xem sơ đồ</span>
+            </div>
 
             <div
               ref={containerRef}
@@ -1305,6 +1348,48 @@ export default function OrgChartTab({
                 </div>
 
                 <div>
+                  <label className="block font-bold text-gray-500 mb-1">Link mô tả công việc</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      placeholder="Dán link hoặc tải file lên"
+                      value={editJobDescriptionLink}
+                      onChange={(e) => setEditJobDescriptionLink(e.target.value)}
+                      className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                    />
+                    <input
+                      ref={editJobDescriptionFileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleJobDescriptionFileChange(e, "edit")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editJobDescriptionFileInputRef.current?.click()}
+                      disabled={uploadingEditJobDescription}
+                      title="Tải file lên Google Drive"
+                      className="shrink-0 p-2 px-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {uploadingEditJobDescription ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    {editJobDescriptionLink && (
+                      <button
+                        type="button"
+                        onClick={() => setShowJobDescriptionPreview(true)}
+                        title="Xem trước"
+                        className="shrink-0 p-2 px-2.5 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp</label>
                   <select
                     value={editParentId}
@@ -1396,6 +1481,28 @@ export default function OrgChartTab({
                     <strong className="text-slate-800 text-xs font-bold">{selectedEmp.phone}</strong>
                   </div>
                 </div>
+                {selectedEmp.jobDescriptionLink && (
+                  <div className="flex items-center gap-3">
+                    <Link2 className="w-4.5 h-4.5 text-gray-400 shrink-0" />
+                    <div className="flex-1 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Mô tả công việc</span>
+                        <strong className="text-slate-800 text-xs font-bold">Đã đính kèm</strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditJobDescriptionLink(selectedEmp.jobDescriptionLink || "");
+                          setShowJobDescriptionPreview(true);
+                        }}
+                        title="Xem trước"
+                        className="shrink-0 p-2 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {selectedEmp.parentId && (() => {
                   const manager = employees.find(e => e.id === selectedEmp.parentId);
                   return (
@@ -1627,6 +1734,38 @@ export default function OrgChartTab({
                   )}
                 </div>
               )}
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Link mô tả công việc</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    placeholder="Dán link hoặc tải file lên"
+                    value={addJobDescriptionLink}
+                    onChange={(e) => setAddJobDescriptionLink(e.target.value)}
+                    className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    ref={addJobDescriptionFileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => handleJobDescriptionFileChange(e, "add")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addJobDescriptionFileInputRef.current?.click()}
+                    disabled={uploadingAddJobDescription}
+                    title="Tải file lên Google Drive"
+                    className="shrink-0 p-2 px-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingAddJobDescription ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold">
@@ -1668,6 +1807,48 @@ export default function OrgChartTab({
           onClose={() => setConfirmState(null)}
           onConfirm={confirmState.onConfirm}
         />
+      )}
+
+      {/* Job description preview modal */}
+      {showJobDescriptionPreview && editJobDescriptionLink && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={() => setShowJobDescriptionPreview(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3 border-b shrink-0">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Xem trước mô tả công việc</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={editJobDescriptionLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-bold text-indigo-650 hover:underline px-2"
+                >
+                  Mở trong tab mới
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowJobDescriptionPreview(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-gray-50">
+              <iframe
+                src={
+                  editJobDescriptionLink.includes("drive.google.com")
+                    ? editJobDescriptionLink.replace(/\/(edit|view)(\?.*)?$/, "/preview")
+                    : editJobDescriptionLink
+                }
+                className="w-full h-full border-0"
+                title="Xem trước mô tả công việc"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

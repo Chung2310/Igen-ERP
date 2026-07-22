@@ -5,6 +5,8 @@ import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
+import { socketService } from "../services/socketService";
+import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
 
 export interface ErpLoginChallenge {
   status: "challenge_required";
@@ -74,6 +76,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(refreshInterval);
   }, []);
 
+  useEffect(() => {
+    if (!userProfile?.companyCode) return;
+    const companyCode = userProfile.companyCode.trim().toUpperCase();
+    return socketService.on("company_modules_updated", (value: unknown) => {
+      const event = normalizeCompanyModulesEvent(value);
+      if (!event || event.companyCode !== companyCode) return;
+      setUser((current) => current ? ({ ...current, enabledModules: event.enabledModules } as any) : current);
+      setUserProfile((current) => current ? ({ ...current, enabledModules: event.enabledModules }) : current);
+      toast.success("Quyền truy cập module của doanh nghiệp vừa được cập nhật.");
+    });
+  }, [userProfile?.companyCode]);
+
+
+  useEffect(() => {
+    if (!userProfile?.companyCode) return;
+    const companyCode = userProfile.companyCode.trim().toUpperCase();
+    return socketService.on("company_status_updated", (value: unknown) => {
+      const event = normalizeCompanyStatusEvent(value);
+      if (!event || event.companyCode !== companyCode) return;
+      if (event.lifecycleStatus !== "active") {
+        toast.error("Doanh nghiệp của bạn đã bị vô hiệu hoá.");
+        void logout();
+      }
+    });
+  }, [userProfile?.companyCode]);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    return socketService.onStatusChange((connected) => {
+      if (!connected) return;
+      void authService.getMe().then((profile) => {
+        if (!profile) return;
+        setUser(profile as any);
+        setUserProfile(profile);
+      });
+    });
+  }, [userProfile?.uid]);
   const loginWithEmail = async (email: string, password: string, rememberMe: boolean = true): Promise<ErpLoginOutcome> => {
     setLoading(true);
     try {

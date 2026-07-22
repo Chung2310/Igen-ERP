@@ -120,6 +120,7 @@ export interface EmployeeNode {
   parentId?: string;
   status: "online" | "offline";
   division: string;
+  jobDescriptionLink?: string;
 }
 
 export interface Project {

@@ -6,8 +6,6 @@ import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modu
 function ModulesEditor({ code, current, onSaved }: { code: string; current: string[]; onSaved: () => void }) {
   const [selected, setSelected] = React.useState<ModuleKey[]>((current as ModuleKey[]) || [...MODULE_KEYS]);
   const [reason, setReason] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [token, setToken] = React.useState("");
   const [error, setError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
@@ -18,8 +16,8 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
   const save = async () => {
     setError(""); setSaving(true);
     try {
-      await superAdminTenantService.updateModules(code, { enabledModules: selected, reason, password, token, step: 0 });
-      setReason(""); setPassword(""); setToken("");
+      await superAdminTenantService.updateModules(code, { enabledModules: selected, reason });
+      setReason("");
       onSaved();
     } catch (e: any) {
       setError(`${e.message}${e.correlationId ? ` (${e.correlationId})` : ""}`);
@@ -36,15 +34,45 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
           </label>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do thay đổi" className="rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs outline-none focus:border-cyan-400" />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu xác nhận" className="rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs outline-none focus:border-cyan-400" />
-        <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Mã TOTP" className="rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs outline-none focus:border-cyan-400" />
-      </div>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do thay đổi" className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs outline-none focus:border-cyan-400" />
       {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{error}</p>}
       <button disabled={!reason.trim() || saving} onClick={save} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
-        {saving ? "Đang lưu..." : "Lưu cấu hình phân hệ"}
+        {saving ? "Đang lưu..." : "Lưu module"}
       </button>
+    </div>
+  );
+}
+
+function StatusToggle({ code, current, onSaved }: { code: string; current?: string; onSaved: () => void }) {
+  const [reason, setReason] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const setStatus = async (lifecycleStatus: "active" | "suspended") => {
+    setError(""); setSaving(true);
+    try {
+      await superAdminTenantService.transition(code, { lifecycleStatus, reason });
+      setReason("");
+      onSaved();
+    } catch (e: any) {
+      setError(`${e.message}${e.correlationId ? ` (${e.correlationId})` : ""}`);
+    } finally { setSaving(false); }
+  };
+
+  const isActive = current === "active";
+
+  return (
+    <div className="space-y-3">
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do thay đổi trạng thái" className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs outline-none focus:border-cyan-400" />
+      {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{error}</p>}
+      <div className="flex gap-2">
+        <button disabled={isActive || !reason.trim() || saving} onClick={() => setStatus("active")} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
+          Kích hoạt
+        </button>
+        <button disabled={!isActive || !reason.trim() || saving} onClick={() => setStatus("suspended")} className="rounded-lg bg-red-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
+          Vô hiệu hoá
+        </button>
+      </div>
     </div>
   );
 }
@@ -80,14 +108,19 @@ export function TenantDetailPage({ code }: { code: string }) {
         {summary ? (
           <dl className="mt-3 grid grid-cols-3 gap-4 text-sm">
             <div><dt className="text-xs text-slate-500">Tổng người dùng</dt><dd className="text-lg font-bold">{summary.userCount}</dd></div>
-            <div><dt className="text-xs text-slate-500">Phân hệ đang bật</dt><dd className="text-lg font-bold">{summary.enabledModulesCount}</dd></div>
+            <div><dt className="text-xs text-slate-500">Module đang bật</dt><dd className="text-lg font-bold">{summary.enabledModulesCount}</dd></div>
             <div><dt className="text-xs text-slate-500">Theo vai trò</dt><dd className="text-xs">{Object.entries(summary.usersByRole).map(([role, count]) => `${role}: ${count}`).join(", ") || "—"}</dd></div>
           </dl>
         ) : <p className="mt-2 text-xs text-slate-500">Đang tải…</p>}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
-        <h3 className="text-sm font-bold text-slate-200">Phân hệ</h3>
+        <h3 className="text-sm font-bold text-slate-200">Trạng thái hoạt động</h3>
+        <div className="mt-3"><StatusToggle code={code} current={tenant.lifecycleStatus} onSaved={load} /></div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+        <h3 className="text-sm font-bold text-slate-200">Module</h3>
         <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} onSaved={load} /></div>
       </div>
 
@@ -95,10 +128,20 @@ export function TenantDetailPage({ code }: { code: string }) {
         <h3 className="text-sm font-bold text-slate-200">Tài khoản quản trị công ty</h3>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="text-slate-500"><tr><th className="pb-2 pr-4">Tên</th><th className="pb-2 pr-4">Email</th><th className="pb-2 pr-4">Vai trò</th><th className="pb-2 pr-4">Trạng thái</th></tr></thead>
+            <thead className="text-slate-500"><tr><th className="pb-2 pr-4">Tên</th><th className="pb-2 pr-4">Email</th><th className="pb-2 pr-4">Vai trò</th><th className="pb-2 pr-4">Trạng thái</th><th className="pb-2 pr-4">Tài khoản</th></tr></thead>
             <tbody className="divide-y divide-white/5">
               {users.map((u) => (
-                <tr key={u._id}><td className="py-2 pr-4">{u.displayName}</td><td className="py-2 pr-4 font-mono">{u.email}</td><td className="py-2 pr-4">{u.role}</td><td className="py-2 pr-4">{u.status}</td></tr>
+                <tr key={u._id}>
+                  <td className="py-2 pr-4">{u.displayName}</td>
+                  <td className="py-2 pr-4 font-mono">{u.email}</td>
+                  <td className="py-2 pr-4">{u.role}</td>
+                  <td className="py-2 pr-4">{u.status}</td>
+                  <td className="py-2 pr-4">
+                    {u.disabledAt
+                      ? <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-300">Đã vô hiệu hoá</span>
+                      : <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">Active</span>}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

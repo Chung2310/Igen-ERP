@@ -13,20 +13,19 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [selected, setSelected] = React.useState<ModuleKey[]>([]);
-  const [reason, setReason] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [token, setToken] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [statusReason, setStatusReason] = React.useState("");
+  const [statusError, setStatusError] = React.useState("");
+  const [statusSaving, setStatusSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    let active = true;
+  const loadTenant = React.useCallback((active: { current: boolean } = { current: true }) => {
     setLoading(true);
     setError("");
-    superAdminTenantService.detail(code)
+    return superAdminTenantService.detail(code)
       .then((result) => {
-        if (!active) return;
+        if (!active.current) return;
         setTenant(result.tenant);
         setSummary(result.summary);
         setSelected(Array.isArray(result.tenant.enabledModules)
@@ -34,13 +33,18 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
           : [...MODULE_KEYS]);
       })
       .catch((cause: any) => {
-        if (active) setError(`${cause.message}${cause.correlationId ? ` (${cause.correlationId})` : ""}`);
+        if (active.current) setError(`${cause.message}${cause.correlationId ? ` (${cause.correlationId})` : ""}`);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active.current) setLoading(false);
       });
-    return () => { active = false; };
   }, [code]);
+
+  React.useEffect(() => {
+    const active = { current: true };
+    loadTenant(active);
+    return () => { active.current = false; };
+  }, [loadTenant]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -57,16 +61,13 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   };
 
   const save = async () => {
-    if (!reason.trim() || selected.length === 0) return;
+    if (selected.length === 0) return;
     setSaving(true);
     setError("");
     try {
       await superAdminTenantService.updateModules(code, {
         enabledModules: selected,
-        reason: reason.trim(),
-        password,
-        token,
-        step: 0,
+        reason: "Cập nhật cấu hình module",
       });
       onSaved();
     } catch (cause: any) {
@@ -76,7 +77,24 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
     }
   };
 
-  const canSave = !loading && selected.length > 0 && Boolean(reason.trim()) && !saving;
+  const canSave = !loading && selected.length > 0 && !saving;
+
+  const setLifecycleStatus = async (lifecycleStatus: "active" | "suspended") => {
+    if (!statusReason.trim()) return;
+    setStatusSaving(true);
+    setStatusError("");
+    try {
+      await superAdminTenantService.transition(code, { lifecycleStatus, reason: statusReason.trim() });
+      setStatusReason("");
+      await loadTenant();
+    } catch (cause: any) {
+      setStatusError(`${cause.message}${cause.correlationId ? ` (${cause.correlationId})` : ""}`);
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  const isActive = tenant?.lifecycleStatus === "active";
 
   return (
     <div
@@ -124,10 +142,15 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
               {selected.length === 0 && <p className="mt-2 text-xs text-amber-300">Doanh nghiệp phải có ít nhất một module.</p>}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-xs font-semibold text-slate-400">Lý do thay đổi<input aria-label="Lý do thay đổi" value={reason} onChange={(event) => setReason(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" /></label>
-              <label className="text-xs font-semibold text-slate-400">Mật khẩu xác nhận<input aria-label="Mật khẩu xác nhận" type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" /></label>
-              <label className="text-xs font-semibold text-slate-400">Mã TOTP<input aria-label="Mã TOTP" value={token} onChange={(event) => setToken(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" /></label>
+            <div className="rounded-xl border border-white/10 bg-slate-950/50 p-4">
+              <h4 className="text-sm font-bold">Trạng thái hoạt động</h4>
+              <p className="mt-1 text-xs text-slate-500">Vô hiệu hoá sẽ khoá đăng nhập của toàn bộ nhân viên trong doanh nghiệp này.</p>
+              <label className="mt-3 block text-xs font-semibold text-slate-400">Lý do đổi trạng thái<input aria-label="Lý do đổi trạng thái" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400" /></label>
+              {statusError && <p role="alert" className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{statusError}</p>}
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setLifecycleStatus("active")} disabled={isActive || !statusReason.trim() || statusSaving} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">Kích hoạt</button>
+                <button type="button" onClick={() => setLifecycleStatus("suspended")} disabled={!isActive || !statusReason.trim() || statusSaving} className="rounded-lg bg-red-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">Vô hiệu hoá</button>
+              </div>
             </div>
           </div>
         ) : null}

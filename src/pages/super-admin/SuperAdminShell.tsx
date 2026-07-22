@@ -6,7 +6,7 @@ import { DashboardTab } from "../../components/super-admin/DashboardTab";
 import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
-import { UserSearchPage } from "./users/UserSearchPage";
+import { UserManagementPanel } from "./users/UserManagementPanel";
 import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X } from "lucide-react";
 import {
   clearPendingSuperAdminChallenge,
@@ -128,7 +128,7 @@ export default function SuperAdminShell() {
       case "tenants":
         return <TenantListPage onSelect={() => undefined} />;
       case "users":
-        return <UserSearchPage tenantId="SYSTEM" onSelect={() => undefined} />;
+        return <UserManagementPanel tenantId="SYSTEM" />;
       case "overview":
       default:
         return <DashboardTab />;
