@@ -25,6 +25,21 @@ function generateTelegramLinkCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+/**
+ * Chặn đăng nhập/làm mới token cho tài khoản bị vô hiệu hoá hoặc thuộc doanh nghiệp không còn active.
+ */
+async function assertAccountUsable(user: IUser): Promise<void> {
+  if (user.disabledAt) {
+    throw new Error("Tài khoản của bạn đã bị vô hiệu hoá.");
+  }
+  if (user.companyCode && user.companyCode !== "SYSTEM") {
+    const company = await CompanyModel.findOne({ code: user.companyCode }).select("lifecycleStatus").lean<{ lifecycleStatus?: string } | null>();
+    if (!company || company.lifecycleStatus !== "active") {
+      throw new Error("Doanh nghiệp của bạn đang tạm ngưng hoạt động.");
+    }
+  }
+}
+
 export const authService = {
   /**
    * Tạo bộ đôi Access Token và Refresh Token
@@ -97,6 +112,8 @@ export const authService = {
       throw new Error("Yêu cầu mật khẩu để đăng nhập.");
     }
 
+    await assertAccountUsable(user);
+
     if (requiresSuperAdminChallenge(user.role)) {
       return superAdminAuthService.beginSuperAdminLogin(user, requestMetadata);
     }
@@ -116,6 +133,8 @@ export const authService = {
       if (!user) {
         throw new Error("Không tìm thấy thông tin tài khoản.");
       }
+
+      await assertAccountUsable(user);
 
       if (decoded.sid) {
         const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });

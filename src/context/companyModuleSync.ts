@@ -16,3 +16,12 @@ export function normalizeCompanyModulesEvent(value: unknown): CompanyModulesUpda
 
   return { companyCode: input.companyCode.trim().toUpperCase(), enabledModules };
 }
+
+export type CompanyStatusUpdatedEvent = { companyCode: string; lifecycleStatus: string };
+
+export function normalizeCompanyStatusEvent(value: unknown): CompanyStatusUpdatedEvent | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as { companyCode?: unknown; lifecycleStatus?: unknown };
+  if (typeof input.companyCode !== "string" || !input.companyCode.trim() || typeof input.lifecycleStatus !== "string") return null;
+  return { companyCode: input.companyCode.trim().toUpperCase(), lifecycleStatus: input.lifecycleStatus };
+}

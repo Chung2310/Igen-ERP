@@ -31,7 +31,15 @@ export function createTenantRouter(deps: Dependencies = {}) {
     }
     return tenant;
   }));
-  router.post("/tenants/:companyCode/lifecycle", mutation(tenantActions.lifecycle, async (input) => service.transitionLifecycle(input.companyCode, input.lifecycleStatus)));
+  router.post("/tenants/:companyCode/lifecycle", mutation(tenantActions.lifecycle, async (input) => {
+    const tenant = await service.transitionLifecycle(input.companyCode, input.lifecycleStatus);
+    try {
+      await emitCompany(tenant.code, "company_status_updated", { companyCode: tenant.code, lifecycleStatus: tenant.lifecycleStatus });
+    } catch (error) {
+      console.error(`[tenant lifecycle] Realtime delivery failed for ${tenant.code}:`, error);
+    }
+    return tenant;
+  }));
   router.post("/tenants/:companyCode/deletion", mutation(tenantActions.scheduleDeletion, async (input) => service.scheduleDeletion(input.companyCode, input.reason)));
   router.delete("/tenants/:companyCode/deletion", mutation(tenantActions.cancelDeletion, async (input) => service.cancelDeletion(input.companyCode)));
   return router;

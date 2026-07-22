@@ -57,6 +57,15 @@ test("clears module access cache and emits the saved modules to the tenant room"
   } finally { await api.close(); }
 });
 
+test("emits the new lifecycle status to the tenant room on transition", async () => {
+  const api = await serve();
+  try {
+    const response = await fetch(`${api.url}/tenants/ACME/lifecycle`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "lifecycle-1" }, body: JSON.stringify({ lifecycleStatus: "suspended", reason: "policy violation" }) });
+    assert.equal(response.status, 200);
+    assert.deepEqual(api.emitted, [["ACME", "company_status_updated", { companyCode: "ACME", lifecycleStatus: "suspended" }]]);
+  } finally { await api.close(); }
+});
+
 test("does not clear cache or emit when the module update fails", async () => {
   const api = await serve({ failModuleUpdate: true });
   try {

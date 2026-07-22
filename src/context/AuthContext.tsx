@@ -6,7 +6,7 @@ import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
 import { socketService } from "../services/socketService";
-import { normalizeCompanyModulesEvent } from "./companyModuleSync";
+import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
 
 export interface ErpLoginChallenge {
   status: "challenge_required";
@@ -88,6 +88,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [userProfile?.companyCode]);
 
+
+  useEffect(() => {
+    if (!userProfile?.companyCode) return;
+    const companyCode = userProfile.companyCode.trim().toUpperCase();
+    return socketService.on("company_status_updated", (value: unknown) => {
+      const event = normalizeCompanyStatusEvent(value);
+      if (!event || event.companyCode !== companyCode) return;
+      if (event.lifecycleStatus !== "active") {
+        toast.error("Doanh nghiệp của bạn đã bị vô hiệu hoá.");
+        void logout();
+      }
+    });
+  }, [userProfile?.companyCode]);
 
   useEffect(() => {
     if (!userProfile) return;

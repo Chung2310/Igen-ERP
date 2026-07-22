@@ -43,7 +43,14 @@ export class TenantManagementService {
     return needed(await this.tenants.update(c,{enabledModules}),c);
   }
 
-  async transitionLifecycle(v:string,target:Exclude<TenantLifecycleStatus,"scheduled-deletion">){const c=code(v),t=needed(await this.tenants.get(c),c);if(!next[t.lifecycleStatus].includes(target))throw Error(`Invalid lifecycle transition from ${t.lifecycleStatus} to ${target}`);return needed(await this.tenants.update(c,{lifecycleStatus:target,lifecycleChangedAt:new Date()}),c)}
+  async transitionLifecycle(v:string,target:Exclude<TenantLifecycleStatus,"scheduled-deletion">){
+    const c=code(v),t=needed(await this.tenants.get(c),c);
+    if(!next[t.lifecycleStatus].includes(target))throw Error(`Invalid lifecycle transition from ${t.lifecycleStatus} to ${target}`);
+    const now=new Date();
+    const updated=needed(await this.tenants.update(c,{lifecycleStatus:target,lifecycleChangedAt:now}),c);
+    await UserModel.updateMany({companyCode:c},{$set:{disabledAt: target==="active" ? null : now}});
+    return updated;
+  }
 
   async scheduleDeletion(v:string,reason:string,now=new Date(),impactPreview?:Record<string,unknown>,backupEvidenceId?:string){const c=code(v),t=needed(await this.tenants.get(c),c),r=String(reason||"").trim();if(t.lifecycleStatus!=="archived")throw Error("Tenant must be archived before deletion");if(!r)throw Error("Deletion reason is required");if(!impactPreview||!backupEvidenceId)throw Error("impact preview and backup evidence are required");const retentionEndsAt=new Date(now);retentionEndsAt.setUTCDate(retentionEndsAt.getUTCDate()+30);const deletionJob={status:"queued",impactPreview,backupEvidenceId};return needed(await this.tenants.update(c,{lifecycleStatus:"scheduled-deletion",lifecycleChangedAt:now,deletionScheduledAt:now,retentionEndsAt,deletionReason:r,deletionJob} as any),c)}
 
@@ -66,6 +73,6 @@ export class TenantManagementService {
   async listUsers(v:string){
     const c=code(v);
     await needed(await this.tenants.get(c),c);
-    return UserModel.find({ companyCode: c }).select("displayName email role status createdAt").sort({ createdAt: -1 }).lean();
+    return UserModel.find({ companyCode: c }).select("displayName email role status disabledAt createdAt").sort({ createdAt: -1 }).lean();
   }
 }
