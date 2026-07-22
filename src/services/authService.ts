@@ -362,7 +362,8 @@ export const authService = {
       avatarId?: string;
       voiceId?: string;
       apiKey?: string;
-    }
+    },
+    jobDescriptionLink?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -383,6 +384,7 @@ export const authService = {
         division,
         phone,
         heygenAccess,
+        jobDescriptionLink,
       }),
     });
 

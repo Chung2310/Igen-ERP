@@ -85,6 +85,7 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
+  const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   const resetUserForm = () => {
@@ -95,6 +96,7 @@ export default function UserAdminTab() {
     setUserRole("user");
     setUserParentId("");
     setUserDepartment("");
+    setUserJobDescriptionLink("");
   };
   const companyFormState: CompanyFormState = {
     companyName,
@@ -181,6 +183,7 @@ export default function UserAdminTab() {
   useEffect(() => {
     if (!isUserModalOpen) {
       setUserDepartment("");
+      setUserJobDescriptionLink("");
       setEditingUser(null);
     }
   }, [isUserModalOpen]);
@@ -586,6 +589,7 @@ export default function UserAdminTab() {
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
+          jobDescriptionLink: userJobDescriptionLink.trim() || "",
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -602,6 +606,8 @@ export default function UserAdminTab() {
           userDepartment.trim() || undefined,
           userDepartment.trim() || undefined,
           undefined,
+          undefined,
+          userJobDescriptionLink.trim() || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -637,6 +643,7 @@ export default function UserAdminTab() {
     setUserCompanyCode(user.companyCode || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
+    setUserJobDescriptionLink(user.jobDescriptionLink || "");
     setIsUserModalOpen(true);
   };
 
@@ -1246,6 +1253,8 @@ export default function UserAdminTab() {
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
+        userJobDescriptionLink={userJobDescriptionLink}
+        setUserJobDescriptionLink={setUserJobDescriptionLink}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}
