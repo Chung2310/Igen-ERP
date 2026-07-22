@@ -85,6 +85,7 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
+  const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   const resetUserForm = () => {
@@ -95,6 +96,7 @@ export default function UserAdminTab() {
     setUserRole("user");
     setUserParentId("");
     setUserDepartment("");
+    setUserJobDescriptionLink("");
   };
   const companyFormState: CompanyFormState = {
     companyName,
@@ -181,6 +183,7 @@ export default function UserAdminTab() {
   useEffect(() => {
     if (!isUserModalOpen) {
       setUserDepartment("");
+      setUserJobDescriptionLink("");
       setEditingUser(null);
     }
   }, [isUserModalOpen]);
@@ -451,7 +454,7 @@ export default function UserAdminTab() {
       return;
     }
     if (selectedModules.length === 0) {
-      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      toast.warning("Vui lòng chọn ít nhất một phân hệ.");
       return;
     }
 
@@ -523,7 +526,7 @@ export default function UserAdminTab() {
     }
 
     if (editingCompany.enabledModules.length === 0) {
-      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      toast.warning("Vui lòng chọn ít nhất một phân hệ.");
       return;
     }
     setSubmittingCompany(true);
@@ -586,6 +589,7 @@ export default function UserAdminTab() {
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
+          jobDescriptionLink: userJobDescriptionLink.trim() || "",
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -602,6 +606,8 @@ export default function UserAdminTab() {
           userDepartment.trim() || undefined,
           userDepartment.trim() || undefined,
           undefined,
+          undefined,
+          userJobDescriptionLink.trim() || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -637,6 +643,7 @@ export default function UserAdminTab() {
     setUserCompanyCode(user.companyCode || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
+    setUserJobDescriptionLink(user.jobDescriptionLink || "");
     setIsUserModalOpen(true);
   };
 
@@ -850,7 +857,7 @@ export default function UserAdminTab() {
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
               <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư người dùng</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Chỉ superadmin mới được chỉnh sửa balance của người dùng.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Chỉ quản trị viên cấp cao mới được chỉnh sửa số dư của người dùng.</p>
             </div>
             <button
               type="button"
@@ -1051,7 +1058,6 @@ export default function UserAdminTab() {
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
               <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Tạo vai trò tùy chỉnh và thiết lập danh sách quyền tương ứng cho nhân sự.</p>
             </div>
             <button
               onClick={() => {
@@ -1246,6 +1252,8 @@ export default function UserAdminTab() {
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
+        userJobDescriptionLink={userJobDescriptionLink}
+        setUserJobDescriptionLink={setUserJobDescriptionLink}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}

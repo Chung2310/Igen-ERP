@@ -120,6 +120,7 @@ export interface EmployeeNode {
   parentId?: string;
   status: "online" | "offline";
   division: string;
+  jobDescriptionLink?: string;
 }
 
 export interface Project {
@@ -146,7 +147,7 @@ export interface HRTask {
   dueDate: string;
   priority: "High" | "Medium" | "Low" | "Cao" | "Trung bình" | "Thấp";
   status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
-  category?: "Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
+  category?: "Onboarding" | "Hướng dẫn nhân viên mới" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
   companyCode: string;
   creatorUid: string;
   createdAt: any;

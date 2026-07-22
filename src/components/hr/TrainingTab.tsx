@@ -784,7 +784,6 @@ export default function TrainingTab({
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs text-left">
             <div>
               <h3 className="font-bold text-lg text-slate-800 font-sans">Học Viện & Đào Tạo iGen</h3>
-              <p className="text-xs text-gray-400 mt-1">Hệ thống bài giảng số hóa, hướng dẫn nghiệp vụ và sát hạch trắc nghiệm nội bộ.</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

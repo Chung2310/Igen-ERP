@@ -135,6 +135,7 @@ const UserSchema = new Schema<IUser>({
   elevenlabsAccess: { type: ElevenLabsAccessSchema, default: () => ({}) },
   jobTitle: { type: String },
   department: { type: String },
+  jobDescriptionLink: { type: String },
   phone: { type: String },
   level: { type: Number },
   parentId: { type: String },

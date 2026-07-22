@@ -25,6 +25,8 @@ import {
   Clock3,
   MessageSquare,
   CheckCircle2,
+  LayoutDashboard,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { isModuleEnabled } from "../config/modules";
@@ -41,9 +43,9 @@ import AttendanceCameraModal from "../components/attendance/AttendanceCameraModa
 type DashboardView = "overview" | "revenue";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
 
-const tabs: Array<{ id: DashboardView; label: string }> = [
-  { id: "overview", label: "Tổng quan" },
-  { id: "revenue", label: "Phân tích doanh thu" },
+const tabs: Array<{ id: DashboardView; label: string; icon: any }> = [
+  { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
+  { id: "revenue", label: "Phân tích doanh thu", icon: TrendingUp },
 ];
 
 const toneClass: Record<Tone, { soft: string; text: string; fill: string; strong: string }> = {
@@ -777,30 +779,33 @@ export default function DashboardTab() {
 
   return (
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
-      <div className="mb-8 flex flex-col gap-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="font-sans text-xl font-bold tracking-tight text-slate-900">
               {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
             </h1>
-            <p className="mt-2 text-sm text-gray-655">Hôm nay, {todayLabel}</p>
+            <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
-          <div className="inline-flex rounded-xl bg-slate-100/80 p-1 w-fit">
+        <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-1 overflow-x-auto select-none">
             {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
+              const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${isActive
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-gray-500 hover:bg-white/50 hover:text-gray-800"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                    isActive
+                      ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
                 >
-                  {tab.label}
+                  <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -968,8 +973,7 @@ function OverviewPanel({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {canSeeHr && <TimekeepingWidget
           todayTimekeeping={todayTimekeeping}
           todayWorkCalendar={todayWorkCalendar}
@@ -977,130 +981,109 @@ function OverviewPanel({
           onRefresh={onRefreshTimekeeping}
         />}
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {canSeeHr && <ModuleCard
-            icon={Users}
-            tone="amber"
-            title="Nhân sự"
-            value={employeeCount}
-            label={employeeLabel}
-            footer="Nhân sự mới"
-            footerValue={`+${newHiresCount}`}
-            progress={Math.min(100, (parseInt(employeeCount) || 0) > 0 ? Math.round((newHiresCount / (parseInt(employeeCount) || 1)) * 100) : 0)}
-            onClick={() => goToTab("NHÂN SỰ")}
-          />}
-          {canSeeInventory && <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />}
-        </div>
+        {/* Metric Module Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {canSeeHr && (
+            <ModuleCard
+              icon={Users}
+              tone="amber"
+              title="Nhân sự"
+              value={employeeCount}
+              label="Tổng nhân sự"
+              footer="Nhân sự mới"
+              footerValue={`+${newHiresCount}`}
+              onClick={() => goToTab("NHÂN SỰ")}
+            />
+          )}
+          {canSeeInventory && (
+            <ModuleCard
+              icon={PackageCheck}
+              tone="blue"
+              title="Kho & Sản phẩm"
+              value={totalProducts}
+              label="Tổng sản phẩm"
+              footer="Đơn chờ xuất"
+              footerValue={`${pendingShipments} Đơn`}
+              alert
+              lowCount={lowStockCount}
+              onClick={() => goToTab("KHO & SẢN PHẨM")}
+            />
+          )}
+          {canSeeHr && (
+            <ModuleCard
+              icon={KanbanSquare}
+              tone="indigo"
+              title="Dự án & Công việc"
+              value={summary ? String(summary.projects.tasks.doing) : "..."}
+              label="Task đang làm"
+              footer="Dự án hoạt động"
+              footerValue={summary ? String(summary.projects.activeProjects) : "..."}
+              alert
+              lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
+              onClick={() => goToTab("NHÂN SỰ", "kanban")}
+            />
+          )}
+          {canSeeStudent && (
+            <ModuleCard
+              icon={GraduationCap}
+              tone="emerald"
+              title="Học viên"
+              value={summary ? String(summary.students.totalStudents) : "..."}
+              label="Tổng học viên"
+              footer="Học viên mới trong kỳ"
+              footerValue={summary ? `+${summary.students.newStudents}` : "..."}
+              onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
+            />
+          )}
+          {canSeeStudent && (
+            <ModuleCard
+              icon={Wallet}
+              tone="amber"
+              title="Học phí & Công nợ"
+              value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
+              label="Học phí đã thu"
+              footer="Công nợ còn lại"
+              footerValue={summary ? formatDashboardCurrency(summary.students.outstandingDebt, 1, false) : "..."}
+              onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
+            />
+          )}
+          {canSeeHr && (
+            <ModuleCard
+              icon={UserCheck}
+              tone="blue"
+              title="Chấm công hôm nay"
+              value={summary ? `${summary.timekeeping.checkedInToday}/${summary.timekeeping.totalEmployees}` : "..."}
+              label="Đã điểm danh"
+              footer="Đi muộn"
+              footerValue={summary ? String(summary.timekeeping.lateToday) : "..."}
+              onClick={() => goToTab("NHÂN SỰ", "lich")}
+            />
+          )}
+          {canSeeChat && (
+            <ModuleCard
+              icon={MessageSquare}
+              tone="slate"
+              title="Trò chuyện"
+              value={summary ? String(summary.chat.unreadMessages) : "..."}
+              label="Tin chưa đọc"
+              footer="Phòng chat tham gia"
+              footerValue={summary ? String(summary.chat.roomCount) : "..."}
+              onClick={() => goToTab("TRÒ CHUYỆN")}
+            />
+          )}
+          {canSeeResource && (
+            <ModuleCard
+              icon={FolderOpen}
+              tone="indigo"
+              title="Tài nguyên"
+              value={summary ? String(summary.resources.fileCount) : "..."}
+              label="Tổng số file"
+              footer="Tải lên trong kỳ"
+              footerValue={summary ? `+${summary.resources.recentUploads}` : "..."}
+              onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
+            />
+          )}
 
-        {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {canSeeHr && <ModuleCard
-            icon={KanbanSquare}
-            tone="indigo"
-            title="Dự án & Công việc"
-            value={summary ? String(summary.projects.tasks.doing) : "..."}
-            label="Task đang làm"
-            footer="Dự án hoạt động"
-            footerValue={summary ? String(summary.projects.activeProjects) : "..."}
-            progress={
-              summary && summary.projects.tasks.total > 0
-                ? Math.round((summary.projects.tasks.done / summary.projects.tasks.total) * 100)
-                : 0
-            }
-            alert
-            lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
-            onClick={() => goToTab("NHÂN SỰ", "kanban")}
-          />}
-          {canSeeStudent && <ModuleCard
-            icon={GraduationCap}
-            tone="emerald"
-            title="Học viên"
-            value={summary ? String(summary.students.totalStudents) : "..."}
-            label="Tổng học viên"
-            footer="Học viên mới trong kỳ"
-            footerValue={summary ? `+${summary.students.newStudents}` : "..."}
-            progress={
-              summary && summary.students.totalStudents > 0
-                ? Math.min(100, Math.round((summary.students.newStudents / summary.students.totalStudents) * 100))
-                : 0
-            }
-            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
-          />}
-          {canSeeStudent && <ModuleCard
-            icon={Wallet}
-            tone="amber"
-            title="Học phí & Công nợ"
-            value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
-            label="Học phí đã thu"
-            footer="Công nợ còn lại"
-            footerValue={summary ? formatDashboardCurrency(summary.students.outstandingDebt, 1, false) : "..."}
-            progress={
-              summary && summary.students.tuitionRevenue + summary.students.outstandingDebt > 0
-                ? Math.round(
-                  (summary.students.tuitionRevenue /
-                    (summary.students.tuitionRevenue + summary.students.outstandingDebt)) *
-                  100
-                )
-                : 0
-            }
-            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
-          />}
-          {canSeeHr && <ModuleCard
-            icon={UserCheck}
-            tone="blue"
-            title="Chấm công hôm nay"
-            value={summary ? `${summary.timekeeping.checkedInToday}/${summary.timekeeping.totalEmployees}` : "..."}
-            label="Đã điểm danh"
-            footer="Đi muộn"
-            footerValue={summary ? String(summary.timekeeping.lateToday) : "..."}
-            progress={
-              summary && summary.timekeeping.totalEmployees > 0
-                ? Math.round((summary.timekeeping.checkedInToday / summary.timekeeping.totalEmployees) * 100)
-                : 0
-            }
-            onClick={() => goToTab("NHÂN SỰ", "lich")}
-          />}
-          {canSeeChat && <ModuleCard
-            icon={MessageSquare}
-            tone="slate"
-            title="Trò chuyện"
-            value={summary ? String(summary.chat.unreadMessages) : "..."}
-            label="Tin chưa đọc"
-            footer="Phòng chat tham gia"
-            footerValue={summary ? String(summary.chat.roomCount) : "..."}
-            progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
-            onClick={() => goToTab("TRÒ CHUYỆN")}
-          />}
-          {canSeeResource && <ModuleCard
-            icon={FolderOpen}
-            tone="indigo"
-            title="Tài nguyên"
-            value={summary ? String(summary.resources.fileCount) : "..."}
-            label="Tổng số file"
-            footer="Tải lên trong kỳ"
-            footerValue={summary ? `+${summary.resources.recentUploads}` : "..."}
-            progress={
-              summary && summary.resources.fileCount > 0
-                ? Math.min(100, Math.round((summary.resources.recentUploads / summary.resources.fileCount) * 100))
-                : 0
-            }
-            onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
-          />}
-          {canSeeHr && <ModuleCard
-            icon={BookOpen}
-            tone="emerald"
-            title="Đào tạo"
-            value={summary ? String(summary.training.ongoingCourses) : "..."}
-            label="Khóa đang diễn ra"
-            footer="Lượt ghi danh"
-            footerValue={summary ? String(summary.training.enrollments.total) : "..."}
-            progress={
-              summary && summary.training.enrollments.total > 0
-                ? Math.round((summary.training.enrollments.completed / summary.training.enrollments.total) * 100)
-                : 0
-            }
-            onClick={() => goToTab("NHÂN SỰ", "dao-tao")}
-          />}
         </div>
 
         {/* Biểu đồ tổng quát các module */}
@@ -1148,109 +1131,60 @@ function OverviewPanel({
           </div>
         )}
 
-        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
-              <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">Đơn vị: VNĐ</span>
-            </div>
-            <BarChart data={trendData} />
-          </div>
-        </div>}
-
-        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
-            <div>
+        {canSeeInventory && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
               <div className="mb-5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800">Cảnh báo tồn kho</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
+                <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">Đơn vị: VNĐ</span>
+              </div>
+              <BarChart data={trendData} />
+            </div>
+
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
+              <div>
+                <div className="mb-5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800">Cảnh báo tồn kho</h3>
+                  </div>
+                  <button onClick={() => goToTab("KHO & SẢN PHẨM")} className="text-xs font-semibold text-blue-655 hover:text-blue-700 transition-colors">Xem tất cả</button>
                 </div>
-                <button onClick={() => goToTab("KHO & SẢN PHẨM")} className="text-xs font-semibold text-blue-655 hover:text-blue-700 transition-colors">Xem tất cả</button>
+
+                {lowStockItems.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-sm text-gray-500">
+                    <PackageCheck className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                    Tồn kho hiện tại đang ở mức an toàn.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {lowStockItems.slice(0, 3).map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition-colors">
+                        <div className="min-w-0 flex-1 pr-3">
+                          <p className="truncate text-sm font-bold text-gray-800">{p.name}</p>
+                          <p className="text-xs text-gray-500">Mã sản phẩm: {p.sku} · Định mức: {p.minStockAlert}</p>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 ring-1 ring-rose-500/10">
+                            Tồn: {p.stock}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {lowStockItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-sm text-gray-500">
-                  <PackageCheck className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                  Tồn kho hiện tại đang ở mức an toàn.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {lowStockItems.slice(0, 3).map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition-colors">
-                      <div className="min-w-0 flex-1 pr-3">
-                        <p className="truncate text-sm font-bold text-gray-800">{p.name}</p>
-                        <p className="text-xs text-gray-500">SKU: {p.sku} · Định mức: {p.minStockAlert}</p>
-                      </div>
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 ring-1 ring-rose-500/10">
-                          Tồn: {p.stock}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              {lowStockItems.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Tổng số sản phẩm yếu:</span>
+                  <span className="font-mono text-base font-extrabold text-rose-600">{lowStockCount} mã sản phẩm</span>
                 </div>
               )}
+              {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
             </div>
-
-            {lowStockItems.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-gray-500">Tổng số sản phẩm yếu:</span>
-                <span className="font-mono text-base font-extrabold text-rose-600">{lowStockCount} SKU</span>
-              </div>
-            )}
-            {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
-        </div>}
-      </div>
-
-      <aside className="rounded-3xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm flex flex-col justify-start">
-        <div className="mb-6 flex items-start gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-500/10 ring-2 ring-white">
-            <Sparkles className="h-5 w-5 animate-pulse" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-gray-850">AI Đề Xuất</h3>
-            <p className="mt-1 text-xs leading-relaxed text-gray-550">Chủ động cảnh báo rủi ro, tối ưu hóa quy trình vận hành tức thì.</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {[
-            {
-              icon: AlertTriangle,
-              moduleKey: "inventory",
-              title: lowStockItems.length > 0 ? `${lowStockItems[0].name} có nguy cơ cạn kho` : "Kho hiện ổn định",
-              body: lowStockItems.length > 0
-                ? `AI dự báo sản phẩm ${lowStockItems[0].name} có tồn ${lowStockItems[0].stock}, thấp hơn ngưỡng cảnh báo ${lowStockItems[0].minStockAlert}.`
-                : "AI chưa phát hiện rủi ro tồn kho đáng báo động trong 3 ngày tới.",
-              action: lowStockItems.length > 0 ? "Tạo đơn nhập kho ngay" : "Xem báo cáo kho",
-              color: "red",
-              onAction: () => {
-                if (lowStockItems.length > 0) {
-                  onCreateReorder(lowStockItems[0]?.name);
-                } else {
-                  onCreateReorder();
-                }
-                goToTab("KHO & SẢN PHẨM");
-              },
-            },
-            {
-              icon: Bot,
-              moduleKey: undefined,
-              title: "Tự động hóa CSKH bằng AI",
-              body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
-              action: "Trải nghiệm AI Agent",
-              color: "indigo",
-              onAction: () => {
-                onRecommendAgent();
-              },
-            },
-          ].filter((item) => !item.moduleKey || canSeeInventory).map((item) => (
-            <AiInsightCard key={item.title} {...item} />
-          ))}
-        </div>
-      </aside>
+        )}
     </div>
   );
 }
@@ -1342,7 +1276,6 @@ function ModuleCard({
   label,
   footer,
   footerValue,
-  progress,
   alert,
   lowCount,
   onClick,
@@ -1354,7 +1287,7 @@ function ModuleCard({
   label: string;
   footer: string;
   footerValue: string;
-  progress: number;
+  progress?: number;
   alert?: boolean;
   lowCount?: string;
   onClick?: () => void;
@@ -1364,31 +1297,33 @@ function ModuleCard({
   return (
     <div
       onClick={onClick}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-md cursor-pointer hover:border-slate-200"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all duration-200 hover:shadow-md hover:border-slate-300 cursor-pointer"
     >
       <div>
-        <div className="mb-6 flex items-start justify-between">
-          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${color.soft} ${color.text} group-hover:scale-105 transition-transform`}>
-            <Icon className="h-5.5 w-5.5" />
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${color.soft} ${color.text} group-hover:scale-105 transition-transform`}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">{title}</p>
           </div>
           {isAlertActive && (
-            <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-500/10 animate-pulse">
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-500/10 animate-pulse">
               Cảnh báo: {lowCount}
             </span>
           )}
         </div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{title}</p>
-        <p className="mt-2 font-sans text-3xl font-extrabold tracking-tight text-gray-800 truncate" title={value}>
-          {value}
-        </p>
-        <p className="mt-1.5 text-xs text-gray-500">{label}</p>
+        <div className="flex items-baseline gap-1.5 mt-1">
+          <span className="font-sans text-2xl font-black tracking-tight text-slate-800 truncate" title={value}>
+            {value}
+          </span>
+          <span className="text-xs text-slate-400 font-medium truncate">{label}</span>
+        </div>
       </div>
 
-      <div className="mt-6">
-        <div className="mb-2 flex items-center justify-between text-xs">
-          <span className="text-gray-400 truncate pr-2">{footer}</span>
-          <span className={`font-bold shrink-0 ${color.strong}`}>{footerValue}</span>
-        </div>
+      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+        <span className="text-slate-400 font-medium truncate pr-2">{footer}</span>
+        <span className={`font-bold shrink-0 ${color.strong}`}>{footerValue}</span>
       </div>
     </div>
   );

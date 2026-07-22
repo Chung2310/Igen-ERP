@@ -1,4 +1,4 @@
-﻿import { Wallet } from "lucide-react";
+import { Users, ShieldCheck, Wallet } from "lucide-react";
 import { UserProfile } from "../../types";
 import { UserAdminTabKey } from "./types";
 
@@ -10,34 +10,33 @@ interface Props {
 
 export function UserAdminTabs({ activeTab, onChange, userProfile }: Props) {
   return (
-    <div className="border-b border-gray-200 px-6 py-2 bg-slate-50 flex gap-4 shrink-0" id="user_admin_subtabs">
-      <button
-        onClick={() => onChange("users")}
-        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-          activeTab === "users" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-250"
-        }`}
-      >
-        Danh sách tài khoản
-      </button>
-      <button
-        onClick={() => onChange("roles")}
-        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-          activeTab === "roles" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-250"
-        }`}
-      >
-        Vai trò & Phân quyền
-      </button>
-      {userProfile?.role === "superadmin" && (
-        <button
-          onClick={() => onChange("balance")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            activeTab === "balance" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-250"
-          }`}
-        >
-          <Wallet className="h-3.5 w-3.5" />
-          Số dư người dùng
-        </button>
-      )}
+    <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex justify-between items-center shrink-0" id="user_admin_subtabs">
+      <div className="flex gap-1 overflow-x-auto select-none">
+        {[
+          { id: "users", label: "Danh sách tài khoản", icon: Users },
+          { id: "roles", label: "Vai trò & Phân quyền", icon: ShieldCheck },
+          ...(userProfile?.role === "superadmin"
+            ? [{ id: "balance", label: "Số dư người dùng", icon: Wallet }]
+            : []),
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onChange(tab.id as UserAdminTabKey)}
+              className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                isActive
+                  ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                  : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

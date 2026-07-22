@@ -226,8 +226,8 @@ export default function WalletTab() {
               <ShieldCheck className="h-3.5 w-3.5 text-blue-200" /> Giả Lập
             </div>
             <Wallet className="mx-auto h-12 w-12 text-blue-100 mb-3 animate-bounce" />
-            <h2 className="text-xl font-bold tracking-tight">CỔNG THANH TOÁN iGEN PAYOS</h2>
-            <p className="text-xs text-blue-150 mt-1 opacity-90">Mô phỏng VietQR Chuyển Khoản Ngân Hàng</p>
+            <h2 className="text-xl font-bold tracking-tight">CỔNG THANH TOÁN iGEN</h2>
+            <p className="text-xs text-blue-150 mt-1 opacity-90">Mô phỏng mã QR chuyển khoản ngân hàng</p>
           </div>
 
           {/* Details */}
@@ -256,7 +256,7 @@ export default function WalletTab() {
             {/* QR Mock */}
             <div className="flex flex-col items-center justify-center py-4 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
               <QrCode className="h-40 w-40 text-slate-700" />
-              <p className="text-[11px] text-gray-400 font-medium mt-2">Dùng ứng dụng ngân hàng quét mã VietQR để thanh toán</p>
+              <p className="text-[11px] text-gray-400 font-medium mt-2">Dùng ứng dụng ngân hàng quét mã QR để thanh toán</p>
             </div>
 
             {/* Actions */}
@@ -295,8 +295,7 @@ export default function WalletTab() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
-          <p className="text-xs text-gray-500 mt-1">Quản lý ngân sách cá nhân, nạp tiền trực tuyến VietQR nhanh chóng.</p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
         </div>
         <button
           onClick={handleRefresh}
@@ -350,7 +349,7 @@ export default function WalletTab() {
                 </div>
                 
                 <div className="flex justify-between items-center text-[10px] text-white/75 font-mono">
-                  <span>ACTIVE WALLET</span>
+                  <span>Ví hoạt động</span>
                   <span>iGEN ERP</span>
                 </div>
               </div>
@@ -415,16 +414,12 @@ export default function WalletTab() {
                   ) : (
                     <>
                       <CreditCard className="h-4 w-4" />
-                      <span>Nạp tiền trực tuyến (PayOS)</span>
+                      <span>Nạp tiền trực tuyến</span>
                     </>
                   )}
                 </button>
               </form>
 
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3 text-[10px] text-gray-400 leading-normal">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-blue-500" />
-                <span>Bảo mật giao dịch VietQR 24/7. Các khoản tiền sẽ được ghi nhận tự động vào số dư ví của bạn ngay sau khi hoàn tất chuyển khoản.</span>
-              </div>
             </div>
 
           </div>
@@ -486,7 +481,7 @@ export default function WalletTab() {
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-blue-600">
-                                  <ArrowUpRight className="h-3.5 w-3.5" /> Trừ phí API
+                                  <ArrowUpRight className="h-3.5 w-3.5" /> Trừ phí sử dụng dịch vụ
                                 </span>
                               )}
                             </td>

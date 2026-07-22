@@ -401,7 +401,7 @@ export const workflowLinkService = {
       });
       if (pendingCount > 0) {
         const err: any = new Error(
-          `Còn ${pendingCount} task Kanban chưa hoàn thành ở bước hiện tại. Hoàn thành hết trước khi chuyển bước.`
+          `Còn ${pendingCount} công việc chưa hoàn thành ở bước hiện tại. Hoàn thành hết trước khi chuyển bước.`
         );
         err.statusCode = 409;
         throw err;

@@ -71,6 +71,12 @@ const avatarUrl = (name: string, photo?: string) => {
   )}&background=4f46e5&color=fff`;
 };
 
+const DEFAULT_TASK_CATEGORY = "Hướng dẫn nhân viên mới";
+
+function formatTaskCategory(category?: string): string {
+  return !category || category === "Onboarding" ? DEFAULT_TASK_CATEGORY : category;
+}
+
 /** Bản nháp giao việc theo quy trình từ tab Kanban — cùng payload với modal "Tạo công việc" ở tab Quy trình */
 interface WorkflowAssignDraft {
   workflowId: string;
@@ -561,7 +567,7 @@ function TaskTable({
 
                   {/* Phân loại */}
                   <td className="px-4 py-3 text-indigo-750 font-medium font-sans whitespace-nowrap">
-                    {task.category || "Onboarding"}
+                    {formatTaskCategory(task.category)}
                   </td>
 
                   {/* Ưu tiên */}
@@ -722,7 +728,7 @@ export default function KanbanTab({
   const [editLinkNote, setEditLinkNote] = useState("");
   const [editAttachments, setEditAttachments] = useState<TaskAttachment[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
-  const [editCategory, setEditCategory] = useState<string>("Onboarding");
+  const [editCategory, setEditCategory] = useState<string>(DEFAULT_TASK_CATEGORY);
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
@@ -842,7 +848,7 @@ export default function KanbanTab({
       setEditLinkNote(selectedKanbanTask.linkNote || "");
       setEditAttachments(selectedKanbanTask.attachments || []);
       setTaskHistory(selectedKanbanTask.history || []);
-      setEditCategory(selectedKanbanTask.category || "Onboarding");
+      setEditCategory(formatTaskCategory(selectedKanbanTask.category));
       if (presetDoneOnOpen) {
         setEditStatus("Done");
         setPresetDoneOnOpen(false);
@@ -1050,8 +1056,8 @@ export default function KanbanTab({
         if (JSON.stringify(selectedKanbanTask.attachments || []) !== JSON.stringify(editAttachments)) {
           changes.push(`Cập nhật ${editAttachments.length} tệp đính kèm`);
         }
-        if ((selectedKanbanTask.category || "Onboarding") !== editCategory) {
-          changes.push(`Đổi phân loại: "${selectedKanbanTask.category || 'Onboarding'}" → "${editCategory}"`);
+        if (formatTaskCategory(selectedKanbanTask.category) !== editCategory) {
+          changes.push(`Đổi phân loại: "${formatTaskCategory(selectedKanbanTask.category)}" → "${editCategory}"`);
         }
 
         const updatedHistory = [
@@ -1179,7 +1185,7 @@ export default function KanbanTab({
       const json = await res.json();
       setWfAssignDraft(null);
       toast.success(
-        `Đã tạo công việc theo quy trình và ${json.data?.tasksCreated ?? 0} task Kanban cho bước đầu tiên.`
+        `Đã tạo công việc theo quy trình và ${json.data?.tasksCreated ?? 0} việc trên bảng giao việc cho bước đầu tiên.`
       );
       fetchTasks();
     } catch (error: any) {
@@ -1481,7 +1487,7 @@ export default function KanbanTab({
           {/* Header section */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold font-sans text-slate-800">Tasks</h2>
+              <h2 className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
               <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
@@ -1574,7 +1580,7 @@ export default function KanbanTab({
                         tags: [],
                         linkNote: "",
                         history: [],
-                        category: "Onboarding"
+                        category: DEFAULT_TASK_CATEGORY
                       });
                     }}
                     className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
@@ -1996,9 +2002,9 @@ export default function KanbanTab({
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Nhân sự</span>
                 <ChevronRight className="h-3 w-3 text-gray-450" />
-                <span className="text-gray-500">Kanban</span>
+                <span className="text-gray-500">Bảng giao việc</span>
                 <ChevronRight className="h-3 w-3 text-gray-450" />
-                <span className="text-indigo-650">{editCategory || "Onboarding"}</span>
+                <span className="text-indigo-650">{editCategory || DEFAULT_TASK_CATEGORY}</span>
               </div>
               <button
                 type="button"
@@ -2070,11 +2076,11 @@ export default function KanbanTab({
                     list="task-category-options"
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
-                    placeholder="Ví dụ: Onboarding, Marketing, Kỹ thuật..."
+                    placeholder="Ví dụ: Hướng dẫn nhân viên mới, Tiếp thị, Kỹ thuật..."
                     className="flex-1 p-1 px-2 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none font-semibold text-xs transition-all"
                   />
                   <datalist id="task-category-options">
-                    <option value="Onboarding" />
+                    <option value={DEFAULT_TASK_CATEGORY} />
                     <option value="Đào tạo" />
                     <option value="Tuyển dụng" />
                     <option value="Văn hóa" />
@@ -2173,7 +2179,7 @@ export default function KanbanTab({
                 <label className="block text-gray-400 font-bold mb-1 flex items-center gap-1 select-none"><Tag className="w-3.5 h-3.5" /> Nhãn (Tags, cách nhau bằng dấu phẩy)</label>
                 <input
                   type="text"
-                  placeholder="Ví dụ: backend, api, security"
+                  placeholder="Ví dụ: máy chủ, kết nối, bảo mật"
                   value={editTags}
                   onChange={(e) => setEditTags(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-transparent hover:border-gray-250 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
@@ -2407,7 +2413,7 @@ export default function KanbanTab({
                       ))}
                     </ol>
                     <p className="mt-2 text-[10px] text-slate-400">
-                      Task Kanban của bước đầu tiên sẽ được tạo ngay; các bước sau sinh task khi chuyển bước.
+                      Công việc của bước đầu tiên sẽ được tạo ngay; các bước sau tạo việc khi chuyển bước.
                     </p>
                   </div>
                 );
@@ -2418,7 +2424,7 @@ export default function KanbanTab({
                 <input
                   type="text"
                   autoFocus
-                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
+                  placeholder="Ví dụ: Hướng dẫn nhân viên mới Nguyễn Văn A, Xử lý hợp đồng #123…"
                   value={wfAssignDraft.name}
                   onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, name: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
@@ -2594,7 +2600,7 @@ function KanbanCard({
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
           <span className="text-[9px] font-bold text-indigo-750 font-mono uppercase tracking-wider bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
-            {task.category || "Onboarding"}
+            {formatTaskCategory(task.category)}
           </span>
         </div>
         <h4 className="font-bold text-xs text-slate-800 leading-tight group-hover:text-indigo-650 transition-colors line-clamp-2">{task.title}</h4>

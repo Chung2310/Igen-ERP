@@ -36,116 +36,74 @@ interface SidebarProps {
   onMobileClose: () => void;
 }
 
-type MenuTone = "blue" | "green" | "amber" | "purple" | "rose" | "indigo" | "slate";
-
 interface MenuItem {
   label: TabType;
   title: string;
-  desc: string;
   icon: React.ElementType;
-  tone: MenuTone;
+  group: "main" | "operations" | "tools" | "system";
 }
-
-const toneClasses: Record<MenuTone, { active: string; icon: string; hoverIcon: string }> = {
-  blue: {
-    active: "bg-blue-50 text-blue-800 border-blue-100",
-    icon: "bg-blue-50 text-blue-600",
-    hoverIcon: "group-hover:bg-blue-50 group-hover:text-blue-600",
-  },
-  green: {
-    active: "bg-green-50 text-green-800 border-green-100",
-    icon: "bg-green-50 text-green-600",
-    hoverIcon: "group-hover:bg-green-50 group-hover:text-green-600",
-  },
-  amber: {
-    active: "bg-amber-50 text-amber-800 border-amber-100",
-    icon: "bg-amber-50 text-amber-600",
-    hoverIcon: "group-hover:bg-amber-50 group-hover:text-amber-600",
-  },
-  purple: {
-    active: "bg-purple-50 text-purple-800 border-purple-100",
-    icon: "bg-purple-50 text-purple-600",
-    hoverIcon: "group-hover:bg-purple-50 group-hover:text-purple-600",
-  },
-  rose: {
-    active: "bg-red-50 text-red-800 border-red-100",
-    icon: "bg-red-50 text-red-600",
-    hoverIcon: "group-hover:bg-red-50 group-hover:text-red-600",
-  },
-  indigo: {
-    active: "bg-indigo-50 text-indigo-800 border-indigo-100",
-    icon: "bg-indigo-50 text-indigo-600",
-    hoverIcon: "group-hover:bg-indigo-50 group-hover:text-indigo-600",
-  },
-  slate: {
-    active: "bg-gray-50 text-gray-900 border-gray-100",
-    icon: "bg-gray-50 text-gray-600",
-    hoverIcon: "group-hover:bg-gray-50 group-hover:text-gray-700",
-  },
-};
 
 const baseMenuItems: MenuItem[] = [
   {
     label: "TỔNG QUAN",
-    title: "Tổng quan doanh nghiệp",
-    desc: "Chỉ số doanh thu và tiến độ",
+    title: "Tổng quan",
     icon: LayoutDashboard,
-    tone: "blue",
+    group: "main",
   },
   {
     label: "NHÂN SỰ",
-    title: "Quản lý nhân sự",
-    desc: "Sơ đồ, KPI và đào tạo",
+    title: "Nhân sự",
     icon: Users,
-    tone: "green",
+    group: "operations",
   },
   {
     label: "KHO & SẢN PHẨM",
-    title: "Quản lý kho hàng",
-    desc: "Sản phẩm và dự báo nhu cầu",
+    title: "Kho & Sản phẩm",
     icon: Package,
-    tone: "amber",
+    group: "operations",
+  },
+  {
+    label: "QUẢN LÝ HỌC VIÊN",
+    title: "Học viên",
+    icon: GraduationCap,
+    group: "operations",
   },
   {
     label: "QUẢN LÝ TÀI NGUYÊN",
     title: "Quản lý tài nguyên",
-    desc: "Tài liệu nội bộ và Google Drive",
     icon: FolderOpen,
-    tone: "indigo",
+    group: "tools",
   },
   {
     label: "TRÒ CHUYỆN",
     title: "Trò chuyện nội bộ",
-    desc: "Chat nhóm và 1-1 nội bộ",
     icon: MessageSquare,
-    tone: "indigo",
-  },
-  {
-    label: "QUẢN LÝ HỌC VIÊN",
-    title: "Quản lý học viên",
-    desc: "Đào tạo, thi cử, học phí và đối tác",
-    icon: GraduationCap,
-    tone: "blue",
+    group: "tools",
   },
 ];
+
+const groupTitles: Record<MenuItem["group"], string> = {
+  main: "Tổng quan",
+  operations: "Vận hành",
+  tools: "Công cụ",
+  system: "Hệ thống",
+};
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
-  // Trên mobile drawer luôn ở dạng mở rộng; thu gọn chỉ là hành vi desktop
   const isCollapsed = isCollapsedState && !isMobile;
-  // Loại các module bị ẩn tạm khỏi thanh điều hướng
+
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
   const menuItems = baseMenuItems.filter((item) => enabledTabs.has(item.label));
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
       label: "QUẢN TRỊ USER",
-      title: "Quản trị user",
-      desc: "Cấp quyền và phân vai trò",
+      title: "Quản lý người dùng",
       icon: Shield,
-      tone: "indigo",
+      group: "system",
     });
   }
 
@@ -153,155 +111,168 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     menuItems.push({
       label: "VÍ & NẠP TIỀN",
       title: "Ví & Nạp tiền",
-      desc: "Số dư ví và cổng PayOS",
       icon: Wallet,
-      tone: "blue",
+      group: "system",
     });
   }
 
   menuItems.push({
     label: "CÀI ĐẶT",
     title: "Cài đặt hệ thống",
-    desc: "Thông tin cá nhân và cấu hình",
     icon: Settings,
-    tone: "slate",
+    group: "system",
   });
 
   menuItems.push({
     label: "HƯỚNG DẪN",
     title: "Hướng dẫn sử dụng",
-    desc: "Tài liệu thao tác cho từng phân hệ",
     icon: BookOpen,
-    tone: "green",
+    group: "system",
   });
+
+  const groups: MenuItem["group"][] = ["main", "operations", "tools", "system"];
 
   return (
     <>
-      {/* Backdrop mờ phía sau drawer trên mobile */}
+      {/* Backdrop trên mobile */}
       {mobileOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
           onClick={onMobileClose}
           aria-hidden="true"
         />
       ) : null}
-    <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 shrink-0 flex-col border-r border-gray-100 bg-white text-gray-800 shadow-[18px_0_45px_rgba(15,23,42,0.04)] transition-all duration-300 md:sticky md:top-0 md:z-auto md:translate-x-0 ${
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
-      } ${isCollapsed ? "md:w-24" : "md:w-72"}`}
-      id="sidebar_container"
-    >
-      <div className={`flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center px-3 py-5" : "p-6"}`} id="sidebar_brand_header">
-        <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-          <img
-            src={BRAND_LOGO_PATH}
-            alt={BRAND_NAME}
-            onClick={() => setActiveTab("TỔNG QUAN")}
-            title="Về trang Tổng quan"
-            className="h-11 w-11 shrink-0 rounded-2xl border border-blue-100 object-cover shadow-lg shadow-blue-500/15 cursor-pointer transition-transform hover:scale-110 active:scale-95"
-          />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col border-r border-slate-200/80 bg-white text-slate-800 shadow-[18px_0_45px_rgba(15,23,42,0.03)] transition-all duration-300 md:sticky md:top-0 md:z-auto md:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } ${isCollapsed ? "md:w-20" : "md:w-64"}`}
+        id="sidebar_container"
+      >
+        {/* Brand Header */}
+        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-4" : "px-5 py-4.5"}`} id="sidebar_brand_header">
+          <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+            <img
+              src={BRAND_LOGO_PATH}
+              alt={BRAND_NAME}
+              onClick={() => setActiveTab("TỔNG QUAN")}
+              title="Về trang Tổng quan"
+              className="h-10 w-10 shrink-0 rounded-xl border border-sky-100 object-cover shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            />
+            {!isCollapsed ? (
+              <div className="min-w-0">
+                <h2 className="truncate font-sans text-base font-bold tracking-tight text-sky-700">{BRAND_NAME}</h2>
+                <p className="truncate font-mono text-[10px] uppercase tracking-widest text-slate-400">{BRAND_TAGLINE}</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className={`flex-1 select-none space-y-5 overflow-y-auto ${isCollapsed ? "px-2 py-4" : "px-3 py-4"}`} id="sidebar_nav">
+          {groups.map((groupKey) => {
+            const itemsInGroup = menuItems.filter((item) => item.group === groupKey);
+            if (itemsInGroup.length === 0) return null;
+
+            return (
+              <div key={groupKey} className="space-y-1">
+                {!isCollapsed ? (
+                  <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    {groupTitles[groupKey]}
+                  </p>
+                ) : null}
+
+                {itemsInGroup.map((item) => {
+                  const isActive = activeTab === item.label;
+                  const Icon = item.icon;
+
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        setActiveTab(item.label);
+                        onMobileClose();
+                      }}
+                      className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] ${
+                        isActive
+                          ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      } ${isCollapsed ? "justify-center" : "justify-between"}`}
+                      id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
+                      title={isCollapsed ? item.title : undefined}
+                    >
+                      <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+                        <Icon
+                          className={`h-5 w-5 shrink-0 transition-colors ${
+                            isActive ? "text-sky-600" : "text-slate-400 group-hover:text-slate-600"
+                          }`}
+                        />
+                        {!isCollapsed ? (
+                          <span className="truncate">{item.title}</span>
+                        ) : null}
+                      </div>
+
+                      {!isCollapsed && isActive ? (
+                        <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Footer & Collapse Toggle */}
+        <div className={`border-t border-slate-100 ${isCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((current) => !current)}
+            className={`hidden md:flex items-center rounded-xl border border-slate-200/80 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${
+              isCollapsed ? "mx-auto h-10 w-10 justify-center" : "w-full justify-between px-3 py-2"
+            }`}
+            title={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            aria-label={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+          >
+            <span className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"}`}>
+              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              {!isCollapsed ? <span className="text-xs font-medium">Thu gọn thanh bên</span> : null}
+            </span>
+            {!isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : null}
+          </button>
+
           {!isCollapsed ? (
-            <div className="min-w-0">
-              <h2 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">{BRAND_NAME}</h2>
-              <p className="truncate font-mono text-[10px] uppercase tracking-widest text-gray-500">{BRAND_TAGLINE}</p>
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 px-2 text-[11px] text-slate-400">
+              <a
+                href={PRIVACY_POLICY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-sky-600 transition"
+              >
+                Bảo mật
+              </a>
+              <span>•</span>
+              <a
+                href={TERMS_OF_SERVICE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-sky-600 transition"
+              >
+                Điều khoản
+              </a>
+              <span>•</span>
+              <a
+                href={USER_DATA_DELETION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-sky-600 transition"
+              >
+                Xóa dữ liệu
+              </a>
             </div>
           ) : null}
         </div>
-      </div>
-
-      <nav className={`flex-1 select-none space-y-2 overflow-y-auto ${isCollapsed ? "px-3 py-5" : "px-4 py-6"}`} id="sidebar_nav">
-        {!isCollapsed ? (
-          <p className="mb-3 px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">Phân khu ứng dụng</p>
-        ) : null}
-
-        {menuItems.map((item) => {
-          const isActive = activeTab === item.label;
-          const Icon = item.icon;
-          const tone = toneClasses[item.tone];
-
-          return (
-            <button
-              key={item.label}
-              onClick={() => {
-                setActiveTab(item.label);
-                onMobileClose();
-              }}
-              className={`group flex w-full items-center justify-between rounded-2xl border px-3.5 py-3.5 text-left font-sans transition-all active:scale-[0.98] ${isActive ? `${tone.active} shadow-xs` : "border-transparent text-gray-600 hover:border-gray-100 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
-              title={isCollapsed ? item.title : undefined}
-            >
-              <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3.5"}`}>
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${isActive ? tone.icon : `bg-gray-50 text-gray-500 ${tone.hoverIcon}`
-                    }`}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                {!isCollapsed ? (
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{item.title}</p>
-                    <p className={`mt-0.5 truncate text-[10px] leading-normal ${isActive ? "text-gray-600" : "text-gray-400"}`}>
-                      {item.desc}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-              <ChevronRight
-                className={`h-4 w-4 shrink-0 transition-transform ${isActive ? "translate-x-0.5 text-gray-500" : "text-gray-300 group-hover:text-gray-500"
-                  }`}
-              />
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className={`border-t border-gray-100 ${isCollapsed ? "px-3 py-4" : "px-4 py-4"}`}>
-        <button
-          type="button"
-          onClick={() => setIsCollapsed((current) => !current)}
-          className={`hidden md:flex items-center rounded-2xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-900 ${
-            isCollapsed ? "mx-auto h-11 w-11 justify-center" : "w-full justify-between px-4 py-3"
-          }`}
-          title={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
-          aria-label={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
-        >
-          <span className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-            {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            {!isCollapsed ? <span className="text-sm font-semibold">Thu gọn danh sách</span> : null}
-          </span>
-          {!isCollapsed ? <ChevronRight className="h-4 w-4" /> : null}
-        </button>
-        {!isCollapsed ? (
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 px-1 text-[11px] text-gray-500">
-            <a
-              href={PRIVACY_POLICY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline underline-offset-2 hover:text-blue-700"
-            >
-              Privacy
-            </a>
-            <a
-              href={TERMS_OF_SERVICE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline underline-offset-2 hover:text-blue-700"
-            >
-              Terms
-            </a>
-            <a
-              href={USER_DATA_DELETION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline underline-offset-2 hover:text-blue-700"
-            >
-              Deletion
-            </a>
-          </div>
-        ) : null}
-      </div>
-    </aside>
+      </aside>
     </>
   );
 }

@@ -34,7 +34,11 @@ export function detectUploadedMime(buffer: Buffer): string {
 }
 
 function mimeMatches(allowed: string, actual: string): boolean {
-  return allowed === actual || (allowed.endsWith("/*") && actual.startsWith(allowed.slice(0, -1)));
+  if (allowed === actual) return true;
+  if (allowed.endsWith("/*") && actual.startsWith(allowed.slice(0, -1))) return true;
+  if (allowed === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && actual === "application/zip") return true;
+  if (allowed === "application/msword" && actual === "application/x-ole-storage") return true;
+  return false;
 }
 
 const defaultUploadAsset: UploadAsset = (buffer, folder) => new Promise((resolve, reject) => {

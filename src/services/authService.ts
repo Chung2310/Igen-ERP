@@ -362,7 +362,8 @@ export const authService = {
       avatarId?: string;
       voiceId?: string;
       apiKey?: string;
-    }
+    },
+    jobDescriptionLink?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -383,6 +384,7 @@ export const authService = {
         division,
         phone,
         heygenAccess,
+        jobDescriptionLink,
       }),
     });
 
@@ -575,6 +577,41 @@ export const authService = {
       return data.url;
     } catch (e) {
       console.error("[authService.uploadAvatar] Error:", e);
+      throw e;
+    }
+  },
+
+  // Tải file bất kỳ (mô tả công việc, tài liệu...) lên Cloudinary thông qua Relay API trên server
+  async uploadFile(file: File, folder: string = "igen_erp/documents"): Promise<string> {
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+      });
+
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`
+        },
+        body: JSON.stringify({
+          file: base64Data,
+          folder,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Lỗi tải lên Cloudinary: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (e) {
+      console.error("[authService.uploadFile] Error:", e);
       throw e;
     }
   }

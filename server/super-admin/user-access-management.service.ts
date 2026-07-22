@@ -15,14 +15,11 @@ export function createUserAccessManagementService(deps: any) {
     async revokeSessions(data: any) { await user(data); await deps.sessions.revokeAll(data.userId); await audit("security.session.revoke", data); return { revoked: true }; },
     async resetTwoFactor(data: any) { const value = await user(data); if (value.role !== "superadmin") throw new Error("2FA recovery is restricted to privileged accounts"); value.superAdminSecurity = { totpEnabled: false, recoveryCodeHashes: [], failedTotpAttempts: 0 }; await value.save?.(); await deps.sessions.revokeAll(data.userId); await audit("security.2fa.reset", data); return { reset: true }; },
     async assignRole(data: any) {
-      if (data.role === "superadmin" && data.tenantId !== "SYSTEM") throw new Error("Tenant accounts cannot assign superadmin");
-      if (data.role === "superadmin") {
-        const existing = await deps.users.findOtherSuperAdmin(data.userId);
-        if (existing) throw new Error(`A Super Admin account already exists: ${existing.email}`);
-      }
+      if (data.role === "superadmin") throw new Error("Super Admin role cannot be assigned through user management");
+      const current = await user(data);
+      if (current.role === "superadmin") throw new Error("The sole Super Admin role cannot be changed");
       return this.update({ ...data, patch: { role: data.role, permissions: data.permissions || [] } });
-    },
-    async startImpersonation(data: any) { if (!data.reason?.trim()) throw new Error("A written reason is required"); const value = await user(data); if (value.role === "superadmin") throw new Error("Cannot impersonate Super Admin"); const expiresAt = new Date(Date.now() + Math.min(data.durationMinutes || 30, 30) * 60_000); await audit("security.impersonation.start", { ...data, expiresAt }); return { userId: String(value._id), expiresAt, restrictions: ["recovery", "secrets", "super-admin", "audit-mutation"] }; },
+    },    async startImpersonation(data: any) { if (!data.reason?.trim()) throw new Error("A written reason is required"); const value = await user(data); if (value.role === "superadmin") throw new Error("Cannot impersonate Super Admin"); const expiresAt = new Date(Date.now() + Math.min(data.durationMinutes || 30, 30) * 60_000); await audit("security.impersonation.start", { ...data, expiresAt }); return { userId: String(value._id), expiresAt, restrictions: ["recovery", "secrets", "super-admin", "audit-mutation"] }; },
     async stopImpersonation(data: any) { await audit("security.impersonation.stop", data); return { stopped: true }; },
   };
 }

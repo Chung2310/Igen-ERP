@@ -285,7 +285,6 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Lịch thi</h1>
-          <p className="text-slate-400 text-xs font-medium mt-0.5">Quản lý đợt thi, gắn học viên và theo dõi kết quả</p>
         </div>
         <div className="flex items-center gap-1.5">
           <button

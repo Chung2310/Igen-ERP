@@ -615,7 +615,7 @@ export function StockLogPanel({
                 <div key={`${item.sku}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-3">
                   <div>
                     <div className="font-bold text-slate-800">{item.productName}</div>
-                    <div className="mt-1 text-xs text-gray-500">SKU: {item.sku}</div>
+                    <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
                   </div>
                   <div className={`text-lg font-bold ${selectedLog.type === "nhập" ? "text-emerald-600" : "text-rose-600"}`}>
                     {selectedLog.type === "nhập" ? "+" : "-"}

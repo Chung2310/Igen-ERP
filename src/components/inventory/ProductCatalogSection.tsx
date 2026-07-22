@@ -117,7 +117,7 @@ export function ProductCatalogSection({
             </div>
             <input
               type="text"
-              placeholder="Tìm theo tên sản phẩm, mã SKU..."
+              placeholder="Tìm theo tên hoặc mã sản phẩm..."
               className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
               value={searchProduct}
               onChange={(event) => setSearchProduct(event.target.value)}
@@ -174,7 +174,6 @@ export function ProductCatalogSection({
       ) : filteredProducts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
           <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
-          <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
         </div>
       ) : (
         <div className="space-y-4">

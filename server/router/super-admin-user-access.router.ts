@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { userAccessManagementService } from "../super-admin/user-access-management.service";
+import { userActivityService } from "../super-admin/user-activity.service";
 import { executeAdminAction } from "../super-admin/action-runtime";
 import { getAdminAction } from "../super-admin/action-registry";
 
@@ -9,6 +10,7 @@ const companyCode = (req: any) => { const query = req.query.companyCode || req.q
 const mutation = (path: string, method: string, actionType: string) => superAdminUserAccessRouter.post(path, async (req: any, res) => { try { const tenantId = companyCode(req); const idempotencyKey = String(req.get("Idempotency-Key") || ""); if (!idempotencyKey) throw new Error("Idempotency-Key is required"); const result = await executeAdminAction({ actorId: req.realActor?._id || req.user?.id, sessionId: req.user?.sessionId }, { definition: getAdminAction(actionType), input: { ...req.body, tenantId, userId: req.params.userId }, idempotencyKey, reason: req.body?.reason, password: req.body?.password, token: req.body?.token, step: req.body?.step }, async (input: any) => (userAccessManagementService as any)[method]({ ...input, actorId: req.realActor?._id || req.user?.id, correlationId: req.get("X-Correlation-Id") || randomUUID() })); return res.json(result); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
 superAdminUserAccessRouter.get("/users", async (req: any, res) => { try { const tenantId = companyCode(req); return res.json(await userAccessManagementService.search({ tenantId, page: Number(req.query.page) || 1, limit: Math.min(Number(req.query.limit) || 20, 100), q: req.query.q })); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
 superAdminUserAccessRouter.get("/users/:userId", async (req: any, res) => { try { return res.json(await userAccessManagementService.detail({ tenantId: companyCode(req), userId: req.params.userId })); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
+superAdminUserAccessRouter.get("/users/:userId/activity", async (req: any, res) => { try { return res.json(await userActivityService.list({ tenantId: companyCode(req), userId: req.params.userId, from: req.query.from, to: req.query.to, category: req.query.category, page: req.query.page, limit: req.query.limit })); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
 mutation("/users/:userId/lock", "lock", "user.access.lock");
 mutation("/users/:userId/unlock", "unlock", "user.access.unlock");
 mutation("/users/:userId/sessions/revoke", "revokeSessions", "security.session.revoke.user");

@@ -101,9 +101,107 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
       break;
     case "file":
     case "image":
-    case "multiImage":
-      control = <input {...common} className={`${inputClass} file:mr-4 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 cursor-pointer`} type="file" accept={(validation?.allowedMimeTypes as string[] | undefined)?.join(",") ?? (fieldType === "image" || fieldType === "multiImage" ? "image/*" : undefined)} multiple={fieldType === "multiImage"} onChange={(event: ChangeEvent<HTMLInputElement>) => { const files = Array.from(event.currentTarget.files ?? []) as File[]; if (files.length) void upload(files); }} />;
+    case "multiImage": {
+      const showImage = fieldType === "image" && value && typeof value === "object" && !Array.isArray(value) && "url" in value;
+      const showFile = fieldType === "file" && value && typeof value === "object" && !Array.isArray(value) && "url" in value;
+      const showMultiImage = fieldType === "multiImage" && Array.isArray(value);
+
+      control = (
+        <div className="space-y-2">
+          <input
+            {...common}
+            className={`${inputClass} file:mr-4 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 cursor-pointer`}
+            type="file"
+            accept={(validation?.allowedMimeTypes as string[] | undefined)?.join(",") ?? (fieldType === "image" || fieldType === "multiImage" ? "image/*" : undefined)}
+            multiple={fieldType === "multiImage"}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const files = Array.from(event.currentTarget.files ?? []) as File[];
+              if (files.length) void upload(files);
+            }}
+          />
+          
+          {showImage && (
+            <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-xl max-w-sm">
+              <a href={(value as FileMetadata).url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                <img
+                  src={(value as FileMetadata).url}
+                  alt={(value as FileMetadata).fileName}
+                  className="w-12 h-12 object-cover rounded-lg border border-slate-200"
+                />
+              </a>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-slate-700 truncate">{(value as FileMetadata).fileName}</p>
+                {typeof (value as FileMetadata).size === "number" && (
+                  <p className="text-[10px] text-slate-400">
+                    {(Number((value as FileMetadata).size) / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+                onClick={() => onChange(null as any)}
+              >
+                Gỡ bỏ
+              </button>
+            </div>
+          )}
+
+          {showFile && (
+            <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-slate-400 text-xs">📄</span>
+                <a
+                  href={(value as FileMetadata).url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 underline truncate"
+                >
+                  {(value as FileMetadata).fileName}
+                </a>
+                {typeof (value as FileMetadata).size === "number" && (
+                  <span className="text-[10px] text-slate-400">
+                    ({(Number((value as FileMetadata).size) / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+                onClick={() => onChange(null as any)}
+              >
+                Gỡ bỏ
+              </button>
+            </div>
+          )}
+
+          {showMultiImage && (value as FileMetadata[]).length > 0 && (
+            <div className="flex flex-wrap gap-3 p-2 bg-slate-50 border border-slate-100 rounded-xl">
+              {(value as FileMetadata[]).map((img, idx) => (
+                <div key={`${img.url}-${idx}`} className="relative group/thumb w-16 h-16 border border-slate-200 rounded-lg overflow-hidden">
+                  <img
+                    src={img.url}
+                    alt={img.fileName}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity"
+                    onClick={() => {
+                      const next = (value as FileMetadata[]).filter((_, i) => i !== idx);
+                      onChange(next);
+                    }}
+                  >
+                    Gỡ bỏ
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
       break;
+    }
     default: {
       const inputTypes: Record<string, string> = {
         email: "email", phone: "tel", url: "url", number: "number", percent: "number", currency: "number",

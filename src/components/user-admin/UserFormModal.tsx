@@ -1,6 +1,8 @@
 import React from "react";
-import { User, Mail, Lock, X, RefreshCw } from "lucide-react";
+import { User, Mail, Lock, X, RefreshCw, Link2, Upload, Eye } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
+import { authService } from "../../services/authService";
+import { toast } from "../../pages/Toast";
 
 export interface UserFormModalProps {
   open: boolean;
@@ -20,6 +22,8 @@ export interface UserFormModalProps {
   setUserParentId: (val: string) => void;
   userDepartment: string;
   setUserDepartment: (val: string) => void;
+  userJobDescriptionLink: string;
+  setUserJobDescriptionLink: (val: string) => void;
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
   companies: CompanyProfile[];
@@ -46,6 +50,8 @@ export function UserFormModal({
   setUserParentId,
   userDepartment,
   setUserDepartment,
+  userJobDescriptionLink,
+  setUserJobDescriptionLink,
   getAvailableRoles,
   userProfile,
   companies,
@@ -53,7 +59,28 @@ export function UserFormModal({
   onSubmit,
   submittingUser,
 }: UserFormModalProps) {
+  const [uploadingJobDescription, setUploadingJobDescription] = React.useState(false);
+  const [showJobDescriptionPreview, setShowJobDescriptionPreview] = React.useState(false);
+  const jobDescriptionFileInputRef = React.useRef<HTMLInputElement>(null);
+
   if (!open) return null;
+
+  const handleJobDescriptionFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setUploadingJobDescription(true);
+    try {
+      const url = await authService.uploadFile(file);
+      setUserJobDescriptionLink(url);
+      toast.success("Đã tải lên mô tả công việc.");
+    } catch (error: any) {
+      toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");
+    } finally {
+      setUploadingJobDescription(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -252,6 +279,52 @@ export function UserFormModal({
               </div>
             )}
 
+            {/* Mô tả công việc */}
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Link mô tả công việc</label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Link2 className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="url"
+                    placeholder="Dán link mô tả công việc hoặc tải file lên"
+                    value={userJobDescriptionLink}
+                    onChange={(e) => setUserJobDescriptionLink(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+                <input
+                  ref={jobDescriptionFileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleJobDescriptionFileChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => jobDescriptionFileInputRef.current?.click()}
+                  disabled={uploadingJobDescription}
+                  title="Tải file lên Google Drive"
+                  className="shrink-0 p-2 px-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {uploadingJobDescription ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                </button>
+                {userJobDescriptionLink && (
+                  <button
+                    type="button"
+                    onClick={() => setShowJobDescriptionPreview(true)}
+                    title="Xem trước"
+                    className="shrink-0 p-2 px-3 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
           </div>
 
           {/* Form Actions */}
@@ -280,6 +353,48 @@ export function UserFormModal({
           </div>
         </form>
       </div>
+
+      {/* Job Description Link Preview Embed Modal */}
+      {showJobDescriptionPreview && userJobDescriptionLink && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col overflow-hidden border border-slate-100 h-[85vh] text-left">
+            <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50/50">
+              <div className="flex items-center gap-2 min-w-0">
+                <Link2 className="h-5 w-5 text-blue-600 shrink-0" />
+                <span className="text-sm font-bold text-gray-800 truncate max-w-lg">Mô tả công việc</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={userJobDescriptionLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition bg-white"
+                >
+                  Mở trong tab mới
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowJobDescriptionPreview(false)}
+                  className="p-2 hover:bg-gray-200 rounded-xl text-gray-500 hover:text-gray-800 transition cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative">
+              <iframe
+                src={
+                  userJobDescriptionLink.includes("drive.google.com")
+                    ? userJobDescriptionLink.replace("/edit", "/preview").replace("/view", "/preview")
+                    : userJobDescriptionLink
+                }
+                className="w-full h-full border-0 rounded-2xl bg-white shadow-sm"
+                allow="autoplay"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

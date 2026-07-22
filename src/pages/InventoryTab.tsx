@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
@@ -269,7 +269,7 @@ export default function InventoryTab() {
     try {
       const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined);
       if (!isSkuAvailable) {
-        toast.error("SKU này đã tồn tại trong kho.");
+        toast.error("Mã sản phẩm này đã tồn tại trong kho.");
         setProductSubmitting(false);
         return;
       }
@@ -570,17 +570,17 @@ export default function InventoryTab() {
       }
 
       if (createdCount === 0) {
-        toast.error("Không có sản phẩm mới nào được import. Kiểm tra SKU bị trùng.");
+        toast.error("Không có sản phẩm mới nào được nhập. Kiểm tra mã sản phẩm bị trùng.");
         return;
       }
 
       if (skippedCount > 0) {
-        toast.success(`Đã import ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng SKU trùng.`);
+        toast.success(`Đã nhập ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng có mã sản phẩm trùng.`);
       } else {
-        toast.success(`Đã import ${createdCount} sản phẩm từ Excel.`);
+        toast.success(`Đã nhập ${createdCount} sản phẩm từ Excel.`);
       }
     } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể import sản phẩm từ Excel."));
+      toast.error(getInventoryErrorMessage(error, "Không thể nhập sản phẩm từ Excel."));
     } finally {
       setProductExcelImporting(false);
     }
@@ -618,7 +618,7 @@ export default function InventoryTab() {
       let addedCount = 0;
 
       if (nextLogs.length === 0) {
-        toast.error("Không có phiếu hợp lệ nào được import.");
+        toast.error("Không có phiếu hợp lệ nào được nhập.");
         return;
       }
 
@@ -629,7 +629,7 @@ export default function InventoryTab() {
         const resolvedItems = logItems.map((item) => {
           const product = products.find((entry) => entry.sku === item.sku);
           if (!product) {
-            throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm SKU ${item.sku} trong danh mục kho.` }));
+            throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm có mã ${item.sku} trong danh mục kho.` }));
           }
           return { product, quantity: item.quantity };
         });
@@ -682,9 +682,9 @@ export default function InventoryTab() {
         addedCount += 1;
       }
 
-      toast.success(`Đã import ${addedCount} phiếu nhập/xuất kho từ Excel.`);
+      toast.success(`Đã nhập ${addedCount} phiếu nhập/xuất kho từ Excel.`);
     } catch (error) {
-      toast.error("Không thể import phiếu nhập/xuất kho từ Excel.");
+      toast.error("Không thể nhập phiếu nhập/xuất kho từ Excel.");
     } finally {
       setStockLogExcelImporting(false);
     }
@@ -918,20 +918,32 @@ export default function InventoryTab() {
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 justify-between border-b border-gray-200 bg-gray-50/50 p-2 text-xs" id="inventory_tabs_switch">
-        <div className="flex flex-wrap gap-2">
-          {inventoryTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setSubTab(tab)}
-              className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex justify-between items-center shrink-0" id="inventory_tabs_switch">
+        <div className="flex gap-1 overflow-x-auto select-none">
+          {[
+            { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
+            { id: "PHÂN LOẠI SẢN PHẨM", label: "Phân loại kho", icon: Tags },
+            { id: "NHẬP / XUẤT KHO", label: "Nhập / Xuất kho", icon: ArrowLeftRight },
+            { id: "DỰ BÁO AI", label: "Dự báo AI", icon: Sparkles },
+          ].map((tab) => {
+            const isActive = subTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSubTab(tab.id as InventorySubTabType)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  isActive
+                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
-            >
-              {tab}
-            </button>
-          ))}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
-        
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">
@@ -952,7 +964,7 @@ export default function InventoryTab() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Tìm theo tên sản phẩm, mã SKU..."
+                    placeholder="Tìm theo tên hoặc mã sản phẩm..."
                     className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
                     value={searchProduct}
                     onChange={(event) => setSearchProduct(event.target.value)}
@@ -1010,7 +1022,6 @@ export default function InventoryTab() {
             ) : filteredProducts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                 <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
-                <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1028,7 +1039,7 @@ export default function InventoryTab() {
                       <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-gray-150">
                         <tr>
                           <th className="px-4 py-3">Ảnh</th>
-                          <th className="px-4 py-3">SKU</th>
+                          <th className="px-4 py-3">Mã sản phẩm</th>
                           <th className="px-4 py-3">Tên sản phẩm</th>
                           <th className="px-4 py-3">Phân loại</th>
                           <th className="px-4 py-3">Đơn giá</th>
@@ -1190,7 +1201,6 @@ export default function InventoryTab() {
                   <Tags className="h-4.5 w-4.5 text-blue-500" />
                   Phân loại sản phẩm trong kho
                 </h4>
-                <p className="mt-1 text-xs leading-snug text-gray-500">Mỗi phân loại sẽ xuất hiện trong form khai báo sản phẩm mới.</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative w-full sm:w-72">
@@ -1313,7 +1323,6 @@ export default function InventoryTab() {
             {!categoryLoading && filteredCategories.length === 0 && (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                 <p className="font-bold text-gray-700">Không tìm thấy phân loại phù hợp</p>
-                <p className="mt-1 text-xs text-gray-500">Thử đổi từ khóa tìm kiếm hoặc thêm phân loại mới.</p>
               </div>
             )}
 

@@ -1647,6 +1647,38 @@ export default function ChatTab() {
     return member ? member.role : "member";
   };
 
+  // Rút gọn & làm sạch Markdown của nội dung tin nhắn cho phần xem trước
+  const cleanMessagePreviewText = (text?: string, maxLen = 60) => {
+    if (!text) return "";
+    const cleaned = text
+      .replace(/```[\s\S]*?```/g, "[Mã code]")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/_([^_]+)_/g, "$1")
+      .replace(/#+\s?/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (cleaned.length > maxLen) {
+      return cleaned.substring(0, maxLen) + "...";
+    }
+    return cleaned;
+  };
+
+  const formatMessagePreview = (lastMessage?: ChatMessage) => {
+    if (!lastMessage) return "Chưa có tin nhắn nào";
+    if (lastMessage.isDeleted) return "Tin nhắn đã bị xóa";
+
+    const senderPrefix = lastMessage.senderId === currentUserId ? "Bạn: " : `${lastMessage.senderName}: `;
+    const body = cleanMessagePreviewText(lastMessage.content, 55) || (lastMessage.attachments && lastMessage.attachments.length > 0 ? "📎 Tệp đính kèm" : "");
+    return `${senderPrefix}${body}`;
+  };
+
   return (
     <div
       className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border md:border-gray-100 md:shadow-2xl md:shadow-slate-100"
@@ -1868,14 +1900,7 @@ export default function ChatTab() {
                           </p>
                         ) : (
                           <p className={`truncate text-xs ${hasUnread ? "text-slate-900 font-semibold" : "text-gray-400"}`}>
-                            {room.lastMessage ? (
-                              <>
-                                {room.lastMessage.senderId === currentUserId ? "Bạn: " : `${room.lastMessage.senderName}: `}
-                                {room.lastMessage.content || (room.lastMessage.attachments && room.lastMessage.attachments.length > 0 ? "📎 Tệp đính kèm" : "")}
-                              </>
-                            ) : (
-                              "Chưa có tin nhắn nào"
-                            )}
+                            {formatMessagePreview(room.lastMessage)}
                           </p>
                         )}
                       </div>
@@ -1996,7 +2021,7 @@ export default function ChatTab() {
 
               const isObject = typeof pinnedMsg === "object" && pinnedMsg !== null;
               const senderName = isObject ? (pinnedMsg as any).senderName : "Thành viên";
-              const contentText = isObject ? (pinnedMsg as any).content || "[Đính kèm]" : "Nội dung tin nhắn";
+              const contentText = isObject ? cleanMessagePreviewText((pinnedMsg as any).content, 80) || "[Đính kèm]" : "Nội dung tin nhắn";
               const msgId = isObject ? (pinnedMsg as any)._id : pinnedMsg;
 
               return (
@@ -2691,7 +2716,7 @@ export default function ChatTab() {
                               <p>🤖 <strong>Trợ lý AI</strong> được tích hợp dữ liệu thời gian thực của doanh nghiệp để hỗ trợ bạn:</p>
                               <ul className="list-disc list-inside space-y-1.5 pl-1 text-slate-500 font-medium">
                                 <li>Tra cứu tồn kho & sản phẩm</li>
-                                <li>Kiểm tra tiến độ Kanban Task & dự án</li>
+                                <li>Kiểm tra tiến độ công việc và dự án</li>
                                 <li>Xem số dư ví cá nhân</li>
                                 <li>Tư vấn nghiệp vụ ERP chung</li>
                               </ul>
@@ -2912,7 +2937,7 @@ export default function ChatTab() {
                               {/* Message text preview */}
                               {msg.content && (
                                 <p className="text-[11px] text-slate-500 leading-snug line-clamp-2 break-words">
-                                  {msg.content}
+                                  {cleanMessagePreviewText(msg.content, 120)}
                                 </p>
                               )}
 

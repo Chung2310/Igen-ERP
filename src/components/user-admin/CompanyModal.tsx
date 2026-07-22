@@ -152,7 +152,7 @@ export function CompanyModal({
           )}
 
           <div className="space-y-2 border-t border-gray-100 pt-4 text-left">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Module sử dụng *</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Phân hệ được sử dụng *</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {MODULE_KEYS.map((key) => (
                 <label key={key} className="flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-700 hover:bg-slate-50">

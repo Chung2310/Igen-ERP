@@ -60,7 +60,6 @@ export function CategoryManagementSection({
             <Tags className="h-4.5 w-4.5 text-blue-500" />
             Phân loại sản phẩm trong kho
           </h4>
-          <p className="mt-1 text-xs leading-snug text-gray-500">Mỗi phân loại sẽ xuất hiện trong form khai báo sản phẩm mới.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative sm:w-72">
@@ -129,7 +128,7 @@ export function CategoryManagementSection({
       {!categoryLoading && filteredCategories.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
           <p className="font-bold text-gray-700">Không tìm thấy phân loại phù hợp</p>
-          <p className="mt-1 text-xs text-gray-500">Thử đổi từ khóa tìm kiếm hoặc thêm phân loại mới.</p>
+
         </div>
       ) : null}
 

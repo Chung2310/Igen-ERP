@@ -91,11 +91,11 @@ export function ProductModal({
           <div className="grid gap-4 md:grid-cols-[1.4fr_0.9fr]">
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Mã SKU *">
+                <Field label="Mã sản phẩm *">
                   <input
                     type="text"
                     required
-                    placeholder="Nhập mã SKU"
+                    placeholder="Nhập mã sản phẩm"
                     className={inputClassName}
                     value={newProdSKU}
                     onChange={(event) => setNewProdSKU(event.target.value)}

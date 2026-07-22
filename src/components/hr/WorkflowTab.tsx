@@ -970,19 +970,6 @@ export default function WorkflowTab({
         >
           <ArrowLeft className="h-4 w-4" /> Danh sách
         </button>
-        <div className="h-5 w-px bg-gray-200" />
-        <input
-          value={wfName}
-          readOnly
-          placeholder="Tên quy trình"
-          className="w-52 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-bold text-slate-700 outline-none cursor-default"
-        />
-        <input
-          value={wfCategory}
-          readOnly
-          placeholder="Nhóm (vd: Onboarding)"
-          className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-slate-600 outline-none cursor-default"
-        />
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={openAddParticipant}
@@ -1454,7 +1441,7 @@ export default function WorkflowTab({
                 <input
                   type="text"
                   autoFocus
-                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
+                  placeholder="Ví dụ: Hướng dẫn nhân viên mới Nguyễn Văn A, Xử lý hợp đồng #123…"
                   value={partDraft.name}
                   onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
@@ -1855,7 +1842,7 @@ function NewWorkflowWizard({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="VD: Onboarding nhân viên mới"
+                placeholder="Ví dụ: Hướng dẫn nhân viên mới"
                 className="mt-1.5 w-full rounded-2xl border border-gray-250 px-4 py-2.5 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-2xs"
               />
             </div>

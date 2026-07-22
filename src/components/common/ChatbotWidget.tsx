@@ -17,7 +17,7 @@ const welcomeMessage: Message = {
   content: `Chào bạn! Tôi là **trợ lý ảo AI** của hệ thống iGen ERP.
 
 Tôi có thể giúp bạn tra cứu nhanh dữ liệu doanh nghiệp:
-- **Khách hàng (CRM)** — pipeline, trạng thái, giá trị cơ hội.
+- **Khách hàng** — quy trình bán hàng, trạng thái, giá trị cơ hội.
 - **Kho hàng** — tồn kho, mặt hàng sắp hết, giá trị tồn.
 - **Dự án & công việc** — tiến độ, phân bổ trạng thái.
 - **Marketing & tài chính** — nội dung, số dư ví.
@@ -26,7 +26,7 @@ Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
 };
 
 const quickSuggestions = [
-  "Pipeline CRM hiện tại thế nào?",
+  "Quy trình bán hàng hiện tại thế nào?",
   "Có mặt hàng nào sắp hết tồn không?",
   "Tổng quan công việc đang chạy?",
 ];
