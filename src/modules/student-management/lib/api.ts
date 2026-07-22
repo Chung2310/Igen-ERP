@@ -20,7 +20,9 @@ interface ApiErrorResponse {
 }
 
 interface RefreshTokenResponse {
-  success: boolean;
+  status?: string;
+  success?: boolean;
+  accessToken?: string;
   data?: {
     accessToken?: string;
   };
@@ -58,8 +60,9 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
       const refreshRes = await fetch("/api/v1/auth/refresh-token", { method: "POST" });
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json() as RefreshTokenResponse;
-        if (refreshData.success && refreshData.data?.accessToken) {
-          setAccessToken(refreshData.data.accessToken);
+        const newAccessToken = refreshData.accessToken || refreshData.data?.accessToken;
+        if (newAccessToken) {
+          setAccessToken(newAccessToken);
 
           headers.set("Authorization", `Bearer ${getAccessToken()}`);
           const retryRes = await fetch(url.toString(), { ...options, headers });
