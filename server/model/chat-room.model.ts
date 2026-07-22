@@ -23,6 +23,7 @@ const ChatRoomSchema = new Schema<IChatRoom>(
     avatarURL: { type: String, default: "" },
     pinnedMessageIds: [{ type: Schema.Types.ObjectId, ref: "ChatMessage" }],
     onlyAdminsCanMessage: { type: Boolean, default: false },
+    isChatbot: { type: Boolean, default: false, index: true },
     driveFolderId: { type: String, default: "" },
     driveGeneralAccess: { type: String, enum: ["restricted", "company"], default: "restricted" },
   },

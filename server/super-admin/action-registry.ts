@@ -10,6 +10,7 @@ export const tenantActions = {
   lifecycle: registerAdminAction({ type: "tenant.lifecycle.transition", risk: "dangerous", requiresReason: true, requiresStepUp: true, parse: tenantInput }),
   scheduleDeletion: registerAdminAction({ type: "tenant.deletion.schedule", risk: "dangerous", requiresReason: true, requiresStepUp: true, parse: tenantInput }),
   cancelDeletion: registerAdminAction({ type: "tenant.deletion.cancel", risk: "dangerous", requiresReason: true, requiresStepUp: true, parse: tenantInput }),
+  updateModules: registerAdminAction({ type: "tenant.modules.update", risk: "sensitive", requiresReason: true, requiresStepUp: true, parse: tenantInput }),
 };
 
 const userAccessAction = (type: string, risk: "standard" | "dangerous", requiresStepUp = false) => registerAdminAction({ type, risk, requiresReason: true, requiresStepUp, parse: (input: any) => input || {} });

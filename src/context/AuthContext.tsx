@@ -92,6 +92,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setUser(profile as any);
       setUserProfile(profile);
+
+      // /login không tính enabledModules; gọi /auth/me để lấy đúng cấu hình module của công ty.
+      const meProfile = await authService.getMe().catch(() => null);
+      if (meProfile) {
+        setUser(meProfile as any);
+        setUserProfile(meProfile);
+      }
+
       toast.success("Đăng nhập tài khoản thành công!");
       return { status: "authenticated" };
     } catch (error: any) {

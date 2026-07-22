@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
+import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TelegramSessionModel } from "../model/telegram-session.model";
 import { TelegramLinkTokenModel } from "../model/telegram-link-token.model";
@@ -15,6 +16,7 @@ import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 import { sanitizeModuleKeys } from "../config/module-keys";
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
+import { createCompanyAdminUser } from "../utils/company-admin-user";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -113,6 +115,15 @@ export const authService = {
 
       if (!user) {
         throw new Error("Không tìm thấy thông tin tài khoản.");
+      }
+
+      if (decoded.sid) {
+        const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
+        const now = Date.now();
+        const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
+        if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
+          throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
+        }
       }
 
       const payload = {
@@ -245,24 +256,13 @@ export const authService = {
     await newCompany.save();
 
     // 4. Tạo tài khoản admin của doanh nghiệp đó
-    const hashedPassword = await bcrypt.hash(ownerPassword, 10);
-    const adminUser = new UserModel({
-      email: emailLower,
-      password: hashedPassword,
-      displayName: ownerName.trim(),
-      role: "admin",
-      createdAt: new Date(),
+    const adminUser = await createCompanyAdminUser({
       companyCode: normalizedCode,
-      companyName: companyName.trim(),
-      jobTitle: "CEO",
-      department: "Ban Giám Đốc",
-      division: "Ban Giám Đốc",
-      level: 1,
-      status: "offline",
-      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`
+      companyName,
+      ownerName,
+      ownerEmail: emailLower,
+      ownerPassword,
     });
-
-    await adminUser.save();
     return { company: newCompany, admin: adminUser };
   },
 

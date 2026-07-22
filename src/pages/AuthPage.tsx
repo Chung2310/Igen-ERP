@@ -1,7 +1,5 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import type { ErpLoginChallenge } from "../context/AuthContext";
-import { ErpAuthenticatorDialog } from "../components/auth/ErpAuthenticatorDialog";
 import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -13,8 +11,7 @@ import {
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function AuthPage() {
-  const { loginWithEmail, completeErpChallenge } = useAuth();
-  const [challenge, setChallenge] = useState<ErpLoginChallenge | null>(null);
+  const { loginWithEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +59,8 @@ export default function AuthPage() {
     try {
       const result = await loginWithEmail(email.trim(), password.trim(), rememberMe);
       if (result.status === "challenge_required") {
-        setChallenge(result);
+        window.location.href = "/super-admin";
+        return;
       }
     } catch (err: any) {
       console.error(err);
@@ -206,13 +204,6 @@ export default function AuthPage() {
             <span>Đăng nhập hệ thống</span>
           </button>
         </form>
-        {challenge && (
-          <ErpAuthenticatorDialog
-            challenge={challenge}
-            onAuthenticated={completeErpChallenge}
-            onCancel={() => setChallenge(null)}
-          />
-        )}
         <div className="border-t border-slate-100 pt-4 text-center text-[11px] text-slate-500">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <a

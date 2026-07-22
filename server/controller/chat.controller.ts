@@ -4,6 +4,9 @@ import { chatService } from "../service/chat.service";
 import { linkPreviewService } from "../service/link-preview.service";
 import { emitToUser, isUserOnline } from "../socket";
 import { pushService } from "../service/push.service";
+import { ChatbotService } from "../service/chatbot.service";
+import { ChatMessageModel } from "../model/chat-message.model";
+import mongoose from "mongoose";
 
 export const chatController = {
   /**
@@ -346,6 +349,75 @@ export const chatController = {
           console.error("[chatController.sendMessage] Lỗi gửi Web Push:", pushError);
         }
       })();
+
+      // 3. Nếu là phòng Chatbot, xử lý phản hồi từ chatbot bất đồng bộ
+      if (room.isChatbot) {
+        const CHATBOT_SENDER_ID = new mongoose.Types.ObjectId("6582a82d6b38c201a4e21bc5");
+        void (async () => {
+          try {
+            // 3.1. Phát trạng thái đang nhập (typing)
+            emitToUser(senderId, "internal_typing_status", {
+              roomId,
+              userId: CHATBOT_SENDER_ID.toString(),
+              displayName: "Trợ lý AI",
+              isTyping: true,
+            });
+
+            // 3.2. Lấy 20 tin nhắn gần nhất và đảo thứ tự để làm context
+            const history = await chatService.getMessages(roomId, senderId, companyCode, 20);
+            const chatbotMessages = history.slice().reverse().map((msg: any) => {
+              const isUser = msg.senderId.toString() === senderId;
+              return {
+                role: isUser ? ("user" as const) : ("assistant" as const),
+                content: msg.content || ""
+              };
+            });
+
+            // 3.3. Gọi AI
+            const reply = await ChatbotService.getResponse(req.user!, chatbotMessages);
+
+            // 3.4. Lưu tin nhắn của AI
+            const botMessage = new ChatMessageModel({
+              roomId,
+              senderId: CHATBOT_SENDER_ID,
+              senderName: "Trợ lý AI",
+              senderPhoto: "ai-avatar",
+              content: reply,
+              attachments: [],
+              readBy: [senderId],
+            });
+            const savedBotMessage = await botMessage.save();
+
+            // Cập nhật lastMessage phòng
+            room.lastMessage = savedBotMessage._id;
+            await room.save();
+
+            // 3.5. Tắt trạng thái đang nhập
+            emitToUser(senderId, "internal_typing_status", {
+              roomId,
+              userId: CHATBOT_SENDER_ID.toString(),
+              displayName: "Trợ lý AI",
+              isTyping: false,
+            });
+
+            // 3.6. Gửi tin nhắn mới qua socket
+            const fullRoom = await chatService.getFullRoom(roomId);
+            emitToUser(senderId, "internal_new_message", {
+              roomId,
+              message: savedBotMessage,
+              roomUpdate: fullRoom,
+            });
+          } catch (err) {
+            console.error("[Chatbot AI Response Error]:", err);
+            emitToUser(senderId, "internal_typing_status", {
+              roomId,
+              userId: CHATBOT_SENDER_ID.toString(),
+              displayName: "Trợ lý AI",
+              isTyping: false,
+            });
+          }
+        })();
+      }
 
       return res.status(201).json({
         status: "success",
