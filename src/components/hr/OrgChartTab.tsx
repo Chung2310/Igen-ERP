@@ -287,16 +287,24 @@ export default function OrgChartTab({
     containerRef.current.scrollTop = scrollTopState - walkY;
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const zoomFactor = 0.05;
-    setIsFitted(false);
-    if (e.deltaY < 0) {
-      setZoomLevel(prev => Math.min(1.5, Number((prev + zoomFactor).toFixed(2))));
-    } else {
-      setZoomLevel(prev => Math.max(0.5, Number((prev - zoomFactor).toFixed(2))));
-    }
-  };
+  // Lắng nghe sự kiện wheel với passive: false để chặn touchpad/trackpad zoom toàn trang
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const zoomFactor = e.deltaY < 0 ? 0.05 : -0.05;
+      setIsFitted(false);
+      setZoomLevel((prev) => Math.max(0.3, Math.min(1.8, Number((prev + zoomFactor).toFixed(2)))));
+    };
+
+    container.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, []);
 
   const [filterDepartment, setFilterDepartment] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -1089,18 +1097,9 @@ export default function OrgChartTab({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={collapseAll}
-            className="px-3 py-1.5 border border-gray-200 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer active:scale-95 transition-all"
-          >
-            Thu gọn tất cả
-          </button>
-          <button
-            onClick={expandAll}
-            className="px-3 py-1.5 border border-gray-200 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer active:scale-95 transition-all"
-          >
-            Mở rộng tất cả
-          </button>
+       
+       
+        
           <div className="h-6 w-px bg-gray-200 mx-1" />
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
@@ -1117,23 +1116,6 @@ export default function OrgChartTab({
               className="w-20 accent-indigo-600 cursor-pointer"
             />
             <span className="w-10 text-right text-[10px] font-bold text-slate-650 mr-1">{Math.round(zoomLevel * 100)}%</span>
-            <button
-              onClick={toggleFitScreen}
-              className="flex items-center gap-1 px-2.5 py-1.5 border border-indigo-200 hover:bg-indigo-50 text-indigo-705 text-indigo-700 hover:text-indigo-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 select-none font-sans"
-              title={isFitted ? "Phóng to (Mặc định)" : "Thu nhỏ vừa khung hình"}
-            >
-              {isFitted ? (
-                <>
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  <span>Phóng to</span>
-                </>
-              ) : (
-                <>
-                  <Minimize2 className="h-3.5 w-3.5" />
-                  <span>Vừa khung hình</span>
-                </>
-              )}
-            </button>
           </div>
           {isManager && (
             <>
@@ -1179,25 +1161,22 @@ export default function OrgChartTab({
             </div>
 
             {/* Interactive guidelines bottom banner */}
-            <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2.5">
-              <div className="flex items-center gap-1.5 text-indigo-850 text-xs font-bold">
-                <span className="text-sm">💡</span>
-                <h4 className="uppercase tracking-wide font-sans text-indigo-900">HƯỚNG DẪN THAO TÁC</h4>
-              </div>
-              <ul className="text-[10px] text-indigo-700 space-y-2 font-medium leading-relaxed list-disc list-inside">
-                <li className="pl-0.5">Kéo thả chuột trái lên nền để di chuyển sơ đồ.</li>
-                <li className="pl-0.5">Sử dụng con lăn chuột hoặc thanh zoom để thu phóng.</li>
-                <li className="pl-0.5">Kéo thả thẻ nhân sự để thay đổi cấp quản lý.</li>
-                <li className="pl-0.5">Nhấp vào thẻ nhân sự để xem chi tiết / chỉnh sửa.</li>
-              </ul>
-            </div>
+        
           </div>
 
           {/* Interactive Tree viewport diagram */}
           <div className="xl:col-span-3 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
-            <div className="absolute top-4 left-4 bg-white/85 border px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-500 select-none z-10 flex items-center gap-1 shadow-2xs">
-              <span>🖱️ Giữ chuột trái kéo để xem sơ đồ</span>
-            </div>
+        
+
+            {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
+            <button
+              type="button"
+              onClick={toggleFitScreen}
+              className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 border border-gray-200 text-slate-700 shadow-2xs hover:bg-white hover:text-indigo-655 active:scale-95 transition-all cursor-pointer"
+              title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
+            >
+              {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+            </button>
 
             <div
               ref={containerRef}
@@ -1205,8 +1184,7 @@ export default function OrgChartTab({
               onMouseLeave={handleMouseLeaveOrUp}
               onMouseUp={handleMouseLeaveOrUp}
               onMouseMove={handleMouseMove}
-              onWheel={handleWheel}
-              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
+              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none touch-none overscroll-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
                 }`}
               id="interactive_org_chart"
             >
@@ -1238,9 +1216,7 @@ export default function OrgChartTab({
             </div>
 
             {/* Chart footer notification guide */}
-            <div className="p-3 bg-white border-t border-gray-200 select-none text-center text-xs text-gray-400 font-medium">
-              💡 Nhấn chọn nhân sự để hiển thị liên kết vận hành Giao việc / Đào tạo của thành viên đó
-            </div>
+         
           </div>
         </div>
       </div>

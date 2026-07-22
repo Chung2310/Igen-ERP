@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
@@ -918,20 +918,32 @@ export default function InventoryTab() {
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 justify-between border-b border-gray-200 bg-gray-50/50 p-2 text-xs" id="inventory_tabs_switch">
-        <div className="flex flex-wrap gap-2">
-          {inventoryTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setSubTab(tab)}
-              className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex justify-between items-center shrink-0" id="inventory_tabs_switch">
+        <div className="flex gap-1 overflow-x-auto select-none">
+          {[
+            { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
+            { id: "PHÂN LOẠI SẢN PHẨM", label: "Phân loại kho", icon: Tags },
+            { id: "NHẬP / XUẤT KHO", label: "Nhập / Xuất kho", icon: ArrowLeftRight },
+            { id: "DỰ BÁO AI", label: "Dự báo AI", icon: Sparkles },
+          ].map((tab) => {
+            const isActive = subTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSubTab(tab.id as InventorySubTabType)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  isActive
+                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
-            >
-              {tab}
-            </button>
-          ))}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
-        
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">
@@ -1010,7 +1022,6 @@ export default function InventoryTab() {
             ) : filteredProducts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                 <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
-                <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1190,7 +1201,6 @@ export default function InventoryTab() {
                   <Tags className="h-4.5 w-4.5 text-blue-500" />
                   Phân loại sản phẩm trong kho
                 </h4>
-                <p className="mt-1 text-xs leading-snug text-gray-500">Mỗi phân loại sẽ xuất hiện trong form khai báo sản phẩm mới.</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative w-full sm:w-72">
@@ -1313,7 +1323,6 @@ export default function InventoryTab() {
             {!categoryLoading && filteredCategories.length === 0 && (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                 <p className="font-bold text-gray-700">Không tìm thấy phân loại phù hợp</p>
-                <p className="mt-1 text-xs text-gray-500">Thử đổi từ khóa tìm kiếm hoặc thêm phân loại mới.</p>
               </div>
             )}
 

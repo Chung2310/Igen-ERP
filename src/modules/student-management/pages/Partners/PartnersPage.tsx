@@ -163,7 +163,6 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
     <div className="space-y-6 text-left">
       <ErpPageHeader
         title="Quản lý Đối tác & Cộng tác viên"
-        subtitle="Quản lý thông tin CTV, theo dõi số lượng học viên đã giới thiệu và ghi nhận chi trả tiền hoa hồng"
         action={
           <div className="flex flex-wrap items-center gap-2">
             <button

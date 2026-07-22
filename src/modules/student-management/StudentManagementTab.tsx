@@ -6,7 +6,7 @@ import { StudentDetailModal } from "./components/Student/StudentDetailModal";
 import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Users, BookOpen, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, Handshake, Settings } from "lucide-react";
 
 type StudentSubTab =
   | "TỔNG QUAN"
@@ -32,16 +32,16 @@ const PartnersPage = lazy(() => import("./pages/Partners/PartnersPage").then((m)
 const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 const SUB_TAB_ROUTES = [
-  { slug: "tong-quan", value: "TỔNG QUAN" as const },
-  { slug: "hoc-vien", value: "HỌC VIÊN" as const },
-  { slug: "khoa-hoc", value: "KHÓA HỌC" as const },
-  { slug: "lop-hoc", value: "LỚP HỌC" as const },
-  { slug: "lich-thi", value: "LỊCH THI" as const },
-  { slug: "hoc-phi", value: "HỌC PHÍ" as const },
-  { slug: "thong-bao", value: "THÔNG BÁO" as const },
-  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const },
-  { slug: "doi-tac", value: "ĐỐI TÁC" as const },
-  { slug: "cai-dat", value: "CÀI ĐẶT" as const },
+  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: LayoutDashboard },
+  { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học", icon: BookOpen },
+  { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học", icon: GraduationCap },
+  { slug: "hoc-vien", value: "HỌC VIÊN" as const, label: "Học viên", icon: Users },
+  { slug: "hoc-phi", value: "HỌC PHÍ" as const, label: "Học phí", icon: CreditCard },
+  { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi", icon: Calendar },
+  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Tài nguyên", icon: FolderOpen },
+  { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo", icon: Bell },
+  { slug: "doi-tac", value: "ĐỐI TÁC" as const, label: "Đối tác", icon: Handshake },
+  { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
 ];
 
 function formatDateLabel() {
@@ -122,28 +122,31 @@ export default function StudentManagementTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       {/* Sub Tabs switcher navigation bar */}
-      <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0" id="student_sub_tabs_bar">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0" id="student_sub_tabs_bar">
+        <div className="flex gap-1 overflow-x-auto select-none">
           {SUB_TAB_ROUTES.map((item) => {
             const isActive = activeSubTab === item.value;
+            const Icon = item.icon;
             return (
               <button
                 key={item.value}
                 type="button"
                 onClick={() => setActiveSubTab(item.value)}
-                className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${isActive
-                    ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/20"
-                    : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-                  }`}
+                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  isActive
+                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                }`}
               >
-                {item.value}
+                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </div>
 
         {userProfile?.role === "superadmin" && (
-          <div className="flex items-center gap-2 shrink-0 pr-2">
+          <div className="flex items-center gap-2 shrink-0 pb-2 sm:pb-0 pr-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cơ sở:</span>
             <div className="relative min-w-[200px]">
               <select

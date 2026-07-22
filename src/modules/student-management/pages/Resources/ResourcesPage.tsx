@@ -114,7 +114,6 @@ export function ResourcesPage() {
     <div className="space-y-6 text-left">
       <ErpPageHeader
         title="Quản lý Thiết bị & Tài nguyên"
-        subtitle="Khởi tạo, theo dõi hiện trạng và phân phối phòng học, thiết bị và công cụ giảng dạy"
         action={
           <div className="flex gap-2">
             <button

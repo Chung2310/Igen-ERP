@@ -131,7 +131,6 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Học phí</h1>
-          <p className="text-slate-400 text-[11px] font-medium mt-0.5">Theo dõi thu, nợ học phí của tất cả học viên</p>
         </div>
         <div className="flex items-center gap-2">
           <button 

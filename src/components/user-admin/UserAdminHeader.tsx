@@ -1,4 +1,4 @@
-﻿import { Plus, RefreshCw, Users } from "lucide-react";
+import { Plus, RefreshCw, Users } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
 
 interface Props {
@@ -29,14 +29,9 @@ export function UserAdminHeader({
           <Users className="h-5 w-5 text-indigo-650" />
         </div>
         <div>
-          <h4 className="font-bold text-slate-800 text-sm font-sans tracking-tight uppercase">
+          <h1 className="font-bold text-slate-900 text-xl tracking-tight">
             Quản trị Tài khoản & Phân quyền
-          </h4>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {userProfile?.role === "superadmin"
-              ? "Quản trị toàn bộ hệ thống SaaS Multi-tenant và các tài khoản doanh nghiệp."
-              : `Quản lý và cấp quyền hạn cho tất cả thành viên trong công ty ${userProfile?.companyName || ""}.`}
-          </p>
+          </h1>
         </div>
       </div>
 
