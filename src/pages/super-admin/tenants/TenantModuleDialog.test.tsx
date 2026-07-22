@@ -9,6 +9,7 @@ vi.mock("../../../services/superAdminTenantService", () => ({
   superAdminTenantService: {
     detail: vi.fn(),
     updateModules: vi.fn(),
+    transition: vi.fn(),
   },
 }));
 
@@ -50,7 +51,7 @@ describe("TenantModuleDialog", () => {
     expect(screen.queryByRole("textbox", { name: "Email chủ sở hữu" })).toBeNull();
   });
 
-  it("updates selected modules with step-up credentials", async () => {
+  it("updates selected modules with just a reason", async () => {
     vi.mocked(superAdminTenantService.updateModules).mockResolvedValue({ actionId: "a1", result: detail.tenant });
     const onSaved = vi.fn();
     render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={onSaved} />);
@@ -58,19 +59,32 @@ describe("TenantModuleDialog", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Kho & Sản phẩm" }));
     fireEvent.change(screen.getByLabelText("Lý do thay đổi"), { target: { value: "Mở lại module kho" } });
-    fireEvent.change(screen.getByLabelText("Mật khẩu xác nhận"), { target: { value: "secret" } });
-    fireEvent.change(screen.getByLabelText("Mã TOTP"), { target: { value: "123456" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
     await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledTimes(1));
     expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
       enabledModules: ["hr", "inventory", "chat"],
       reason: "Mở lại module kho",
-      password: "secret",
-      token: "123456",
-      step: 0,
     });
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it("suspends the tenant with a written reason and no step-up fields", async () => {
+    vi.mocked(superAdminTenantService.transition).mockResolvedValue({ actionId: "a2", result: { ...detail.tenant, lifecycleStatus: "suspended" } });
+    render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByText("Công ty ACME");
+
+    expect(screen.queryByLabelText("Mật khẩu xác nhận")).toBeNull();
+    expect(screen.queryByLabelText("Mã TOTP")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Lý do đổi trạng thái"), { target: { value: "Vi phạm điều khoản" } });
+    fireEvent.click(screen.getByRole("button", { name: "Vô hiệu hoá" }));
+
+    await waitFor(() => expect(superAdminTenantService.transition).toHaveBeenCalledTimes(1));
+    expect(superAdminTenantService.transition).toHaveBeenCalledWith("ACME", {
+      lifecycleStatus: "suspended",
+      reason: "Vi phạm điều khoản",
+    });
   });
 
   it("prevents saving an empty module selection", async () => {

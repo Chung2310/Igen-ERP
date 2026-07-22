@@ -113,6 +113,7 @@ export interface IUser extends Document {
   level?: number;
   parentId?: string;
   status?: "online" | "offline";
+  disabledAt?: Date | null;
   division?: string;
   companyCode?: string;
   companyName?: string;
