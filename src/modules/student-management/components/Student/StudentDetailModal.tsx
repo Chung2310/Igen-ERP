@@ -293,7 +293,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                       <TabIcon tab={activeTab} size={32} />
                     </div>
                     <h3 className="text-slate-800 font-bold mb-2">Tính năng đang phát triển</h3>
-                    <p className="text-slate-400 text-sm text-center">Chúng tôi đang cập nhật module {activeTab} sớm nhất có thể.</p>
+                    <p className="text-slate-400 text-sm text-center">Chúng tôi đang cập nhật phân hệ {activeTab} sớm nhất có thể.</p>
                   </div>
                 )}
               </motion.div>

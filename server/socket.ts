@@ -257,7 +257,7 @@ export async function initSocketServer(httpServer: HTTPServer) {
           ? await getEnabledModulesForCompany(user.companyCode)
           : undefined;
         if (!resolveModuleAccess(user, "chat", modules)) {
-          socket.emit("chat_module_disabled", { message: "Module chưa được kích hoạt cho doanh nghiệp của bạn." });
+          socket.emit("chat_module_disabled", { message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
           return;
         }
       } catch (error) {

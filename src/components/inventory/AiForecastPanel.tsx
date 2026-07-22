@@ -172,7 +172,7 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
             <AlertTriangle className="h-4.5 w-4.5 text-red-500" />
             Cảnh báo tồn kho tự động
           </h4>
-          <p className="mt-1 text-xs leading-snug text-gray-400">Theo dõi SKU sắp chạm ngưỡng cảnh báo hoặc đang có tốc độ xuất cao trong 30 ngày gần nhất.</p>
+          <p className="mt-1 text-xs leading-snug text-gray-400">Theo dõi mã sản phẩm sắp chạm ngưỡng cảnh báo hoặc đang có tốc độ xuất cao trong 30 ngày gần nhất.</p>
 
           <div className="mt-5 space-y-4">
             {!forecast.hasHistoricalDemand ? (
@@ -181,7 +181,7 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
               </div>
             ) : forecast.warningItems.length === 0 ? (
               <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center text-sm font-semibold text-green-800">
-                AI chưa phát hiện SKU nào có rủi ro cạn kho trong 30 ngày tới.
+                AI chưa phát hiện mã sản phẩm nào có rủi ro cạn kho trong 30 ngày tới.
               </div>
             ) : (
               forecast.warningItems.slice(0, 6).map((item) => {
@@ -196,7 +196,7 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h5 className="font-sans font-bold text-gray-800">{item.name}</h5>
-                        <p className="mt-1 font-mono text-[10px] text-gray-400">SKU: {item.sku} • Tồn hiện tại {formatNumber(item.currentStock)}</p>
+                        <p className="mt-1 font-mono text-[10px] text-gray-400">Mã sản phẩm: {item.sku} • Tồn hiện tại {formatNumber(item.currentStock)}</p>
                       </div>
                       <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${styles.badge}`}>
                         {item.riskLevel === "high" ? "Nguy cơ cao" : "Theo dõi"}

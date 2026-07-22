@@ -2691,7 +2691,7 @@ export default function ChatTab() {
                               <p>🤖 <strong>Trợ lý AI</strong> được tích hợp dữ liệu thời gian thực của doanh nghiệp để hỗ trợ bạn:</p>
                               <ul className="list-disc list-inside space-y-1.5 pl-1 text-slate-500 font-medium">
                                 <li>Tra cứu tồn kho & sản phẩm</li>
-                                <li>Kiểm tra tiến độ Kanban Task & dự án</li>
+                                <li>Kiểm tra tiến độ công việc và dự án</li>
                                 <li>Xem số dư ví cá nhân</li>
                                 <li>Tư vấn nghiệp vụ ERP chung</li>
                               </ul>

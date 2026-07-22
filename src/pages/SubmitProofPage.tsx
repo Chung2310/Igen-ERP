@@ -372,7 +372,7 @@ export default function SubmitProofPage() {
                 {uploading ? (
                   <>
                     <Loader2 className="h-10 w-10 animate-spin text-indigo-650 mb-3" />
-                    <span className="text-sm font-semibold text-indigo-600 animate-pulse">Đang tải tệp lên Cloudinary...</span>
+                    <span className="text-sm font-semibold text-indigo-600 animate-pulse">Đang tải tệp lên hệ thống lưu trữ...</span>
                   </>
                 ) : (
                   <>

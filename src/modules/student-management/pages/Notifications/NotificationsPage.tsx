@@ -560,7 +560,7 @@ export function NotificationsPage() {
         </div>
         
         <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
-          <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Quét mã VietQR để thanh toán</p>
+          <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Quét mã QR để thanh toán</p>
           <img src="${qrUrl}" alt="Mã QR thanh toán" style="max-width: 250px; height: auto; display: block; margin: 0 auto 15px auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);" />
           <div style="text-align: left; max-width: 300px; margin: 0 auto; font-size: 13px; color: #334155;">
             <p style="margin: 4px 0;"><b>Ngân hàng:</b> ${config.bankId.toUpperCase()}</p>
@@ -1149,7 +1149,7 @@ export function NotificationsPage() {
                   <div className="flex items-center gap-2 text-cyan-700 bg-cyan-50/50 border border-cyan-100/50 p-3.5 rounded-2xl">
                     <Smartphone size={16} className="text-cyan-600 flex-shrink-0" />
                     <span>
-                      📲 Mã VietQR sẽ được nhúng vào email.
+                      📲 Mã QR chuyển khoản sẽ được chèn vào thư điện tử.
                       {useInstallment && currentInstallment
                         ? ` Số tiền QR = ${currentInstallment.percent}% học phí gốc (${currentInstallment.label}).`
                         : ' Số tiền QR = toàn bộ nợ còn lại.'}
@@ -1158,7 +1158,7 @@ export function NotificationsPage() {
                 ) : (
                   <div className="flex items-center gap-2 text-amber-700 bg-amber-50/50 border border-amber-100/50 p-3.5 rounded-2xl">
                     <AlertCircle size={16} className="text-amber-600 flex-shrink-0" />
-                    <span>⚠️ Chưa cấu hình VietQR hoặc VietQR đang tắt. Email sẽ chỉ là plain text. Vào Cài đặt để kích hoạt.</span>
+                    <span>⚠️ Chưa cấu hình mã QR chuyển khoản hoặc tính năng này đang tắt. Thư điện tử sẽ chỉ có văn bản thông thường. Vào Cài đặt để kích hoạt.</span>
                   </div>
                 )}
               </div>
@@ -1171,7 +1171,7 @@ export function NotificationsPage() {
                   <div className="flex items-center gap-4">
                     {channels.includes('Email') && (
                       <div className="flex items-center gap-1.5 border-r border-slate-100 pr-4">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Email API:</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Dịch vụ gửi Email :</span>
                         {apiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
                         {apiStatus === 'Ready' && (
                           <div className="flex flex-col items-end gap-0.5">
@@ -1186,7 +1186,7 @@ export function NotificationsPage() {
                     )}
                     {channels.includes('SMS') && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">SMS API:</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Dịch vụ gửi tin nhắn SMS :</span>
                         {smsApiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
                         {smsApiStatus === 'Ready' && (
                           <span className="flex items-center gap-1 text-[9px] font-black text-emerald-500 uppercase tracking-wider">
@@ -1199,7 +1199,7 @@ export function NotificationsPage() {
                   </div>
                 </div>
                 {channels.includes('Email') && apiStatus === 'Ready' && (
-                  <p className="text-[9px] text-slate-400 font-medium italic text-right">* SMTP Sender: Gửi email không giới hạn qua tài khoản của bạn.</p>
+                  <p className="text-[9px] text-slate-400 font-medium italic text-right">* Dịch vụ gửi thư: Gửi thư điện tử không giới hạn qua tài khoản của bạn.</p>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-6">

@@ -171,7 +171,7 @@ export const walletController = {
         existing = await TransactionModel.findOne({ orderCode });
       } while (existing);
 
-      const description = req.body.description || `Nap tien iGen: ${orderCode}`;
+      const description = req.body.description || `Nạp tiền iGen: ${orderCode}`;
       const origin = req.headers.origin || req.headers.referer || "http://localhost:3000";
       const clientOrigin = origin.endsWith("/") ? origin.slice(0, -1) : origin;
 

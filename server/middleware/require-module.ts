@@ -57,7 +57,7 @@ export function requireModule(key: ModuleKey) {
 
       return res.status(403).json({
         status: "error",
-        message: "Module chưa được kích hoạt cho doanh nghiệp của bạn.",
+        message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn.",
       });
     } catch (error) {
       return next(error);

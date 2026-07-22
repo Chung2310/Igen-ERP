@@ -43,7 +43,7 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
       </div>
       {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{error}</p>}
       <button disabled={!reason.trim() || saving} onClick={save} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
-        {saving ? "Đang lưu..." : "Lưu module"}
+        {saving ? "Đang lưu..." : "Lưu cấu hình phân hệ"}
       </button>
     </div>
   );
@@ -80,14 +80,14 @@ export function TenantDetailPage({ code }: { code: string }) {
         {summary ? (
           <dl className="mt-3 grid grid-cols-3 gap-4 text-sm">
             <div><dt className="text-xs text-slate-500">Tổng người dùng</dt><dd className="text-lg font-bold">{summary.userCount}</dd></div>
-            <div><dt className="text-xs text-slate-500">Module đang bật</dt><dd className="text-lg font-bold">{summary.enabledModulesCount}</dd></div>
+            <div><dt className="text-xs text-slate-500">Phân hệ đang bật</dt><dd className="text-lg font-bold">{summary.enabledModulesCount}</dd></div>
             <div><dt className="text-xs text-slate-500">Theo vai trò</dt><dd className="text-xs">{Object.entries(summary.usersByRole).map(([role, count]) => `${role}: ${count}`).join(", ") || "—"}</dd></div>
           </dl>
         ) : <p className="mt-2 text-xs text-slate-500">Đang tải…</p>}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
-        <h3 className="text-sm font-bold text-slate-200">Module</h3>
+        <h3 className="text-sm font-bold text-slate-200">Phân hệ</h3>
         <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} onSaved={load} /></div>
       </div>
 

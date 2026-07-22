@@ -269,7 +269,7 @@ export default function InventoryTab() {
     try {
       const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined);
       if (!isSkuAvailable) {
-        toast.error("SKU này đã tồn tại trong kho.");
+        toast.error("Mã sản phẩm này đã tồn tại trong kho.");
         setProductSubmitting(false);
         return;
       }
@@ -570,17 +570,17 @@ export default function InventoryTab() {
       }
 
       if (createdCount === 0) {
-        toast.error("Không có sản phẩm mới nào được import. Kiểm tra SKU bị trùng.");
+        toast.error("Không có sản phẩm mới nào được nhập. Kiểm tra mã sản phẩm bị trùng.");
         return;
       }
 
       if (skippedCount > 0) {
-        toast.success(`Đã import ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng SKU trùng.`);
+        toast.success(`Đã nhập ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng có mã sản phẩm trùng.`);
       } else {
-        toast.success(`Đã import ${createdCount} sản phẩm từ Excel.`);
+        toast.success(`Đã nhập ${createdCount} sản phẩm từ Excel.`);
       }
     } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể import sản phẩm từ Excel."));
+      toast.error(getInventoryErrorMessage(error, "Không thể nhập sản phẩm từ Excel."));
     } finally {
       setProductExcelImporting(false);
     }
@@ -618,7 +618,7 @@ export default function InventoryTab() {
       let addedCount = 0;
 
       if (nextLogs.length === 0) {
-        toast.error("Không có phiếu hợp lệ nào được import.");
+        toast.error("Không có phiếu hợp lệ nào được nhập.");
         return;
       }
 
@@ -629,7 +629,7 @@ export default function InventoryTab() {
         const resolvedItems = logItems.map((item) => {
           const product = products.find((entry) => entry.sku === item.sku);
           if (!product) {
-            throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm SKU ${item.sku} trong danh mục kho.` }));
+            throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm có mã ${item.sku} trong danh mục kho.` }));
           }
           return { product, quantity: item.quantity };
         });
@@ -682,9 +682,9 @@ export default function InventoryTab() {
         addedCount += 1;
       }
 
-      toast.success(`Đã import ${addedCount} phiếu nhập/xuất kho từ Excel.`);
+      toast.success(`Đã nhập ${addedCount} phiếu nhập/xuất kho từ Excel.`);
     } catch (error) {
-      toast.error("Không thể import phiếu nhập/xuất kho từ Excel.");
+      toast.error("Không thể nhập phiếu nhập/xuất kho từ Excel.");
     } finally {
       setStockLogExcelImporting(false);
     }
@@ -952,7 +952,7 @@ export default function InventoryTab() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Tìm theo tên sản phẩm, mã SKU..."
+                    placeholder="Tìm theo tên hoặc mã sản phẩm..."
                     className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
                     value={searchProduct}
                     onChange={(event) => setSearchProduct(event.target.value)}
@@ -1028,7 +1028,7 @@ export default function InventoryTab() {
                       <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-gray-150">
                         <tr>
                           <th className="px-4 py-3">Ảnh</th>
-                          <th className="px-4 py-3">SKU</th>
+                          <th className="px-4 py-3">Mã sản phẩm</th>
                           <th className="px-4 py-3">Tên sản phẩm</th>
                           <th className="px-4 py-3">Phân loại</th>
                           <th className="px-4 py-3">Đơn giá</th>

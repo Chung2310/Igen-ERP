@@ -2137,7 +2137,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           >
             {/* Header: Title and New Chat Group Button */}
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3 shrink-0">
-              <h3 className="text-xl font-bold text-slate-800">Send to chat</h3>
+              <h3 className="text-xl font-bold text-slate-800">Gửi vào trò chuyện</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {

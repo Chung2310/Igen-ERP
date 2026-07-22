@@ -451,7 +451,7 @@ export default function UserAdminTab() {
       return;
     }
     if (selectedModules.length === 0) {
-      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      toast.warning("Vui lòng chọn ít nhất một phân hệ.");
       return;
     }
 
@@ -523,7 +523,7 @@ export default function UserAdminTab() {
     }
 
     if (editingCompany.enabledModules.length === 0) {
-      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      toast.warning("Vui lòng chọn ít nhất một phân hệ.");
       return;
     }
     setSubmittingCompany(true);
@@ -850,7 +850,7 @@ export default function UserAdminTab() {
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
               <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư người dùng</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Chỉ superadmin mới được chỉnh sửa balance của người dùng.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Chỉ quản trị viên cấp cao mới được chỉnh sửa số dư của người dùng.</p>
             </div>
             <button
               type="button"

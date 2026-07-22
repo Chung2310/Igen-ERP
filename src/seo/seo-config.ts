@@ -25,7 +25,7 @@ export function buildDocumentTitle(title: string) {
 export const DEFAULT_SEO: SeoMeta = {
   title: "Nền tảng quản trị doanh nghiệp tích hợp AI",
   description:
-    "iGen ERP là nền tảng quản trị doanh nghiệp tích hợp AI thế hệ mới, hỗ trợ quản lý kho vận, nhân sự HRM, marketing automation, sales CRM đa kênh và tối ưu hiệu suất vận hành doanh nghiệp.",
+    "iGen ERP là nền tảng quản trị doanh nghiệp tích hợp AI thế hệ mới, hỗ trợ quản lý kho vận, nhân sự, tiếp thị tự động, quản lý khách hàng đa kênh và tối ưu hiệu suất vận hành doanh nghiệp.",
   keywords:
     "iGen ERP, ERP tích hợp AI, phần mềm quản trị doanh nghiệp, quản lý nhân sự HRM, quản lý kho thông minh, marketing AI, sales CRM đa kênh, tối ưu vận hành",
   path: "/",
@@ -39,7 +39,7 @@ export const DEFAULT_SEO: SeoMeta = {
 export const AUTH_SEO: SeoMeta = {
   title: "Đăng nhập - Quản trị doanh nghiệp thông minh",
   description:
-    "Đăng nhập vào iGen ERP để quản lý vận hành, nhân sự, kho, marketing và CRM trên một nền tảng doanh nghiệp tích hợp AI.",
+    "Đăng nhập vào iGen ERP để quản lý vận hành, nhân sự, kho, tiếp thị và khách hàng trên một nền tảng doanh nghiệp tích hợp AI.",
   keywords:
     "đăng nhập iGen ERP, hệ thống ERP doanh nghiệp, cổng quản trị AI, phần mềm ERP",
   path: "/dang-nhap",
@@ -108,9 +108,9 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "weekly",
   },
   "KHO & SẢN PHẨM": {
-    title: "Quản lý kho & Sản phẩm - Quản lý tồn kho SKU, xuất nhập kho",
+    title: "Quản lý kho & Sản phẩm - Quản lý tồn kho theo mã sản phẩm, xuất nhập kho",
     description:
-      "Tối ưu hóa quản lý chuỗi cung ứng với tính năng quản lý tồn kho SKU, theo dõi lịch sử giao dịch xuất nhập kho và dự báo nhu cầu hàng hóa thông minh bằng AI.",
+      "Tối ưu hóa quản lý chuỗi cung ứng với tính năng quản lý tồn kho theo mã sản phẩm, theo dõi lịch sử giao dịch xuất nhập kho và dự báo nhu cầu hàng hóa thông minh bằng AI.",
     keywords:
       "quản lý kho, quản lý sản phẩm, tồn kho, SKU, dự báo nhu cầu, ERP kho vận, xuất nhập kho",
     path: "/kho-san-pham",
@@ -150,7 +150,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
   "QUẢN TRỊ USER": {
     title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
     description:
-      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, cấu hình HeyGen API và quản trị thông tin doanh nghiệp tập trung.",
+      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, cấu hình HeyGen  và quản trị thông tin doanh nghiệp tập trung.",
     keywords:
       "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, heygen user, cấu hình phân quyền",
     path: "/quan-tri-user",
