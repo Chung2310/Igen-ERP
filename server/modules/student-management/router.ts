@@ -1,6 +1,7 @@
 import { Router, RequestHandler } from "express";
 import fs from "fs";
 import path from "path";
+import authRoutes from "./routes/auth.routes";
 import studentRoutes from "./routes/student.routes";
 import examRoutes from "./routes/exam.routes";
 import paymentRoutes from "./routes/payment.routes";
@@ -26,6 +27,7 @@ export const studentManagementRouter = Router();
 
 const requireStudentModule = requireModule("student") as RequestHandler;
 
+studentManagementRouter.use("/auth", authRoutes);
 studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, studentRoutes);
 studentManagementRouter.use("/exams", authMiddleware as unknown as RequestHandler, requireStudentModule, examRoutes);
 studentManagementRouter.use("/payments", authMiddleware as unknown as RequestHandler, requireStudentModule, paymentRoutes);
