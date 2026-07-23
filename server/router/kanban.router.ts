@@ -7,7 +7,6 @@ import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
-import { workflowLinkService } from "../service/workflow-link.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
 import { emitToCompany, emitToUser } from "../socket";
 
@@ -306,9 +305,6 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     if (update.dueDate && update.dueDate !== task.dueDate) await notificationService.notifyTaskDeadlineChanged(updated);
     if (update.status && update.status !== normalizeStatus(task.status)) {
       await notificationService.notifyTaskStatusChanged(updated, req.user?.id || "");
-      if (updated.isFromWorkflow && updated.status === "Done") {
-        await workflowLinkService.handleTaskStatusChange(updated);
-      }
     }
     emitToCompany(task.companyCode, "kanban:task-updated", toClient(updated));
     emitToUser(updated.assigneeUid, "kanban:task-updated", toClient(updated));
@@ -330,7 +326,6 @@ kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Respons
       correlationId: correlationId(req),
       task: toClient(task),
     });
-    await workflowLinkService.handleTaskDeletion(task);
     emitToCompany(task.companyCode, "kanban:task-deleted", { id: task._id.toString() });
     return res.json({ status: "success", data: toClient(task) });
   } catch (error) {
