@@ -17,7 +17,6 @@ const forbiddenCopy: Record<string, string[]> = {
   "src/components/hr/KanbanTab.tsx": [">Kanban<", "{task.category || \"Onboarding\"}", "{editCategory || \"Onboarding\"}", "Ví dụ: Onboarding", "VD: Onboarding"],
   "src/components/hr/WorkflowTab.tsx": ["vd: Onboarding", "VD: Onboarding"],
   "src/pages/ChatTab.tsx": ["Kanban Task"],
-  "server/controller/workflow-link.controller.ts": ["khởi tạo task Kanban", "tasksArchived} task Kanban"],
 };
 
 test("user-facing business terms use plain Vietnamese", () => {

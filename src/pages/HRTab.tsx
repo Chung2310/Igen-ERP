@@ -208,10 +208,6 @@ export default function HRTab() {
             employees={employees}
             isManager={isManager}
             usersList={usersList}
-            onNavigateToWorkflow={(workflowId) => {
-              sessionStorage.setItem("targetWorkflowId", workflowId);
-              setSubTab("QUY TRÌNH");
-            }}
           />
         )}
 
@@ -232,11 +228,6 @@ export default function HRTab() {
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             isManager={isManager}
-            usersList={usersList}
-            onNavigateToKanban={(taskId) => {
-              sessionStorage.setItem("targetKanbanTaskId", taskId);
-              setSubTab("Giao Việc");
-            }}
           />
         )}
 

@@ -13,7 +13,6 @@ import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
-import { workflowLinkService } from "./workflow-link.service";
 import { notificationService } from "./notification.service";
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
@@ -365,13 +364,6 @@ export const crudService = {
       }
     }
 
-    // Task Kanban thuộc quy trình đổi trạng thái → đồng bộ ngược về Quy trình
-    if (modelName === "kanban-tasks" && updatedItem) {
-      workflowLinkService.handleTaskStatusChange(updatedItem).catch((err) => {
-        console.error("[crudService.update] Error syncing workflow from kanban task:", err);
-      });
-    }
-
     return sanitizeCrudResult(modelName, updatedItem);
   },
 
@@ -407,15 +399,6 @@ export const crudService = {
         { companyCode: deletedItem.companyCode || companyCode, projectId: id },
         { $set: { projectId: "" } }
       );
-    }
-
-    // Xóa quy trình → lưu trữ các task Kanban chưa xong đã sinh từ quy trình đó
-    if (modelName === "workflows") {
-      workflowLinkService
-        .archiveWorkflowTasks(deletedItem.companyCode || companyCode, id)
-        .catch((err) => {
-          console.error("[crudService.delete] Error archiving workflow tasks:", err);
-        });
     }
 
     return deletedItem;
