@@ -141,6 +141,7 @@ export function TimekeepingWidget({
     toast.success(result.message || `Check-${type} thành công!`);
     pendingCoordsRef.current = null;
     onRefresh();
+    window.dispatchEvent(new CustomEvent("timekeeping-mutation"));
   };
 
   const hasCheckIn = !!todayTimekeeping?.checkIn;

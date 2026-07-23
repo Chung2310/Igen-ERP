@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User
+  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User,
+  LogIn, LogOut as LogOutIcon
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -14,6 +15,7 @@ import { isTabHidden } from "../config/modules";
 import { toast } from "./Toast";
 import { notificationService, WebNotification } from "../services/notificationService";
 import { socketService } from "../services/socketService";
+import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -54,6 +56,116 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
   });
+
+  // ─── Attendance (Chấm công) ──────────────────────────────────
+  const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
+  const [timekeepingChecking, setTimekeepingChecking] = useState<"in" | "out" | null>(null);
+  const [timekeepingCameraAction, setTimekeepingCameraAction] = useState<"in" | "out" | null>(null);
+  const timekeepingCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  const fetchHeaderTimekeeping = async () => {
+    try {
+      const token = localStorage.getItem("accessToken") || "";
+      if (!token) return;
+      const res = await fetch("/api/v1/timekeeping/today", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setTodayTimekeeping(result.data?.log ?? null);
+      }
+    } catch {
+      // silent fail — Header không chặn UI nếu API lỗi
+    }
+  };
+
+  useEffect(() => {
+    if (!userProfile) return;
+    fetchHeaderTimekeeping();
+    const intervalId = setInterval(fetchHeaderTimekeeping, 30000);
+    const handleMutation = () => fetchHeaderTimekeeping();
+    window.addEventListener("timekeeping-mutation", handleMutation);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("timekeeping-mutation", handleMutation);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.uid]);
+
+  const handleTimekeepingAction = (type: "in" | "out") => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+      return;
+    }
+    setTimekeepingChecking(type);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        timekeepingCoordsRef.current = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setTimekeepingChecking(null);
+        setTimekeepingCameraAction(type);
+      },
+      (error) => {
+        setTimekeepingChecking(null);
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error("Vui lòng cho phép truy cập vị trí trên trình duyệt để chấm công.");
+        } else {
+          toast.error("Không thể xác định vị trí. Vui lòng thử lại.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
+
+  const FACE_REASON_MESSAGES: Record<string, string> = {
+    invalid_image: "Ảnh không hợp lệ, vui lòng chụp lại.",
+    no_face: "Không phát hiện khuôn mặt trong ảnh.",
+    multiple_faces: "Ảnh có nhiều khuôn mặt, vui lòng chụp lại một mình.",
+    spoof_detected: "Hệ thống nghi ngờ ảnh giả mạo. Vui lòng chụp trực tiếp.",
+    face_mismatch: "Khuôn mặt không khớp với hồ sơ đã đăng ký.",
+    not_registered: "Bạn chưa đăng ký khuôn mặt. Vui lòng liên hệ quản trị viên.",
+    model_unavailable: "Hệ thống nhận diện khuôn mặt tạm thời không khả dụng.",
+  };
+
+  const handleTimekeepingCameraCapture = async (image: Blob) => {
+    const type = timekeepingCameraAction;
+    const coords = timekeepingCoordsRef.current;
+    if (!type || !coords) throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
+
+    const formData = new FormData();
+    formData.append("file", image, "attendance.jpg");
+    formData.append("latitude", String(coords.latitude));
+    formData.append("longitude", String(coords.longitude));
+    formData.append("deviceInfo", navigator.userAgent);
+
+    const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+        body: formData,
+      });
+    } catch {
+      throw new Error("Lỗi kết nối khi gửi dữ liệu chấm công.");
+    }
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reasonMessage = result.reasonCode ? FACE_REASON_MESSAGES[result.reasonCode] : undefined;
+      throw new Error(reasonMessage || result.message || `Không thể Check-${type}.`);
+    }
+
+    toast.success(result.message || `Check-${type === "in" ? "In" : "Out"} thành công!`);
+    timekeepingCoordsRef.current = null;
+    await fetchHeaderTimekeeping();
+    window.dispatchEvent(new CustomEvent("timekeeping-mutation"));
+  };
+
+  const hasCheckIn = !!todayTimekeeping?.checkIn;
+  const hasCheckOut = !!todayTimekeeping?.checkOut;
 
   useEffect(() => {
     const handleThemeChange = (e: any) => {
@@ -223,6 +335,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         );
 
   return (
+    <>
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-3 sm:px-6 shadow-xs" id="app_header">
       <div className="flex flex-1 items-center max-w-2xl">
         {onMenuClick && (
@@ -300,6 +413,58 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(balance)} Credit
             </span>
           </button>
+        )}
+
+        {/* Attendance Check-In / Check-Out Button */}
+        {userProfile && (
+          hasCheckOut ? (
+            <span
+              className="hidden sm:flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-2.5 sm:px-4 py-2 text-xs font-bold text-blue-600 select-none"
+              title="Đã hoàn thành chấm công hôm nay"
+              id="header_attendance_done"
+            >
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Đã chấm công</span>
+            </span>
+          ) : hasCheckIn ? (
+            <button
+              onClick={() => handleTimekeepingAction("out")}
+              disabled={timekeepingChecking !== null}
+              className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 sm:px-4 py-2 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs ${
+                timekeepingChecking === "out"
+                  ? "bg-emerald-100 border-emerald-200 text-emerald-500 animate-pulse cursor-wait"
+                  : "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100/70 hover:border-emerald-200 shadow-emerald-500/5"
+              }`}
+              title="Check-Out chấm công"
+              id="header_checkout_btn"
+            >
+              {timekeepingChecking === "out" ? (
+                <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <LogOutIcon className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="hidden sm:inline">{timekeepingChecking === "out" ? "Đang xử lý..." : "Check-Out"}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => handleTimekeepingAction("in")}
+              disabled={timekeepingChecking !== null}
+              className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 sm:px-4 py-2 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs ${
+                timekeepingChecking === "in"
+                  ? "bg-indigo-100 border-indigo-200 text-indigo-500 animate-pulse cursor-wait"
+                  : "bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100/70 hover:border-indigo-200 shadow-indigo-500/5"
+              }`}
+              title="Check-In chấm công"
+              id="header_checkin_btn"
+            >
+              {timekeepingChecking === "in" ? (
+                <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <LogIn className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="hidden sm:inline">{timekeepingChecking === "in" ? "Đang xử lý..." : "Check-In"}</span>
+            </button>
+          )
         )}
 
         {/* Pricing Info Button */}
@@ -1201,5 +1366,17 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         </div>
       )}
     </header>
+
+      {timekeepingCameraAction && (
+        <AttendanceCameraModal
+          action={timekeepingCameraAction}
+          onCapture={handleTimekeepingCameraCapture}
+          onClose={() => {
+            timekeepingCoordsRef.current = null;
+            setTimekeepingCameraAction(null);
+          }}
+        />
+      )}
+    </>
   );
 }
