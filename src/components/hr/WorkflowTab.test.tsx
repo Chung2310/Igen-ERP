@@ -18,7 +18,6 @@ describe("WorkflowReader", () => {
         } as any}
         canEdit={false}
         onBack={vi.fn()}
-        onEdit={vi.fn()}
         onAddStep={vi.fn()}
         onSave={vi.fn()}
         onDelete={vi.fn()}
@@ -29,6 +28,8 @@ describe("WorkflowReader", () => {
     expect(screen.getByText("Receive documents")).toBeTruthy();
     expect(screen.getByText("Create account")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /edit|delete|add/i })).toBeNull();
+    expect(screen.queryByText(/Dự kiến|ngày/)).toBeNull();
+    expect(document.querySelectorAll("svg[aria-hidden='true']").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByText("Receive documents"));
     const dialog = screen.getByRole("dialog");
