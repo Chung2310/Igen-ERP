@@ -590,14 +590,16 @@ export default function WorkflowTab({
                     />
                   </div>
                 )}
-                <div className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50/70">
+                <div className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50/70 overflow-hidden transition-all hover:shadow-md hover:border-indigo-200">
                   {/* Header cột */}
                   <div
-                    className="flex items-start gap-2 rounded-t-2xl px-3 py-2"
+                    onClick={() => setStepDraft(col.step)}
+                    className="flex items-start gap-2 rounded-t-2xl px-3 py-2 cursor-pointer group hover:bg-slate-50 transition-colors"
                     style={{
                       background: "#fff",
                       borderBottom: `2px solid ${ACCENT}`,
                     }}
+                    title="Bấm để xem chi tiết / chỉnh sửa bước"
                   >
                     <span
                       className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
@@ -606,12 +608,12 @@ export default function WorkflowTab({
                       {col.order}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold text-slate-800">
+                      <div className="truncate text-sm font-bold text-slate-800 group-hover:text-indigo-650 transition-colors">
                         {col.step.title}
                       </div>
                     </div>
                     {canEdit && (
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setStepDraft(col.step)}
                           className="rounded p-0.5 text-slate-450 hover:bg-gray-150 hover:text-indigo-650"
@@ -625,11 +627,11 @@ export default function WorkflowTab({
 
                   {/* Nút sắp xếp / xóa bước */}
                   {canEdit && (
-                    <div className="flex items-center gap-1 px-3 py-1">
+                    <div className="flex items-center gap-1 px-3 py-1 bg-white/50 border-b border-gray-100">
                       <button
                         onClick={() => moveStep(col.step.id, -1)}
                         disabled={col.order === 1}
-                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
+                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30 cursor-pointer"
                         title="Chuyển sang trái"
                       >
                         <ChevronLeft className="h-3.5 w-3.5" />
@@ -637,14 +639,14 @@ export default function WorkflowTab({
                       <button
                         onClick={() => moveStep(col.step.id, 1)}
                         disabled={col.order === steps.length}
-                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
+                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30 cursor-pointer"
                         title="Chuyển sang phải"
                       >
                         <ChevronRight className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => deleteStep(col.step.id)}
-                        className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                        className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500 cursor-pointer"
                         title="Xóa bước"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -653,9 +655,13 @@ export default function WorkflowTab({
                   )}
 
                   {col.step.description && (
-                    <p className="px-3 pb-2 pt-1 text-[11px] text-slate-500 line-clamp-4">
+                    <div
+                      onClick={() => setStepDraft(col.step)}
+                      className="px-3 pb-3 pt-2 text-[11px] text-slate-600 line-clamp-6 cursor-pointer hover:bg-white/80 transition-colors flex-1"
+                      title="Bấm để xem chi tiết / chỉnh sửa bước"
+                    >
                       {col.step.description}
-                    </p>
+                    </div>
                   )}
                 </div>
               </React.Fragment>
