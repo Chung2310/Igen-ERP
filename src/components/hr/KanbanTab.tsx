@@ -36,6 +36,7 @@ import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry, TaskAttac
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
 
@@ -1224,7 +1225,7 @@ export default function KanbanTab({
       toast.success("Đã hoàn thành công việc!");
     } catch (error) {
       console.error("Lỗi khi hoàn thành nhanh:", error);
-      toast.error("Không thể hoàn thành công việc. Vui lòng thử lại.");
+      toast.error(getApiErrorMessage(error, "Không thể hoàn thành công việc. Vui lòng thử lại."));
     }
   };
 

@@ -53,6 +53,7 @@ import { LinkPreviewCard } from "../components/chat/LinkPreviewCard";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS } from "../components/chat/chatData";
 import { CHAT_SOUND_MUTED_KEY, playChatNotificationSound } from "../components/chat/chatSound";
 import { toast } from "./Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 
 
 export default function ChatTab() {
@@ -358,8 +359,8 @@ export default function ChatTab() {
       } else {
         toast.info("Không tìm thấy tin nhắn trong lịch sử trò chuyện.");
       }
-    } catch {
-      toast.error("Đã xảy ra lỗi khi tải tin nhắn trong lịch sử trò chuyện.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Đã xảy ra lỗi khi tải tin nhắn trong lịch sử trò chuyện."));
     } finally {
       setJumpingToMessage(false);
     }
@@ -789,7 +790,7 @@ export default function ChatTab() {
         setHasMoreMessages(false);
       }
     } catch (error: any) {
-      toast.error("Không thể tải thêm tin nhắn cũ.");
+      toast.error(getApiErrorMessage(error, "Không thể tải thêm tin nhắn cũ."));
     } finally {
       setLoadingMore(false);
     }

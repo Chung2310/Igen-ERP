@@ -25,6 +25,7 @@ import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 interface OrgChartTabProps {
   userProfile: any;
@@ -462,7 +463,7 @@ export default function OrgChartTab({
       setSelectedEmp(updatedNode);
     } catch (err) {
       console.error(err);
-      toast.error("Lỗi khi cập nhật thông tin nhân sự.");
+      toast.error(getApiErrorMessage(err, "Lỗi khi cập nhật thông tin nhân sự."));
     } finally {
       setIsSaving(false);
     }
@@ -544,7 +545,7 @@ export default function OrgChartTab({
       await fetchUsers();
     } catch (error) {
       console.error("Lỗi khi xóa nhân sự:", error);
-      toast.error("Không thể xóa nhân sự. Vui lòng kiểm tra quyền hạn.");
+      toast.error(getApiErrorMessage(error, "Không thể xóa nhân sự. Vui lòng kiểm tra quyền hạn."));
     }
   };
 
@@ -767,7 +768,7 @@ export default function OrgChartTab({
       }
     } catch (err) {
       console.error(err);
-      toast.error("Lỗi khi thêm thành viên mới.");
+      toast.error(getApiErrorMessage(err, "Lỗi khi thêm thành viên mới."));
     } finally {
       setIsAddingEmployee(false);
     }
@@ -918,7 +919,7 @@ export default function OrgChartTab({
       await fetchUsers();
     } catch (err) {
       console.error("Lỗi cập nhật cơ cấu:", err);
-      toast.error("Không thể lưu cập nhật cơ cấu nhân sự.");
+      toast.error(getApiErrorMessage(err, "Không thể lưu cập nhật cơ cấu nhân sự."));
     }
   };
 

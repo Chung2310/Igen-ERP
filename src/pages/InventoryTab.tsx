@@ -5,6 +5,7 @@ import { InventoryForecastSummary, InventorySubTabType, ProductCategory, Product
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { toast } from "./Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { inventoryTabs } from "../components/inventory/data";
@@ -684,7 +685,7 @@ export default function InventoryTab() {
 
       toast.success(`Đã nhập ${addedCount} phiếu nhập/xuất kho từ Excel.`);
     } catch (error) {
-      toast.error("Không thể nhập phiếu nhập/xuất kho từ Excel.");
+      toast.error(getApiErrorMessage(error, "Không thể nhập phiếu nhập/xuất kho từ Excel."));
     } finally {
       setStockLogExcelImporting(false);
     }

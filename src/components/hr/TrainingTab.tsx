@@ -22,6 +22,7 @@ import {
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface TrainingTabProps {
@@ -356,7 +357,7 @@ export default function TrainingTab({
       }
     } catch (err) {
       console.error("Lỗi tạo khóa học:", err);
-      toast.error("Không thể tạo khóa học.");
+      toast.error(getApiErrorMessage(err, "Không thể tạo khóa học."));
     }
   };
 
@@ -429,7 +430,7 @@ export default function TrainingTab({
         toast.success(`Bắt đầu học "${course.title}"!`);
       } catch (err) {
         console.error(err);
-        toast.error("Không thể đăng ký khóa học.");
+        toast.error(getApiErrorMessage(err, "Không thể đăng ký khóa học."));
       }
     } else {
       // Đã enroll → Mở modal học tập
@@ -518,7 +519,7 @@ export default function TrainingTab({
           fetchCourses(userProfile.companyCode!);
         }
       } catch (err) {
-        toast.error("Không thể lưu tiến độ học tập.");
+        toast.error(getApiErrorMessage(err, "Không thể lưu tiến độ học tập."));
       }
     } else {
       const totalQuizzes = (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) ? 1 : 0;
@@ -599,7 +600,7 @@ export default function TrainingTab({
         toast.success("🎉 Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi trắc nghiệm!");
       } catch (err) {
         console.error(err);
-        toast.error("Không thể lưu kết quả thi.");
+        toast.error(getApiErrorMessage(err, "Không thể lưu kết quả thi."));
       } finally {
         setIsQuizEvaluating(false);
       }
@@ -649,7 +650,7 @@ export default function TrainingTab({
       setActiveStudyCourse(null);
       fetchCourses(userProfile.companyCode!);
     } catch (err) {
-      toast.error("Không thể hoàn thành khóa học.");
+      toast.error(getApiErrorMessage(err, "Không thể hoàn thành khóa học."));
     }
   };
 
@@ -670,7 +671,7 @@ export default function TrainingTab({
       setCourses(prev => prev.filter(c => c.id !== courseId));
       toast.success("Đã xóa khóa học.");
     } catch (err) {
-      toast.error("Không thể xóa khóa học.");
+      toast.error(getApiErrorMessage(err, "Không thể xóa khóa học."));
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Clock, Search, X } from "lucide-react";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 interface WorkHoursConfig {
   useCustom: boolean;
@@ -63,8 +64,8 @@ export default function EmployeeWorkHoursTab() {
         } else {
           toast.error(result.message || "Không tải được danh sách nhân viên.");
         }
-      } catch {
-        toast.error("Lỗi kết nối khi tải danh sách nhân viên.");
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, "Lỗi kết nối khi tải danh sách nhân viên."));
       } finally {
         setLoading(false);
       }
@@ -104,8 +105,8 @@ export default function EmployeeWorkHoursTab() {
         const joiErrors = result.errors ? Object.values(result.errors).flat().join(" ") : "";
         toast.error(joiErrors || result.message || "Cập nhật thất bại.");
       }
-    } catch {
-      toast.error("Lỗi kết nối khi lưu giờ làm việc.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Lỗi kết nối khi lưu giờ làm việc."));
     } finally {
       setSaving(false);
     }

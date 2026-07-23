@@ -30,6 +30,7 @@ import {
 } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentEditor } from "./KanbanTab";
 
@@ -132,7 +133,7 @@ export default function WorkflowTab({
       const res = await fetch("/api/v1/crud/workflows", {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
-      if (!res.ok) throw new Error("fetch failed");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể tải danh sách quy trình.");
       const json = await res.json();
       const list: Workflow[] = (json.data || []).map((it: any) => ({
         ...it,
@@ -141,7 +142,7 @@ export default function WorkflowTab({
       setWorkflows(list);
     } catch (err) {
       console.error("Lỗi tải danh sách quy trình:", err);
-      toast.error("Không thể tải danh sách quy trình.");
+      toast.error(getApiErrorMessage(err, "Không thể tải danh sách quy trình."));
     } finally {
       setLoading(false);
     }
@@ -204,7 +205,7 @@ export default function WorkflowTab({
           ...(isEdit ? {} : { creatorUid: userProfile?.uid || "" }),
         }),
       });
-      if (!res.ok) throw new Error("wizard save failed");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể lưu quy trình.");
       const json = await res.json();
       toast.success(isEdit ? "Đã cập nhật quy trình." : "Đã tạo quy trình mới.");
       setWizardOpen(false);
@@ -218,7 +219,7 @@ export default function WorkflowTab({
       }
     } catch (err) {
       console.error("Lỗi khi lưu quy trình từ wizard:", err);
-      toast.error("Không thể lưu quy trình.");
+      toast.error(getApiErrorMessage(err, "Không thể lưu quy trình."));
     }
   };
 
@@ -247,7 +248,7 @@ export default function WorkflowTab({
         },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("save failed");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể lưu quy trình.");
       const json = await res.json();
       const savedId = json.data?._id || activeId;
       if (savedId && savedId !== activeId) setActiveId(savedId);
@@ -264,8 +265,8 @@ export default function WorkflowTab({
       if (!activeId) return; // chưa lưu lần đầu → chờ nút Lưu
       try {
         await persist(override, { silent: true });
-      } catch {
-        toast.error("Không thể đồng bộ thay đổi lên máy chủ.");
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, "Không thể đồng bộ thay đổi lên máy chủ."));
       }
     },
     [activeId, persist]
@@ -282,7 +283,7 @@ export default function WorkflowTab({
       await fetchWorkflows();
     } catch (err) {
       console.error("Lỗi lưu quy trình:", err);
-      toast.error("Không thể lưu quy trình.");
+      toast.error(getApiErrorMessage(err, "Không thể lưu quy trình."));
     } finally {
       setSaving(false);
     }
@@ -302,12 +303,12 @@ export default function WorkflowTab({
             method: "DELETE",
             headers: { Authorization: `Bearer ${getAccessToken()}` },
           });
-          if (!res.ok) throw new Error("delete failed");
+          if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể xóa quy trình.");
           toast.success("Đã xóa quy trình.");
           backToList();
         } catch (err) {
           console.error("Lỗi xóa quy trình:", err);
-          toast.error("Không thể xóa quy trình.");
+          toast.error(getApiErrorMessage(err, "Không thể xóa quy trình."));
         }
       },
       "Xóa quy trình",
