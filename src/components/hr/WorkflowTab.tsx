@@ -17,6 +17,9 @@ import {
   ArrowDown,
   ArrowRight,
   Check,
+  Clock,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import {
   UserProfile,
@@ -375,6 +378,27 @@ export default function WorkflowTab({
   }, [steps]);
 
   // =================== VIEW: DANH SÁCH ===================
+  if (view === "detail") {
+    return (
+      <WorkflowReader
+        workflow={{
+          id: activeId,
+          name: wfName,
+          category: wfCategory,
+          description: wfDescription,
+          steps,
+        }}
+        canEdit={canEdit}
+        saving={saving}
+        onBack={backToList}
+        onEdit={(step) => setStepDraft(step)}
+        onAddStep={openNewStep}
+        onSave={handleSave}
+        onDelete={handleDeleteWorkflow}
+      />
+    );
+  }
+
   if (view === "list") {
     return (
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
@@ -682,6 +706,95 @@ export default function WorkflowTab({
 }
 
 // ============ Wizard 2 bước tạo quy trình mới ============
+export function WorkflowReader({
+  workflow,
+  canEdit,
+  saving = false,
+  onBack,
+  onEdit,
+  onAddStep,
+  onSave,
+  onDelete,
+}: {
+  workflow: Pick<Workflow, "id" | "name" | "category" | "description" | "steps">;
+  canEdit: boolean;
+  saving?: boolean;
+  onBack: () => void;
+  onEdit: (step: WorkflowStep) => void;
+  onAddStep: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50" id="workflow_tab">
+      <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+        <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100">
+          <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
+        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {canEdit && (
+            <>
+              <button onClick={onAddStep} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500">
+                <Plus className="h-3.5 w-3.5" /> Thêm bước
+              </button>
+              <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">
+                <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
+              </button>
+              <button onClick={onDelete} className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50" title="Xóa quy trình">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Hướng dẫn quy trình</p>
+                <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{workflow.name}</h1>
+                {workflow.category && <p className="mt-1 text-xs font-semibold text-slate-400">{workflow.category}</p>}
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            </div>
+            {workflow.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-600">{workflow.description}</p>}
+          </div>
+
+          {workflow.steps.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-400">
+              Chưa có bước nào trong quy trình.
+            </div>
+          ) : (
+            <ol className="mt-5 space-y-4">
+              {workflow.steps.map((step, index) => (
+                <li key={step.id} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="flex items-start gap-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <h2 className="text-base font-extrabold text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
+                        {canEdit && <button onClick={() => onEdit(step)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3.5 w-3.5" /> Sửa</button>}
+                      </div>
+                      {step.description && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{step.description}</p>}
+                      {step.note && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"><strong>Lưu ý:</strong> {step.note}</p>}
+                      {step.deliverable && <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</p>}
+                      {step.estDays && step.estDays > 0 && <p className="mt-3 flex items-center gap-1 text-xs font-semibold text-slate-400"><Clock className="h-3.5 w-3.5" /> Dự kiến: {step.estDays} ngày</p>}
+                      {!!step.subTasks?.length && <ul className="mt-3 space-y-1 text-xs text-slate-600">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {task.title}</li>)}</ul>}
+                      {!!step.attachments?.length && <div className="mt-4 flex flex-wrap gap-2">{step.attachments.map((attachment) => <a key={attachment.id} href={attachment.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" /> {attachment.name}</a>)}</div>}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewWorkflowWizard({
   initialData,
   onClose,
