@@ -171,7 +171,7 @@ export default function SuperAdminShell() {
               onClick={() => handleNavClick(id)}
               className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
                 activeTab === id
-                  ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow-xs shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
               }`}
             >
