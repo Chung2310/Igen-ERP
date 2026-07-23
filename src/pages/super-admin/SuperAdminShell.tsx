@@ -6,6 +6,7 @@ import { DashboardTab } from "../../components/super-admin/DashboardTab";
 import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
+import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
 import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X } from "lucide-react";
 import {
@@ -22,6 +23,7 @@ export default function SuperAdminShell() {
   );
   
   const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users">("overview");
+  const [selectedTenantCode, setSelectedTenantCode] = React.useState<string | null>(null);
   const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -126,7 +128,11 @@ export default function SuperAdminShell() {
       case "sessions":
         return <SessionsTab />;
       case "tenants":
-        return <TenantListPage onSelect={() => undefined} />;
+        return selectedTenantCode ? (
+          <TenantDetailPage code={selectedTenantCode} onBack={() => setSelectedTenantCode(null)} />
+        ) : (
+          <TenantListPage onSelect={setSelectedTenantCode} />
+        );
       case "users":
         return <UserManagementPanel tenantId="SYSTEM" />;
       case "overview":
@@ -145,6 +151,7 @@ export default function SuperAdminShell() {
 
   const handleNavClick = (tabId: typeof activeTab) => {
     setActiveTab(tabId);
+    setSelectedTenantCode(null);
     setSidebarOpen(false);
   };
 
@@ -238,7 +245,7 @@ export default function SuperAdminShell() {
           <NavContent />
         </aside>
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Desktop Sidebar */}
           <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-white/10 bg-slate-950 p-6">
             <NavContent />

@@ -1,6 +1,8 @@
 import { UserModel } from "../model/user.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
+import { SuperAdminImpersonationModel } from "../model/super-admin-impersonation.model";
 import { auditService } from "../service/audit.service";
+import { PERMISSION_CODES } from "../config/permission-catalog";
 
 const scoped = (tenantId: string) => tenantId === "SYSTEM" ? {} : { companyCode: tenantId };
 export function createUserAccessManagementService(deps: any) {
@@ -16,11 +18,24 @@ export function createUserAccessManagementService(deps: any) {
     async resetTwoFactor(data: any) { const value = await user(data); if (value.role !== "superadmin") throw new Error("2FA recovery is restricted to privileged accounts"); value.superAdminSecurity = { totpEnabled: false, recoveryCodeHashes: [], failedTotpAttempts: 0 }; await value.save?.(); await deps.sessions.revokeAll(data.userId); await audit("security.2fa.reset", data); return { reset: true }; },
     async assignRole(data: any) {
       if (data.role === "superadmin") throw new Error("Super Admin role cannot be assigned through user management");
+      const permissions = data.permissions || [];
+      const invalid = permissions.filter((code: string) => !PERMISSION_CODES.includes(code));
+      if (invalid.length) throw new Error(`Unknown permission codes: ${invalid.join(", ")}`);
       const current = await user(data);
       if (current.role === "superadmin") throw new Error("The sole Super Admin role cannot be changed");
-      return this.update({ ...data, patch: { role: data.role, permissions: data.permissions || [] } });
-    },    async startImpersonation(data: any) { if (!data.reason?.trim()) throw new Error("A written reason is required"); const value = await user(data); if (value.role === "superadmin") throw new Error("Cannot impersonate Super Admin"); const expiresAt = new Date(Date.now() + Math.min(data.durationMinutes || 30, 30) * 60_000); await audit("security.impersonation.start", { ...data, expiresAt }); return { userId: String(value._id), expiresAt, restrictions: ["recovery", "secrets", "super-admin", "audit-mutation"] }; },
-    async stopImpersonation(data: any) { await audit("security.impersonation.stop", data); return { stopped: true }; },
+      return this.update({ ...data, patch: { role: data.role, permissions } });
+    },
+    async startImpersonation(data: any) {
+      if (!data.reason?.trim()) throw new Error("A written reason is required");
+      const value = await user(data);
+      if (value.role === "superadmin") throw new Error("Cannot impersonate Super Admin");
+      const expiresAt = new Date(Date.now() + Math.min(data.durationMinutes || 30, 30) * 60_000);
+      await deps.impersonations.create({ actionId: data.correlationId || `imp_${Date.now().toString(36)}`, actorId: String(data.actorId || ""), targetUserId: String(value._id), companyCode: value.companyCode, reason: data.reason, expiresAt });
+      await audit("security.impersonation.start", { ...data, expiresAt });
+      return { userId: String(value._id), expiresAt, restrictions: ["recovery", "secrets", "super-admin", "audit-mutation"] };
+    },
+    async stopImpersonation(data: any) { await deps.impersonations.stop(String(data.userId)); await audit("security.impersonation.stop", data); return { stopped: true }; },
+    async activeImpersonation(data: any) { const value = await user(data); return { active: await deps.impersonations.findActive(String(value._id)) }; },
   };
 }
-export const userAccessManagementService = createUserAccessManagementService({ users: { find: (id: string) => UserModel.findById(id), findOtherSuperAdmin: (userId: string) => UserModel.findOne({ role: "superadmin", _id: { $ne: userId } }).select("_id email").lean(), count: (q: any) => UserModel.countDocuments(q), search: (q: any, p: any) => UserModel.find(q).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit) }, sessions: { revokeAll: (userId: string) => SuperAdminSessionModel.updateMany({ userId }, { $set: { revokedAt: new Date(), revokeReason: "administrative" } }) }, audit: (event: any) => auditService.record(event) });
+export const userAccessManagementService = createUserAccessManagementService({ users: { find: (id: string) => UserModel.findById(id), findOtherSuperAdmin: (userId: string) => UserModel.findOne({ role: "superadmin", _id: { $ne: userId } }).select("_id email").lean(), count: (q: any) => UserModel.countDocuments(q), search: (q: any, p: any) => UserModel.find(q).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit) }, sessions: { revokeAll: (userId: string) => SuperAdminSessionModel.updateMany({ userId }, { $set: { revokedAt: new Date(), revokeReason: "administrative" } }) }, impersonations: { create: (doc: any) => SuperAdminImpersonationModel.create(doc), stop: (targetUserId: string) => SuperAdminImpersonationModel.updateMany({ targetUserId, stoppedAt: null }, { $set: { stoppedAt: new Date() } }), findActive: (targetUserId: string) => SuperAdminImpersonationModel.findOne({ targetUserId, stoppedAt: null, expiresAt: { $gt: new Date() } }).lean() }, audit: (event: any) => auditService.record(event) });

@@ -16,6 +16,8 @@ vi.mock("../../../services/superAdminUserAccessService", () => ({
     startImpersonation: vi.fn(),
     stopImpersonation: vi.fn(),
     activity: vi.fn(),
+    permissionCatalog: vi.fn(),
+    activeImpersonation: vi.fn(),
   },
 }));
 
@@ -34,6 +36,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(superAdminUserAccessService.detail).mockResolvedValue(user);
   vi.mocked(superAdminUserAccessService.activity).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
+  vi.mocked(superAdminUserAccessService.permissionCatalog).mockResolvedValue({ catalog: [{ code: "user:read", label: "Xem người dùng", group: "Người dùng" }] });
+  vi.mocked(superAdminUserAccessService.activeImpersonation).mockResolvedValue({ active: null });
 });
 
 describe("UserDetailDialog", () => {

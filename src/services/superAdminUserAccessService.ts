@@ -3,6 +3,8 @@ export interface UserSearchResult { data: SuperAdminUser[]; total: number; page:
 export type UserActivityCategory = "authentication" | "data" | "communication" | "configuration" | "security" | "business";
 export interface UserActivityEvent { eventId: string; userId: string; companyCode: string; actionType: string; category: UserActivityCategory; result: "success" | "failure"; method?: string; route?: string; description: string; sourceIp?: string; userAgent?: string; occurredAt: string; }
 export interface UserActivityResult { data: UserActivityEvent[]; total: number; page: number; limit: number; }
+export interface PermissionCatalogEntry { code: string; label: string; group: string; }
+export interface ActiveImpersonation { actionId: string; actorId: string; targetUserId: string; reason?: string; startedAt?: string; expiresAt: string; }
 type Mutation = { reason: string; password?: string; token?: string; step?: number; [key: string]: unknown };
 
 import { superAdminRequest } from "./superAdminRequest";
@@ -13,6 +15,8 @@ function requireReason(reason: string) { if (!reason.trim()) throw new Error("A 
 function mutate(tenantId: string, userId: string, path: string, input: Mutation) { requireReason(input.reason); return request<{ actionId: string }>(`/users/${encodeURIComponent(userId)}${path}?tenantId=${encodeURIComponent(tenantId)}`, { method: "POST", headers: { "idempotency-key": crypto.randomUUID() }, body: JSON.stringify(input) }); }
 
 export const superAdminUserAccessService = {
+  permissionCatalog: () => request<{ catalog: PermissionCatalogEntry[] }>("/permission-catalog"),
+  activeImpersonation: (tenantId: string, userId: string) => request<{ active: ActiveImpersonation | null }>(`/users/${encodeURIComponent(userId)}/impersonation?tenantId=${encodeURIComponent(tenantId)}`),
   search: (tenantId: string, filters: { page?: number; limit?: number; q?: string } = {}) => request<UserSearchResult>(`/users?${new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20), ...(filters.q ? { q: filters.q } : {}) })}`),
   detail: (tenantId: string, userId: string) => request<SuperAdminUser>(`/users/${encodeURIComponent(userId)}?tenantId=${encodeURIComponent(tenantId)}`),
   activity: (tenantId: string, userId: string, filters: { from?: string; to?: string; category?: UserActivityCategory | ""; page?: number; limit?: number } = {}) => {
