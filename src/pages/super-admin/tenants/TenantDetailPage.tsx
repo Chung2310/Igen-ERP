@@ -77,7 +77,7 @@ function StatusToggle({ code, current, onSaved }: { code: string; current?: stri
   );
 }
 
-export function TenantDetailPage({ code }: { code: string }) {
+export function TenantDetailPage({ code, onBack }: { code: string; onBack?: () => void }) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [audit, setAudit] = React.useState<any[]>([]);
@@ -92,12 +92,29 @@ export function TenantDetailPage({ code }: { code: string }) {
 
   React.useEffect(() => { load(); }, [load]);
 
-  if (error) return <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>;
+  if (error) return (
+    <div className="space-y-3">
+      {onBack && (
+        <button onClick={onBack} className="rounded-lg border border-white/10 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-cyan-300">
+          ← Quay lại danh sách
+        </button>
+      )}
+      <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
+    </div>
+  );
   if (!tenant) return <p className="text-slate-400">Đang tải thông tin doanh nghiệp…</p>;
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 text-slate-100">
       <header className="border-b border-white/10 pb-5">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="mb-3 flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyan-400/40 hover:text-cyan-300"
+          >
+            ← Quay lại danh sách
+          </button>
+        )}
         <h2 className="text-2xl font-bold">{tenant.name}</h2>
         <p className="mt-1 font-mono text-xs text-slate-500">{tenant.code} · {tenant.ownerEmail}</p>
         <span className="mt-2 inline-block rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-slate-300">{tenant.lifecycleStatus}</span>

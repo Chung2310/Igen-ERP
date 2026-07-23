@@ -19,16 +19,17 @@ test("super admin management screens protect narrow layouts and keep text readab
   assert.match(users, /truncate/);
 });
 
-test("tenant cards open the read-only module management dialog", () => {
+test("tenant cards drill into the full tenant detail page", () => {
   const tenants = read("./tenants/TenantListPage.tsx");
+  const shell = read("./SuperAdminShell.tsx");
+  const detail = read("./tenants/TenantDetailPage.tsx");
 
-  assert.match(tenants, /import \{ TenantModuleDialog \} from "\.\/TenantModuleDialog"/);
-  assert.match(tenants, /selectedTenantCode/);
-  assert.match(tenants, /setSelectedTenantCode\(t\.code\)/);
-  assert.match(tenants, /<TenantModuleDialog/);
-  assert.match(tenants, /onSaved=\{\(\) => \{/);
-  assert.match(tenants, /setSelectedTenantCode\(null\)/);
-  assert.match(tenants, /load\(\)/);
+  assert.match(tenants, /onSelect\?\.\(t\.code\)/);
+  assert.match(shell, /selectedTenantCode/);
+  assert.match(shell, /<TenantDetailPage/);
+  assert.match(shell, /onBack=\{\(\) => setSelectedTenantCode\(null\)\}/);
+  assert.match(detail, /onBack\?: \(\) => void/);
+  assert.match(detail, /Quay lại danh sách/);
 });
 test("audit timeline exposes operational trace filters and linked references", () => {
   const audit = read("../../components/super-admin/AuditTab.tsx");

@@ -52,3 +52,47 @@ test("assignRole cannot promote users or demote the sole Super Admin", async () 
     /cannot be changed/i,
   );
 });
+
+test("assignRole persists valid permissions and rejects unknown codes", async () => {
+  const saved: any = { _id: "user", role: "user", save: async () => {} };
+  const service = createUserAccessManagementService({
+    users: { find: async () => saved },
+    sessions: {}, audit: async () => {},
+  });
+
+  await service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["crm:manage", "stock:read"] });
+  assert.equal(saved.role, "admin");
+  assert.deepEqual(saved.permissions, ["crm:manage", "stock:read"]);
+
+  await assert.rejects(
+    () => service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["not:a:permission"] }),
+    /unknown permission/i,
+  );
+});
+
+test("impersonation lifecycle persists start, stop, and active lookup", async () => {
+  const store: any = { created: null, stopped: false };
+  const service = createUserAccessManagementService({
+    users: { find: async () => ({ _id: "target", role: "user", companyCode: "ACME" }) },
+    sessions: {},
+    impersonations: {
+      create: async (doc: any) => { store.created = doc; return doc; },
+      stop: async () => { store.stopped = true; },
+      findActive: async () => (store.created && !store.stopped ? store.created : null),
+    },
+    audit: async () => {},
+  });
+
+  await service.startImpersonation({ tenantId: "ACME", userId: "target", actorId: "root", reason: "incident", correlationId: "corr-1" });
+  assert.equal(store.created.targetUserId, "target");
+  assert.equal(store.created.reason, "incident");
+  assert.ok(store.created.expiresAt instanceof Date);
+
+  const active = await service.activeImpersonation({ tenantId: "ACME", userId: "target" });
+  assert.ok(active.active);
+
+  await service.stopImpersonation({ tenantId: "ACME", userId: "target" });
+  assert.equal(store.stopped, true);
+  const after = await service.activeImpersonation({ tenantId: "ACME", userId: "target" });
+  assert.equal(after.active, null);
+});
