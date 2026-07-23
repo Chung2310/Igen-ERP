@@ -514,45 +514,67 @@ export default function WorkflowTab({
   // =================== VIEW: CHI TIẾT (BẢNG CỘT) ===================
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
-      {/* Thanh tiêu đề */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2">
-        <button
-          onClick={backToList}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" /> Danh sách
-        </button>
-        <div className="ml-auto flex items-center gap-2">
+      {/* Thanh tiêu đề chính nổi bật */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button
+            onClick={backToList}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-indigo-650 transition-all cursor-pointer shadow-3xs shrink-0 active:scale-95"
+            title="Quay lại danh sách quy trình"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Quay lại</span>
+          </button>
+          
+          <div className="h-6 w-px bg-gray-200 shrink-0" />
+          
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-slate-900 truncate font-sans tracking-tight">
+                {wfName || "Quy trình chưa đặt tên"}
+              </h2>
+              {wfCategory && (
+                <span className="shrink-0 rounded-md bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-700">
+                  {wfCategory}
+                </span>
+              )}
+            </div>
+            {wfDescription && (
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                {wfDescription}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden md:flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600">
+            <Layers className="h-3.5 w-3.5 text-cyan-600" /> {steps.length} bước
+          </span>
           <button
             onClick={openNewStep}
             disabled={!canEdit}
-            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40"
             style={{ background: ACCENT }}
           >
-            <Plus className="h-3.5 w-3.5" /> Thêm bước
+            <Plus className="h-4 w-4" /> Thêm bước
           </button>
           <button
             onClick={handleSave}
             disabled={!canEdit || saving}
-            className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-700 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
-            <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
+            <Save className="h-4 w-4" /> {saving ? "Đang lưu..." : "Lưu"}
           </button>
           <button
             onClick={handleDeleteWorkflow}
             disabled={!canEdit}
-            className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50/50 p-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer disabled:opacity-40"
+            title="Xóa quy trình"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      {/* Thanh thống kê nhỏ */}
-      <div className="flex items-center gap-4 border-b border-gray-100 bg-slate-50/60 px-4 py-1.5 text-[11px] font-semibold text-slate-500">
-        <span className="flex items-center gap-1">
-          <Layers className="h-3.5 w-3.5" /> {steps.length} bước
-        </span>
       </div>
 
       {/* Bảng sơ đồ Snake Layout + Danh sách giai đoạn (giống giao diện Thiết lập giai đoạn) */}
