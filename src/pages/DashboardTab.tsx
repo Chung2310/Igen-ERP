@@ -773,49 +773,6 @@ export default function DashboardTab() {
               );
             })}
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-xl bg-slate-100/80 p-1">
-              {[
-                { id: "day", label: "Ngày" },
-                { id: "month", label: "Tháng" },
-                { id: "year", label: "Năm" },
-                { id: "custom", label: "Tùy chọn" },
-              ].map((f) => {
-                const isActive = dateFilter === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => setDateFilter(f.id as DateFilterType)}
-                    className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all duration-200 ${isActive
-                      ? "bg-white text-slate-800 shadow-xs"
-                      : "text-gray-500 hover:text-gray-800"
-                      }`}
-                  >
-                    {f.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {dateFilter === "custom" && (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-150 bg-white p-1.5 shadow-xs animate-fade-in">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="rounded-md border-0 bg-transparent p-0 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-gray-400">đến</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="rounded-md border-0 bg-transparent p-0 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer"
-                />
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
