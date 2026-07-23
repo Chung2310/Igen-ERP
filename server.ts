@@ -17,6 +17,7 @@ import { selectiveBodyParser, isLargeBodyRoute } from "./server/middleware/body-
 import { globalApiRateLimiter } from "./server/middleware/rate-limit";
 import { ddosConfig } from "./server/config/ddos";
 import { superAdminAuthService } from "./server/service/super-admin-auth.service";
+import { startDailyDigestJob } from "./server/jobs/daily-digest.job";
 import { userActivityMiddleware } from "./server/middleware/user-activity";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -365,6 +366,7 @@ async function startServer() {
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
   await initSocketServer(httpServer);
+  startDailyDigestJob();
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);

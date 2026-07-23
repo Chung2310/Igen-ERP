@@ -5,6 +5,20 @@ import LowStockModal from "../inventory/LowStockModal";
 import { formatDashboardCurrency, buildPctSegments } from "./dashboardUtils";
 import { ModuleCard, DonutCard, BarChart } from "./DashboardWidgets";
 import { TimekeepingWidget } from "./TimekeepingWidget";
+import { ActionItemsWidget } from "./ActionItemsWidget";
+import { DashboardActionItems } from "../../types/dashboard";
+
+type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timekeeping" | "chat" | "resources" | "charts" | "inventoryPanels";
+
+/**
+ * Nhân viên thường chỉ thấy các chỉ số cá nhân (chấm công, task, trò chuyện,
+ * tài nguyên) — ẩn số liệu toàn công ty (nhân sự tổng, kho, học phí, doanh
+ * thu). Trưởng phòng/giám đốc/superadmin thấy đầy đủ như hiện tại.
+ */
+const VISIBLE_CARDS: Record<string, CardKey[]> = {
+  user: ["timekeeping", "projects", "chat", "resources"],
+};
+const ALL_CARDS: CardKey[] = ["hr", "inventory", "projects", "students", "tuition", "timekeeping", "chat", "resources", "charts", "inventoryPanels"];
 
 export function OverviewPanel({
   employeeCount,
@@ -30,6 +44,8 @@ export function OverviewPanel({
   canSeeResource,
   canSeeChat,
   canSeeStudent,
+  role,
+  actionItems,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -54,8 +70,12 @@ export function OverviewPanel({
   canSeeResource: boolean;
   canSeeChat: boolean;
   canSeeStudent: boolean;
+  role?: string;
+  actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
+  const visibleCards = (role && VISIBLE_CARDS[role]) || ALL_CARDS;
+  const showCard = (key: CardKey) => visibleCards.includes(key);
 
   const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {
@@ -81,6 +101,14 @@ export function OverviewPanel({
 
   return (
     <div className="space-y-6">
+        {actionItems && (
+          <ActionItemsWidget
+            actionItems={actionItems}
+            onGoToTasks={() => goToTab("NHÂN SỰ", "kanban")}
+            onGoToApprovals={() => goToTab("NHÂN SỰ", "lich")}
+            onGoToInventory={() => goToTab("KHO & SẢN PHẨM")}
+          />
+        )}
         {canSeeHr && <TimekeepingWidget
           todayTimekeeping={todayTimekeeping}
           todayWorkCalendar={todayWorkCalendar}
@@ -90,7 +118,7 @@ export function OverviewPanel({
 
         {/* Metric Module Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {canSeeHr && (
+          {canSeeHr && showCard("hr") && (
             <ModuleCard
               icon={Users}
               tone="amber"
@@ -102,7 +130,7 @@ export function OverviewPanel({
               onClick={() => goToTab("NHÂN SỰ")}
             />
           )}
-          {canSeeInventory && (
+          {canSeeInventory && showCard("inventory") && (
             <ModuleCard
               icon={PackageCheck}
               tone="blue"
@@ -116,7 +144,7 @@ export function OverviewPanel({
               onClick={() => goToTab("KHO & SẢN PHẨM")}
             />
           )}
-          {canSeeHr && (
+          {canSeeHr && showCard("projects") && (
             <ModuleCard
               icon={KanbanSquare}
               tone="indigo"
@@ -130,7 +158,7 @@ export function OverviewPanel({
               onClick={() => goToTab("NHÂN SỰ", "kanban")}
             />
           )}
-          {canSeeStudent && (
+          {canSeeStudent && showCard("students") && (
             <ModuleCard
               icon={GraduationCap}
               tone="emerald"
@@ -142,7 +170,7 @@ export function OverviewPanel({
               onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
             />
           )}
-          {canSeeStudent && (
+          {canSeeStudent && showCard("tuition") && (
             <ModuleCard
               icon={Wallet}
               tone="amber"
@@ -154,7 +182,7 @@ export function OverviewPanel({
               onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
             />
           )}
-          {canSeeHr && (
+          {canSeeHr && showCard("timekeeping") && (
             <ModuleCard
               icon={UserCheck}
               tone="blue"
@@ -166,7 +194,7 @@ export function OverviewPanel({
               onClick={() => goToTab("NHÂN SỰ", "lich")}
             />
           )}
-          {canSeeChat && (
+          {canSeeChat && showCard("chat") && (
             <ModuleCard
               icon={MessageSquare}
               tone="slate"
@@ -178,7 +206,7 @@ export function OverviewPanel({
               onClick={() => goToTab("TRÒ CHUYỆN")}
             />
           )}
-          {canSeeResource && (
+          {canSeeResource && showCard("resources") && (
             <ModuleCard
               icon={FolderOpen}
               tone="indigo"
@@ -193,8 +221,21 @@ export function OverviewPanel({
 
         </div>
 
+        {canSeeChat && showCard("chat") && summary && summary.chat.unreadMessages > 10 && (
+          <button
+            type="button"
+            onClick={onRecommendAgent}
+            className="flex w-full items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-left transition hover:bg-indigo-50"
+          >
+            <span className="text-xs font-semibold text-indigo-800">
+              Tin chưa đọc đang tăng cao ({summary.chat.unreadMessages}) — AI có thể gợi ý tạo Agent trả lời tự động.
+            </span>
+            <span className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white">Gợi ý Agent</span>
+          </button>
+        )}
+
         {/* Biểu đồ tổng quát các module */}
-        {summary && canSeeHr && (
+        {summary && canSeeHr && showCard("charts") && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             <DonutCard
               title="Trạng thái công việc"
@@ -238,7 +279,7 @@ export function OverviewPanel({
           </div>
         )}
 
-        {canSeeInventory && (
+        {canSeeInventory && showCard("inventoryPanels") && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
               <div className="mb-5 flex items-center justify-between">
@@ -275,6 +316,13 @@ export function OverviewPanel({
                           <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 ring-1 ring-rose-500/10">
                             Tồn: {p.stock}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => onCreateReorder(p.name)}
+                            className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                          >
+                            Tạo đề xuất nhập kho
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -289,6 +337,40 @@ export function OverviewPanel({
                 </div>
               )}
               {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
+            </div>
+          </div>
+        )}
+
+        {canSeeInventory && showCard("inventoryPanels") && overstockItems.length > 0 && (
+          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800">Cơ hội khuyến mãi (tồn kho dư thừa)</h3>
+              </div>
+              <button onClick={() => goToTab("KHO & SẢN PHẨM")} className="text-xs font-semibold text-blue-655 hover:text-blue-700 transition-colors">Xem tất cả</button>
+            </div>
+            <div className="space-y-3">
+              {overstockItems.slice(0, 3).map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition-colors">
+                  <div className="min-w-0 flex-1 pr-3">
+                    <p className="truncate text-sm font-bold text-gray-800">{p.name}</p>
+                    <p className="text-xs text-gray-500">Mã sản phẩm: {p.sku} · Định mức: {p.minStockAlert}</p>
+                  </div>
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-500/10">
+                      Tồn: {p.stock}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onCreatePromotion(p.name)}
+                      className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
+                    >
+                      Tạo chiến dịch ưu đãi
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

@@ -93,4 +93,35 @@ export const dashboardController = {
       });
     }
   },
+
+  /**
+   * GET /api/v1/dashboard/action-items
+   */
+  async getActionItems(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const enabledModules = req.user.companyCode
+        ? await getEnabledModulesForCompany(req.user.companyCode)
+        : undefined;
+
+      const data = await dashboardService.getActionItems({
+        id: req.user.id,
+        role: req.user.role,
+        companyCode: req.user.companyCode,
+        enabledModules,
+      });
+
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[dashboardController.getActionItems] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi hệ thống khi tổng hợp việc cần xử lý hôm nay.",
+        details: error.message,
+      });
+    }
+  },
 };

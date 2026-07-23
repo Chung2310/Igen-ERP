@@ -724,6 +724,7 @@ export function WorkflowReader({
   onDelete: () => void;
 }) {
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
 
   return (
     <>
@@ -793,8 +794,10 @@ export function WorkflowReader({
         stepIndex={workflow.steps.findIndex((step) => step.id === selectedStep.id)}
         canEdit={canEdit}
         onClose={() => setSelectedStep(null)}
+        onPreview={setPreviewAttachment}
       />
     )}
+    {previewAttachment && <WorkflowAttachmentPreview attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}
     </>
   );
 }
@@ -804,11 +807,13 @@ function WorkflowStepDetailModal({
   stepIndex,
   canEdit,
   onClose,
+  onPreview,
 }: {
   step: WorkflowStep;
   stepIndex: number;
   canEdit: boolean;
   onClose: () => void;
+  onPreview: (attachment: TaskAttachment) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="presentation" onClick={onClose}>
@@ -824,7 +829,7 @@ function WorkflowStepDetailModal({
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
         {step.deliverable && <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</div>}
         {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
-        {!!step.attachments?.length && <div className="mt-5 flex flex-wrap gap-2">{step.attachments.map((attachment) => <a key={attachment.id} href={attachment.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />{attachment.name}</a>)}</div>}
+        {!!step.attachments?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Tệp đính kèm</h3><div className="mt-2 flex flex-wrap gap-2">{step.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => onPreview(attachment)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />Xem preview: {attachment.name}</button>)}</div></div>}
         <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Đóng</button>
         </div>
@@ -833,6 +838,23 @@ function WorkflowStepDetailModal({
   );
 }
 
+function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAttachment; onClose: () => void }) {
+  const isImage = attachment.type === "image" || attachment.type.startsWith("image/");
+  const isVideo = attachment.type === "video" || attachment.type.startsWith("video/");
+  const isAudio = attachment.type === "audio" || attachment.type.startsWith("audio/");
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}>
+    <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}>
+      <div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-bold text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div>
+      <div className="mt-4 flex min-h-48 items-center justify-center rounded-xl bg-slate-100 p-4">
+        {isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}
+        {isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}
+        {isAudio && <audio src={attachment.url} controls />}
+        {!isImage && !isVideo && !isAudio && <div className="text-center text-sm text-slate-600"><p>Không thể xem trực tiếp loại tệp này.</p><a href={attachment.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white">Mở tệp</a></div>}
+      </div>
+      <div className="mt-4 flex justify-end"><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div>
+    </div>
+  </div>;
+}
 function NewWorkflowWizard({
   initialData,
   onClose,

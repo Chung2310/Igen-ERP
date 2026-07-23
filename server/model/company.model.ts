@@ -45,6 +45,16 @@ const CompanyLocationConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanyDashboardReportConfigSchema = new Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    recipients: { type: [String], default: () => [] },
+    hourLocal: { type: Number, default: 7, min: 0, max: 23 },
+    lastSentDate: { type: String, default: "" }, // YYYY-MM-DD — chống gửi trùng trong ngày
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -57,6 +67,7 @@ const CompanySchema = new Schema<ICompany>({
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },
   locationConfig: { type: CompanyLocationConfigSchema, default: () => ({}) },
+  dashboardReportConfig: { type: CompanyDashboardReportConfigSchema, default: () => ({}) },
   lifecycleStatus: { type: String, enum: ["active", "suspended", "archived", "scheduled-deletion"], default: "active", index: true },
   lifecycleChangedAt: { type: Date, default: Date.now },
   deletionScheduledAt: { type: Date, default: null },
