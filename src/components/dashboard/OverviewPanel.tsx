@@ -4,7 +4,6 @@ import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
 import LowStockModal from "../inventory/LowStockModal";
 import { formatDashboardCurrency, buildPctSegments } from "./dashboardUtils";
 import { ModuleCard, DonutCard, BarChart } from "./DashboardWidgets";
-import { TimekeepingWidget } from "./TimekeepingWidget";
 import { ActionItemsWidget } from "./ActionItemsWidget";
 
 type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timekeeping" | "chat" | "resources" | "charts" | "inventoryPanels";
@@ -108,12 +107,7 @@ export function OverviewPanel({
             onGoToInventory={() => goToTab("KHO & SẢN PHẨM")}
           />
         )}
-        {canSeeHr && <TimekeepingWidget
-          todayTimekeeping={todayTimekeeping}
-          todayWorkCalendar={todayWorkCalendar}
-          isLoading={isTimekeepingLoading}
-          onRefresh={onRefreshTimekeeping}
-        />}
+
 
         {/* Metric Module Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
