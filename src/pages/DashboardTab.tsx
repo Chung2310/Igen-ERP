@@ -761,13 +761,13 @@ export default function DashboardTab() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
                     isActive
-                      ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      ? "bg-cyan-600 text-white font-bold shadow-xs"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
                   <span>{tab.label}</span>
                 </button>
               );
