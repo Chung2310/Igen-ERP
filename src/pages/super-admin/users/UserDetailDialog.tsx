@@ -4,6 +4,7 @@ import { superAdminUserAccessService, type SuperAdminUser } from "../../../servi
 import { ImpersonationDialog } from "./ImpersonationDialog";
 import { RolePermissionEditor } from "./RolePermissionEditor";
 import { UserActivityTimeline } from "./UserActivityTimeline";
+import { useStepUp } from "../../../hooks/useStepUp";
 
 type Props = {
   tenantId: string;
@@ -65,6 +66,19 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
     void run(() => operation({ reason: writtenReason }), successMessage);
   };
 
+  const { requestStepUp, stepUpDialog } = useStepUp();
+
+  const securityActionStepUp = async (
+    operation: (input: { reason: string; password: string; token: string; step: number }) => Promise<unknown>,
+    successMessage: string,
+  ) => {
+    const writtenReason = reason.trim();
+    if (!writtenReason || busy) return;
+    const stepUp = await requestStepUp();
+    if (!stepUp) return;
+    void run(() => operation({ reason: writtenReason, ...stepUp }), successMessage);
+  };
+
   const isLocked = Boolean(user?.lockedAt) || user?.status === "locked";
 
   return (
@@ -99,10 +113,10 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
                 {isLocked ? (
                   <button type="button" disabled={!reason.trim() || busy} onClick={() => securityAction((input) => superAdminUserAccessService.unlock(tenantId, userId, input), "Đã mở khóa tài khoản.")} className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40">Mở khóa tài khoản</button>
                 ) : (
-                  <button type="button" disabled={!reason.trim() || busy} onClick={() => securityAction((input) => superAdminUserAccessService.lock(tenantId, userId, input), "Đã khóa tài khoản.")} className="rounded-lg bg-red-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Khóa tài khoản</button>
+                  <button type="button" disabled={!reason.trim() || busy} onClick={() => securityActionStepUp((input) => superAdminUserAccessService.lock(tenantId, userId, input), "Đã khóa tài khoản.")} className="rounded-lg bg-red-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Khóa tài khoản</button>
                 )}
-                <button type="button" disabled={!reason.trim() || busy} onClick={() => securityAction((input) => superAdminUserAccessService.revokeSessions(tenantId, userId, input), "Đã thu hồi toàn bộ phiên đăng nhập.")} className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40">Thu hồi phiên đăng nhập</button>
-                <button type="button" disabled={!reason.trim() || busy} onClick={() => { const writtenReason = reason.trim(); if (writtenReason) void run(() => superAdminUserAccessService.resetTwoFactor(tenantId, userId, writtenReason), "Đã đặt lại xác thực hai bước."); }} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold disabled:opacity-40">Đặt lại xác thực hai bước</button>
+                <button type="button" disabled={!reason.trim() || busy} onClick={() => securityActionStepUp((input) => superAdminUserAccessService.revokeSessions(tenantId, userId, input), "Đã thu hồi toàn bộ phiên đăng nhập.")} className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40">Thu hồi phiên đăng nhập</button>
+                <button type="button" disabled={!reason.trim() || busy} onClick={() => securityActionStepUp((input) => superAdminUserAccessService.resetTwoFactor(tenantId, userId, input.reason, input), "Đã đặt lại xác thực hai bước.")} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold disabled:opacity-40">Đặt lại xác thực hai bước</button>
               </div>
             </section>
 
@@ -111,13 +125,14 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
               {user.role === "superadmin" ? (
                 <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-200">Role Super Admin duy nhất được hệ thống bảo vệ và không thể thay đổi.</p>
               ) : (
-                <RolePermissionEditor tenantId={tenantId} role={user.role} permissions={user.permissions || []} onSave={(role, permissions, editReason) => run(() => superAdminUserAccessService.assignRole(tenantId, userId, role, permissions, { reason: editReason }), "Đã cập nhật vai trò và quyền.", true, true).then(() => undefined)} />
+                <RolePermissionEditor tenantId={tenantId} role={user.role} permissions={user.permissions || []} onSave={async (role, permissions, editReason) => { const stepUp = await requestStepUp(); if (!stepUp) return; await run(() => superAdminUserAccessService.assignRole(tenantId, userId, role, permissions, { reason: editReason, ...stepUp }), "Đã cập nhật vai trò và quyền.", true, true); }} />
               )}
             </section>
             <UserActivityTimeline tenantId={tenantId} userId={userId} />
-            <ImpersonationDialog tenantId={tenantId} userId={userId} onStart={(impersonationReason, durationMinutes) => run(() => superAdminUserAccessService.startImpersonation(tenantId, userId, { reason: impersonationReason, durationMinutes }), "Đã bắt đầu phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} onStop={(impersonationReason) => run(() => superAdminUserAccessService.stopImpersonation(tenantId, userId, { reason: impersonationReason }), "Đã kết thúc phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} />
+            <ImpersonationDialog tenantId={tenantId} userId={userId} onStart={async (impersonationReason, durationMinutes) => { const stepUp = await requestStepUp(); if (!stepUp) return; await run(() => superAdminUserAccessService.startImpersonation(tenantId, userId, { reason: impersonationReason, durationMinutes, ...stepUp }), "Đã bắt đầu phiên đăng nhập thay người dùng.", false, true); }} onStop={(impersonationReason) => run(() => superAdminUserAccessService.stopImpersonation(tenantId, userId, { reason: impersonationReason }), "Đã kết thúc phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} />
           </div>
         )}
+        {stepUpDialog}
       </section>
     </div>
   );

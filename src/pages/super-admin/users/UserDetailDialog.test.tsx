@@ -53,6 +53,12 @@ describe("UserDetailDialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  const completeStepUp = async (password = "S3cret!", token = "123456") => {
+    fireEvent.change(await screen.findByLabelText("Mật khẩu xác thực lại"), { target: { value: password } });
+    fireEvent.change(screen.getByLabelText("Mã xác thực 2 lớp"), { target: { value: token } });
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận" }));
+  };
+
   it("locks the account with a reason and refreshes details", async () => {
     vi.mocked(superAdminUserAccessService.lock).mockResolvedValue({ actionId: "action-1" });
     render(<UserDetailDialog tenantId="SYSTEM" userId="user-1" onClose={vi.fn()} />);
@@ -60,8 +66,11 @@ describe("UserDetailDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Lý do thao tác bảo mật"), { target: { value: "Xử lý sự cố" } });
     fireEvent.click(screen.getByRole("button", { name: "Khóa tài khoản" }));
+    await completeStepUp();
 
-    await waitFor(() => expect(superAdminUserAccessService.lock).toHaveBeenCalledWith("SYSTEM", "user-1", { reason: "Xử lý sự cố" }));
+    await waitFor(() => expect(superAdminUserAccessService.lock).toHaveBeenCalledWith("SYSTEM", "user-1", expect.objectContaining({
+      reason: "Xử lý sự cố", password: "S3cret!", token: "123456", step: expect.any(Number),
+    })));
     await waitFor(() => expect(superAdminUserAccessService.detail).toHaveBeenCalledTimes(2));
     expect(screen.getByText("Đã khóa tài khoản.")).toBeTruthy();
   });
@@ -74,9 +83,12 @@ describe("UserDetailDialog", () => {
     fireEvent.change(screen.getByLabelText("Vai trò"), { target: { value: "user" } });
     fireEvent.change(screen.getByLabelText("Lý do thay đổi quyền"), { target: { value: "Điều chỉnh trách nhiệm" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu quyền truy cập" }));
+    await completeStepUp();
 
     await waitFor(() => expect(superAdminUserAccessService.assignRole).toHaveBeenCalledWith(
-      "SYSTEM", "user-1", "user", ["user:read"], { reason: "Điều chỉnh trách nhiệm" },
+      "SYSTEM", "user-1", "user", ["user:read"], expect.objectContaining({
+        reason: "Điều chỉnh trách nhiệm", password: "S3cret!", token: "123456", step: expect.any(Number),
+      }),
     ));
     expect(await screen.findByText("Đã cập nhật vai trò và quyền.")).toBeTruthy();
   });
@@ -97,9 +109,12 @@ describe("UserDetailDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Lý do đăng nhập thay"), { target: { value: "Hỗ trợ sự cố" } });
     fireEvent.click(screen.getByRole("button", { name: "Bắt đầu phiên 30 phút" }));
+    await completeStepUp();
 
     await waitFor(() => expect(superAdminUserAccessService.startImpersonation).toHaveBeenCalledWith(
-      "SYSTEM", "user-1", { reason: "Hỗ trợ sự cố", durationMinutes: 30 },
+      "SYSTEM", "user-1", expect.objectContaining({
+        reason: "Hỗ trợ sự cố", durationMinutes: 30, password: "S3cret!", token: "123456", step: expect.any(Number),
+      }),
     ));
     expect(await screen.findByText("Đã bắt đầu phiên đăng nhập thay người dùng.")).toBeTruthy();
   });
@@ -110,6 +125,7 @@ describe("UserDetailDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Lý do đăng nhập thay"), { target: { value: "Hỗ trợ sự cố" } });
     fireEvent.click(screen.getByRole("button", { name: "Bắt đầu phiên 30 phút" }));
+    await completeStepUp();
 
     expect(await screen.findByText("Không thể đăng nhập thay")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Bắt đầu phiên 30 phút" })).toBeTruthy();
