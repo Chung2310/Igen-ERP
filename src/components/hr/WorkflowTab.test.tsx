@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { WorkflowReader } from "./WorkflowTab";
 
 describe("WorkflowReader", () => {
-  it("shows ordered instructions without operational controls for regular users", () => {
+  it("renders ordered steps and opens the selected step details", () => {
     render(
       <WorkflowReader
         workflow={{
-          name: "Quy trình onboarding",
-          description: "Hướng dẫn nhân viên mới",
+          name: "Onboarding workflow",
+          description: "Guide for new employees",
           steps: [
-            { id: "s1", title: "Nhận hồ sơ", description: "Kiểm tra thông tin đầu vào" },
-            { id: "s2", title: "Tạo tài khoản", description: "Cấp quyền theo vị trí" },
+            { id: "s1", title: "Receive documents", description: "Check submitted information", note: "Keep the original files" },
+            { id: "s2", title: "Create account", description: "Grant access by role" },
           ],
         } as any}
         canEdit={false}
@@ -25,13 +25,14 @@ describe("WorkflowReader", () => {
       />
     );
 
-    expect(screen.getByText("Quy trình onboarding")).toBeTruthy();
-    expect(screen.getByText("Hướng dẫn nhân viên mới")).toBeTruthy();
-    expect(screen.getByText("1")).toBeTruthy();
-    expect(screen.getByText("Nhận hồ sơ")).toBeTruthy();
-    expect(screen.getByText("Kiểm tra thông tin đầu vào")).toBeTruthy();
-    expect(screen.getByText("2")).toBeTruthy();
-    expect(screen.getByText("Tạo tài khoản")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /sửa|xóa|thêm/i })).toBeNull();
+    expect(screen.getByText("Onboarding workflow")).toBeTruthy();
+    expect(screen.getByText("Receive documents")).toBeTruthy();
+    expect(screen.getByText("Create account")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /edit|delete|add/i })).toBeNull();
+
+    fireEvent.click(screen.getByText("Receive documents"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeTruthy();
+    expect(within(dialog).getByText("Keep the original files")).toBeTruthy();
   });
 });
