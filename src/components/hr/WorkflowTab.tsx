@@ -726,7 +726,10 @@ export function WorkflowReader({
   onSave: () => void;
   onDelete: () => void;
 }) {
+  const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
+
   return (
+    <>
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50" id="workflow_tab">
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
         <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100">
@@ -768,15 +771,15 @@ export function WorkflowReader({
               Chưa có bước nào trong quy trình.
             </div>
           ) : (
-            <ol className="mt-5 space-y-4">
+            <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {workflow.steps.map((step, index) => (
-                <li key={step.id} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <li key={step.id} onClick={() => setSelectedStep(step)} className="relative h-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md sm:p-6">
                   <div className="flex items-start gap-4">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <h2 className="text-base font-extrabold text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
-                        {canEdit && <button onClick={() => onEdit(step)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3.5 w-3.5" /> Sửa</button>}
+                        {canEdit && <button onClick={(event) => { event.stopPropagation(); setSelectedStep(null); onEdit(step); }} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3.5 w-3.5" /> Sửa</button>}
                       </div>
                       {step.description && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{step.description}</p>}
                       {step.note && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"><strong>Lưu ý:</strong> {step.note}</p>}
@@ -790,6 +793,54 @@ export function WorkflowReader({
               ))}
             </ol>
           )}
+        </div>
+      </div>
+    </div>
+    {selectedStep && (
+      <WorkflowStepDetailModal
+        step={selectedStep}
+        stepIndex={workflow.steps.findIndex((step) => step.id === selectedStep.id)}
+        canEdit={canEdit}
+        onClose={() => setSelectedStep(null)}
+        onEdit={() => { setSelectedStep(null); onEdit(selectedStep); }}
+      />
+    )}
+    </>
+  );
+}
+
+function WorkflowStepDetailModal({
+  step,
+  stepIndex,
+  canEdit,
+  onClose,
+  onEdit,
+}: {
+  step: WorkflowStep;
+  stepIndex: number;
+  canEdit: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="presentation" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="workflow-step-detail-title" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">Bước {stepIndex + 1}</p>
+            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-slate-900">{step.title || `Bước ${stepIndex + 1}`}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100" aria-label="Đóng">×</button>
+        </div>
+        {step.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.description}</p>}
+        {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
+        {step.deliverable && <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</div>}
+        {step.estDays && step.estDays > 0 && <p className="mt-4 text-sm font-semibold text-slate-500"><Clock className="mr-1 inline h-4 w-4" />Dự kiến {step.estDays} ngày</p>}
+        {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
+        {!!step.attachments?.length && <div className="mt-5 flex flex-wrap gap-2">{step.attachments.map((attachment) => <a key={attachment.id} href={attachment.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />{attachment.name}</a>)}</div>}
+        <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+          {canEdit && <button onClick={onEdit} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-500"><Pencil className="h-3.5 w-3.5" /> Sửa bước</button>}
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Đóng</button>
         </div>
       </div>
     </div>
