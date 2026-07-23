@@ -4,6 +4,7 @@ import { TenantManagementService } from "../super-admin/tenant-management.servic
 import { executeAdminAction } from "../super-admin/action-runtime";
 import { tenantActions } from "../super-admin/action-registry";
 import { clearModuleCache } from "../middleware/require-module";
+import { notifyCompanyModulesChanged } from "../service/company-module-notify";
 
 type Dependencies = { service?: TenantManagementService; execute?: typeof executeAdminAction; clearModuleCache?: (companyCode?: string) => void; emitToCompany?: (companyCode: string, eventName: string, data: any) => void | Promise<void>; };
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`${label} is required`); return value.trim(); };
@@ -23,12 +24,7 @@ export function createTenantRouter(deps: Dependencies = {}) {
   router.patch("/tenants/:companyCode", mutation(tenantActions.update, async (input) => service.update(input.companyCode, input)));
   router.patch("/tenants/:companyCode/modules", mutation(tenantActions.updateModules, async (input) => {
     const tenant = await service.updateModules(input.companyCode, input.enabledModules);
-    clearCache(tenant.code);
-    try {
-      await emitCompany(tenant.code, "company_modules_updated", { companyCode: tenant.code, enabledModules: tenant.enabledModules || [] });
-    } catch (error) {
-      console.error(`[tenant modules] Realtime delivery failed for ${tenant.code}:`, error);
-    }
+    await notifyCompanyModulesChanged(tenant.code, tenant.enabledModules || [], { clearModuleCache: clearCache, emitToCompany: emitCompany }, "tenant modules");
     return tenant;
   }));
   router.post("/tenants/:companyCode/lifecycle", mutation(tenantActions.lifecycle, async (input) => {
