@@ -137,10 +137,10 @@ export default function HRTab() {
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-1 overflow-x-auto select-none">
           {[
-            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
             { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
-            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
+            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
+            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
           ].map((tab) => {
             const isActive = subTab === tab.id;
