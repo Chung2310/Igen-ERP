@@ -1,5 +1,5 @@
 import { getAccessToken } from "./authService";
-import { DashboardSummary, DashboardDateFilter } from "../types/dashboard";
+import { DashboardSummary, DashboardDateFilter, DashboardActionItems } from "../types/dashboard";
 
 export interface DashboardSummaryParams {
   filter: DashboardDateFilter;
@@ -30,5 +30,23 @@ export const dashboardService = {
 
     const json = await res.json();
     return json.data as DashboardSummary;
+  },
+
+  /**
+   * Lấy danh sách "Việc cần xử lý hôm nay" (task quá hạn, phiếu chờ duyệt, tồn kho thấp).
+   */
+  async getActionItems(): Promise<DashboardActionItems> {
+    const res = await fetch("/api/v1/dashboard/action-items", {
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error("Không thể tải việc cần xử lý hôm nay.");
+    }
+
+    const json = await res.json();
+    return json.data as DashboardActionItems;
   },
 };

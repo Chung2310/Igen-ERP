@@ -52,3 +52,10 @@ export interface DashboardSummary {
     };
   };
 }
+
+/** Kết quả GET /api/v1/dashboard/action-items — việc cần xử lý hôm nay */
+export interface DashboardActionItems {
+  overdueTasks: { id: string; title: string; dueDate: string }[];
+  pendingApprovals: { id: string; type: "leave"; employeeName: string; since: string }[];
+  lowStockAlerts: { id: string; name: string; sku: string; stock: number; minStockAlert: number }[];
+}

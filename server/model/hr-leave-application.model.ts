@@ -18,6 +18,7 @@ const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
     approvedBy: { type: String, index: true },
     chargeableDays: { type: Number, min: 0 },
     chargeableDates: { type: [String], default: undefined },
+    reminderSentAt: { type: Date },
   },
   {
     timestamps: true,

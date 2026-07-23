@@ -31,6 +31,13 @@ export interface ICompanyLocationConfig {
   workingDays?: number[];
 }
 
+export interface ICompanyDashboardReportConfig {
+  enabled: boolean;
+  recipients: string[];
+  hourLocal: number;
+  lastSentDate?: string;
+}
+
 export interface ICompany extends Document {
   code: string;
   name: string;
@@ -47,6 +54,7 @@ export interface ICompany extends Document {
   /** ID thÆ° má»¥c do app táº¡o trong Drive cá»§a cÃ´ng ty Ä‘á»ƒ chá»©a tÃ i liá»‡u. */
   driveFolderId?: string;
   locationConfig?: ICompanyLocationConfig;
+  dashboardReportConfig?: ICompanyDashboardReportConfig;
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;
   deletionScheduledAt?: Date | null;

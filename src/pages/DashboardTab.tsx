@@ -24,7 +24,7 @@ import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { dashboardService } from "../services/dashboardService";
 import { toast } from "../pages/Toast";
 import { UserProfile } from "../types";
-import { DashboardSummary } from "../types/dashboard";
+import { DashboardSummary, DashboardActionItems } from "../types/dashboard";
 import { formatDashboardCurrency } from "../components/dashboard/dashboardUtils";
 import { OverviewPanel } from "../components/dashboard/OverviewPanel";
 import { RevenuePanel } from "../components/dashboard/RevenuePanel";
@@ -282,6 +282,31 @@ export default function DashboardTab() {
       clearInterval(intervalId);
     };
   }, [userProfile?.uid, dateFilter, customStartDate, customEndDate]);
+
+  const [actionItems, setActionItems] = useState<DashboardActionItems | null>(null);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let cancelled = false;
+
+    const loadActionItems = () => {
+      dashboardService
+        .getActionItems()
+        .then((data) => {
+          if (!cancelled) setActionItems(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi tải việc cần xử lý hôm nay:", err);
+        });
+    };
+
+    loadActionItems();
+    const intervalId = setInterval(loadActionItems, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [userProfile?.uid]);
 
   // Master calculation useEffect to filter data dynamically by date range
   useEffect(() => {
@@ -819,6 +844,8 @@ export default function DashboardTab() {
           canSeeResource={canSeeResource}
           canSeeChat={canSeeChat}
           canSeeStudent={canSeeStudent}
+          role={userProfile?.role}
+          actionItems={actionItems}
         />
       )}
       {activeView === "revenue" && canSeeInventory && (

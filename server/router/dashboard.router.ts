@@ -33,3 +33,6 @@ dashboardRouter.get(
   validateRequest(summarySchema),
   dashboardController.getSummary as any
 );
+
+// Việc cần xử lý hôm nay
+dashboardRouter.get("/action-items", requireAuth as any, dashboardController.getActionItems as any);
