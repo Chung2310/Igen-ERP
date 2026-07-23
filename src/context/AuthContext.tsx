@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
 import { socketService } from "../services/socketService";
@@ -196,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success("Đã đăng xuất tài khoản thành công!");
     } catch (error) {
       console.error("[logout] Error:", error);
-      toast.error("Lỗi khi đăng xuất.");
+      toast.error(getApiErrorMessage(error, "Lỗi khi đăng xuất."));
     } finally {
       setLoading(false);
     }

@@ -35,7 +35,7 @@ const additionalForbiddenCopy: Record<string, string[]> = {
   "src/pages/UserAdminTab.tsx": ["chỉnh sửa balance"],
   "src/pages/WalletTab.tsx": ["VietQR"],
   "src/modules/student-management/pages/Notifications/NotificationsPage.tsx": ["Mã VietQR", "SMTP Sender", "plain text"],
-  "src/pages/super-admin/users/UserDetailPage.tsx": ["Lock account", "Unlock"],
+  "src/pages/super-admin/users/UserDetailDialog.tsx": ["Lock account", "Unlock account"],
 };
 
 test("additional technical labels are not shown to users", () => {

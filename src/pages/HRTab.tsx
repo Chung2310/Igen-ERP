@@ -4,6 +4,7 @@ import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../type
 import { useAuth } from "../context/AuthContext";
 import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 
@@ -76,7 +77,7 @@ export default function HRTab() {
       setUsersList(data);
     } catch (error) {
       console.error("Lỗi khi tải danh sách nhân sự:", error);
-      toast.error("Không thể tải sơ đồ nhân sự.");
+      toast.error(getApiErrorMessage(error, "Không thể tải sơ đồ nhân sự."));
     } finally {
       setLoading(false);
     }

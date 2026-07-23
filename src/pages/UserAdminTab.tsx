@@ -5,6 +5,7 @@ import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
 import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
 import { CompanyModal } from "../components/user-admin/CompanyModal";
@@ -201,7 +202,7 @@ export default function UserAdminTab() {
       setUsersList(data);
     } catch (error) {
       console.error("Lấy danh sách user thất bại:", error);
-      toast.error("Không thể tải danh sách tài khoản người dùng.");
+      toast.error(getApiErrorMessage(error, "Không thể tải danh sách tài khoản người dùng."));
     } finally {
       setLoading(false);
     }
@@ -259,7 +260,7 @@ export default function UserAdminTab() {
       });
     } catch (error) {
       console.error("Lấy danh sách số dư thất bại:", error);
-      toast.error("Không thể tải danh sách số dư người dùng.");
+      toast.error(getApiErrorMessage(error, "Không thể tải danh sách số dư người dùng."));
     } finally {
       setBalanceLoading(false);
     }
@@ -277,7 +278,7 @@ export default function UserAdminTab() {
       setBalanceTransactions(data);
     } catch (error) {
       console.error("Lấy lịch sử giao dịch thất bại:", error);
-      toast.error("Không thể tải lịch sử giao dịch của người dùng.");
+      toast.error(getApiErrorMessage(error, "Không thể tải lịch sử giao dịch của người dùng."));
     } finally {
       setTransactionsLoading(false);
     }
@@ -435,7 +436,7 @@ export default function UserAdminTab() {
       );
     } catch (error) {
       console.error("Lỗi cập nhật quyền:", error);
-      toast.error("Lỗi khi cập nhật quyền hạn người dùng.");
+      toast.error(getApiErrorMessage(error, "Lỗi khi cập nhật quyền hạn người dùng."));
     }
   };
 

@@ -17,6 +17,7 @@ import { ExamStatusModal } from '../../components/Exams/ExamStatusModal';
 import { AssignStudentModal } from '../../components/Exams/AssignStudentModal';
 import { ExamCard } from '../../components/Exams/ExamCard';
 import { toast } from '../../../../pages/Toast';
+import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 
 export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
@@ -411,7 +412,7 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
                     toast.success("Đã xóa học viên khỏi đợt thi.");
                   } catch (error) {
                     console.error("Error unassigning student:", error);
-                    toast.error("Có lỗi xảy ra khi xóa học viên khỏi đợt thi.");
+                    toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi xóa học viên khỏi đợt thi."));
                   }
                 }}
                 onUpdateStudentResult={async (studentId, overallResult) => {
@@ -425,7 +426,7 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
                     toast.success("Cập nhật kết quả thi thành công.");
                   } catch (error) {
                     console.error("Error updating student result:", error);
-                    toast.error("Có lỗi xảy ra khi cập nhật kết quả thi.");
+                    toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật kết quả thi."));
                   }
                 }}
               />

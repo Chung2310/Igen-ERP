@@ -13,6 +13,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { apiFetch, getAccessToken } from '../../lib/api';
 import { BroadcastNotification, Student } from '../../types';
 import { toast } from '../../../../pages/Toast';
+import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -763,7 +764,7 @@ export function NotificationsPage() {
       toast.success("Đã xóa lịch sử thông báo!");
     } catch (error) {
       console.error("Error deleting notification:", error);
-      toast.error("Không thể xóa thông báo này. Vui lòng thử lại.");
+      toast.error(getApiErrorMessage(error, "Không thể xóa thông báo này. Vui lòng thử lại."));
     }
   };
 
