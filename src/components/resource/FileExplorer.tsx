@@ -30,6 +30,7 @@ import type { ResourceItem, BreadcrumbEntry } from "../../types";
 import { resourceService } from "../../services/resourceService";
 import { internalChatService } from "../../services/internalChatService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 // Lazy: modal xem trước kéo theo thư viện đọc Excel/Word nặng, chỉ tải khi người dùng mở xem trước
 const FilePreviewModal = React.lazy(() => import("./FilePreviewModal").then((m) => ({ default: m.FilePreviewModal })));
@@ -346,7 +347,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       setMoveModalFolders(folderList);
       setMoveModalBreadcrumb(trail);
     } catch (e) {
-      toast.error("Không tải được danh sách thư mục đích.");
+      toast.error(getApiErrorMessage(e, "Không tải được danh sách thư mục đích."));
     } finally {
       setLoadingMoveModal(false);
     }
@@ -436,7 +437,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       const list = await resourceService.getShares(itemId);
       setSharedList(list);
     } catch (e) {
-      toast.error("Không lấy được thông tin chia sẻ.");
+      toast.error(getApiErrorMessage(e, "Không lấy được thông tin chia sẻ."));
     } finally {
       setLoadingShares(false);
     }

@@ -115,7 +115,7 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
               )}
             </section>
             <UserActivityTimeline tenantId={tenantId} userId={userId} />
-            <ImpersonationDialog onStart={(impersonationReason, durationMinutes) => run(() => superAdminUserAccessService.startImpersonation(tenantId, userId, { reason: impersonationReason, durationMinutes }), "Đã bắt đầu phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} onStop={(impersonationReason) => run(() => superAdminUserAccessService.stopImpersonation(tenantId, userId, { reason: impersonationReason }), "Đã kết thúc phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} />
+            <ImpersonationDialog tenantId={tenantId} userId={userId} onStart={(impersonationReason, durationMinutes) => run(() => superAdminUserAccessService.startImpersonation(tenantId, userId, { reason: impersonationReason, durationMinutes }), "Đã bắt đầu phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} onStop={(impersonationReason) => run(() => superAdminUserAccessService.stopImpersonation(tenantId, userId, { reason: impersonationReason }), "Đã kết thúc phiên đăng nhập thay người dùng.", false, true).then(() => undefined)} />
           </div>
         )}
       </section>

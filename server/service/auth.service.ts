@@ -34,7 +34,7 @@ async function assertAccountUsable(user: IUser): Promise<void> {
   }
   if (user.companyCode && user.companyCode !== "SYSTEM") {
     const company = await CompanyModel.findOne({ code: user.companyCode }).select("lifecycleStatus").lean<{ lifecycleStatus?: string } | null>();
-    if (!company || company.lifecycleStatus !== "active") {
+    if (!company || (company.lifecycleStatus && company.lifecycleStatus !== "active")) {
       throw new Error("Doanh nghiệp của bạn đang tạm ngưng hoạt động.");
     }
   }

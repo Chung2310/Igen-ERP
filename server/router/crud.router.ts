@@ -6,8 +6,6 @@ import { requireAuth } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import type { ModuleKey } from "../config/module-keys";
 
-import { workflowLinkController } from "../controller/workflow-link.controller";
-
 export const crudRouter = Router();
 
 export const CRUD_MODEL_MODULE_MAP: Record<string, ModuleKey> = {
@@ -27,35 +25,6 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
   const moduleKey = CRUD_MODEL_MODULE_MAP[String(req.params.modelName || "").toLowerCase()];
   return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
 };
-
-// Custom endpoints for workflow ↔ kanban-task link
-crudRouter.post(
-  "/workflows/:id/participants",
-  requireAuth as any,
-  requireModule("hr"),
-  workflowLinkController.createCase as any
-);
-
-crudRouter.post(
-  "/workflows/:id/participants/:participantId/advance",
-  requireAuth as any,
-  requireModule("hr"),
-  workflowLinkController.advanceParticipant as any
-);
-
-crudRouter.get(
-  "/workflows/:id/participants/:participantId/tasks",
-  requireAuth as any,
-  requireModule("hr"),
-  workflowLinkController.getParticipantTasks as any
-);
-
-crudRouter.delete(
-  "/workflows/:id/participants/:participantId",
-  requireAuth as any,
-  requireModule("hr"),
-  workflowLinkController.removeCase as any
-);
 
 const SUPPORTED_MODELS = [
   "products",

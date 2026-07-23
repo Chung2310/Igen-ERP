@@ -73,51 +73,12 @@ const WorkflowEdgeSchema = new Schema(
   { _id: false }
 );
 
-const ParticipantAttachmentSchema = new Schema(
-  {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    url: { type: String, required: true },
-    type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
-    size: { type: Number },
-  },
-  { _id: false }
-);
-
-const WorkflowParticipantSchema = new Schema(
-  {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    userUid: { type: String, default: "" },
-    avatar: { type: String, default: "" },
-    currentStepId: { type: String, default: "" },
-    note: { type: String, default: "" },
-    description: { type: String, default: "" },
-    relatedUids: { type: [String], default: [] },
-    priority: {
-      type: String,
-      enum: ["urgent_important", "urgent", "important", "normal"],
-      default: "normal",
-    },
-    startDate: { type: String, default: "" },
-    dueDate: { type: String, default: "" },
-    docLinks: { type: [String], default: [] },
-    attachments: { type: [ParticipantAttachmentSchema], default: [] },
-    customSubTasks: { type: [WorkflowSubTaskSchema], default: [] },
-    projectId: { type: String, default: "" },
-    startedAt: { type: String, default: "" },
-    updatedAt: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
 const WorkflowSchema = new Schema<IWorkflow>({
   name: { type: String, required: true, index: true },
   description: { type: String, default: "" },
   category: { type: String, default: "" },
   steps: { type: [WorkflowStepSchema], default: [] },
   edges: { type: [WorkflowEdgeSchema], default: [] },
-  participants: { type: [WorkflowParticipantSchema], default: [] },
   autoAdvance: { type: Boolean, default: false },
   companyCode: { type: String, required: true, index: true },
   creatorUid: { type: String, required: true, index: true },

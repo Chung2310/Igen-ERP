@@ -1,31 +1,21 @@
 import React from "react";
 import { Activity, Trash2, Monitor, Calendar, RefreshCw } from "lucide-react";
-import { superAdminRequest } from "../../services/superAdminRequest";
-
-interface Session {
-  sessionId: string;
-  createdAt: string;
-  lastSeenAt: string;
-  expiresAt: string;
-  revokedAt?: string;
-  revokeReason?: string;
-  deviceId: string;
-  loginIp?: string;
-  lastIp?: string;
-  userAgent?: string;
-}
+import { superAdminAuthService, type SuperAdminSession } from "../../services/superAdminAuthService";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 export function SessionsTab() {
-  const [sessions, setSessions] = React.useState<Session[]>([]);
+  const [sessions, setSessions] = React.useState<SuperAdminSession[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [currentSid, setCurrentSid] = React.useState("");
+  const [pendingSessionId, setPendingSessionId] = React.useState<string | null>(null);
+  const [revoking, setRevoking] = React.useState(false);
 
   const fetchSessions = async () => {
     setLoading(true);
     setError("");
     try {
-      // Decode current session sid from JWT
+      // Lấy sid của phiên hiện tại từ JWT để đánh dấu "Phiên hiện tại"
       const token = localStorage.getItem("accessToken");
       if (token) {
         try {
@@ -38,10 +28,7 @@ export function SessionsTab() {
         }
       }
 
-      // We need a request function, wait, where can we get sessions?
-      // Let's call the listSessions equivalent or request it directly.
-      // Wait, let's add listSessions to superAdminAuthService, or let's fetch it here.
-      const data = await superAdminRequest("/api/v1/super-admin/auth/sessions");
+      const data = await superAdminAuthService.listSessions();
       setSessions(data.sessions || []);
     } catch (e: any) {
       setError(e.message || "Lỗi khi tải danh sách phiên.");
@@ -50,17 +37,18 @@ export function SessionsTab() {
     }
   };
 
-  const handleRevoke = async (sessionId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn thu hồi phiên làm việc này? Người dùng này sẽ bị đăng xuất lập tức.")) {
-      return;
-    }
+  const confirmRevoke = async () => {
+    if (!pendingSessionId) return;
     setError("");
+    setRevoking(true);
     try {
-      await superAdminRequest(`/api/v1/super-admin/auth/sessions/${sessionId}`, { method: "DELETE" });
-      // Reload sessions list
+      await superAdminAuthService.revokeSession(pendingSessionId);
+      setPendingSessionId(null);
       await fetchSessions();
     } catch (e: any) {
       setError(e.message || "Lỗi khi thu hồi phiên.");
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -184,7 +172,7 @@ export function SessionsTab() {
 
                   {isActive && !isCurrent && (
                     <button
-                      onClick={() => handleRevoke(session.sessionId)}
+                      onClick={() => setPendingSessionId(session.sessionId)}
                       className="rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 p-2.5 text-red-400 transition-all"
                       title="Thu hồi phiên đăng nhập này"
                     >
@@ -197,6 +185,18 @@ export function SessionsTab() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={pendingSessionId !== null}
+        title="Thu hồi phiên làm việc?"
+        description="Người dùng của phiên này sẽ bị đăng xuất ngay lập tức."
+        confirmLabel="Thu hồi"
+        cancelLabel="Hủy"
+        tone="danger"
+        isSubmitting={revoking}
+        onClose={() => setPendingSessionId(null)}
+        onConfirm={confirmRevoke}
+      />
     </div>
   );
 }

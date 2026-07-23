@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Sliders, Bell, MapPin } from "lucide-react";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
 import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
@@ -116,8 +117,8 @@ export default function ErpConfigTab() {
       } else {
         toast.error(result.message || "Lưu cấu hình thất bại.");
       }
-    } catch {
-      toast.error("Lỗi kết nối khi gửi dữ liệu cấu hình.");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Lỗi kết nối khi gửi dữ liệu cấu hình."));
     } finally {
       setSavingLocation(false);
     }

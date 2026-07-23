@@ -25,6 +25,7 @@ import {
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
 
@@ -243,7 +244,7 @@ export default function CalendarTab({
       setItems(list);
     } catch (err: any) {
       console.error("Lỗi khi tải lịch:", err);
-      toast.error("Không thể tải dữ liệu lịch trình.");
+      toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu lịch trình."));
     } finally {
       setLoading(false);
     }
@@ -278,7 +279,7 @@ export default function CalendarTab({
       }
     } catch (err) {
       console.error("Lỗi khi tải lịch sử chấm công:", err);
-      toast.error("Không thể tải lịch sử chấm công.");
+      toast.error(getApiErrorMessage(err, "Không thể tải lịch sử chấm công."));
     } finally {
       setIsLogsLoading(false);
     }
@@ -298,7 +299,7 @@ export default function CalendarTab({
           });
 
           if (!res.ok) {
-            throw new Error("Lỗi mạng khi xóa.");
+            throw new Error((await res.json().catch(() => ({})))?.message || "Lỗi mạng khi xóa.");
           }
 
           toast.success("Đã xóa lịch trình thành công.");
@@ -307,7 +308,7 @@ export default function CalendarTab({
           fetchCalendarItems();
         } catch (err: any) {
           console.error(err);
-          toast.error("Xóa lịch trình thất bại.");
+          toast.error(getApiErrorMessage(err, "Xóa lịch trình thất bại."));
         }
       },
       "Xóa"
@@ -1437,7 +1438,7 @@ export default function CalendarTab({
       }
 
       if (!res.ok) {
-        throw new Error("Lỗi mạng khi lưu lịch.");
+        throw new Error((await res.json().catch(() => ({})))?.message || "Lỗi mạng khi lưu lịch.");
       }
 
       toast.success(formMode === "create" ? "Tạo mới lịch trình thành công!" : "Cập nhật lịch trình thành công!");
@@ -1445,7 +1446,7 @@ export default function CalendarTab({
       fetchCalendarItems();
     } catch (err: any) {
       console.error(err);
-      toast.error("Không thể lưu lịch trình. Vui lòng thử lại.");
+      toast.error(getApiErrorMessage(err, "Không thể lưu lịch trình. Vui lòng thử lại."));
     }
   };
 

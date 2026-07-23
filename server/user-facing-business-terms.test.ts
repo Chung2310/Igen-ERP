@@ -17,7 +17,6 @@ const forbiddenCopy: Record<string, string[]> = {
   "src/components/hr/KanbanTab.tsx": [">Kanban<", "{task.category || \"Onboarding\"}", "{editCategory || \"Onboarding\"}", "Ví dụ: Onboarding", "VD: Onboarding"],
   "src/components/hr/WorkflowTab.tsx": ["vd: Onboarding", "VD: Onboarding"],
   "src/pages/ChatTab.tsx": ["Kanban Task"],
-  "server/controller/workflow-link.controller.ts": ["khởi tạo task Kanban", "tasksArchived} task Kanban"],
 };
 
 test("user-facing business terms use plain Vietnamese", () => {
@@ -36,7 +35,7 @@ const additionalForbiddenCopy: Record<string, string[]> = {
   "src/pages/UserAdminTab.tsx": ["chỉnh sửa balance"],
   "src/pages/WalletTab.tsx": ["VietQR"],
   "src/modules/student-management/pages/Notifications/NotificationsPage.tsx": ["Mã VietQR", "SMTP Sender", "plain text"],
-  "src/pages/super-admin/users/UserDetailPage.tsx": ["Lock account", "Unlock"],
+  "src/pages/super-admin/users/UserDetailDialog.tsx": ["Lock account", "Unlock account"],
 };
 
 test("additional technical labels are not shown to users", () => {

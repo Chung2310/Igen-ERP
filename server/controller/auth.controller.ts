@@ -7,6 +7,8 @@ import { getSuperAdminRequestMetadata } from "../security/super-admin-request-co
 import { CompanyModel } from "../model/company.model";
 import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
 import { recordUserActivity } from "../middleware/user-activity";
+import { clearModuleCache } from "../middleware/require-module";
+import { notifyCompanyModulesChanged } from "../service/company-module-notify";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -448,6 +450,15 @@ export const authController = {
   async updateCompany(req: AuthenticatedRequest, res: Response) {
     try {
       const updatedCompany = await authService.updateCompany(req.params.id, req.body);
+      if (updatedCompany?.code) {
+        const socket = await import("../socket");
+        await notifyCompanyModulesChanged(
+          updatedCompany.code,
+          updatedCompany.enabledModules || [],
+          { clearModuleCache, emitToCompany: socket.emitToCompany },
+          "authController.updateCompany"
+        );
+      }
       return res.status(200).json({
         status: "success",
         message: "Cập nhật doanh nghiệp thành công",

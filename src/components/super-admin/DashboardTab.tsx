@@ -66,12 +66,40 @@ interface DashboardData {
   recentActivity: RecentActivity[];
 }
 
+const TABLE_PAGE_SIZE = 10;
+
+function Pager({ page, total, onChange }: { page: number; total: number; onChange: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / TABLE_PAGE_SIZE));
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-end gap-2 border-t border-white/5 bg-slate-950/20 px-3 py-2">
+      <button
+        disabled={page === 1}
+        onClick={() => onChange(page - 1)}
+        className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 disabled:opacity-40"
+      >
+        Trước
+      </button>
+      <span className="text-[11px] text-slate-400">Trang {page}/{totalPages}</span>
+      <button
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+        className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 disabled:opacity-40"
+      >
+        Tiếp
+      </button>
+    </div>
+  );
+}
+
 export function DashboardTab() {
   const [data, setData] = React.useState<DashboardData | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
+  const [financePage, setFinancePage] = React.useState(1);
+  const [activityPage, setActivityPage] = React.useState(1);
 
   const fetchSummary = async () => {
     setLoading(true);
@@ -96,6 +124,8 @@ export function DashboardTab() {
 
   React.useEffect(() => {
     fetchSummary();
+    setFinancePage(1);
+    setActivityPage(1);
   }, [startDate, endDate]);
 
   if (loading && !data) {
@@ -317,7 +347,7 @@ export function DashboardTab() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {finance.revenueByTenant.map((tenant) => (
+                    {finance.revenueByTenant.slice((financePage - 1) * TABLE_PAGE_SIZE, financePage * TABLE_PAGE_SIZE).map((tenant) => (
                       <tr key={tenant.companyCode} className="hover:bg-white/5 transition-colors">
                         <td className="p-3 font-semibold text-slate-200">
                           {tenant.companyName}
@@ -346,6 +376,7 @@ export function DashboardTab() {
                   </tbody>
                 </table>
               </div>
+              <Pager page={financePage} total={finance.revenueByTenant.length} onChange={setFinancePage} />
             </div>
           </div>
         )}
@@ -422,7 +453,7 @@ export function DashboardTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {activities.map((act) => (
+                  {activities.slice((activityPage - 1) * TABLE_PAGE_SIZE, activityPage * TABLE_PAGE_SIZE).map((act) => (
                     <tr key={act.id} className="hover:bg-white/5 transition-colors">
                       <td className="p-3">
                         <span className="font-mono text-xs font-bold text-slate-200">{act.actionType}</span>
@@ -461,6 +492,7 @@ export function DashboardTab() {
                 </tbody>
               </table>
             </div>
+            <Pager page={activityPage} total={activities.length} onChange={setActivityPage} />
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { walletService, TransactionInfo } from "../services/walletService";
 import { toast } from "./Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { Pagination } from "../components/common/Pagination";
 import { useAuth } from "../context/AuthContext";
 
@@ -58,7 +59,7 @@ export default function WalletTab() {
         .then(bal => setBalance(bal))
         .catch(err => {
           console.error("Lỗi tải số dư:", err);
-          toast.error("Không thể tải số dư ví.");
+          toast.error(getApiErrorMessage(err, "Không thể tải số dư ví."));
         });
 
       const txsPromise = walletService.getTransactionHistory()
@@ -68,7 +69,7 @@ export default function WalletTab() {
         })
         .catch(err => {
           console.error("Lỗi tải lịch sử giao dịch:", err);
-          toast.error("Không thể tải lịch sử giao dịch.");
+          toast.error(getApiErrorMessage(err, "Không thể tải lịch sử giao dịch."));
         });
 
       await Promise.all([balPromise, txsPromise]);
