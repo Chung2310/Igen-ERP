@@ -319,20 +319,17 @@ code, kbd, samp, pre {
   font-family: var(--font-sans) !important;
 }
 
-/* Custom Scrollbar Styles */
+/* Global Scrollbar Hiding (Preserves Scroll Functionality) */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
+  display: none;
+  width: 0px;
+  height: 0px;
   background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-secondary-fixed-dim);
 }
 
 /* Toast Animations */
