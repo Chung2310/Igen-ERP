@@ -256,24 +256,26 @@ export default function OrgChartTab({
     }
   };
 
+  const hasDragMovedRef = useRef(false);
+
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (
       target.closest("button") ||
       target.closest("select") ||
       target.closest("input") ||
-      target.closest("[draggable='true']") ||
-      target.closest(".cursor-pointer")
+      target.closest("[draggable='true']")
     ) {
       return;
     }
-    setIsDragging(true);
+    hasDragMovedRef.current = false;
     if (containerRef.current) {
       setStartX(e.pageX - containerRef.current.offsetLeft);
       setStartY(e.pageY - containerRef.current.offsetTop);
       setScrollLeftState(containerRef.current.scrollLeft);
       setScrollTopState(containerRef.current.scrollTop);
     }
+    setIsDragging(true);
   };
 
   const handleMouseLeaveOrUp = () => {
@@ -287,6 +289,9 @@ export default function OrgChartTab({
     const y = e.pageY - containerRef.current.offsetTop;
     const walkX = (x - startX) * 1.5;
     const walkY = (y - startY) * 1.5;
+    // Only activate panning after moving more than 5px (prevents click suppression on laptop trackpads)
+    if (!hasDragMovedRef.current && Math.abs(walkX) < 5 && Math.abs(walkY) < 5) return;
+    hasDragMovedRef.current = true;
     containerRef.current.scrollLeft = scrollLeftState - walkX;
     containerRef.current.scrollTop = scrollTopState - walkY;
   };
@@ -1173,37 +1178,10 @@ export default function OrgChartTab({
 
       {/* Primary Sub Tab Layout View */}
       <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 h-full min-h-[500px]" id="org_chart_block">
-          {/* Functional categories and operating instructions sidebar */}
-          <div className="xl:col-span-1 bg-white p-5 rounded-2xl border border-gray-200 flex flex-col justify-between h-full space-y-6" id="employee_detail_card">
-            <div className="space-y-4">
-              <h3 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider font-mono">
-                MÀU SẮC CHỨC NĂNG
-              </h3>
-              <div className="space-y-2">
-                {FUNCTIONAL_CATEGORIES.map(cat => {
-                  const count = employees.filter(emp => getCategoryByDivision(emp.division).key === cat.key).length;
-                  return (
-                    <div key={cat.key} className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-3.5 h-3.5 rounded-full border border-white shadow-xs shrink-0" style={{ backgroundColor: cat.dot }} />
-                        <span className="text-xs font-bold text-slate-700">{cat.label}</span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-gray-200 text-slate-600 min-w-[20px] text-center shadow-2xs font-mono">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 gap-6 h-full min-h-[500px]" id="org_chart_block">
 
-            {/* Interactive guidelines bottom banner */}
-        
-          </div>
-
-          {/* Interactive Tree viewport diagram */}
-          <div className="xl:col-span-3 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
+          {/* Interactive Tree viewport diagram - full width */}
+          <div className="col-span-1 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
         
 
             {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
