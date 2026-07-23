@@ -14,6 +14,8 @@ import { Course } from "../modules/student-management/models/course.model";
 import { Batch } from "../modules/student-management/models/batch.model";
 import { getAllowedOwnerIds } from "../modules/student-management/utils/auth.util";
 import { resolveDashboardModuleAccess } from "./dashboard-module-access";
+import { ProductModel } from "../model/product.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 
 export interface DashboardUser {
   id: string;
@@ -205,7 +207,64 @@ async function getTrainingStats(companyQ: Record<string, any>) {
   };
 }
 
+const isManagerOrAbove = (role: string) => role === "admin" || role === "manager" || role === "superadmin";
+
+/**
+ * Việc cần xử lý hôm nay — tổng hợp gọn để hiển thị ở đầu trang Tổng quan.
+ * Lưu ý giới hạn đã biết: `pendingApprovals` cho role "manager" hiện lấy
+ * toàn bộ đơn pending trong công ty (chưa lọc theo cây tổ chức phía server
+ * vì util scope theo parentId hiện chỉ tồn tại ở frontend
+ * `getDescendantEmployees` trong DashboardTab.tsx). Sẽ thu hẹp lại khi có
+ * util backend tương đương.
+ */
+async function getActionItems(user: DashboardUser) {
+  const companyQ = buildCompanyQuery(user);
+  const access = resolveDashboardModuleAccess(user);
+  const manages = isManagerOrAbove(user.role);
+  const canSeeInventory = user.role === "superadmin" || !user.enabledModules?.length || user.enabledModules.includes("inventory");
+
+  const [overdueTasksRaw, pendingApprovalsRaw, lowStockRaw] = await Promise.all([
+    access.hr
+      ? KanbanTaskModel.find({
+          ...companyQ,
+          assigneeUid: user.id,
+          status: { $nin: ["Done", "done"] },
+          dueDate: { $gt: "", $lt: getLocalDateTimeString() },
+        })
+          .select("_id title dueDate")
+          .sort({ dueDate: 1 })
+          .limit(5)
+          .lean()
+      : Promise.resolve([]),
+    access.hr && manages
+      ? HRLeaveApplicationModel.find({ ...companyQ, status: "pending" })
+          .select("_id employeeName createdAt")
+          .sort({ createdAt: 1 })
+          .limit(5)
+          .lean()
+      : Promise.resolve([]),
+    manages && canSeeInventory
+      ? ProductModel.find({ ...companyQ, $expr: { $lte: ["$stock", "$minStockAlert"] } })
+          .select("_id name sku stock minStockAlert")
+          .limit(5)
+          .lean()
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    overdueTasks: overdueTasksRaw.map((t: any) => ({ id: String(t._id), title: t.title, dueDate: t.dueDate })),
+    pendingApprovals: pendingApprovalsRaw.map((a: any) => ({
+      id: String(a._id),
+      type: "leave" as const,
+      employeeName: a.employeeName,
+      since: a.createdAt,
+    })),
+    lowStockAlerts: lowStockRaw.map((p: any) => ({ id: String(p._id), name: p.name, sku: p.sku, stock: p.stock, minStockAlert: p.minStockAlert })),
+  };
+}
+
 export const dashboardService = {
+  getActionItems,
   /**
    * Tổng hợp số liệu tất cả module cho trang tổng quan trong một lần gọi.
    */
