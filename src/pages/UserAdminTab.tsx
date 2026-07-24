@@ -19,6 +19,7 @@ import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { MODULE_KEYS } from "../config/modules";
+import { getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -1154,21 +1155,25 @@ export default function UserAdminTab() {
                         </div>
 
                         {/* Permissions display */}
-                        <div className="space-y-1 text-left">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã quyền cấp phép:</span>
-                          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                        <div className="space-y-1.5 text-left">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Các quyền được cấp phép:</span>
+                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
                             {roleInfo.permissions.length === 0 ? (
-                              <span className="text-[10px] text-gray-450 italic">Chưa cấu hình quyền nào</span>
+                              <span className="text-[10px] text-gray-400 italic">Chưa cấu hình quyền nào</span>
                             ) : roleInfo.permissions.includes("*") ? (
-                              <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-150 rounded text-[9px] font-semibold font-mono">
-                                * (Tất cả quyền)
+                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-[10px] font-bold flex items-center gap-1">
+                                ✓ Toàn quyền hệ thống
                               </span>
                             ) : (
-                              roleInfo.permissions.map(p => (
-                                <span key={p} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-150 rounded text-[9px] font-semibold font-mono" title={systemPermissions.find(sp => sp.code === p)?.name || p}>
-                                  {p}
-                                </span>
-                              ))
+                              roleInfo.permissions.map(p => {
+                                const sysPerm = systemPermissions.find(sp => sp.code === p);
+                                const labelText = getPermissionLabel(p, sysPerm?.name);
+                                return (
+                                  <span key={p} className="px-2 py-0.75 bg-indigo-50 text-indigo-800 border border-indigo-150 rounded-lg text-[10px] font-semibold" title={`Mã hệ thống: ${p}`}>
+                                    {labelText}
+                                  </span>
+                                );
+                              })
                             )}
                           </div>
                         </div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
-  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList
+  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
+  CalendarCheck, BarChart2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -23,8 +24,11 @@ import { useAuth } from '../../../../context/AuthContext';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
+import { AttendanceModal } from '../../components/Batches/AttendanceModal';
+import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
@@ -89,6 +93,7 @@ const notifyBatchMutation = () => {
 
 export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
+  const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -196,6 +201,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manageLearnersId, setManageLearnersId] = useState<string | null>(null);
   const [assignmentBatchId, setAssignmentBatchId] = useState<string | null>(null);
+  const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
+  const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
@@ -332,9 +339,9 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       });
       notifyBatchMutation();
       setSelectedStudentId('');
-      toast.success('Đã thêm học viên vào lớp.');
+      toast.success(`Đã thêm ${entityLabel.singular} vào lớp.`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi thêm học viên.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi thêm ${entityLabel.singular}.`;
       toast.error(msg);
     }
   };
@@ -344,9 +351,9 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     try {
       await apiFetch(`/batches/${manageBatch.id}/learners/${studentId}`, { method: 'DELETE' });
       notifyBatchMutation();
-      toast.success('Đã bỏ học viên khỏi lớp.');
+      toast.success(`Đã bỏ ${entityLabel.singular} khỏi lớp.`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi bỏ học viên.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi bỏ ${entityLabel.singular}.`;
       toast.error(msg);
     }
   };
@@ -447,7 +454,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                     <td className="py-2 px-4">
                       <button
                         onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
-                        title="Quản lý học viên trong lớp"
+                        title={`Quản lý ${entityLabel.singular} trong lớp`}
                         className={cn(
                           "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
                           darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
@@ -494,7 +501,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         </button>
                         <button
                           onClick={() => setManageLearnersId(b.id)}
-                          title="Quản lý học viên"
+                          title={`Quản lý ${entityLabel.singular}`}
                           className={cn(
                             "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
                             darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
@@ -511,6 +518,26 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                           )}
                         >
                           <ClipboardList className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setAttendanceBatchId(b.id)}
+                          title="Điểm danh thủ công & QR"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60"
+                          )}
+                        >
+                          <CalendarCheck className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setViewAttendanceBatchId(b.id)}
+                          title="Lịch sử & Thống kê điểm danh"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60"
+                          )}
+                        >
+                          <BarChart2 className="w-3 h-3" />
                         </button>
                       </div>
                     </td>
@@ -803,14 +830,14 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       {/* Manage Learners Modal */}
       {manageBatch && (
         <ErpModal
-          title={`Học viên lớp ${manageBatch.code}`}
+          title={`${entityLabel.tabLabel} lớp ${manageBatch.code}`}
           onClose={() => setManageLearnersId(null)}
           maxWidth="max-w-lg"
         >
           <div className="space-y-6">
             <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
               {manageBatch.courseTitle} • Sĩ số: {manageBatch.learnerIds.length}
-              {manageBatch.maxLearners ? `/${manageBatch.maxLearners}` : ''} học viên
+              {manageBatch.maxLearners ? `/${manageBatch.maxLearners}` : ''} {entityLabel.singular}
             </p>
 
             {/* Add learner */}
@@ -820,7 +847,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
                 >
-                  <option value="">-- Chọn học viên để thêm vào lớp --</option>
+                  <option value="">{`-- Chọn ${entityLabel.singular} để thêm vào lớp --`}</option>
                   {availableStudents.map((s) => (
                     <option key={s.id} value={s.id}>{s.fullName} ({s.phone})</option>
                   ))}
@@ -839,10 +866,10 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
             {/* Enrolled learners */}
             <div className="space-y-2">
               <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
-                Danh sách học viên trong lớp
+                Danh sách {entityLabel.singular} trong lớp
               </h5>
               {enrolledStudents.length === 0 ? (
-                <p className="text-xs text-slate-400">Lớp chưa có học viên nào.</p>
+                <p className="text-xs text-slate-400">Lớp chưa có {entityLabel.singular} nào.</p>
               ) : (
                 <div className={cn("border rounded-xl p-1 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
                   {enrolledStudents.map((s) => (
@@ -877,7 +904,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       <ErpConfirmModal
         isOpen={deleteConfirm.isOpen}
         title="Xóa lớp học"
-        message={`Bạn có chắc chắn muốn xóa lớp "${deleteConfirm.code}" không? Danh sách học viên trong lớp sẽ bị gỡ liên kết. Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa lớp "${deleteConfirm.code}" không? Danh sách ${entityLabel.singular} trong lớp sẽ bị gỡ liên kết. Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm({ isOpen: false, id: '', code: '' })}
         confirmText="Xác nhận xóa"
@@ -903,6 +930,35 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
             batch={assignmentBatch}
             students={batchStudents}
             onClose={() => setAssignmentBatchId(null)}
+          />
+        );
+      })()}
+
+      {attendanceBatchId && (() => {
+        const targetBatch = batches.find(b => b.id === attendanceBatchId);
+        if (!targetBatch) return null;
+        return (
+          <AttendanceModal
+            isOpen={true}
+            batch={targetBatch}
+            students={students}
+            onClose={() => setAttendanceBatchId(null)}
+            onSuccess={() => {
+              notifyBatchMutation();
+            }}
+          />
+        );
+      })()}
+
+      {viewAttendanceBatchId && (() => {
+        const targetBatch = batches.find(b => b.id === viewAttendanceBatchId);
+        if (!targetBatch) return null;
+        return (
+          <AttendanceViewModal
+            isOpen={true}
+            batch={targetBatch}
+            students={students}
+            onClose={() => setViewAttendanceBatchId(null)}
           />
         );
       })()}

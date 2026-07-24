@@ -61,7 +61,7 @@ describe("ErpAuthenticatorDialog", () => {
   });
 
   it("loads enrollment QR, confirms, and waits for recovery-code acknowledgement", async () => {
-    vi.mocked(superAdminAuthService.startEnrollment).mockResolvedValue({ qrDataUrl: "data:image/png;base64,qr" });
+    vi.mocked(superAdminAuthService.startEnrollment).mockResolvedValue({ qrDataUrl: "data:image/png;base64,qr", manualEntryKey: "JBSWY3DPEHPK3PXP" });
     vi.mocked(superAdminAuthService.confirmEnrollment).mockResolvedValue({
       accessToken: "token",
       recoveryCodes: ["AAAAA-BBBBB"],

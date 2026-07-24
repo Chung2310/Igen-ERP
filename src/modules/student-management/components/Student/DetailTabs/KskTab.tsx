@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Student } from '../../../types';
 import { cn, toInputDate } from '../../../lib/utils';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 type HealthCheckFile = NonNullable<Student['healthCheckFiles']>[number];
 
@@ -34,6 +35,7 @@ export function KskTab({
   isUploadingFile,
   removeFile
 }: KskTabProps) {
+  const entityLabel = useEntityLabel();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left Column: Status & Info */}
@@ -62,7 +64,7 @@ export function KskTab({
                 </div>
                 <div className="text-left">
                   <p className={cn("text-sm font-bold", kskData.status === 'Completed' ? "text-emerald-700" : "text-slate-600")}>Đã khám xong</p>
-                  <p className="text-[10px] text-slate-400 font-medium">Học viên đã hoàn tất thủ tục</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{entityLabel.titleCase} đã hoàn tất thủ tục</p>
                 </div>
               </div>
               {kskData.status === 'Completed' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}

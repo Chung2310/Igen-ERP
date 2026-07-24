@@ -39,7 +39,7 @@ function AppContent() {
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
   const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
   const isDeletionPage = currentPath === "/user-data-deletion" || currentPath === "/user-data-deletion.html";
-  const isSubmitProofPage = currentPath === "/public/submit-proof" || currentPath === "/public/submit-proof.html";
+  const isSubmitProofPage = currentPath.startsWith("/public/submit-proof");
   const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
   const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage;
 

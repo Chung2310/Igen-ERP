@@ -5,6 +5,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface ManageLearnersModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export function ManageLearnersModal({
   onSuccess,
 }: ManageLearnersModalProps) {
   const darkMode = false;
+  const entityLabel = useEntityLabel();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -80,13 +82,13 @@ export function ManageLearnersModal({
         addedIds.push(studentId);
       }
       setSelectedStudentIds([]);
-      toast.success(`Đã thêm ${addedIds.length} học viên vào lớp.`);
+      toast.success(`Đã thêm ${addedIds.length} ${entityLabel.singular} vào lớp.`);
       onSuccess();
     } catch (error: unknown) {
       setSelectedStudentIds((current) => current.filter((id) => !addedIds.includes(id)));
       if (addedIds.length > 0) onSuccess();
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi thêm học viên.';
-      toast.error(addedIds.length > 0 ? `Đã thêm ${addedIds.length} học viên. ${msg}` : msg);
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi thêm ${entityLabel.singular}.`;
+      toast.error(addedIds.length > 0 ? `Đã thêm ${addedIds.length} ${entityLabel.singular}. ${msg}` : msg);
     } finally {
       setIsAdding(false);
     }
@@ -96,10 +98,10 @@ export function ManageLearnersModal({
     setRemovingStudentId(studentId);
     try {
       await apiFetch(`/batches/${batch.id}/learners/${studentId}`, { method: 'DELETE' });
-      toast.success('Đã bỏ học viên khỏi lớp.');
+      toast.success(`Đã bỏ ${entityLabel.singular} khỏi lớp.`);
       onSuccess();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi bỏ học viên.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi bỏ ${entityLabel.singular}.`;
       toast.error(msg);
     } finally {
       setRemovingStudentId(null);
@@ -110,21 +112,21 @@ export function ManageLearnersModal({
 
   return (
     <ErpModal
-      title={`Học viên lớp ${batch.code}`}
+      title={`${entityLabel.tabLabel} lớp ${batch.code}`}
       onClose={onClose}
       maxWidth="max-w-2xl"
     >
       <div className="space-y-6">
         <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
           {batch.courseTitle} • Sĩ số: {batch.learnerIds.length}
-          {batch.maxLearners ? `/${batch.maxLearners}` : ''} học viên
+          {batch.maxLearners ? `/${batch.maxLearners}` : ''} {entityLabel.singular}
         </p>
 
         {/* Add learners */}
         <div className="space-y-3 text-left">
           <div className="flex items-center justify-between gap-3">
             <h5 className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Chọn học viên để thêm
+              Chọn {entityLabel.singular} để thêm
             </h5>
             <span className="text-[11px] font-bold text-brand-primary">
               Đã chọn {selectedStudentIds.length}
@@ -145,9 +147,9 @@ export function ManageLearnersModal({
           {remainingSlots === 0 ? (
             <p className="py-6 text-center text-xs font-semibold text-slate-500">Lớp đã đủ sĩ số.</p>
           ) : availableStudents.length === 0 ? (
-            <p className="py-6 text-center text-xs text-slate-400">Không còn học viên để thêm vào lớp.</p>
+            <p className="py-6 text-center text-xs text-slate-400">Không còn {entityLabel.singular} để thêm vào lớp.</p>
           ) : filteredStudents.length === 0 ? (
-            <p className="py-6 text-center text-xs text-slate-400">Không tìm thấy học viên phù hợp.</p>
+            <p className="py-6 text-center text-xs text-slate-400">Không tìm thấy {entityLabel.singular} phù hợp.</p>
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <button
@@ -205,7 +207,7 @@ export function ManageLearnersModal({
               className="flex h-10 items-center gap-2 rounded-xl bg-brand-primary px-5 text-xs font-bold text-white transition-all hover:bg-brand-primary/95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              {isAdding ? `Đang thêm ${selectedStudentIds.length} học viên...` : `Xác nhận thêm (${selectedStudentIds.length})`}
+              {isAdding ? `Đang thêm ${selectedStudentIds.length} ${entityLabel.singular}...` : `Xác nhận thêm (${selectedStudentIds.length})`}
             </button>
           </div>
         </div>
@@ -213,10 +215,10 @@ export function ManageLearnersModal({
         {/* Enrolled learners */}
         <div className="space-y-2 text-left">
           <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
-            Danh sách học viên trong lớp
+            Danh sách {entityLabel.singular} trong lớp
           </h5>
           {enrolledStudents.length === 0 ? (
-            <p className="text-xs text-slate-400">Lớp chưa có học viên nào.</p>
+            <p className="text-xs text-slate-400">Lớp chưa có {entityLabel.singular} nào.</p>
           ) : (
             <div className={cn("border rounded-2xl p-2 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
               {enrolledStudents.map((s) => (

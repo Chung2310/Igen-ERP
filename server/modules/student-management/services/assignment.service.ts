@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { AssignmentModel } from "../models/assignment.model";
 import { SubmissionModel } from "../models/submission.model";
 import { Batch } from "../models/batch.model";
@@ -19,21 +20,56 @@ function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
 }
 
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
-  const owner = await User.findById(ownerId).select(
-    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail"
-  );
-  if (!owner || !owner.smtpHost || !owner.smtpUser || !owner.smtpPass) {
-    return undefined;
+  try {
+    let owner: any = null;
+    if (mongoose.Types.ObjectId.isValid(ownerId)) {
+      owner = await User.findById(ownerId).select(
+        "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
+      );
+    }
+    if (!owner) {
+      owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select(
+        "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
+      );
+    }
+
+    if (owner?.smtpHost && owner?.smtpUser && owner?.smtpPass) {
+      return {
+        smtpHost: owner.smtpHost,
+        smtpPort: owner.smtpPort,
+        smtpSecure: owner.smtpSecure,
+        smtpUser: owner.smtpUser,
+        smtpPass: owner.smtpPass,
+        smtpFrom: owner.smtpFrom,
+        smtpSandboxEmail: owner.smtpSandboxEmail,
+      };
+    }
+
+    const companyCode = owner?.companyCode || (typeof ownerId === "string" ? ownerId : undefined);
+    if (companyCode) {
+      const companyAdmin = await User.findOne({
+        companyCode,
+        smtpHost: { $exists: true, $ne: "" },
+        smtpUser: { $exists: true, $ne: "" },
+        smtpPass: { $exists: true, $ne: "" },
+      }).select("smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail");
+
+      if (companyAdmin?.smtpHost && companyAdmin?.smtpUser && companyAdmin?.smtpPass) {
+        return {
+          smtpHost: companyAdmin.smtpHost,
+          smtpPort: companyAdmin.smtpPort,
+          smtpSecure: companyAdmin.smtpSecure,
+          smtpUser: companyAdmin.smtpUser,
+          smtpPass: companyAdmin.smtpPass,
+          smtpFrom: companyAdmin.smtpFrom,
+          smtpSandboxEmail: companyAdmin.smtpSandboxEmail,
+        };
+      }
+    }
+  } catch (err) {
+    logger.error("Lỗi khi tìm cấu hình SMTP cho ownerId %s: %o", ownerId, err);
   }
-  return {
-    smtpHost: owner.smtpHost,
-    smtpPort: owner.smtpPort,
-    smtpSecure: owner.smtpSecure,
-    smtpUser: owner.smtpUser,
-    smtpPass: owner.smtpPass,
-    smtpFrom: owner.smtpFrom,
-    smtpSandboxEmail: owner.smtpSandboxEmail,
-  };
+  return undefined;
 }
 
 export class AssignmentService {
@@ -73,11 +109,18 @@ export class AssignmentService {
   static async notifyStudents(assignment: IAssignment, batch: any, ownerId: string): Promise<void> {
     try {
       const studentIds = batch.learnerIds || [];
-      if (studentIds.length === 0) return;
+      if (studentIds.length === 0) {
+        logger.info(`[Assignment Email] Lớp ${batch.code} chưa có học viên nào để gửi email.`);
+        return;
+      }
 
-      const students = await Student.find({ _id: { $in: studentIds }, ownerId: assignment.ownerId });
+      const students = await Student.find({ _id: { $in: studentIds } });
       const smtpSettings = await resolveSmtpForOwner(ownerId);
-      const appUrl = process.env.APP_URL || "http://localhost:5173";
+      const rawAppUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+      const appUrl = rawAppUrl.trim().replace(/\/+$/, "");
+
+      let sentCount = 0;
+      let failedCount = 0;
 
       for (const student of students) {
         if (!student.email) continue;
@@ -115,7 +158,7 @@ export class AssignmentService {
           </div>
         `;
 
-        await EmailService.sendMail(
+        const result = await EmailService.sendMail(
           {
             to: student.email,
             subject: `[Bài tập] ${assignment.title} - Lớp ${batch.code}`,
@@ -123,7 +166,12 @@ export class AssignmentService {
           },
           smtpSettings
         );
+
+        if (result.success) sentCount++;
+        else failedCount++;
       }
+
+      logger.info(`[Assignment Email] Đã gửi ${sentCount} email cho học viên lớp ${batch.code} (${failedCount} thất bại).`);
     } catch (error) {
       logger.error("Lỗi khi gửi email thông báo bài tập mới: %o", error);
     }

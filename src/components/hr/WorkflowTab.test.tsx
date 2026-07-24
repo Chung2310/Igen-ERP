@@ -12,7 +12,7 @@ describe("WorkflowReader", () => {
           name: "Onboarding workflow",
           description: "Guide for new employees",
           steps: [
-            { id: "s1", title: "Receive documents", description: "Check submitted information", note: "Keep the original files" },
+            { id: "s1", title: "Receive documents", description: "Check submitted information", note: "Keep the original files", subTasks: [{ id: "task-1", title: "Verify identity" }], attachments: [{ id: "file-1", name: "onboarding-guide.pdf", url: "/guide.pdf", type: "file" }] },
             { id: "s2", title: "Create account", description: "Grant access by role" },
           ],
         } as any}
@@ -35,5 +35,9 @@ describe("WorkflowReader", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeTruthy();
     expect(within(dialog).getByText("Keep the original files")).toBeTruthy();
+    expect(within(dialog).getByText("Verify identity")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /xem preview/i }));
+    expect(screen.getByRole("dialog", { name: /preview/i })).toBeTruthy();
+    expect(screen.getByText("onboarding-guide.pdf")).toBeTruthy();
   });
 });

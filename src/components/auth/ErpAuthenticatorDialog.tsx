@@ -16,6 +16,8 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
   const [mode, setMode] = useState<"totp" | "recovery">("totp");
   const [value, setValue] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [manualEntryKey, setManualEntryKey] = useState("");
+  const [showManualKey, setShowManualKey] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -39,7 +41,10 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
 
     enrollmentRequest.current.promise
       .then((result) => {
-        if (active) setQrDataUrl(result.qrDataUrl);
+        if (active) {
+          setQrDataUrl(result.qrDataUrl);
+          setManualEntryKey(result.manualEntryKey);
+        }
       })
       .catch((requestError) => {
         if (active) setError(errorMessage(requestError));
@@ -117,7 +122,24 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
         ) : (
           <div className="mt-4">
             {challenge.enrollmentRequired && qrDataUrl && (
-              <img src={qrDataUrl} alt="Mã QR Google Authenticator" className="mx-auto mb-4 h-48 w-48" />
+              <div className="mb-4">
+                <img src={qrDataUrl} alt="Mã QR Google Authenticator" className="mx-auto h-48 w-48" />
+                <div className="mt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualKey((current) => !current)}
+                    className="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    {showManualKey ? "Ẩn mã thiết lập thủ công" : "Không quét được QR? Nhập mã thủ công"}
+                  </button>
+                </div>
+                {showManualKey && manualEntryKey && (
+                  <div className="mt-2 rounded-lg bg-gray-100 p-3 text-center">
+                    <p className="text-xs text-gray-500">Nhập mã này vào Google Authenticator (chọn "Nhập khóa thiết lập")</p>
+                    <p className="mt-1 break-all font-mono text-sm font-semibold text-gray-900">{manualEntryKey}</p>
+                  </div>
+                )}
+              </div>
             )}
             <label className="block text-sm font-medium text-gray-700">
               {mode === "recovery" ? "Mã khôi phục" : "Mã Google Authenticator"}

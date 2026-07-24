@@ -1,8 +1,8 @@
-export type Tenant = { code: string; name?: string; ownerEmail?: string; lifecycleStatus?: string; enabledModules?: string[]; [key: string]: unknown };
+export type Tenant = { code: string; name?: string; ownerEmail?: string; lifecycleStatus?: string; enabledModules?: string[];[key: string]: unknown };
 export type TenantMutation = { actionId: string; result: Tenant };
 export type TenantUser = { _id: string; displayName: string; email: string; role: string; status: string; disabledAt?: string | null; createdAt: string };
 export type TenantSummary = { userCount: number; usersByRole: Record<string, number>; enabledModulesCount: number };
-export type TenantCreateInput = { code: string; name: string; ownerEmail: string; ownerName: string; ownerPassword: string; enabledModules?: string[] };
+export type TenantCreateInput = { code: string; name: string; ownerEmail: string; ownerName: string; ownerPassword: string; enabledModules?: string[]; entityPreset?: string };
 type StepUp = { reason: string; password: string; token: string; step: number };
 type ReasonOnly = { reason: string };
 

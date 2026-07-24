@@ -17,6 +17,7 @@ import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 import * as XLSX from 'xlsx';
 
 interface StudentsPageProps {
@@ -46,7 +47,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const { batches } = useBatches();
   const { courses } = useCourses(resolvedCenter);
   const { categories } = useCourseCategories(resolvedCenter);
-  
+  const entityLabel = useEntityLabel();
+
   const [category, setCategory] = useState<string>(TAB_ALL);
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,7 +211,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
 
   const handleBulkDelete = async () => {
     if (selectedStudentIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} học viên đã chọn? Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.`)) {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} ${entityLabel.singular} đã chọn? Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.`)) {
       return;
     }
     setIsBulkDeleting(true);
@@ -218,12 +220,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         method: 'POST',
         body: JSON.stringify({ studentIds: selectedStudentIds }),
       });
-      toast.success('Đã xóa hàng loạt học viên thành công!');
+      toast.success(`Đã xóa hàng loạt ${entityLabel.singular} thành công!`);
       setSelectedStudentIds([]);
       window.dispatchEvent(new Event("student-mutation"));
     } catch (error) {
       console.error("Error bulk deleting students:", error);
-      toast.error('Có lỗi xảy ra khi xóa hàng loạt học viên.');
+      toast.error(`Có lỗi xảy ra khi xóa hàng loạt ${entityLabel.singular}.`);
     } finally {
       setIsBulkDeleting(false);
     }
@@ -237,7 +239,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       setConfirmDeleteId(null);
     } catch (error) {
       console.error("Error deleting student:", error);
-      toast.error('Có lỗi xảy ra khi xóa học viên.');
+      toast.error(`Có lỗi xảy ra khi xóa ${entityLabel.singular}.`);
     } finally {
       setIsDeleting(null);
     }
@@ -309,7 +311,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       ws['!cols'] = cols;
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Danh sách học viên");
+      XLSX.utils.book_append_sheet(wb, ws, entityLabel.listTitle);
       
       const fileName = `danh_sach_hoc_vien_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
       XLSX.writeFile(wb, fileName);
@@ -322,7 +324,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
 
   const handlePrint = () => {
     if (filteredStudents.length === 0) {
-      toast.warning('Không có dữ liệu học viên để in.');
+      toast.warning(`Không có dữ liệu ${entityLabel.singular} để in.`);
       return;
     }
 
@@ -348,7 +350,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     const printContent = `
       <html>
         <head>
-          <title>Danh sách học viên - ${new Date().toLocaleDateString('vi-VN')}</title>
+          <title>${entityLabel.listTitle} - ${new Date().toLocaleDateString('vi-VN')}</title>
           <style>
             body { font-family: 'Inter', sans-serif; padding: 40px; color: #334155; }
             h1 { text-align: center; color: #1e293b; margin-bottom: 5px; }
@@ -361,7 +363,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         </head>
         <body>
           <h1>DANH SÁCH HỌC VIÊN</h1>
-          <p class="info">Ngày xuất: ${new Date().toLocaleDateString('vi-VN')} | Tổng số: ${filteredStudents.length} học viên</p>
+          <p class="info">Ngày xuất: ${new Date().toLocaleDateString('vi-VN')} | Tổng số: ${filteredStudents.length} ${entityLabel.singular}</p>
           <table>
             <thead>
               <tr>
@@ -377,7 +379,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             </tbody>
           </table>
           <div class="footer">
-            Xuất bởi Hệ thống Quản lý Đào tạo & Học viên iGen
+            Xuất bởi Hệ thống Quản lý Đào tạo & ${entityLabel.titleCase} iGen
           </div>
           <script>
             window.onload = function() {
@@ -398,8 +400,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Học viên</h1>
-          <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} học viên</p>
+          <h1 className="text-lg font-bold text-cyan-700 tracking-tight">{entityLabel.tabLabel}</h1>
+          <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex items-center gap-1.5">
           {selectedStudentIds.length > 0 && (
@@ -596,7 +598,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
               {loading ? (
                 <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy học viên nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
@@ -726,7 +728,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 flex flex-col gap-2 min-w-[140px]"
                             >
-                              <p className="text-[10px] font-bold text-slate-800 text-center">Xóa học viên này?</p>
+                              <p className="text-[10px] font-bold text-slate-800 text-center">Xóa {entityLabel.singular} này?</p>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setConfirmDeleteId(null)}
@@ -761,7 +763,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           onPageChange={setCurrentPage}
           totalItems={filteredStudents.length}
           pageSize={pageSize}
-          itemName="học viên"
+          itemName={entityLabel.singular}
           className="pagination-bar"
         />
       </div>

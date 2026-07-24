@@ -402,13 +402,19 @@ export default function WorkflowTab({
   if (view === "list") {
     return (
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-base font-bold text-slate-800">Quy trình</h2>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-              {workflows.length}
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
+              <Layers className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-cyan-700 tracking-tight flex items-center gap-2">
+                Quy trình làm việc
+                <span className="rounded-full bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 text-xs font-bold text-cyan-600">
+                  {workflows.length}
+                </span>
+              </h2>
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -460,8 +466,11 @@ export default function WorkflowTab({
                 return (
                   <button
                     key={wf.id}
-                    onClick={() => openDetail(wf)}
-                    className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
+                    onClick={() => {
+                      setWizardData(wf);
+                      setWizardOpen(true);
+                    }}
+                    className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
@@ -474,17 +483,12 @@ export default function WorkflowTab({
                           </span>
                         )}
                         {canEdit && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setWizardData(wf);
-                              setWizardOpen(true);
-                            }}
-                            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-650 transition-colors"
+                          <span
+                            className="rounded-lg p-1 text-slate-400 group-hover:text-indigo-650 transition-colors"
                             title="Sửa quy trình"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                          </span>
                         )}
                       </div>
                     </div>
@@ -514,163 +518,284 @@ export default function WorkflowTab({
   // =================== VIEW: CHI TIẾT (BẢNG CỘT) ===================
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
-      {/* Thanh tiêu đề */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2">
-        <button
-          onClick={backToList}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" /> Danh sách
-        </button>
-        <div className="ml-auto flex items-center gap-2">
+      {/* Thanh tiêu đề chính nổi bật */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button
+            onClick={backToList}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-indigo-650 transition-all cursor-pointer shadow-3xs shrink-0 active:scale-95"
+            title="Quay lại danh sách quy trình"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Quay lại</span>
+          </button>
+
+          <div className="h-6 w-px bg-gray-200 shrink-0" />
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-slate-900 truncate font-sans tracking-tight">
+                {wfName || "Quy trình chưa đặt tên"}
+              </h2>
+              {wfCategory && (
+                <span className="shrink-0 rounded-md bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-700">
+                  {wfCategory}
+                </span>
+              )}
+            </div>
+            {wfDescription && (
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                {wfDescription}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden md:flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600">
+            <Layers className="h-3.5 w-3.5 text-cyan-600" /> {steps.length} bước
+          </span>
           <button
             onClick={openNewStep}
             disabled={!canEdit}
-            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40"
             style={{ background: ACCENT }}
           >
-            <Plus className="h-3.5 w-3.5" /> Thêm bước
+            <Plus className="h-4 w-4" /> Thêm bước
           </button>
           <button
             onClick={handleSave}
             disabled={!canEdit || saving}
-            className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-700 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
-            <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
+            <Save className="h-4 w-4" /> {saving ? "Đang lưu..." : "Lưu"}
           </button>
           <button
             onClick={handleDeleteWorkflow}
             disabled={!canEdit}
-            className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50/50 p-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer disabled:opacity-40"
+            title="Xóa quy trình"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Thanh thống kê nhỏ */}
-      <div className="flex items-center gap-4 border-b border-gray-100 bg-slate-50/60 px-4 py-1.5 text-[11px] font-semibold text-slate-500">
-        <span className="flex items-center gap-1">
-          <Layers className="h-3.5 w-3.5" /> {steps.length} bước
-        </span>
-      </div>
-
-      {/* Bảng cột */}
+      {/* Bảng sơ đồ Snake Layout + Danh sách giai đoạn (giống giao diện Thiết lập giai đoạn) */}
       {steps.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
           <Layers className="h-8 w-8 text-slate-300" />
           <p className="mt-2 text-sm font-semibold text-slate-400">
             Chưa có bước nào trong quy trình
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 mt-1">
             Nhấn “Thêm bước” để tạo bước đầu tiên.
           </p>
+          {canEdit && (
+            <button
+              onClick={openNewStep}
+              className="mt-4 flex items-center gap-1.5 rounded-xl bg-indigo-650 hover:bg-indigo-750 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <Plus className="h-4 w-4" /> Thêm bước mới
+            </button>
+          )}
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden">
-          <style>{`
-            @keyframes wfArrowSlide {
-              0%, 100% { transform: translateX(-3px); opacity: 0.6; }
-              50% { transform: translateX(3px); opacity: 1; }
-            }
-          `}</style>
-          <div className="flex h-full min-h-0 items-stretch gap-3 p-4">
-            {columns.map((col, ci) => (
-              <React.Fragment key={col.key}>
-                {/* Mũi tên giả định chiều di chuyển giữa các bước */}
-                {ci > 0 && (
-                  <div className="flex shrink-0 flex-col items-center justify-center self-center">
-                    <ArrowRight
-                      className="h-7 w-7"
-                      strokeWidth={2.75}
-                      style={{
-                        color: ACCENT,
-                        animation: "wfArrowSlide 1s ease-in-out infinite",
-                      }}
-                    />
-                  </div>
-                )}
-                <div className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50/70">
-                  {/* Header cột */}
-                  <div
-                    className="flex items-start gap-2 rounded-t-2xl px-3 py-2"
-                    style={{
-                      background: "#fff",
-                      borderBottom: `2px solid ${ACCENT}`,
-                    }}
-                  >
-                    <span
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                      style={{ background: ACCENT }}
-                    >
-                      {col.order}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold text-slate-800">
-                        {col.step.title}
-                      </div>
-                    </div>
-                    {canEdit && (
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          onClick={() => setStepDraft(col.step)}
-                          className="rounded p-0.5 text-slate-450 hover:bg-gray-150 hover:text-indigo-650"
-                          title="Sửa bước"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+        <div className="flex min-h-0 flex-1 border-t border-gray-150">
+          {/* Flowchart workspace (Left Column) - Snake Layout */}
+          <div
+            className={`flex-1 p-8 overflow-y-auto flex items-center justify-center min-h-[450px] relative border-r transition-colors ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"
+              }`}
+          >
+            <div className="grid grid-cols-5 gap-y-16 gap-x-12 relative p-4 max-w-3xl w-full">
+              {(() => {
+                const rowsCount = Math.ceil(steps.length / 5);
+                const cellsCount = rowsCount * 5;
+                const gridCells = Array(cellsCount).fill(null);
 
-                  {/* Nút sắp xếp / xóa bước */}
+                steps.forEach((s, idx) => {
+                  const r = Math.floor(idx / 5);
+                  const c = idx % 5;
+                  const c_pos = r % 2 === 0 ? c : 4 - c;
+                  gridCells[r * 5 + c_pos] = { step: s, index: idx };
+                });
+
+                return gridCells.map((cell, gridIdx) => {
+                  if (!cell) {
+                    return <div key={`empty-${gridIdx}`} className="w-32 h-20" />;
+                  }
+
+                  const { step: s, index: idx } = cell;
+                  const r = Math.floor(idx / 5);
+
+                  let arrow = null;
+                  if (idx < steps.length - 1) {
+                    const nextIdx = idx + 1;
+                    const r_next = Math.floor(nextIdx / 5);
+                    if (r === r_next) {
+                      if (r % 2 === 0) {
+                        arrow = (
+                          <div className="absolute top-1/2 -translate-y-1/2 -right-8 z-10 flex items-center justify-center">
+                            <ArrowRight className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
+                          </div>
+                        );
+                      } else {
+                        arrow = (
+                          <div className="absolute top-1/2 -translate-y-1/2 -left-8 z-10 flex items-center justify-center">
+                            <ArrowLeft className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
+                          </div>
+                        );
+                      }
+                    } else {
+                      arrow = (
+                        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
+                          <ArrowDown className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
+                        </div>
+                      );
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => setStepDraft(s)}
+                      className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer shadow-xs ${isDark
+                        ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-indigo-500"
+                        : "border-gray-200 bg-white hover:bg-indigo-50/50 hover:border-indigo-400 hover:shadow-md"
+                        }`}
+                      title="Bấm để xem chi tiết / chỉnh sửa giai đoạn"
+                    >
+                      <span
+                        className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-3xs transition-colors ${isDark
+                          ? "bg-zinc-800 text-zinc-400 border-zinc-700"
+                          : "bg-white text-slate-550 border-gray-200"
+                          }`}
+                      >
+                        {idx + 1}
+                      </span>
+
+                      <span
+                        className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isDark ? "text-zinc-100" : "text-slate-800"
+                          }`}
+                      >
+                        {s.title || "(CHƯA ĐẶT TÊN)"}
+                      </span>
+
+                      {idx === 0 && (
+                        <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 bg-emerald-600/90 text-white font-extrabold text-[7px] uppercase tracking-wider px-1.5 py-0.5 rounded-t-md shadow-3xs">
+                          Bắt đầu
+                        </div>
+                      )}
+
+                      {arrow}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+
+          {/* Sidebar list layout (Right Column) */}
+          <div
+            className={`w-80 flex flex-col border-l transition-colors duration-300 ${isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
+              }`}
+          >
+            <div
+              className={`px-4 py-3 border-b flex items-center justify-between shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
+                }`}
+            >
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Danh sách giai đoạn
+              </span>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={openNewStep}
+                  className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1 text-[11px] font-bold px-2.5"
+                  title="Thêm giai đoạn"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Thêm
+                </button>
+              )}
+            </div>
+
+            {/* Sidebar scrollable list */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+              {steps.map((s, i) => (
+                <div
+                  key={s.id}
+                  onClick={() => setStepDraft(s)}
+                  className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${isDark
+                    ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
+                    : "bg-white hover:bg-slate-50/80 border-gray-200 hover:border-indigo-300"
+                    }`}
+                >
+                  <span
+                    className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
+                      ? "bg-zinc-800 text-zinc-350 border-zinc-700"
+                      : "bg-gray-100 text-slate-500 border-gray-200"
+                      }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span
+                    className={`text-xs font-bold truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
+                      }`}
+                  >
+                    {s.title || "(Chưa đặt tên)"}
+                  </span>
+                  {i === 0 && (
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs">
+                      Bắt đầu
+                    </span>
+                  )}
                   {canEdit && (
-                    <div className="flex items-center gap-1 px-3 py-1">
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => moveStep(col.step.id, -1)}
-                        disabled={col.order === 1}
-                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
-                        title="Chuyển sang trái"
+                        type="button"
+                        onClick={() => moveStep(s.id, -1)}
+                        disabled={i === 0}
+                        className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-20 cursor-pointer"
+                        title="Chuyển lên"
                       >
-                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
                       </button>
                       <button
-                        onClick={() => moveStep(col.step.id, 1)}
-                        disabled={col.order === steps.length}
-                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
-                        title="Chuyển sang phải"
+                        type="button"
+                        onClick={() => moveStep(s.id, 1)}
+                        disabled={i === steps.length - 1}
+                        className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-20 cursor-pointer"
+                        title="Chuyển xuống"
                       >
-                        <ChevronRight className="h-3.5 w-3.5" />
+                        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
                       </button>
                       <button
-                        onClick={() => deleteStep(col.step.id)}
-                        className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                        title="Xóa bước"
+                        type="button"
+                        onClick={() => setStepDraft(s)}
+                        className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
+                          ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
+                          : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
+                          }`}
+                        title="Sửa giai đoạn"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteStep(s.id)}
+                        className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
+                          ? "text-zinc-450 hover:bg-zinc-800 hover:text-rose-455"
+                          : "text-slate-400 hover:bg-slate-100 hover:text-rose-650"
+                          }`}
+                        title="Xóa giai đoạn"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   )}
-
-                  {col.step.description && (
-                    <p className="px-3 pb-2 pt-1 text-[11px] text-slate-500 line-clamp-4">
-                      {col.step.description}
-                    </p>
-                  )}
                 </div>
-              </React.Fragment>
-            ))}
-
-            {/* Cột thêm bước nhanh */}
-            {canEdit && (
-              <button
-                onClick={openNewStep}
-                className="flex h-full w-56 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500"
-              >
-                <Plus className="h-6 w-6" />
-                <span className="text-xs font-semibold">Thêm bước</span>
-              </button>
-            )}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -724,77 +849,80 @@ export function WorkflowReader({
   onDelete: () => void;
 }) {
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
 
   return (
     <>
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50" id="workflow_tab">
-      <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
-        <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100">
-          <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
-        </button>
-        <div className="ml-auto flex items-center gap-2">
-          {canEdit && (
-            <>
-              <button onClick={onAddStep} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500">
-                <Plus className="h-3.5 w-3.5" /> Thêm bước
-              </button>
-              <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">
-                <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
-              </button>
-              <button onClick={onDelete} className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50" title="Xóa quy trình">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Hướng dẫn quy trình</p>
-                <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{workflow.name}</h1>
-                {workflow.category && <p className="mt-1 text-xs font-semibold text-slate-400">{workflow.category}</p>}
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-            </div>
-            {workflow.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-600">{workflow.description}</p>}
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50" id="workflow_tab">
+        <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+          <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100">
+            <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {canEdit && (
+              <>
+                <button onClick={onAddStep} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500">
+                  <Plus className="h-3.5 w-3.5" /> Thêm bước
+                </button>
+                <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">
+                  <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
+                </button>
+                <button onClick={onDelete} className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50" title="Xóa quy trình">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
           </div>
+        </div>
 
-          {workflow.steps.length === 0 ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-400">
-              Chưa có bước nào trong quy trình.
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+          <div className="mx-auto max-w-3xl">
+            <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Hướng dẫn quy trình</p>
+                  <h1 className="mt-2 text-2xl font-extrabold text-cyan-700">{workflow.name}</h1>
+                  {workflow.category && <p className="mt-1 text-xs font-semibold text-slate-400">{workflow.category}</p>}
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+              </div>
+              {workflow.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-600">{workflow.description}</p>}
             </div>
-          ) : (
-            <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {workflow.steps.map((step, index) => (
-                <li key={step.id} onClick={() => setSelectedStep(step)} className="relative h-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md sm:p-6">
-                  {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-indigo-500 sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
-                  <div className="flex items-start gap-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <h2 className="text-base font-extrabold text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
+
+            {workflow.steps.length === 0 ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-400">
+                Chưa có bước nào trong quy trình.
+              </div>
+            ) : (
+              <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {workflow.steps.map((step, index) => (
+                  <li key={step.id} onClick={() => setSelectedStep(step)} className="relative h-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md sm:p-6">
+                    {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-indigo-500 sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <h2 className="text-base font-extrabold text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    {selectedStep && (
-      <WorkflowStepDetailModal
-        step={selectedStep}
-        stepIndex={workflow.steps.findIndex((step) => step.id === selectedStep.id)}
-        canEdit={canEdit}
-        onClose={() => setSelectedStep(null)}
-      />
-    )}
+      {selectedStep && (
+        <WorkflowStepDetailModal
+          step={selectedStep}
+          stepIndex={workflow.steps.findIndex((step) => step.id === selectedStep.id)}
+          canEdit={canEdit}
+          onClose={() => setSelectedStep(null)}
+          onPreview={setPreviewAttachment}
+        />
+      )}
+      {previewAttachment && <WorkflowAttachmentPreview attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}
     </>
   );
 }
@@ -804,11 +932,13 @@ function WorkflowStepDetailModal({
   stepIndex,
   canEdit,
   onClose,
+  onPreview,
 }: {
   step: WorkflowStep;
   stepIndex: number;
   canEdit: boolean;
   onClose: () => void;
+  onPreview: (attachment: TaskAttachment) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="presentation" onClick={onClose}>
@@ -816,7 +946,7 @@ function WorkflowStepDetailModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">Bước {stepIndex + 1}</p>
-            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-slate-900">{step.title || `Bước ${stepIndex + 1}`}</h2>
+            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-cyan-700">{step.title || `Bước ${stepIndex + 1}`}</h2>
           </div>
           <button onClick={onClose} className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100" aria-label="Đóng">×</button>
         </div>
@@ -824,7 +954,7 @@ function WorkflowStepDetailModal({
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
         {step.deliverable && <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</div>}
         {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
-        {!!step.attachments?.length && <div className="mt-5 flex flex-wrap gap-2">{step.attachments.map((attachment) => <a key={attachment.id} href={attachment.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />{attachment.name}</a>)}</div>}
+        {!!step.attachments?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Tệp đính kèm</h3><div className="mt-2 flex flex-wrap gap-2">{step.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => onPreview(attachment)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />Xem preview: {attachment.name}</button>)}</div></div>}
         <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Đóng</button>
         </div>
@@ -833,6 +963,23 @@ function WorkflowStepDetailModal({
   );
 }
 
+function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAttachment; onClose: () => void }) {
+  const isImage = attachment.type === "image" || attachment.type.startsWith("image/");
+  const isVideo = attachment.type === "video" || attachment.type.startsWith("video/");
+  const isAudio = attachment.type === "audio" || attachment.type.startsWith("audio/");
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}>
+    <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}>
+      <div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-bold text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div>
+      <div className="mt-4 flex min-h-48 items-center justify-center rounded-xl bg-slate-100 p-4">
+        {isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}
+        {isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}
+        {isAudio && <audio src={attachment.url} controls />}
+        {!isImage && !isVideo && !isAudio && <div className="text-center text-sm text-slate-600"><p>Không thể xem trực tiếp loại tệp này.</p><a href={attachment.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white">Mở tệp</a></div>}
+      </div>
+      <div className="mt-4 flex justify-end"><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div>
+    </div>
+  </div>;
+}
 function NewWorkflowWizard({
   initialData,
   onClose,
@@ -1066,8 +1213,8 @@ function NewWorkflowWizard({
                   e.dataTransfer.effectAllowed = "copy";
                 }}
                 className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing ${isDark
-                    ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
-                    : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
+                  ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
+                  : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
                   }`}
                 title="Kéo thả vào vùng làm việc để tạo giai đoạn mới"
               >
@@ -1137,18 +1284,18 @@ function NewWorkflowWizard({
                           key={s.id}
                           onClick={() => setSelectedId(s.id)}
                           className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer ${isSelected
-                              ? isDark
-                                ? "border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10 scale-102"
-                                : "border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-500/10 scale-102"
-                              : isDark
-                                ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-zinc-500"
-                                : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
+                            ? isDark
+                              ? "border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10 scale-102"
+                              : "border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-500/10 scale-102"
+                            : isDark
+                              ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-zinc-500"
+                              : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
                             }`}
                         >
                           <span
                             className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-sm transition-colors ${isDark
-                                ? "bg-zinc-800 text-zinc-400 border-zinc-700"
-                                : "bg-white text-slate-550 border-gray-200"
+                              ? "bg-zinc-800 text-zinc-400 border-zinc-700"
+                              : "bg-white text-slate-550 border-gray-200"
                               }`}
                           >
                             {idx + 1}
@@ -1156,12 +1303,12 @@ function NewWorkflowWizard({
 
                           <span
                             className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isSelected
-                                ? isDark
-                                  ? "text-indigo-400"
-                                  : "text-indigo-700"
-                                : isDark
-                                  ? "text-zinc-100"
-                                  : "text-slate-700"
+                              ? isDark
+                                ? "text-indigo-400"
+                                : "text-indigo-700"
+                              : isDark
+                                ? "text-zinc-100"
+                                : "text-slate-700"
                               }`}
                           >
                             {s.title || "(CHƯA ĐẶT TÊN)"}
@@ -1188,9 +1335,8 @@ function NewWorkflowWizard({
                 }`}
             >
               <div
-                className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${
-                  isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
-                }`}
+                className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <button
@@ -1236,12 +1382,12 @@ function NewWorkflowWizard({
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => reorder(s.id)}
                       className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${selectedId === s.id
-                          ? isDark
-                            ? "border-indigo-500/80 bg-indigo-950/10"
-                            : "border-indigo-500/80 bg-indigo-50/50"
-                          : isDark
-                            ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
-                            : "bg-white hover:bg-slate-50/80 border-gray-200"
+                        ? isDark
+                          ? "border-indigo-500/80 bg-indigo-950/10"
+                          : "border-indigo-500/80 bg-indigo-50/50"
+                        : isDark
+                          ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
+                          : "bg-white hover:bg-slate-50/80 border-gray-200"
                         }`}
                       onClick={() => setSelectedId(s.id)}
                     >
@@ -1251,8 +1397,8 @@ function NewWorkflowWizard({
                       />
                       <span
                         className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
-                            ? "bg-zinc-800 text-zinc-350 border-zinc-700"
-                            : "bg-gray-100 text-slate-500 border-gray-200"
+                          ? "bg-zinc-800 text-zinc-350 border-zinc-700"
+                          : "bg-gray-100 text-slate-500 border-gray-200"
                           }`}
                       >
                         {i + 1}
@@ -1277,8 +1423,8 @@ function NewWorkflowWizard({
                             setEditingStep(s);
                           }}
                           className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
-                              ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
-                              : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
+                            ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
+                            : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
                             }`}
                           title="Sửa giai đoạn"
                         >
@@ -1291,8 +1437,8 @@ function NewWorkflowWizard({
                             deleteStep(s.id);
                           }}
                           className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
-                              ? "text-zinc-450 hover:bg-zinc-800 hover:text-rose-455"
-                              : "text-slate-400 hover:bg-slate-100 hover:text-rose-650"
+                            ? "text-zinc-450 hover:bg-zinc-800 hover:text-rose-455"
+                            : "text-slate-400 hover:bg-slate-100 hover:text-rose-650"
                             }`}
                           title="Xóa giai đoạn"
                         >
@@ -1425,8 +1571,8 @@ function WizardStepEditorModal({
   };
 
   const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${isDark
-      ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-      : "bg-white border border-gray-200 text-slate-800"
+    ? "bg-[#242424] border border-zinc-750 text-zinc-200"
+    : "bg-white border border-gray-200 text-slate-800"
     }`;
 
   const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
@@ -1442,8 +1588,8 @@ function WizardStepEditorModal({
     >
       <div
         className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${isDark
-            ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
-            : "bg-white text-slate-850 border-gray-200"
+          ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
+          : "bg-white text-slate-850 border-gray-200"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1599,8 +1745,8 @@ function WizardStepEditorModal({
           <button
             onClick={onClose}
             className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark
-                ? "border-zinc-700 text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800"
-                : "border-gray-250 text-slate-600 hover:bg-gray-100"
+              ? "border-zinc-700 text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800"
+              : "border-gray-250 text-slate-600 hover:bg-gray-100"
               }`}
           >
             Hủy

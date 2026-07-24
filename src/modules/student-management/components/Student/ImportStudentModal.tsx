@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface ImportStudentModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ const formatExcelPhone = (phoneVal: unknown): string => {
 };
 
 export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter }: ImportStudentModalProps) {
+  const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const businessType = 'general';
   
@@ -98,7 +100,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       ws['!cols'] = cols;
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Danh sách học viên');
+      XLSX.utils.book_append_sheet(wb, ws, entityLabel.listTitle);
       // ownerId/centerId are intentionally excluded: the server resolves the center automatically.
       const guide = XLSX.utils.aoa_to_sheet([
         ['L\u01b0u \u00fd'],
@@ -217,7 +219,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           validationResults.push({ rowNum: i + 1, data: studentData, isValid: errors.length === 0, errors });
         }
 
-        if (validationResults.length === 0) setErrorMsg('Không tìm thấy học viên hợp lệ nào trong file.');
+        if (validationResults.length === 0) setErrorMsg(`Không tìm thấy ${entityLabel.singular} hợp lệ nào trong file.`);
         else setValidationRows(validationResults);
       } catch (error) {
         console.error('Error parsing file:', error);
@@ -257,7 +259,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           errors: res.errors || []
         });
         window.dispatchEvent(new Event('student-mutation'));
-        toast.success(`Đã nhập thành công ${res.importedCount} học viên!`);
+        toast.success(`Đã nhập thành công ${res.importedCount} ${entityLabel.singular}!`);
 
         if (res.errors?.length === 0 && res.skippedCount === 0) {
           setTimeout(() => {
@@ -269,7 +271,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       }
     } catch (error: unknown) {
       console.error('Error importing bulk students:', error);
-      setErrorMsg(error instanceof Error ? error.message : 'Lỗi khi gửi yêu cầu nhập học viên.');
+      setErrorMsg(error instanceof Error ? error.message : `Lỗi khi gửi yêu cầu nhập ${entityLabel.singular}.`);
     } finally {
       setIsUploading(false);
     }
@@ -305,7 +307,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         >
           <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 flex-shrink-0">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Nhập danh sách học viên</h2>
+              <h2 className="text-xl font-bold text-slate-800">Nhập danh sách {entityLabel.singular}</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Hỗ trợ định dạng file Excel (.xlsx, .xls, .csv)</p>
             </div>
             <button onClick={onClose} disabled={isUploading} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
@@ -334,12 +336,12 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-800">Kết quả nhập dữ liệu</h3>
-                  <p className="text-slate-500 text-sm mt-1">Đã xử lý xong danh sách học viên từ file <strong>{fileName}</strong></p>
+                  <p className="text-slate-500 text-sm mt-1">Đã xử lý xong danh sách {entityLabel.singular} từ file <strong>{fileName}</strong></p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                     <span className="text-2xl font-black text-emerald-600">{importResult.importedCount}</span>
-                    <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Học viên mới đã tạo</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">{entityLabel.titleCase} mới đã tạo</p>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                     <span className="text-2xl font-black text-amber-500">{importResult.skippedCount}</span>
@@ -461,7 +463,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
               {validationRows.length > 0 && (
                 <button onClick={handleImport} disabled={isUploading} className="flex items-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0">
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                  {isUploading ? 'Đang nhập dữ liệu...' : totalValid > 0 ? `Nhập ${totalValid} học viên hợp lệ` : 'Kiểm tra lỗi trước khi nhập'}
+                  {isUploading ? 'Đang nhập dữ liệu...' : totalValid > 0 ? `Nhập ${totalValid} ${entityLabel.singular} hợp lệ` : 'Kiểm tra lỗi trước khi nhập'}
                 </button>
               )}
             </div>

@@ -3,6 +3,7 @@ import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight } fro
 import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface AttendanceViewModalProps {
   isOpen: boolean;
@@ -52,28 +53,26 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
   return dates;
 };
 
-export function AttendanceViewModal({ isOpen, batch, onClose, students }: AttendanceViewModalProps) {
+export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: AttendanceViewModalProps) {
+  const entityLabel = useEntityLabel();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (!isOpen || !batch) return null;
 
   const today = getLocalDateStr(new Date());
   const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);
   const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d));
   const allDates = [...sDates, ...exDates].sort((a, b) => a.localeCompare(b));
-
-  // Hiện toàn bộ ngày theo lịch (kể cả tương lai) — chỉ cho click các ngày đã điểm danh
   const relevantDates = allDates;
-
-  const takenCount = allDates.filter(d => (batch.attendanceSessions || []).some(s => s.date === d)).length;
-  const missedCount = allDates.filter(d => d < today && !(batch.attendanceSessions || []).some(s => s.date === d)).length;
+  const takenCount = allDates.filter(d => (batch.attendanceSessions || []).some(s => s.date === d && s.records && s.records.length > 0)).length;
+  const missedCount = allDates.filter(d => d < today && !(batch.attendanceSessions || []).some(s => s.date === d && s.records && s.records.length > 0)).length;
 
   const selectedSession = selectedDate ? (batch.attendanceSessions || []).find(s => s.date === selectedDate) : null;
 
   // Tổng hợp vắng mặt
   const absentMap: Record<string, number> = {};
   (batch.attendanceSessions || []).forEach(session =>
-    session.records.forEach(r => {
+    (session.records || []).forEach(r => {
       if (r.status === 'absent' || r.status === 'excused') {
         absentMap[r.studentId] = (absentMap[r.studentId] || 0) + 1;
       }
@@ -91,9 +90,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
         {/* ── Tóm tắt gọn ── */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3.5 text-center">
-            <p className="text-xl font-black text-slate-800">{takenCount}<span className="text-sm font-semibold text-slate-400">/{allDates.length}</span></p>
-            <p className="text-[10px] text-slate-500 font-bold mt-0.5">Buổi đã điểm danh</p>
+          <div className="rounded-2xl bg-cyan-50/60 border border-cyan-100 p-3.5 text-center">
+            <p className="text-xl font-black text-cyan-800">{takenCount}<span className="text-sm font-semibold text-cyan-600/60">/{allDates.length}</span></p>
+            <p className="text-[10px] text-cyan-700 font-bold mt-0.5">Buổi đã điểm danh</p>
           </div>
           <div className={cn(
             'rounded-2xl border p-3.5 text-center',
@@ -118,24 +117,24 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
           {/* Cột trái: Danh sách buổi */}
           <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" /> Chọn buổi để xem chi tiết
+            <p className="text-[10px] font-black uppercase tracking-wider text-cyan-700 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Chọn buổi để xem chi tiết
             </p>
 
             {relevantDates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-slate-200 rounded-2xl py-8 gap-2">
+              <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-cyan-200 rounded-2xl py-8 gap-2">
                 <p className="text-xs text-slate-400">Chưa có buổi học nào.</p>
               </div>
             ) : (
               <div className="space-y-1 max-h-72 overflow-y-auto">
                 {relevantDates.map(date => {
                   const session = (batch.attendanceSessions || []).find(s => s.date === date);
-                  const hasTaken = !!session;
+                  const hasTaken = !!session && (session.records?.length || 0) > 0;
                   const isToday = date === today;
                   const isPast = date < today;
                   const isSelected = selectedDate === date;
-                  const absentCount = session?.records.filter(r => r.status !== 'present').length ?? 0;
-                  const presentCount = session?.records.filter(r => r.status === 'present').length ?? 0;
+                  const absentCount = session?.records ? session.records.filter(r => r.status !== 'present').length : 0;
+                  const presentCount = session?.records ? session.records.filter(r => r.status === 'present').length : 0;
 
                   return (
                     <button
@@ -146,9 +145,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                       className={cn(
                         'w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all',
                         isSelected
-                          ? 'bg-slate-800 border-slate-800 shadow-sm'
+                          ? 'bg-cyan-500 border-cyan-500 text-white shadow-md shadow-cyan-500/20'
                           : hasTaken
-                            ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer'
+                            ? 'bg-white border-cyan-100 hover:border-cyan-300 hover:bg-cyan-50/50 cursor-pointer'
                             : 'bg-slate-50/60 border-slate-100 opacity-50 cursor-not-allowed'
                       )}
                     >
@@ -156,7 +155,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                         {/* Status dot */}
                         <span className={cn(
                           'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                          hasTaken ? 'bg-emerald-500' : isPast ? 'bg-amber-400' : 'bg-slate-300'
+                          hasTaken ? 'bg-cyan-400' : isPast ? 'bg-amber-400' : 'bg-slate-300'
                         )} />
                         <div>
                           <span className={cn(
@@ -225,25 +224,27 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
                 <div className="space-y-1 max-h-[260px] overflow-y-auto">
                   {batch.learnerIds.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có học viên.</p>
+                    <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có {entityLabel.singular}.</p>
                   ) : (
                     batch.learnerIds.map(studentId => {
-                      const student = students.find(s => s.id === studentId);
-                      const rec = selectedSession.records.find(r => r.studentId === studentId);
-                      const status = rec?.status ?? 'present';
+                      const student = (students || []).find(s => s.id === studentId || String(s.id) === String(studentId));
+                      const records = selectedSession.records || [];
+                      const rec = records.find(r => String(r.studentId) === String(studentId));
+                      const status = rec ? rec.status : (records.length > 0 ? 'absent' : 'unmarked');
 
                       const cfg = {
-                        present: { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50', text: 'Có mặt', row: 'border-slate-100' },
-                        absent:  { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50', text: 'Vắng', row: 'border-rose-100 bg-rose-50/20' },
-                        excused: { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50', text: 'Có phép', row: 'border-amber-100 bg-amber-50/20' },
-                      }[status] ?? { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50', text: 'Có mặt', row: 'border-slate-100' };
+                        present:  { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200', text: 'Có mặt', row: 'border-emerald-100 bg-emerald-50/20' },
+                        absent:   { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50 border border-rose-200', text: 'Vắng mặt', row: 'border-rose-100 bg-rose-50/20' },
+                        excused:  { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50 border border-amber-200', text: 'Vắng có phép', row: 'border-amber-100 bg-amber-50/20' },
+                        unmarked: { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' }
+                      }[status] || { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' };
 
                       return (
                         <div key={studentId} className={cn('flex items-center justify-between px-3 py-2 rounded-xl border', cfg.row)}>
                           <div className="flex items-center gap-2">
                             {cfg.icon}
                             <div>
-                              <p className="text-xs font-bold text-slate-700">{student?.fullName || 'Học viên đã xóa'}</p>
+                              <p className="text-xs font-bold text-slate-700">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                               <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
                             </div>
                           </div>
@@ -274,7 +275,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                             {idx + 1}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-700 truncate">{student?.fullName || 'Học viên đã xóa'}</p>
+                            <p className="text-xs font-bold text-slate-700 truncate">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                             <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
                           </div>
                           <span className="text-sm font-black text-rose-600 flex-shrink-0">

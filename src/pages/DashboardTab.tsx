@@ -24,7 +24,7 @@ import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { dashboardService } from "../services/dashboardService";
 import { toast } from "../pages/Toast";
 import { UserProfile } from "../types";
-import { DashboardSummary } from "../types/dashboard";
+import { DashboardSummary, DashboardActionItems } from "../types/dashboard";
 import { formatDashboardCurrency } from "../components/dashboard/dashboardUtils";
 import { OverviewPanel } from "../components/dashboard/OverviewPanel";
 import { RevenuePanel } from "../components/dashboard/RevenuePanel";
@@ -282,6 +282,31 @@ export default function DashboardTab() {
       clearInterval(intervalId);
     };
   }, [userProfile?.uid, dateFilter, customStartDate, customEndDate]);
+
+  const [actionItems, setActionItems] = useState<DashboardActionItems | null>(null);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let cancelled = false;
+
+    const loadActionItems = () => {
+      dashboardService
+        .getActionItems()
+        .then((data) => {
+          if (!cancelled) setActionItems(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi tải việc cần xử lý hôm nay:", err);
+        });
+    };
+
+    loadActionItems();
+    const intervalId = setInterval(loadActionItems, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [userProfile?.uid]);
 
   // Master calculation useEffect to filter data dynamically by date range
   useEffect(() => {
@@ -719,16 +744,19 @@ export default function DashboardTab() {
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
       <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="font-sans text-xl font-bold tracking-tight text-slate-900">
-              {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1.5 bg-cyan-600 rounded-full shrink-0" />
+            <div>
+              <h1 className="font-extrabold text-xl md:text-2xl tracking-tight text-cyan-700 dark:text-cyan-400">
+                {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-1 overflow-x-auto select-none">
+          <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
             {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
               const Icon = tab.icon;
@@ -736,60 +764,17 @@ export default function DashboardTab() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                     isActive
-                      ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      ? "bg-cyan-600 text-white font-bold shadow-sm"
+                      : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-xl bg-slate-100/80 p-1">
-              {[
-                { id: "day", label: "Ngày" },
-                { id: "month", label: "Tháng" },
-                { id: "year", label: "Năm" },
-                { id: "custom", label: "Tùy chọn" },
-              ].map((f) => {
-                const isActive = dateFilter === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => setDateFilter(f.id as DateFilterType)}
-                    className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all duration-200 ${isActive
-                      ? "bg-white text-slate-800 shadow-xs"
-                      : "text-gray-500 hover:text-gray-800"
-                      }`}
-                  >
-                    {f.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {dateFilter === "custom" && (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-150 bg-white p-1.5 shadow-xs animate-fade-in">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="rounded-md border-0 bg-transparent p-0 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-gray-400">đến</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="rounded-md border-0 bg-transparent p-0 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -819,6 +804,8 @@ export default function DashboardTab() {
           canSeeResource={canSeeResource}
           canSeeChat={canSeeChat}
           canSeeStudent={canSeeStudent}
+          role={userProfile?.role}
+          actionItems={actionItems}
         />
       )}
       {activeView === "revenue" && canSeeInventory && (

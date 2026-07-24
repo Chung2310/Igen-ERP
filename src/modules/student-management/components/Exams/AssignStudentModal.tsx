@@ -8,6 +8,7 @@ import { cn, parseVND } from '../../lib/utils';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { getExamSegmentLabel, isStudentEligibleForExamRank } from '../../pages/Exams/exam-utils';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface AssignStudentModalProps {
   exam: ExamSession | null;
@@ -17,6 +18,7 @@ interface AssignStudentModalProps {
 }
 
 export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignStudentModalProps) {
+  const entityLabel = useEntityLabel();
   const { students, loading } = useStudents();
   const businessType = 'general';
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,13 +63,13 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
       window.dispatchEvent(new Event('student-mutation'));
       window.dispatchEvent(new Event('exam-mutation'));
 
-      toast.success(`Đã thêm ${selectedStudentIds.length} học viên vào đợt thi thành công!`);
+      toast.success(`Đã thêm ${selectedStudentIds.length} ${entityLabel.singular} vào đợt thi thành công!`);
       onSuccess();
       onClose();
       setSelectedStudentIds([]);
     } catch (error: unknown) {
       console.error('Error assigning students:', error);
-      toast.error(error instanceof Error ? error.message : 'Lỗi gán học viên vào đợt thi.');
+      toast.error(error instanceof Error ? error.message : `Lỗi gán ${entityLabel.singular} vào đợt thi.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,7 +96,7 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
         >
           <div className="px-6 py-5 border-b border-slate-100">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-bold text-slate-800">Thêm học viên vào đợt thi</h3>
+              <h3 className="text-lg font-bold text-slate-800">Thêm {entityLabel.singular} vào đợt thi</h3>
               <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
@@ -109,7 +111,7 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
             <div className="relative">
               <input
                 type="text"
-                placeholder="Tìm kiếm học viên theo tên hoặc hạng..."
+                placeholder={`Tìm kiếm ${entityLabel.singular} theo tên hoặc hạng...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-12 bg-slate-50 pl-11 pr-4 rounded-2xl border border-slate-100 text-sm font-medium outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
@@ -118,15 +120,15 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
             </div>
             <p className="text-[10px] text-rose-500 font-bold mt-2 flex items-center gap-1.5">
               <AlertCircle className="w-3 h-3" />
-              Lưu ý: Học viên hoàn thành học phí mới được thêm vào đợt thi
+              Lưu ý: {entityLabel.titleCase} hoàn thành học phí mới được thêm vào đợt thi
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-2">
             {loading ? (
-              <div className="py-10 text-center text-slate-400 italic text-sm">Đang nạp danh sách học viên...</div>
+              <div className="py-10 text-center text-slate-400 italic text-sm">Đang nạp danh sách {entityLabel.singular}...</div>
             ) : eligibleStudents.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 italic text-sm">Không tìm thấy học viên phù hợp.</div>
+              <div className="py-10 text-center text-slate-400 italic text-sm">Không tìm thấy {entityLabel.singular} phù hợp.</div>
             ) : (
               eligibleStudents.map((student) => (
                 <button
@@ -186,7 +188,7 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
           <div className="p-6 border-t border-slate-100 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-bold text-slate-800">
-                Đã chọn: <span className="text-cyan-600">{selectedStudentIds.length} học viên</span>
+                Đã chọn: <span className="text-cyan-600">{selectedStudentIds.length} {entityLabel.singular}</span>
               </p>
             </div>
             <div className="flex items-center gap-3">

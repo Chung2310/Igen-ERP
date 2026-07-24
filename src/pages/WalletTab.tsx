@@ -295,13 +295,19 @@ export default function WalletTab() {
       
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
+            <Wallet className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-black text-cyan-700 dark:text-cyan-400 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Quản lý số dư Credit và lịch sử giao dịch trực tuyến</p>
+          </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 text-xs font-bold text-gray-700 shadow-xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+          className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 text-xs font-bold text-gray-700 shadow-xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw className={`h-4 w-4 text-gray-500 ${refreshing ? "animate-spin" : ""}`} />
           <span>Làm mới ví</span>

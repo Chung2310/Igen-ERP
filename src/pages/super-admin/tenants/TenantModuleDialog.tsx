@@ -3,6 +3,9 @@ import { X } from "lucide-react";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
 
+import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
+import { ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+
 type Props = {
   code: string;
   onClose: () => void;
@@ -13,6 +16,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [selected, setSelected] = React.useState<ModuleKey[]>([]);
+  const [entityPreset, setEntityPreset] = React.useState<EntityPreset>("student");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -23,11 +27,15 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const loadTenant = React.useCallback((active: { current: boolean } = { current: true }) => {
     setLoading(true);
     setError("");
-    return superAdminTenantService.detail(code)
-      .then((result) => {
+    return Promise.all([
+      superAdminTenantService.detail(code),
+      getModuleSettings(code).catch(() => ({ entityPreset: "student" as EntityPreset })),
+    ])
+      .then(([result, settings]) => {
         if (!active.current) return;
         setTenant(result.tenant);
         setSummary(result.summary);
+        setEntityPreset(settings.entityPreset || "student");
         setSelected(Array.isArray(result.tenant.enabledModules)
           ? result.tenant.enabledModules.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey))
           : [...MODULE_KEYS]);
@@ -65,10 +73,13 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
     setSaving(true);
     setError("");
     try {
-      await superAdminTenantService.updateModules(code, {
-        enabledModules: selected,
-        reason: "Cập nhật cấu hình module",
-      });
+      await Promise.all([
+        superAdminTenantService.updateModules(code, {
+          enabledModules: selected,
+          reason: "Cập nhật cấu hình module",
+        }),
+        updateModuleSettings(entityPreset, code),
+      ]);
       onSaved();
     } catch (cause: any) {
       setError(`${cause.message}${cause.correlationId ? ` (${cause.correlationId})` : ""}`);
@@ -128,6 +139,23 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
               <div><dt className="text-xs text-slate-500">Trạng thái</dt><dd className="mt-1 text-sm">{tenant.lifecycleStatus || "—"}</dd></div>
               <div><dt className="text-xs text-slate-500">Số người dùng</dt><dd className="mt-1 font-semibold">{summary?.userCount ?? "—"}</dd></div>
             </dl>
+
+            <div>
+              <h4 className="text-sm font-bold">Loại hình doanh nghiệp / Nhãn thực thể</h4>
+              <p className="mt-1 text-xs text-slate-400">Đổi tên xưng hô đối tượng mặc định cho doanh nghiệp này (SuperAdmin đặc quyền).</p>
+              <select
+                value={entityPreset}
+                onChange={(e) => setEntityPreset(e.target.value as EntityPreset)}
+                disabled={saving}
+                className="mt-2.5 w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2.5 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
+              >
+                {ENTITY_PRESET_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <h4 className="text-sm font-bold">Module được kích hoạt</h4>

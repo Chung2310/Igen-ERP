@@ -308,6 +308,18 @@ test("enforces file MIME type, maxSizeMb and maxFiles constraints", async () => 
   await assert.rejects(validate({ ...baseInput, values: { photos: [1, 2, 3].map(index => ({ url: `x${index}`, fileName: `${index}.png`, mimeType: "image/png", size: 10 })) } }), /Ảnh hồ sơ.*tối đa 2/i);
 });
 
+test("supports wildcard MIME types like image/* in allowedMimeTypes", async () => {
+  const definition = field("photo", "Ảnh đại diện", "image", {
+    validation: { allowedMimeTypes: ["image/*"] },
+  });
+  const { validate } = validatorFor([definition]);
+  const res = await validate({
+    ...baseInput,
+    values: { photo: { url: "https://example.com/dz.jpg", fileName: "dz.jpg", mimeType: "image/jpeg", size: 70000 } },
+  });
+  assert.deepEqual(res.photo, { url: "https://example.com/dz.jpg", fileName: "dz.jpg", mimeType: "image/jpeg", size: 70000 });
+});
+
 test("treats null, undefined, blank strings and empty arrays as missing", async () => {
   for (const value of [null, undefined, "   ", []]) {
     const { validate } = validatorFor([field("required", "Trường bắt buộc", "text", { isRequired: true })]);

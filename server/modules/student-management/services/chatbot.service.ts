@@ -119,7 +119,9 @@ ${paymentList || "- Chưa có giao dịch đóng học phí nào."}
 
 QUY TẮC PHẢN HỒI:
 - Luôn trả lời lịch sự, chuyên nghiệp, xưng hô thân thiện (chào Thầy/Cô hoặc chào Giáo viên).
-- Trả lời bằng tiếng Việt rõ ràng, ngắn gọn, có cấu trúc (sử dụng dấu đầu dòng, danh sách nếu cần thiết).
+- Trả lời bằng tiếng Việt rõ ràng, ngắn gọn, dễ hiểu, thuần văn bản (PLAIN TEXT).
+- TUYỆT ĐỐI KHÔNG sử dụng bất kỳ ký tự định dạng Markdown nào (như dấu thăng #, ##, dấu sao **, *, gạch chân __, _, thẻ mã code, hay link).
+- Để trình bày danh sách hoặc nhiều ý, chỉ sử dụng dấu gạch ngang (-) ở đầu dòng hoặc đánh số thứ tự (1, 2, 3) đơn giản.
 - Trả lời dựa trên dữ liệu thực tế được cung cấp ở trên. Nếu người dùng hỏi về học viên không có trong danh sách trên, hãy báo lịch sự rằng không tìm thấy học viên này trong hệ thống của Thầy/Cô.
 - Nếu người dùng hỏi về doanh thu (tổng doanh thu, doanh thu tháng này,...), hãy trả lời trực tiếp con số thực tế được thống kê ở trên một cách rõ ràng.
 - Nếu được hỏi về kiến thức chung của ngành đào tạo (quy chế học/thi sát hạch lái xe, chứng chỉ ngoại ngữ, chương trình kỹ năng...), hãy trả lời theo kiến thức chuyên môn của bạn về lĩnh vực tương ứng.`
@@ -136,7 +138,7 @@ QUY TẮC PHẢN HỒI:
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://student.igentechsolutions.com/",
+          "HTTP-Referer": process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL,
           "X-Title": "Student Management System",
         },
         body: JSON.stringify(payload),
@@ -156,10 +158,30 @@ QUY TẮC PHẢN HỒI:
         throw new Error("Không nhận được nội dung phản hồi hợp lệ từ mô hình AI.");
       }
 
-      return content;
+      return ChatbotService.cleanMarkdownText(content);
     } catch (error) {
       logger.error("[ChatbotService Error]: %o", error);
       throw error;
     }
+  }
+
+  /** Loại bỏ toàn bộ ký tự định dạng Markdown khỏi phản hồi */
+  public static cleanMarkdownText(text: string): string {
+    if (!text) return "";
+    return text
+      .replace(/```[\s\S]*?```/g, (match) => {
+        return match.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "");
+      })
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/_([^_]+)_/g, "$1")
+      .replace(/~~([^~]+)~~/g, "$1")
+      .replace(/^#+\s+/gm, "")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+      .replace(/^>\s+/gm, "")
+      .replace(/[*_`]/g, "")
+      .trim();
   }
 }

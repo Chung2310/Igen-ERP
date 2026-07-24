@@ -1,5 +1,6 @@
 import { MoreVertical, Pencil, Shield, Trash2, Wallet } from "lucide-react";
 import { UserTableProps } from "./types";
+import { getRoleDisplayName } from "../../utils/permissionUtils";
 
 export function UserListTable({
   users,
@@ -88,7 +89,7 @@ export function UserListTable({
                       }`}
                     >
                       <Shield className="h-3 w-3" />
-                      {usr.role === "user" ? "user" : rolePermissionsList.find((rp) => rp.role === usr.role)?.displayName || usr.role}
+                      {getRoleDisplayName(usr.role, rolePermissionsList.find((rp) => rp.role === usr.role)?.displayName)}
                     </span>
                   </td>
                   {currentUser?.role === "superadmin" && (

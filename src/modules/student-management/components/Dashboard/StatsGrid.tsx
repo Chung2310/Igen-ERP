@@ -2,13 +2,16 @@ import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, 
 import { LuxuryCard } from '../ui/LuxuryCard';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   const { students, loading } = useStudents(selectedCenter === 'all' ? undefined : selectedCenter);
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
+  const totalLabel = `Tổng ${entityLabel.singular}`;
 
   const mockStats = [
-    { label: 'Tổng học viên', value: 15, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
+    { label: totalLabel, value: 15, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
     { label: 'Chờ KSK', value: 2, icon: Stethoscope, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: 'Đã KSK', value: 2, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
     { label: 'Đã nộp HS', value: 2, icon: FolderIcon, color: 'text-cyan-500', bg: 'bg-cyan-50' },
@@ -29,8 +32,8 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
     const hasStatus = (s: (typeof students)[number], st: string) =>
       Array.isArray(s.status) ? s.status.includes(st as (typeof s.status)[number]) : s.status === st;
 
-    const statsMap = {
-      'Tổng học viên': students.length,
+    const statsMap: Record<string, number> = {
+      [totalLabel]: students.length,
       'Chờ KSK': students.filter(s => hasStatus(s, 'Chờ KSK')).length,
       'Đã KSK': students.filter(s => hasStatus(s, 'Đã KSK')).length,
       'Đã nộp HS': students.filter(s => hasStatus(s, 'Đã nộp HS')).length,

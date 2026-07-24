@@ -110,14 +110,19 @@ export default function SettingsTab() {
     <div className="h-full flex flex-col font-sans overflow-y-auto pr-2 pb-6" id="settings_tab_container">
 
       {/* Title Header with Glassmorphism Header */}
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-md p-5 rounded-2xl border border-gray-200/80 shadow-xs">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2 tracking-tight">
-            <Sliders className="h-5 w-5 text-indigo-600" />
-            Cài đặt Hệ thống & Cá nhân
-          </h1>
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-gray-200/80 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
+            <Sliders className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-black text-cyan-700 dark:text-cyan-400 tracking-tight">
+              Cài đặt Hệ thống & Cá nhân
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
+          </div>
         </div>
-        <div className="flex gap-1 overflow-x-auto select-none border-b border-slate-200/80 pb-0">
+        <div className="flex gap-1.5 overflow-x-auto select-none">
           {[
             { id: "profile", label: "Hồ sơ cá nhân", icon: User },
             { id: "security", label: "Bảo mật", icon: Shield },
@@ -133,13 +138,13 @@ export default function SettingsTab() {
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                    ? "bg-cyan-600 text-white font-bold shadow-sm"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
                 <span>{tab.label}</span>
               </button>
             );

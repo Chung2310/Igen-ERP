@@ -243,6 +243,7 @@
   --color-slate-700: #f8fafc;
   --color-slate-800: #ffffff;
   --color-slate-900: #f8fafc;
+  --color-slate-950: #ffffff;
 
   --color-gray-50: #101217;
   --color-gray-55: #14171d;
@@ -259,6 +260,31 @@
   --color-gray-800: #f8fafc;
   --color-gray-850: #ffffff;
   --color-gray-900: #ffffff;
+  --color-gray-950: #ffffff;
+
+  --color-neutral-50: #101217;
+  --color-neutral-100: #1e212b;
+  --color-neutral-200: #272b38;
+  --color-neutral-300: #3b4256;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #cbd5e1;
+  --color-neutral-600: #e2e8f0;
+  --color-neutral-700: #f8fafc;
+  --color-neutral-800: #ffffff;
+  --color-neutral-900: #ffffff;
+  --color-neutral-950: #ffffff;
+
+  --color-zinc-50: #101217;
+  --color-zinc-100: #1e212b;
+  --color-zinc-200: #272b38;
+  --color-zinc-300: #3b4256;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #cbd5e1;
+  --color-zinc-600: #e2e8f0;
+  --color-zinc-700: #f8fafc;
+  --color-zinc-800: #ffffff;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #ffffff;
 
   /* Accent overrides for dark mode active menus and indicators */
   --color-blue-50: #121e2d;
@@ -319,20 +345,17 @@ code, kbd, samp, pre {
   font-family: var(--font-sans) !important;
 }
 
-/* Custom Scrollbar Styles */
+/* Global Scrollbar Hiding (Preserves Scroll Functionality) */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
+  display: none;
+  width: 0px;
+  height: 0px;
   background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-secondary-fixed-dim);
 }
 
 /* Toast Animations */

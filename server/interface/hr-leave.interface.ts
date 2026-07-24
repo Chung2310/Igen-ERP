@@ -26,6 +26,7 @@ export interface IHRLeaveApplication extends Document {
   approvedBy?: string;
   chargeableDays?: number;
   chargeableDates?: string[];
+  reminderSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -137,10 +137,10 @@ export default function HRTab() {
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-1 overflow-x-auto select-none">
           {[
-            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
             { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
-            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
+            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
+            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
           ].map((tab) => {
             const isActive = subTab === tab.id;
@@ -149,13 +149,13 @@ export default function HRTab() {
               <button
                 key={tab.id}
                 onClick={() => setSubTab(tab.id as HRSubTabType)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 border-b-2 -mb-px rounded-t-xl ${
+                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "border-sky-600 text-sky-700 font-bold bg-sky-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                    ? "bg-cyan-600 text-white font-bold shadow-sm"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-sky-600" : "text-slate-400"}`} />
+                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
                 <span>{tab.label}</span>
               </button>
             );
