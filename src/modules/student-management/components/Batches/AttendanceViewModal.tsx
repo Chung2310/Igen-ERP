@@ -227,6 +227,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                     <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có {entityLabel.singular}.</p>
                   ) : (
                     batch.learnerIds.map(studentId => {
+                      const student = (students || []).find(s => s.id === studentId || String(s.id) === String(studentId));
                       const records = selectedSession.records || [];
                       const rec = records.find(r => String(r.studentId) === String(studentId));
                       const status = rec ? rec.status : (records.length > 0 ? 'absent' : 'unmarked');
