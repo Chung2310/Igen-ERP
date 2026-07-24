@@ -22,6 +22,8 @@ export interface DashboardUser {
   role: string;
   companyCode?: string;
   enabledModules?: string[];
+  /** Tập hợp mã quyền hiệu lực của user, dùng để lọc dữ liệu theo RolePermission. */
+  permissions?: Set<string>;
 }
 
 export interface DashboardRange {
@@ -221,7 +223,6 @@ async function getActionItems(user: DashboardUser) {
   const companyQ = buildCompanyQuery(user);
   const access = resolveDashboardModuleAccess(user);
   const manages = isManagerOrAbove(user.role);
-  const canSeeInventory = user.role === "superadmin" || !user.enabledModules?.length || user.enabledModules.includes("inventory");
 
   const [overdueTasksRaw, pendingApprovalsRaw, lowStockRaw] = await Promise.all([
     access.hr
@@ -243,7 +244,7 @@ async function getActionItems(user: DashboardUser) {
           .limit(5)
           .lean()
       : Promise.resolve([]),
-    manages && canSeeInventory
+    manages && access.inventory
       ? ProductModel.find({ ...companyQ, $expr: { $lte: ["$stock", "$minStockAlert"] } })
           .select("_id name sku stock minStockAlert")
           .limit(5)
@@ -279,7 +280,7 @@ export const dashboardService = {
       access.student
         ? getStudentStats(user, range)
         : Promise.resolve({ totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0 }),
-      access.hr
+      access.timekeeping
         ? getTimekeepingStats(user)
         : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, date: getLocalDateString() }),
       access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
