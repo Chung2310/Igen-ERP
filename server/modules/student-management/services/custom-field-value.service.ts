@@ -197,6 +197,14 @@ function multiSelectValue(value: unknown, definition: CustomFieldValueDefinition
 
 type FileValue = { url: string; fileName: string; mimeType?: string; size?: number; reference?: string };
 
+function mimeMatches(allowed: string, actual: string): boolean {
+  if (allowed === actual) return true;
+  if (allowed.endsWith("/*") && actual.startsWith(allowed.slice(0, -1))) return true;
+  if (allowed === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && actual === "application/zip") return true;
+  if (allowed === "application/msword" && actual === "application/x-ole-storage") return true;
+  return false;
+}
+
 function fileValue(value: unknown, definition: CustomFieldValueDefinition): FileValue {
   if (!isPlainObject(value)
     || Object.keys(value).some(key => UNSAFE_KEYS.has(key) || !FILE_KEYS.has(key))
@@ -224,7 +232,7 @@ function fileValue(value: unknown, definition: CustomFieldValueDefinition): File
   const allowedMimeTypes = validation.allowedMimeTypes;
   if (Array.isArray(allowedMimeTypes)
     && allowedMimeTypes.every(item => typeof item === "string")
-    && (!normalized.mimeType || !allowedMimeTypes.includes(normalized.mimeType))) {
+    && (!normalized.mimeType || !allowedMimeTypes.some(mime => mimeMatches(mime, normalized.mimeType!)))) {
     fail(definition.label, "định dạng tệp không được phép.");
   }
   if (typeof validation.maxSizeMb === "number"
