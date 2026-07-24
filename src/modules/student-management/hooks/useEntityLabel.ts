@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getModuleSettings } from "../api/moduleSettings.api";
 import { DEFAULT_ENTITY_PRESET, ENTITY_LABEL_PRESETS, type EntityLabelSet, type EntityPreset } from "../config/entityLabels";
+import { socketService } from "../../../services/socketService";
 
 export type UseEntityLabelResult = EntityLabelSet & {
   preset: EntityPreset;
@@ -35,9 +36,15 @@ export function useEntityLabel(): UseEntityLabelResult {
       }
     };
     window.addEventListener("entity-label:changed", onChanged);
+
+    const offSocket = socketService.on("entity_preset_changed", (data: { entityPreset?: EntityPreset }) => {
+      if (data?.entityPreset) setPreset(data.entityPreset);
+    });
+
     return () => {
       mounted = false;
       window.removeEventListener("entity-label:changed", onChanged);
+      offSocket();
     };
   }, []);
 
