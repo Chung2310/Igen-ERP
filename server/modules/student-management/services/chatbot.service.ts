@@ -138,7 +138,7 @@ QUY TẮC PHẢN HỒI:
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://student.igentechsolutions.com/",
+          "HTTP-Referer": process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL,
           "X-Title": "Student Management System",
         },
         body: JSON.stringify(payload),
