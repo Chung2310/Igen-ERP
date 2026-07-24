@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
-  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList
+  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
+  CalendarCheck, BarChart2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -26,6 +27,8 @@ import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig 
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
+import { AttendanceModal } from '../../components/Batches/AttendanceModal';
+import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
@@ -198,6 +201,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manageLearnersId, setManageLearnersId] = useState<string | null>(null);
   const [assignmentBatchId, setAssignmentBatchId] = useState<string | null>(null);
+  const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
+  const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
@@ -513,6 +518,26 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                           )}
                         >
                           <ClipboardList className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setAttendanceBatchId(b.id)}
+                          title="Điểm danh thủ công & QR"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60"
+                          )}
+                        >
+                          <CalendarCheck className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setViewAttendanceBatchId(b.id)}
+                          title="Lịch sử & Thống kê điểm danh"
+                          className={cn(
+                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+                            darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60"
+                          )}
+                        >
+                          <BarChart2 className="w-3 h-3" />
                         </button>
                       </div>
                     </td>
@@ -905,6 +930,35 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
             batch={assignmentBatch}
             students={batchStudents}
             onClose={() => setAssignmentBatchId(null)}
+          />
+        );
+      })()}
+
+      {attendanceBatchId && (() => {
+        const targetBatch = batches.find(b => b.id === attendanceBatchId);
+        if (!targetBatch) return null;
+        return (
+          <AttendanceModal
+            isOpen={true}
+            batch={targetBatch}
+            students={students}
+            onClose={() => setAttendanceBatchId(null)}
+            onSuccess={() => {
+              notifyBatchMutation();
+            }}
+          />
+        );
+      })()}
+
+      {viewAttendanceBatchId && (() => {
+        const targetBatch = batches.find(b => b.id === viewAttendanceBatchId);
+        if (!targetBatch) return null;
+        return (
+          <AttendanceViewModal
+            isOpen={true}
+            batch={targetBatch}
+            students={students}
+            onClose={() => setViewAttendanceBatchId(null)}
           />
         );
       })()}
