@@ -166,6 +166,12 @@ export function AttendanceModal({
             )}
           </div>
 
+          {batch.learnerIds.length === 0 && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 font-medium">
+              ⚠️ Lớp học này hiện tại chưa có {entityLabel.singular} nào. Vui lòng ra bảng lớp học bấm nút <strong>Quản lý {entityLabel.singular} (👥)</strong> để gán {entityLabel.singular} vào lớp trước khi tiến hành điểm danh.
+            </div>
+          )}
+
           {showAddSession && (
             <div className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50 space-y-4">
               <h5 className="text-xs font-bold text-slate-700">Thêm ngày học bổ sung (ngoài lịch cố định)</h5>
@@ -220,7 +226,8 @@ export function AttendanceModal({
                     const session = batch.attendanceSessions?.find(s => s.date === date);
                     const isTaken = !!session;
                     const presentCount = session ? session.records.filter(r => r.status === 'present').length : 0;
-                    const totalRecords = session ? session.records.length : batch.learnerIds.length;
+                    const learnerCount = batch.learnerIds.length;
+                    const totalRecords = session && session.records.length > 0 ? session.records.length : learnerCount;
 
                     return (
                       <div key={date} className="flex items-center justify-between py-3 px-3 hover:bg-slate-50/50 transition-all">
@@ -240,9 +247,15 @@ export function AttendanceModal({
                         </div>
                         <div className="flex items-center gap-4">
                           {isTaken ? (
-                            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10">
-                              Có mặt: {presentCount}/{totalRecords}
-                            </span>
+                            totalRecords === 0 ? (
+                              <span className="text-[11px] font-bold text-amber-600 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/15">
+                                Chưa có {entityLabel.singular}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10">
+                                Có mặt: {presentCount}/{totalRecords}
+                              </span>
+                            )
                           ) : (
                             <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
                               Chưa điểm danh
