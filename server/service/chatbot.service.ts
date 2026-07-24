@@ -36,13 +36,14 @@ export class ChatbotService {
         content:
           "Bạn là trợ lý ảo AI của hệ thống iGen ERP. Tài khoản hiện tại chưa được gắn với doanh nghiệp nào " +
           "nên bạn không truy cập được dữ liệu nội bộ. Hãy hỗ trợ người dùng bằng kiến thức chung về vận hành, " +
-          "CRM, marketing, kho hàng, dự án... và trả lời bằng tiếng Việt lịch sự, ngắn gọn, có cấu trúc.",
+          "CRM, marketing, kho hàng, dự án... Trả lời bằng tiếng Việt lịch sự, dễ hiểu, thuần văn bản (PLAIN TEXT), " +
+          "TUYỆT ĐỐI KHÔNG dùng các ký tự định dạng Markdown như dấu thăng #, dấu sao **, *, gạch chân __, gạch ngược ` hay link [text](url).",
       };
       const { text } = await openrouterChat({
         model,
         messages: [generalPrompt, ...this.normalizeMessages(messages)],
       });
-      return text;
+      return this.cleanMarkdownText(text);
     }
 
     // 1. Truy vấn dữ liệu doanh nghiệp song song
@@ -85,27 +86,28 @@ export class ChatbotService {
       content: `Bạn là trợ lý ảo AI của hệ thống iGen ERP, hỗ trợ trực tiếp cho nhân sự của doanh nghiệp (mã: ${companyCode}).
 Bạn có quyền truy cập dữ liệu thời gian thực dưới đây. Hãy trả lời chính xác các câu hỏi về kho hàng, dự án, công việc và tài chính dựa trên dữ liệu này.
 
-═══ DỮ LIỆU THỜI GIAN THỰC CỦA DOANH NGHIỆP ═══
+DỮ LIỆU THỜI GIAN THỰC CỦA DOANH NGHIỆP:
 
-【1】KHO HÀNG / SẢN PHẨM:
+1. KHO HÀNG / SẢN PHẨM:
 - Tổng số mặt hàng: ${products.length} | Số mặt hàng sắp hết tồn: ${lowStock.length}
 - Tổng giá trị tồn kho (ước tính): ${inventoryValue.toLocaleString("vi-VN")}đ
 Danh sách:${productTruncate}
 ${productList || "- Chưa có sản phẩm nào."}
 
-【2】DỰ ÁN & CÔNG VIỆC:
+2. DỰ ÁN & CÔNG VIỆC:
 - Tổng số dự án: ${projects.length}
 ${projectList || "- Chưa có dự án nào."}
 - Công việc (Kanban) theo trạng thái: ${taskSummary || "Chưa có công việc nào."}
 
-【3】TÀI CHÍNH:
+3. TÀI CHÍNH:
 - Số dư ví của bạn: ${walletInfo}
 
-═══ QUY TẮC PHẢN HỒI ═══
-- Trả lời bằng tiếng Việt, lịch sự, chuyên nghiệp, ngắn gọn và có cấu trúc (dùng dấu đầu dòng, **in đậm** khi cần).
+QUY TẮC PHẢN HỒI:
+- Trả lời bằng tiếng Việt lịch sự, thân thiện, dễ hiểu, thuần văn bản (PLAIN TEXT).
+- TUYỆT ĐỐI KHÔNG sử dụng bất kỳ ký tự định dạng Markdown nào (như dấu thăng #, ##, dấu sao **, *, gạch chân __, _, thẻ mã code, hay link).
+- Để trình bày danh sách hoặc nhiều ý, chỉ dùng dấu gạch ngang (-) thuần túy ở đầu dòng hoặc đánh số thứ tự (1, 2, 3) đơn giản, xuống dòng rõ ràng.
 - Chỉ dựa trên dữ liệu thực tế ở trên. Nếu người dùng hỏi về đối tượng không có trong dữ liệu, hãy báo lịch sự rằng không tìm thấy trong hệ thống của doanh nghiệp.
 - Khi được hỏi về con số (doanh thu pipeline, tồn kho, số dư...), trả lời trực tiếp con số thực tế đã thống kê ở trên.
-- Nếu được hỏi kiến thức nghiệp vụ chung (quy trình bán hàng, quản lý kho, marketing...), trả lời theo chuyên môn của bạn.
 - Tuyệt đối không bịa dữ liệu không có trong ngữ cảnh.`,
     };
 
@@ -113,7 +115,36 @@ ${projectList || "- Chưa có dự án nào."}
       model,
       messages: [systemPrompt, ...this.normalizeMessages(messages)],
     });
-    return text;
+    return this.cleanMarkdownText(text);
+  }
+
+  /** Loại bỏ toàn bộ ký tự định dạng Markdown khỏi phản hồi */
+  public static cleanMarkdownText(text: string): string {
+    if (!text) return "";
+    return text
+      // Loại bỏ khối code ```code```
+      .replace(/```[\s\S]*?```/g, (match) => {
+        return match.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "");
+      })
+      // Loại bỏ inline code `text`
+      .replace(/`([^`]+)`/g, "$1")
+      // Loại bỏ bold **text** hoặc __text__
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      // Loại bỏ italic *text* hoặc _text_
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/_([^_]+)_/g, "$1")
+      // Loại bỏ strikethrough ~~text~~
+      .replace(/~~([^~]+)~~/g, "$1")
+      // Loại bỏ tiêu đề #, ##, ### ở đầu dòng
+      .replace(/^#+\s+/gm, "")
+      // Loai bỏ link markdown [label](url) -> label (url)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+      // Loại bỏ trích dẫn > ở đầu dòng
+      .replace(/^>\s+/gm, "")
+      // Dọn dẹp dấu sao hoặc backticks còn sót
+      .replace(/[*_`]/g, "")
+      .trim();
   }
 
   /** Lọc bỏ system message từ client và chuẩn hoá role về user/assistant */
