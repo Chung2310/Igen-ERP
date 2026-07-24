@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Check, Loader2, Save, Sparkles, Trophy } from 'lucide-react';
 import { Student } from '../../../types';
 import { cn, toInputDate, toDisplayDate } from '../../../lib/utils';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 export interface ProgressData {
   theory: { completed: boolean; score: number; lastDate: string };
@@ -31,6 +32,7 @@ export function ProgressTab({
   isUpdatingProgress,
   handleUpdateProgress
 }: ProgressTabProps) {
+  const entityLabel = useEntityLabel();
   const todayStr = React.useMemo(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -44,7 +46,7 @@ export function ProgressTab({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-slate-800">Tiến độ đào tạo</h3>
-          <p className="text-slate-500 text-sm mt-1">Cập nhật và theo dõi các cột mốc học tập của học viên.</p>
+          <p className="text-slate-500 text-sm mt-1">Cập nhật và theo dõi các cột mốc học tập của {entityLabel.singular}.</p>
         </div>
         <button 
           onClick={() => {
@@ -164,7 +166,7 @@ export function ProgressTab({
           <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex flex-col items-center justify-center text-center">
             <Trophy className="w-8 h-8 text-slate-300 mb-3" />
             <h5 className="text-sm font-bold text-slate-700">Chứng chỉ Tốt nghiệp</h5>
-            <p className="text-[10px] text-slate-400 mt-1">Tự động kích hoạt khi học viên hoàn thành mọi hạng mục đào tạo.</p>
+            <p className="text-[10px] text-slate-400 mt-1">Tự động kích hoạt khi {entityLabel.singular} hoàn thành mọi hạng mục đào tạo.</p>
           </div>
         </div>
 
@@ -177,7 +179,7 @@ export function ProgressTab({
             <h4 className="text-white font-bold mb-2">Đề xuất lộ trình tiếp theo</h4>
             <p className="text-cyan-100 text-xs leading-relaxed opacity-80 mb-6">
               {(Array.isArray(student.status) ? student.status.includes('Đang học') : student.status === 'Đang học') 
-                ? "Dựa trên tiến độ hiện tại, học viên cần tập trung chạy đủ km DAT để kịp tiến độ khóa thi tháng sau."
+                ? `Dựa trên tiến độ hiện tại, ${entityLabel.singular} cần tập trung chạy đủ km DAT để kịp tiến độ khóa thi tháng sau.`
                 : "Vui lòng hoàn tất khám sức khỏe để nộp hồ sơ đăng ký thi."}
             </p>
             <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest backdrop-blur-md transition-all">

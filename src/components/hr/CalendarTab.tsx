@@ -529,10 +529,16 @@ export default function CalendarTab({
         {/* Filters Panel */}
         <div className="bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Lịch sử chấm công GPS
-              </h1>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-cyan-500 via-cyan-600 to-teal-600 rounded-2xl shadow-md shadow-cyan-200/80 text-white border border-cyan-400/30">
+                <CalendarCheck className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                  Lịch sử chấm công GPS
+                </h1>
+                <p className="text-xs text-slate-500 font-medium">Theo dõi dữ liệu vào/ra và vị trí chấm công của nhân sự</p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">

@@ -3,6 +3,7 @@ import { CreditCard, History, Trash2, Pencil, Zap, AlertCircle, QrCode, Copy, Ch
 import { Student } from '../../../types';
 import { cn, formatVND, parseVND, getVietQRBankCode } from '../../../lib/utils';
 import { useAuth } from '../../../../../context/AuthContext';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 type PaymentHistoryItem = NonNullable<Student['paymentHistory']>[number];
 
@@ -33,6 +34,7 @@ export function TuitionTab({
   handleDeletePaymentClick
 }: TuitionTabProps) {
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
   const feeLabel = 'Học phí đã chốt';
   const totalFee = parseInt(parseVND(student.fee)) || 0;
   const paid = student.paidAmount || 0;
@@ -188,7 +190,7 @@ export function TuitionTab({
               </div>
             ) : remaining <= 0 ? (
               <div className="w-full py-8 text-center text-slate-400 text-xs italic">
-                Học viên đã hoàn tất đóng học phí.
+                {entityLabel.titleCase} đã hoàn tất đóng học phí.
               </div>
             ) : !hasValidConfig ? (
               <div className="w-full py-6 text-center space-y-3">
@@ -270,7 +272,7 @@ export function TuitionTab({
               <Zap className="w-8 h-8" />
             </div>
             <h4 className="text-sm font-bold text-slate-800">Thông tin đóng phí</h4>
-            <p className="text-xs text-slate-400 mt-1 max-w-[180px]">Học viên cần hoàn tất học phí trước ngày thi sát hạch 15 ngày.</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-[180px]">{entityLabel.titleCase} cần hoàn tất học phí trước ngày thi sát hạch 15 ngày.</p>
 
             <div className="w-full mt-6 space-y-3">
               {(() => {

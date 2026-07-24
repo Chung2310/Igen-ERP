@@ -6,6 +6,7 @@ import { StudentDetailModal } from "./components/Student/StudentDetailModal";
 import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
+import { useEntityLabel } from "./hooks/useEntityLabel";
 import { ChevronDown, LayoutDashboard, Users, BookOpen, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, Handshake, Settings } from "lucide-react";
 
 type StudentSubTab =
@@ -64,11 +65,16 @@ function PageLoader() {
 export default function StudentManagementTab() {
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
+  const entityLabel = useEntityLabel();
+  const subTabRoutes = React.useMemo(
+    () => SUB_TAB_ROUTES.map((item) => (item.slug === "hoc-vien" ? { ...item, label: entityLabel.tabLabel } : item)),
+    [entityLabel.tabLabel],
+  );
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
     return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
   });
 
-  const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(SUB_TAB_ROUTES, "TỔNG QUAN");
+  const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(subTabRoutes, "TỔNG QUAN");
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
@@ -124,7 +130,7 @@ export default function StudentManagementTab() {
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0" id="student_sub_tabs_bar">
         <div className="flex gap-1 overflow-x-auto select-none">
-          {SUB_TAB_ROUTES.map((item) => {
+          {subTabRoutes.map((item) => {
             const isActive = activeSubTab === item.value;
             const Icon = item.icon;
             return (
@@ -132,10 +138,10 @@ export default function StudentManagementTab() {
                 key={item.value}
                 type="button"
                 onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
+                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                    ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 border border-cyan-400/30 scale-[1.02]"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50/70 font-semibold"
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />

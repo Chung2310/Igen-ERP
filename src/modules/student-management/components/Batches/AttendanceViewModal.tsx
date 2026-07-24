@@ -3,6 +3,7 @@ import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight } fro
 import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface AttendanceViewModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
 };
 
 export function AttendanceViewModal({ isOpen, batch, onClose, students }: AttendanceViewModalProps) {
+  const entityLabel = useEntityLabel();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -225,7 +227,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
                 <div className="space-y-1 max-h-[260px] overflow-y-auto">
                   {batch.learnerIds.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có học viên.</p>
+                    <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có {entityLabel.singular}.</p>
                   ) : (
                     batch.learnerIds.map(studentId => {
                       const student = students.find(s => s.id === studentId);
@@ -243,7 +245,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                           <div className="flex items-center gap-2">
                             {cfg.icon}
                             <div>
-                              <p className="text-xs font-bold text-slate-700">{student?.fullName || 'Học viên đã xóa'}</p>
+                              <p className="text-xs font-bold text-slate-700">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                               <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
                             </div>
                           </div>
@@ -274,7 +276,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                             {idx + 1}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-700 truncate">{student?.fullName || 'Học viên đã xóa'}</p>
+                            <p className="text-xs font-bold text-slate-700 truncate">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                             <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
                           </div>
                           <span className="text-sm font-black text-rose-600 flex-shrink-0">

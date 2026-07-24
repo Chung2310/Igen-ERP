@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { apiFetch } from "../../lib/api";
+import { useEntityLabel } from "../../hooks/useEntityLabel";
 import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { Batch, Student } from "../../types";
@@ -58,6 +59,7 @@ interface AssignmentModalProps {
 }
 
 export function AssignmentModal({ isOpen, batch, students, onClose }: AssignmentModalProps) {
+  const entityLabel = useEntityLabel();
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [grading, setGrading] = useState(false);
@@ -103,7 +105,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     const unsubscribe = socketService.on("submission_updated", (data: any) => {
       // Check if it belongs to current active assignment
       if (selectedAssignment && data.assignmentId === selectedAssignment._id) {
-        toast.info("Có học viên vừa cập nhật nộp bài.");
+        toast.info(`Có ${entityLabel.singular} vừa cập nhật nộp bài.`);
         fetchSubmissions(selectedAssignment._id);
       }
     });
@@ -201,7 +203,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
       });
 
       if (res && res.success) {
-        toast.success("Giao bài tập mới và gửi email thông báo học viên thành công!");
+        toast.success(`Giao bài tập mới và gửi email thông báo ${entityLabel.singular} thành công!`);
         setShowCreateForm(false);
         setNewTitle("");
         setNewDescription("");
@@ -436,7 +438,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
             <div className="p-4 border-b border-slate-100 bg-slate-50/10">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                 <Users className="h-3.5 w-3.5 text-indigo-500" />
-                Học viên trong lớp ({batchStudents.length})
+                {entityLabel.tabLabel} trong lớp ({batchStudents.length})
               </span>
             </div>
 
@@ -508,7 +510,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
               {!selectedAssignment || !selectedStudentId ? (
                 <div className="text-center py-20 text-slate-450 h-full flex flex-col items-center justify-center">
                   <Award className="h-10 w-10 text-slate-200 mb-2" />
-                  <p className="text-xs">Chọn học viên để bắt đầu duyệt minh chứng và chấm điểm.</p>
+                  <p className="text-xs">Chọn {entityLabel.singular} để bắt đầu duyệt minh chứng và chấm điểm.</p>
                 </div>
               ) : (() => {
                 const studentInfo = batchStudents.find((s) => s.id === selectedStudentId);
@@ -552,7 +554,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
 
                         {/* Student notes */}
                         <div className="space-y-1 bg-white border border-slate-150 p-3 rounded-2xl">
-                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Ghi chú của học viên</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Ghi chú của {entityLabel.singular}</span>
                           <p className="text-slate-650 italic text-[11px] leading-relaxed whitespace-pre-wrap">{sub.studentNotes || "Không có ghi chú thêm."}</p>
                         </div>
 
@@ -599,7 +601,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     ) : (
                       <div className="p-8 text-center bg-white border border-slate-150 rounded-2xl flex flex-col items-center justify-center">
                         <Clock className="h-10 w-10 text-slate-200 mb-2" />
-                        <p className="text-[11px] text-slate-400 font-medium">Học viên này chưa nộp minh chứng bài tập.</p>
+                        <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng bài tập.</p>
                       </div>
                     )}
                   </div>

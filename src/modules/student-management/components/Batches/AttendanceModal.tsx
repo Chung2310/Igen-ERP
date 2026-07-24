@@ -6,6 +6,7 @@ import { toast } from '../../../../pages/Toast';
 import { QRAttendanceModal } from './QRAttendanceModal';
 import { ErpModal, ErpField, ErpInput } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export function AttendanceModal({
   students,
   onSuccess,
 }: AttendanceModalProps) {
+  const entityLabel = useEntityLabel();
   const [selectedSessionDate, setSelectedSessionDate] = useState<string | null>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionDate, setNewSessionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -147,7 +149,7 @@ export function AttendanceModal({
                 {batch.courseTitle}
               </h4>
               <p className="text-[10px] text-slate-400">
-                Sĩ số: {batch.learnerIds.length} học viên • Lịch học: {formatDays(batch.daysOfWeek)} ({batch.startTime} - {batch.endTime})
+                Sĩ số: {batch.learnerIds.length} {entityLabel.singular} • Lịch học: {formatDays(batch.daysOfWeek)} ({batch.startTime} - {batch.endTime})
               </p>
             </div>
             {!showAddSession && (
@@ -346,7 +348,7 @@ export function AttendanceModal({
                 className="h-3.5 w-3.5 rounded border-slate-300 text-brand-primary focus:ring-brand-primary cursor-pointer"
               />
               <span className="text-[11px] font-bold text-slate-500">
-                Đã chọn {bulkSelectStudents.length}/{batch.learnerIds.length} học viên
+                Đã chọn {bulkSelectStudents.length}/{batch.learnerIds.length} {entityLabel.singular}
               </span>
             </div>
             {bulkSelectStudents.length > 0 && (
@@ -379,7 +381,7 @@ export function AttendanceModal({
           {/* Student list */}
           <div className="border border-slate-100 rounded-2xl divide-y divide-slate-100/60 max-h-72 overflow-y-auto">
             {batch.learnerIds.length === 0 ? (
-              <p className="text-center py-6 text-xs text-slate-400">Lớp học hiện tại chưa có học viên nào.</p>
+              <p className="text-center py-6 text-xs text-slate-400">Lớp học hiện tại chưa có {entityLabel.singular} nào.</p>
             ) : (
               batch.learnerIds.map((studentId) => {
                 const student = students.find(s => s.id === studentId);
@@ -402,7 +404,7 @@ export function AttendanceModal({
                         className="h-3.5 w-3.5 rounded border-slate-300 text-brand-primary focus:ring-brand-primary cursor-pointer"
                       />
                       <div>
-                        <p className="text-xs font-bold text-slate-700">{student?.fullName || 'Học viên đã xóa'}</p>
+                        <p className="text-xs font-bold text-slate-700">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                         <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
                       </div>
                     </div>

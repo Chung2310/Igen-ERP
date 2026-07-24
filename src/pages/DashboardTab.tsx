@@ -744,16 +744,19 @@ export default function DashboardTab() {
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
       <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="font-sans text-xl font-bold tracking-tight text-slate-900">
-              {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-2.5 bg-gradient-to-b from-cyan-500 to-teal-600 rounded-full shadow-xs shrink-0" />
+            <div>
+              <h1 className="font-extrabold text-xl md:text-2xl tracking-tight text-slate-900">
+                {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-1 overflow-x-auto select-none">
+          <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
             {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
               const Icon = tab.icon;
@@ -761,10 +764,10 @@ export default function DashboardTab() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                     isActive
-                      ? "bg-cyan-600 text-white font-bold shadow-xs"
-                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 border border-cyan-400/30 scale-[1.02]"
+                      : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50/70 font-semibold"
                   }`}
                 >
                   <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />

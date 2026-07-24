@@ -25,10 +25,10 @@ export function UserAdminTabs({ activeTab, onChange, userProfile }: Props) {
             <button
               key={tab.id}
               onClick={() => onChange(tab.id as UserAdminTabKey)}
-              className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
+              className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                 isActive
-                  ? "bg-cyan-600 text-white font-bold shadow-xs"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 border border-cyan-400/30 scale-[1.02]"
+                  : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50/70 font-semibold"
               }`}
             >
               <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />

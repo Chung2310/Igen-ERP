@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Sliders, Save, Info, Mail, Server, Key, Eye, EyeOff, Activity, ExternalLink, RefreshCw } from "lucide-react";
+import { Sliders, Save, Info, Mail, Server, Key, Eye, EyeOff, Activity, ExternalLink, RefreshCw, Building2 } from "lucide-react";
 import { toast } from "../../../../pages/Toast";
 import { useAuth } from "../../../../context/AuthContext";
 import { apiFetch } from "../../lib/api";
+import { getModuleSettings, updateModuleSettings } from "../../api/moduleSettings.api";
+import { DEFAULT_ENTITY_PRESET, ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../config/entityLabels";
 
 type FieldConfig = { visible: boolean; required: boolean };
 type FieldsConfig = Record<string, FieldConfig>;
@@ -62,6 +64,41 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [isSavingSmtp, setIsSavingSmtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [entityPreset, setEntityPreset] = useState<EntityPreset>(DEFAULT_ENTITY_PRESET);
+  const [isLoadingPreset, setIsLoadingPreset] = useState(false);
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    setIsLoadingPreset(true);
+    getModuleSettings()
+      .then((settings) => {
+        if (mounted) setEntityPreset(settings.entityPreset);
+      })
+      .catch((error) => console.error("Lỗi khi tải cấu hình loại hình doanh nghiệp:", error))
+      .finally(() => {
+        if (mounted) setIsLoadingPreset(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSaveEntityPreset = async (nextPreset: EntityPreset) => {
+    if (isReadOnly) return;
+    setIsSavingPreset(true);
+    try {
+      const updated = await updateModuleSettings(nextPreset);
+      setEntityPreset(updated.entityPreset);
+      window.dispatchEvent(new CustomEvent("entity-label:changed", { detail: { entityPreset: updated.entityPreset } }));
+      toast.success("Đã cập nhật loại hình doanh nghiệp!");
+    } catch (error) {
+      console.error("Lỗi khi lưu loại hình doanh nghiệp:", error);
+      toast.error("Không thể lưu loại hình doanh nghiệp. Vui lòng thử lại.");
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
 
   // Reload settings dynamically when active center / owner changes
   useEffect(() => {
@@ -239,6 +276,36 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
 
       {/* Main Settings Table */}
     
+
+      {/* Entity Preset Card */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-cyan-600" />
+            Loại hình doanh nghiệp
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Chọn loại hình phù hợp để đổi tên gọi thực thể (tab, tiêu đề, thông báo) trong module này. Ví dụ: doanh nghiệp tuyển dụng sẽ hiển thị "Ứng viên" thay vì "Học viên".
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {ENTITY_PRESET_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              disabled={isReadOnly || isLoadingPreset || isSavingPreset}
+              onClick={() => handleSaveEntityPreset(option.value)}
+              className={`text-left px-4 py-3 rounded-xl border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                entityPreset === option.value
+                  ? "border-cyan-500 bg-cyan-50 text-cyan-800"
+                  : "border-slate-200 hover:border-cyan-300 text-slate-700"
+              }`}
+            >
+              <span className="text-sm font-semibold">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* SMTP Email Settings Card */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-6">

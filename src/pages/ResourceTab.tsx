@@ -2089,23 +2089,23 @@ export default function ResourceTab() {
               {/* Center: Pill tabs - Kho lưu trữ & Được chia sẻ */}
               <div className="flex items-center justify-center">
                 {subTab === "TÀI LIỆU KHÁC" && (
-                  <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                  <div className="flex items-center gap-1.5 bg-slate-100/90 rounded-2xl p-1 border border-slate-200/60 shadow-inner">
                     <button
                       onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                         currentPill === "KHO_LUU_TRU"
-                          ? "bg-cyan-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
+                          ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 scale-[1.02]"
+                          : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
                       }`}
                     >
                       Kho lưu trữ
                     </button>
                     <button
                       onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                         currentPill === "DUOC_CHIA_SE"
-                          ? "bg-cyan-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
+                          ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 scale-[1.02]"
+                          : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
                       }`}
                     >
                       Được chia sẻ
