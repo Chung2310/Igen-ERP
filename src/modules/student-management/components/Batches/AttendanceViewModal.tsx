@@ -62,20 +62,16 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
   const today = getLocalDateStr(new Date());
   const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);
   const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d));
-  const allDates = [...sDates, ...exDates].sort((a, b) => a.localeCompare(b));
-
-  // Hiện toàn bộ ngày theo lịch (kể cả tương lai) — chỉ cho click các ngày đã điểm danh
   const relevantDates = allDates;
-
-  const takenCount = allDates.filter(d => (batch.attendanceSessions || []).some(s => s.date === d)).length;
-  const missedCount = allDates.filter(d => d < today && !(batch.attendanceSessions || []).some(s => s.date === d)).length;
+  const takenCount = allDates.filter(d => (batch.attendanceSessions || []).some(s => s.date === d && s.records && s.records.length > 0)).length;
+  const missedCount = allDates.filter(d => d < today && !(batch.attendanceSessions || []).some(s => s.date === d && s.records && s.records.length > 0)).length;
 
   const selectedSession = selectedDate ? (batch.attendanceSessions || []).find(s => s.date === selectedDate) : null;
 
   // Tổng hợp vắng mặt
   const absentMap: Record<string, number> = {};
   (batch.attendanceSessions || []).forEach(session =>
-    session.records.forEach(r => {
+    (session.records || []).forEach(r => {
       if (r.status === 'absent' || r.status === 'excused') {
         absentMap[r.studentId] = (absentMap[r.studentId] || 0) + 1;
       }
@@ -132,12 +128,12 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
               <div className="space-y-1 max-h-72 overflow-y-auto">
                 {relevantDates.map(date => {
                   const session = (batch.attendanceSessions || []).find(s => s.date === date);
-                  const hasTaken = !!session;
+                  const hasTaken = !!session && (session.records?.length || 0) > 0;
                   const isToday = date === today;
                   const isPast = date < today;
                   const isSelected = selectedDate === date;
-                  const absentCount = session?.records.filter(r => r.status !== 'present').length ?? 0;
-                  const presentCount = session?.records.filter(r => r.status === 'present').length ?? 0;
+                  const absentCount = session?.records ? session.records.filter(r => r.status !== 'present').length : 0;
+                  const presentCount = session?.records ? session.records.filter(r => r.status === 'present').length : 0;
 
                   return (
                     <button
@@ -231,14 +227,15 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                   ) : (
                     batch.learnerIds.map(studentId => {
                       const student = students.find(s => s.id === studentId);
-                      const rec = selectedSession.records.find(r => r.studentId === studentId);
-                      const status = rec?.status ?? 'present';
+                      const rec = selectedSession.records.find(r => String(r.studentId) === String(studentId));
+                      const status = rec ? rec.status : (selectedSession.records.length > 0 ? 'absent' : 'unmarked');
 
                       const cfg = {
-                        present: { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50', text: 'Có mặt', row: 'border-slate-100' },
-                        absent:  { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50', text: 'Vắng', row: 'border-rose-100 bg-rose-50/20' },
-                        excused: { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50', text: 'Có phép', row: 'border-amber-100 bg-amber-50/20' },
-                      }[status] ?? { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50', text: 'Có mặt', row: 'border-slate-100' };
+                        present:  { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200', text: 'Có mặt', row: 'border-emerald-100 bg-emerald-50/20' },
+                        absent:   { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50 border border-rose-200', text: 'Vắng mặt', row: 'border-rose-100 bg-rose-50/20' },
+                        excused:  { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50 border border-amber-200', text: 'Vắng có phép', row: 'border-amber-100 bg-amber-50/20' },
+                        unmarked: { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' }
+                      }[status];
 
                       return (
                         <div key={studentId} className={cn('flex items-center justify-between px-3 py-2 rounded-xl border', cfg.row)}>
