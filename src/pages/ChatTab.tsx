@@ -674,6 +674,7 @@ export default function ChatTab() {
       // Join socket room
       socketService.emit("join_chat_room", { roomId: activeRoom._id });
       sessionStorage.setItem("activeRoomId", activeRoom._id);
+      localStorage.setItem("lastActiveChatRoomId", activeRoom._id);
     }
     return () => {
       if (activeRoom) {
@@ -712,7 +713,32 @@ export default function ChatTab() {
     try {
       setLoadingRooms(true);
       const data = await internalChatService.getRooms();
-      setRooms(sortRoomsList(data));
+      const sorted = sortRoomsList(data);
+      setRooms(sorted);
+
+      // Tự động mở cuộc trò chuyện ở phiên trước hoặc mặc định mở Chatbot AI
+      if (sorted.length > 0) {
+        const savedRoomId = localStorage.getItem("lastActiveChatRoomId") || sessionStorage.getItem("activeRoomId");
+        let targetRoom: ChatRoom | undefined;
+
+        if (savedRoomId) {
+          targetRoom = sorted.find((r) => r._id === savedRoomId);
+        }
+
+        // Nếu không có phòng lưu hoặc phòng đó không còn tồn tại -> Mặc định chọn phòng Chatbot AI
+        if (!targetRoom) {
+          targetRoom = sorted.find((r) => r.isChatbot) || sorted.find((r) => (r.name || "").toLowerCase().includes("bot") || (r.name || "").toLowerCase().includes("ai"));
+        }
+
+        // Nếu hệ thống chưa có phòng Chatbot -> Mặc định chọn phòng đầu tiên
+        if (!targetRoom) {
+          targetRoom = sorted[0];
+        }
+
+        if (targetRoom) {
+          setActiveRoom(targetRoom);
+        }
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -1648,6 +1674,23 @@ export default function ChatTab() {
     return member ? member.role : "member";
   };
 
+  // Hàm hiển thị nội dung tin nhắn dạng Thuần Text (tự động loại bỏ ký tự Markdown như **, *, #, `)
+  const formatMessageContent = (text: string, isMe: boolean) => {
+    if (!text) return "";
+    return text
+      .replace(/```[\s\S]*?```/g, (m) => m.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, ""))
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/_([^_]+)_/g, "$1")
+      .replace(/~~([^~]+)~~/g, "$1")
+      .replace(/^#+\s+/gm, "")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+      .replace(/^>\s+/gm, "")
+      .replace(/[*_`]/g, "");
+  };
+
   // Rút gọn & làm sạch Markdown của nội dung tin nhắn cho phần xem trước
   const cleanMessagePreviewText = (text?: string, maxLen = 60) => {
     if (!text) return "";
@@ -1682,162 +1725,194 @@ export default function ChatTab() {
 
   return (
     <div
-      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border md:border-gray-100 md:shadow-2xl md:shadow-slate-100"
+      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border-2 md:border-slate-300 md:shadow-2xl md:shadow-slate-200"
       id="chat_tab_root"
     >
 
       {/* LEFT SIDEBAR: Conversations & Search */}
-      <div className={`flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/30 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
+      <div className={`flex w-80 shrink-0 flex-col border-r-2 border-slate-300 bg-slate-100/80 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
 
-        {/* Search & Plus header */}
-        <div className="p-4 border-b border-gray-100/50">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-indigo-600" />
-              Hội thoại
-            </h2>
+        {/* 1. SIDEBAR HEADER BLOCK */}
+        <div className="p-4 border-b-2 border-slate-300 bg-white backdrop-blur-md shrink-0">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 shadow-2xs border border-indigo-200">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-800 leading-tight">Trò chuyện</h2>
+                <p className="text-[10px] text-slate-500 font-medium">Nội bộ & Trợ lý AI</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {/* Sound notification toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !soundMuted;
+                  setSoundMuted(next);
+                  localStorage.setItem(CHAT_SOUND_MUTED_KEY, next ? "1" : "0");
+                  toast.info(next ? "Đã tắt âm báo tin nhắn" : "Đã bật âm báo tin nhắn");
+                }}
+                className={`flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-95 ${
+                  soundMuted ? "bg-slate-100 text-slate-400 border-slate-300" : "bg-indigo-50 text-indigo-600 border-indigo-300 hover:bg-indigo-100"
+                }`}
+                title={soundMuted ? "Bật âm báo tin nhắn" : "Tắt âm báo tin nhắn"}
+              >
+                {soundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+
+              {/* Create group button */}
               <button
                 onClick={() => setShowCreateGroupModal(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 active:scale-95"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 active:scale-95 shadow-sm shadow-indigo-200"
                 title="Tạo nhóm chat mới"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
               </button>
             </div>
           </div>
 
+          {/* Search bar */}
           <div className="relative">
             <input
               type="text"
-              placeholder="Tìm kiếm người hoặc phòng..."
+              placeholder="Tìm kiếm cuộc trò chuyện, nhân sự..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full rounded-2xl border border-slate-200/80 bg-slate-50/55 py-2.5 pl-10 pr-4 text-xs outline-none transition-all duration-300 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 placeholder-slate-400/80 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)]"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-8 text-xs outline-none transition-all duration-200 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-400 font-medium"
             />
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
             {searchQuery && (
               <button
                 onClick={() => {
                   setSearchQuery("");
                   setShowUserResults(false);
                 }}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* List Areas */}
-        <div className="flex-1 overflow-y-auto">
+        {/* 2. SIDEBAR CONTENT LIST BLOCK */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {showUserResults ? (
             /* USER SEARCH RESULTS FOR DIRECT MESSAGING */
-            <div className="p-2">
+            <div className="space-y-3 p-1">
               {/* 1. HỘI THOẠI & NHÓM TRÙNG KHỚP */}
-              <p className="px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">Cuộc trò chuyện & Nhóm</p>
-              {filteredRooms.length === 0 ? (
-                <p className="px-3 py-3 text-center text-xs text-gray-500">Không tìm thấy cuộc trò chuyện nào</p>
-              ) : (
-                filteredRooms.map((room) => {
-                  const isSelected = activeRoom?._id === room._id;
-                  const roomName = getRoomName(room);
-                  const roomAvatar = getRoomAvatar(room);
-                  const onlineStatus = getOtherUserStatus(room);
-                  const unreadCount = room.unreadCount || 0;
-                  const hasUnread = unreadCount > 0;
+              <div>
+                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Cuộc trò chuyện & Nhóm</p>
+                {filteredRooms.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-slate-400 italic">Không tìm thấy cuộc trò chuyện nào</p>
+                ) : (
+                  filteredRooms.map((room) => {
+                    const isSelected = activeRoom?._id === room._id;
+                    const roomName = getRoomName(room);
+                    const roomAvatar = getRoomAvatar(room);
+                    const onlineStatus = getOtherUserStatus(room);
+                    const unreadCount = room.unreadCount || 0;
+                    const hasUnread = unreadCount > 0;
 
-                  return (
-                    <button
-                      key={room._id}
-                      onClick={() => {
-                        setActiveRoom(room);
-                        setSearchQuery("");
-                        setShowUserResults(false);
-                      }}
-                      className={`group mx-1 my-1 flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-all duration-300 ${isSelected
-                        ? "bg-gradient-to-r from-indigo-500/10 to-violet-500/5 border border-indigo-100/50 shadow-xs"
-                        : "hover:bg-slate-50/60 border border-transparent text-slate-700"
-                        }`}
-                    >
-                      {/* Avatar */}
-                      <div className="relative h-9 w-9 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
-                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
-                          <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
-                            {roomAvatar === "cloud-avatar" ? (
-                              <Cloud className="h-4.5 w-4.5 text-indigo-600" />
-                            ) : room.isGroup ? (
-                              <Users className="h-4.5 w-4.5 text-slate-500" />
-                            ) : (
-                              roomName.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                        )}
-                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
-                          <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
-                        )}
-                      </div>
+                    return (
+                      <button
+                        key={room._id}
+                        onClick={() => {
+                          setActiveRoom(room);
+                          setSearchQuery("");
+                          setShowUserResults(false);
+                        }}
+                        className={`group w-full my-1 flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${isSelected
+                          ? "bg-indigo-50 border border-indigo-200 shadow-2xs text-indigo-900"
+                          : "bg-white border border-slate-100 hover:border-indigo-100 hover:bg-slate-50 text-slate-700 shadow-2xs"
+                          }`}
+                      >
+                        <div className="relative h-9 w-9 shrink-0 rounded-lg bg-slate-100 overflow-hidden border border-slate-200">
+                          {roomAvatar && roomAvatar !== "cloud-avatar" ? (
+                            <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                              {roomAvatar === "cloud-avatar" ? (
+                                <Cloud className="h-4.5 w-4.5 text-indigo-600" />
+                              ) : room.isGroup ? (
+                                <Users className="h-4.5 w-4.5 text-slate-500" />
+                              ) : (
+                                roomName.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                          )}
+                          {!room.isGroup && room.members.length > 1 && onlineStatus && (
+                            <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                          )}
+                        </div>
 
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <p className={`truncate text-xs font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
-                        <p className="truncate text-[10px] text-gray-400">
-                          {room.isGroup ? `${room.members.length} thành viên` : "Trò chuyện cá nhân"}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-xs font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
+                          <p className="truncate text-[10px] text-slate-400">
+                            {room.isGroup ? `${room.members.length} thành viên` : "Trò chuyện cá nhân"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
 
-              <div className="my-2 border-t border-gray-100/50" />
+              <div className="border-t border-slate-200/60" />
 
               {/* 2. NHÂN VIÊN (BẮT ĐẦU CHAT MỚI) */}
-              <p className="px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Tìm nhân viên (Chat mới)</p>
-              {filteredCompanyUsers.length === 0 ? (
-                <p className="px-3 py-3 text-center text-xs text-gray-500">Không tìm thấy nhân sự phù hợp</p>
-              ) : (
-                filteredCompanyUsers.map((user) => (
-                  <button
-                    key={user.uid}
-                    onClick={() => startPrivateChat(user)}
-                    className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition hover:bg-indigo-50/50"
-                  >
-                    <div className="relative h-10 w-10 shrink-0 rounded-xl bg-indigo-100 overflow-hidden border border-indigo-50">
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center font-bold text-indigo-700">
-                          {user.displayName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${user.status === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800">{user.displayName}</p>
-                      <p className="truncate text-xs text-gray-400">{user.email}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-gray-300" />
-                  </button>
-                ))
-              )}
+              <div>
+                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Tìm nhân viên (Chat mới)</p>
+                {filteredCompanyUsers.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-slate-400 italic">Không tìm thấy nhân sự phù hợp</p>
+                ) : (
+                  filteredCompanyUsers.map((user) => (
+                    <button
+                      key={user.uid}
+                      onClick={() => startPrivateChat(user)}
+                      className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left bg-white border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition shadow-2xs my-1"
+                    >
+                      <div className="relative h-9 w-9 shrink-0 rounded-lg bg-indigo-100 overflow-hidden border border-indigo-100">
+                        {user.photoURL ? (
+                          <img src={user.photoURL} alt={user.displayName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-bold text-xs text-indigo-700">
+                            {user.displayName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-white ${user.status === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-slate-800">{user.displayName}</p>
+                        <p className="truncate text-[10px] text-slate-400">{user.email}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           ) : (
             /* CONVERSATIONS LIST */
-            <div className="py-2">
+            <div className="space-y-1">
+              <div className="px-2 py-1.5 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Tất cả cuộc trò chuyện ({filteredRooms.length})
+                </span>
+              </div>
+
               {loadingRooms ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                   <Loader2 className="h-7 w-7 animate-spin mb-2 text-indigo-600" />
-                  <span className="text-xs">Đang tải cuộc trò chuyện...</span>
+                  <span className="text-xs font-semibold">Đang tải cuộc trò chuyện...</span>
                 </div>
               ) : filteredRooms.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                  <MessageSquare className="h-10 w-10 text-gray-300 mb-2" />
-                  <p className="text-sm font-medium text-slate-500">Chưa có cuộc trò chuyện nào</p>
-                  <p className="text-xs text-gray-400 mt-1">Tìm nhân viên ở ô tìm kiếm trên để bắt đầu nhắn tin hoặc tạo nhóm chat</p>
+                <div className="flex flex-col items-center justify-center py-10 text-center px-4 bg-white/60 rounded-2xl border border-slate-200/60 my-2">
+                  <MessageSquare className="h-8 w-8 text-slate-300 mb-2" />
+                  <p className="text-xs font-semibold text-slate-600">Chưa có cuộc trò chuyện nào</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Tìm nhân viên ở ô tìm kiếm trên để bắt đầu nhắn tin hoặc tạo nhóm chat</p>
                 </div>
               ) : (
                 filteredRooms.map((room) => {
@@ -1853,13 +1928,13 @@ export default function ChatTab() {
                     <button
                       key={room._id}
                       onClick={() => setActiveRoom(room)}
-                      className={`group mx-3 my-1.5 flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-all duration-300 ${isSelected
-                        ? "bg-gradient-to-r from-indigo-500/10 to-violet-500/5 border border-indigo-100/50 shadow-xs"
-                        : "hover:bg-slate-50/60 border border-transparent text-slate-700"
+                      className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 border ${isSelected
+                        ? "bg-white border-2 border-indigo-600 shadow-sm border-l-4 border-l-indigo-600"
+                        : "bg-white border border-slate-300 hover:border-indigo-400 hover:shadow-2xs text-slate-700"
                         }`}
                     >
                       {/* Avatar */}
-                      <div className="relative h-11 w-11 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
+                      <div className="relative h-10 w-10 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200/80">
                         {roomAvatar && roomAvatar !== "cloud-avatar" && roomAvatar !== "ai-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
@@ -1882,12 +1957,12 @@ export default function ChatTab() {
 
                       {/* Content */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className={`truncate text-sm font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isRoomPinned(room) && <Pin className="h-3 w-3 text-indigo-500 rotate-45 fill-indigo-500" />}
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className={`truncate text-xs ${hasUnread ? "text-slate-900 font-bold" : "text-slate-800 font-semibold"}`}>{roomName}</p>
+                          <div className="flex items-center gap-1 shrink-0 ml-1">
+                            {isRoomPinned(room) && <Pin className="h-3 w-3 text-amber-500 rotate-45 fill-amber-500 shrink-0" />}
                             {room.lastMessage && (
-                              <span className="text-[10px] text-gray-400">
+                              <span className="text-[10px] text-slate-400 shrink-0">
                                 {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
@@ -1896,11 +1971,11 @@ export default function ChatTab() {
 
                         {/* Last message / Typing indicator */}
                         {typingMembers.length > 0 ? (
-                          <p className="truncate text-xs font-medium text-emerald-600 animate-pulse">
+                          <p className="truncate text-[11px] font-semibold text-emerald-600 animate-pulse">
                             {typingMembers.join(", ")} đang nhập...
                           </p>
                         ) : (
-                          <p className={`truncate text-xs ${hasUnread ? "text-slate-900 font-semibold" : "text-gray-400"}`}>
+                          <p className={`truncate text-[11px] ${hasUnread ? "text-slate-900 font-semibold" : "text-slate-400"}`}>
                             {formatMessagePreview(room.lastMessage)}
                           </p>
                         )}
@@ -1908,7 +1983,7 @@ export default function ChatTab() {
 
                       {/* Unread count badge */}
                       {hasUnread && (
-                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-extrabold text-white shadow-xs">
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       )}
@@ -1921,12 +1996,13 @@ export default function ChatTab() {
         </div>
       </div>
 
-      {/* RIGHT CHAT AREA */}
-      <div className={`flex flex-1 flex-col bg-gradient-to-b from-indigo-50/15 via-slate-50/40 to-violet-50/10 relative transition-all duration-300 ${activeRoom ? "flex" : "hidden md:flex"}`} id="chat_box_area">
+
+      {/* RIGHT CHAT AREA (MIDDLE WORKSPACE) */}
+      <div className={`flex flex-1 flex-col bg-slate-100/90 relative transition-all duration-300 ${activeRoom ? "flex" : "hidden md:flex"}`} id="chat_box_area">
         {activeRoom ? (
           <>
-            {/* CHAT HEADER */}
-            <div className="flex h-[72px] items-center justify-between border-b border-gray-100 bg-white/50 px-4 md:px-6 backdrop-blur-md">
+            {/* CHAT HEADER BLOCK */}
+            <div className="flex h-[72px] items-center justify-between border-b-2 border-slate-300 bg-white px-4 md:px-6 backdrop-blur-md shrink-0 shadow-2xs">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Back button on mobile */}
                 <button
@@ -1938,7 +2014,7 @@ export default function ChatTab() {
                   <ChevronLeft className="h-5 w-5" />
                 </button>
 
-                <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-gray-200">
+                <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-slate-300 shadow-2xs shrink-0">
                   {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
@@ -1960,24 +2036,24 @@ export default function ChatTab() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
-                  <p className="truncate text-[10px] text-gray-400">
-                    {activeRoom.isChatbot ? "Trợ lý ảo AI" : activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
+                  <p className="truncate text-[10px] text-slate-500 font-medium">
+                    {activeRoom.isChatbot ? "Trợ lý ảo AI Doanh nghiệp" : activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
                 {/* Pin Room Button */}
                 <button
                   onClick={() => handleTogglePinRoom(activeRoom._id)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${
                     isRoomPinned(activeRoom)
-                      ? "bg-indigo-50 text-indigo-600 shadow-xs"
-                      : "text-gray-500 hover:bg-slate-100"
+                      ? "bg-amber-50 border-amber-300 text-amber-600 shadow-2xs font-bold"
+                      : "border-slate-300 text-slate-600 hover:bg-slate-100"
                   }`}
                   title={isRoomPinned(activeRoom) ? "Bỏ ghim cuộc trò chuyện này" : "Ghim cuộc trò chuyện lên đầu"}
                 >
-                  <Pin className={`h-5 w-5 ${isRoomPinned(activeRoom) ? "fill-indigo-600 rotate-45" : ""}`} />
+                  <Pin className={`h-4.5 w-4.5 ${isRoomPinned(activeRoom) ? "fill-amber-500 rotate-45" : ""}`} />
                 </button>
 
                 {/* Search Button */}
@@ -1991,10 +2067,10 @@ export default function ChatTab() {
                       setSearchMessageResults([]);
                     }
                   }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${showSearchPanel ? "bg-indigo-50 text-indigo-600" : "text-gray-500 hover:bg-slate-100"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showSearchPanel ? "bg-indigo-50 border-indigo-300 text-indigo-600 font-bold" : "border-slate-300 text-slate-600 hover:bg-slate-100"}`}
                   title="Tìm kiếm tin nhắn, file, link"
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-4.5 w-4.5" />
                 </button>
 
                 {/* Info Button */}
@@ -2005,7 +2081,7 @@ export default function ChatTab() {
                       setShowSearchPanel(false);
                     }
                   }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${showRoomDetails ? "bg-indigo-50 text-indigo-600" : "text-gray-500 hover:bg-slate-100"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showRoomDetails ? "bg-indigo-50 border-indigo-300 text-indigo-600 font-bold" : "border-slate-300 text-slate-600 hover:bg-slate-100"}`}
                   title="Thông tin cuộc trò chuyện"
                 >
                   <Info className="h-5 w-5" />
@@ -2026,7 +2102,7 @@ export default function ChatTab() {
               const msgId = isObject ? (pinnedMsg as any)._id : pinnedMsg;
 
               return (
-                <div className="flex items-center justify-between bg-amber-50/95 border-b border-amber-100/60 px-6 py-2.5 backdrop-blur-xs text-xs transition-all">
+                <div className="flex items-center justify-between bg-amber-50 border-b-2 border-amber-300 px-6 py-2.5 text-xs transition-all shadow-2xs">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <Pin className="h-3.5 w-3.5 text-amber-600 shrink-0 transform rotate-45" />
 
@@ -2342,7 +2418,7 @@ export default function ChatTab() {
                                 )}
 
                                 {/* Text */}
-                                {msg.content && <p className="leading-relaxed break-words whitespace-pre-wrap">{renderMessageContent(msg.content, isMe)}</p>}
+                                {msg.content && <p className="leading-relaxed break-words whitespace-pre-wrap">{formatMessageContent(msg.content, isMe)}</p>}
 
                                 {/* Xem trước liên kết (URL đầu tiên) */}
                                 {!msg.isDeleted && msg.content && (() => {
@@ -2544,9 +2620,9 @@ export default function ChatTab() {
 
               {/* DETAILS SIDEBAR PANEL */}
               {showRoomDetails && (
-                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-72 shrink-0 border-l border-gray-100 bg-white overflow-y-auto flex flex-col justify-between" id="chat_details_panel">
+                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-72 shrink-0 border-l-2 border-slate-300 bg-white overflow-y-auto flex flex-col justify-between" id="chat_details_panel">
                   {/* Mobile details close header */}
-                  <div className="p-4 border-b border-gray-100 flex items-center justify-between md:hidden shrink-0 bg-white">
+                  <div className="p-4 border-b-2 border-slate-300 flex items-center justify-between md:hidden shrink-0 bg-white">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <Info className="h-4 w-4 text-indigo-600" />
                       Chi tiết hội thoại
@@ -2562,7 +2638,7 @@ export default function ChatTab() {
 
                   {/* Tab bar: Info vs Settings (chỉ Admin nhóm mới thấy Settings) */}
                   {activeRoom.isGroup && isGroupAdmin() && (
-                    <div className="flex border-b border-gray-100 bg-white/80">
+                    <div className="flex border-b-2 border-slate-300 bg-white">
                       <button
                         onClick={() => setShowGroupSettings(false)}
                         className={`flex-1 py-3 text-xs font-semibold transition ${!showGroupSettings ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-400 hover:text-slate-600"}`}
@@ -2839,9 +2915,9 @@ export default function ChatTab() {
 
               {/* SEARCH SIDEBAR PANEL (Zalo-like search) */}
               {showSearchPanel && (
-                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-80 shrink-0 border-l border-gray-100 bg-white overflow-hidden flex flex-col" id="chat_search_panel">
+                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-80 shrink-0 border-l-2 border-slate-300 bg-white overflow-hidden flex flex-col" id="chat_search_panel">
                   {/* Header */}
-                  <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+                  <div className="p-4 border-b-2 border-slate-300 flex items-center justify-between bg-white shrink-0">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <Search className="h-4 w-4 text-indigo-600" />
                       Tìm kiếm trong phòng
@@ -2855,21 +2931,21 @@ export default function ChatTab() {
                   </div>
 
                   {/* Input Search */}
-                  <div className="p-3 border-b border-gray-100 bg-white/40">
+                  <div className="p-3 border-b-2 border-slate-300 bg-white/40">
                     <div className="relative">
                       <input
                         type="text"
                         placeholder="Tìm tin nhắn, tên file, link..."
                         value={searchMessageQuery}
                         onChange={(e) => setSearchMessageQuery(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200/80 bg-white py-2 pl-8 pr-3 text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition"
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-xs outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 transition"
                       />
-                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     </div>
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex border-b border-gray-100 bg-white/80 text-[11px] font-semibold text-slate-500 overflow-x-auto shrink-0 scrollbar-none">
+                  <div className="flex border-b-2 border-slate-300 bg-white text-[11px] font-semibold text-slate-500 overflow-x-auto shrink-0 scrollbar-none">
                     {[
                       { id: "all", label: "Tất cả" },
                       { id: "text", label: "Tin nhắn" },
@@ -2881,7 +2957,7 @@ export default function ChatTab() {
                         key={tab.id}
                         onClick={() => setSearchMessageType(tab.id as any)}
                         className={`flex-1 py-3 text-center transition border-b-2 whitespace-nowrap px-1 ${searchMessageType === tab.id
-                            ? "text-indigo-600 border-indigo-600"
+                            ? "text-indigo-600 border-indigo-600 font-bold"
                             : "border-transparent hover:text-slate-800"
                           }`}
                       >
@@ -2910,10 +2986,10 @@ export default function ChatTab() {
                             key={msg._id}
                             type="button"
                             onClick={() => jumpToMessage(msg._id)}
-                            className="w-full text-left group flex gap-3 p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 shadow-xs hover:shadow-sm transition-all duration-150"
+                            className="w-full text-left group flex gap-3 p-3 rounded-xl bg-white border border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 shadow-xs hover:shadow-sm transition-all duration-150"
                           >
                             {/* Avatar */}
-                            <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden border border-gray-100 mt-0.5">
+                            <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden border border-slate-200 mt-0.5">
                               {msg.senderPhoto ? (
                                 <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
                               ) : (
@@ -2995,7 +3071,7 @@ export default function ChatTab() {
             </div>
 
             {/* CHAT INPUT AREA */}
-            <div className="border-t border-gray-100 bg-white/50 p-3 md:p-4 backdrop-blur-md">
+            <div className="border-t-2 border-slate-300 bg-white p-3 md:p-4 shadow-md backdrop-blur-md">
               {canUserMessage ? (
                 <>
                   {/* Replying message banner */}

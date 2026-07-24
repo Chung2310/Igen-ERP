@@ -52,13 +52,13 @@ export const chatService = {
         senderId: CHATBOT_SENDER_ID,
         senderName: "Trợ lý AI",
         senderPhoto: "ai-avatar",
-        content: `Chào bạn! Tôi là **trợ lý ảo AI** của hệ thống iGen ERP.
+        content: `Chào bạn! Tôi là trợ lý ảo AI của hệ thống iGen ERP.
 
 Tôi có thể giúp bạn tra cứu nhanh dữ liệu doanh nghiệp:
-- **Khách hàng (CRM)** — pipeline, trạng thái, giá trị cơ hội.
-- **Kho hàng** — tồn kho, mặt hàng sắp hết, giá trị tồn.
-- **Dự án & công việc** — tiến độ, phân bổ trạng thái.
-- **Marketing & tài chính** — nội dung, số dư ví.
+- Khách hàng (CRM) — pipeline, trạng thái, giá trị cơ hội.
+- Kho hàng — tồn kho, mặt hàng sắp hết, giá trị tồn.
+- Dự án & công việc — tiến độ, phân bổ trạng thái.
+- Marketing & tài chính — nội dung, số dư ví.
 
 Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
         attachments: [],
@@ -568,7 +568,7 @@ Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
       query.createdAt = { $lt: beforeDate };
     }
 
-    return await ChatMessageModel.find(query)
+    const messages = await ChatMessageModel.find(query)
       .sort({ createdAt: -1 }) // Lấy mới nhất trước
       .limit(limit)
       .populate({
@@ -576,6 +576,28 @@ Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
         select: "senderName content attachments isDeleted"
       })
       .exec();
+
+    // Loại bỏ toàn bộ ký tự Markdown khỏi các tin nhắn của Trợ lý AI (kể cả tin nhắn khởi tạo cũ trong DB)
+    if (room.isChatbot) {
+      messages.forEach((msg: any) => {
+        if (msg.content) {
+          msg.content = msg.content
+            .replace(/```[\s\S]*?```/g, (m: string) => m.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, ""))
+            .replace(/`([^`]+)`/g, "$1")
+            .replace(/\*\*([^*]+)\*\*/g, "$1")
+            .replace(/__([^_]+)__/g, "$1")
+            .replace(/\*([^*]+)\*/g, "$1")
+            .replace(/_([^_]+)_/g, "$1")
+            .replace(/~~([^~]+)~~/g, "$1")
+            .replace(/^#+\s+/gm, "")
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+            .replace(/^>\s+/gm, "")
+            .replace(/[*_`]/g, "");
+        }
+      });
+    }
+
+    return messages;
   },
 
   /**
