@@ -116,7 +116,8 @@ export class AssignmentService {
 
       const students = await Student.find({ _id: { $in: studentIds } });
       const smtpSettings = await resolveSmtpForOwner(ownerId);
-      const appUrl = process.env.APP_URL || "http://localhost:5173";
+      const rawAppUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+      const appUrl = rawAppUrl.trim().replace(/\/+$/, "");
 
       let sentCount = 0;
       let failedCount = 0;
