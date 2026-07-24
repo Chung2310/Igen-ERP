@@ -35,7 +35,7 @@ export function AttendanceModal({
   isOpen,
   batch,
   onClose,
-  students,
+  students = [],
   onSuccess,
 }: AttendanceModalProps) {
   const entityLabel = useEntityLabel();
@@ -47,14 +47,16 @@ export function AttendanceModal({
   const [bulkSelectStudents, setBulkSelectStudents] = useState<string[]>([]);
   const [showQrModal, setShowQrModal] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !batch) return null;
 
   const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek: number[]) => {
     const dates: string[] = [];
     if (!startDateStr || !endDateStr || !daysOfWeek || daysOfWeek.length === 0) return dates;
     
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
+    const [sy, sm, sd] = startDateStr.split('-').map(Number);
+    const [ey, em, ed] = endDateStr.split('-').map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
     
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return dates;
     
@@ -62,7 +64,10 @@ export function AttendanceModal({
     let limit = 0;
     while (cursor <= end && limit < 200) {
       if (daysOfWeek.includes(cursor.getDay())) {
-        dates.push(cursor.toISOString().split('T')[0]);
+        const y = cursor.getFullYear();
+        const m = String(cursor.getMonth() + 1).padStart(2, '0');
+        const d = String(cursor.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${d}`);
       }
       cursor.setDate(cursor.getDate() + 1);
       limit++;

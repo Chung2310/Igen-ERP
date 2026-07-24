@@ -53,11 +53,11 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
   return dates;
 };
 
-export function AttendanceViewModal({ isOpen, batch, onClose, students }: AttendanceViewModalProps) {
+export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: AttendanceViewModalProps) {
   const entityLabel = useEntityLabel();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (!isOpen || !batch) return null;
 
   const today = getLocalDateStr(new Date());
   const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);
