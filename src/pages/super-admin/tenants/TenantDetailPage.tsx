@@ -2,6 +2,61 @@ import React from "react";
 import { superAdminTenantService, type Tenant, type TenantSummary, type TenantUser } from "../../../services/superAdminTenantService";
 import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
+import { ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+
+function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => void }) {
+  const [preset, setPreset] = React.useState<EntityPreset>("student");
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    setLoading(true);
+    getModuleSettings(code)
+      .then((s) => setPreset(s.entityPreset || "student"))
+      .catch(() => setPreset("student"))
+      .finally(() => setLoading(false));
+  }, [code]);
+
+  const save = async () => {
+    setError("");
+    setSaving(true);
+    try {
+      await updateModuleSettings(preset, code);
+      onSaved();
+    } catch (e: any) {
+      setError(`${e.message || "Lỗi khi cập nhật loại hình doanh nghiệp"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <p className="text-xs text-slate-500">Đang tải loại hình doanh nghiệp...</p>;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-400">
+        Chọn loại hình thực thể phù hợp cho doanh nghiệp này (đặc quyền SuperAdmin).
+      </p>
+      <select
+        value={preset}
+        onChange={(e) => setPreset(e.target.value as EntityPreset)}
+        className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
+      >
+        {ENTITY_PRESET_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{error}</p>}
+      <button disabled={saving} onClick={save} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
+        {saving ? "Đang lưu..." : "Lưu loại hình doanh nghiệp"}
+      </button>
+    </div>
+  );
+}
 
 function ModulesEditor({ code, current, onSaved }: { code: string; current: string[]; onSaved: () => void }) {
   const [selected, setSelected] = React.useState<ModuleKey[]>((current as ModuleKey[]) || [...MODULE_KEYS]);
@@ -134,6 +189,11 @@ export function TenantDetailPage({ code, onBack }: { code: string; onBack?: () =
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
         <h3 className="text-sm font-bold text-slate-200">Trạng thái hoạt động</h3>
         <div className="mt-3"><StatusToggle code={code} current={tenant.lifecycleStatus} onSaved={load} /></div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
+        <h3 className="text-sm font-bold text-slate-200">Loại hình doanh nghiệp / Nhãn thực thể</h3>
+        <div className="mt-3"><EntityPresetEditor code={code} onSaved={load} /></div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
