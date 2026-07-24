@@ -42,7 +42,7 @@ Hãy phản hồi bằng tiếng Việt, định dạng Markdown, phong cách ti
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://marketing.igentechsolutions.com/",
+          "HTTP-Referer": process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL,
           "X-Title": "Student Management System",
         },
         body: JSON.stringify({
