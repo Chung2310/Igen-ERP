@@ -804,7 +804,7 @@ export default function DashboardTab() {
           canSeeResource={canSeeResource}
           canSeeChat={canSeeChat}
           canSeeStudent={canSeeStudent}
-          role={userProfile?.role}
+          permissions={userProfile?.permissions}
           actionItems={actionItems}
         />
       )}

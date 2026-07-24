@@ -31,6 +31,7 @@ interface AuthContextType {
   updateProfileInfo: (displayName: string, photoURL: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string>;
   isModuleEnabled: (key: ModuleKey) => boolean;
+  hasPermission: (code: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -248,6 +249,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isModuleEnabled = (key: ModuleKey) => checkModule(userProfile?.enabledModules, key);
 
+  const hasPermission = (code: string) => !userProfile?.permissions || userProfile.permissions.includes(code);
+
   return (
     <AuthContext.Provider
       value={{
@@ -263,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfileInfo,
         uploadAvatar,
         isModuleEnabled,
+        hasPermission,
       }}
     >
       {children}
