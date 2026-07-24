@@ -74,7 +74,12 @@ async function seedPermissions() {
       { code: "project:manage", name: "Quản trị/Thiết lập Dự án", module: "project", description: "Tạo mới, chỉnh sửa thông tin dự án" },
       { code: "stock:read", name: "Xem Nhật ký Kho", module: "stock", description: "Xem lịch sử xuất nhập kho" },
       { code: "stock:manage", name: "Quản trị Kho", module: "stock", description: "Tạo phiếu nhập xuất kho hàng" },
-      { code: "marketing:post", name: "Đăng bài và liên kết MXH", module: "marketing", description: "Đăng bài Facebook/TikTok, liên kết tài khoản MXH" }
+      { code: "marketing:post", name: "Đăng bài và liên kết MXH", module: "marketing", description: "Đăng bài Facebook/TikTok, liên kết tài khoản MXH" },
+      { code: "hr:read", name: "Xem trang tổng quan Nhân sự", module: "hr", description: "Xem thẻ và biểu đồ nhân sự trên trang Tổng quan" },
+      { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
+      { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
+      { code: "chat:read", name: "Xem trò chuyện (Tổng quan)", module: "chat", description: "Xem thẻ trò chuyện trên trang Tổng quan" },
+      { code: "resource:read", name: "Xem tài nguyên (Tổng quan)", module: "resource", description: "Xem thẻ tài nguyên trên trang Tổng quan" }
     ];
 
     for (const perm of defaultPermissions) {
