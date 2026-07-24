@@ -2,6 +2,7 @@ import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
 import { sanitizeModuleKeys, ModuleKey } from "../config/module-keys";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
+import { ModuleSettings, ENTITY_PRESETS } from "../modules/student-management/models/module-settings.model";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
 export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }
@@ -10,7 +11,7 @@ const db: TenantRepository = { create: async t => (await CompanyModel.create(t))
 const next:Record<TenantLifecycleStatus,TenantLifecycleStatus[]>={active:["suspended","archived"],suspended:["active","archived"],archived:["active"],"scheduled-deletion":[]};
 const code=(v:string)=>{const c=String(v||"").trim().toUpperCase();if(!c)throw Error("Tenant code is required");return c}; const needed=(t:TenantRecord|null,c:string)=>{if(!t)throw Error(`Tenant ${c} not found`);return t};
 
-export interface TenantCreateInput { code:string; name:string; ownerEmail:string; ownerName:string; ownerPassword:string; enabledModules?:unknown; }
+export interface TenantCreateInput { code:string; name:string; ownerEmail:string; ownerName:string; ownerPassword:string; enabledModules?:unknown; entityPreset?:string; }
 
 export class TenantManagementService {
   constructor(private readonly tenants:TenantRepository=db) {}
@@ -28,6 +29,15 @@ export class TenantManagementService {
     const now=new Date();
     const tenant = await this.tenants.create({code:c,name,ownerEmail,createdAt:now,lifecycleStatus:"active",lifecycleChangedAt:now,deletionScheduledAt:null,retentionEndsAt:null,deletionReason:"",enabledModules});
     const admin = await createCompanyAdminUser({ companyCode:c, companyName:name, ownerName, ownerEmail, ownerPassword });
+
+    // Cố định loại hình doanh nghiệp (entity preset) cho tenant mới
+    const preset = ENTITY_PRESETS.includes(v.entityPreset as any) ? v.entityPreset : "student";
+    await ModuleSettings.findOneAndUpdate(
+      { tenantId: c },
+      { $set: { tenantId: c, entityPreset: preset, updatedBy: "SUPERADMIN_ONBOARDING" } },
+      { upsert: true }
+    );
+
     return { ...tenant, adminUserId: String(admin._id) };
   }
 
