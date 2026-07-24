@@ -133,6 +133,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
 
   const handleAddResource = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
       if (f.isVisible && !f.isArchived && f.isRequired) {
