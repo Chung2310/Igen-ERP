@@ -112,11 +112,11 @@ export default function SettingsTab() {
       {/* Title Header with Glassmorphism Header */}
       <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-gray-200/80 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-br from-cyan-500 via-cyan-600 to-teal-600 rounded-2xl shadow-md shadow-cyan-200/80 text-white border border-cyan-400/30">
+          <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
             <Sliders className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl md:text-2xl font-black text-cyan-700 tracking-tight">
               Cài đặt Hệ thống & Cá nhân
             </h1>
             <p className="text-xs text-slate-500 font-medium">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
@@ -140,8 +140,8 @@ export default function SettingsTab() {
                 onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
                 className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 border border-cyan-400/30 scale-[1.02]"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50/70 font-semibold"
+                    ? "bg-cyan-600 text-white font-bold shadow-sm"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />

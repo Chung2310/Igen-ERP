@@ -2094,7 +2094,7 @@ export default function ResourceTab() {
                       onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                         currentPill === "KHO_LUU_TRU"
-                          ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 scale-[1.02]"
+                          ? "bg-cyan-600 text-white font-bold shadow-sm"
                           : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
                       }`}
                     >
@@ -2104,7 +2104,7 @@ export default function ResourceTab() {
                       onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                         currentPill === "DUOC_CHIA_SE"
-                          ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 scale-[1.02]"
+                          ? "bg-cyan-600 text-white font-bold shadow-sm"
                           : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
                       }`}
                     >

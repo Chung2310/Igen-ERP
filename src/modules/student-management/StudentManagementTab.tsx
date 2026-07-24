@@ -140,8 +140,8 @@ export default function StudentManagementTab() {
                 onClick={() => setActiveSubTab(item.value)}
                 className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "bg-gradient-to-r from-cyan-600 via-cyan-500 to-teal-600 text-white font-extrabold shadow-md shadow-cyan-200/80 border border-cyan-400/30 scale-[1.02]"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50/70 font-semibold"
+                    ? "bg-cyan-600 text-white font-bold shadow-sm"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />

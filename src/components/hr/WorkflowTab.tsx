@@ -404,13 +404,13 @@ export default function WorkflowTab({
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-cyan-500 via-cyan-600 to-teal-600 rounded-2xl shadow-md shadow-cyan-200/80 text-white border border-cyan-400/30">
+            <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
               <Layers className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-lg font-black text-cyan-700 tracking-tight flex items-center gap-2">
                 Quy trình làm việc
-                <span className="rounded-full bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 text-xs font-bold text-cyan-700">
+                <span className="rounded-full bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 text-xs font-bold text-cyan-600">
                   {workflows.length}
                 </span>
               </h2>
