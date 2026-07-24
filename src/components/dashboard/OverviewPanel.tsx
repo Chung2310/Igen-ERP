@@ -10,14 +10,22 @@ import { useEntityLabel } from "../../modules/student-management/hooks/useEntity
 type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timekeeping" | "chat" | "resources" | "charts" | "inventoryPanels";
 
 /**
- * Nhân viên thường chỉ thấy các chỉ số cá nhân (chấm công, task, trò chuyện,
- * tài nguyên) — ẩn số liệu toàn công ty (nhân sự tổng, kho, học phí, doanh
- * thu). Trưởng phòng/giám đốc/superadmin thấy đầy đủ như hiện tại.
+ * Mỗi card yêu cầu 1 mã quyền trong RolePermission.permissions[] của công ty
+ * (xem server/config/permission-catalog.ts). Card chỉ hiện khi module tương
+ * ứng được bật cho công ty (canSeeX) VÀ role của user có quyền này.
  */
-const VISIBLE_CARDS: Record<string, CardKey[]> = {
-  user: ["timekeeping", "projects", "chat", "resources"],
+const CARD_PERMISSION_MAP: Record<CardKey, string> = {
+  hr: "hr:read",
+  inventory: "stock:read",
+  projects: "project:read",
+  students: "student:read",
+  tuition: "student:read",
+  timekeeping: "timekeeping:read",
+  chat: "chat:read",
+  resources: "resource:read",
+  charts: "hr:read",
+  inventoryPanels: "stock:read",
 };
-const ALL_CARDS: CardKey[] = ["hr", "inventory", "projects", "students", "tuition", "timekeeping", "chat", "resources", "charts", "inventoryPanels"];
 
 export function OverviewPanel({
   employeeCount,
@@ -43,7 +51,7 @@ export function OverviewPanel({
   canSeeResource,
   canSeeChat,
   canSeeStudent,
-  role,
+  permissions,
   actionItems,
 }: {
   employeeCount: string;
@@ -69,13 +77,12 @@ export function OverviewPanel({
   canSeeResource: boolean;
   canSeeChat: boolean;
   canSeeStudent: boolean;
-  role?: string;
+  permissions?: string[];
   actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel();
-  const visibleCards = (role && VISIBLE_CARDS[role]) || ALL_CARDS;
-  const showCard = (key: CardKey) => visibleCards.includes(key);
+  const showCard = (key: CardKey) => !permissions || permissions.includes(CARD_PERMISSION_MAP[key]);
 
   const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {

@@ -22,6 +22,11 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "stock:read", label: "Xem kho", group: "Kho & Sản phẩm" },
   { code: "stock:manage", label: "Quản lý kho", group: "Kho & Sản phẩm" },
   { code: "marketing:post", label: "Đăng nội dung marketing", group: "Marketing" },
+  { code: "hr:read", label: "Xem nhân sự", group: "Nhân sự" },
+  { code: "timekeeping:read", label: "Xem chấm công", group: "Nhân sự" },
+  { code: "student:read", label: "Xem học viên/khách hàng", group: "Học viên & Khách hàng" },
+  { code: "chat:read", label: "Xem trò chuyện", group: "Trò chuyện" },
+  { code: "resource:read", label: "Xem tài nguyên", group: "Tài nguyên" },
 ];
 
 export const PERMISSION_CODES = PERMISSION_CATALOG.map((entry) => entry.code);
