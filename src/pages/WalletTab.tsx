@@ -300,7 +300,7 @@ export default function WalletTab() {
             <Wallet className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-cyan-700 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
+            <h1 className="text-xl md:text-2xl font-black text-cyan-700 dark:text-cyan-400 tracking-tight">Ví Tài Khoản & Nạp Tiền</h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">Quản lý số dư Credit và lịch sử giao dịch trực tuyến</p>
           </div>
         </div>

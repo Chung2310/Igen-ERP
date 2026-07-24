@@ -883,7 +883,7 @@ export function WorkflowReader({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Hướng dẫn quy trình</p>
-                  <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{workflow.name}</h1>
+                  <h1 className="mt-2 text-2xl font-extrabold text-cyan-700">{workflow.name}</h1>
                   {workflow.category && <p className="mt-1 text-xs font-semibold text-slate-400">{workflow.category}</p>}
                 </div>
                 <CheckCircle2 className="h-8 w-8 text-emerald-500" />
@@ -948,7 +948,7 @@ function WorkflowStepDetailModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">Bước {stepIndex + 1}</p>
-            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-slate-900">{step.title || `Bước ${stepIndex + 1}`}</h2>
+            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-cyan-700">{step.title || `Bước ${stepIndex + 1}`}</h2>
           </div>
           <button onClick={onClose} className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100" aria-label="Đóng">×</button>
         </div>

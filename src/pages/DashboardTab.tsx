@@ -747,7 +747,7 @@ export default function DashboardTab() {
           <div className="flex items-center gap-3">
             <div className="h-8 w-1.5 bg-cyan-600 rounded-full shrink-0" />
             <div>
-              <h1 className="font-extrabold text-xl md:text-2xl tracking-tight text-cyan-700">
+              <h1 className="font-extrabold text-xl md:text-2xl tracking-tight text-cyan-700 dark:text-cyan-400">
                 {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
               </h1>
               <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>

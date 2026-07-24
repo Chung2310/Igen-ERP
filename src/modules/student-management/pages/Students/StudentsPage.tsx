@@ -400,7 +400,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">{entityLabel.tabLabel}</h1>
+          <h1 className="text-lg font-bold text-cyan-700 tracking-tight">{entityLabel.tabLabel}</h1>
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex items-center gap-1.5">

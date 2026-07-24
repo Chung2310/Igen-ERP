@@ -116,7 +116,7 @@ export default function SettingsTab() {
             <Sliders className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-cyan-700 tracking-tight">
+            <h1 className="text-xl md:text-2xl font-black text-cyan-700 dark:text-cyan-400 tracking-tight">
               Cài đặt Hệ thống & Cá nhân
             </h1>
             <p className="text-xs text-slate-500 font-medium">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
