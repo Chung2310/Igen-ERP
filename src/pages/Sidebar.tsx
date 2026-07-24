@@ -26,6 +26,7 @@ import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { filterEnabledTabs } from "../config/modules";
+import { useEntityLabel } from "../modules/student-management/hooks/useEntityLabel";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -94,9 +95,12 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
+  const { tabLabel: studentTabLabel } = useEntityLabel();
 
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
-  const menuItems = baseMenuItems.filter((item) => enabledTabs.has(item.label));
+  const menuItems = baseMenuItems
+    .filter((item) => enabledTabs.has(item.label))
+    .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item));
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({

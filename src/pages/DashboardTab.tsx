@@ -757,7 +757,7 @@ export default function DashboardTab() {
 
         <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
-            {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
+            {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory || canSeeStudent).map((tab) => {
               const isActive = activeView === tab.id;
               const Icon = tab.icon;
               return (
@@ -808,8 +808,10 @@ export default function DashboardTab() {
           actionItems={actionItems}
         />
       )}
-      {activeView === "revenue" && canSeeInventory && (
+      {activeView === "revenue" && (canSeeInventory || canSeeStudent) && (
         <RevenuePanel
+          canSeeInventory={canSeeInventory}
+          canSeeStudent={canSeeStudent}
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
           prevRevenueShort={prevRevenueShort}
@@ -817,6 +819,10 @@ export default function DashboardTab() {
           orderCount={filteredOrderCount}
           trendData={revenueTrendData}
           productSegments={productSegments}
+          tuitionRevenue={summary?.students.tuitionRevenue ?? 0}
+          tuitionPaymentCount={summary?.students.paymentCount ?? 0}
+          outstandingDebt={summary?.students.outstandingDebt ?? 0}
+          totalStudents={summary?.students.totalStudents ?? 0}
           totalProductsSold={totalProductsSold}
         />
       )}
