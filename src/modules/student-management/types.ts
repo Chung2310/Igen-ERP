@@ -207,6 +207,12 @@ export interface AttendanceSession {
   records: AttendanceRecord[];
 }
 
+export interface BatchGeoLocation {
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number;
+}
+
 export interface Batch {
   id: string;
   code: string;
@@ -217,6 +223,7 @@ export interface Batch {
   startTime: string;    // HH:mm
   endTime: string;      // HH:mm
   location?: string;
+  geoLocation?: BatchGeoLocation;
   startDate: string;    // YYYY-MM-DD
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;

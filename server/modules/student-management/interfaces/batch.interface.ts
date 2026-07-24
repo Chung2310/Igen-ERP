@@ -15,6 +15,12 @@ export interface IAttendanceSession {
   records: IAttendanceRecord[];
 }
 
+export interface IBatchGeoLocation {
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number;
+}
+
 export interface IBatch extends Document {
   customFields?: CustomFieldValues;
   code: string;
@@ -25,6 +31,7 @@ export interface IBatch extends Document {
   startTime: string;    // HH:mm
   endTime: string;      // HH:mm
   location?: string;
+  geoLocation?: IBatchGeoLocation;
   startDate: string;    // YYYY-MM-DD
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;

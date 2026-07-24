@@ -113,6 +113,12 @@ const studentSchema = new Schema<IStudent>(
     idCardFront: { type: String, default: "" },
     idCardBack: { type: String, default: "" },
     partnerId: { type: String, default: "", index: true },
+    faceEnrollment: {
+      registered: { type: Boolean, default: false },
+      registeredAt: { type: Date },
+      insightFaceUserId: { type: String, default: "" },
+      lastEvidencePublicId: { type: String, default: "" },
+    },
   },
   {
     timestamps: true,

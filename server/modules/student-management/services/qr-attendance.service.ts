@@ -6,8 +6,32 @@ import { BatchService } from "./batch.service";
 import { getJwtAccessSecret } from "../../../config/env";
 import { emitToCompany } from "../../../socket";
 import { logger } from "../config/logger";
+import { calculateHaversineDistanceMeters } from "../utils/geo.util";
+import { verifyStudentAttendanceFace } from "./student-face-gate.service";
+import { StudentAttendanceAttemptModel } from "../models/student-attendance-attempt.model";
+import { cloudinaryService } from "../../../service/cloudinary.service";
+import { InsightFaceClient } from "../../../service/insightface.service";
+import type { FaceReasonCode } from "../../../service/insightface.service";
 
 import { Course } from "../models/course.model";
+
+export type QrCheckinReasonCode =
+  | "session_invalid"
+  | "replay"
+  | "device_conflict"
+  | "student_not_found"
+  | "not_in_batch"
+  | "already_checked_in"
+  | "missing_image"
+  | "outside_radius"
+  | FaceReasonCode;
+
+export class QrCheckinError extends Error {
+  constructor(public readonly reasonCode: QrCheckinReasonCode, message: string) {
+    super(message);
+    this.name = "QrCheckinError";
+  }
+}
 
 export interface CheckedInStudent {
   studentId: string;
@@ -35,6 +59,11 @@ export interface QRSession {
 }
 
 const sessions = new Map<string, QRSession>();
+
+const insightFaceClient = {
+  verifyEmployee: (userId: string, image: Buffer, mimeType: string) =>
+    new InsightFaceClient().verifyEmployee(userId, image, mimeType),
+};
 
 // Helper generate JWT token mới với nonce ngẫu nhiên
 function generateToken(sessionId: string, batchId: string): { token: string; expiresAt: number } {
@@ -158,30 +187,34 @@ export class QRAttendanceService {
     };
   }
 
-  // 3. Học viên checkin qua trang public (không cần auth)
+  // 3. Học viên checkin qua trang public (không cần auth) — xác thực khuôn mặt + GPS
   static async checkin(
     token: string,
     phone: string,
-    fingerprint: string
-  ): Promise<{ success: boolean; studentName: string }> {
+    fingerprint: string,
+    image: Buffer,
+    mimeType: string,
+    latitude?: number,
+    longitude?: number
+  ): Promise<{ success: boolean; studentName: string; distanceMeters?: number }> {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
     } catch (err) {
       logger.warn(`[QR-Attendance] Invalid token checkin attempt.`);
-      throw new Error("Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
+      throw new QrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
 
-    const { sid, bid, nonce } = decoded;
+    const { sid, nonce } = decoded;
     const session = sessions.get(sid);
 
     if (!session || session.closed || Date.now() > session.expiresAt) {
-      throw new Error("Phiên điểm danh đã kết thúc hoặc không tồn tại.");
+      throw new QrCheckinError("session_invalid", "Phiên điểm danh đã kết thúc hoặc không tồn tại.");
     }
 
     // A. Chống replay bằng nonce
     if (session.usedNonces.has(nonce)) {
-      throw new Error("Mã QR này đã được quét và sử dụng rồi.");
+      throw new QrCheckinError("replay", "Mã QR này đã được quét và sử dụng rồi.");
     }
     session.usedNonces.add(nonce);
 
@@ -190,7 +223,7 @@ export class QRAttendanceService {
     if (fingerprint) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== cleanPhone) {
-        throw new Error("Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
+        throw new QrCheckinError("device_conflict", "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
       }
     }
 
@@ -201,43 +234,128 @@ export class QRAttendanceService {
     });
 
     if (!student) {
-      throw new Error("Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
+      throw new QrCheckinError("student_not_found", "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
     }
 
     // D. Kiểm tra học viên có thuộc lớp này (batch) không
     const batch = await Batch.findById(session.batchId);
     if (!batch) {
-      throw new Error("Không tìm thấy lớp học.");
+      throw new QrCheckinError("session_invalid", "Không tìm thấy lớp học.");
     }
 
     if (!batch.learnerIds.includes(student._id.toString())) {
-      throw new Error("Học viên không nằm trong danh sách lớp học này.");
+      throw new QrCheckinError("not_in_batch", "Học viên không nằm trong danh sách lớp học này.");
     }
 
     // E. Kiểm tra xem học viên đã điểm danh trong phiên này chưa
     if (session.checkins.has(student._id.toString())) {
-      throw new Error("Bạn đã điểm danh thành công trước đó rồi.");
+      throw new QrCheckinError("already_checked_in", "Bạn đã điểm danh thành công trước đó rồi.");
     }
 
-    // F. Ghi nhận checkin
+    const studentId = student._id.toString();
+    const attemptBase = {
+      studentId,
+      ownerId: session.ownerId,
+      batchId: session.batchId,
+      channel: "qr-offline" as const,
+      sessionId: sid,
+    };
+
+    // F. Kiểm tra vị trí GPS nếu lớp học có cấu hình geoLocation
+    let distanceMeters: number | undefined;
+    if (batch.geoLocation?.latitude != null && batch.geoLocation?.longitude != null) {
+      if (latitude == null || longitude == null) {
+        await StudentAttendanceAttemptModel.create({
+          ...attemptBase, outcome: "rejected", reasonCode: "missing_image",
+          attemptedAt: new Date(),
+        });
+        throw new QrCheckinError("missing_image", "Không lấy được vị trí GPS của bạn. Vui lòng cấp quyền định vị và thử lại.");
+      }
+      distanceMeters = calculateHaversineDistanceMeters(
+        latitude, longitude, batch.geoLocation.latitude, batch.geoLocation.longitude
+      );
+      const radius = batch.geoLocation.radiusMeters ?? 150;
+      if (distanceMeters > radius) {
+        await StudentAttendanceAttemptModel.create({
+          ...attemptBase, outcome: "rejected", reasonCode: "outside_radius",
+          latitude, longitude, distanceMeters, attemptedAt: new Date(),
+        });
+        throw new QrCheckinError(
+          "outside_radius",
+          `Bạn đang ở ngoài khu vực điểm danh cho phép (cách ${Math.round(distanceMeters)}m, giới hạn ${radius}m).`
+        );
+      }
+    }
+
+    // G. Xác thực khuôn mặt
+    if (!student.faceEnrollment?.registered || !student.faceEnrollment.insightFaceUserId) {
+      await StudentAttendanceAttemptModel.create({
+        ...attemptBase, outcome: "rejected", reasonCode: "not_registered",
+        latitude, longitude, distanceMeters, attemptedAt: new Date(),
+      });
+      throw new QrCheckinError("not_registered", "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin.");
+    }
+
+    if (!image || image.length === 0) {
+      await StudentAttendanceAttemptModel.create({
+        ...attemptBase, outcome: "rejected", reasonCode: "missing_image",
+        latitude, longitude, distanceMeters, attemptedAt: new Date(),
+      });
+      throw new QrCheckinError("missing_image", "Vui lòng chụp ảnh khuôn mặt để điểm danh.");
+    }
+
+    const gateResult = await verifyStudentAttendanceFace(
+      { insightFaceUserId: student.faceEnrollment.insightFaceUserId, image, mimeType },
+      { cloudinary: cloudinaryService, insightFace: insightFaceClient }
+    );
+
+    if (!gateResult.accepted) {
+      await StudentAttendanceAttemptModel.create({
+        ...attemptBase,
+        outcome: "rejected",
+        reasonCode: gateResult.reasonCode,
+        similarity: gateResult.verification.similarity ?? undefined,
+        live: gateResult.verification.live ?? undefined,
+        livenessScore: gateResult.verification.livenessScore ?? undefined,
+        latitude, longitude, distanceMeters,
+        evidence: gateResult.evidence,
+        evidenceDeleteAfter: gateResult.evidenceDeleteAfter,
+        attemptedAt: new Date(),
+      });
+      throw new QrCheckinError(gateResult.reasonCode, "Xác thực khuôn mặt không thành công. Vui lòng thử lại.");
+    }
+
+    // H. Ghi nhận checkin
     const checkinInfo: CheckedInStudent = {
-      studentId: student._id.toString(),
+      studentId,
       phone: cleanPhone,
       fullName: student.fullName,
       checkinAt: Date.now()
     };
 
-    session.checkins.set(student._id.toString(), checkinInfo);
+    session.checkins.set(studentId, checkinInfo);
     if (fingerprint) {
       session.deviceMap.set(fingerprint, cleanPhone);
     }
 
+    await StudentAttendanceAttemptModel.create({
+      ...attemptBase,
+      outcome: "accepted",
+      reasonCode: gateResult.reasonCode,
+      similarity: gateResult.verification.similarity ?? undefined,
+      live: gateResult.verification.live ?? undefined,
+      livenessScore: gateResult.verification.livenessScore ?? undefined,
+      latitude, longitude, distanceMeters,
+      evidence: gateResult.evidence,
+      attemptedAt: new Date(),
+    });
+
     logger.info(`[QR-Attendance] Student checked in successfully: name=${student.fullName}, session=${sid}`);
 
-    // G. Emit event Socket.IO realtime cho tất cả thiết bị của cơ sở
+    // I. Emit event Socket.IO realtime cho tất cả thiết bị của cơ sở
     emitToCompany(session.ownerId, "qr-attendance:checkin", {
       sessionId: sid,
-      studentId: student._id.toString(),
+      studentId,
       fullName: student.fullName,
       phone: cleanPhone,
       checkinAt: checkinInfo.checkinAt
@@ -245,7 +363,8 @@ export class QRAttendanceService {
 
     return {
       success: true,
-      studentName: student.fullName
+      studentName: student.fullName,
+      distanceMeters
     };
   }
 

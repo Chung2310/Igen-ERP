@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight } from 'lucide-react';
+import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight, ShieldCheck } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { AttendanceAttemptsModal } from './AttendanceAttemptsModal';
 
 interface AttendanceViewModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
 export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: AttendanceViewModalProps) {
   const entityLabel = useEntityLabel();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showAttempts, setShowAttempts] = useState(false);
 
   if (!isOpen || !batch) return null;
 
@@ -306,11 +308,27 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Đã điểm danh</span>
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Bỏ sót</span>
           </div>
-          <span className="text-[10px] font-bold text-slate-500">
-            {formatDays(batch.daysOfWeek)} · {batch.startTime}–{batch.endTime}
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAttempts(true)}
+              className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary hover:text-brand-primary/80 transition-colors cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> Lịch sử xác thực khuôn mặt
+            </button>
+            <span className="text-[10px] font-bold text-slate-500">
+              {formatDays(batch.daysOfWeek)} · {batch.startTime}–{batch.endTime}
+            </span>
+          </div>
         </div>
       </div>
+
+      <AttendanceAttemptsModal
+        isOpen={showAttempts}
+        batchId={batch.id}
+        batchCode={batch.code}
+        onClose={() => setShowAttempts(false)}
+      />
     </ErpModal>
   );
 }
