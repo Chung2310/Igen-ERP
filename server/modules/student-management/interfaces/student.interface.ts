@@ -58,6 +58,14 @@ export interface IStudentPayment {
   recipient: string;
 }
 
+export interface IStudentFaceEnrollment {
+  registered: boolean;
+  registeredAt?: Date;
+  /** "student:<ownerId>:<studentId>" — namespace riêng, không trùng userId nhân viên trong InsightFace. */
+  insightFaceUserId?: string;
+  lastEvidencePublicId?: string;
+}
+
 export interface IStudent extends Document {
   customFields?: CustomFieldValues;
   fullName: string;
@@ -94,6 +102,7 @@ export interface IStudent extends Document {
   idCardFront?: string;
   idCardBack?: string;
   partnerId?: string;
+  faceEnrollment?: IStudentFaceEnrollment;
   createdAt?: Date;
   updatedAt?: Date;
 }

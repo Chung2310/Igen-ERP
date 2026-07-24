@@ -1,5 +1,28 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, User } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw } from "lucide-react";
+
+const REASON_MESSAGES: Record<string, string> = {
+  not_registered: "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin để đăng ký trước.",
+  invalid_image: "Ảnh không hợp lệ. Vui lòng chụp lại ảnh rõ mặt.",
+  no_face: "Không phát hiện khuôn mặt trong ảnh. Vui lòng chụp lại, đảm bảo đủ ánh sáng.",
+  multiple_faces: "Ảnh có nhiều hơn một khuôn mặt. Vui lòng chụp lại chỉ một mình bạn.",
+  model_unavailable: "Hệ thống nhận diện khuôn mặt tạm thời gián đoạn. Vui lòng thử lại sau ít phút.",
+  spoof_detected: "Không xác nhận được khuôn mặt thật. Vui lòng chụp ảnh trực tiếp, không dùng ảnh/video khác.",
+  face_mismatch: "Khuôn mặt không khớp với hồ sơ đã đăng ký.",
+  outside_radius: "Bạn đang ở ngoài khu vực điểm danh cho phép.",
+  missing_image: "Vui lòng chụp ảnh khuôn mặt và cấp quyền định vị để điểm danh.",
+  session_invalid: "Phiên điểm danh đã kết thúc hoặc mã QR không hợp lệ.",
+  replay: "Mã QR này đã được quét và sử dụng rồi.",
+  device_conflict: "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.",
+  student_not_found: "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.",
+  not_in_batch: "Học viên không nằm trong danh sách lớp học này.",
+  already_checked_in: "Bạn đã điểm danh thành công trước đó rồi.",
+};
+
+function mapReasonCode(reasonCode?: string, fallback?: string): string {
+  if (reasonCode && REASON_MESSAGES[reasonCode]) return REASON_MESSAGES[reasonCode];
+  return fallback || "Điểm danh không thành công.";
+}
 
 // Hàm hash đơn giản cho fingerprint
 function hashCode(str: string): string {
@@ -59,6 +82,90 @@ export default function QRCheckinPage() {
     error?: string;
   } | null>(null);
 
+  const [step, setStep] = useState<"phone" | "capture">("phone");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<Blob | null>(null);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (step !== "capture" || capturedPhoto) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        setCameraError("Không thể truy cập camera. Vui lòng cấp quyền camera cho trình duyệt.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopCamera();
+    };
+  }, [step, capturedPhoto, stopCamera]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (capturedPhotoUrl) URL.revokeObjectURL(capturedPhotoUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCapturePhoto = () => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      setCapturedPhoto(blob);
+      setCapturedPhotoUrl(URL.createObjectURL(blob));
+      stopCamera();
+    }, "image/jpeg", 0.9);
+  };
+
+  const handleRetakePhoto = () => {
+    if (capturedPhotoUrl) URL.revokeObjectURL(capturedPhotoUrl);
+    setCapturedPhoto(null);
+    setCapturedPhotoUrl(null);
+  };
+
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Trình duyệt không hỗ trợ định vị GPS."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      });
+    });
+  };
+
   // 1. Lấy token từ URL
   useEffect(() => {
     const pathParts = window.location.pathname.split("/");
@@ -102,25 +209,49 @@ export default function QRCheckinPage() {
     return dateStr.split("-").reverse().join("/");
   };
 
-  // 3. Thực hiện checkin
-  const handleCheckin = async (e: React.FormEvent) => {
+  // 3. Sau khi nhập SĐT, chuyển sang bước chụp ảnh khuôn mặt
+  const handleContinueToCapture = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 8) return;
+    setCameraError(null);
+    setStep("capture");
+  };
+
+  // 4. Thực hiện checkin: ảnh khuôn mặt (bắt buộc) + GPS
+  const handleCheckin = async () => {
+    if (!capturedPhoto) return;
 
     try {
       setSubmitting(true);
+      setCameraError(null);
       const fingerprint = getDeviceFingerprint();
-      
+
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      try {
+        const position = await getCurrentPosition();
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+      } catch (err) {
+        setResult({
+          success: false,
+          error: "Không lấy được vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt và thử lại."
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("token", token);
+      formData.append("phone", phone.replace(/\D/g, ""));
+      formData.append("fingerprint", fingerprint);
+      formData.append("latitude", String(latitude));
+      formData.append("longitude", String(longitude));
+      formData.append("file", capturedPhoto, "checkin.jpg");
+
       const res = await fetch("/api/v1/qr-attendance/checkin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token,
-          phone: phone.replace(/\D/g, ""),
-          fingerprint
-        })
+        body: formData
       });
 
       const data = await res.json();
@@ -132,7 +263,7 @@ export default function QRCheckinPage() {
       } else {
         setResult({
           success: false,
-          error: data.error || "Điểm danh thất bại."
+          error: mapReasonCode(data.reasonCode, data.error)
         });
       }
     } catch (err) {
@@ -143,6 +274,12 @@ export default function QRCheckinPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleTryAgain = () => {
+    setResult(null);
+    handleRetakePhoto();
+    setStep("capture");
   };
 
   if (loadingSession) {
@@ -224,14 +361,14 @@ export default function QRCheckinPage() {
                 <p className="text-slate-500 text-sm mt-2 font-medium">{result.error}</p>
               </div>
               <button
-                onClick={() => setResult(null)}
+                onClick={handleTryAgain}
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all cursor-pointer"
               >
                 Quay lại thử lại
               </button>
             </div>
           )
-        ) : (
+        ) : step === "phone" ? (
           // Màn hình nhập SĐT để điểm danh
           <div className="space-y-6">
             <div className="text-center space-y-2">
@@ -250,7 +387,7 @@ export default function QRCheckinPage() {
               </div>
             </div>
 
-            <form onSubmit={handleCheckin} className="space-y-4">
+            <form onSubmit={handleContinueToCapture} className="space-y-4">
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-slate-400" /> Số điện thoại đã đăng ký
@@ -272,22 +409,88 @@ export default function QRCheckinPage() {
 
               <button
                 type="submit"
-                disabled={submitting || !phone || phone.length < 8}
+                disabled={!phone || phone.length < 8}
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang điểm danh...
-                  </>
-                ) : (
-                  <>
-                    <User className="w-4 h-4" />
-                    Xác nhận Điểm danh
-                  </>
-                )}
+                <Camera className="w-4 h-4" />
+                Tiếp tục chụp ảnh khuôn mặt
               </button>
             </form>
+          </div>
+        ) : (
+          // Màn hình chụp ảnh khuôn mặt + xác nhận điểm danh
+          <div className="space-y-5">
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">Chụp ảnh khuôn mặt</h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Nhìn thẳng vào camera, đủ ánh sáng, chỉ một mình bạn trong khung hình.
+              </p>
+            </div>
+
+            {cameraError ? (
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-center text-sm text-rose-600 font-semibold">
+                {cameraError}
+              </div>
+            ) : (
+              <div className="relative aspect-[4/3] w-full bg-slate-900 rounded-2xl overflow-hidden">
+                {capturedPhotoUrl ? (
+                  <img src={capturedPhotoUrl} alt="Ảnh đã chụp" className="w-full h-full object-cover" />
+                ) : (
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                )}
+              </div>
+            )}
+
+            {!capturedPhoto ? (
+              <button
+                type="button"
+                onClick={handleCapturePhoto}
+                disabled={!!cameraError}
+                className="w-full h-14 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                Chụp ảnh
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleCheckin}
+                  disabled={submitting}
+                  className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Đang xác thực...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-4 h-4" />
+                      Xác nhận Điểm danh
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRetakePhoto}
+                  disabled={submitting}
+                  className="w-full h-11 bg-slate-100 text-slate-600 rounded-2xl text-xs font-bold active:scale-98 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Chụp lại
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { stopCamera(); handleRetakePhoto(); setStep("phone"); }}
+              disabled={submitting}
+              className="w-full text-center text-[11px] text-slate-400 font-semibold underline disabled:opacity-50"
+            >
+              Quay lại nhập số điện thoại
+            </button>
           </div>
         )}
       </div>
