@@ -59,7 +59,7 @@ export function createSuperAdminAuthService(deps: any) {
       if (user.superAdminSecurity.totpEnabled) throw new Error("TOTP already enrolled");
       const secret = deps.createSecret(); c.enrollmentSecretEncrypted = deps.encrypt(secret); await deps.challenges.save(c);
       const uri = `otpauth://totp/Igen%20ERP:${encodeURIComponent(user.email)}?secret=${secret}&issuer=Igen%20ERP`;
-      return { qrDataUrl: await deps.qr(uri) };
+      return { qrDataUrl: await deps.qr(uri), manualEntryKey: secret };
     },
     async confirmEnrollment(challengeId: string, token: string, metadata: any) {
       const c = await getChallenge(challengeId, metadata); const user = await getUser(c);
