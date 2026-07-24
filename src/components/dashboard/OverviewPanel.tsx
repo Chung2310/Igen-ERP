@@ -5,6 +5,7 @@ import LowStockModal from "../inventory/LowStockModal";
 import { formatDashboardCurrency, buildPctSegments } from "./dashboardUtils";
 import { ModuleCard, DonutCard, BarChart } from "./DashboardWidgets";
 import { ActionItemsWidget } from "./ActionItemsWidget";
+import { useEntityLabel } from "../../modules/student-management/hooks/useEntityLabel";
 
 type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timekeeping" | "chat" | "resources" | "charts" | "inventoryPanels";
 
@@ -72,6 +73,7 @@ export function OverviewPanel({
   actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
+  const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel();
   const visibleCards = (role && VISIBLE_CARDS[role]) || ALL_CARDS;
   const showCard = (key: CardKey) => visibleCards.includes(key);
 
@@ -155,10 +157,10 @@ export function OverviewPanel({
             <ModuleCard
               icon={GraduationCap}
               tone="emerald"
-              title="Học viên"
+              title={studentEntityTitle}
               value={summary ? String(summary.students.totalStudents) : "..."}
-              label="Tổng học viên"
-              footer="Học viên mới trong kỳ"
+              label={`Tổng ${studentEntitySingular}`}
+              footer={`${studentEntityTitle} mới trong kỳ`}
               footerValue={summary ? `+${summary.students.newStudents}` : "..."}
               onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
             />
@@ -167,7 +169,7 @@ export function OverviewPanel({
             <ModuleCard
               icon={Wallet}
               tone="amber"
-              title="Học phí & Công nợ"
+              title={`Học phí & Công nợ ${studentEntitySingular}`}
               value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
               label="Học phí đã thu"
               footer="Công nợ còn lại"
