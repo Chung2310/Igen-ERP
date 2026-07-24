@@ -2,6 +2,7 @@ import React from "react";
 import { Shield, X, RefreshCw } from "lucide-react";
 import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
+import { getPermissionLabel, getPermissionDescription } from "../../utils/permissionUtils";
 
 export interface RoleModalProps {
   open: boolean;
@@ -136,16 +137,18 @@ export function RoleModal({
 
             {/* Danh sách mã quyền gán */}
             <div className="space-y-2 border-t border-gray-100 pt-3">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Thiết lập các mã quyền được phép truy cập *</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Thiết lập các quyền truy cập được cấp phép *</label>
               
               {editingRole?.role === "superadmin" ? (
-                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-mono italic">
-                  Vai trò Superadmin tự động có tất cả quyền trong hệ thống (*) và không thể sửa đổi quyền.
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium">
+                  Vai trò Superadmin tự động có tất cả quyền trong hệ thống và không thể thay đổi.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 pr-2">
                   {systemPermissions.map((perm) => {
                     const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
+                    const labelText = getPermissionLabel(perm.code, perm.name);
+                    const descText = getPermissionDescription(perm.code, perm.description);
                     return (
                       <div
                         key={perm.code}
@@ -159,10 +162,10 @@ export function RoleModal({
                             }
                           });
                         }}
-                        className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
+                        className={`flex items-start gap-2.5 p-3 border rounded-2xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
                           isChecked
-                            ? "bg-indigo-50/50 border-indigo-200"
-                            : "bg-white border-gray-150"
+                            ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
+                            : "bg-white border-gray-150 text-slate-700"
                         }`}
                       >
                         <input
@@ -170,13 +173,12 @@ export function RoleModal({
                           checked={isChecked}
                           disabled={selectedPermissions.includes("*")}
                           readOnly
-                          className="mt-0.5 cursor-pointer accent-indigo-650"
+                          className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
                         />
                         <div>
-                          <span className="text-xs font-bold text-slate-800 block leading-tight">{perm.name}</span>
-                          <span className="text-[9px] text-indigo-600 font-mono leading-none block mt-0.5">{perm.code}</span>
-                          {perm.description && (
-                            <span className="text-[9px] text-gray-400 mt-1 block leading-normal">{perm.description}</span>
+                          <span className="text-xs font-bold block leading-tight">{labelText}</span>
+                          {descText && (
+                            <span className="text-[10px] text-gray-500 mt-1 block leading-normal">{descText}</span>
                           )}
                         </div>
                       </div>
