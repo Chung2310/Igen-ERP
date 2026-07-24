@@ -5,6 +5,7 @@ import { apiFetch } from "../../lib/api";
 import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { cn } from "../../lib/utils";
+import { useEntityLabel } from "../../hooks/useEntityLabel";
 
 interface QRAttendanceModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function QRAttendanceModal({
   onClose,
   onSuccess,
 }: QRAttendanceModalProps) {
+  const entityLabel = useEntityLabel();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string>("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -243,7 +245,7 @@ export function QRAttendanceModal({
   };
 
   const handleCancel = () => {
-    if (window.confirm("Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ học viên từ đầu phiên sẽ KHÔNG được lưu.")) {
+    if (window.confirm(`Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ ${entityLabel.singular} từ đầu phiên sẽ KHÔNG được lưu.`)) {
       onClose();
     }
   };
@@ -336,7 +338,7 @@ export function QRAttendanceModal({
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-500 space-y-2.5 max-w-[285px] w-full shadow-inner">
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">1</span>
-                    <p>Học viên mở camera điện thoại quét mã QR.</p>
+                    <p>{entityLabel.titleCase} mở camera điện thoại quét mã QR.</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">2</span>
@@ -365,7 +367,7 @@ export function QRAttendanceModal({
                   {classStudents.length === 0 ? (
                     <div className="text-center py-12">
                       <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                      <p className="text-xs text-slate-400 font-bold">Không có học viên nào trong lớp này.</p>
+                      <p className="text-xs text-slate-400 font-bold">Không có {entityLabel.singular} nào trong lớp này.</p>
                     </div>
                   ) : (
                     classStudents.map((student) => {

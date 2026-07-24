@@ -11,6 +11,7 @@ import { FormInput } from './components/StudentFormFields';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
@@ -35,6 +36,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     restoreField: restoreStdField,
     deleteField: deleteStdField
   } = useStandardFields("students");
+  const entityLabel = useEntityLabel();
 
   const manageable = canManageCustomFields(user?.role);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -215,7 +217,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
       };
       await apiFetch(`/students/${student?.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       window.dispatchEvent(new Event('student-mutation'));
-      toast.success('Đã cập nhật thông tin học viên thành công!');
+      toast.success(`Đã cập nhật thông tin ${entityLabel.singular} thành công!`);
       onSuccess();
       onClose();
     } catch (error: unknown) {
@@ -249,7 +251,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
             className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-              <h2 className="text-base font-bold text-slate-800">Chỉnh sửa thông tin học viên</h2>
+              <h2 className="text-base font-bold text-slate-800">{entityLabel.editTitle}</h2>
               <button
                 onClick={onClose}
                 disabled={isSubmitting}
@@ -540,7 +542,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   ) : (
                     <Save className="w-3.5 h-3.5" />
                   )}
-                  Lưu học viên
+                  Lưu {entityLabel.singular}
                 </button>
               </div>
             </form>

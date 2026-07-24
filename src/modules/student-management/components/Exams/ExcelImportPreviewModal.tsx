@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle2, AlertTriangle, Save, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 export interface PreviewStudent {
   phone: string;
@@ -36,6 +37,7 @@ export function ExcelImportPreviewModal({
   onConfirm,
   isSubmitting
 }: ExcelImportPreviewModalProps) {
+  const entityLabel = useEntityLabel();
   const [activeTab, setActiveTab] = useState<'valid' | 'invalid'>('valid');
 
   // Automatically switch tab if one list is empty
@@ -115,7 +117,7 @@ export function ExcelImportPreviewModal({
             {activeTab === 'valid' ? (
               validList.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 italic text-sm">
-                  Không có học viên nào đủ điều kiện nhập.
+                  Không có {entityLabel.singular} nào đủ điều kiện nhập.
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white">
@@ -158,7 +160,7 @@ export function ExcelImportPreviewModal({
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        <th className="px-4 py-3 font-bold text-slate-400 uppercase tracking-wider">Học viên</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 uppercase tracking-wider">{entityLabel.tabLabel}</th>
                         <th className="px-4 py-3 font-bold text-slate-400 uppercase tracking-wider">Số điện thoại</th>
                         <th className="px-4 py-3 font-bold text-slate-400 uppercase tracking-wider">Lý do lỗi</th>
                       </tr>

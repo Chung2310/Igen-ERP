@@ -207,6 +207,92 @@
   color: var(--color-on-surface);
 }
 
+.dark {
+  color-scheme: dark;
+  --color-background: #0d0f14;
+  --color-on-background: #f1f5f9;
+  --color-surface: #0d0f14;
+  --color-on-surface: #f1f5f9;
+  --color-surface-bright: #16181f;
+  --color-surface-dim: #0d0f14;
+  --color-surface-container-lowest: #101217;
+  --color-surface-container-low: #16181f;
+  --color-surface-container: #1e212b;
+  --color-surface-container-high: #272b38;
+  --color-surface-container-highest: #313747;
+  --color-outline: #475569;
+  --color-outline-variant: #242834;
+
+  /* Invert basic whites/grays/slates for soft dark theme */
+  --color-white: #16181f;
+  --color-black: #ffffff;
+
+  --color-slate-50: #101217;
+  --color-slate-100: #1e212b;
+  --color-slate-200: #272b38;
+  --color-slate-300: #3b4256;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #cbd5e1;
+  --color-slate-600: #e2e8f0;
+  --color-slate-650: #f1f5f9;
+  --color-slate-655: #f8fafc;
+  --color-slate-700: #f8fafc;
+  --color-slate-800: #ffffff;
+  --color-slate-900: #f8fafc;
+  --color-slate-950: #ffffff;
+
+  --color-gray-50: #101217;
+  --color-gray-55: #14171d;
+  --color-gray-100: #1e212b;
+  --color-gray-150: #242834;
+  --color-gray-200: #2c3241;
+  --color-gray-300: #424b61;
+  --color-gray-400: #94a3b8;
+  --color-gray-450: #cbd5e1;
+  --color-gray-500: #cbd5e1;
+  --color-gray-550: #cbd5e1;
+  --color-gray-600: #e2e8f0;
+  --color-gray-700: #f1f5f9;
+  --color-gray-800: #f8fafc;
+  --color-gray-850: #ffffff;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #ffffff;
+
+  --color-neutral-50: #101217;
+  --color-neutral-100: #1e212b;
+  --color-neutral-200: #272b38;
+  --color-neutral-300: #3b4256;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #cbd5e1;
+  --color-neutral-600: #e2e8f0;
+  --color-neutral-700: #f8fafc;
+  --color-neutral-800: #ffffff;
+  --color-neutral-900: #ffffff;
+  --color-neutral-950: #ffffff;
+
+  --color-zinc-50: #101217;
+  --color-zinc-100: #1e212b;
+  --color-zinc-200: #272b38;
+  --color-zinc-300: #3b4256;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #cbd5e1;
+  --color-zinc-600: #e2e8f0;
+  --color-zinc-700: #f8fafc;
+  --color-zinc-800: #ffffff;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #ffffff;
+
+  --color-blue-50: #121e2d;
+  --color-blue-100: #1b2f47;
+  --color-blue-600: #38bdf8;
+  --color-blue-800: #0284c7;
+
+  --color-cyan-50: #121e2d;
+  --color-cyan-100: #1b2f47;
+  --color-cyan-600: #38bdf8;
+  --color-cyan-800: #0284c7;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-background);

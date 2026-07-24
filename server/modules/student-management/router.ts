@@ -16,6 +16,7 @@ import batchRoutes from "./routes/batch.routes";
 import scheduleRoutes from "./routes/schedule.routes";
 import partnerRoutes from "./routes/partner.routes";
 import customFieldRoutes from "./routes/custom-field.routes";
+import moduleSettingsRoutes from "./routes/module-settings.routes";
 import qrAttendanceRoutes from "./routes/qr-attendance.routes";
 import assignmentRoutes from "./routes/assignment.routes";
 import { logger } from "./config/logger";
@@ -42,6 +43,7 @@ studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requireStudentModule, partnerRoutes);
 studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, customFieldRoutes);
+studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 

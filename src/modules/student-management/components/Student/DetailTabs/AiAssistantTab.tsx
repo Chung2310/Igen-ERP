@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Student } from '../../../types';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 interface AiAssistantTabProps {
   student: Student;
@@ -16,6 +17,7 @@ export function AiAssistantTab({
   loading,
   handleAnalyze
 }: AiAssistantTabProps) {
+  const entityLabel = useEntityLabel();
   return (
     <div className="space-y-6">
       <div className="p-8 sm:p-12 rounded-[2.5rem] bg-slate-900 shadow-2xl relative overflow-hidden group">
@@ -30,7 +32,7 @@ export function AiAssistantTab({
           
           <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Trợ lý AI Phân tích Lộ trình</h3>
           <p className="text-slate-400 max-w-lg mb-8 text-sm sm:text-base leading-relaxed">
-            Phân tích hồ sơ và đưa ra tư vấn lộ trình học tập, thi sát hạch tối ưu dựa trên khu vực và hạng bằng của học viên.
+            Phân tích hồ sơ và đưa ra tư vấn lộ trình học tập, thi sát hạch tối ưu dựa trên khu vực và hạng bằng của {entityLabel.singular}.
           </p>
 
           {!analysis ? (

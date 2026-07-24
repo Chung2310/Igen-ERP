@@ -2,6 +2,7 @@ import { Search, Filter, GraduationCap, Phone } from 'lucide-react';
 import { Student } from '../../types';
 import { LuxuryCard } from '../ui/LuxuryCard';
 import { cn, formatVND } from '../../lib/utils';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface StudentListProps {
   students: Student[];
@@ -9,6 +10,7 @@ interface StudentListProps {
 }
 
 export function StudentList({ students, onSelectStudent }: StudentListProps) {
+  const entityLabel = useEntityLabel();
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -16,7 +18,7 @@ export function StudentList({ students, onSelectStudent }: StudentListProps) {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm học viên..."
+            placeholder={`Tìm kiếm ${entityLabel.singular}...`}
             className="w-full pl-11 pr-4 py-3 bg-white border border-stone-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-stone-900/5 transition-all shadow-sm"
           />
         </div>

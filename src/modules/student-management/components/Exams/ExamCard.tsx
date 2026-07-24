@@ -13,6 +13,7 @@ import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './ExcelImportPreviewModal';
 import { CustomFieldDetails } from '../../custom-fields/CustomFieldDetails';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
   try {
@@ -41,7 +42,7 @@ const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) =
   }
 };
 
-const handleExportResults = (exam: ExamSession, students: DrivingStudent[]) => {
+const handleExportResults = (exam: ExamSession, students: DrivingStudent[], listTitle: string) => {
   try {
     const headers = ['Họ và tên', 'Số điện thoại', 'Trạng thái học', 'Kết quả thi'];
     const data = students.map(s => {
@@ -55,7 +56,7 @@ const handleExportResults = (exam: ExamSession, students: DrivingStudent[]) => {
     ws['!cols'] = cols;
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Danh sách học viên");
+    XLSX.utils.book_append_sheet(wb, ws, listTitle);
     XLSX.writeFile(wb, `ket_qua_thi_${exam.name.replace(/\s+/g, '_')}.xlsx`);
   } catch (error) {
     console.error("Error exporting exam results:", error);
@@ -106,6 +107,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   onUpdateStudentResult 
 }) => {
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
   const businessType = 'general';
   const status = getStatusInfo(exam.status);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -340,7 +342,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
               <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{exam.studentCount}</p>
-              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">Học viên</p>
+              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{entityLabel.tabLabel}</p>
             </div>
             <div className="flex-1 sm:flex-none px-2 py-1 bg-emerald-50 rounded-lg text-center min-w-[45px] sm:min-w-[50px] border border-emerald-100/30">
               <p className="text-sm sm:text-base font-extrabold text-emerald-600 leading-none">{exam.passCount}</p>
@@ -355,7 +357,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
             <button 
               onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
-              title="Xếp học viên"
+              title={`Xếp ${entityLabel.singular}`}
               className="p-1 rounded-md text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -384,7 +386,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             <div className="hidden sm:block w-px h-5 bg-slate-100 mx-0.5" />
             <button 
               onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-              title={isExpanded ? "Thu gọn" : "Xem học viên"}
+              title={isExpanded ? "Thu gọn" : `Xem ${entityLabel.singular}`}
               className={cn(
                 "p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-50 transition-all border border-slate-100 active:scale-95 cursor-pointer",
                 isExpanded && "bg-slate-50 text-slate-600 border-slate-200"
@@ -412,7 +414,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Danh sách học viên đăng ký ({assignedStudents.length} học viên)
+                    Danh sách {entityLabel.singular} đăng ký ({assignedStudents.length} {entityLabel.singular})
                   </h4>
                   <p className="text-[9px] text-slate-400 font-medium mt-0.5 max-w-md">
                     * File Excel nhập cần chứa các cột: <strong className="text-slate-500">Số điện thoại</strong> và <strong className="text-slate-500">Kết quả thi</strong> (Đậu / Trượt / Chưa có). Tải file mẫu bên cạnh để xem ví dụ.
@@ -428,7 +430,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                   </button>
                   {assignedStudents.length > 0 && (
                     <button
-                      onClick={() => handleExportResults(exam, assignedStudents)}
+                      onClick={() => handleExportResults(exam, assignedStudents, entityLabel.listTitle)}
                       className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold transition-all border border-blue-100/50 cursor-pointer shadow-sm active:scale-95"
                     >
                       <Download className="w-3 h-3" />
@@ -449,13 +451,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
               </div>
 
               {assignedStudents.length === 0 ? (
-                <p className="text-xs text-slate-450 italic">Đợt thi này chưa xếp học viên nào.</p>
+                <p className="text-xs text-slate-450 italic">Đợt thi này chưa xếp {entityLabel.singular} nào.</p>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white shadow-sm">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50/60 border-b border-slate-100">
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Học viên</th>
+                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">{entityLabel.tabLabel}</th>
                         {showStudentRank && <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Hạng</th>}
                         <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Trạng thái học</th>
                         <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Kết quả</th>
@@ -515,7 +517,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (window.confirm(`Bạn có chắc chắn muốn xóa học viên ${student.fullName} khỏi đợt thi này?`)) {
+                                  if (window.confirm(`Bạn có chắc chắn muốn xóa ${entityLabel.singular} ${student.fullName} khỏi đợt thi này?`)) {
                                     onUnassignStudent?.(student.id);
                                   }
                                 }}

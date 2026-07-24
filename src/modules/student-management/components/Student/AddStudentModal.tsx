@@ -13,6 +13,7 @@ import { FormInput } from './components/StudentFormFields';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
@@ -36,6 +37,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     restoreField: restoreStdField,
     deleteField: deleteStdField
   } = useStandardFields("students");
+  const entityLabel = useEntityLabel();
 
   const manageable = canManageCustomFields(user?.role);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -160,7 +162,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     e.preventDefault();
     setErrorMsg(null);
     if (!user) {
-      setErrorMsg('Vui lòng đăng nhập để lưu hồ sơ học viên.');
+      setErrorMsg(`Vui lòng đăng nhập để lưu hồ sơ ${entityLabel.singular}.`);
       return;
     }
 
@@ -199,7 +201,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     }
 
     if (user?.role === 'superadmin' && !selectedCenterId) {
-      const message = "Vui lòng chọn công ty quản lý học viên.";
+      const message = `Vui lòng chọn công ty quản lý ${entityLabel.singular}.`;
       setErrorMsg(message);
       toast.error(message);
       return;
@@ -235,12 +237,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
             window.dispatchEvent(new Event('batch-mutation'));
           } catch (batchError: unknown) {
             const msg = batchError instanceof Error ? batchError.message : 'Không thể xếp lớp.';
-            toast.warning(`Đã tạo học viên nhưng chưa xếp được vào lớp: ${msg}`);
+            toast.warning(`Đã tạo ${entityLabel.singular} nhưng chưa xếp được vào lớp: ${msg}`);
           }
         }
 
         window.dispatchEvent(new Event('student-mutation'));
-        toast.success('Đã lưu hồ sơ học viên thành công!');
+        toast.success(`Đã lưu hồ sơ ${entityLabel.singular} thành công!`);
         onClose();
         onSuccess(studentWithId);
 
@@ -264,7 +266,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
       }
     } catch (error: unknown) {
       console.error('Error saving student:', error);
-      const message = error instanceof Error ? error.message : 'Lỗi lưu hồ sơ học viên.';
+      const message = error instanceof Error ? error.message : `Lỗi lưu hồ sơ ${entityLabel.singular}.`;
       setErrorMsg(message);
       toast.error(message);
     } finally {
@@ -296,7 +298,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
             className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-              <h2 className="text-base font-bold text-slate-800">Thêm học viên mới</h2>
+              <h2 className="text-base font-bold text-slate-800">{entityLabel.addTitle}</h2>
               <button
                 onClick={onClose}
                 disabled={isSubmitting}

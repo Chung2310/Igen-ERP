@@ -285,7 +285,7 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Lịch thi</h1>
+          <h1 className="text-xl font-bold text-cyan-700 tracking-tight">Lịch thi</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <button

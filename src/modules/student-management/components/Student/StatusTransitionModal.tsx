@@ -4,6 +4,7 @@ import { X, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
 import { Student, StudentStatus } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface StatusTransitionModalProps {
   student: Student | null;
@@ -23,9 +24,10 @@ const statusWorkflow: StudentStatus[] = [
 ];
 
 export function StatusTransitionModal({ student, isOpen, onClose }: StatusTransitionModalProps) {
+  const entityLabel = useEntityLabel();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [feeError, setFeeError] = React.useState<string | null>(null);
-  
+
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -53,7 +55,7 @@ export function StatusTransitionModal({ student, isOpen, onClose }: StatusTransi
       const totalFee = parseInt(student.fee.replace(/\D/g, ''), 10) || 0;
       const paidAmount = student.paidAmount || 0;
       if (paidAmount < totalFee) {
-        setFeeError("Học viên chưa hoàn tất học phí, không thể chuyển sang trạng thái Đang thi!");
+        setFeeError(`${entityLabel.titleCase} chưa hoàn tất học phí, không thể chuyển sang trạng thái Đang thi!`);
         return;
       }
     }
