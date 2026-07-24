@@ -176,7 +176,7 @@ export const crudController = {
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
 
       if (modelName === "training-courses") {
-        const course = await TrainingCourseModel.findById(id).lean();
+        const course = await TrainingCourseModel.findOne({ _id: id, companyCode }).lean();
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
@@ -187,7 +187,7 @@ export const crudController = {
 
       if (modelName === "hr-calendar-events") {
         const LEAVE_TYPES = ["leave", "wfh", "exception"];
-        const event = await HRCalendarEventModel.findById(id).lean();
+        const event = await HRCalendarEventModel.findOne({ _id: id, companyCode }).lean();
         if (event && (LEAVE_TYPES.includes(event.type) || LEAVE_TYPES.includes(req.body.type))) {
           if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
             return res.status(403).json({
@@ -214,7 +214,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications") {
-        const app = await HRLeaveApplicationModel.findById(id).lean();
+        const app = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
         if (app) {
           const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
           if (!isSupervisor) {
@@ -303,7 +303,7 @@ export const crudController = {
       const userRole = req.user?.role || "user";
 
       if (modelName === "training-courses") {
-        const course = await TrainingCourseModel.findById(id).lean();
+        const course = await TrainingCourseModel.findOne({ _id: id, companyCode }).lean();
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
@@ -314,7 +314,7 @@ export const crudController = {
 
       if (modelName === "hr-calendar-events") {
         const LEAVE_TYPES = ["leave", "wfh", "exception"];
-        const event = await HRCalendarEventModel.findById(id).lean();
+        const event = await HRCalendarEventModel.findOne({ _id: id, companyCode }).lean();
         if (event && LEAVE_TYPES.includes(event.type)) {
           if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
             return res.status(403).json({
@@ -335,7 +335,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications") {
-        const app = await HRLeaveApplicationModel.findById(id).lean();
+        const app = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
         if (app) {
           const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
           if (!isSupervisor && app.employeeId !== req.user?.id) {
