@@ -93,9 +93,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
         {/* ── Tóm tắt gọn ── */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3.5 text-center">
-            <p className="text-xl font-black text-slate-800">{takenCount}<span className="text-sm font-semibold text-slate-400">/{allDates.length}</span></p>
-            <p className="text-[10px] text-slate-500 font-bold mt-0.5">Buổi đã điểm danh</p>
+          <div className="rounded-2xl bg-cyan-50/60 border border-cyan-100 p-3.5 text-center">
+            <p className="text-xl font-black text-cyan-800">{takenCount}<span className="text-sm font-semibold text-cyan-600/60">/{allDates.length}</span></p>
+            <p className="text-[10px] text-cyan-700 font-bold mt-0.5">Buổi đã điểm danh</p>
           </div>
           <div className={cn(
             'rounded-2xl border p-3.5 text-center',
@@ -120,12 +120,12 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
 
           {/* Cột trái: Danh sách buổi */}
           <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" /> Chọn buổi để xem chi tiết
+            <p className="text-[10px] font-black uppercase tracking-wider text-cyan-700 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Chọn buổi để xem chi tiết
             </p>
 
             {relevantDates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-slate-200 rounded-2xl py-8 gap-2">
+              <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-cyan-200 rounded-2xl py-8 gap-2">
                 <p className="text-xs text-slate-400">Chưa có buổi học nào.</p>
               </div>
             ) : (
@@ -148,9 +148,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                       className={cn(
                         'w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all',
                         isSelected
-                          ? 'bg-slate-800 border-slate-800 shadow-sm'
+                          ? 'bg-cyan-500 border-cyan-500 text-white shadow-md shadow-cyan-500/20'
                           : hasTaken
-                            ? 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer'
+                            ? 'bg-white border-cyan-100 hover:border-cyan-300 hover:bg-cyan-50/50 cursor-pointer'
                             : 'bg-slate-50/60 border-slate-100 opacity-50 cursor-not-allowed'
                       )}
                     >
@@ -158,7 +158,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students }: Attend
                         {/* Status dot */}
                         <span className={cn(
                           'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                          hasTaken ? 'bg-emerald-500' : isPast ? 'bg-amber-400' : 'bg-slate-300'
+                          hasTaken ? 'bg-cyan-400' : isPast ? 'bg-amber-400' : 'bg-slate-300'
                         )} />
                         <div>
                           <span className={cn(
