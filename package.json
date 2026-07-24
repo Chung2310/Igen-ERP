@@ -11,6 +11,7 @@
     "clean": "rm -rf dist dist-server server.js",
     "typecheck": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint src/App.tsx src/components/hr/KanbanTab.tsx src/pages/DashboardTab.tsx src/pages/Header.tsx src/pages/Sidebar.tsx",
+    "reset:superadmin-totp": "tsx server/scripts/reset-superadmin-totp.ts",
     "debug:fb-autoreply": "tsx scripts/fb-autoreply-debug.ts",
     "fix:fb-conversation-index": "tsx scripts/fix_fb_conversation_index.ts",
     "stress:staging": "tsx tools/controlled-staging-stress-test.ts",
