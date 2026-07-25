@@ -77,7 +77,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   const baseSalary = originalResult?.monthlySalary || line.calculation?.monthlySalary || 0;
                   return (
                     <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-700">{line.employeeId}</td>
+                      <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || originalResult?.employeeName || "Chua c� t�n"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
                       <td className="p-3 text-right text-slate-600">{Number(baseSalary).toLocaleString()} đ</td>
                       <td className="p-3 text-right text-slate-600">{Number(line.calculation?.adjustedBase || 0).toLocaleString()} đ</td>
                       <td className="p-3 text-right text-slate-600">{Number(line.calculation?.overtime || 0).toLocaleString()} đ</td>
@@ -94,7 +94,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <th className="p-3 font-semibold text-slate-500">Mã nhân viên</th>
                   <th className="p-3 text-right font-semibold text-slate-500">Lương cơ bản</th>
                   <th className="p-3 text-center font-semibold text-slate-500">Công chuẩn (giờ)</th>
-                  <th className="p-3 text-center font-semibold text-rose-600">Thiếu hụt (phút)</th>
+                  <th className="p-3 text-center font-semibold text-rose-600">Thiếu công (ngày)</th>
                   <th className="p-3 text-center font-semibold text-indigo-600">Nghỉ phép (phút)</th>
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
                 </tr>
@@ -111,10 +111,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     const totalPaidLeave = row.paidLeaveMinutesByRate?.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0) || 0;
                     return (
                       <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                        <td className="p-3 font-medium text-slate-700">{row.employeeId}</td>
+                        <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chua c� t�n"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
                         <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary || 0).toLocaleString()} đ</td>
                         <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
-                        <td className="p-3 text-center font-semibold text-rose-500">{row.shortageMinutes || 0} phút</td>
+                        <td className="p-3 text-center font-semibold text-rose-500">{Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2)} ngày</td>
                         <td className="p-3 text-center font-semibold text-indigo-500">{totalPaidLeave} phút</td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${

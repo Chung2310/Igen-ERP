@@ -15,8 +15,8 @@ const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metada
 
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
-    const requestedEmployees = req.body?.employees as { employeeId: string; monthlySalary: number; standardHours?: number }[] | undefined;
-    const employees = requestedEmployees?.length ? requestedEmployees : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id monthlySalary standardHours").lean()).map((user) => ({ employeeId: String(user._id), monthlySalary: user.monthlySalary || 0, standardHours: user.standardHours || 208 }));
+    const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number; standardHours?: number }[] | undefined;
+    const employees = requestedEmployees?.length ? requestedEmployees : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours").lean()).map((user) => ({ employeeId: String(user._id), employeeName: user.displayName, monthlySalary: user.monthlySalary || 0, standardHours: user.standardHours || 208 }));
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chua có nhân viên du?c c?u hình luong." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
@@ -27,8 +27,11 @@ export const payrollController = {
     for (const employee of employees) {
       const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? new Date(log.checkIn.time).toISOString().slice(11, 16) : undefined, checkOut: log.checkOut?.time ? new Date(log.checkOut.time).toISOString().slice(11, 16) : undefined }));
       const employeeLeaves = leaves.filter((leave) => leave.employeeId === employee.employeeId).map((leave) => ({ date: String(leave.startDate).slice(0, 10), payRate: 1 }));
+      const loggedDates = new Set(employeeLogs.map((log) => log.date));
+      const leaveDates = new Set(employeeLeaves.map((leave) => leave.date));
+      for (let day = 1; day <= endDate.getDate(); day += 1) { const date = `${period}-${String(day).padStart(2, "0")}`; const weekday = new Date(`${date}T00:00:00`).getDay(); if (weekday >= 1 && weekday <= 5 && !loggedDates.has(date) && !leaveDates.has(date)) employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" }); }
       const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: 480, logs: employeeLogs, paidLeaves: employeeLeaves, overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, monthlySalary: employee.monthlySalary, standardHours: employee.standardHours || 208, shortageMinutes: summary.shortageMinutes, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours: employee.standardHours || 208, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
     }
     await audit(req, period, "snapshot", { count: results.length });
     return res.status(201).json({ status: "success", data: results });
