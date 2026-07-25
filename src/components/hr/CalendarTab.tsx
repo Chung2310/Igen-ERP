@@ -35,6 +35,8 @@ interface CalendarTabProps {
   userProfile: UserProfile | null;
   selectedCompanyCode: string;
   isManager: boolean;
+  /** True when the user can approve/create leave, wfh, and exception entries for others. */
+  canManage?: boolean;
   usersList: UserProfile[];
   employees: EmployeeNode[];
 }
@@ -62,11 +64,16 @@ export default function CalendarTab({
   userProfile,
   selectedCompanyCode,
   isManager,
+  canManage,
   employees,
   usersList = []
 }: CalendarTabProps) {
-  const isLeaveAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
-
+  // Fall back to role-string checks only when the caller doesn't pass canManage,
+  // so other embedders of this component keep working unchanged.
+  const canManageAttendance = canManage ?? (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin");
+  // Same fix as canManageAttendance: a custom role granted timekeeping:manage
+  // must be able to see/approve everyone's leave requests, not just their own.
+  const isLeaveAdmin = canManageAttendance;
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
 
@@ -1737,8 +1744,8 @@ export default function CalendarTab({
       return;
     }
 
-    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !isLeaveAdmin) {
-      toast.error("Chỉ admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !canManageAttendance) {
+      toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
       return;
     }
 
@@ -2282,7 +2289,7 @@ export default function CalendarTab({
                 >
                   Sự kiện
                 </button>
-                {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                {canManageAttendance && (
                   <>
                     <button
                       onClick={() => openCreateModal(selectedDayDate, "leave")}
