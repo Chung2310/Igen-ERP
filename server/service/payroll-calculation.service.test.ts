@@ -41,4 +41,61 @@ describe("calculatePayroll", () => {
     expect(result.overtime).toBe(650_000);
     expect(result.net).toBe(21_450_000);
   });
+
+  it("calculates paid leave correctly without double payment", () => {
+    const result = calculatePayroll({
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [{ minutes: 480, payRate: 1 }],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    });
+
+    // Base salary is 26,000,000. Under 100% paid leave (payRate 1), the final adjusted base should be exactly 26,000,000.
+    expect(result.adjustedBase).toBe(26_000_000);
+    expect(result.paidLeaveValue).toBe(1_000_000); // 8 hours of leave = 1,000,000
+  });
+
+  it("calculates 50% paid leave correctly", () => {
+    const result = calculatePayroll({
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [{ minutes: 480, payRate: 0.5 }],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    });
+
+    // 50% paid leave should result in a deduction of 50% of 1 day's salary (500,000).
+    expect(result.adjustedBase).toBe(25_500_000);
+    expect(result.paidLeaveValue).toBe(500_000);
+  });
+
+  it("calculates 0% paid leave correctly", () => {
+    const result = calculatePayroll({
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [{ minutes: 480, payRate: 0 }],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    });
+
+    // 0% paid leave should deduct a full day's salary (1,000,000).
+    expect(result.adjustedBase).toBe(25_000_000);
+    expect(result.paidLeaveValue).toBe(0);
+  });
 });
