@@ -57,6 +57,10 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
         if (DRIVING_STATS.includes(stat.label)) {
           return isDriving;
         }
+        if (entityLabel.preset === "candidate") {
+          const candidateHiddenStats = ["Còn nợ học phí", "Thi lại", "Đang thi"];
+          if (candidateHiddenStats.includes(stat.label)) return false;
+        }
         return true;
       });
   };
