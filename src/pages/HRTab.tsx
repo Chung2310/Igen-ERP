@@ -17,15 +17,15 @@ const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
-  const isRoleManager =
+  const isManager =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
   // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
-  // must also be able to view/manage everyone's attendance, not just their own.
-  const canViewAllAttendance = isRoleManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
-  const canManageAttendance = isRoleManager || hasPermission("timekeeping:manage");
-  const isManager = canViewAllAttendance;
+  // must also be able to view/manage everyone's attendance, not just their own —
+  // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
+  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
+  const canManageAttendance = isManager || hasPermission("timekeeping:manage");
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -241,7 +241,8 @@ export default function HRTab() {
           <CalendarTab
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
-            isManager={isManager}
+            isManager={canViewAllAttendance}
+            canManage={canManageAttendance}
             usersList={usersList}
             employees={employees}
           />
