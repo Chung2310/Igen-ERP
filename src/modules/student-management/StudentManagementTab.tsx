@@ -66,10 +66,18 @@ export default function StudentManagementTab() {
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();
-  const subTabRoutes = React.useMemo(
-    () => SUB_TAB_ROUTES.map((item) => (item.slug === "hoc-vien" ? { ...item, label: entityLabel.tabLabel } : item)),
-    [entityLabel.tabLabel],
-  );
+  const subTabRoutes = React.useMemo(() => {
+    let routes = SUB_TAB_ROUTES.map((item) =>
+      item.slug === "hoc-vien" ? { ...item, label: entityLabel.tabLabel } : item
+    );
+
+    if (entityLabel.preset === "candidate") {
+      const hiddenSlugs = ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+      routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
+    }
+
+    return routes;
+  }, [entityLabel.tabLabel, entityLabel.preset]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
     return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
   });

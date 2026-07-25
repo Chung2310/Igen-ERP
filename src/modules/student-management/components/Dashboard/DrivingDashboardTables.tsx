@@ -6,6 +6,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { useExams } from '../../hooks/useExams';
 import { ExamStatus, DrivingStudent } from '../../types';
 import React, { useState } from 'react';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface MockRegistration {
   fullName: string;
@@ -29,6 +30,8 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
   const { students, loading: studentsLoading } = useStudents(selectedCenter === 'all' ? undefined : selectedCenter);
   const { exams, loading: examsLoading } = useExams(selectedCenter === 'all' ? undefined : selectedCenter);
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
+  const isCandidate = entityLabel.preset === 'candidate';
   
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
@@ -58,11 +61,11 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
   });
 
   const mockRegistrations = [
-    { fullName: 'Cao Văn Long', rank: 'B2', status: 'Đang thi' },
-    { fullName: 'Đặng Văn Giang', rank: 'A1', status: 'Đã đậu' },
-    { fullName: 'Phạm Thị Dung', rank: 'B2', status: 'Đang học' },
-    { fullName: 'Mai Thị Kiều', rank: 'B2', status: 'Chờ KSK' },
-    { fullName: 'Bùi Thị Lan', rank: 'A2', status: 'Thi lại' },
+    { fullName: 'Cao Văn Long', rank: 'Vị trí A', status: 'Nộp hồ sơ' },
+    { fullName: 'Đặng Văn Giang', rank: 'Vị trí B', status: 'Phỏng vấn' },
+    { fullName: 'Phạm Thị Dung', rank: 'Vị trí C', status: 'Đã nhận' },
+    { fullName: 'Mai Thị Kiều', rank: 'Vị trí A', status: 'Nộp hồ sơ' },
+    { fullName: 'Bùi Thị Lan', rank: 'Vị trí B', status: 'Từ chối' },
   ];
 
   const getStatusInfo = (status: string) => {
@@ -98,61 +101,63 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
   const paginatedRecentStudents = recentStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <LuxuryCard padding="none" className="bg-white">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Calendar className="w-4 h-4 text-brand-primary" /> Lịch thi sắp tới (7 ngày)
-          </h3>
-          <button onClick={() => onNavigate('Exams')} className="text-xs text-slate-400 hover:text-slate-600 font-medium">Xem tất cả</button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Đợt thi</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Hạng</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày thi</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">HV</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading && user ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Đang tải dữ liệu...</td>
+    <div className={cn("grid grid-cols-1 gap-6", !isCandidate && "lg:grid-cols-2")}>
+      {!isCandidate && (
+        <LuxuryCard padding="none" className="bg-white">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <Calendar className="w-4 h-4 text-brand-primary" /> Lịch thi sắp tới (7 ngày)
+            </h3>
+            <button onClick={() => onNavigate('Exams')} className="text-xs text-slate-400 hover:text-slate-600 font-medium">Xem tất cả</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Đợt thi</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Hạng</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày thi</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">HV</th>
                 </tr>
-              ) : upcomingExams.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Không có lịch thi trong 7 ngày tới.</td>
-                </tr>
-              ) : upcomingExams.map((exam) => (
-                <tr key={exam.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-slate-800">{exam.name}</p>
-                    <p className={cn("text-[10px] flex items-center gap-1", getExamStatusColor(exam.status))}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-current" /> {exam.status}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 text-center">
-                    <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold border border-cyan-100">
-                      {exam.rank}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-center text-sm font-medium text-slate-600">
-                    {exam.officialDate || exam.tentativeDate}
-                  </td>
-                  <td className="px-4 py-4 text-center font-bold text-slate-800">{exam.studentCount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </LuxuryCard>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading && user ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Đang tải dữ liệu...</td>
+                  </tr>
+                ) : upcomingExams.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Không có lịch thi trong 7 ngày tới.</td>
+                  </tr>
+                ) : upcomingExams.map((exam) => (
+                  <tr key={exam.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-800">{exam.name}</p>
+                      <p className={cn("text-[10px] flex items-center gap-1", getExamStatusColor(exam.status))}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" /> {exam.status}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold border border-cyan-100">
+                        {exam.rank}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-center text-sm font-medium text-slate-600">
+                      {exam.officialDate || exam.tentativeDate}
+                    </td>
+                    <td className="px-4 py-4 text-center font-bold text-slate-800">{exam.studentCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </LuxuryCard>
+      )}
 
       <LuxuryCard padding="none" className="bg-white flex flex-col">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Users className="w-4 h-4 text-brand-primary" /> Đăng ký gần đây (7 ngày) {user && `(${recentStudents.length})`}
+            <Users className="w-4 h-4 text-brand-primary" /> {isCandidate ? "Ứng viên mới ứng tuyển (7 ngày)" : "Đăng ký gần đây (7 ngày)"} {user && `(${recentStudents.length})`}
           </h3>
           <button onClick={() => onNavigate('Students')} className="text-xs text-slate-400 hover:text-slate-600 font-medium whitespace-nowrap ml-2">Xem tất cả</button>
         </div>
