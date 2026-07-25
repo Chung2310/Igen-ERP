@@ -4,19 +4,21 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createBatchSchema, updateBatchSchema, addLearnerSchema } from "../validations/batch.validation";
 import { idParamSchema } from "../validations/student.validation";
+import { requirePermission } from "../../../middleware/auth";
 
 const router = Router();
+const requireManage = requirePermission("student:manage") as any;
 
 router.use(authMiddleware);
 
-router.post("/", validate(createBatchSchema), BatchController.create);
+router.post("/", requireManage, validate(createBatchSchema), BatchController.create);
 router.get("/", BatchController.getList);
 router.get("/:id", validate(idParamSchema, "params"), BatchController.getDetail);
-router.patch("/:id", validate(idParamSchema, "params"), validate(updateBatchSchema), BatchController.update);
-router.delete("/:id", validate(idParamSchema, "params"), BatchController.delete);
-router.post("/:id/learners", validate(idParamSchema, "params"), validate(addLearnerSchema), BatchController.addLearner);
-router.delete("/:id/learners/:studentId", BatchController.removeLearner);
-router.put("/:id/attendance", validate(idParamSchema, "params"), BatchController.saveAttendance);
-router.delete("/:id/attendance", validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
+router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateBatchSchema), BatchController.update);
+router.delete("/:id", requireManage, validate(idParamSchema, "params"), BatchController.delete);
+router.post("/:id/learners", requireManage, validate(idParamSchema, "params"), validate(addLearnerSchema), BatchController.addLearner);
+router.delete("/:id/learners/:studentId", requireManage, BatchController.removeLearner);
+router.put("/:id/attendance", requireManage, validate(idParamSchema, "params"), BatchController.saveAttendance);
+router.delete("/:id/attendance", requireManage, validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
 
 export default router;
