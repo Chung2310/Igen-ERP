@@ -30,6 +30,11 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
+import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
+import {
+  exportAttendanceExcel,
+  type AttendanceExportKind,
+} from "../../utils/attendanceExcel";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -1164,6 +1169,77 @@ export default function CalendarTab({
       return { totalHours: Math.round(totalHours * 10) / 10, totalCoeff: Math.round(totalCoeff * 10) / 10 };
     };
 
+    const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
+      if (sidebarEmployees.length === 0) {
+        toast.warning("Không có dữ liệu nhân viên phù hợp để xuất.");
+        return;
+      }
+
+      try {
+        const exportEmployees = sidebarEmployees.map((employee) => {
+          const detail = getUserDetail(employee.uid);
+          return {
+            uid: employee.uid,
+            displayName: detail.displayName || "",
+            login: detail.email || "",
+          };
+        });
+
+        exportAttendanceExcel({
+          kind,
+          month: selectedMonth,
+          year: selectedYear,
+          employees: exportEmployees,
+          getCell: (employee, day) => {
+            const gridEmployee = sidebarEmployees.find(
+              (item) => item.uid === employee.uid
+            );
+            if (!gridEmployee) {
+              return {
+                coeff: null,
+                hours: null,
+                hasRecord: false,
+                isAbsent: false,
+                isWeekend: false,
+                isFuture: false,
+              };
+            }
+
+            const cell = getDayCellData(gridEmployee, day);
+            const hours =
+              typeof cell.hours === "number" && cell.hours > 0
+                ? cell.hours
+                : typeof cell.coeff === "number" && cell.coeff > 0
+                  ? cell.coeff * 8
+                  : cell.status === "Absent"
+                    ? 0
+                    : null;
+
+            return {
+              coeff: cell.coeff,
+              hours,
+              hasRecord:
+                !cell.isWeekend &&
+                !cell.isFuture &&
+                Boolean(cell.status),
+              isAbsent: cell.status === "Absent",
+              isWeekend: cell.isWeekend,
+              isFuture: cell.isFuture,
+            };
+          },
+        });
+
+        toast.success(
+          kind === "coeff"
+            ? "Đã xuất bảng số công ra Excel."
+            : "Đã xuất bảng số giờ ra Excel."
+        );
+      } catch (error) {
+        console.error("Lỗi xuất Excel chấm công:", error);
+        toast.error("Không thể xuất bảng chấm công ra Excel.");
+      }
+    };
+
     // Navigation tháng
     const goToPrevMonth = () => {
       if (selectedMonth === 1) {
@@ -1309,6 +1385,11 @@ export default function CalendarTab({
                 <CalendarIcon className="h-3.5 w-3.5" />
                 Chế độ lịch
               </button>
+              <AttendanceUtilityMenu
+                disabled={isLogsLoading}
+                onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
+                onExportHours={() => handleAttendanceExcelExport("hours")}
+              />
           
           
             </div>
