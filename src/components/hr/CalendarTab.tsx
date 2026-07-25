@@ -20,7 +20,9 @@ import {
   Check,
   XCircle,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  ChevronDown
 } from "lucide-react";
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
@@ -152,6 +154,14 @@ export default function CalendarTab({
   // Attendance View Mode & Week selection states
   const [attendanceViewMode, setAttendanceViewMode] = useState<"table" | "week">("table");
   const [currentWeekDate, setCurrentWeekDate] = useState<Date>(new Date());
+
+  // Monthly timesheet states
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [empSearchQuery, setEmpSearchQuery] = useState<string>("");
+  const [cellDisplayMode, setCellDisplayMode] = useState<"coeff" | "hours">("coeff");
+  const [isDisplayModeDropdownOpen, setIsDisplayModeDropdownOpen] = useState<boolean>(false);
+  const [isScheduleMode, setIsScheduleMode] = useState<boolean>(false);
 
   const formatLocalDate = (date: Date) => {
     const y = date.getFullYear();
@@ -995,826 +1005,546 @@ export default function CalendarTab({
       return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     };
 
-    const formatDateString = (dateStr: string) => {
-      if (!dateStr) return "";
-      const parts = dateStr.split("-");
-      if (parts.length !== 3) return dateStr;
-      const [y, m, d] = parts;
-      return `${d}/${m}/${y}`;
-    };
-
-    const getStatusStyle = (status: string) => {
-      switch (status) {
-        case "Present":
-          return "bg-emerald-50 text-emerald-700 border-emerald-100";
-        case "Late":
-          return "bg-amber-50 text-amber-700 border-amber-100";
-        case "Approved-Leave":
-          return "bg-blue-50 text-blue-700 border-blue-100";
-        case "Approved-WFH":
-          return "bg-teal-50 text-teal-700 border-teal-100";
-        case "Approved-Exception":
-          return "bg-violet-50 text-violet-700 border-violet-100";
-        case "Left-Early":
-          return "bg-orange-50 text-orange-700 border-orange-100";
-        case "Half-Day":
-          return "bg-sky-50 text-sky-700 border-sky-100";
-        case "Late-Left-Early":
-          return "bg-amber-100 text-amber-800 border-amber-200";
-        case "Absent":
-          return "bg-rose-50 text-rose-700 border-rose-100";
-        default:
-          return "bg-slate-50 text-slate-700 border-slate-100";
-      }
-    };
-
-    const targetEmployees = isManager
-      ? (logFilterEmployee === "all" ? usersList : usersList.filter(u => u.uid === logFilterEmployee))
-      : (userProfile ? [userProfile] : []);
-
-    const weekDaysShort = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-    const weekDaysFull = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
-
-    // 1. Logic for Table View:
-    const getDatesRange = () => {
-      let start: Date;
-      if (logStartDate) {
-        const [y, m, d] = logStartDate.split("-").map(Number);
-        start = new Date(y, m - 1, d);
-      } else {
-        start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      }
-
-      let end: Date;
-      if (logEndDate) {
-        const [y, m, d] = logEndDate.split("-").map(Number);
-        end = new Date(y, m - 1, d);
-      } else {
-        end = new Date();
-      }
-
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-
-      const dates = [];
-      let current = new Date(start);
-      while (current <= end) {
-        dates.push(formatLocalDate(current));
-        current.setDate(current.getDate() + 1);
-      }
-      return dates.reverse();
-    };
-
-    const dates = getDatesRange();
-    const generatedRows: any[] = [];
     const todayStr = formatLocalDate(new Date());
 
-    dates.forEach(dateStr => {
-      targetEmployees.forEach(emp => {
-        const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-        if (dbLog) {
-          generatedRows.push({
-            id: dbLog._id || dbLog.id,
-            uid: emp.uid,
-            date: dateStr,
-            checkIn: dbLog.checkIn,
-            checkOut: dbLog.checkOut,
-            status: dbLog.status,
-            note: dbLog.note
-          });
-        } else {
-          const matchedItem = items.find(item => {
-            if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-            const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-            if (!empMatch) return false;
+    // Danh sách nhân viên hiển thị trên sidebar và lưới
+    const targetEmployees = isManager
+      ? usersList
+      : (userProfile ? [userProfile] : []);
 
-            const sDate = item.startDate.split("T")[0];
-            const eDate = item.endDate.split("T")[0];
-            return dateStr >= sDate && dateStr <= eDate;
-          });
+    // Lọc theo thanh search sidebar
+    const sidebarEmployees = targetEmployees.filter(emp => {
+      if (!empSearchQuery) return true;
+      const q = empSearchQuery.toLowerCase();
+      return (
+        (emp.displayName || "").toLowerCase().includes(q) ||
+        (emp.email || "").toLowerCase().includes(q)
+      );
+    });
 
-          const isTodayOrPast = dateStr <= todayStr;
+    // Tính số ngày trong tháng đã chọn
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const dayColumns: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-          if (isTodayOrPast) {
-            let status = "Absent";
-            let note = "Nghỉ không phép / Vắng mặt";
-            if (matchedItem) {
-              if (matchedItem.type === "leave") {
-                status = "Approved-Leave";
-                note = "Nghỉ phép có duyệt";
-              } else if (matchedItem.type === "wfh") {
-                status = "Approved-WFH";
-                note = "Làm tại nhà (WFH) có duyệt";
-              } else if (matchedItem.type === "exception") {
-                status = "Approved-Exception";
-                note = "Ngoại lệ có duyệt";
-              }
-            }
+    // Hàm lấy thứ của ngày (0=CN, 1=T2,..., 6=T7)
+    const getDayOfWeek = (day: number) => {
+      return new Date(selectedYear, selectedMonth - 1, day).getDay();
+    };
 
-            generatedRows.push({
-              id: `missing-${emp.uid}-${dateStr}`,
-              uid: emp.uid,
-              date: dateStr,
-              checkIn: null,
-              checkOut: null,
-              status,
-              note
-            });
+    const dayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+    // Hàm tính hệ số công theo trạng thái
+    const getCoefficient = (status: string): number => {
+      switch (status) {
+        case "Present": return 1;
+        case "Approved-Leave": return 1;
+        case "Approved-WFH": return 1;
+        case "Approved-Exception": return 1;
+        case "Late": return 0.9;
+        case "Left-Early": return 0.9;
+        case "Late-Left-Early": return 0.8;
+        case "Half-Day": return 0.5;
+        case "Absent": return 0;
+        default: return 0;
+      }
+    };
+
+    // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
+    const getStatusShort = (status: string): string => {
+      switch (status) {
+        case "Present": return "Đúng giờ";
+        case "Late": return "Muộn";
+        case "Approved-Leave": return "Phép";
+        case "Approved-WFH": return "WFH";
+        case "Approved-Exception": return "Ngoại lệ";
+        case "Left-Early": return "Về sớm";
+        case "Half-Day": return "½ Công";
+        case "Late-Left-Early": return "Muộn+Sớm";
+        case "Absent": return "Vắng";
+        default: return "";
+      }
+    };
+
+    // Hàm tính dữ liệu một ô ngày cho một nhân viên
+    const getDayCellData = (emp: any, day: number) => {
+      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
+      const isWeekend = [0, 6].includes(getDayOfWeek(day));
+      const isFuture = dateStr > todayStr;
+
+      if (isWeekend) {
+        return { status: "weekend", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: true, isFuture };
+      }
+
+      if (isFuture) {
+        return { status: "", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: false, isFuture: true };
+      }
+
+      if (dbLog) {
+        const coeff = getCoefficient(dbLog.status);
+        let hours = 0;
+        if (dbLog.checkIn?.time && dbLog.checkOut?.time) {
+          const inMs = new Date(dbLog.checkIn.time).getTime();
+          const outMs = new Date(dbLog.checkOut.time).getTime();
+          if (outMs > inMs) {
+            hours = Math.round(((outMs - inMs) / 3600000) * 10) / 10;
           }
         }
+        return {
+          status: dbLog.status,
+          coeff,
+          hours,
+          checkIn: dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "",
+          checkOut: dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "",
+          dateStr,
+          isWeekend: false,
+          isFuture: false,
+        };
+      }
+
+      // Kiểm tra đơn phép được duyệt
+      const matchedItem = items.find((item: any) => {
+        if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
+        const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
+        if (!empMatch) return false;
+        const sDate = item.startDate.split("T")[0];
+        const eDate = item.endDate.split("T")[0];
+        return dateStr >= sDate && dateStr <= eDate;
       });
-    });
 
-    const filteredRows = generatedRows.filter(row => {
-      if (logFilterStatus === "all") return true;
-      return row.status === logFilterStatus;
-    });
+      if (matchedItem) {
+        const mappedStatus =
+          matchedItem.type === "leave" ? "Approved-Leave"
+          : matchedItem.type === "wfh" ? "Approved-WFH"
+          : "Approved-Exception";
+        return {
+          status: mappedStatus,
+          coeff: 1,
+          checkIn: "",
+          checkOut: "",
+          dateStr,
+          isWeekend: false,
+          isFuture: false,
+        };
+      }
 
-    const totalPagesTable = Math.ceil(filteredRows.length / logsLimit) || 1;
-    const paginatedRows = filteredRows.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+      return {
+        status: "Absent",
+        coeff: 0,
+        checkIn: "",
+        checkOut: "",
+        dateStr,
+        isWeekend: false,
+        isFuture: false,
+      };
+    };
 
-    // 2. Logic for Weekly View:
-    const weekDates = getWeekDates(currentWeekDate);
-    const totalPagesWeek = Math.ceil(targetEmployees.length / logsLimit) || 1;
-    const paginatedEmployees = targetEmployees.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+    // Tính tổng giờ và tổng công của một nhân viên trong tháng
+    const calcMonthTotals = (emp: any) => {
+      let totalHours = 0;
+      let totalCoeff = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cell = getDayCellData(emp, day);
+        if (!cell.isWeekend && !cell.isFuture && cell.coeff !== null) {
+          totalCoeff += cell.coeff;
+          if (cell.hours && cell.hours > 0) {
+            totalHours += cell.hours;
+          } else if (cell.coeff > 0) {
+            totalHours += cell.coeff * 8;
+          }
+        }
+      }
+      return { totalHours: Math.round(totalHours * 10) / 10, totalCoeff: Math.round(totalCoeff * 10) / 10 };
+    };
+
+    // Navigation tháng
+    const goToPrevMonth = () => {
+      if (selectedMonth === 1) {
+        setSelectedMonth(12);
+        setSelectedYear(y => y - 1);
+      } else {
+        setSelectedMonth(m => m - 1);
+      }
+      setLogsPage(1);
+    };
+
+    const goToNextMonth = () => {
+      if (selectedMonth === 12) {
+        setSelectedMonth(1);
+        setSelectedYear(y => y + 1);
+      } else {
+        setSelectedMonth(m => m + 1);
+      }
+      setLogsPage(1);
+    };
+
+    // Phân trang nhân viên trên lưới
+    const gridPageSize = 15;
+    const totalGridPages = Math.ceil(sidebarEmployees.length / gridPageSize) || 1;
+    const paginatedGridEmployees = sidebarEmployees.slice((logsPage - 1) * gridPageSize, logsPage * gridPageSize);
+
+    const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="space-y-5 animate-fade-in text-left">
-        {/* Filters Panel */}
-        <div className="bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+      <div className="flex flex-col h-[calc(100vh-200px)] min-h-[600px] animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
+        {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header Controls */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
+            {/* Tiêu đề + chọn tháng */}
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
-                <CalendarCheck className="h-5 w-5 text-white" />
+              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={goToPrevMonth}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  title="Tháng trước"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={selectedMonth}
+                    onChange={e => { setSelectedMonth(Number(e.target.value)); setLogsPage(1); }}
+                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>{monthNames[i]}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={e => { setSelectedYear(Number(e.target.value)); setLogsPage(1); }}
+                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
+                  >
+                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                      <option key={y} value={y}>Năm {y}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={goToNextMonth}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  title="Tháng sau"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              
               </div>
-              <div>
-                <h1 className="text-xl md:text-2xl font-black text-cyan-700 tracking-tight">
-                  Lịch sử chấm công GPS
-                </h1>
-                <p className="text-xs text-slate-500 font-medium">Theo dõi dữ liệu vào/ra và vị trí chấm công của nhân sự</p>
-              </div>
+
+              {/* Ô tìm kiếm nhân viên */}
+              <input
+                type="text"
+                placeholder="Tìm nhân viên..."
+                value={empSearchQuery}
+                onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
+                className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
+              />
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* View Toggle */}
-              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50">
-                <button
-                  type="button"
-                  onClick={() => setAttendanceViewMode("table")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${attendanceViewMode === "table"
-                      ? "bg-white text-slate-850 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800 bg-transparent"
-                    }`}
-                >
-                  Dạng bảng
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAttendanceViewMode("week")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${attendanceViewMode === "week"
-                      ? "bg-white text-slate-850 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800 bg-transparent"
-                    }`}
-                >
-                  Dạng lịch
-                </button>
-              </div>
-
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={fetchTimekeepingLogs}
-                className="flex items-center justify-center p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl transition-all cursor-pointer border-0 active:scale-95"
-                title="Làm mới dữ liệu"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
+                title="Tải lại dữ liệu"
               >
-                <RefreshCw className={`h-4 w-4 ${isLogsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isLogsLoading ? "animate-spin" : ""}`} />
+                Tải lại
               </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsDisplayModeDropdownOpen(!isDisplayModeDropdownOpen)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
+                >
+                  <Eye className="h-3.5 w-3.5 text-slate-500" />
+                  <span>
+                    {cellDisplayMode === "coeff" ? "Số công" : "Số giờ"}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+
+                {isDisplayModeDropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => { setCellDisplayMode("coeff"); setIsDisplayModeDropdownOpen(false); }}
+                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
+                    >
+                      <span>Số công</span>
+                      {cellDisplayMode === "coeff" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCellDisplayMode("hours"); setIsDisplayModeDropdownOpen(false); }}
+                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
+                    >
+                      <span>Số giờ</span>
+                      {cellDisplayMode === "hours" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleMode(!isScheduleMode)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer border-0 ${
+                  isScheduleMode
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 bg-slate-100 hover:bg-slate-200"
+                }`}
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Chế độ lịch
+              </button>
+          
+          
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {isManager && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Nhân viên</label>
-                <select
-                  value={logFilterEmployee}
-                  onChange={(e) => {
-                    setLogFilterEmployee(e.target.value);
-                    setLogsPage(1);
-                  }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                >
-                  <option value="all">Tất cả nhân sự</option>
-                  {usersList.map((u) => (
-                    <option key={u.uid} value={u.uid}>
-                      {u.displayName}
-                    </option>
-                  ))}
-                </select>
+          {/* Bảng Grid Chấm Công */}
+          <div className="flex-1 overflow-auto visible-scrollbar">
+            {isLogsLoading ? (
+              <div className="flex items-center justify-center h-full text-slate-400 gap-2">
+                <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
               </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái</label>
-              <select
-                value={logFilterStatus}
-                onChange={(e) => {
-                  setLogFilterStatus(e.target.value);
-                  setLogsPage(1);
-                }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="Present">Đúng giờ (Present)</option>
-                <option value="Late">Đi muộn (Late)</option>
-                <option value="Approved-Leave">Nghỉ có phép (Leave)</option>
-                <option value="Approved-WFH">Làm tại nhà (WFH)</option>
-                <option value="Approved-Exception">Ngoại lệ (Exception)</option>
-                <option value="Left-Early">Về sớm (Left-Early)</option>
-                <option value="Half-Day">Làm nửa ngày (Half-Day)</option>
-                <option value="Late-Left-Early">Đi muộn & Về sớm (Late & Left-Early)</option>
-                <option value="Absent">Vắng mặt / Không phép (Absent)</option>
-              </select>
-            </div>
-
-            {attendanceViewMode === "table" ? (
-              <>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Từ ngày</label>
-                  <input
-                    type="date"
-                    value={logStartDate}
-                    onChange={(e) => {
-                      setLogStartDate(e.target.value);
-                      setLogsPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Đến ngày</label>
-                  <input
-                    type="date"
-                    value={logEndDate}
-                    onChange={(e) => {
-                      setLogEndDate(e.target.value);
-                      setLogsPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                  />
-                </div>
-              </>
             ) : (
-              <div className="space-y-1.5 col-span-1 sm:col-span-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Ngày</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const prev = new Date(currentWeekDate);
-                      prev.setDate(prev.getDate() - 7);
-                      setCurrentWeekDate(prev);
-                    }}
-                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
-                    title="Tuần trước"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <select
-                    value={currentWeekDate.getFullYear()}
-                    onChange={(e) => {
-                      const newYear = Number(e.target.value);
-                      const newDate = new Date(currentWeekDate);
-                      newDate.setFullYear(newYear);
-                      setCurrentWeekDate(newDate);
-                    }}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none shrink-0"
-                  >
-                    {(() => {
-                      const currentYear = new Date().getFullYear();
-                      const years = [];
-                      for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-                        years.push(y);
-                      }
-                      return years.map((y) => (
-                        <option key={y} value={y}>
-                          Năm {y}
-                        </option>
-                      ));
-                    })()}
-                  </select>
-
-                  <select
-                    value={formatLocalDate(getStartAndEndOfWeek(currentWeekDate).monday)}
-                    onChange={(e) => {
-                      const [y, m, d] = e.target.value.split("-").map(Number);
-                      setCurrentWeekDate(new Date(y, m - 1, d));
-                    }}
-                    className="flex-1 text-center py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none"
-                  >
-                    {getWeeksOfYear(currentWeekDate.getFullYear()).map((wk, idx) => {
-                      const val = formatLocalDate(wk.monday);
-                      const label = formatWeekOption(wk.monday, wk.sunday);
+              <table className="text-xs border-collapse" style={{ minWidth: `${260 + daysInMonth * 52}px` }}>
+                {/* === THEAD === */}
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-slate-100 border-b border-slate-300">
+                    {/* Cột STT */}
+                    <th className="sticky left-0 z-30 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-9">
+                      #
+                    </th>
+                    {/* Cột Họ và Tên */}
+                    <th className="sticky left-9 z-30 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-44">
+                      Họ và Tên
+                    </th>
+                    {/* Cột Email */}
+                    <th className="sticky left-[10.25rem] z-30 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-36">
+                      Mã đăng nhập
+                    </th>
+                    {/* Cột Số giờ */}
+                    <th className="bg-emerald-600 border-b border-r border-emerald-700 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap w-14">
+                      Số<br/>giờ
+                    </th>
+                    {/* Cột Số công */}
+                    <th className="bg-emerald-600 border-b border-r-2 border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap w-14">
+                      Số<br/>công
+                    </th>
+                    {/* Các cột ngày */}
+                    {dayColumns.map(day => {
+                      const dow = getDayOfWeek(day);
+                      const isWeekend = dow === 0 || dow === 6;
+                      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const isToday = dateStr === todayStr;
                       return (
-                        <option key={idx} value={val}>
-                          {label}
-                        </option>
+                        <th
+                          key={day}
+                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap w-12 ${
+                            isToday
+                              ? "bg-cyan-600 text-white"
+                              : isWeekend
+                                ? "bg-slate-200 text-slate-500"
+                                : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          <div className="text-[9px] font-bold">{dayLabels[dow]}</div>
+                          <div className={`text-sm font-black leading-tight ${isToday ? "text-white" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
+                            {day}
+                          </div>
+                        </th>
                       );
                     })}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = new Date(currentWeekDate);
-                      next.setDate(next.getDate() + 7);
-                      setCurrentWeekDate(next);
-                    }}
-                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
-                    title="Tuần sau"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentWeekDate(new Date())}
-                    className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-0 rounded-2xl text-xs font-bold transition cursor-pointer shrink-0"
-                  >
-                    Tuần này
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Attendance Content */}
-        {attendanceViewMode === "table" ? (
-          /* Original Table View */
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                  <tr>
-                    <th className="px-6 py-4">Ngày</th>
-                    <th className="px-6 py-4">Nhân sự</th>
-                    <th className="px-6 py-4">Giờ Vào (Check-in)</th>
-                    <th className="px-6 py-4">Giờ Ra (Check-out)</th>
-                    <th className="px-6 py-4">Trạng thái</th>
-                    <th className="px-6 py-4">Ghi chú</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {isLogsLoading ? (
+
+                {/* === TBODY === */}
+                <tbody>
+                  {paginatedGridEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                        <div className="flex justify-center items-center gap-2">
-                          <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                          Đang tải danh sách lịch sử...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                        Không tìm thấy lịch sử chấm công nào trong bộ lọc này.
+                      <td colSpan={5 + daysInMonth} className="px-6 py-16 text-center text-slate-400 font-medium">
+                        Không tìm thấy nhân viên nào.
                       </td>
                     </tr>
                   ) : (
-                    paginatedRows.map((log) => {
-                      const user = getUserDetail(log.uid);
+                    paginatedGridEmployees.map((emp, empIdx) => {
+                      const u = getUserDetail(emp.uid);
+                      const { totalHours, totalCoeff } = calcMonthTotals(emp);
+                      const globalIdx = (logsPage - 1) * gridPageSize + empIdx + 1;
                       return (
-                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">
-                            {formatDateString(log.date)}
+                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/30 transition-colors ${empIdx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                          {/* STT */}
+                          <td className="sticky left-0 z-10 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 bg-inherit whitespace-nowrap">
+                            {globalIdx}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              {user.photoURL ? (
-                                <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100" />
+                          {/* Họ và Tên */}
+                          <td className="sticky left-9 z-10 border-r border-slate-200 px-3 py-2.5 bg-inherit whitespace-nowrap w-44">
+                            <div className="flex items-center gap-2">
+                              {u.photoURL ? (
+                                <img src={u.photoURL} alt={u.displayName} className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
-                                  {user.displayName.slice(0, 2).toUpperCase()}
+                                <div className="w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[9px] shrink-0">
+                                  {u.displayName.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <div className="text-left">
-                                <p className="font-bold text-slate-800 leading-snug">{user.displayName}</p>
-                                <p className="text-[10px] text-slate-400 font-medium">{user.email}</p>
-                              </div>
+                              <span className="font-bold text-cyan-700 truncate max-w-[110px] text-xs" title={u.displayName}>{u.displayName}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {log.checkIn ? (
-                              <div>
-                                <span className="font-bold text-slate-800">{formatLogTime(log.checkIn.time)}</span>
-                                <span className="block text-[10px] text-slate-400 font-medium">
-                                  IP: {log.checkIn.ipAddress || "N/A"} · {Math.round(log.checkIn.distance)}m
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">--:--</span>
-                            )}
+                          {/* Email */}
+                          <td className="sticky left-[10.25rem] z-10 border-r-2 border-slate-400 px-3 py-2.5 bg-inherit whitespace-nowrap w-36">
+                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[130px]" title={u.email}>{u.email}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {log.checkOut ? (
-                              <div>
-                                <span className="font-bold text-slate-800">{formatLogTime(log.checkOut.time)}</span>
-                                <span className="block text-[10px] text-slate-400 font-medium">
-                                  IP: {log.checkOut.ipAddress || "N/A"} · {Math.round(log.checkOut.distance)}m
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">--:--</span>
-                            )}
+                          {/* Tổng giờ */}
+                          <td className="border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap">
+                            <span className="text-xs font-black text-emerald-700">{totalHours}h</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getStatusStyle(log.status)}`}>
-                              {log.status === "Present"
-                                ? "Đúng giờ"
-                                : log.status === "Late"
-                                  ? "Đi muộn"
-                                  : log.status === "Approved-Leave"
-                                    ? "Nghỉ có phép"
-                                    : log.status === "Approved-WFH"
-                                      ? "Làm tại nhà"
-                                      : log.status === "Approved-Exception"
-                                        ? "Ngoại lệ"
-                                        : log.status === "Left-Early"
-                                          ? "Về sớm"
-                                          : log.status === "Half-Day"
-                                            ? "Làm nửa ngày"
-                                            : log.status === "Late-Left-Early"
-                                              ? "Đi muộn & Về sớm"
-                                              : "Nghỉ không phép"}
-                            </span>
+                          {/* Tổng công */}
+                          <td className="border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap">
+                            <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
                           </td>
-                          <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={log.note}>
-                            {log.note || <span className="text-slate-350 italic">Không có ghi chú</span>}
-                          </td>
+                          {/* Ô từng ngày */}
+                          {dayColumns.map(day => {
+                            const cell = getDayCellData(emp, day);
+                            const dow = getDayOfWeek(day);
+                            const isWeekend = dow === 0 || dow === 6;
+                            const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                            const isToday = dateStr === todayStr;
+
+                            if (isWeekend) {
+                              return (
+                                <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
+                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
+                                </td>
+                              );
+                            }
+
+                            if (cell.isFuture) {
+                              return (
+                                <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
+                                  <span className="text-slate-200 text-[10px]">·</span>
+                                </td>
+                              );
+                            }
+
+                            const coeff = cell.coeff ?? 0;
+                            const isFullDay = coeff >= 1;
+                            const isAbsent = coeff === 0;
+
+                            return (
+                              <td
+                                key={day}
+                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group cursor-default ${isToday ? "bg-cyan-50" : ""}`}
+                                title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
+                              >
+                                {isScheduleMode ? (
+                                  cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
+                                    <div className="flex flex-col items-start px-0.5 text-left max-w-full overflow-hidden">
+                                      <div className="flex items-center gap-1 text-[8.5px] font-extrabold leading-none truncate max-w-full text-slate-800">
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                          cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
+                                            ? "bg-emerald-500"
+                                            : cell.status === "Late" || cell.status === "Left-Early"
+                                              ? "bg-amber-500"
+                                              : "bg-rose-500"
+                                        }`} />
+                                        <span className="truncate" title={cell.status}>
+                                          {cell.status === "Present"
+                                            ? `HCS(${cell.checkIn || "07:30"} - ${cell.checkOut || "17:30"})`
+                                            : cell.status === "Half-Day"
+                                              ? `CBH2(${cell.checkIn || "08:00"} - ${cell.checkOut || "12:00"})`
+                                              : cell.status === "Approved-Leave"
+                                                ? "Nghỉ phép"
+                                                : cell.status === "Approved-WFH"
+                                                  ? "Làm tại nhà"
+                                                  : cell.status === "Late"
+                                                    ? `CS(${cell.checkIn || "08:00"} - ${cell.checkOut || "17:00"})`
+                                                    : getStatusShort(cell.status)}
+                                        </span>
+                                      </div>
+                                      {(cell.checkIn || cell.checkOut) && (
+                                        <div className="text-[8px] font-semibold text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
+                                          {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null
+                                ) : cellDisplayMode === "coeff" ? (
+                                  <>
+                                    {/* Hệ số công */}
+                                    <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
+                                      {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(1)}
+                                    </div>
+                                    {/* Nhãn trạng thái */}
+                                    {cell.status && (
+                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
+                                        {getStatusShort(cell.status)}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* Số giờ */}
+                                    <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
+                                      {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
+                                    </div>
+                                    {cell.status && (
+                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : "text-slate-400"}`}>
+                                        {getStatusShort(cell.status)}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })
                   )}
                 </tbody>
               </table>
-            </div>
+            )}
+          </div>
 
-            {/* Table Pagination */}
-            {!isLogsLoading && filteredRows.length > 0 && (
-              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-                <span className="text-xs text-slate-500">
-                  Hiển thị {paginatedRows.length} / {filteredRows.length} dòng
+          {/* Footer Pagination */}
+          {!isLogsLoading && sidebarEmployees.length > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
+              <span className="text-xs text-slate-500">
+                Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage(logsPage - 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Trước
+                </button>
+                <span className="text-xs font-bold text-slate-800 px-2">
+                  Trang {logsPage} / {totalGridPages}
                 </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={logsPage <= 1}
-                    onClick={() => setLogsPage(logsPage - 1)}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    Trước
-                  </button>
-                  <span className="text-xs font-bold text-slate-850 px-2">
-                    Trang {logsPage} / {totalPagesTable}
-                  </span>
-                  <button
-                    disabled={logsPage >= totalPagesTable}
-                    onClick={() => setLogsPage(logsPage + 1)}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    Sau
-                  </button>
-                </div>
+                <button
+                  disabled={logsPage >= totalGridPages}
+                  onClick={() => setLogsPage(logsPage + 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Sau
+                </button>
               </div>
-            )}
-          </div>
-        ) : (
-          /* Weekly Grid View */
-          <div className="space-y-4">
-            {isLogsLoading ? (
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
-                <div className="flex justify-center items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  Đang tải dữ liệu tuần...
-                </div>
-              </div>
-            ) : targetEmployees.length === 1 ? (
-              /* Single Employee Weekly Card Grid View */
-              (() => {
-                const emp = targetEmployees[0];
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {weekDates.map((date, idx) => {
-                      const dateStr = formatLocalDate(date);
-                      const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-
-                      let displayStatus = "";
-                      let checkInTime = "";
-                      let checkOutTime = "";
-                      let statusStyle = "";
-                      let noteText = "";
-                      let checkInDetails = "";
-                      let checkOutDetails = "";
-
-                      if (dbLog) {
-                        displayStatus = dbLog.status === "Present" ? "Đúng giờ"
-                          : dbLog.status === "Late" ? "Đi muộn"
-                            : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
-                              : dbLog.status === "Approved-WFH" ? "Tại nhà"
-                                : dbLog.status === "Approved-Exception" ? "Ngoại lệ"
-                                  : dbLog.status === "Left-Early" ? "Về sớm"
-                                    : dbLog.status === "Half-Day" ? "Nửa ngày"
-                                      : dbLog.status === "Late-Left-Early" ? "Muộn & Sớm"
-                                        : "Nghỉ KP";
-                        checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
-                        checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
-                        statusStyle = getStatusStyle(dbLog.status);
-                        noteText = dbLog.note || "";
-                        if (dbLog.checkIn) {
-                          checkInDetails = `IP: ${dbLog.checkIn.ipAddress || "N/A"} · ${Math.round(dbLog.checkIn.distance)}m`;
-                        }
-                        if (dbLog.checkOut) {
-                          checkOutDetails = `IP: ${dbLog.checkOut.ipAddress || "N/A"} · ${Math.round(dbLog.checkOut.distance)}m`;
-                        }
-                      } else {
-                        const matchedItem = items.find(item => {
-                          if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-                          const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-                          if (!empMatch) return false;
-                          const sDate = item.startDate.split("T")[0];
-                          const eDate = item.endDate.split("T")[0];
-                          return dateStr >= sDate && dateStr <= eDate;
-                        });
-
-                        const isTodayOrPast = dateStr <= todayStr;
-                        if (isTodayOrPast) {
-                          if (matchedItem) {
-                            if (matchedItem.type === "leave") {
-                              displayStatus = "Nghỉ phép";
-                              statusStyle = getStatusStyle("Approved-Leave");
-                              noteText = "Nghỉ phép có duyệt";
-                            } else if (matchedItem.type === "wfh") {
-                              displayStatus = "Tại nhà";
-                              statusStyle = getStatusStyle("Approved-WFH");
-                              noteText = "Làm tại nhà có duyệt";
-                            } else if (matchedItem.type === "exception") {
-                              displayStatus = "Ngoại lệ";
-                              statusStyle = getStatusStyle("Approved-Exception");
-                              noteText = "Ngoại lệ có duyệt";
-                            }
-                          } else {
-                            displayStatus = "Nghỉ KP";
-                            statusStyle = getStatusStyle("Absent");
-                            noteText = "Nghỉ không phép / Vắng mặt";
-                          }
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        } else {
-                          displayStatus = "";
-                          statusStyle = "";
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        }
-                      }
-
-                      const isTodayDate = dateStr === todayStr;
-
-                      return (
-                        <div
-                          key={dateStr}
-                          className={`border rounded-2xl p-4 flex flex-col justify-between min-h-[170px] transition-all bg-white hover:shadow-md ${isTodayDate ? "ring-2 ring-indigo-500 ring-offset-1 border-indigo-200/50" : "border-slate-100"
-                            }`}
-                        >
-                          <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
-                            <span className="text-xs font-extrabold text-slate-700">{weekDaysFull[idx]}</span>
-                            <span className="text-[10px] font-bold font-mono text-slate-400">{date.getDate()}/{date.getMonth() + 1}</span>
-                          </div>
-
-                          <div className="flex-1 flex flex-col gap-2 justify-center text-left">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-in:</span>
-                                <span className="text-xs font-extrabold text-slate-800">{checkInTime}</span>
-                              </div>
-                              {checkInDetails && (
-                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkInDetails}>
-                                  {checkInDetails}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-out:</span>
-                                <span className="text-xs font-extrabold text-slate-800">{checkOutTime}</span>
-                              </div>
-                              {checkOutDetails && (
-                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkOutDetails}>
-                                  {checkOutDetails}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="mt-2 text-center">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold border ${statusStyle}`}>
-                                {displayStatus}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="border-t border-slate-100 pt-2 mt-2 max-h-[40px] overflow-hidden">
-                            <p className="text-[9px] text-slate-500 italic truncate text-center font-medium" title={noteText}>
-                              {noteText || "Không có ghi chú"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()
-            ) : (
-              /* Multiple Employees Weekly Pivoted Matrix Table View */
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left text-slate-700 table-fixed min-w-[1200px]">
-                    <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                      <tr>
-                        <th className="px-4 py-4 w-48 shrink-0">Nhân sự</th>
-                        {weekDates.map((date, idx) => (
-                          <th key={idx} className="px-3 py-4 text-center">
-                            <div className="font-extrabold text-slate-700">{weekDaysShort[idx]}</div>
-                            <div className="text-[8px] text-slate-400 font-mono mt-0.5">
-                              {date.getDate()}/{date.getMonth() + 1}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                      {paginatedEmployees.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium">
-                            Không tìm thấy nhân sự nào.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedEmployees.map(emp => {
-                          const user = getUserDetail(emp.uid);
-                          return (
-                            <tr key={emp.uid} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap align-middle">
-                                <div className="flex items-center gap-2">
-                                  {user.photoURL ? (
-                                    <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100 shrink-0" />
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs shrink-0">
-                                      {user.displayName.slice(0, 2).toUpperCase()}
-                                    </div>
-                                  )}
-                                  <div className="text-left min-w-0">
-                                    <p className="font-bold text-slate-800 leading-snug truncate text-xs font-black" title={user.displayName}>
-                                      {user.displayName}
-                                    </p>
-                                    <p className="text-[9px] text-slate-400 font-medium truncate" title={user.email}>
-                                      {user.email}
-                                    </p>
-                                  </div>
-                                </div>
-                              </td>
-
-                              {weekDates.map((date, idx) => {
-                                const dateStr = formatLocalDate(date);
-                                const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-
-                                let displayStatus = "";
-                                let checkInTime = "";
-                                let checkOutTime = "";
-                                let statusStyle = "";
-                                let noteText = "";
-
-                                if (dbLog) {
-                                  displayStatus = dbLog.status === "Present" ? "Đúng giờ"
-                                    : dbLog.status === "Late" ? "Đi muộn"
-                                      : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
-                                        : dbLog.status === "Approved-WFH" ? "Tại nhà"
-                                          : dbLog.status === "Approved-Exception" ? "Ngoại lệ"
-                                            : dbLog.status === "Left-Early" ? "Về sớm"
-                                              : dbLog.status === "Half-Day" ? "Nửa ngày"
-                                                : dbLog.status === "Late-Left-Early" ? "Muộn & Sớm"
-                                                  : "Nghỉ KP";
-                                  checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
-                                  checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
-                                  statusStyle = getStatusStyle(dbLog.status);
-                                  noteText = dbLog.note || "";
-                                } else {
-                                  const matchedItem = items.find(item => {
-                                    if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-                                    const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-                                    if (!empMatch) return false;
-                                    const sDate = item.startDate.split("T")[0];
-                                    const eDate = item.endDate.split("T")[0];
-                                    return dateStr >= sDate && dateStr <= eDate;
-                                  });
-
-                                  const isTodayOrPast = dateStr <= todayStr;
-                                  if (isTodayOrPast) {
-                                    if (matchedItem) {
-                                      if (matchedItem.type === "leave") {
-                                        displayStatus = "Nghỉ phép";
-                                        statusStyle = getStatusStyle("Approved-Leave");
-                                        noteText = "Nghỉ phép có duyệt";
-                                      } else if (matchedItem.type === "wfh") {
-                                        displayStatus = "Tại nhà";
-                                        statusStyle = getStatusStyle("Approved-WFH");
-                                        noteText = "Làm tại nhà có duyệt";
-                                      } else if (matchedItem.type === "exception") {
-                                        displayStatus = "Ngoại lệ";
-                                        statusStyle = getStatusStyle("Approved-Exception");
-                                        noteText = "Ngoại lệ có duyệt";
-                                      }
-                                    } else {
-                                      displayStatus = "Nghỉ KP";
-                                      statusStyle = getStatusStyle("Absent");
-                                      noteText = "Nghỉ không phép / Vắng mặt";
-                                    }
-                                    checkInTime = "--:--";
-                                    checkOutTime = "--:--";
-                                  } else {
-                                    displayStatus = "";
-                                    statusStyle = "";
-                                    checkInTime = "--:--";
-                                    checkOutTime = "--:--";
-                                  }
-                                }
-
-                                return (
-                                  <td key={idx} className="px-2 py-3 text-center align-middle">
-                                    <div className="flex flex-col items-center gap-1.5 min-h-[75px] justify-center bg-slate-50/20 hover:bg-slate-50/70 border border-slate-100/50 rounded-2xl p-2 transition-all">
-                                      {displayStatus ? (
-                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[8px] font-bold border ${statusStyle} scale-95`}>
-                                          {displayStatus}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-slate-300 font-bold">--:--</span>
-                                      )}
-
-                                      {(checkInTime !== "--:--" || checkOutTime !== "--:--") && (
-                                        <div className="text-[9px] font-bold text-slate-650 leading-none">
-                                          {checkInTime} / {checkOutTime}
-                                        </div>
-                                      )}
-
-                                      {noteText && (
-                                        <div className="text-[8px] text-slate-400 italic max-w-[80px] truncate leading-tight font-medium" title={noteText}>
-                                          {noteText}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Weekly Pivoted Table Pagination */}
-                {targetEmployees.length > 0 && (
-                  <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-                    <span className="text-xs text-slate-500">
-                      Hiển thị {paginatedEmployees.length} / {targetEmployees.length} nhân sự
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled={logsPage <= 1}
-                        onClick={() => setLogsPage(logsPage - 1)}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-xs font-bold text-slate-850 px-2">
-                        Trang {logsPage} / {totalPagesWeek}
-                      </span>
-                      <button
-                        disabled={logsPage >= totalPagesWeek}
-                        onClick={() => setLogsPage(logsPage + 1)}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        Sau
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
-
   // Navigate Months
   const handlePrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
