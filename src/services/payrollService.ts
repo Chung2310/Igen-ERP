@@ -15,4 +15,5 @@ export const payrollService = {
   createRun: (periodKey: string) => request(`/periods/${periodKey}/run`, { method: "POST" }),
   approve: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
+  reset: (periodKey: string) => request(`/periods/${periodKey}`, { method: "DELETE" }),
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Lock, Play, RefreshCw } from "lucide-react";
+import { CheckCircle2, Lock, Play, RefreshCw, Trash2 } from "lucide-react";
 import { payrollService } from "../../services/payrollService";
 
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
@@ -40,6 +40,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
           <CheckCircle2 size={15} /> Duyệt
         </button>
+        <button onClick={() => { if (window.confirm("Xoa toan bo ky luong de tinh lai tu dau?")) void action(() => payrollService.reset(period), "Da xoa ky luong"); }} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-rose-700"><Trash2 size={15} /> Xoa ky luong</button>
         <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
           Chốt kỳ
         </button>
