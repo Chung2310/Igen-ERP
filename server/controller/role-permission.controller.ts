@@ -2,6 +2,8 @@ import { Response } from "express";
 import { rolePermissionService } from "../service/role-permission.service";
 import { AuthenticatedRequest, DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { RolePermissionModel } from "../model/role-permission.model";
+import { UserModel } from "../model/user.model";
+import { emitToUser } from "../socket";
 
 export const rolePermissionController = {
   /**
@@ -64,6 +66,8 @@ export const rolePermissionController = {
       }
 
       const rolePermission = await rolePermissionService.saveRolePermission(req.body);
+      const affectedUsers = await UserModel.find({ companyCode, role: req.body.role }).select("_id");
+      affectedUsers.forEach((affectedUser) => emitToUser(affectedUser._id.toString(), "role_permissions_updated", { userId: affectedUser._id.toString(), companyCode, role: req.body.role }));
       return res.status(200).json({
         status: "success",
         message: "Cập nhật cấu hình phân quyền vai trò thành công.",
@@ -233,7 +237,9 @@ export const rolePermissionController = {
         });
       }
 
+      const affectedUsers = await UserModel.find({ companyCode, role }).select("_id");
       await rolePermissionService.deleteRolePermission(companyCode, role);
+      affectedUsers.forEach((affectedUser) => emitToUser(affectedUser._id.toString(), "role_permissions_updated", { userId: affectedUser._id.toString(), companyCode, role }));
       return res.status(200).json({
         status: "success",
         message: "Xóa cấu hình phân quyền vai trò thành công.",
