@@ -1,0 +1,15 @@
+import { Router } from "express";
+import { requireAuth, requirePermission } from "../middleware/auth";
+import { payrollController } from "../controller/payroll.controller";
+export const payrollRouter = Router();
+payrollRouter.use(requireAuth as any);
+payrollRouter.get("/periods/:periodKey/audit", requirePermission("payroll:read") as any, payrollController.listAudit as any);
+payrollRouter.get("/periods/:periodKey/results", requirePermission("payroll:read") as any, payrollController.listResults as any);
+payrollRouter.post("/periods/:periodKey/snapshot", requirePermission("payroll:manage") as any, payrollController.createSnapshot as any);
+payrollRouter.post("/periods/:periodKey/lock", requirePermission("payroll:manage") as any, payrollController.lockResults as any);
+payrollRouter.post("/periods/:periodKey/run", requirePermission("payroll:manage") as any, payrollController.createRun as any);
+payrollRouter.get("/periods/:periodKey/run", requirePermission("payroll:read") as any, payrollController.getRun as any);
+payrollRouter.post("/periods/:periodKey/adjustments/:adjustmentId/approve", requirePermission("payroll:manage") as any, payrollController.approveAdjustment as any);
+payrollRouter.post("/periods/:periodKey/approve", requirePermission("payroll:manage") as any, payrollController.approveRun as any);
+payrollRouter.post("/periods/:periodKey/close", requirePermission("payroll:manage") as any, payrollController.closeRun as any);
+payrollRouter.post("/periods/:periodKey/adjustments", requirePermission("payroll:manage") as any, payrollController.createAdjustment as any);
