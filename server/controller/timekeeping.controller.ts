@@ -367,14 +367,6 @@ export const timekeepingController = {
   async updateCompanyLocation(req: AuthenticatedRequest, res: Response) {
     try {
       const companyCode = req.user?.companyCode || "SYSTEM";
-      const userRole = req.user?.role || "user";
-
-      if (userRole !== "superadmin" && userRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền thay đổi cấu hình vị trí của công ty.",
-        });
-      }
 
       const { latitude, longitude, allowedRadius, addressName, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
 
@@ -426,14 +418,6 @@ export const timekeepingController = {
   async listEmployeeWorkHours(req: AuthenticatedRequest, res: Response) {
     try {
       const companyCode = req.user?.companyCode || "SYSTEM";
-      const userRole = req.user?.role || "user";
-
-      if (userRole !== "superadmin" && userRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền xem giờ làm việc của nhân viên.",
-        });
-      }
 
       const users = await UserModel.find({ companyCode })
         .select("_id fullName email role workHoursConfig")
@@ -456,14 +440,6 @@ export const timekeepingController = {
   async updateEmployeeWorkHours(req: AuthenticatedRequest, res: Response) {
     try {
       const companyCode = req.user?.companyCode || "SYSTEM";
-      const userRole = req.user?.role || "user";
-
-      if (userRole !== "superadmin" && userRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền thay đổi giờ làm việc của nhân viên.",
-        });
-      }
 
       const { uid } = req.params;
       const { useCustom, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
