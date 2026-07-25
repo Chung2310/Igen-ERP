@@ -45,30 +45,24 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
     "user:read", "user:manage",
     "face:manage",
-    "crm:read", "crm:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read", "stock:manage",
-    "marketing:post",
-    "hr:read", "student:read", "timekeeping:read", "timekeeping:manage",
+    "hr:read", "student:read", "timekeeping:read", "timekeeping:manage", "payroll:read", "payroll:manage",
     "chat:read", "resource:read", "resource:manage"
   ],
   manager: [
     "user:read", "user:manage",
-    "crm:read", "crm:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read",
-    "marketing:post",
     "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
   ],
   user: [
     "user:read",
-    "crm:read",
     "kanban:read", "kanban:manage",
     "project:read",
     "stock:read",
-    "marketing:post",
     "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
   ]
 };

@@ -1,0 +1,109 @@
+import type { Response } from "express";
+import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
+import { TimekeepingLogModel } from "../model/timekeeping.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
+import { summarizeAttendanceForPayroll } from "../service/attendance-payroll.service";
+import { PayrollRunModel } from "../model/payroll-run.model";
+import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
+import { PayrollAuditModel } from "../model/payroll-audit.model";
+import { calculatePayroll } from "../service/payroll-calculation.service";
+import type { AuthenticatedRequest } from "../middleware/auth";
+
+const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
+const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), periodKey, action, actorId: req.user!.id, metadata });
+
+export const payrollController = {
+  async createSnapshot(req: AuthenticatedRequest, res: Response) {
+    const { employees } = req.body as { employees?: { employeeId: string; monthlySalary: number; standardHours?: number }[] };
+    if (!Array.isArray(employees) || !employees.length) return res.status(400).json({ status: "error", message: "Can danh sach nhan vien va luong thang." });
+    const period = req.params.periodKey;
+    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
+    const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
+    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end } }).lean();
+    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
+    const results = [];
+    for (const employee of employees) {
+      const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? new Date(log.checkIn.time).toISOString().slice(11, 16) : undefined, checkOut: log.checkOut?.time ? new Date(log.checkOut.time).toISOString().slice(11, 16) : undefined }));
+      const employeeLeaves = leaves.filter((leave) => leave.employeeId === employee.employeeId).map((leave) => ({ date: String(leave.startDate).slice(0, 10), payRate: 1 }));
+      const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: 480, logs: employeeLogs, paidLeaves: employeeLeaves, overtime: [] });
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, monthlySalary: employee.monthlySalary, standardHours: employee.standardHours || 208, shortageMinutes: summary.shortageMinutes, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+    }
+    await audit(req, period, "snapshot", { count: results.length });
+    return res.status(201).json({ status: "success", data: results });
+  },
+  async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
+  async listResults(req: AuthenticatedRequest, res: Response) {
+    const data = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+    return res.json({ status: "success", data });
+  },
+  async lockResults(req: AuthenticatedRequest, res: Response) {
+    const result = await AttendancePeriodResultModel.updateMany(
+      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "draft" },
+      { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
+    );
+    await audit(req, req.params.periodKey, "lock", { count: result.modifiedCount });
+    return res.json({ status: "success", lockedCount: result.modifiedCount });
+  },
+  async createRun(req: AuthenticatedRequest, res: Response) {
+    const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "locked" }).lean();
+    if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
+    const existing = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey });
+    if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
+    const lines = rows.map((row) => ({
+      employeeId: row.employeeId,
+      calculation: { ...calculatePayroll({
+        monthlySalary: row.monthlySalary,
+        standardDays: 26,
+        standardHours: row.standardHours,
+        shortageMinutes: row.shortageMinutes,
+        paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
+        overtime: row.overtime,
+        allowances: 0,
+        bonuses: 0,
+        deductions: 0,
+        adjustments: 0,
+      }) },
+    }));
+    const run = await PayrollRunModel.create({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "calculated", createdBy: req.user!.id, lines });
+    await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
+    return res.status(201).json({ status: "success", data: run });
+  },
+  async createAdjustment(req: AuthenticatedRequest, res: Response) {
+    const { employeeId, kind, amount, reason } = req.body;
+    if (!employeeId || !kind || !Number.isFinite(amount) || amount < 0 || !String(reason || "").trim()) return res.status(400).json({ status: "error", message: "Du lieu dieu chinh khong hop le." });
+    const adjustment = await PayrollAdjustmentModel.create({ companyCode: tenant(req), periodKey: req.params.periodKey, employeeId, kind, amount, reason, createdBy: req.user!.id });
+    return res.status(201).json({ status: "success", data: adjustment });
+  },
+  async approveAdjustment(req: AuthenticatedRequest, res: Response) {
+    const adjustment = await PayrollAdjustmentModel.findOneAndUpdate(
+      { _id: req.params.adjustmentId, companyCode: tenant(req), periodKey: req.params.periodKey, status: "pending" },
+      { $set: { status: "approved", approvedBy: req.user!.id } },
+      { new: true },
+    );
+    if (!adjustment) return res.status(409).json({ status: "error", message: "Dieu chinh khong ton tai hoac da duoc xu ly." });
+    await audit(req, req.params.periodKey, "adjustment", { adjustmentId: String(adjustment._id) });
+    return res.json({ status: "success", data: adjustment });
+  },
+  async approveRun(req: AuthenticatedRequest, res: Response) {
+    const run = await PayrollRunModel.findOneAndUpdate(
+      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "calculated" },
+      { $set: { status: "approved", approvedBy: req.user!.id } },
+      { new: true },
+    );
+    if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
+    return res.json({ status: "success", data: run });
+  },
+  async closeRun(req: AuthenticatedRequest, res: Response) {
+    const run = await PayrollRunModel.findOneAndUpdate(
+      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "approved" },
+      { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date() } },
+      { new: true },
+    );
+    if (!run) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
+    return res.json({ status: "success", data: run });
+  },  async getRun(req: AuthenticatedRequest, res: Response) {
+    const data = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+    if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
+    return res.json({ status: "success", data });
+  },
+};
