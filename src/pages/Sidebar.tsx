@@ -12,6 +12,7 @@ import {
   Users,
   Wallet,
   BookOpen,
+  Lock,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -24,7 +25,7 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { filterEnabledTabs } from "../config/modules";
+import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
 import { useEntityLabel } from "../modules/student-management/hooks/useEntityLabel";
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ interface MenuItem {
   title: string;
   icon: React.ElementType;
   group: "main" | "operations" | "tools" | "system";
+  locked?: boolean;
 }
 
 const baseMenuItems: MenuItem[] = [
@@ -90,16 +92,21 @@ const groupTitles: Record<MenuItem["group"], string> = {
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
-  const { userProfile } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
   const { tabLabel: studentTabLabel } = useEntityLabel();
 
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
-  const menuItems = baseMenuItems
+  const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => enabledTabs.has(item.label))
-    .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item));
+    .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item))
+    .map((item) => {
+      const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
+      const locked = requiredPerms ? !requiredPerms.some((code) => hasPermission(code)) : false;
+      return { ...item, locked };
+    });
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
@@ -193,21 +200,35 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     <button
                       key={item.label}
                       onClick={() => {
+                        if (item.locked) return;
                         setActiveTab(item.label);
                         onMobileClose();
                       }}
+                      aria-disabled={item.locked}
                       className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] ${
-                        isActive
+                        item.locked
+                          ? "cursor-not-allowed text-slate-300 opacity-60"
+                          : isActive
                           ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
-                      title={isCollapsed ? item.title : undefined}
+                      title={
+                        item.locked
+                          ? "Bạn không có quyền truy cập mục này. Liên hệ quản trị viên để được cấp quyền."
+                          : isCollapsed
+                          ? item.title
+                          : undefined
+                      }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
                         <Icon
                           className={`h-5 w-5 shrink-0 transition-colors ${
-                            isActive ? "text-sky-600" : "text-slate-400 group-hover:text-slate-600"
+                            item.locked
+                              ? "text-slate-300"
+                              : isActive
+                              ? "text-sky-600"
+                              : "text-slate-400 group-hover:text-slate-600"
                           }`}
                         />
                         {!isCollapsed ? (
@@ -215,7 +236,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         ) : null}
                       </div>
 
-                      {!isCollapsed && isActive ? (
+                      {item.locked ? (
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                      ) : !isCollapsed && isActive ? (
                         <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
                       ) : null}
                     </button>

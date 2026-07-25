@@ -4,23 +4,25 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createStudentSchema, updateStudentSchema, idParamSchema, publicRegisterStudentSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
+import { requirePermission } from "../../../middleware/auth";
 
 const router = Router();
+const requireManage = requirePermission("student:manage") as any;
 
 router.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
 router.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
 
 router.use(authMiddleware);
 
-router.post("/", validate(createStudentSchema), StudentController.create);
-router.post("/bulk", StudentController.bulkCreate);
-router.post("/bulk-delete", StudentController.bulkDelete);
+router.post("/", requireManage, validate(createStudentSchema), StudentController.create);
+router.post("/bulk", requireManage, StudentController.bulkCreate);
+router.post("/bulk-delete", requireManage, StudentController.bulkDelete);
 router.get("/", StudentController.getList);
 router.get("/:id", validate(idParamSchema, "params"), StudentController.getDetail);
-router.patch("/:id", validate(idParamSchema, "params"), validate(updateStudentSchema), StudentController.update);
-router.delete("/:id", validate(idParamSchema, "params"), StudentController.delete);
+router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateStudentSchema), StudentController.update);
+router.delete("/:id", requireManage, validate(idParamSchema, "params"), StudentController.delete);
 // Đánh dấu đã thu tiền đợt :no cho học viên :id
-router.patch("/:id/installment/:no/mark-paid", validate(idParamSchema, "params"), StudentController.markInstallmentPaid);
+router.patch("/:id/installment/:no/mark-paid", requireManage, validate(idParamSchema, "params"), StudentController.markInstallmentPaid);
 
 export default router;
 

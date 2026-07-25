@@ -3,6 +3,7 @@ import { AttendancePeriodResultModel } from "../model/attendance-period-result.m
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { summarizeAttendanceForPayroll } from "../service/attendance-payroll.service";
+import { UserModel } from "../model/user.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
@@ -14,8 +15,9 @@ const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metada
 
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
-    const { employees } = req.body as { employees?: { employeeId: string; monthlySalary: number; standardHours?: number }[] };
-    if (!Array.isArray(employees) || !employees.length) return res.status(400).json({ status: "error", message: "Can danh sach nhan vien va luong thang." });
+    const requestedEmployees = req.body?.employees as { employeeId: string; monthlySalary: number; standardHours?: number }[] | undefined;
+    const employees = requestedEmployees?.length ? requestedEmployees : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id monthlySalary standardHours").lean()).map((user) => ({ employeeId: String(user._id), monthlySalary: user.monthlySalary || 0, standardHours: user.standardHours || 208 }));
+    if (!employees.length) return res.status(400).json({ status: "error", message: "Chua có nhân viên du?c c?u hình luong." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;

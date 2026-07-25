@@ -38,6 +38,8 @@ export interface UserProfile {
   companyName?: string;
   /** Module nghiệp vụ được bật cho doanh nghiệp. Thiếu hoặc rỗng = bật tất cả. */
   enabledModules?: string[];
+  monthlySalary?: number;
+  standardHours?: number;
 }
 
 export interface CompanyProfile {
@@ -47,6 +49,8 @@ export interface CompanyProfile {
   createdAt: any;
   ownerEmail: string;
   enabledModules?: string[];
+  monthlySalary?: number;
+  standardHours?: number;
 }
 
 export interface TelegramLinkStatus {
