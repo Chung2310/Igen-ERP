@@ -9,6 +9,7 @@ payrollRouter.post("/periods/:periodKey/snapshot", requirePermission("payroll:ma
 payrollRouter.post("/periods/:periodKey/lock", requirePermission("payroll:manage") as any, payrollController.lockResults as any);
 payrollRouter.post("/periods/:periodKey/run", requirePermission("payroll:manage") as any, payrollController.createRun as any);
 payrollRouter.get("/periods/:periodKey/run", requirePermission("payroll:read") as any, payrollController.getRun as any);
+payrollRouter.delete("/periods/:periodKey", requirePermission("payroll:manage") as any, payrollController.resetPeriod as any);
 payrollRouter.post("/periods/:periodKey/adjustments/:adjustmentId/approve", requirePermission("payroll:manage") as any, payrollController.approveAdjustment as any);
 payrollRouter.post("/periods/:periodKey/approve", requirePermission("payroll:manage") as any, payrollController.approveRun as any);
 payrollRouter.post("/periods/:periodKey/close", requirePermission("payroll:manage") as any, payrollController.closeRun as any);

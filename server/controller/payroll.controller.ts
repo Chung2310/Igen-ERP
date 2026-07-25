@@ -103,6 +103,17 @@ export const payrollController = {
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
     return res.json({ status: "success", data: run });
+  },  async resetPeriod(req: AuthenticatedRequest, res: Response) {
+    const filter = { companyCode: tenant(req), periodKey: req.params.periodKey };
+    const run = await PayrollRunModel.findOne(filter).lean();
+    const [deletedRun, results, adjustments, audits] = await Promise.all([
+      PayrollRunModel.deleteOne(filter),
+      AttendancePeriodResultModel.deleteMany(filter),
+      PayrollAdjustmentModel.deleteMany(filter),
+      PayrollAuditModel.deleteMany(filter),
+    ]);
+    await audit(req, req.params.periodKey, "reset", { hadRun: Boolean(run), results: results.deletedCount, adjustments: adjustments.deletedCount, auditsRemoved: audits.deletedCount });
+    return res.json({ status: "success", deleted: { run: deletedRun.deletedCount, results: results.deletedCount, adjustments: adjustments.deletedCount } });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
