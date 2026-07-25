@@ -9,6 +9,9 @@ import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
 import { recordUserActivity } from "../middleware/user-activity";
 import { clearModuleCache } from "../middleware/require-module";
 import { notifyCompanyModulesChanged } from "../service/company-module-notify";
+import { rolePermissionService } from "../service/role-permission.service";
+import { PERMISSION_CODES } from "../config/permission-catalog";
+import { getEffectivePermissions } from "../middleware/auth";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -33,6 +36,23 @@ h2{color:${color};margin:0 0 8px;font-size:18px}p{color:#64748b;font-size:13px;l
   if (window.opener) { window.opener.postMessage(${payload}, '*'); }
   setTimeout(function(){ window.close(); }, ${ok ? 1200 : 4000});
 </script></body></html>`;
+}
+
+/**
+ * Suy ra danh sách mã quyền hiển thị cho profile người dùng.
+ * superadmin/admin luôn thấy đầy đủ; role khác tra theo RolePermission của
+ * công ty — nếu công ty chưa cấu hình RolePermission cho role đó thì cũng
+ * cho full quyền (nhất quán với hành vi mặc định-mở hiện có của các role
+ * ngoài "user" trên Dashboard).
+ */
+async function resolveProfilePermissions(
+  userId?: string,
+  role?: string,
+  companyCode?: string
+): Promise<string[]> {
+  if (!role || role === "superadmin") return PERMISSION_CODES;
+  const effective = await getEffectivePermissions(userId || "", role, companyCode);
+  return Array.from(effective);
 }
 
 export const authController = {
@@ -198,6 +218,7 @@ export const authController = {
         ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules").lean()
         : null;
       userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules);
+      userObj.permissions = await resolveProfilePermissions(userId, userObj.role, userObj.companyCode);
 
       return res.status(200).json({
         status: "success",

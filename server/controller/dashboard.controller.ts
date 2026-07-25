@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, getEffectivePermissions } from "../middleware/auth";
 import { dashboardService, DashboardRange } from "../service/dashboard.service";
 import { getEnabledModulesForCompany } from "../middleware/require-module";
 
@@ -69,9 +69,10 @@ export const dashboardController = {
         });
       }
 
-      const enabledModules = req.user.companyCode
-        ? await getEnabledModulesForCompany(req.user.companyCode)
-        : undefined;
+      const [enabledModules, permissions] = await Promise.all([
+        req.user.companyCode ? getEnabledModulesForCompany(req.user.companyCode) : undefined,
+        getEffectivePermissions(req.user.id, req.user.role, req.user.companyCode),
+      ]);
 
       const data = await dashboardService.getSummary(
         {
@@ -79,6 +80,7 @@ export const dashboardController = {
           role: req.user.role,
           companyCode: req.user.companyCode,
           enabledModules,
+          permissions,
         },
         range
       );
@@ -103,15 +105,17 @@ export const dashboardController = {
         return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
-      const enabledModules = req.user.companyCode
-        ? await getEnabledModulesForCompany(req.user.companyCode)
-        : undefined;
+      const [enabledModules, permissions] = await Promise.all([
+        req.user.companyCode ? getEnabledModulesForCompany(req.user.companyCode) : undefined,
+        getEffectivePermissions(req.user.id, req.user.role, req.user.companyCode),
+      ]);
 
       const data = await dashboardService.getActionItems({
         id: req.user.id,
         role: req.user.role,
         companyCode: req.user.companyCode,
         enabledModules,
+        permissions,
       });
 
       return res.status(200).json({ status: "success", data });

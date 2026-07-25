@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight } from 'lucide-react';
+import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight, ShieldCheck } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { AttendanceAttemptsModal } from './AttendanceAttemptsModal';
 
 interface AttendanceViewModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
 export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: AttendanceViewModalProps) {
   const entityLabel = useEntityLabel();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showAttempts, setShowAttempts] = useState(false);
 
   if (!isOpen || !batch) return null;
 
@@ -233,9 +235,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                       const status = rec ? rec.status : (records.length > 0 ? 'absent' : 'unmarked');
 
                       const cfg = {
-                        present:  { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200', text: 'Có mặt', row: 'border-emerald-100 bg-emerald-50/20' },
-                        absent:   { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50 border border-rose-200', text: 'Vắng mặt', row: 'border-rose-100 bg-rose-50/20' },
-                        excused:  { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50 border border-amber-200', text: 'Vắng có phép', row: 'border-amber-100 bg-amber-50/20' },
+                        present: { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200', text: 'Có mặt', row: 'border-emerald-100 bg-emerald-50/20' },
+                        absent: { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50 border border-rose-200', text: 'Vắng mặt', row: 'border-rose-100 bg-rose-50/20' },
+                        excused: { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50 border border-amber-200', text: 'Vắng có phép', row: 'border-amber-100 bg-amber-50/20' },
                         unmarked: { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' }
                       }[status] || { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' };
 
@@ -288,7 +290,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                 ) : (
                   <div className="flex flex-col items-center justify-center flex-1 gap-3 py-6">
                     <Calendar className="w-8 h-8 text-slate-200" />
-                    <p className="text-xs text-slate-400 text-center">Chọn một buổi học bên trái<br/>để xem danh sách điểm danh</p>
+                    <p className="text-xs text-slate-400 text-center">Chọn một buổi học bên trái<br />để xem danh sách điểm danh</p>
                   </div>
                 )}
 
@@ -306,11 +308,27 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Đã điểm danh</span>
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Bỏ sót</span>
           </div>
-          <span className="text-[10px] font-bold text-slate-500">
-            {formatDays(batch.daysOfWeek)} · {batch.startTime}–{batch.endTime}
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAttempts(true)}
+              className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary hover:text-brand-primary/80 transition-colors cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> Lịch sử xác thực khuôn mặt
+            </button>
+            <span className="text-[10px] font-bold text-slate-500">
+              {formatDays(batch.daysOfWeek)} · {batch.startTime}–{batch.endTime}
+            </span>
+          </div>
         </div>
       </div>
+
+      <AttendanceAttemptsModal
+        isOpen={showAttempts}
+        batchId={batch.id}
+        batchCode={batch.code}
+        onClose={() => setShowAttempts(false)}
+      />
     </ErpModal>
   );
 }

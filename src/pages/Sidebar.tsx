@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import {
+  ChevronLeft,
   ChevronRight,
   FolderOpen,
   LayoutDashboard,
   MessageSquare,
   Package,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   Shield,
   GraduationCap,
@@ -228,25 +227,19 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
         </nav>
 
         {/* Footer & Collapse Toggle */}
-        <div className={`border-t border-slate-100 ${isCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <div className={`border-t border-slate-100 flex flex-col items-center ${isCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
           <button
             type="button"
             onClick={() => setIsCollapsed((current) => !current)}
-            className={`hidden md:flex items-center rounded-xl border border-slate-200/80 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${
-              isCollapsed ? "mx-auto h-10 w-10 justify-center" : "w-full justify-between px-3 py-2"
-            }`}
+            className="hidden md:flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 shadow-xs cursor-pointer"
             title={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
             aria-label={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
           >
-            <span className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"}`}>
-              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              {!isCollapsed ? <span className="text-xs font-medium">Thu gọn thanh bên</span> : null}
-            </span>
-            {!isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : null}
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
           {!isCollapsed ? (
-            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 px-2 text-[11px] text-slate-400">
+            <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 px-2 text-[11px] text-slate-400">
               <a
                 href={PRIVACY_POLICY_URL}
                 target="_blank"

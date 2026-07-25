@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  X, Printer, FileText, CreditCard, History
+import {
+  X, Printer, FileText, CreditCard, History, ScanFace
 } from 'lucide-react';
 import { Student } from '../../types';
 import { apiFetch } from '../../lib/api';
@@ -13,6 +13,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { ProfileTab } from './DetailTabs/ProfileTab';
 import { TuitionTab } from './DetailTabs/TuitionTab';
 import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
+import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
 
 interface StudentDetailModalProps {
   student: Student | null;
@@ -21,7 +22,7 @@ interface StudentDetailModalProps {
   initialTab?: TabType;
 }
 
-type TabType = 'Hồ sơ' | 'Học phí' | 'Lịch sử';
+type TabType = 'Hồ sơ' | 'Học phí' | 'Khuôn mặt' | 'Lịch sử';
 
 export function StudentDetailModal({ student: initialStudent, selectedCenter, onClose, initialTab = 'Hồ sơ' }: StudentDetailModalProps) {
   const { userProfile: user } = useAuth();
@@ -77,7 +78,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
     };
   }, [initialStudent, fetchStudentDetail]);
 
-  const tabs: TabType[] = ['Hồ sơ', 'Học phí', 'Lịch sử'];
+  const tabs: TabType[] = ['Hồ sơ', 'Học phí', 'Khuôn mặt', 'Lịch sử'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {
@@ -285,8 +286,13 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   />
                 )}
 
-                {activeTab !== 'Hồ sơ' && 
-                 activeTab !== 'Học phí' && 
+                {student && activeTab === 'Khuôn mặt' && (
+                  <FaceEnrollmentTab student={student} />
+                )}
+
+                {activeTab !== 'Hồ sơ' &&
+                 activeTab !== 'Học phí' &&
+                 activeTab !== 'Khuôn mặt' &&
                  activeTab !== 'Lịch sử' && (
                   <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
                     <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -316,6 +322,7 @@ function TabIcon({ tab, size = 16 }: { tab: TabType, size?: number }) {
   switch (tab) {
     case 'Hồ sơ': return <FileText size={size} />;
     case 'Học phí': return <CreditCard size={size} />;
+    case 'Khuôn mặt': return <ScanFace size={size} />;
     case 'Lịch sử': return <History size={size} />;
     default: return null;
   }

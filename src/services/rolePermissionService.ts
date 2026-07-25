@@ -17,6 +17,7 @@ export interface Permission {
   name: string;
   module: string;
   description?: string;
+  group?: string;
 }
 
 export const rolePermissionService = {

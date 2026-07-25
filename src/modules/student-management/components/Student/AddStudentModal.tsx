@@ -10,6 +10,7 @@ import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
+import { FaceCaptureInput } from './components/FaceCaptureInput';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -122,6 +123,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
   const [referralMode, setReferralMode] = useState<'none' | 'partner' | 'custom'>('none');
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [faceBlob, setFaceBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     const fetchPartners = async () => {
@@ -228,6 +230,17 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
       if (res.success && res.data) {
         const studentWithId = { id: res.data._id, ...res.data };
 
+        if (faceBlob) {
+          try {
+            const faceBody = new FormData();
+            faceBody.append('file', new File([faceBlob], 'face.jpg', { type: faceBlob.type || 'image/jpeg' }));
+            await apiFetch(`/students/${res.data._id}/face`, { method: 'POST', body: faceBody });
+          } catch (faceError: unknown) {
+            const msg = faceError instanceof Error ? faceError.message : 'Không thể lưu mẫu khuôn mặt.';
+            toast.warning(`Đã tạo ${entityLabel.singular} nhưng chưa lưu được mẫu khuôn mặt: ${msg}`);
+          }
+        }
+
         if (batchId) {
           try {
             await apiFetch(`/batches/${batchId}/learners`, {
@@ -262,6 +275,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
         });
         setReferralMode('none');
         setBatchId('');
+        setFaceBlob(null);
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');
       }
     } catch (error: unknown) {
@@ -551,6 +565,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                     />
                   </div>
                 )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-50">
+                <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} />
               </div>
 
               <CustomFieldsSection

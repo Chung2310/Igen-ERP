@@ -49,7 +49,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read", "stock:manage",
-    "marketing:post"
+    "marketing:post",
+    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
   ],
   manager: [
     "user:read", "user:manage",
@@ -57,7 +58,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read",
-    "marketing:post"
+    "marketing:post",
+    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
   ],
   user: [
     "user:read",
@@ -65,7 +67,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "kanban:read", "kanban:manage",
     "project:read",
     "stock:read",
-    "marketing:post"
+    "marketing:post",
+    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
   ]
 };
 
@@ -141,6 +144,48 @@ export function requireRole(roles: string[]) {
 }
 
 /**
+ * Tính tập hợp mã quyền hiệu lực (permissions custom của user + RolePermission
+ * của company/role, fallback DEFAULT_ROLE_PERMISSIONS nếu công ty chưa cấu hình).
+ * Nguồn dùng chung cho requirePermission (middleware) và mọi nơi khác cần biết
+ * quyền thật của user (vd: lọc dữ liệu tổng quan theo permission trong
+ * dashboard.service.ts), để tránh hai nơi tự tính khác nhau và lệch pha.
+ * superadmin luôn trả về Set(["*"]).
+ */
+export async function getEffectivePermissions(
+  userId: string,
+  role: string,
+  companyCode?: string
+): Promise<Set<string>> {
+  if (role === "superadmin") {
+    return new Set(["*"]);
+  }
+
+  const userDoc = userId
+    ? await UserModel.findById(userId).select("permissions").lean()
+    : null;
+  const customPermissions = userDoc?.permissions || [];
+
+  let rolePermissions: string[] = [];
+  if (companyCode) {
+    const rolePermissionDoc = await RolePermissionModel.findOne({
+      companyCode,
+      role,
+    }).lean();
+
+    if (rolePermissionDoc) {
+      rolePermissions = rolePermissionDoc.permissions || [];
+    } else {
+      // Fallback về quyền hệ thống mặc định nếu chưa cấu hình trong DB
+      rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
+    }
+  } else {
+    rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
+  }
+
+  return new Set([...customPermissions, ...rolePermissions]);
+}
+
+/**
  * Middleware yêu cầu mã quyền động (PBAC)
  * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
  */
@@ -155,37 +200,8 @@ export function requirePermission(requiredPermission: string) {
       }
 
       const { id: userId, role, companyCode } = req.user;
+      const allPermissions = await getEffectivePermissions(userId, role, companyCode);
 
-      // 1. Superadmin tự động bypass tất cả kiểm tra quyền
-      if (role === "superadmin") {
-        return next();
-      }
-
-      // 2. Truy vấn quyền riêng của người dùng
-      const userDoc = await UserModel.findById(userId).select("permissions").lean();
-      const customPermissions = userDoc?.permissions || [];
-
-      // 3. Truy vấn cấu hình quyền của Role thuộc doanh nghiệp
-      let rolePermissions: string[] = [];
-      if (companyCode) {
-        const rolePermissionDoc = await RolePermissionModel.findOne({
-          companyCode,
-          role,
-        }).lean();
-        
-        if (rolePermissionDoc) {
-          rolePermissions = rolePermissionDoc.permissions || [];
-        } else {
-          // Fallback về quyền hệ thống mặc định nếu chưa cấu hình trong DB
-          rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
-        }
-      } else {
-        rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
-      }
-
-      const allPermissions = new Set([...customPermissions, ...rolePermissions]);
-
-      // 4. Xác thực mã quyền
       if (allPermissions.has(requiredPermission) || allPermissions.has("*")) {
         return next();
       }

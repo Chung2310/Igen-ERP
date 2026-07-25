@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-empty */
-/* eslint-disable react-hooks/immutability */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -65,6 +64,12 @@ export default function DashboardTab() {
   const canSeeResource = isModuleEnabled(userProfile?.enabledModules, "resource");
   const canSeeChat = isModuleEnabled(userProfile?.enabledModules, "chat");
   const canSeeStudent = isModuleEnabled(userProfile?.enabledModules, "student");
+  const hasPermission = (code: string | string[]) => {
+    if (!userProfile?.permissions) return true;
+    if (userProfile.permissions.includes("*")) return true;
+    const codes = Array.isArray(code) ? code : [code];
+    return codes.some((c) => userProfile.permissions?.includes(c));
+  };
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
@@ -757,7 +762,14 @@ export default function DashboardTab() {
 
         <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
-            {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory || canSeeStudent).map((tab) => {
+            {tabs
+              .filter(
+                (tab) =>
+                  tab.id !== "revenue" ||
+                  (canSeeInventory && hasPermission(["stock:read", "stock:manage"])) ||
+                  (canSeeStudent && hasPermission(["student:read", "student:manage"]))
+              )
+              .map((tab) => {
               const isActive = activeView === tab.id;
               const Icon = tab.icon;
               return (
@@ -804,14 +816,16 @@ export default function DashboardTab() {
           canSeeResource={canSeeResource}
           canSeeChat={canSeeChat}
           canSeeStudent={canSeeStudent}
-          role={userProfile?.role}
+          permissions={userProfile?.permissions}
           actionItems={actionItems}
         />
       )}
-      {activeView === "revenue" && (canSeeInventory || canSeeStudent) && (
+      {activeView === "revenue" &&
+        ((canSeeInventory && hasPermission(["stock:read", "stock:manage"])) ||
+          (canSeeStudent && hasPermission(["student:read", "student:manage"]))) && (
         <RevenuePanel
-          canSeeInventory={canSeeInventory}
-          canSeeStudent={canSeeStudent}
+          canSeeInventory={canSeeInventory && hasPermission(["stock:read", "stock:manage"])}
+          canSeeStudent={canSeeStudent && hasPermission(["student:read", "student:manage"])}
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
           prevRevenueShort={prevRevenueShort}

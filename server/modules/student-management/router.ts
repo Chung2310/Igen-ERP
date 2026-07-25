@@ -18,6 +18,9 @@ import partnerRoutes from "./routes/partner.routes";
 import customFieldRoutes from "./routes/custom-field.routes";
 import moduleSettingsRoutes from "./routes/module-settings.routes";
 import qrAttendanceRoutes from "./routes/qr-attendance.routes";
+import studentOnlineAttendanceRoutes from "./routes/student-online-attendance.routes";
+import studentAttendanceAttemptRoutes from "./routes/student-attendance-attempt.routes";
+import studentFaceRoutes from "./routes/student-face.routes";
 import assignmentRoutes from "./routes/assignment.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
@@ -30,6 +33,7 @@ const requireStudentModule = requireModule("student") as RequestHandler;
 
 studentManagementRouter.use("/auth", authRoutes);
 studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, studentRoutes);
+studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, studentFaceRoutes);
 studentManagementRouter.use("/exams", authMiddleware as unknown as RequestHandler, requireStudentModule, examRoutes);
 studentManagementRouter.use("/payments", authMiddleware as unknown as RequestHandler, requireStudentModule, paymentRoutes);
 studentManagementRouter.use("/student-notifications", authMiddleware as unknown as RequestHandler, requireStudentModule, notificationRoutes);
@@ -46,6 +50,8 @@ studentManagementRouter.use("/student-management/custom-fields", authMiddleware 
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
+studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);
+studentManagementRouter.use("/attendance/attempts", authMiddleware as unknown as RequestHandler, requireStudentModule, studentAttendanceAttemptRoutes);
 
 studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, async (req: AuthRequest, res) => {
   try {
