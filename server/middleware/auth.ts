@@ -50,7 +50,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "project:read", "project:manage",
     "stock:read", "stock:manage",
     "marketing:post",
-    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
+    "hr:read", "student:read", "timekeeping:read", "timekeeping:manage",
+    "chat:read", "resource:read", "resource:manage"
   ],
   manager: [
     "user:read", "user:manage",

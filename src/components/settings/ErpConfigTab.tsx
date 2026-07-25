@@ -7,7 +7,7 @@ import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
 
 export default function ErpConfigTab() {
-  const { userProfile } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar">("general");
 
   // States for timekeeping location setup
@@ -25,8 +25,11 @@ export default function ErpConfigTab() {
 
 
 
-  // Cấu hình vị trí chấm công (GPS) chỉ dành cho admin/superadmin xem & sửa
-  const canManageLocation = userProfile?.role === "superadmin" || userProfile?.role === "admin";
+  // Cấu hình vị trí chấm công (GPS) dành cho admin/superadmin hoặc role được cấp quyền timekeeping:manage
+  const canManageLocation =
+    userProfile?.role === "superadmin" ||
+    userProfile?.role === "admin" ||
+    hasPermission("timekeeping:manage");
 
 
   useEffect(() => {

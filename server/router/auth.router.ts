@@ -301,6 +301,7 @@ authRouter.get(
 authRouter.get(
   "/companies/:code/drive/oauth-url",
   requireAuth as any,
+  requirePermission("resource:manage") as any,
   validateRequest(companyCodeParamSchema),
   authController.getDriveOAuthUrl as any
 );
@@ -308,6 +309,7 @@ authRouter.get(
 authRouter.post(
   "/companies/:code/drive/disconnect",
   requireAuth as any,
+  requirePermission("resource:manage") as any,
   validateRequest(companyCodeParamSchema),
   authController.disconnectDrive as any
 );

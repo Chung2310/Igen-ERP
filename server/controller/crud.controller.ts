@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, getEffectivePermissions } from "../middleware/auth";
 import { crudService } from "../service/crud.service";
 import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
@@ -19,6 +19,30 @@ export async function computeChargeableSnapshot(
 ): Promise<{ chargeableDates: string[]; chargeableDays: number }> {
   const chargeableDates = await listWorkingDates(companyCode, toVietnamDate(new Date(leave.startDate)), toVietnamDate(new Date(leave.endDate)));
   return { chargeableDates, chargeableDays: chargeableDates.length };
+}
+
+/**
+ * True for superadmin/admin/manager OR any role explicitly granted the
+ * timekeeping:manage permission (e.g. a custom "hr" role) — used to gate
+ * approving/creating/deleting leave, wfh, exception, and template entries.
+ */
+async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean> {
+  const userRole = req.user?.role || "user";
+  if (userRole === "superadmin" || userRole === "admin" || userRole === "manager") return true;
+  const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
+  return permissions.has("*") || permissions.has("timekeeping:manage");
+}
+
+/**
+ * Narrower than canManageTimekeeping: superadmin/admin OR timekeeping:manage —
+ * used for actions previously restricted to admin/superadmin only (approving
+ * leave applications, managing leave templates), where "manager" was never included.
+ */
+async function canApproveLeave(req: AuthenticatedRequest): Promise<boolean> {
+  const userRole = req.user?.role || "user";
+  if (userRole === "superadmin" || userRole === "admin") return true;
+  const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
+  return permissions.has("*") || permissions.has("timekeeping:manage");
 }
 
 export const crudController = {
@@ -57,7 +81,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications") {
-        const isSupervisor = ["superadmin", "admin"].includes(userRole);
+        const isSupervisor = await canApproveLeave(req);
         if (!isSupervisor && req.user?.id) {
           filters.employeeId = req.user.id;
         }
@@ -124,8 +148,7 @@ export const crudController = {
 
       const LEAVE_TYPES = ["leave", "wfh", "exception"];
       if (modelName === "hr-calendar-events" && LEAVE_TYPES.includes(req.body.type)) {
-        const userRole = req.user?.role || "user";
-        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+        if (!(await canManageTimekeeping(req))) {
           return res.status(403).json({
             status: "error",
             message: "Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.",
@@ -140,8 +163,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-templates") {
-        const userRole = req.user?.role || "user";
-        if (userRole !== "superadmin" && userRole !== "admin") {
+        if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
             message: "Chỉ admin mới có quyền tải lên biểu mẫu mẫu.",
@@ -189,7 +211,7 @@ export const crudController = {
         const LEAVE_TYPES = ["leave", "wfh", "exception"];
         const event = await HRCalendarEventModel.findOne({ _id: id, companyCode }).lean();
         if (event && (LEAVE_TYPES.includes(event.type) || LEAVE_TYPES.includes(req.body.type))) {
-          if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          if (!(await canManageTimekeeping(req))) {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền chỉnh sửa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
@@ -205,7 +227,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-templates") {
-        if (userRole !== "superadmin" && userRole !== "admin") {
+        if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
             message: "Chỉ admin mới có quyền chỉnh sửa biểu mẫu mẫu.",
@@ -216,7 +238,7 @@ export const crudController = {
       if (modelName === "hr-leave-applications") {
         const app = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
         if (app) {
-          const isSupervisor = ["superadmin", "admin"].includes(userRole);
+          const isSupervisor = await canApproveLeave(req);
           if (!isSupervisor) {
             if (app.employeeId !== req.user?.id) {
               return res.status(403).json({
@@ -226,7 +248,7 @@ export const crudController = {
             }
           }
           if (req.body.status && req.body.status !== app.status) {
-            if (userRole !== "admin" && userRole !== "superadmin") {
+            if (!isSupervisor) {
               return res.status(403).json({
                 status: "error",
                 message: "Chỉ Admin và Superadmin mới có quyền phê duyệt/thay đổi trạng thái đơn từ.",
@@ -316,7 +338,7 @@ export const crudController = {
         const LEAVE_TYPES = ["leave", "wfh", "exception"];
         const event = await HRCalendarEventModel.findOne({ _id: id, companyCode }).lean();
         if (event && LEAVE_TYPES.includes(event.type)) {
-          if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          if (!(await canManageTimekeeping(req))) {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
@@ -326,7 +348,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-templates") {
-        if (userRole !== "superadmin" && userRole !== "admin") {
+        if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
             message: "Chỉ admin mới có quyền xóa biểu mẫu mẫu.",
@@ -337,7 +359,7 @@ export const crudController = {
       if (modelName === "hr-leave-applications") {
         const app = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
         if (app) {
-          const isSupervisor = ["superadmin", "admin"].includes(userRole);
+          const isSupervisor = await canApproveLeave(req);
           if (!isSupervisor && app.employeeId !== req.user?.id) {
             return res.status(403).json({
               status: "error",

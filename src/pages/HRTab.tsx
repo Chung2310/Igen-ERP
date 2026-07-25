@@ -26,6 +26,8 @@ export default function HRTab() {
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
   const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
   const canManageAttendance = isManager || hasPermission("timekeeping:manage");
+  const canManageOrgChart = isManager || hasPermission("user:manage");
+  const canManageKanban = isManager || hasPermission("kanban:manage");
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -199,7 +201,7 @@ export default function HRTab() {
             usersList={usersList}
             employees={employees}
             fetchUsers={fetchUsers}
-            isManager={isManager}
+            isManager={canManageOrgChart}
             companies={companies}
             courses={courses}
             fetchCourses={fetchCourses}
@@ -212,7 +214,7 @@ export default function HRTab() {
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             employees={employees}
-            isManager={isManager}
+            isManager={canManageKanban}
             usersList={usersList}
           />
         )}
