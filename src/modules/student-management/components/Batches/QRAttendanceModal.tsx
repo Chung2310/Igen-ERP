@@ -8,6 +8,7 @@ import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { cn } from "../../lib/utils";
 import { useEntityLabel } from "../../hooks/useEntityLabel";
+import { ConfirmDialog } from "../../../../components/common/ConfirmDialog";
 
 interface QRAttendanceModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function QRAttendanceModal({
   const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(30); // 30s xoay QR
   const [loading, setLoading] = useState<boolean>(true);
   const [closing, setClosing] = useState<boolean>(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
 
   // Danh sách các ID học viên đã check-in thành công
   const [checkedInMap, setCheckedInMap] = useState<Map<string, { checkinAt: number }>>(new Map());
@@ -259,9 +261,7 @@ export function QRAttendanceModal({
   }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken]);
 
   const handleCancel = () => {
-    if (window.confirm(`Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ ${entityLabel.singular} từ đầu phiên sẽ KHÔNG được lưu.`)) {
-      onClose();
-    }
+    setShowCancelConfirm(true);
   };
 
   // Lọc ra các học viên trong lớp
@@ -474,6 +474,20 @@ export function QRAttendanceModal({
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          onClose();
+        }}
+        title="Hủy phiên điểm danh QR?"
+        description={`Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ ${entityLabel.singular} từ đầu phiên sẽ KHÔNG được lưu.`}
+        confirmLabel="Hủy phiên điểm danh"
+        cancelLabel="Trở lại"
+        tone="warning"
+      />
     </div>
   );
 }

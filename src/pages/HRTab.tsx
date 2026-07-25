@@ -16,11 +16,18 @@ const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 
 export default function HRTab() {
-  const { userProfile } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
   const isManager =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
+  // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
+  // must also be able to view/manage everyone's attendance, not just their own —
+  // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
+  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
+  const canManageAttendance = isManager || hasPermission("timekeeping:manage");
+  const canManageOrgChart = isManager || hasPermission("user:manage");
+  const canManageKanban = isManager || hasPermission("kanban:manage");
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -194,7 +201,7 @@ export default function HRTab() {
             usersList={usersList}
             employees={employees}
             fetchUsers={fetchUsers}
-            isManager={isManager}
+            isManager={canManageOrgChart}
             companies={companies}
             courses={courses}
             fetchCourses={fetchCourses}
@@ -207,7 +214,7 @@ export default function HRTab() {
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             employees={employees}
-            isManager={isManager}
+            isManager={canManageKanban}
             usersList={usersList}
           />
         )}
@@ -236,7 +243,8 @@ export default function HRTab() {
           <CalendarTab
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
-            isManager={isManager}
+            isManager={canViewAllAttendance}
+            canManage={canManageAttendance}
             usersList={usersList}
             employees={employees}
           />
