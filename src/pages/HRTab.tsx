@@ -135,6 +135,8 @@ export default function HRTab() {
     status: usr.status || "offline",
     division: usr.division || "Khối Vận Hành",
     jobDescriptionLink: usr.jobDescriptionLink || "",
+    monthlySalary: usr.monthlySalary,
+    standardHours: usr.standardHours,
   }));
 
   return (

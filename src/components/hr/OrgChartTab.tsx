@@ -366,6 +366,8 @@ export default function OrgChartTab({
   const [editLevel, setEditLevel] = useState<number>(4);
   const [editParentId, setEditParentId] = useState("");
   const [editJobDescriptionLink, setEditJobDescriptionLink] = useState("");
+  const [editMonthlySalary, setEditMonthlySalary] = useState("");
+  const [editStandardHours, setEditStandardHours] = useState("208");
   const [uploadingEditJobDescription, setUploadingEditJobDescription] = useState(false);
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = useState(false);
   const editJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
@@ -382,6 +384,8 @@ export default function OrgChartTab({
     setEditRoleText(selectedEmp.role || "");
     setEditDivision(selectedEmp.division || "Khối Vận Hành");
     setEditDepartment(selectedEmp.department || "");
+    setEditMonthlySalary(selectedEmp.monthlySalary == null ? "" : String(selectedEmp.monthlySalary));
+    setEditStandardHours(String(selectedEmp.standardHours || 208));
     setEditEmail(selectedEmp.email || "");
     setEditPhone(selectedEmp.phone && selectedEmp.phone !== "Chưa cập nhật" ? selectedEmp.phone : "");
     setEditLevel(selectedEmp.level || 4);
@@ -447,6 +451,8 @@ export default function OrgChartTab({
         phone: editPhone.trim() || "",
         parentId: editParentId || null,
         jobDescriptionLink: editJobDescriptionLink.trim() || "",
+        monthlySalary: editMonthlySalary === "" ? undefined : Number(editMonthlySalary),
+        standardHours: Number(editStandardHours) || 208,
       };
 
       await authService.updateUser(selectedEmp.id, updateData);
