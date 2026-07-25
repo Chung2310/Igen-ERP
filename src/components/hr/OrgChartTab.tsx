@@ -1315,6 +1315,10 @@ export default function OrgChartTab({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Gio chuan / thang</label><input type="number" min="1" max="744" value={editStandardHours} onChange={(e) => setEditStandardHours(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="208" /></div>
+                </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
                   <input
@@ -1609,6 +1613,10 @@ export default function OrgChartTab({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Gio chuan / thang</label><input type="number" min="1" max="744" value={editStandardHours} onChange={(e) => setEditStandardHours(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="208" /></div>
+                </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>
                   <input
