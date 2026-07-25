@@ -2,7 +2,7 @@ import React from "react";
 import { Shield, X, RefreshCw } from "lucide-react";
 import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
-import { getPermissionLabel, getPermissionDescription } from "../../utils/permissionUtils";
+import { getPermissionLabel, getPermissionDescription, PERMISSION_TRANSLATIONS } from "../../utils/permissionUtils";
 
 export interface RoleModalProps {
   open: boolean;
@@ -148,7 +148,7 @@ export function RoleModal({
                   {(() => {
                     const groupsMap = new Map<string, Permission[]>();
                     systemPermissions.forEach((perm) => {
-                      const groupName = perm.group || "Khác";
+                      const groupName = perm.group || PERMISSION_TRANSLATIONS[perm.code]?.group || "Khác";
                       const list = groupsMap.get(groupName) || [];
                       list.push(perm);
                       groupsMap.set(groupName, list);
