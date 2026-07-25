@@ -138,7 +138,7 @@ export function RoleModal({
             {/* Danh sách mã quyền gán */}
             <div className="space-y-2 border-t border-gray-100 pt-3">
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Thiết lập các quyền truy cập được cấp phép *</label>
-              
+
               {editingRole?.role === "superadmin" ? (
                 <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium">
                   Vai trò Superadmin tự động có tất cả quyền trong hệ thống và không thể thay đổi.
@@ -177,11 +177,10 @@ export function RoleModal({
                                     }
                                   });
                                 }}
-                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
-                                  isChecked
+                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${isChecked
                                     ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
                                     : "bg-white border-gray-150 text-slate-700"
-                                }`}
+                                  }`}
                               >
                                 <input
                                   type="checkbox"
