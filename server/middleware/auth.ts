@@ -189,8 +189,13 @@ export async function getEffectivePermissions(
 /**
  * Middleware yêu cầu mã quyền động (PBAC)
  * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
+ * Truyền một mảng để yêu cầu "có ít nhất một trong các mã quyền" (OR), ví dụ khi hai nhóm quyền
+ * khác nhau trên UI cùng cấp quyền truy cập một tài nguyên dùng chung (vd: hr:read và user:read
+ * cùng cho phép xem danh sách nhân sự).
  */
-export function requirePermission(requiredPermission: string) {
+export function requirePermission(requiredPermission: string | string[]) {
+  const requiredPermissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
+
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
@@ -203,13 +208,13 @@ export function requirePermission(requiredPermission: string) {
       const { id: userId, role, companyCode } = req.user;
       const allPermissions = await getEffectivePermissions(userId, role, companyCode);
 
-      if (allPermissions.has(requiredPermission) || allPermissions.has("*")) {
+      if (allPermissions.has("*") || requiredPermissions.some((p) => allPermissions.has(p))) {
         return next();
       }
 
       return res.status(403).json({
         status: "error",
-        message: `Tài khoản của bạn không có mã quyền [${requiredPermission}] cần thiết để thực hiện thao tác này.`,
+        message: `Tài khoản của bạn không có mã quyền [${requiredPermissions.join(", ")}] cần thiết để thực hiện thao tác này.`,
       });
     } catch (error: any) {
       console.error("[requirePermission] Error:", error);

@@ -22,6 +22,11 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Thêm mới, chỉnh sửa thông tin, đặt vai trò và xóa tài khoản nhân viên",
   },
+  "hr:read": {
+    label: "Xem tổng quan nhân sự",
+    group: "Quản lý nhân sự",
+    description: "Xem thẻ và biểu đồ nhân sự trên trang Tổng quan. Lưu ý: để dùng module NHÂN SỰ (sơ đồ tổ chức, lịch, kanban) cần cấp thêm quyền \"Xem thông tin nhân sự\" (user:read) để tải được danh sách nhân viên.",
+  },
   "timekeeping:read": {
     label: "Xem bảng chấm công",
     group: "Quản lý nhân sự",
