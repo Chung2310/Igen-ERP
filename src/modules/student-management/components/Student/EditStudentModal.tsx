@@ -30,7 +30,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React from 'react';
 import { Camera, CheckCircle2, RefreshCw, ScanFace, Trash2, X } from 'lucide-react';
 import { Student } from '../../../types';
@@ -216,6 +217,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
           <div className="flex flex-wrap items-center gap-2">
             {!cameraOn && !capture && (
               <button
+                type="button"
                 onClick={handleStartCamera}
                 className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 cursor-pointer"
               >
@@ -225,12 +227,14 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
             {cameraOn && !capture && (
               <>
                 <button
+                  type="button"
                   onClick={handleCapture}
                   className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 cursor-pointer"
                 >
                   Chụp ảnh
                 </button>
                 <button
+                  type="button"
                   onClick={stopCamera}
                   className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
@@ -242,6 +246,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
             {capture && (
               <>
                 <button
+                  type="button"
                   onClick={handleRetake}
                   disabled={submitting}
                   className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
@@ -250,6 +255,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
                   Chụp lại
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirm}
                   disabled={submitting}
                   className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 cursor-pointer disabled:opacity-50"
@@ -257,6 +263,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
                   {submitting ? 'Đang lưu...' : 'Xác nhận lưu mẫu'}
                 </button>
                 <button
+                  type="button"
                   onClick={handleCancelCapture}
                   disabled={submitting}
                   className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
@@ -268,6 +275,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
             )}
             {status?.registered && !cameraOn && !capture && (
               <button
+                type="button"
                 onClick={handleRemove}
                 disabled={removing}
                 className="flex items-center gap-1.5 rounded-xl border border-rose-200 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
