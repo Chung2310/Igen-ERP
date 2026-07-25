@@ -28,11 +28,20 @@ export function calculatePayroll(input: PayrollCalculationInput): PayrollCalcula
 
   const hourlyRate = input.monthlySalary / input.standardHours;
   const shortageValue = money((input.shortageMinutes / 60) * hourlyRate);
+  
+  // Số tiền nghỉ phép được hưởng
   const paidLeaveValue = input.paidLeaveMinutesByRate.reduce(
     (total, leave) => total + money((leave.minutes / 60) * hourlyRate * leave.payRate),
     0,
   );
-  const adjustedBase = money(input.monthlySalary - shortageValue + paidLeaveValue);
+
+  // Số tiền khấu trừ do nghỉ phép không hưởng đủ lương (ví dụ nghỉ hưởng 50% lương, hoặc 0% lương)
+  const paidLeaveDeduction = input.paidLeaveMinutesByRate.reduce(
+    (total, leave) => total + money((leave.minutes / 60) * hourlyRate * (1 - leave.payRate)),
+    0,
+  );
+
+  const adjustedBase = money(input.monthlySalary - shortageValue - paidLeaveDeduction);
   const overtime = input.overtime.reduce(
     (total, item) => total + money((item.minutes / 60) * hourlyRate * OVERTIME_MULTIPLIERS[item.category]),
     0,
