@@ -63,6 +63,8 @@ export default function CalendarTab({
   employees,
   usersList = []
 }: CalendarTabProps) {
+  const isLeaveAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
+
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
 
@@ -760,7 +762,7 @@ export default function CalendarTab({
             </p>
           </div>
           <div className="flex gap-2">
-            {!isManager && (
+            {!isLeaveAdmin && (
               <button
                 onClick={openAppForm}
                 className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
@@ -769,7 +771,7 @@ export default function CalendarTab({
                 Viết đơn mới
               </button>
             )}
-            {isManager && (
+            {isLeaveAdmin && (
               <>
                 <button
                   onClick={() => {
@@ -799,9 +801,9 @@ export default function CalendarTab({
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                  {isManager ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
+                  {isLeaveAdmin ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
                 </h3>
-                {isManager && (
+                {isLeaveAdmin && (
                   <div className="flex flex-wrap gap-2.5 items-center">
                     <div className="flex items-center gap-1.5">
                       <input
@@ -838,12 +840,12 @@ export default function CalendarTab({
                 <table className="w-full text-xs text-left text-slate-700">
                   <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
                     <tr>
-                      {isManager && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
+                      {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
                       <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
                       <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
                       <th className="px-5 py-4 min-w-[220px]">Lý do</th>
                       <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
-                      {isManager ? (
+                      {isLeaveAdmin ? (
                         <>
                           <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
                           <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
@@ -860,7 +862,7 @@ export default function CalendarTab({
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isAppLoading ? (
                       <tr>
-                        <td colSpan={isManager ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
+                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
                           <div className="flex justify-center items-center gap-2">
                             <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                             Đang tải danh sách đơn từ...
@@ -869,17 +871,17 @@ export default function CalendarTab({
                       </tr>
                     ) : filteredApplications.length === 0 ? (
                       <tr>
-                        <td colSpan={isManager ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
                           {applications.length === 0 ? "Chưa có đơn từ nào được đăng ký." : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
                         </td>
                       </tr>
                     ) : (
                       filteredApplications.map((app) => {
-                        const showDelete = app.status === "pending" || isManager;
+                        const showDelete = app.status === "pending" || isLeaveAdmin;
 
                         return (
                           <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                            {isManager && (
+                            {isLeaveAdmin && (
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="font-bold text-slate-800">{app.employeeName}</div>
                               </td>
@@ -909,7 +911,7 @@ export default function CalendarTab({
                                 <span className="text-slate-400 italic">Chưa có tệp</span>
                               )}
                             </td>
-                            {isManager ? (
+                            {isLeaveAdmin ? (
                               <>
                                 <td className="px-5 py-4 whitespace-nowrap text-center">
                                   {getStatusBadge(app.status, app.rejectReason)}
@@ -2005,8 +2007,8 @@ export default function CalendarTab({
       return;
     }
 
-    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
-      toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !isLeaveAdmin) {
+      toast.error("Chỉ admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
       return;
     }
 
@@ -2187,7 +2189,7 @@ export default function CalendarTab({
                       <CalendarCheck className="h-4 w-4 text-blue-500" />
                       Tạo sự kiện
                     </button>
-                    {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                    {isLeaveAdmin && (
                       <>
                         <button
                           onClick={() => openCreateModal(new Date(), "leave")}
@@ -2487,7 +2489,7 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
                             <button
                               onClick={() => openEditModal(item)}
                               className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -2496,7 +2498,7 @@ export default function CalendarTab({
                               <Edit className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
                             <button
                               onClick={() => handleDeleteItem((item._id || item.id)!)}
                               className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -2616,7 +2618,7 @@ export default function CalendarTab({
                       { key: "wfh", label: "🏠 Tại nhà", color: "border-teal-500 text-teal-600", roleRestricted: true },
                       { key: "exception", label: "⚡ Ngoại lệ", color: "border-violet-500 text-violet-600", roleRestricted: true },
                       { key: "reminder", label: "🔔 Nhắc hẹn", color: "border-amber-500 text-amber-600" }
-                    ].filter(t => !t.roleRestricted || (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")).map((t) => (
+                    ].filter(t => !t.roleRestricted || isLeaveAdmin).map((t) => (
                       <button
                         key={t.key}
                         type="button"
@@ -3061,7 +3063,7 @@ export default function CalendarTab({
                               <Download className="h-3 w-3" />
                               Tải mẫu
                             </a>
-                            {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                            {isLeaveAdmin && (
                               <button
                                 onClick={() => handleDeleteTpl(tpl._id || tpl.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold transition-all border border-rose-200 cursor-pointer shadow-3xs"
