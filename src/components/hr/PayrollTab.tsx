@@ -77,7 +77,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   const baseSalary = originalResult?.monthlySalary || line.calculation?.monthlySalary || 0;
                   return (
                     <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-700">{line.employeeId}</td>
+                      <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || originalResult?.employeeName || "Chua cÛ tÍn"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
                       <td className="p-3 text-right text-slate-600">{Number(baseSalary).toLocaleString()} ƒë</td>
                       <td className="p-3 text-right text-slate-600">{Number(line.calculation?.adjustedBase || 0).toLocaleString()} ƒë</td>
                       <td className="p-3 text-right text-slate-600">{Number(line.calculation?.overtime || 0).toLocaleString()} ƒë</td>
@@ -111,7 +111,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     const totalPaidLeave = row.paidLeaveMinutesByRate?.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0) || 0;
                     return (
                       <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                        <td className="p-3 font-medium text-slate-700">{row.employeeId}</td>
+                        <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chua cÛ tÍn"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
                         <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary || 0).toLocaleString()} ƒë</td>
                         <td className="p-3 text-center text-slate-600">{row.standardHours} gi·ªù</td>
                         <td className="p-3 text-center font-semibold text-rose-500">{Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2)} ng√†y</td>

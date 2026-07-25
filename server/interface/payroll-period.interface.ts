@@ -6,6 +6,7 @@ export interface IAttendancePeriodResult extends Document {
   companyCode: string;
   periodKey: string;
   employeeId: string;
+  employeeName?: string;
   monthlySalary: number;
   standardHours: number;
   shortageMinutes: number;
@@ -22,7 +23,7 @@ export interface IPayrollRun extends Document {
   companyCode: string;
   periodKey: string;
   status: PayrollPeriodStatus;
-  lines: { employeeId: string; calculation: Record<string, number> }[];
+  lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];
   createdBy: string;
   approvedBy?: string;
   closedBy?: string;
