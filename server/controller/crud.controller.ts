@@ -57,7 +57,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications") {
-        const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        const isSupervisor = ["superadmin", "admin"].includes(userRole);
         if (!isSupervisor && req.user?.id) {
           filters.employeeId = req.user.id;
         }
@@ -141,10 +141,10 @@ export const crudController = {
 
       if (modelName === "hr-leave-templates") {
         const userRole = req.user?.role || "user";
-        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+        if (userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ quản lý và admin mới có quyền tải lên biểu mẫu mẫu.",
+            message: "Chỉ admin mới có quyền tải lên biểu mẫu mẫu.",
           });
         }
       }
@@ -205,10 +205,10 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-templates") {
-        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+        if (userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ quản lý và admin mới có quyền chỉnh sửa biểu mẫu mẫu.",
+            message: "Chỉ admin mới có quyền chỉnh sửa biểu mẫu mẫu.",
           });
         }
       }
@@ -216,7 +216,7 @@ export const crudController = {
       if (modelName === "hr-leave-applications") {
         const app = await HRLeaveApplicationModel.findById(id).lean();
         if (app) {
-          const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+          const isSupervisor = ["superadmin", "admin"].includes(userRole);
           if (!isSupervisor) {
             if (app.employeeId !== req.user?.id) {
               return res.status(403).json({
@@ -326,10 +326,10 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-templates") {
-        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+        if (userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ quản lý và admin mới có quyền xóa biểu mẫu mẫu.",
+            message: "Chỉ admin mới có quyền xóa biểu mẫu mẫu.",
           });
         }
       }
@@ -337,7 +337,7 @@ export const crudController = {
       if (modelName === "hr-leave-applications") {
         const app = await HRLeaveApplicationModel.findById(id).lean();
         if (app) {
-          const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+          const isSupervisor = ["superadmin", "admin"].includes(userRole);
           if (!isSupervisor && app.employeeId !== req.user?.id) {
             return res.status(403).json({
               status: "error",
