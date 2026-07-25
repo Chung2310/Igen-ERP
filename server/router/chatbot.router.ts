@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from "express";
 import Joi from "joi";
 import { chatbotController } from "../controller/chatbot.controller";
 import { validateRequest } from "../middleware/validation";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 
 export const chatbotRouter = Router();
 
@@ -23,6 +23,7 @@ const chatSchema = {
 chatbotRouter.post(
   "/chat",
   requireAuth as RequestHandler,
+  requirePermission("chat:read") as RequestHandler,
   validateRequest(chatSchema),
   chatbotController.chat as unknown as RequestHandler
 );

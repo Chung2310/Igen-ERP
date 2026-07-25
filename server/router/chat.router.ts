@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { chatController } from "../controller/chat.controller";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import {
   createRoomSchema,
@@ -21,6 +21,7 @@ import {
 } from "../validation/chat.validation";
 
 export const chatRouter = Router();
+chatRouter.use(requireAuth as any, requirePermission("chat:read") as any);
 
 // Xem trước liên kết (OG metadata)
 chatRouter.get(

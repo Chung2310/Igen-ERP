@@ -2,7 +2,7 @@ import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
 import Joi from "joi";
 import mongoose from "mongoose";
-import { requireAuth, type AuthenticatedRequest } from "../middleware/auth";
+import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
@@ -144,7 +144,7 @@ async function handleError(res: Response, error: any) {
 
 kanbanRouter.use(requireAuth as any);
 
-kanbanRouter.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (!isManager(req.user?.role)) {
@@ -179,9 +179,8 @@ kanbanRouter.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-kanbanRouter.post("/tasks", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được giao công việc mới.");
     const companyCode = req.user?.companyCode || "SYSTEM";
     const status = normalizeStatus(req.body.status);
     if (!VALID_STATUSES.includes(status as any)) throw httpError(400, "Trạng thái công việc không hợp lệ.");
@@ -314,9 +313,8 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
   }
 });
 
-kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa công việc.");
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
     await kanbanAuditService.recordTaskMutation({
@@ -333,7 +331,7 @@ kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Respons
   }
 });
 
-kanbanRouter.get("/projects", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/projects", requirePermission("project:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projects = await ProjectModel.find(companyFilter(req)).sort("-createdAt").lean();
     return res.json({ status: "success", data: projects });
@@ -342,9 +340,8 @@ kanbanRouter.get("/projects", async (req: AuthenticatedRequest, res: Response) =
   }
 });
 
-kanbanRouter.post("/projects", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/projects", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được tạo dự án.");
     const companyCode = req.user?.companyCode || "SYSTEM";
     const name = String(req.body.name || "").trim();
     if (!name) throw httpError(400, "Tên dự án là bắt buộc.");
@@ -363,9 +360,8 @@ kanbanRouter.post("/projects", async (req: AuthenticatedRequest, res: Response) 
   }
 });
 
-kanbanRouter.delete("/projects/:id", async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.delete("/projects/:id", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa dự án.");
     const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!project) throw httpError(404, "Không tìm thấy dự án.");
     await kanbanAuditService.recordProjectMutation({

@@ -110,17 +110,6 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Công việc & Dự án",
     description: "Tạo dự án mới, cài đặt thành viên và quản lý tiến độ dự án",
   },
-  // Quản lý khách hàng (CRM)
-  "crm:read": {
-    label: "Xem cơ hội bán hàng (CRM)",
-    group: "Quản lý khách hàng (CRM)",
-    description: "Xem danh sách khách hàng, pipeline và thông tin giao dịch CRM",
-  },
-  "crm:manage": {
-    label: "Quản trị cơ hội bán hàng (CRM)",
-    group: "Quản lý khách hàng (CRM)",
-    description: "Thêm mới, cập nhật tiến độ, phân công và quản lý thông tin CRM",
-  },
   // Trò chuyện & Trao đổi
   "chat:read": {
     label: "Tham gia trò chuyện nội bộ",
