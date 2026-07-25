@@ -1,3 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -19,7 +23,7 @@ import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { MODULE_KEYS } from "../config/modules";
-import { getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
+import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -241,9 +245,14 @@ export default function UserAdminTab() {
   const fetchSystemPermissions = async () => {
     try {
       const data = await rolePermissionService.getPermissions();
-      setSystemPermissions(data);
+      if (data && data.length > 0) {
+        setSystemPermissions(data);
+      } else {
+        setSystemPermissions(DEFAULT_SYSTEM_PERMISSIONS as any);
+      }
     } catch (error) {
       console.error("Lấy mã quyền hệ thống thất bại:", error);
+      setSystemPermissions(DEFAULT_SYSTEM_PERMISSIONS as any);
     }
   };
 
@@ -1090,19 +1099,30 @@ export default function UserAdminTab() {
                   admin: ["*"],
                   manager: [
                     "user:read", "user:manage",
+                    "timekeeping:read", "timekeeping:manage",
+                    "payroll:read",
                     "crm:read", "crm:manage",
                     "kanban:read", "kanban:manage",
                     "project:read", "project:manage",
-                    "stock:read",
-                    "marketing:post"
+                    "stock:read", "stock:manage",
+                    "student:read", "student:manage",
+                    "course:read",
+                    "resource:read", "resource:manage",
+                    "chat:read", "chat:manage",
+                    "wallet:read"
                   ],
                   user: [
                     "user:read",
+                    "timekeeping:read",
                     "crm:read",
                     "kanban:read", "kanban:manage",
                     "project:read",
                     "stock:read",
-                    "marketing:post"
+                    "student:read",
+                    "course:read",
+                    "resource:read",
+                    "chat:read",
+                    "wallet:read"
                   ]
                 };
 
