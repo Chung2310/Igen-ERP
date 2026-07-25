@@ -14,6 +14,7 @@ const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
+const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
@@ -149,6 +150,7 @@ export default function HRTab() {
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
             { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+            { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
           ].map((tab) => {
             const isActive = subTab === tab.id;
             const Icon = tab.icon;
@@ -239,6 +241,7 @@ export default function HRTab() {
           />
         )}
 
+        {subTab === "PAYROLL" && <PayrollTab canManage={hasPermission("payroll:manage")} />}
         {subTab === "LỊCH" && (
           <CalendarTab
             userProfile={userProfile}
