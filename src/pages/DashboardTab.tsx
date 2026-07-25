@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-empty */
-/* eslint-disable react-hooks/immutability */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -65,8 +64,12 @@ export default function DashboardTab() {
   const canSeeResource = isModuleEnabled(userProfile?.enabledModules, "resource");
   const canSeeChat = isModuleEnabled(userProfile?.enabledModules, "chat");
   const canSeeStudent = isModuleEnabled(userProfile?.enabledModules, "student");
-  const hasPermission = (code: string) =>
-    !userProfile?.permissions || userProfile.permissions.includes(code);
+  const hasPermission = (code: string | string[]) => {
+    if (!userProfile?.permissions) return true;
+    if (userProfile.permissions.includes("*")) return true;
+    const codes = Array.isArray(code) ? code : [code];
+    return codes.some((c) => userProfile.permissions?.includes(c));
+  };
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
@@ -763,8 +766,8 @@ export default function DashboardTab() {
               .filter(
                 (tab) =>
                   tab.id !== "revenue" ||
-                  (canSeeInventory && hasPermission("stock:read")) ||
-                  (canSeeStudent && hasPermission("student:read"))
+                  (canSeeInventory && hasPermission(["stock:read", "stock:manage"])) ||
+                  (canSeeStudent && hasPermission(["student:read", "student:manage"]))
               )
               .map((tab) => {
               const isActive = activeView === tab.id;
@@ -818,11 +821,11 @@ export default function DashboardTab() {
         />
       )}
       {activeView === "revenue" &&
-        ((canSeeInventory && hasPermission("stock:read")) ||
-          (canSeeStudent && hasPermission("student:read"))) && (
+        ((canSeeInventory && hasPermission(["stock:read", "stock:manage"])) ||
+          (canSeeStudent && hasPermission(["student:read", "student:manage"]))) && (
         <RevenuePanel
-          canSeeInventory={canSeeInventory && hasPermission("stock:read")}
-          canSeeStudent={canSeeStudent && hasPermission("student:read")}
+          canSeeInventory={canSeeInventory && hasPermission(["stock:read", "stock:manage"])}
+          canSeeStudent={canSeeStudent && hasPermission(["student:read", "student:manage"])}
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
           prevRevenueShort={prevRevenueShort}

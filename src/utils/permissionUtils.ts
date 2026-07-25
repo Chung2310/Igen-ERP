@@ -11,6 +11,7 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản trị cao cấp",
     description: "Cho phép truy cập và quản trị tất cả các tính năng trong hệ thống",
   },
+  // Quản lý nhân sự & Chấm công
   "user:read": {
     label: "Xem thông tin nhân sự",
     group: "Quản lý nhân sự",
@@ -21,21 +22,69 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Thêm mới, chỉnh sửa thông tin, đặt vai trò và xóa tài khoản nhân viên",
   },
+  "timekeeping:read": {
+    label: "Xem bảng chấm công",
+    group: "Quản lý nhân sự",
+    description: "Xem dữ liệu điểm danh, lịch làm việc và bảng chấm công ngày/tháng",
+  },
+  "timekeeping:manage": {
+    label: "Quản lý & duyệt chấm công",
+    group: "Quản lý nhân sự",
+    description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình ca làm việc",
+  },
+  "payroll:read": {
+    label: "Xem bảng lương nhân sự",
+    group: "Quản lý nhân sự",
+    description: "Xem phiếu lương, phụ cấp và bảng tính lương nhân viên",
+  },
+  "payroll:manage": {
+    label: "Quản lý & tính lương nhân sự",
+    group: "Quản lý nhân sự",
+    description: "Tạo bảng lương, duyệt thưởng và chốt kỳ trả lương cho công ty",
+  },
   "face:manage": {
     label: "Quản lý chấm công khuôn mặt AI",
     group: "Quản lý nhân sự",
     description: "Cấu hình dữ liệu và nhận diện khuôn mặt chấm công AI",
   },
-  "crm:read": {
-    label: "Xem cơ hội bán hàng (CRM)",
-    group: "Quản lý khách hàng (CRM)",
-    description: "Xem danh sách khách hàng, pipeline và thông tin giao dịch CRM",
+  // Quản lý đào tạo & Học viên
+  "student:read": {
+    label: "Xem danh sách học viên",
+    group: "Quản lý đào tạo",
+    description: "Xem danh sách học viên, lớp học và kết quả đào tạo",
   },
-  "crm:manage": {
-    label: "Quản trị cơ hội bán hàng (CRM)",
-    group: "Quản lý khách hàng (CRM)",
-    description: "Thêm mới, cập nhật tiến độ, phân công và quản lý thông tin CRM",
+  "student:manage": {
+    label: "Quản lý học viên & xếp lớp",
+    group: "Quản lý đào tạo",
+    description: "Thêm mới học viên, xếp lớp, điểm danh và cấp chứng chỉ",
   },
+  "course:read": {
+    label: "Xem danh sách khóa học",
+    group: "Quản lý đào tạo",
+    description: "Xem thông tin khóa học, lộ trình và giáo trình đào tạo",
+  },
+  "course:manage": {
+    label: "Quản lý khóa học & chương trình",
+    group: "Quản lý đào tạo",
+    description: "Tạo khóa học mới, thiết lập học phần và phân công giảng viên",
+  },
+  // Kho & Sản phẩm
+  "stock:read": {
+    label: "Xem tồn kho & sản phẩm",
+    group: "Kho & Sản phẩm",
+    description: "Xem lịch sử tồn kho, thông tin sản phẩm và nhật ký xuất nhập hàng",
+  },
+  "stock:manage": {
+    label: "Quản lý xuất nhập kho",
+    group: "Kho & Sản phẩm",
+    description: "Tạo phiếu nhập kho, xuất kho và điều chỉnh số lượng tồn kho",
+  },
+  "product:manage": {
+    label: "Quản lý danh mục & bảng giá",
+    group: "Kho & Sản phẩm",
+    description: "Tạo mới sản phẩm, cập nhật giá bán và thiết lập ngưỡng cảnh báo tồn kho",
+  },
+  // Công việc & Dự án
   "kanban:read": {
     label: "Xem công việc Kanban",
     group: "Công việc & Dự án",
@@ -56,21 +105,29 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Công việc & Dự án",
     description: "Tạo dự án mới, cài đặt thành viên và quản lý tiến độ dự án",
   },
-  "stock:read": {
-    label: "Xem nhật ký kho",
-    group: "Kho & Sản phẩm",
-    description: "Xem lịch sử tồn kho và nhật ký nhập xuất hàng hóa",
+  // Quản lý khách hàng (CRM)
+  "crm:read": {
+    label: "Xem cơ hội bán hàng (CRM)",
+    group: "Quản lý khách hàng (CRM)",
+    description: "Xem danh sách khách hàng, pipeline và thông tin giao dịch CRM",
   },
-  "stock:manage": {
-    label: "Quản lý xuất nhập kho",
-    group: "Kho & Sản phẩm",
-    description: "Tạo phiếu nhập kho, xuất kho và điều chỉnh số lượng sản phẩm",
+  "crm:manage": {
+    label: "Quản trị cơ hội bán hàng (CRM)",
+    group: "Quản lý khách hàng (CRM)",
+    description: "Thêm mới, cập nhật tiến độ, phân công và quản lý thông tin CRM",
   },
-  "marketing:post": {
-    label: "Đăng bài & kết nối Mạng xã hội",
-    group: "Marketing",
-    description: "Soạn thảo bài viết, liên kết kênh Facebook/TikTok và đăng nội dung tự động",
+  // Trò chuyện & Trao đổi
+  "chat:read": {
+    label: "Tham gia trò chuyện nội bộ",
+    group: "Trò chuyện & Trao đổi",
+    description: "Gửi tin nhắn, trao đổi và nhận thông báo trong phòng chat công ty",
   },
+  "chat:manage": {
+    label: "Quản lý nhóm & kênh chat",
+    group: "Trò chuyện & Trao đổi",
+    description: "Tạo phòng chat mới, quản lý thành viên và ghim thông báo quan trọng",
+  },
+  // Tài nguyên & Tài liệu
   "resource:read": {
     label: "Xem thư viện tài nguyên",
     group: "Tài liệu & Tài nguyên",
@@ -81,17 +138,39 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Tài liệu & Tài nguyên",
     description: "Tải lên, phân quyền xem và quản lý file tài liệu hệ thống",
   },
-  "student:read": {
-    label: "Xem danh sách học viên",
-    group: "Quản lý đào tạo",
-    description: "Xem danh sách học viên, lớp học và kết quả đào tạo",
+  // Tài chính & Ví
+  "wallet:read": {
+    label: "Xem số dư & lịch sử ví",
+    group: "Tài chính & Ví",
+    description: "Xem thông tin số dư tài khoản và lịch sử giao dịch nạp/rút",
   },
-  "student:manage": {
-    label: "Quản lý học viên & đào tạo",
-    group: "Quản lý đào tạo",
-    description: "Thêm mới học viên, xếp lớp, điểm danh và cấp chứng chỉ",
+  "wallet:manage": {
+    label: "Quản lý giao dịch ví",
+    group: "Tài chính & Ví",
+    description: "Thực hiện giao dịch nạp tiền, nạp credit và điều chỉnh số dư ví",
+  },
+  // Hệ thống & Cấu hình
+  "settings:manage": {
+    label: "Cấu hình hệ thống & doanh nghiệp",
+    group: "Hệ thống & Phân quyền",
+    description: "Chỉnh sửa thông tin công ty, tích hợp dịch vụ và cấu hình ERP",
+  },
+  "role:manage": {
+    label: "Quản lý vai trò & phân quyền",
+    group: "Hệ thống & Phân quyền",
+    description: "Tạo vai trò tùy chỉnh, thiết lập phân quyền chi tiết cho nhân viên",
   },
 };
+
+export const DEFAULT_SYSTEM_PERMISSIONS = Object.entries(PERMISSION_TRANSLATIONS)
+  .filter(([code]) => code !== "*")
+  .map(([code, val]) => ({
+    _id: code,
+    code,
+    name: val.label,
+    group: val.group || "Hệ thống",
+    description: val.description,
+  }));
 
 /**
  * Trả về tên hiển thị tiếng Việt thân thiện người dùng cho mã quyền.

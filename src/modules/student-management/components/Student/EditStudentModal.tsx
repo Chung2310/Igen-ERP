@@ -8,6 +8,7 @@ import { cn, toInputDate, toDisplayDate } from '../../lib/utils';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { useAuth } from '../../../../context/AuthContext';
 import { FormInput } from './components/StudentFormFields';
+import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -489,6 +490,12 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   </div>
                 </div>
               </div>
+
+              {student && (
+                <div className="pt-2">
+                  <FaceEnrollmentTab student={student} />
+                </div>
+              )}
 
               <CustomFieldsSection
                 moduleKey="students"

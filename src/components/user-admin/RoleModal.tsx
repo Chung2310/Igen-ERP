@@ -144,46 +144,65 @@ export function RoleModal({
                   Vai trò Superadmin tự động có tất cả quyền trong hệ thống và không thể thay đổi.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 pr-2">
-                  {systemPermissions.map((perm) => {
-                    const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
-                    const labelText = getPermissionLabel(perm.code, perm.name);
-                    const descText = getPermissionDescription(perm.code, perm.description);
-                    return (
-                      <div
-                        key={perm.code}
-                        onClick={() => {
-                          if (selectedPermissions.includes("*")) return; // Super permissions overrides all
-                          setSelectedPermissions((prev) => {
-                            if (prev.includes(perm.code)) {
-                              return prev.filter((p) => p !== perm.code);
-                            } else {
-                              return [...prev, perm.code];
-                            }
-                          });
-                        }}
-                        className={`flex items-start gap-2.5 p-3 border rounded-2xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
-                          isChecked
-                            ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
-                            : "bg-white border-gray-150 text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={selectedPermissions.includes("*")}
-                          readOnly
-                          className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
-                        />
-                        <div>
-                          <span className="text-xs font-bold block leading-tight">{labelText}</span>
-                          {descText && (
-                            <span className="text-[10px] text-gray-500 mt-1 block leading-normal">{descText}</span>
-                          )}
+                <div className="space-y-4 max-h-[380px] overflow-y-auto p-1 pr-2">
+                  {(() => {
+                    const groupsMap = new Map<string, Permission[]>();
+                    systemPermissions.forEach((perm) => {
+                      const groupName = perm.group || "Khác";
+                      const list = groupsMap.get(groupName) || [];
+                      list.push(perm);
+                      groupsMap.set(groupName, list);
+                    });
+
+                    return Array.from(groupsMap.entries()).map(([groupName, perms]) => (
+                      <div key={groupName} className="space-y-2">
+                        <h6 className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50/80 px-3 py-1 rounded-lg border border-indigo-100/80">
+                          {groupName}
+                        </h6>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {perms.map((perm) => {
+                            const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
+                            const labelText = getPermissionLabel(perm.code, perm.name);
+                            const descText = getPermissionDescription(perm.code, perm.description);
+                            return (
+                              <div
+                                key={perm.code}
+                                onClick={() => {
+                                  if (selectedPermissions.includes("*")) return;
+                                  setSelectedPermissions((prev) => {
+                                    if (prev.includes(perm.code)) {
+                                      return prev.filter((p) => p !== perm.code);
+                                    } else {
+                                      return [...prev, perm.code];
+                                    }
+                                  });
+                                }}
+                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
+                                  isChecked
+                                    ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
+                                    : "bg-white border-gray-150 text-slate-700"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={selectedPermissions.includes("*")}
+                                  readOnly
+                                  className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-xs font-bold block leading-tight truncate">{labelText}</span>
+                                  {descText && (
+                                    <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
               )}
             </div>

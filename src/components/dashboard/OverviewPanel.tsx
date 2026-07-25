@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from "react";
 import { FolderOpen, GraduationCap, KanbanSquare, MessageSquare, PackageCheck, UserCheck, Users, Wallet } from "lucide-react";
 import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
@@ -14,17 +16,17 @@ type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timek
  * (xem server/config/permission-catalog.ts). Card chỉ hiện khi module tương
  * ứng được bật cho công ty (canSeeX) VÀ role của user có quyền này.
  */
-const CARD_PERMISSION_MAP: Record<CardKey, string> = {
-  hr: "hr:read",
-  inventory: "stock:read",
-  projects: "project:read",
-  students: "student:read",
-  tuition: "student:read",
-  timekeeping: "timekeeping:read",
-  chat: "chat:read",
-  resources: "resource:read",
-  charts: "hr:read",
-  inventoryPanels: "stock:read",
+const CARD_PERMISSION_MAP: Record<CardKey, string[]> = {
+  hr: ["user:read", "user:manage", "hr:read"],
+  inventory: ["stock:read", "stock:manage"],
+  projects: ["project:read", "project:manage", "kanban:read", "kanban:manage"],
+  students: ["student:read", "student:manage"],
+  tuition: ["student:read", "student:manage"],
+  timekeeping: ["timekeeping:read", "user:read", "user:manage"],
+  chat: ["chat:read", "chat:manage"],
+  resources: ["resource:read", "resource:manage"],
+  charts: ["user:read", "user:manage", "project:read", "project:manage", "kanban:read", "kanban:manage", "hr:read"],
+  inventoryPanels: ["stock:read", "stock:manage"],
 };
 
 export function OverviewPanel({
@@ -82,7 +84,12 @@ export function OverviewPanel({
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel();
-  const showCard = (key: CardKey) => !permissions || permissions.includes(CARD_PERMISSION_MAP[key]);
+  const showCard = (key: CardKey) => {
+    if (!permissions) return true;
+    if (permissions.includes("*")) return true;
+    const requiredPerms = CARD_PERMISSION_MAP[key];
+    return requiredPerms.some((perm) => permissions.includes(perm));
+  };
 
   const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {
