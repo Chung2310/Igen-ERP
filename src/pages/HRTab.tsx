@@ -16,11 +16,16 @@ const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 
 export default function HRTab() {
-  const { userProfile } = useAuth();
-  const isManager =
+  const { userProfile, hasPermission } = useAuth();
+  const isRoleManager =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
+  // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
+  // must also be able to view/manage everyone's attendance, not just their own.
+  const canViewAllAttendance = isRoleManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
+  const canManageAttendance = isRoleManager || hasPermission("timekeeping:manage");
+  const isManager = canViewAllAttendance;
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
