@@ -1315,7 +1315,6 @@ export default function CalendarTab({
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
-              
               </div>
 
               {/* Ô tìm kiếm nhân viên */}
@@ -1390,8 +1389,6 @@ export default function CalendarTab({
                 onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
                 onExportHours={() => handleAttendanceExcelExport("hours")}
               />
-          
-          
             </div>
           </div>
 
@@ -1403,28 +1400,28 @@ export default function CalendarTab({
                 <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
               </div>
             ) : (
-              <table className="text-xs border-collapse" style={{ minWidth: `${260 + daysInMonth * 52}px` }}>
+              <table className="text-xs border-collapse" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
                 {/* === THEAD === */}
-                <thead className="sticky top-0 z-20">
+                <thead className="sticky top-0 z-40">
                   <tr className="bg-slate-100 border-b border-slate-300">
                     {/* Cột STT */}
-                    <th className="sticky left-0 z-30 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-9">
+                    <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
                       #
                     </th>
                     {/* Cột Họ và Tên */}
-                    <th className="sticky left-9 z-30 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-44">
+                    <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
                       Họ và Tên
                     </th>
                     {/* Cột Email */}
-                    <th className="sticky left-[10.25rem] z-30 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap w-36">
+                    <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
                       Mã đăng nhập
                     </th>
                     {/* Cột Số giờ */}
-                    <th className="bg-emerald-600 border-b border-r border-emerald-700 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap w-14">
+                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px]">
                       Số<br/>giờ
                     </th>
                     {/* Cột Số công */}
-                    <th className="bg-emerald-600 border-b border-r-2 border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap w-14">
+                    <th className="sticky left-[448px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
                       Số<br/>công
                     </th>
                     {/* Các cột ngày */}
@@ -1436,7 +1433,7 @@ export default function CalendarTab({
                       return (
                         <th
                           key={day}
-                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap w-12 ${
+                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap min-w-[50px] w-[50px] ${
                             isToday
                               ? "bg-cyan-600 text-white"
                               : isWeekend
@@ -1467,14 +1464,15 @@ export default function CalendarTab({
                       const u = getUserDetail(emp.uid);
                       const { totalHours, totalCoeff } = calcMonthTotals(emp);
                       const globalIdx = (logsPage - 1) * gridPageSize + empIdx + 1;
+                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-slate-50";
                       return (
-                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/30 transition-colors ${empIdx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/50 transition-colors ${rowBg}`}>
                           {/* STT */}
-                          <td className="sticky left-0 z-10 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 bg-inherit whitespace-nowrap">
+                          <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
                             {globalIdx}
                           </td>
                           {/* Họ và Tên */}
-                          <td className="sticky left-9 z-10 border-r border-slate-200 px-3 py-2.5 bg-inherit whitespace-nowrap w-44">
+                          <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
                             <div className="flex items-center gap-2">
                               {u.photoURL ? (
                                 <img src={u.photoURL} alt={u.displayName} className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
@@ -1483,22 +1481,21 @@ export default function CalendarTab({
                                   {u.displayName.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <span className="font-bold text-cyan-700 truncate max-w-[110px] text-xs" title={u.displayName}>{u.displayName}</span>
+                              <span className="font-bold text-cyan-700 truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
                             </div>
                           </td>
                           {/* Email */}
-                          <td className="sticky left-[10.25rem] z-10 border-r-2 border-slate-400 px-3 py-2.5 bg-inherit whitespace-nowrap w-36">
-                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[130px]" title={u.email}>{u.email}</span>
+                          <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
+                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
                           {/* Tổng giờ */}
-                          <td className="border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap">
+                          <td className="sticky left-[392px] z-30 border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px]">
                             <span className="text-xs font-black text-emerald-700">{totalHours}h</span>
                           </td>
                           {/* Tổng công */}
-                          <td className="border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap">
+                          <td className="sticky left-[448px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
                             <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
                           </td>
-                          {/* Ô từng ngày */}
                           {dayColumns.map(day => {
                             const cell = getDayCellData(emp, day);
                             const dow = getDayOfWeek(day);
