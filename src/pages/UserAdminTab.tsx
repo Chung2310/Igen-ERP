@@ -1101,7 +1101,6 @@ export default function UserAdminTab() {
                     "user:read", "user:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
-                    "crm:read", "crm:manage",
                     "kanban:read", "kanban:manage",
                     "project:read", "project:manage",
                     "stock:read", "stock:manage",
@@ -1114,7 +1113,6 @@ export default function UserAdminTab() {
                   user: [
                     "user:read",
                     "timekeeping:read",
-                    "crm:read",
                     "kanban:read", "kanban:manage",
                     "project:read",
                     "stock:read",

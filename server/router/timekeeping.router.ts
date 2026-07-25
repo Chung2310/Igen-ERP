@@ -167,7 +167,7 @@ const updateCalendarDaySchema = {
 };
 
 timekeepingRouter.get("/work-calendar", requireAuth as any, companyWorkCalendarController.list as any);
-timekeepingRouter.post("/work-calendar/sync", requireAuth as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
-timekeepingRouter.post("/work-calendar", requireAuth as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
-timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
+timekeepingRouter.post("/work-calendar/sync", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
+timekeepingRouter.post("/work-calendar", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
+timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
 timekeepingRouter.get("/work-calendar/:id/audit", requireAuth as any, companyWorkCalendarController.audit as any);
