@@ -69,7 +69,9 @@ export default function CalendarTab({
   // Fall back to role-string checks only when the caller doesn't pass canManage,
   // so other embedders of this component keep working unchanged.
   const canManageAttendance = canManage ?? (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin");
-  const isLeaveAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
+  // Same fix as canManageAttendance: a custom role granted timekeeping:manage
+  // must be able to see/approve everyone's leave requests, not just their own.
+  const isLeaveAdmin = canManageAttendance;
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
 
@@ -2557,7 +2559,7 @@ export default function CalendarTab({
                 >
                   Sự kiện
                 </button>
-                {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                {canManageAttendance && (
                   <>
                     <button
                       onClick={() => openCreateModal(selectedDayDate, "leave")}
