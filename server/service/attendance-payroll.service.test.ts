@@ -15,6 +15,8 @@ describe("summarizeAttendanceForPayroll", () => {
 
     expect(result.workedMinutes).toBe(720);
     expect(result.shortageMinutes).toBe(240);
+    expect(result.workedDays).toBe(1.5);
+    expect(result.shortageDays).toBe(0.5);
   });
 
   it("keeps approved paid leave out of shortage", () => {
@@ -27,5 +29,6 @@ describe("summarizeAttendanceForPayroll", () => {
 
     expect(result.shortageMinutes).toBe(0);
     expect(result.paidLeaveMinutesByRate).toEqual([{ minutes: 480, payRate: 1 }]);
+    expect(result.workedDays).toBe(0);
   });
 });

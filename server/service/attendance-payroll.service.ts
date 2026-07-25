@@ -1,7 +1,7 @@
 export interface PayrollAttendanceLog { date: string; checkIn?: string; checkOut?: string; status: "Present" | "Late" | "Left-Early" | "Half-Day" | "Late-Left-Early" | "Absent" | "Approved-Leave"; }
 export interface PayrollPaidLeave { date: string; payRate: number; }
 export interface PayrollOvertime { minutes: number; category: "weekday" | "restDay" | "holiday"; }
-export interface AttendancePayrollSummary { workedMinutes: number; shortageMinutes: number; paidLeaveMinutesByRate: { minutes: number; payRate: number }[]; overtime: PayrollOvertime[]; }
+export interface AttendancePayrollSummary { workedMinutes: number; shortageMinutes: number; workedDays: number; shortageDays: number; paidLeaveMinutesByRate: { minutes: number; payRate: number }[]; overtime: PayrollOvertime[]; }
 
 function timeToMinutes(value: string): number { const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; }
 
@@ -18,5 +18,6 @@ export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: num
     workedMinutes += worked;
     shortageMinutes += Math.max(0, input.standardDailyMinutes - worked);
   }
-  return { workedMinutes, shortageMinutes, paidLeaveMinutesByRate, overtime: input.overtime };
+  const roundDays = (minutes: number) => Math.round((minutes / input.standardDailyMinutes) * 100) / 100;
+  return { workedMinutes, shortageMinutes, workedDays: roundDays(workedMinutes), shortageDays: roundDays(shortageMinutes), paidLeaveMinutesByRate, overtime: input.overtime };
 }

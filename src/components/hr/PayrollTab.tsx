@@ -94,7 +94,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <th className="p-3 font-semibold text-slate-500">Mã nhân viên</th>
                   <th className="p-3 text-right font-semibold text-slate-500">Lương cơ bản</th>
                   <th className="p-3 text-center font-semibold text-slate-500">Công chuẩn (giờ)</th>
-                  <th className="p-3 text-center font-semibold text-rose-600">Thiếu hụt (phút)</th>
+                  <th className="p-3 text-center font-semibold text-rose-600">Thiếu công (ngày)</th>
                   <th className="p-3 text-center font-semibold text-indigo-600">Nghỉ phép (phút)</th>
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
                 </tr>
@@ -114,7 +114,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         <td className="p-3 font-medium text-slate-700">{row.employeeId}</td>
                         <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary || 0).toLocaleString()} đ</td>
                         <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
-                        <td className="p-3 text-center font-semibold text-rose-500">{row.shortageMinutes || 0} phút</td>
+                        <td className="p-3 text-center font-semibold text-rose-500">{Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2)} ngày</td>
                         <td className="p-3 text-center font-semibold text-indigo-500">{totalPaidLeave} phút</td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${

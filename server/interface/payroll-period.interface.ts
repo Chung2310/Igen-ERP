@@ -9,6 +9,8 @@ export interface IAttendancePeriodResult extends Document {
   monthlySalary: number;
   standardHours: number;
   shortageMinutes: number;
+  workedDays?: number;
+  shortageDays?: number;
   paidLeaveMinutesByRate: { minutes: number; payRate: number }[];
   overtime: { minutes: number; category: "weekday" | "restDay" | "holiday" }[];
   status: "draft" | "locked";
