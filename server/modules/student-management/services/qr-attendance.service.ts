@@ -172,8 +172,8 @@ export class QRAttendanceService {
       throw new Error("Phiên điểm danh không tồn tại hoặc đã kết thúc.");
     }
 
-    // Nếu token hiện tại đã hết hạn (hoặc gần hết hạn, buffer 1s)
-    if (Date.now() >= session.tokenExpiresAt - 1000) {
+    // Nếu token hiện tại đã hết hạn (hoặc gần hết hạn, buffer 5s)
+    if (Date.now() >= session.tokenExpiresAt - 5000) {
       const { token, expiresAt } = generateToken(sessionId, session.batchId);
       session.currentToken = token;
       session.tokenExpiresAt = expiresAt;
