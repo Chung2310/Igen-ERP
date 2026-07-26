@@ -25,6 +25,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "payroll:read", label: "Xem bảng lương", group: "Nhân sự" },
   { code: "payroll:manage", label: "Quản lý & tính lương", group: "Nhân sự" },
   { code: "student:read", label: "Xem học viên/khách hàng", group: "Học viên & Khách hàng" },
+  { code: "student:manage", label: "Quản lý học viên/khách hàng", group: "Học viên & Khách hàng" },
   { code: "chat:read", label: "Xem trò chuyện", group: "Trò chuyện" },
   { code: "resource:read", label: "Xem tài nguyên", group: "Tài nguyên" },
   { code: "resource:manage", label: "Quản lý tài nguyên & kết nối Google Drive", group: "Tài nguyên" },

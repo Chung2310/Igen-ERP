@@ -38,6 +38,7 @@ const registerSchema = {
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -210,6 +211,7 @@ const registerUserSchema = {
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -361,6 +363,7 @@ const updateUserSchema = {
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),

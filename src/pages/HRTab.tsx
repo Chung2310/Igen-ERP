@@ -29,6 +29,7 @@ export default function HRTab() {
   const canManageAttendance = isManager || hasPermission("timekeeping:manage");
   const canManageOrgChart = isManager || hasPermission("user:manage");
   const canManageKanban = isManager || hasPermission("kanban:manage");
+  const canViewPayroll = hasPermission("payroll:read") || hasPermission("payroll:manage");
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -135,6 +136,7 @@ export default function HRTab() {
     status: usr.status || "offline",
     division: usr.division || "Khối Vận Hành",
     jobDescriptionLink: usr.jobDescriptionLink || "",
+    monthlySalary: usr.monthlySalary,
   }));
 
   return (
@@ -150,7 +152,7 @@ export default function HRTab() {
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
             { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
-            { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
+            ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
             const Icon = tab.icon;

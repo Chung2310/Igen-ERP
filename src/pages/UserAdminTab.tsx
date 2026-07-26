@@ -92,6 +92,7 @@ export default function UserAdminTab() {
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
+  const [userMonthlySalary, setUserMonthlySalary] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   const resetUserForm = () => {
@@ -103,6 +104,7 @@ export default function UserAdminTab() {
     setUserParentId("");
     setUserDepartment("");
     setUserJobDescriptionLink("");
+    setUserMonthlySalary("");
   };
   const companyFormState: CompanyFormState = {
     companyName,
@@ -190,6 +192,7 @@ export default function UserAdminTab() {
     if (!isUserModalOpen) {
       setUserDepartment("");
       setUserJobDescriptionLink("");
+    setUserMonthlySalary("");
       setEditingUser(null);
     }
   }, [isUserModalOpen]);
@@ -601,6 +604,7 @@ export default function UserAdminTab() {
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
+          monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -655,6 +659,7 @@ export default function UserAdminTab() {
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
+    setUserMonthlySalary(user.monthlySalary == null ? "" : String(user.monthlySalary));
     setIsUserModalOpen(true);
   };
 
@@ -1277,6 +1282,8 @@ export default function UserAdminTab() {
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
         userJobDescriptionLink={userJobDescriptionLink}
+        userMonthlySalary={userMonthlySalary}
+        setUserMonthlySalary={setUserMonthlySalary}
         setUserJobDescriptionLink={setUserJobDescriptionLink}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}

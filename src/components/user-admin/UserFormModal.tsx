@@ -23,6 +23,8 @@ export interface UserFormModalProps {
   userDepartment: string;
   setUserDepartment: (val: string) => void;
   userJobDescriptionLink: string;
+  userMonthlySalary: string;
+  setUserMonthlySalary: (val: string) => void;
   setUserJobDescriptionLink: (val: string) => void;
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
@@ -51,6 +53,8 @@ export function UserFormModal({
   userDepartment,
   setUserDepartment,
   userJobDescriptionLink,
+  userMonthlySalary,
+  setUserMonthlySalary,
   setUserJobDescriptionLink,
   getAvailableRoles,
   userProfile,
@@ -278,6 +282,10 @@ export function UserFormModal({
                 )}
               </div>
             )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 text-left"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Lương tháng (VNĐ)</label><input type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs outline-none" placeholder="26000000" /></div>
+            </div>
 
             {/* Mô tả công việc */}
             <div className="space-y-1.5 text-left">

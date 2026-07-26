@@ -10,8 +10,10 @@ async function request(path: string, init?: RequestInit) {
 export const payrollService = {
   getRun: (periodKey: string) => request(`/periods/${periodKey}/run`),
   getResults: (periodKey: string) => request(`/periods/${periodKey}/results`),
+  snapshot: (periodKey: string) => request(`/periods/${periodKey}/snapshot`, { method: "POST" }),
   lock: (periodKey: string) => request(`/periods/${periodKey}/lock`, { method: "POST" }),
   createRun: (periodKey: string) => request(`/periods/${periodKey}/run`, { method: "POST" }),
   approve: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
+  reset: (periodKey: string) => request(`/periods/${periodKey}`, { method: "DELETE" }),
 };

@@ -12,10 +12,10 @@ export const permissionSwagger = {
               schema: {
                 type: "object",
                 properties: {
-                  code: { type: "string", example: "crm:manage", description: "Mã quyền duy nhất" },
-                  name: { type: "string", example: "Quản trị CRM", description: "Tên mã quyền tiếng Việt" },
-                  module: { type: "string", example: "crm", description: "Module thuộc về mã quyền này" },
-                  description: { type: "string", example: "Cho phép thêm, sửa, xóa các ticket CRM", description: "Mô tả chi tiết" }
+                  code: { type: "string", example: "stock:manage", description: "Mã quyền duy nhất" },
+                  name: { type: "string", example: "Quản trị Kho", description: "Tên mã quyền tiếng Việt" },
+                  module: { type: "string", example: "stock", description: "Module thuộc về mã quyền này" },
+                  description: { type: "string", example: "Cho phép thêm phiếu nhập xuất kho hàng", description: "Mô tả chi tiết" }
                 },
                 required: ["code", "name", "module"]
               }
@@ -88,8 +88,8 @@ export const permissionSwagger = {
               schema: {
                 type: "object",
                 properties: {
-                  name: { type: "string", example: "Quản trị CRM cập nhật" },
-                  module: { type: "string", example: "crm" },
+                  name: { type: "string", example: "Quản trị Kho cập nhật" },
+                  module: { type: "string", example: "stock" },
                   description: { type: "string", example: "Mô tả mới" }
                 }
               }

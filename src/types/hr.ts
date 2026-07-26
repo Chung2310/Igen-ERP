@@ -88,6 +88,7 @@ export interface EmployeeNode {
   status: "online" | "offline";
   division: string;
   jobDescriptionLink?: string;
+  monthlySalary?: number;
 }
 
 export interface Project {

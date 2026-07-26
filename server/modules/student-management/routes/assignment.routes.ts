@@ -10,8 +10,10 @@ import {
 } from "../validations/assignment.validation";
 import { idParamSchema } from "../validations/student.validation";
 import { requireModule } from "../../../middleware/require-module";
+import { requirePermission } from "../../../middleware/auth";
 
 const router = Router();
+const requireManage = requirePermission("student:manage") as any;
 
 // Public routes for student submission (via encrypted JWT token in query parameter)
 router.get("/public/detail", AssignmentController.getPublicDetail);
@@ -22,9 +24,10 @@ router.post("/public/cancel", AssignmentController.cancelSubmission);
 // Private routes for Teachers & Admins
 router.use(authMiddleware);
 router.use(requireModule("student"));
-router.post("/", validate(createAssignmentSchema), AssignmentController.create);
+router.use(requirePermission("student:read") as any);
+router.post("/", requireManage, validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);
-router.post("/:id/students/:studentId/grade", validate(gradeSubmissionSchema), AssignmentController.grade);
+router.post("/:id/students/:studentId/grade", requireManage, validate(gradeSubmissionSchema), AssignmentController.grade);
 
 export default router;
