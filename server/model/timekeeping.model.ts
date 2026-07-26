@@ -21,6 +21,10 @@ const TimekeepingLogSchema = new Schema<ITimekeepingLog>({
   checkOut: { type: TimekeepingDetailSchema, default: null },
   status: { type: String, enum: ["Present", "Late", "Left-Early", "Half-Day", "Late-Left-Early", "Absent", "Approved-Leave"], default: "Present", index: true },
   note: { type: String, default: "" },
+  manuallyAdjusted: { type: Boolean, default: false, index: true },
+  adjustedAt: Date,
+  adjustedBy: String,
+  adjustmentReason: String,
 });
 
 // Composite unique index for one timekeeping entry per user per day

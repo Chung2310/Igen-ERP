@@ -190,6 +190,7 @@ export default function CalendarTab({
   const [editCheckOut, setEditCheckOut] = useState("");
   const [editAttendanceStatus, setEditAttendanceStatus] = useState("Present");
   const [editAttendanceNote, setEditAttendanceNote] = useState("");
+  const [editAttendanceReason, setEditAttendanceReason] = useState("");
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
 
   // Attendance View Mode & Week selection states
@@ -1247,6 +1248,7 @@ export default function CalendarTab({
       setEditCheckOut(log.checkOut?.time ? formatLogTime(log.checkOut.time) : "");
       setEditAttendanceStatus(log.status || "Present");
       setEditAttendanceNote(log.note || "");
+      setEditAttendanceReason("");
     };
 
     const saveAttendanceEditor = async () => {
@@ -1265,6 +1267,7 @@ export default function CalendarTab({
             checkOut: detail(editingAttendance.checkOut, editCheckOut),
             status: editAttendanceStatus,
             note: editAttendanceNote,
+            editReason: editAttendanceReason,
           }),
         });
         if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Không thể cập nhật chấm công.");
@@ -1676,6 +1679,7 @@ export default function CalendarTab({
                                           {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
                                         </div>
                                       )}
+                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">Đã điều chỉnh</div>}
                                     </div>
                                   ) : null
                                 ) : cellDisplayMode === "coeff" ? (
@@ -1704,6 +1708,7 @@ export default function CalendarTab({
                                     )}
                                   </>
                                 )}
+                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">Đã sửa</div>}
                               </td>
                             );
                           })}
@@ -1757,7 +1762,10 @@ export default function CalendarTab({
               </div>
               <label className="mt-3 block text-xs font-semibold text-slate-600">Trạng thái<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">Đúng giờ</option><option value="Late">Muộn</option><option value="Left-Early">Về sớm</option><option value="Late-Left-Early">Muộn + về sớm</option><option value="Half-Day">Nửa ngày</option><option value="Absent">Vắng</option></select></label>
               <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi chú<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
-              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Lý do chỉnh sửa <span className="text-rose-500">*</span><textarea value={editAttendanceReason} onChange={(e) => setEditAttendanceReason(e.target.value)} rows={2} placeholder="Bắt buộc nhập lý do" className="mt-1 w-full rounded-lg border p-2" /></label>
+              {editingAttendance.manuallyAdjusted && <div className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-700">Lần sửa trước: {editingAttendance.adjustmentReason || "Không có lý do"}</div>}
+              {editingAttendance.adjustmentHistory?.length > 0 && <div className="mt-3 max-h-28 overflow-auto rounded-lg border p-2"><div className="mb-1 text-[10px] font-bold uppercase text-slate-500">Nhật ký điều chỉnh</div>{editingAttendance.adjustmentHistory.map((entry: any) => <div key={entry._id} className="border-t py-1 text-[10px] text-slate-600"><b>{entry.actorId}</b> · {new Date(entry.createdAt).toLocaleString("vi-VN")}<div>{entry.reason}</div></div>)}</div>}
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving || editAttendanceReason.trim().length < 3} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
             </div>
           </div>
         )}
