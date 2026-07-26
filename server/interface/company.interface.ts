@@ -47,11 +47,11 @@ export interface ICompany extends Document {
   enabledModules?: string[];
   heygenConfig?: ICompanyHeyGenConfig;
   elevenlabsConfig?: ICompanyElevenLabsConfig;
-  /** Link thÆ° má»¥c Google Drive dÃ¹ng chung cho toÃ n cÃ´ng ty (tÃ i liá»‡u). */
+  /** Link thư mục Google Drive dùng chung cho toàn công ty (tài liệu). */
   driveFolderLink?: string;
-  /** OAuth Google Drive riÃªng cá»§a cÃ´ng ty (má»—i cÃ´ng ty káº¿t ná»‘i tÃ i khoáº£n Google cá»§a há»). */
+  /** OAuth Google Drive riêng của công ty (mỗi công ty kết nối tài khoản Google của họ). */
   driveOAuth?: ICompanyDriveOAuth;
-  /** ID thÆ° má»¥c do app táº¡o trong Drive cá»§a cÃ´ng ty Ä‘á»ƒ chá»©a tÃ i liá»‡u. */
+  /** ID thư mục do app tạo trong Drive của công ty để chứa tài liệu. */
   driveFolderId?: string;
   locationConfig?: ICompanyLocationConfig;
   dashboardReportConfig?: ICompanyDashboardReportConfig;

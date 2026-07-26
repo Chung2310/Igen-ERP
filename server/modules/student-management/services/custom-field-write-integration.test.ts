@@ -495,7 +495,7 @@ test("missing update records preserve each service's existing result behavior", 
   assert.equal(await ResourceService.updateResource("owner-a", "missing", {}, context("resources")), null);
   await assert.rejects(
     () => PartnerService.updatePartner("owner-a", "missing", {}, context("partners")),
-    /tìm thấy|tÃ¬m tháº¥y/i,
+    /tìm thấy/i,
   );
 });
 

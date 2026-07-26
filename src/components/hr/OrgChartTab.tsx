@@ -1143,9 +1143,9 @@ export default function OrgChartTab({
         </div>
 
         <div className="flex items-center gap-2">
-       
-       
-        
+
+
+
           <div className="h-6 w-px bg-gray-200 mx-1" />
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
@@ -1185,7 +1185,7 @@ export default function OrgChartTab({
 
           {/* Interactive Tree viewport diagram - full width */}
           <div className="col-span-1 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
-        
+
 
             {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
             <button
@@ -1234,7 +1234,7 @@ export default function OrgChartTab({
             </div>
 
             {/* Chart footer notification guide */}
-         
+
           </div>
         </div>
       </div>
@@ -1313,7 +1313,7 @@ export default function OrgChartTab({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
@@ -1610,7 +1610,7 @@ export default function OrgChartTab({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>

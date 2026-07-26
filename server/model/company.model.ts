@@ -35,7 +35,7 @@ const CompanyLocationConfigSchema = new Schema(
     latitude: { type: Number, default: 10.7769 }, // default Bitexco coordinates
     longitude: { type: Number, default: 106.7009 },
     allowedRadius: { type: Number, default: 1000 }, // default 1000m
-    addressName: { type: String, default: "TÃ²a nhÃ  Bitexco" },
+    addressName: { type: String, default: "Tòa nhà Bitexco" },
     checkInLimit: { type: String, default: "08:30" },
     checkOutLimit: { type: String, default: "17:30" },
     lunchBreakStart: { type: String, default: "12:00" },
