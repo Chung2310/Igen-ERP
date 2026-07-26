@@ -5,6 +5,13 @@ export interface AttendanceWorkSchedule {
   lunchBreakEnd?: string;
 }
 
+export interface PayrollApprovedLeave {
+  employeeId: string;
+  status: string;
+  startDate: string | Date;
+  endDate: string | Date;
+}
+
 const clockMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
@@ -47,3 +54,26 @@ export const attendanceTotalsFromMinutes = (workedMinutes: number, standardDaily
   totalHours: Math.round((workedMinutes / 60) * 10) / 10,
   totalDays: Math.round((workedMinutes / standardDailyMinutes) * 100) / 100,
 });
+
+const formatDateInTimeZone = (value: string | Date, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+
+export const hasApprovedPayrollLeave = (
+  applications: PayrollApprovedLeave[],
+  employeeId: string,
+  date: string,
+  timeZone = "Asia/Ho_Chi_Minh",
+) => applications.some((application) =>
+  application.status === "approved"
+  && application.employeeId === employeeId
+  && date >= formatDateInTimeZone(application.startDate, timeZone)
+  && date <= formatDateInTimeZone(application.endDate, timeZone),
+);

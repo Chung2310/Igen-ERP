@@ -38,6 +38,7 @@ import {
 import {
   attendanceTotalsFromMinutes,
   calculateAttendanceWorkedMinutes,
+  hasApprovedPayrollLeave,
 } from "../../utils/attendancePayroll";
 
 interface CalendarTabProps {
@@ -681,10 +682,10 @@ export default function CalendarTab({
   };
 
   useEffect(() => {
-    if (currentSubTab === "leave-requests" && selectedCompanyCode) {
-      fetchTemplates();
+    if ((currentSubTab === "leave-requests" || currentSubTab === "attendance") && selectedCompanyCode) {
       fetchApplications();
     }
+    if (currentSubTab === "leave-requests" && selectedCompanyCode) fetchTemplates();
   }, [currentSubTab, selectedCompanyCode]);
 
   const handleDeleteItem = async (itemId: string) => {
@@ -1180,23 +1181,10 @@ export default function CalendarTab({
         };
       }
 
-      // Kiểm tra đơn phép được duyệt
-      const matchedItem = items.find((item: any) => {
-        if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-        const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-        if (!empMatch) return false;
-        const sDate = item.startDate.split("T")[0];
-        const eDate = item.endDate.split("T")[0];
-        return dateStr >= sDate && dateStr <= eDate;
-      });
-
-      if (matchedItem) {
-        const mappedStatus =
-          matchedItem.type === "leave" ? "Approved-Leave"
-          : matchedItem.type === "wfh" ? "Approved-WFH"
-          : "Approved-Exception";
+      // Payroll only credits approved leave applications, not standalone calendar events.
+      if (hasApprovedPayrollLeave(applications, emp.uid, dateStr)) {
         return {
-          status: mappedStatus,
+          status: "Approved-Leave",
           coeff: 1,
           workedMinutes: standardDailyMinutes(emp.uid),
           checkIn: "",
