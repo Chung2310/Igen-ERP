@@ -71,8 +71,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           "Tên nhân viên": row.employeeName || "",
           "Lương cơ bản": row.monthlySalary || 0,
           "Công chuẩn (giờ)": row.standardHours,
+          "Ngày công": Number(row.workedDays ?? 0).toFixed(2),
           "Thiếu công (ngày)": Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2),
-          "Nghỉ phép (phút)": row.paidLeaveMinutesByRate?.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0) || 0,
           "Trạng thái công": row.status === "locked" ? "Đã khóa" : "Bản nháp",
         }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -110,8 +110,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     employeeName: row.employeeName || "",
     monthlySalary: row.monthlySalary || 0,
     standardHours: row.standardHours,
+    workedDays: Number(row.workedDays ?? 0),
     shortageDays: Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)),
-    paidLeaveMinutes: row.paidLeaveMinutesByRate?.reduce((sum: number, item: any) => sum + (item.minutes || 0), 0) || 0,
     status: row.status,
   })), [results]);
 
@@ -310,8 +310,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Công chuẩn (giờ)" sortKey="standardHours" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
+                  <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <SortHeader label="Thiếu công (ngày)" sortKey="shortageDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
-                  <SortHeader label="Nghỉ phép (phút)" sortKey="paidLeaveMinutes" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
                 </tr>
               </thead>
@@ -326,8 +326,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                       <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
                       <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
+                      <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center font-semibold text-rose-500">{row.shortageDays.toFixed(2)} ngày</td>
-                      <td className="p-3 text-center font-semibold text-indigo-500">{row.paidLeaveMinutes} phút</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           row.status === "locked" ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-yellow-50 text-yellow-700 border border-yellow-100"
