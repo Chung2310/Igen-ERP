@@ -4,7 +4,8 @@ import { toast } from "../../../../pages/Toast";
 import { useAuth } from "../../../../context/AuthContext";
 import { apiFetch } from "../../lib/api";
 import { getModuleSettings, updateModuleSettings } from "../../api/moduleSettings.api";
-import { DEFAULT_ENTITY_PRESET, ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../config/entityLabels";
+import { canChangeEntityPreset, DEFAULT_ENTITY_PRESET, ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../config/entityLabels";
+import { getWorkerOperationalCopy } from "../../config/workerRecruitmentCopy";
 
 type FieldConfig = { visible: boolean; required: boolean };
 type FieldsConfig = Record<string, FieldConfig>;
@@ -65,6 +66,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
   const [isSavingSmtp, setIsSavingSmtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [entityPreset, setEntityPreset] = useState<EntityPreset>(DEFAULT_ENTITY_PRESET);
+  const operationalCopy = getWorkerOperationalCopy(entityPreset);
   const [isLoadingPreset, setIsLoadingPreset] = useState(false);
   const [isSavingPreset, setIsSavingPreset] = useState(false);
 
@@ -85,7 +87,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
   }, []);
 
   const handleSaveEntityPreset = async (nextPreset: EntityPreset) => {
-    if (isReadOnly) return;
+    if (!canChangeEntityPreset(userProfile?.role) || isReadOnly) return;
     setIsSavingPreset(true);
     try {
       const updated = await updateModuleSettings(nextPreset);
@@ -147,6 +149,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
   }, [configKey]);
 
   const isReadOnly = userProfile?.role === "superadmin" && selectedCenter === "all";
+  const canEditEntityPreset = canChangeEntityPreset(userProfile?.role) && !isReadOnly;
 
   const handleToggleVisible = (field: string) => {
     if (isReadOnly) return;
@@ -184,7 +187,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
     if (isReadOnly) return;
     localStorage.setItem(configKey, JSON.stringify(fieldsConfig));
     setHasChanges(false);
-    toast.success("Cấu hình form học viên đã được lưu thành công!");
+    toast.success(operationalCopy.settingsSavedMessage);
   };
 
   const handleTestConnection = async () => {
@@ -277,7 +280,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
       {/* Main Settings Table */}
     
 
-      {/* Entity Preset Card (Read-Only / Locked) */}
+      {/* Entity Preset Card (Selectable / Editable) */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -286,32 +289,52 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
               Loại hình doanh nghiệp
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Loại hình doanh nghiệp và tên gọi thực thể (Học viên, Ứng viên, Khách hàng, Lao động) được thiết lập cố định khi khởi tạo doanh nghiệp.
+              Chọn loại hình doanh nghiệp để tùy chỉnh xưng hô thực thể (Học viên, Ứng viên, Khách hàng, Lao động) và tự động bật/tắt các module phù hợp trên toàn hệ thống.
             </p>
+            {!canEditEntityPreset && (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+                <Lock className="h-3.5 w-3.5" />
+                Chỉ Super Admin được quyền thay đổi loại hình doanh nghiệp.
+              </p>
+            )}
           </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600 shrink-0 select-none">
-            <Lock className="h-3.5 w-3.5 text-slate-500" /> Cố định hệ thống
-          </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {ENTITY_PRESET_OPTIONS.map((option) => (
-            <div
-              key={option.value}
-              className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors select-none ${
-                entityPreset === option.value
-                  ? "border-cyan-500 bg-cyan-50/80 text-cyan-900 font-bold shadow-xs"
-                  : "border-slate-150 bg-slate-50/50 text-slate-400 opacity-60"
-              }`}
-            >
-              <span className="text-sm font-semibold">{option.label}</span>
-              {entityPreset === option.value && (
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-cyan-600 text-white px-2 py-0.5 rounded-md">
-                  Đang dùng
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+        {isLoadingPreset ? (
+          <div className="flex items-center justify-center py-6 gap-2 text-slate-500 text-xs">
+            <RefreshCw className="h-4 w-4 animate-spin text-cyan-600" />
+            Đang tải thông tin loại hình...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ENTITY_PRESET_OPTIONS.map((option) => {
+              const isSelected = entityPreset === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={isSavingPreset || !canEditEntityPreset}
+                  onClick={() => handleSaveEntityPreset(option.value)}
+                  className={`flex items-center justify-between px-4 py-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-cyan-500 bg-cyan-50/90 text-cyan-900 font-bold shadow-sm ring-2 ring-cyan-500/20"
+                      : "border-slate-200 bg-white hover:bg-cyan-50/40 hover:border-cyan-200 text-slate-700 font-semibold"
+                  } ${isSavingPreset ? "opacity-60 cursor-wait" : !canEditEntityPreset ? "opacity-70 cursor-not-allowed" : ""}`}
+                >
+                  <span className="text-sm font-bold">{option.label}</span>
+                  {isSelected ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-cyan-600 text-white px-2.5 py-1 rounded-md shadow-xs">
+                      {isSavingPreset ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Đang dùng"}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-slate-400 group-hover:text-cyan-600 transition-colors">
+                      {canEditEntityPreset ? "Chọn" : <Lock className="h-3.5 w-3.5" />}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* SMTP Email Settings Card */}
@@ -322,7 +345,7 @@ export function SettingsPage({ selectedCenter }: SettingsPageProps) {
             Cấu hình Gửi Email (SMTP)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Kết nối tài khoản Gmail của bạn để tự động gửi thông báo lớp học, lịch học cho giảng viên và học viên.
+            {operationalCopy.settingsMailDescription}
           </p>
         </div>
 

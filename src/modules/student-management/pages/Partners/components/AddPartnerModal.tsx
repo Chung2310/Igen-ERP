@@ -13,6 +13,7 @@ import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig 
 import { CustomFieldEditorModal } from '../../../custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../custom-fields/types';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 interface AddPartnerModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ interface AddPartnerModalProps {
 }
 
 export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPartnerModalProps) {
-  
+  const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -303,7 +304,7 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
         <div className="md:col-span-2 border-t border-slate-100 my-2 pt-2">
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Quy tắc tính hoa hồng</h4>
           <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-            Hệ thống sẽ tự động xếp cấp bậc (Level) hoa hồng cho đối tác dựa trên tổng doanh số học phí tích lũy mà họ giới thiệu được. Tỷ lệ hoa hồng (%) sẽ thay đổi tương ứng theo từng mốc cấu hình chung.
+            Hệ thống sẽ tự động xếp cấp bậc (Level) hoa hồng cho đối tác dựa trên tổng {entityLabel.preset === 'worker' ? 'giá trị tuyển dụng' : entityLabel.preset === 'customer' ? 'giá trị dịch vụ' : 'doanh số học phí'} tích lũy mà họ giới thiệu được. Tỷ lệ hoa hồng (%) sẽ thay đổi tương ứng theo từng mốc cấu hình chung.
           </p>
         </div>
 

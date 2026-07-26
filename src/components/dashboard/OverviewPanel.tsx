@@ -83,7 +83,9 @@ export function OverviewPanel({
   actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
-  const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel();
+  const entityLabel = useEntityLabel();
+  const { titleCase: studentEntityTitle, singular: studentEntitySingular, preset } = entityLabel;
+  const isEducation = preset === "student";
   const showCard = (key: CardKey) => {
     if (!permissions) return true;
     if (permissions.includes("*")) return true;
@@ -179,7 +181,7 @@ export function OverviewPanel({
               onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
             />
           )}
-          {canSeeStudent && showCard("tuition") && (
+          {isEducation && canSeeStudent && showCard("tuition") && (
             <ModuleCard
               icon={Wallet}
               tone="amber"

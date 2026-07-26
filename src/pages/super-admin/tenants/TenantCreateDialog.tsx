@@ -2,6 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { superAdminTenantService } from "../../../services/superAdminTenantService";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { ENTITY_PRESET_OPTIONS } from "../../../modules/student-management/config/entityLabels";
 
 export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
   const [code, setCode] = React.useState("");
@@ -81,10 +82,9 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
                 onChange={(e) => setEntityPreset(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-cyan-400 text-slate-100 cursor-pointer"
               >
-                <option value="student">Giáo dục / Đào tạo (Học viên)</option>
-                <option value="candidate">Tuyển dụng / Hợp tác (Ứng viên)</option>
-                <option value="customer">Kinh doanh / Dịch vụ (Khách hàng)</option>
-                <option value="worker">Cung ứng / Quản lý lao động (Lao động)</option>
+                {ENTITY_PRESET_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </label>
           </div>

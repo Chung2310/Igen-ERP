@@ -7,6 +7,7 @@ import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../
 import { formatVND } from '../../../lib/utils';
 import { Loader2, Trash2, Milestone, Landmark } from 'lucide-react';
 import { CommissionLevel } from '../../../types';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 interface CommissionLevelModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface CommissionLevelModalProps {
 }
 
 export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: CommissionLevelModalProps) {
-  
+  const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const { centers } = useAdminCenters();
   const [levels, setLevels] = useState<CommissionLevel[]>([]);
@@ -183,7 +184,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                 />
               </ErpField>
 
-              <ErpField label="Doanh số học phí tối thiểu (VND) *">
+              <ErpField label={`${entityLabel.preset === 'worker' ? 'Giá trị tuyển dụng' : entityLabel.preset === 'customer' ? 'Giá trị dịch vụ' : 'Doanh số học phí'} tối thiểu (VND) *`}>
                 <ErpInput
                   name="minTuition"
                   required

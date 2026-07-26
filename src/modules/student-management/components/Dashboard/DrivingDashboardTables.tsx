@@ -31,7 +31,7 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
   const { exams, loading: examsLoading } = useExams(selectedCenter === 'all' ? undefined : selectedCenter);
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
-  const isCandidate = entityLabel.preset === 'candidate';
+  const isEducation = entityLabel.preset === 'student';
   
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
@@ -101,8 +101,8 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
   const paginatedRecentStudents = recentStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className={cn("grid grid-cols-1 gap-6", !isCandidate && "lg:grid-cols-2")}>
-      {!isCandidate && (
+    <div className={cn("grid grid-cols-1 gap-6", isEducation && "lg:grid-cols-2")}>
+      {isEducation && (
         <LuxuryCard padding="none" className="bg-white">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -157,7 +157,7 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
       <LuxuryCard padding="none" className="bg-white flex flex-col">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Users className="w-4 h-4 text-brand-primary" /> {isCandidate ? "Ứng viên mới ứng tuyển (7 ngày)" : "Đăng ký gần đây (7 ngày)"} {user && `(${recentStudents.length})`}
+            <Users className="w-4 h-4 text-brand-primary" /> {isEducation ? "Đăng ký gần đây (7 ngày)" : `${entityLabel.titleCase} mới đăng ký (7 ngày)`} {user && `(${recentStudents.length})`}
           </h3>
           <button onClick={() => onNavigate('Students')} className="text-xs text-slate-400 hover:text-slate-600 font-medium whitespace-nowrap ml-2">Xem tất cả</button>
         </div>
@@ -191,7 +191,7 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
                 ))
               ) : paginatedRecentStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Không có học viên đăng ký trong 7 ngày qua.</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 text-xs italic">Không có {entityLabel.singular} đăng ký trong 7 ngày qua.</td>
                 </tr>
               ) : paginatedRecentStudents.map((item) => (
                 <tr 
