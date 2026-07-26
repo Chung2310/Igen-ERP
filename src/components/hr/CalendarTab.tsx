@@ -36,6 +36,7 @@ import {
   type AttendanceExportKind,
 } from "../../utils/attendanceExcel";
 import {
+  attendanceDisplayStatus,
   attendanceTotalsFromMinutes,
   calculateAttendanceWorkedMinutes,
   hasApprovedPayrollLeave,
@@ -1138,6 +1139,8 @@ export default function CalendarTab({
         case "Left-Early": return "Về sớm";
         case "Half-Day": return "½ Công";
         case "Late-Left-Early": return "Muộn+Sớm";
+        case "Incomplete": return "Thiếu chấm công";
+        case "Partial": return "Thiếu công";
         case "Absent": return "Vắng";
         default: return "";
       }
@@ -1167,9 +1170,17 @@ export default function CalendarTab({
       if (dbLog) {
         const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time);
         const hours = Math.round((workedMinutes / 60) * 10) / 10;
-        const coeff = workedMinutes / standardDailyMinutes(emp.uid);
+        const dailyMinutes = standardDailyMinutes(emp.uid);
+        const coeff = workedMinutes / dailyMinutes;
+        const displayStatus = attendanceDisplayStatus(
+          dbLog.status,
+          Boolean(dbLog.checkIn?.time),
+          Boolean(dbLog.checkOut?.time),
+          workedMinutes,
+          dailyMinutes,
+        );
         return {
-          status: dbLog.status,
+          status: displayStatus,
           coeff,
           hours,
           workedMinutes,
@@ -1594,7 +1605,11 @@ export default function CalendarTab({
                                               : "bg-rose-500"
                                         }`} />
                                         <span className="truncate" title={cell.status}>
-                                          {cell.status === "Present"
+                                          {cell.status === "Incomplete"
+                                            ? "Thiếu chấm công"
+                                            : cell.status === "Partial"
+                                              ? "Thiếu công"
+                                              : cell.status === "Present"
                                             ? `HCS(${cell.checkIn || "07:30"} - ${cell.checkOut || "17:30"})`
                                             : cell.status === "Half-Day"
                                               ? `CBH2(${cell.checkIn || "08:00"} - ${cell.checkOut || "12:00"})`
@@ -1618,7 +1633,7 @@ export default function CalendarTab({
                                   <>
                                     {/* Hệ số công */}
                                     <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
-                                      {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(1)}
+                                      {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
                                     </div>
                                     {/* Nhãn trạng thái */}
                                     {cell.status && (

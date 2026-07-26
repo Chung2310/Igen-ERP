@@ -77,3 +77,15 @@ export const hasApprovedPayrollLeave = (
   && date >= formatDateInTimeZone(application.startDate, timeZone)
   && date <= formatDateInTimeZone(application.endDate, timeZone),
 );
+
+export const attendanceDisplayStatus = (
+  storedStatus: string,
+  hasCheckIn: boolean,
+  hasCheckOut: boolean,
+  workedMinutes: number,
+  standardDailyMinutes: number,
+) => {
+  if (!hasCheckIn || !hasCheckOut) return "Incomplete";
+  if (workedMinutes < standardDailyMinutes) return "Partial";
+  return storedStatus;
+};
