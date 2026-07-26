@@ -8,7 +8,9 @@ import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
+import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
+import { evaluateWorkingDate } from "../service/company-work-calendar.service";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { getEffectivePermissions } from "../middleware/auth";
 
@@ -30,12 +32,13 @@ const computeStandardDailyMinutes = (checkInLimit?: string, checkOutLimit?: stri
   const net = gross - lunch;
   return net > 0 ? net : 480;
 };
-const countStandardDays = (period: string, workingDays: number[]) => {
+const countStandardDays = (period: string, workingDays: number[], calendarRules: Map<string, any[]>) => {
   const [year, month] = period.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   let count = 0;
   for (let day = 1; day <= daysInMonth; day += 1) {
-    if (workingDays.includes(new Date(Date.UTC(year, month - 1, day)).getUTCDay())) count += 1;
+    const date = `${period}-${String(day).padStart(2, "0")}`;
+    if (evaluateWorkingDate(date, calendarRules.get(date) || [], workingDays)) count += 1;
   }
   return count;
 };
@@ -75,12 +78,18 @@ export const payrollController = {
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
     const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end } }).lean();
+    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end }, isApplied: true }).lean();
+    const calendarRules = new Map<string, any[]>();
+    for (const rule of calendarDays) calendarRules.set(rule.date, [...(calendarRules.get(rule.date) || []), rule]);
     const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
+    const today = formatInPayrollTimeZone(new Date(), "date");
     const results = [];
     for (const employee of employees) {
-      const standardDays = countStandardDays(period, employee.workingDays);
+      const standardDays = countStandardDays(period, employee.workingDays, calendarRules);
       const standardHours = (employee.standardDailyMinutes * standardDays) / 60;
-      const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? formatInPayrollTimeZone(log.checkIn.time, "time") : undefined, checkOut: log.checkOut?.time ? formatInPayrollTimeZone(log.checkOut.time, "time") : undefined }));
+      const employeeLogs = logs
+        .filter((log) => log.uid === employee.employeeId && evaluateWorkingDate(log.date, calendarRules.get(log.date) || [], employee.workingDays))
+        .map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? formatInPayrollTimeZone(log.checkIn.time, "time") : undefined, checkOut: log.checkOut?.time ? formatInPayrollTimeZone(log.checkOut.time, "time") : undefined }));
       const loggedDates = new Set(employeeLogs.map((log) => log.date));
       const leaveDates = new Set<string>();
       for (const leave of leaves) {
@@ -93,8 +102,8 @@ export const payrollController = {
       }
       for (let day = 1; day <= endDate.getDate(); day += 1) {
         const date = `${period}-${String(day).padStart(2, "0")}`;
-        const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-        if (!employee.workingDays.includes(weekday) || loggedDates.has(date)) continue;
+        if (date > today) continue;
+        if (!evaluateWorkingDate(date, calendarRules.get(date) || [], employee.workingDays) || loggedDates.has(date)) continue;
         if (leaveDates.has(date)) { employeeLogs.push({ date, status: "Present", checkIn: employee.checkInLimit, checkOut: employee.checkOutLimit }); continue; }
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }

@@ -63,6 +63,14 @@ interface CalendarItem {
   createdAt?: string;
 }
 
+interface EffectiveWorkHours {
+  checkInLimit?: string;
+  checkOutLimit?: string;
+  lunchBreakStart?: string;
+  lunchBreakEnd?: string;
+  workingDays?: number[];
+}
+
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export default function CalendarTab({
@@ -153,6 +161,10 @@ export default function CalendarTab({
   const [appliedHolidays, setAppliedHolidays] = useState<WorkCalendarDay[]>([]);
   const [workingDaysByUid, setWorkingDaysByUid] = useState<Record<string, number[]>>({});
   const [companyWorkingDays, setCompanyWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [workHoursByUid, setWorkHoursByUid] = useState<Record<string, EffectiveWorkHours>>({});
+  const [companyWorkHours, setCompanyWorkHours] = useState<EffectiveWorkHours>({
+    checkInLimit: "08:30", checkOutLimit: "17:30", lunchBreakStart: "12:00", lunchBreakEnd: "13:00",
+  });
 
   // Timekeeping logs state
   const [logs, setLogs] = useState<any[]>([]);
@@ -723,27 +735,34 @@ export default function CalendarTab({
       .then((res) => res.json())
       .then((result) => {
         const map: Record<string, number[]> = {};
+        const hoursMap: Record<string, EffectiveWorkHours> = {};
         (result?.data || []).forEach((u: any) => {
           if (u.workHoursConfig?.useCustom && Array.isArray(u.workHoursConfig.workingDays) && u.workHoursConfig.workingDays.length) {
             map[u._id] = u.workHoursConfig.workingDays;
+            hoursMap[u._id] = u.workHoursConfig;
           }
         });
         setWorkingDaysByUid(map);
+        setWorkHoursByUid(hoursMap);
       })
-      .catch(() => setWorkingDaysByUid({}));
+      .catch(() => { setWorkingDaysByUid({}); setWorkHoursByUid({}); });
 
     fetch("/api/v1/timekeeping/company-location", {
       headers: { Authorization: `Bearer ${getAccessToken()}` },
     })
       .then((res) => res.json())
       .then((result) => {
+        setCompanyWorkHours(result?.data || {});
         setCompanyWorkingDays(
           Array.isArray(result?.data?.workingDays) && result.data.workingDays.length
             ? result.data.workingDays
             : [1, 2, 3, 4, 5]
         );
       })
-      .catch(() => setCompanyWorkingDays([1, 2, 3, 4, 5]));
+      .catch(() => {
+        setCompanyWorkingDays([1, 2, 3, 4, 5]);
+        setCompanyWorkHours({ checkInLimit: "08:30", checkOutLimit: "17:30", lunchBreakStart: "12:00", lunchBreakEnd: "13:00" });
+      });
   }, [selectedCompanyCode]);
 
   const isCustomWorkingDay = (uid: string, dow: number) => {
@@ -1084,6 +1103,41 @@ export default function CalendarTab({
     const dayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
     // Hàm tính hệ số công theo trạng thái
+    const clockMinutes = (value?: string) => {
+      if (!value) return 0;
+      const [hours, minutes] = value.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+    const clockDuration = (start?: string, end?: string) => {
+      if (!start || !end) return 0;
+      let result = clockMinutes(end) - clockMinutes(start);
+      if (result < 0) result += 24 * 60;
+      return result;
+    };
+    const effectiveHours = (uid: string): EffectiveWorkHours => workHoursByUid[uid] || companyWorkHours;
+    const standardDailyMinutes = (uid: string) => {
+      const schedule = effectiveHours(uid);
+      return Math.max(1, clockDuration(schedule.checkInLimit, schedule.checkOutLimit) - clockDuration(schedule.lunchBreakStart, schedule.lunchBreakEnd));
+    };
+    const localClock = (value: string | Date) => new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(new Date(value));
+    const calculateWorkedMinutes = (uid: string, checkIn: string | Date, checkOut: string | Date) => {
+      const startDate = new Date(checkIn);
+      const endDate = new Date(checkOut);
+      const rawMinutes = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+      const schedule = effectiveHours(uid);
+      if (!schedule.lunchBreakStart || !schedule.lunchBreakEnd) return rawMinutes;
+      const start = clockMinutes(localClock(startDate));
+      let end = clockMinutes(localClock(endDate));
+      if (end < start) end += 24 * 60;
+      const lunchStart = clockMinutes(schedule.lunchBreakStart);
+      let lunchEnd = clockMinutes(schedule.lunchBreakEnd);
+      if (lunchEnd < lunchStart) lunchEnd += 24 * 60;
+      const breakMinutes = Math.max(0, Math.min(end, lunchEnd) - Math.max(start, lunchStart));
+      return Math.max(0, rawMinutes - breakMinutes);
+    };
+
     const getCoefficient = (status: string): number => {
       switch (status) {
         case "Present": return 1;
@@ -1137,14 +1191,12 @@ export default function CalendarTab({
       }
 
       if (dbLog) {
-        const coeff = getCoefficient(dbLog.status);
+        let coeff = getCoefficient(dbLog.status);
         let hours = 0;
         if (dbLog.checkIn?.time && dbLog.checkOut?.time) {
-          const inMs = new Date(dbLog.checkIn.time).getTime();
-          const outMs = new Date(dbLog.checkOut.time).getTime();
-          if (outMs > inMs) {
-            hours = Math.round(((outMs - inMs) / 3600000) * 10) / 10;
-          }
+          const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn.time, dbLog.checkOut.time);
+          hours = Math.round((workedMinutes / 60) * 10) / 10;
+          coeff = Math.round((workedMinutes / standardDailyMinutes(emp.uid)) * 100) / 100;
         }
         return {
           status: dbLog.status,
@@ -1206,7 +1258,7 @@ export default function CalendarTab({
           if (cell.hours && cell.hours > 0) {
             totalHours += cell.hours;
           } else if (cell.coeff > 0) {
-            totalHours += cell.coeff * 8;
+            totalHours += cell.coeff * (standardDailyMinutes(emp.uid) / 60);
           }
         }
       }
