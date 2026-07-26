@@ -9,15 +9,21 @@ import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
 import type { AuthenticatedRequest } from "../middleware/auth";
+import { getEffectivePermissions } from "../middleware/auth";
 
 const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
+const canManagePayroll = async (req: AuthenticatedRequest) => {
+  const { id: userId, role, companyCode } = req.user!;
+  const permissions = await getEffectivePermissions(userId, role, companyCode);
+  return permissions.has("*") || permissions.has("payroll:manage");
+};
 const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), periodKey, action, actorId: req.user!.id, metadata });
 
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number; standardHours?: number }[] | undefined;
     const employees = requestedEmployees?.length ? requestedEmployees : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours").lean()).map((user) => ({ employeeId: String(user._id), employeeName: user.displayName, monthlySalary: user.monthlySalary || 0, standardHours: user.standardHours || 208 }));
-    if (!employees.length) return res.status(400).json({ status: "error", message: "Chua có nhân viên du?c c?u hình luong." });
+    if (!employees.length) return res.status(400).json({ status: "error", message: "Chua cï¿½ nhï¿½n viï¿½n du?c c?u hï¿½nh luong." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
@@ -38,6 +44,10 @@ export const payrollController = {
   },
   async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
   async listResults(req: AuthenticatedRequest, res: Response) {
+    if (!(await canManagePayroll(req))) {
+      const run = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+      if (!run) return res.json({ status: "success", data: [] });
+    }
     const data = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
     return res.json({ status: "success", data });
   },
