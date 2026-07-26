@@ -8,6 +8,10 @@ import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
+import { TimekeepingLogModel } from "../model/timekeeping.model";
+import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
+import { PayrollRunModel } from "../model/payroll-run.model";
+import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
 export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
   return !!leave && leave.status !== "approved" && leave.type === "leave";
@@ -94,6 +98,18 @@ export const crudController = {
         search,
         filters,
       }, userRole);
+
+      if (modelName === "timekeeping-logs" && result.items.length) {
+        const logIds = result.items.map((item: any) => item._id);
+        const audits = await TimekeepingAdjustmentAuditModel.find({ companyCode, logId: { $in: logIds } }).sort({ createdAt: -1 }).lean();
+        const byLog = new Map<string, any[]>();
+        for (const entry of audits) {
+          const key = String(entry.logId);
+          if ((byLog.get(key)?.length || 0) >= 10) continue;
+          byLog.set(key, [...(byLog.get(key) || []), entry]);
+        }
+        result.items = result.items.map((item: any) => ({ ...item, adjustmentHistory: byLog.get(String(item._id)) || [] }));
+      }
 
       return res.status(200).json({
         status: "success",
@@ -197,6 +213,26 @@ export const crudController = {
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
 
+      let attendanceBefore: any = null;
+      let attendanceReason = "";
+      if (modelName === "timekeeping-logs") {
+        attendanceReason = String(req.body.editReason || "").trim();
+        if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
+        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode }).lean();
+        if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
+        const periodKey = attendanceBefore.date.slice(0, 7);
+        const [lockedResult, payrollRun] = await Promise.all([
+          AttendancePeriodResultModel.findOne({ companyCode, periodKey, status: "locked" }).lean(),
+          PayrollRunModel.findOne({ companyCode, periodKey }).lean(),
+        ]);
+        if (lockedResult || payrollRun) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+        delete req.body.editReason;
+        req.body.manuallyAdjusted = true;
+        req.body.adjustedAt = new Date();
+        req.body.adjustedBy = req.user?.id;
+        req.body.adjustmentReason = attendanceReason;
+      }
+
       if (modelName === "training-courses") {
         const course = await TrainingCourseModel.findOne({ _id: id, companyCode }).lean();
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
@@ -268,6 +304,14 @@ export const crudController = {
       }
 
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
+
+      if (modelName === "timekeeping-logs" && attendanceBefore && item) {
+        const periodKey = attendanceBefore.date.slice(0, 7);
+        await Promise.all([
+          TimekeepingAdjustmentAuditModel.create({ companyCode, logId: attendanceBefore._id, employeeId: attendanceBefore.uid, date: attendanceBefore.date, actorId: req.user!.id, reason: attendanceReason, before: attendanceBefore, after: item }),
+          AttendancePeriodResultModel.updateMany({ companyCode, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+        ]);
+      }
 
       // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
       if (modelName === "hr-leave-applications" && item && item.status === "approved") {

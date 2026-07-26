@@ -73,7 +73,7 @@ export const payrollController = {
             lunchBreakEnd: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakEnd : company?.locationConfig?.lunchBreakEnd,
           };
         });
-    if (!employees.length) return res.status(400).json({ status: "error", message: "Chua c� nh�n vi�n du?c c?u h�nh luong." });
+    if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
@@ -108,7 +108,7 @@ export const payrollController = {
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }
       const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, lunchBreakStart: employee.lunchBreakStart, lunchBreakEnd: employee.lunchBreakEnd, logs: employeeLogs, paidLeaves: [], overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
       console.log(`[payroll.snapshot] ${employee.employeeName} (${employee.employeeId}) rawLogsMatched=${logs.filter((log) => log.uid === employee.employeeId).length} totalLogsInPeriod=${logs.length} presentDays=${employeeLogs.filter((l) => l.status !== "Absent").length} absentGenerated=${employeeLogs.filter((l) => l.status === "Absent").length} standardDailyMinutes=${employee.standardDailyMinutes} workingDays=${JSON.stringify(employee.workingDays)} workedMinutes=${summary.workedMinutes} shortageMinutes=${summary.shortageMinutes}`);
     }
     await audit(req, period, "snapshot", { count: results.length });
@@ -124,6 +124,8 @@ export const payrollController = {
     return res.json({ status: "success", data });
   },
   async lockResults(req: AuthenticatedRequest, res: Response) {
+    const stale = await AttendancePeriodResultModel.exists({ companyCode: tenant(req), periodKey: req.params.periodKey, needsRecalculation: true });
+    if (stale) return res.status(409).json({ status: "error", message: "Lịch sử chấm công đã thay đổi. Hãy đồng bộ công trước khi khóa." });
     const result = await AttendancePeriodResultModel.updateMany(
       { companyCode: tenant(req), periodKey: req.params.periodKey, status: "draft" },
       { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
@@ -134,6 +136,7 @@ export const payrollController = {
   async createRun(req: AuthenticatedRequest, res: Response) {
     const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "locked" }).lean();
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
+    if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
     const existing = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey });
     if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
     const lines = rows.map((row) => ({
@@ -150,7 +153,7 @@ export const payrollController = {
         bonuses: 0,
         deductions: 0,
         adjustments: 0,
-      }) },
+      }), workedMinutes: row.workedMinutes, workedDays: row.workedDays || 0, standardHours: row.standardHours, standardDays: row.standardDays },
     }));
     const run = await PayrollRunModel.create({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "calculated", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });

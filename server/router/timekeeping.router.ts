@@ -16,16 +16,16 @@ const attendanceImage = multer({
 const checkInOutSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
-      "any.required": "VÄ© Ä‘á»™ (latitude) lÃ  báº¯t buá»™c.",
-      "number.base": "VÄ© Ä‘á»™ pháº£i lÃ  má»™t sá»‘.",
-      "number.min": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -90 Ä‘áº¿n 90).",
-      "number.max": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -90 Ä‘áº¿n 90).",
+      "any.required": "Vĩ độ (latitude) là bắt buộc.",
+      "number.base": "Vĩ độ phải là một số.",
+      "number.min": "Vĩ độ không hợp lệ (phải từ -90 đến 90).",
+      "number.max": "Vĩ độ không hợp lệ (phải từ -90 đến 90).",
     }),
     longitude: Joi.number().min(-180).max(180).required().messages({
-      "any.required": "Kinh Ä‘á»™ (longitude) lÃ  báº¯t buá»™c.",
-      "number.base": "Kinh Ä‘á»™ pháº£i lÃ  má»™t sá»‘.",
-      "number.min": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -180 Ä‘áº¿n 180).",
-      "number.max": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -180 Ä‘áº¿n 180).",
+      "any.required": "Kinh độ (longitude) là bắt buộc.",
+      "number.base": "Kinh độ phải là một số.",
+      "number.min": "Kinh độ không hợp lệ (phải từ -180 đến 180).",
+      "number.max": "Kinh độ không hợp lệ (phải từ -180 đến 180).",
     }),
     deviceInfo: Joi.string().optional().allow(""),
   }),
@@ -34,35 +34,35 @@ const checkInOutSchema = {
 const updateLocationSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
-      "any.required": "VÄ© Ä‘á»™ vÄƒn phÃ²ng lÃ  báº¯t buá»™c.",
-      "number.base": "VÄ© Ä‘á»™ vÄƒn phÃ²ng pháº£i lÃ  sá»‘.",
-      "number.min": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡.",
-      "number.max": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡.",
+      "any.required": "Vĩ độ văn phòng là bắt buộc.",
+      "number.base": "Vĩ độ văn phòng phải là số.",
+      "number.min": "Vĩ độ không hợp lệ.",
+      "number.max": "Vĩ độ không hợp lệ.",
     }),
     longitude: Joi.number().min(-180).max(180).required().messages({
-      "any.required": "Kinh Ä‘á»™ vÄƒn phÃ²ng lÃ  báº¯t buá»™c.",
-      "number.base": "Kinh Ä‘á»™ vÄƒn phÃ²ng pháº£i lÃ  sá»‘.",
-      "number.min": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡.",
-      "number.max": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡.",
+      "any.required": "Kinh độ văn phòng là bắt buộc.",
+      "number.base": "Kinh độ văn phòng phải là số.",
+      "number.min": "Kinh độ không hợp lệ.",
+      "number.max": "Kinh độ không hợp lệ.",
     }),
     allowedRadius: Joi.number().min(1).required().messages({
-      "any.required": "BÃ¡n kÃ­nh cháº¥m cÃ´ng lÃ  báº¯t buá»™c.",
-      "number.base": "BÃ¡n kÃ­nh pháº£i lÃ  sá»‘.",
-      "number.min": "BÃ¡n kÃ­nh tá»‘i thiá»ƒu pháº£i tá»« 1 mÃ©t trá»Ÿ lÃªn.",
+      "any.required": "Bán kính chấm công là bắt buộc.",
+      "number.base": "Bán kính phải là số.",
+      "number.min": "Bán kính tối thiểu phải từ 1 mét trở lên.",
     }),
     addressName: Joi.string().optional().allow(""),
     checkInLimit: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» vÃ o pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 08:30).",
+      "string.pattern.base": "Giờ vào phải đúng định dạng HH:MM (ví dụ: 08:30).",
     }),
     checkOutLimit: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» ra pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 17:30).",
+      "string.pattern.base": "Giờ ra phải đúng định dạng HH:MM (ví dụ: 17:30).",
     }),
     lunchBreakStart: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» báº¯t Ä‘áº§u nghá»‰ trÆ°a pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 12:00).",
+      "string.pattern.base": "Giờ bắt đầu nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 12:00).",
     }),
     workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().optional(),
     lunchBreakEnd: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» káº¿t thÃºc nghá»‰ trÆ°a pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 13:00).",
+      "string.pattern.base": "Giờ kết thúc nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 13:00).",
     }),
   }),
 };
