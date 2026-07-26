@@ -20,6 +20,19 @@ vi.mock("../hooks/useCourses", () => ({ useCourses: vi.fn() }));
 vi.mock("../hooks/useCourseCategories", () => ({ useCourseCategories: vi.fn() }));
 vi.mock("../hooks/useBatches", () => ({ useBatches: vi.fn() }));
 vi.mock("../hooks/useStudents", () => ({ useStudents: () => ({ students: [] }) }));
+let currentEntityPreset: "student" | "worker" = "student";
+vi.mock("../hooks/useEntityLabel", () => ({
+  useEntityLabel: () => ({
+    preset: currentEntityPreset,
+    tabLabel: currentEntityPreset === "worker" ? "Lao động" : "Học viên",
+    singular: currentEntityPreset === "worker" ? "lao động" : "học viên",
+    titleCase: currentEntityPreset === "worker" ? "Lao động" : "Học viên",
+    listTitle: currentEntityPreset === "worker" ? "Danh sách lao động" : "Danh sách học viên",
+    addTitle: currentEntityPreset === "worker" ? "Thêm lao động mới" : "Thêm học viên mới",
+    editTitle: currentEntityPreset === "worker" ? "Chỉnh sửa thông tin lao động" : "Chỉnh sửa thông tin học viên",
+    loading: false,
+  }),
+}));
 vi.mock("../custom-fields/CustomFieldsSection", () => ({
   CustomFieldsSection: ({ moduleKey, values, onChange }: { moduleKey: string; values: Record<string, unknown>; onChange(values: Record<string, unknown>): void }) => (
     <input aria-label={`custom-${moduleKey}`} value={String(values.extra ?? "")} onChange={(event) => onChange({ ...values, extra: event.target.value })} />
@@ -88,6 +101,7 @@ const exam = {
 } as ExamSession;
 
 beforeEach(() => {
+  currentEntityPreset = "student";
   mockedCourses.mockReturnValue({ courses: [course], loading: false, refetch: vi.fn() });
   mockedCategories.mockReturnValue({ categories: [{ id: "cat-1", name: "General" }], loading: false, refetch: vi.fn() });
   mockedBatches.mockReturnValue({ batches: [batch], loading: false, refetch: vi.fn() });
@@ -101,6 +115,34 @@ afterEach(() => {
 });
 
 describe("course, batch and exam custom-field integration", () => {
+  it("renders recruitment-project copy for workers and preserves education copy for students", () => {
+    currentEntityPreset = "worker";
+    const workerView = render(<CoursesPage />);
+    expect(workerView.container.textContent).toContain("Danh sách dự án tuyển dụng");
+    expect(workerView.container.textContent).toContain("Thêm dự án mới");
+    expect(workerView.container.textContent).toContain("Chỉ tiêu: 20 lao động");
+    expect(workerView.container.textContent).not.toContain("Khóa học");
+    expect(workerView.container.textContent).not.toContain("Học phí");
+    const addProject = Array.from(workerView.container.querySelectorAll("button")).find((button) => button.textContent?.includes("Thêm dự án mới"));
+    act(() => addProject?.click());
+    const projectForm = workerView.container.querySelector("form")!;
+    expect(projectForm.textContent).toContain("Mã dự án");
+    expect(projectForm.textContent).toContain("Tên dự án tuyển dụng");
+    expect(projectForm.textContent).toContain("Nhóm dự án");
+    expect(projectForm.textContent).toContain("Thời gian tuyển dụng");
+    expect(projectForm.textContent).toContain("Ngân sách dự kiến");
+    expect(projectForm.textContent).toContain("Chỉ tiêu tuyển");
+    expect(projectForm.textContent).not.toContain("Mã khóa học");
+    expect(projectForm.textContent).not.toContain("Học phí niêm yết");
+    expect((projectForm.querySelector('input[name="code"]') as HTMLInputElement | null)?.placeholder || projectForm.querySelector("input")?.placeholder).toContain("DA-SAMSUNG-2026");
+
+    currentEntityPreset = "student";
+    const studentView = render(<CoursesPage />);
+    expect(studentView.container.textContent).toContain("Danh mục khóa học");
+    expect(studentView.container.textContent).toContain("Thêm khóa học mới");
+    expect(studentView.container.textContent).toContain("Max: 20 HV");
+  });
+
   it("uses the courses module, preserves dirty create values, sends them, and hydrates edit", async () => {
     const view = render(<CoursesPage />);
     const add = Array.from(view.container.querySelectorAll("button")).find((button) => button.textContent?.includes("Thêm khóa học mới"));

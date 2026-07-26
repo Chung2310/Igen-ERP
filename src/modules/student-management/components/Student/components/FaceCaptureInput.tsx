@@ -10,9 +10,10 @@ import {
 interface FaceCaptureInputProps {
   onCapture: (blob: Blob | null) => void;
   disabled?: boolean;
+  entityName?: string;
 }
 
-export function FaceCaptureInput({ onCapture, disabled }: FaceCaptureInputProps) {
+export function FaceCaptureInput({ onCapture, disabled, entityName = 'học viên' }: FaceCaptureInputProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
   const previewUrlRef = React.useRef<string | null>(null);
@@ -175,7 +176,7 @@ export function FaceCaptureInput({ onCapture, disabled }: FaceCaptureInputProps)
         )}
       </div>
       <p className="text-[11px] text-slate-400 max-w-xs">
-        Có thể bỏ qua và thiết lập sau trong hồ sơ chi tiết học viên.
+        Có thể bỏ qua và thiết lập sau trong hồ sơ chi tiết {entityName}.
       </p>
     </div>
   );

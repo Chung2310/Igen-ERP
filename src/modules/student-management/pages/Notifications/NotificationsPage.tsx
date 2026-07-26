@@ -15,6 +15,8 @@ import { BroadcastNotification, Student } from '../../types';
 import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -307,6 +309,8 @@ function InstallmentPlanEditor({
 export function NotificationsPage() {
   const { students } = useStudents();
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
+  const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recipientFilter, setRecipientFilter] = useState('Tất cả học viên đang học');
@@ -323,6 +327,13 @@ export function NotificationsPage() {
     { installmentNo: 2, percent: 50, label: 'Đợt 2' },
   ]);
   const [selectedInstallmentNo, setSelectedInstallmentNo] = useState(1);
+
+  useEffect(() => {
+    if (operationalCopy.isWorker || operationalCopy.isCustomer) {
+      setRecipientFilter(operationalCopy.notificationAudienceLabel);
+      setUseInstallment(false);
+    }
+  }, [operationalCopy.isWorker, operationalCopy.isCustomer, operationalCopy.notificationAudienceLabel]);
 
   const [sendProgress, setSendProgress] = useState<{
     current: number;
@@ -460,6 +471,9 @@ export function NotificationsPage() {
 
   const getTargetStudents = () => {
     switch (recipientFilter) {
+      case 'Tất cả lao động':
+      case 'Tất cả khách hàng':
+        return students;
       case 'Tất cả học viên đang học':
         return students.filter(s => s.status.includes('Đang học'));
       case 'Học viên sắp thi':
@@ -591,7 +605,7 @@ export function NotificationsPage() {
 
     const targetStudents = getTargetStudents();
     if (targetStudents.length === 0) {
-      toast.warning("Không tìm thấy học viên phù hợp với bộ lọc này.");
+      toast.warning(`Không tìm thấy ${entityLabel.singular} phù hợp với bộ lọc này.`);
       return;
     }
 
@@ -798,6 +812,8 @@ export function NotificationsPage() {
   };
 
   const recipientCounts = {
+    'Tất cả lao động': students.length,
+    'Tất cả khách hàng': students.length,
     'Tất cả học viên đang học': students.filter(s => s.status.includes('Đang học')).length,
     'Học viên sắp thi': students.filter(s => s.status.includes('Đang thi') || s.exams?.some(e => e.status === 'Sắp thi')).length,
     'Học viên còn nợ học phí': students.filter(s => (s.paidAmount || 0) < parseInt(parseVND(s.fee) || '0')).length,
@@ -811,7 +827,7 @@ export function NotificationsPage() {
     ? installmentPlan.find(p => p.installmentNo === selectedInstallmentNo)
     : null;
 
-  const templates = [
+  const educationTemplates = [
     {
       name: 'Nhắc phí',
       title: 'THÔNG BÁO HOÀN THÀNH HỌC PHÍ - {ten}',
@@ -828,6 +844,45 @@ export function NotificationsPage() {
       content: 'Kính gửi học viên {ten}, Trung tâm đã sắp xếp lịch ôn tập và thi lại cho bạn khóa hạng {hang} tại trung tâm. Vui lòng liên hệ văn phòng để xác nhận lịch thi dự kiến kế tiếp. Cố gắng lên bạn nhé.'
     }
   ];
+  const workerTemplates = [
+    {
+      name: 'Lịch phỏng vấn',
+      title: 'THÔNG BÁO LỊCH PHỎNG VẤN - {ten}',
+      content: 'Kính gửi {ten}, công ty xin thông báo lịch phỏng vấn của bạn. Vui lòng kiểm tra thời gian, địa điểm trong nội dung được cung cấp và có mặt đúng giờ. Khi cần hỗ trợ, vui lòng liên hệ cán bộ phụ trách. Trân trọng.',
+    },
+    {
+      name: 'Bổ sung hồ sơ',
+      title: 'YÊU CẦU BỔ SUNG HỒ SƠ - {ten}',
+      content: 'Kính gửi {ten}, hồ sơ tuyển dụng của bạn hiện cần được bổ sung. Vui lòng liên hệ cán bộ phụ trách để hoàn thiện giấy tờ đúng thời hạn. Trân trọng.',
+    },
+    {
+      name: 'Nhận việc',
+      title: 'THÔNG BÁO NHẬN VIỆC - {ten}',
+      content: 'Kính gửi {ten}, công ty xin thông báo kế hoạch nhận việc của bạn. Vui lòng chuẩn bị đầy đủ giấy tờ và có mặt theo thời gian, địa điểm đã được hướng dẫn. Trân trọng.',
+    },
+  ];
+  const customerTemplates = [
+    {
+      name: 'Lịch hẹn',
+      title: 'THÔNG BÁO LỊCH HẸN - {ten}',
+      content: 'Kính gửi khách hàng {ten}, chúng tôi xin thông báo lịch hẹn phục vụ của quý khách. Vui lòng kiểm tra thời gian và địa điểm trong nội dung được cung cấp. Khi cần hỗ trợ, quý khách vui lòng liên hệ nhân viên phụ trách. Trân trọng.',
+    },
+    {
+      name: 'Thông tin dịch vụ',
+      title: 'THÔNG TIN DỊCH VỤ - {ten}',
+      content: 'Kính gửi khách hàng {ten}, chúng tôi gửi đến quý khách thông tin cập nhật về dịch vụ đang sử dụng. Vui lòng liên hệ nhân viên phụ trách nếu quý khách cần tư vấn hoặc hỗ trợ thêm. Trân trọng.',
+    },
+    {
+      name: 'Chăm sóc khách hàng',
+      title: 'CHĂM SÓC KHÁCH HÀNG - {ten}',
+      content: 'Kính gửi khách hàng {ten}, cảm ơn quý khách đã sử dụng dịch vụ. Chúng tôi mong nhận được phản hồi để tiếp tục nâng cao chất lượng phục vụ. Trân trọng.',
+    },
+  ];
+  const templates = operationalCopy.isWorker
+    ? workerTemplates
+    : operationalCopy.isCustomer
+      ? customerTemplates
+      : educationTemplates;
 
   const applyTemplate = (tpl: typeof templates[0]) => {
     setTitle(tpl.title);
@@ -858,7 +913,7 @@ export function NotificationsPage() {
               <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Kết quả gửi thông báo</h3>
-                  <p className="text-slate-500 text-xs font-bold mt-1">Đang xử lý: {sendProgress.current}/{sendProgress.total} học viên</p>
+                  <p className="text-slate-500 text-xs font-bold mt-1">Đang xử lý: {sendProgress.current}/{sendProgress.total} {entityLabel.singular}</p>
                   {currentInstallment && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-lg text-[10px] font-black border border-violet-200">
@@ -987,7 +1042,7 @@ export function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight text-left">BOT Thông báo</h1>
-          <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">Gửi thông báo tự động đến học viên</p>
+          <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p>
         </div>
       </div>
 
@@ -1014,10 +1069,16 @@ export function NotificationsPage() {
                   onChange={(e) => setRecipientFilter(e.target.value)}
                   className="w-full h-8 bg-slate-50 px-3 pr-8 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 transition-all text-left"
                 >
-                  <option>Tất cả học viên đang học</option>
-                  <option>Học viên sắp thi</option>
-                  <option>Học viên còn nợ học phí</option>
-                  <option>Học viên cần thi lại</option>
+                  {operationalCopy.isWorker || operationalCopy.isCustomer ? (
+                    <option>{operationalCopy.notificationAudienceLabel}</option>
+                  ) : (
+                    <>
+                      <option>Tất cả học viên đang học</option>
+                      <option>Học viên sắp thi</option>
+                      <option>Học viên còn nợ học phí</option>
+                      <option>Học viên cần thi lại</option>
+                    </>
+                  )}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               </div>
@@ -1025,7 +1086,7 @@ export function NotificationsPage() {
 
             {/* ── Installment Plan Section ── */}
             <AnimatePresence>
-              {isDebtFilter && (
+              {!operationalCopy.isWorker && !operationalCopy.isCustomer && isDebtFilter && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -1132,13 +1193,17 @@ export function NotificationsPage() {
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 text-left">Biến dùng được:</p>
                   <div className="flex flex-wrap gap-x-2 gap-y-1">
                     <VariableTag name="ten" label="Tên" />
-                    <VariableTag name="hang" label="Hạng" />
-                    <VariableTag name="kv" label="KV" />
                     <VariableTag name="email" label="Email" />
-                    <VariableTag name="ngaythi" label="Ngày thi" />
-                    <VariableTag name="sotien" label="Tổng nợ" />
-                    <VariableTag name="tiendot" label="Tiền đợt" highlight={useInstallment && isDebtFilter} />
-                    <VariableTag name="nhac_dong_phi" label="Gợi ý đóng phí" highlight={useInstallment && isDebtFilter} />
+                    {!operationalCopy.isWorker && !operationalCopy.isCustomer && (
+                      <>
+                        <VariableTag name="hang" label="Hạng" />
+                        <VariableTag name="kv" label="KV" />
+                        <VariableTag name="ngaythi" label="Ngày thi" />
+                        <VariableTag name="sotien" label="Tổng nợ" />
+                        <VariableTag name="tiendot" label="Tiền đợt" highlight={useInstallment && isDebtFilter} />
+                        <VariableTag name="nhac_dong_phi" label="Gợi ý đóng phí" highlight={useInstallment && isDebtFilter} />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1257,7 +1322,7 @@ export function NotificationsPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-50">
               <p className="text-[11px] font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-full">
-                Sẽ gửi đến: <span className="font-black underline underline-offset-4">{currentRecipientCount} học viên</span>
+                Sẽ gửi đến: <span className="font-black underline underline-offset-4">{currentRecipientCount} {entityLabel.singular}</span>
               </p>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button 

@@ -10,7 +10,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/", ModuleSettingsController.get);
-router.patch("/", requireRoles("superadmin", "admin", "manager"), validate(updateModuleSettingsSchema), ModuleSettingsController.update);
+router.patch("/", requireRoles("superadmin"), validate(updateModuleSettingsSchema), ModuleSettingsController.update);
 
 router.use(errorMiddleware);
 

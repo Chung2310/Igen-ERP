@@ -94,10 +94,14 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    // Student field settings are shared storage; do not let their education
+    // terminology override the worker-specific form copy.
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultLabel;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.label : defaultLabel;
   };
   const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultPlaceholder;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
@@ -383,7 +387,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('email')}
                     <FormInput
-                      label={getFieldLabel('email', 'Email học viên')}
+                      label={getFieldLabel('email', `Email ${entityLabel.singular}`)}
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
@@ -487,7 +491,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   </div>
                 )}
                 
-                {isFieldVisible('batchId') && (
+                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('batchId') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('batchId')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
@@ -518,7 +522,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('registrationDate')}
                     <FormInput
-                      label={getFieldLabel('registrationDate', 'Ngày đăng ký')}
+                      label={getFieldLabel('registrationDate', entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? 'Ngày tạo hồ sơ' : 'Ngày đăng ký')}
                       name="registrationDate"
                       value={formData.registrationDate}
                       onChange={handleInputChange}
@@ -531,7 +535,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('enrollmentDate')}
                     <FormInput
-                      label={getFieldLabel('enrollmentDate', 'Ngày nhập học')}
+                      label={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
                       name="enrollmentDate"
                       type="date"
                       value={toInputDate(formData.enrollmentDate)}
@@ -540,7 +544,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                     />
                   </div>
                 )}
-                {isFieldVisible('fee') && (
+                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('fee') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('fee')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
@@ -567,9 +571,11 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 )}
               </div>
 
-              <div className="pt-2 border-t border-slate-50">
-                <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} />
-              </div>
+              {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && (
+                <div className="pt-2 border-t border-slate-50">
+                  <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} entityName={entityLabel.singular} />
+                </div>
+              )}
 
               <CustomFieldsSection
                 moduleKey="students"

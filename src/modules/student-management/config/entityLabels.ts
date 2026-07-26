@@ -47,9 +47,12 @@ export const ENTITY_LABEL_PRESETS: Record<EntityPreset, EntityLabelSet> = {
 
 export const ENTITY_PRESET_OPTIONS: { value: EntityPreset; label: string }[] = [
   { value: "student", label: "Giáo dục — Học viên" },
-  { value: "candidate", label: "Tuyển dụng — Ứng viên" },
   { value: "customer", label: "Dịch vụ — Khách hàng" },
-  { value: "worker", label: "Lao động — Lao động" },
+  { value: "worker", label: "Tuyển dụng — Lao động" },
 ];
+
+export function canChangeEntityPreset(role: string | null | undefined): boolean {
+  return role === "superadmin";
+}
 
 export const DEFAULT_ENTITY_PRESET: EntityPreset = "student";

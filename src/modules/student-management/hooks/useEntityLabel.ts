@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { getModuleSettings } from "../api/moduleSettings.api";
-import { DEFAULT_ENTITY_PRESET, ENTITY_LABEL_PRESETS, type EntityLabelSet, type EntityPreset } from "../config/entityLabels";
+import { DEFAULT_ENTITY_PRESET, ENTITY_LABEL_PRESETS, ENTITY_PRESETS, type EntityLabelSet, type EntityPreset } from "../config/entityLabels";
 import { socketService } from "../../../services/socketService";
 
 export type UseEntityLabelResult = EntityLabelSet & {
   preset: EntityPreset;
   loading: boolean;
 };
+
+function isEntityPreset(value: unknown): value is EntityPreset {
+  return typeof value === "string" && (ENTITY_PRESETS as readonly string[]).includes(value);
+}
 
 export function useEntityLabel(): UseEntityLabelResult {
   const [preset, setPreset] = useState<EntityPreset>(DEFAULT_ENTITY_PRESET);
@@ -18,7 +22,7 @@ export function useEntityLabel(): UseEntityLabelResult {
       setLoading(true);
       try {
         const settings = await getModuleSettings();
-        if (mounted) setPreset(settings.entityPreset);
+        if (mounted) setPreset(isEntityPreset(settings?.entityPreset) ? settings.entityPreset : DEFAULT_ENTITY_PRESET);
       } catch {
         if (mounted) setPreset(DEFAULT_ENTITY_PRESET);
       } finally {
@@ -29,7 +33,7 @@ export function useEntityLabel(): UseEntityLabelResult {
 
     const onChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ entityPreset?: EntityPreset }>).detail;
-      if (detail?.entityPreset) {
+      if (isEntityPreset(detail?.entityPreset)) {
         setPreset(detail.entityPreset);
       } else {
         void load();
@@ -38,7 +42,7 @@ export function useEntityLabel(): UseEntityLabelResult {
     window.addEventListener("entity-label:changed", onChanged);
 
     const offSocket = socketService.on("entity_preset_changed", (data: { entityPreset?: EntityPreset }) => {
-      if (data?.entityPreset) setPreset(data.entityPreset);
+      if (isEntityPreset(data?.entityPreset)) setPreset(data.entityPreset);
     });
 
     return () => {

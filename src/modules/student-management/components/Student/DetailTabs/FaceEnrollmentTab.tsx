@@ -10,6 +10,7 @@ import {
   startFaceCamera,
   stopMediaStream,
 } from '../../../../../components/settings/faceCamera';
+import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
 interface FaceEnrollmentTabProps {
   student: Student;
@@ -22,6 +23,7 @@ interface FaceStatus {
 }
 
 export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps) {
+  const entityLabel = useEntityLabel();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
   const previewUrlRef = React.useRef<string | null>(null);
@@ -121,7 +123,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
       const body = new FormData();
       body.append('file', new File([capture.blob], 'face.jpg', { type: capture.blob.type || 'image/jpeg' }));
       await apiFetch(`/students/${student.id}/face`, { method: 'POST', body });
-      toast.success('Đã lưu mẫu khuôn mặt cho học viên!');
+      toast.success(`Đã lưu mẫu khuôn mặt cho ${entityLabel.singular}!`);
       revokePreview();
       setCapture(null);
       await fetchStatus();
@@ -163,7 +165,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
           <div>
             <h3 className="text-sm font-bold text-slate-800">Mẫu khuôn mặt điểm danh</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Dùng để xác thực khuôn mặt khi học viên điểm danh qua QR hoặc mã online.
+              Dùng để xác thực khuôn mặt khi {entityLabel.singular} điểm danh qua QR hoặc mã online.
             </p>
           </div>
         </div>
@@ -198,7 +200,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
 
         <div className="flex flex-col justify-between gap-4">
           <div className="space-y-2 text-xs text-slate-500">
-            <p>1. Bật camera và đưa khuôn mặt học viên vào giữa khung hình, ánh sáng đủ rõ.</p>
+            <p>1. Bật camera và đưa khuôn mặt {entityLabel.singular} vào giữa khung hình, ánh sáng đủ rõ.</p>
             <p>2. Nhìn thẳng vào camera rồi bấm chụp ảnh.</p>
             <p>3. Kiểm tra lại ảnh, sau đó xác nhận để lưu mẫu khuôn mặt.</p>
             {status?.registeredAt && (

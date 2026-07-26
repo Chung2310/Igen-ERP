@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
+  BriefcaseBusiness,
   Calendar,
   DollarSign,
   Layers,
@@ -45,6 +46,8 @@ import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorMod
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 import { Pagination } from '../../components/ui/Pagination';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getCoursePageCopy } from '../../config/workerRecruitmentCopy';
 
 type CourseViewMode = 'list' | 'grid';
 
@@ -128,6 +131,8 @@ function getCategoryColor(category: string): string {
 export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
   const { userProfile: user } = useAuth();
+  const entityLabel = useEntityLabel();
+  const copy = getCoursePageCopy(entityLabel.preset);
   const {
     fields: stdFields,
     activeFields: activeStdFields,
@@ -192,10 +197,15 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    // Standard course labels stored in localStorage belong to the education
+    // preset. In the worker preset these fields represent recruitment-project
+    // data, so the preset copy must take precedence.
+    if (entityLabel.preset === "worker" || entityLabel.preset === "customer") return defaultLabel;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.label : defaultLabel;
   };
   const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    if (entityLabel.preset === "worker" || entityLabel.preset === "customer") return defaultPlaceholder;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
@@ -204,10 +214,10 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
   const usesCourseFeePolicy = true;
-  const courseFeeLabel = 'Học phí niêm yết';
-  const courseCodePlaceholder = 'Ví dụ: ENG-TOEIC';
-  const courseTitlePlaceholder = 'Ví dụ: Luyện thi TOEIC 650+ cam kết chuẩn đầu ra';
-  const courseDurationPlaceholder = 'Ví dụ: 3 tháng / 8 tuần';
+  const courseFeeLabel = copy.feeLabel;
+  const courseCodePlaceholder = copy.codePlaceholder;
+  const courseTitlePlaceholder = copy.titlePlaceholder;
+  const courseDurationPlaceholder = copy.durationPlaceholder;
 
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { courses, loading } = useCourses(resolvedCenter);
@@ -293,7 +303,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = newCourse.fee.replace(/\D/g, '');
       if (newCourse.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
-        toast.error('Học phí phải là một số hợp lệ.');
+        toast.error(copy.feeValidationError);
         return;
       }
     }
@@ -319,9 +329,9 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       window.dispatchEvent(new Event('course-mutation'));
       setShowAddModal(false);
       resetNewCourse();
-      toast.success(`Đã thêm mới khóa học ${payload.code} thành công!`);
+      toast.success(copy.createdMessage(payload.code));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi tạo khóa học.';
+      const msg = error instanceof Error ? error.message : copy.createError;
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -352,7 +362,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = editForm.fee.replace(/\D/g, '');
       if (editForm.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
-        toast.error('Học phí phải là một số hợp lệ.');
+        toast.error(copy.feeValidationError);
         return;
       }
     }
@@ -377,9 +387,9 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
 
       window.dispatchEvent(new Event('course-mutation'));
       setEditingCourse(null);
-      toast.success(`Đã cập nhật khóa học ${payload.code} thành công!`);
+      toast.success(copy.updatedMessage(payload.code));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật khóa học.';
+      const msg = error instanceof Error ? error.message : copy.updateError;
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -393,9 +403,9 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
         body: JSON.stringify({ status: nextStatus }),
       });
       window.dispatchEvent(new Event('course-mutation'));
-      toast.success(`Khóa học ${course.code} đã chuyển sang "${nextStatus}".`);
+      toast.success(copy.statusMessage(course.code, nextStatus));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật khóa học.';
+      const msg = error instanceof Error ? error.message : copy.updateError;
       toast.error(msg);
     }
   };
@@ -404,9 +414,9 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     try {
       await apiFetch<MutationResponse>(`/courses/${course.id}`, { method: 'DELETE' });
       window.dispatchEvent(new Event('course-mutation'));
-      toast.success(`Đã xóa khóa học ${course.code}.`);
+      toast.success(copy.deletedMessage(course.code));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa khóa học.';
+      const msg = error instanceof Error ? error.message : copy.deleteError;
       toast.error(msg);
     }
   };
@@ -423,9 +433,9 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       });
       window.dispatchEvent(new Event('course-category-mutation'));
       setNewCategoryName('');
-      toast.success('Đã thêm phân loại mới thành công!');
+      toast.success(copy.categoryCreatedMessage);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi tạo phân loại.';
+      const msg = error instanceof Error ? error.message : copy.categoryCreateError;
       toast.error(msg);
     } finally {
       setIsCategorySubmitting(false);
@@ -439,7 +449,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
         method: 'DELETE',
       });
       window.dispatchEvent(new Event('course-category-mutation'));
-      toast.success('Đã xóa phân loại thành công.');
+      toast.success(copy.categoryDeletedMessage);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa.';
       toast.error(msg);
@@ -460,7 +470,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
   return (
     <div className="space-y-4 text-left">
       <ErpPageHeader
-        title="Danh mục khóa học"
+        title={copy.pageTitle}
         action={
           <div className="flex gap-2">
             <button
@@ -472,17 +482,17 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
               )}
             >
-              Quản lý phân loại
+              {copy.categoryManagerButton}
             </button>
             <ErpPrimaryButton onClick={() => setShowAddModal(true)}>
-              Thêm khóa học mới
+              {copy.addButton}
             </ErpPrimaryButton>
           </div>
         }
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tìm theo tên hoặc mã khóa học..." />
+        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
         <div className="flex flex-wrap items-center gap-3">
           <ErpFilterRail>
             <ErpFilterTab active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>
@@ -527,13 +537,13 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
       </div>
 
       {loading && courses.length === 0 ? (
-        <ErpCard><ErpLoadingState message="Đang tải danh mục khóa học..." /></ErpCard>
+        <ErpCard><ErpLoadingState message={copy.loadingMessage} /></ErpCard>
       ) : filteredCourses.length === 0 ? (
         <ErpCard>
           <ErpEmptyState
-            icon={BookOpen}
-            title="Chưa có khóa học nào"
-            subtitle="Bấm 'Thêm khóa học mới' để khởi tạo chương trình đào tạo đầu tiên."
+            icon={entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? BriefcaseBusiness : BookOpen}
+            title={copy.emptyTitle}
+            subtitle={copy.emptySubtitle}
           />
         </ErpCard>
       ) : viewMode === 'grid' ? (
@@ -567,8 +577,8 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                     {usesCourseFeePolicy && (
                       <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-slate-400" /> {course.fee}</div>
                     )}
-                    <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> Max: {course.maxLearners} HV</div>
-                    <div className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-slate-400" /> {course.activeBatches} lớp đang chạy</div>
+                    <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> {copy.capacitySummary(course.maxLearners)}</div>
+                    <div className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-slate-400" /> {course.activeBatches} {copy.activeBatchUnit}</div>
                   </div>
                 </div>
 
@@ -582,7 +592,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleToggleStatus(course)}
-                      title={course.status === ACTIVE_COURSE_STATUS ? 'Tạm dừng khóa học' : 'Kích hoạt lại khóa học'}
+                      title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
                       className={cn(
                         'flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase rounded-lg transition-all border cursor-pointer shadow-sm',
                         darkMode
@@ -596,7 +606,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                     </button>
                     <button
                       onClick={() => setEditingCourse(course)}
-                      title="Chỉnh sửa khóa học"
+                      title={copy.editTitle}
                       className={cn(
                         'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
                         darkMode
@@ -608,7 +618,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                     </button>
                     <button
                       onClick={() => handleDelete(course)}
-                      title="Xóa khóa học"
+                      title={copy.deleteTitle}
                       className={cn(
                         'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
                         darkMode
@@ -630,7 +640,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               onPageChange={setCurrentPage}
               totalItems={filteredCourses.length}
               pageSize={pageSize}
-              itemName="khóa học"
+              itemName={copy.paginationItemName}
             />
           </ErpCard>
         </div>
@@ -638,7 +648,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
-              <ErpTableHead columns={['Mã', 'Tên khóa học', 'Phân loại', 'Thời lượng', courseFeeLabel, 'Quy mô', 'Trạng thái', 'Thao tác']} />
+              <ErpTableHead columns={['Mã', copy.tableTitleColumn, copy.categoryLabel, copy.durationLabel, courseFeeLabel, copy.tableCapacityColumn, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn('divide-y', darkMode ? 'divide-slate-800/30' : 'divide-slate-100')}>
                 {paginatedCourses.map((course) => (
                   <tr key={course.id} className={cn('transition-colors hover:bg-slate-50/50', darkMode ? 'text-slate-355 hover:bg-slate-800/10' : 'text-slate-600')}>
@@ -651,7 +661,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                     </td>
                     <td className="py-2 px-4 font-bold">{course.duration}</td>
                     <td className="py-2 px-4 font-bold">{usesCourseFeePolicy ? course.fee : 'Không áp dụng'}</td>
-                    <td className="py-2 px-4 font-bold">{course.maxLearners} HV ({course.activeBatches} lớp)</td>
+                    <td className="py-2 px-4 font-bold">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
                     <td className="py-2 px-4">
                       <span className={cn(
                         'px-1.5 py-0.5 rounded text-[9px] font-black uppercase border',
@@ -677,7 +687,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                             'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
                             darkMode ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-455 border-transparent' : 'bg-slate-50 hover:bg-indigo-50 text-slate-450 hover:text-indigo-550 border-slate-200/60'
                           )}
-                          title="Chỉnh sửa khóa học"
+                          title={copy.editTitle}
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
@@ -687,6 +697,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                             'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
                             darkMode ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-455 border-transparent' : 'bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60'
                           )}
+                          title={copy.deleteTitle}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -703,18 +714,18 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
             onPageChange={setCurrentPage}
             totalItems={filteredCourses.length}
             pageSize={pageSize}
-            itemName="khóa học"
+            itemName={copy.paginationItemName}
           />
         </ErpCard>
       )}
 
       {showAddModal && (
-        <ErpModal title="Thêm chương trình học mới" onClose={() => setShowAddModal(false)}>
+        <ErpModal title={copy.createModalTitle} onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleAddCourse} className="space-y-4">
             {isFieldVisible('code') && (
               <div className="relative group/std">
                 {renderFieldActions('code')}
-                <ErpField label={getFieldLabel('code', 'Mã khóa học')}>
+                <ErpField label={getFieldLabel('code', copy.codeLabel)}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('code', true)}
@@ -729,7 +740,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
             {isFieldVisible('title') && (
               <div className="relative group/std">
                 {renderFieldActions('title')}
-                <ErpField label={getFieldLabel('title', 'Tên chương trình đào tạo')}>
+                <ErpField label={getFieldLabel('title', copy.titleLabel)}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('title', true)}
@@ -745,7 +756,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('category') && (
                 <div className="relative group/std">
                   {renderFieldActions('category')}
-                  <ErpField label={getFieldLabel('category', 'Phân loại')}>
+                  <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
                     <ErpSelect
                       value={newCourse.category}
                       onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
@@ -762,7 +773,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('duration') && (
                 <div className="relative group/std">
                   {renderFieldActions('duration')}
-                  <ErpField label={getFieldLabel('duration', 'Thời lượng')}>
+                  <ErpField label={getFieldLabel('duration', copy.durationLabel)}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('duration', true)}
@@ -779,11 +790,11 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('fee') && (
                 <div className="relative group/std">
                   {renderFieldActions('fee')}
-                  <ErpField label={getFieldLabel('fee', 'Học phí niêm yết (VND)')}>
+                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('fee', true)}
-                      placeholder={getFieldPlaceholder('fee', 'Vi du: 5.500.000')}
+                      placeholder={getFieldPlaceholder('fee', copy.feePlaceholder)}
                       value={newCourse.fee}
                       onChange={(e) => setNewCourse({ ...newCourse, fee: formatVND(e.target.value) })}
                     />
@@ -793,7 +804,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('maxLearners') && (
                 <div className="relative group/std">
                   {renderFieldActions('maxLearners')}
-                  <ErpField label={getFieldLabel('maxLearners', 'Tối đa học viên lớp')}>
+                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)}>
                     <ErpInput
                       type="number"
                       min={0}
@@ -853,18 +864,18 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               </div>
             ) : null}
 
-            <ErpSubmitButton>{isSubmitting ? 'Đang khởi tạo...' : 'Khởi tạo chương trình'}</ErpSubmitButton>
+            <ErpSubmitButton>{isSubmitting ? copy.creatingSubmit : copy.createSubmit}</ErpSubmitButton>
           </form>
         </ErpModal>
       )}
 
       {editingCourse && (
-        <ErpModal title={`Chỉnh sửa chương trình học: ${editingCourse.code}`} onClose={() => setEditingCourse(null)}>
+        <ErpModal title={copy.editModalTitle(editingCourse.code)} onClose={() => setEditingCourse(null)}>
           <form onSubmit={handleEditCourse} className="space-y-4">
             {isFieldVisible('code') && (
               <div className="relative group/std">
                 {renderFieldActions('code')}
-                <ErpField label={getFieldLabel('code', 'Mã khóa học')}>
+                <ErpField label={getFieldLabel('code', copy.codeLabel)}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('code', true)}
@@ -879,7 +890,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
             {isFieldVisible('title') && (
               <div className="relative group/std">
                 {renderFieldActions('title')}
-                <ErpField label={getFieldLabel('title', 'Tên chương trình đào tạo')}>
+                <ErpField label={getFieldLabel('title', copy.titleLabel)}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('title', true)}
@@ -895,7 +906,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('category') && (
                 <div className="relative group/std">
                   {renderFieldActions('category')}
-                  <ErpField label={getFieldLabel('category', 'Phân loại')}>
+                  <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
                     <ErpSelect
                       value={editForm.category}
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
@@ -912,7 +923,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('duration') && (
                 <div className="relative group/std">
                   {renderFieldActions('duration')}
-                  <ErpField label={getFieldLabel('duration', 'Thời lượng')}>
+                  <ErpField label={getFieldLabel('duration', copy.durationLabel)}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('duration', true)}
@@ -929,11 +940,11 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('fee') && (
                 <div className="relative group/std">
                   {renderFieldActions('fee')}
-                  <ErpField label={getFieldLabel('fee', 'Học phí niêm yết (VND)')}>
+                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('fee', true)}
-                      placeholder={getFieldPlaceholder('fee', 'Vi du: 5.500.000')}
+                      placeholder={getFieldPlaceholder('fee', copy.feePlaceholder)}
                       value={editForm.fee}
                       onChange={(e) => setEditForm({ ...editForm, fee: formatVND(e.target.value) })}
                     />
@@ -943,7 +954,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('maxLearners') && (
                 <div className="relative group/std">
                   {renderFieldActions('maxLearners')}
-                  <ErpField label={getFieldLabel('maxLearners', 'Tối đa học viên lớp')}>
+                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)}>
                     <ErpInput
                       type="number"
                       min={0}
@@ -1003,20 +1014,20 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               </div>
             ) : null}
 
-            <ErpSubmitButton disabled={isSubmitting}>{isSubmitting ? 'Đang cập nhật...' : 'Cập nhật khóa học'}</ErpSubmitButton>
+            <ErpSubmitButton disabled={isSubmitting}>{isSubmitting ? copy.updatingSubmit : copy.updateSubmit}</ErpSubmitButton>
           </form>
         </ErpModal>
       )}
 
       {showCategoryModal && (
-        <ErpModal title="Quản lý phân loại khóa học" onClose={() => setShowCategoryModal(false)}>
+        <ErpModal title={copy.categoryManagerTitle} onClose={() => setShowCategoryModal(false)}>
           <div className="space-y-6">
             <form onSubmit={handleAddCategory} className="flex gap-2">
               <div className="flex-1">
                 <ErpInput
                   type="text"
                   required
-                  placeholder="Nhập tên phân loại mới..."
+                  placeholder={copy.categoryInputPlaceholder}
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
                 />
@@ -1031,11 +1042,11 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
             </form>
 
             <div className="space-y-2">
-              <h5 className={cn('text-xs font-black uppercase tracking-wider', darkMode ? 'text-slate-400' : 'text-slate-500')}>Danh sách phân loại hiện tại</h5>
+              <h5 className={cn('text-xs font-black uppercase tracking-wider', darkMode ? 'text-slate-400' : 'text-slate-500')}>{copy.categoryListTitle}</h5>
               {categoriesLoading ? (
                 <p className="text-xs text-slate-400">Đang tải...</p>
               ) : categories.length === 0 ? (
-                <p className="text-xs text-slate-400">Chưa có phân loại nào.</p>
+                <p className="text-xs text-slate-400">{copy.emptyCategory}</p>
               ) : (
                 <div className={cn('border rounded-2xl p-2 max-h-60 overflow-y-auto divide-y', darkMode ? 'border-slate-800 divide-slate-800/40' : 'border-slate-100 divide-slate-100/60')}>
                   {categories.map((cat) => (
@@ -1047,7 +1058,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
                       <button
                         type="button"
                         onClick={() => setDeleteConfirm({ isOpen: true, id: cat.id, name: cat.name })}
-                        title="Xóa phân loại"
+                        title={copy.deleteCategoryTitle}
                         className={cn(
                           'p-1.5 rounded-lg transition-all border cursor-pointer',
                           darkMode
@@ -1068,8 +1079,8 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
 
       <ErpConfirmModal
         isOpen={deleteConfirm.isOpen}
-        title="Xóa phân loại khóa học"
-        message={`Bạn có chắc chắn muốn xóa phân loại "${deleteConfirm.name}" không? Hành động này không thể hoàn tác.`}
+        title={copy.deleteCategoryTitle}
+        message={copy.deleteCategoryMessage(deleteConfirm.name)}
         onConfirm={handleDeleteCategory}
         onCancel={() => setDeleteConfirm(DEFAULT_DELETE_CONFIRM)}
         confirmText="Xác nhận xóa"

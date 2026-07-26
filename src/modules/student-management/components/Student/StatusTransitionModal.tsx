@@ -5,6 +5,7 @@ import { Student, StudentStatus } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getOperationalStatusLabel } from '../../config/workerRecruitmentCopy';
 
 interface StatusTransitionModalProps {
   student: Student | null;
@@ -51,7 +52,7 @@ export function StatusTransitionModal({ student, isOpen, onClose }: StatusTransi
     if (!nextStatus) return;
 
     // Kiểm tra học phí nếu chuyển sang "Đang thi"
-    if (nextStatus === 'Đang thi') {
+    if (entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && nextStatus === 'Đang thi') {
       const totalFee = parseInt(student.fee.replace(/\D/g, ''), 10) || 0;
       const paidAmount = student.paidAmount || 0;
       if (paidAmount < totalFee) {
@@ -109,24 +110,24 @@ export function StatusTransitionModal({ student, isOpen, onClose }: StatusTransi
 
             <div className="mb-8">
               <p className="text-sm font-medium text-slate-600 mb-2">
-                Chuyển bước học viên <span className="font-bold text-slate-900">{student.fullName}</span>?
+                Chuyển bước {entityLabel.singular} <span className="font-bold text-slate-900">{student.fullName}</span>?
               </p>
 
               {nextStatus ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 py-3 px-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <span className="text-xs font-bold text-slate-400">
-                      {Array.isArray(student.status) ? student.status.join(', ') : student.status}
+                      {(Array.isArray(student.status) ? student.status : [student.status]).map((status) => getOperationalStatusLabel(entityLabel.preset, status)).join(', ')}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-                    <span className="text-xs font-bold text-cyan-600">{nextStatus}</span>
+                    <span className="text-xs font-bold text-cyan-600">{getOperationalStatusLabel(entityLabel.preset, nextStatus)}</span>
                   </div>
                   {feeError && nextStatus === 'Đang thi' && (
                     <p className="text-[11px] font-bold text-rose-500 bg-rose-50 px-3 py-2 rounded-lg">{feeError}</p>
                   )}
                 </div>
               ) : (
-                <p className="text-xs italic text-slate-400">Học viên đã ở bước cuối cùng của quy trình.</p>
+                <p className="text-xs italic text-slate-400">{entityLabel.titleCase} đã ở bước cuối cùng của quy trình.</p>
               )}
             </div>
 
