@@ -48,6 +48,8 @@ interface CalendarTabProps {
   isManager: boolean;
   /** True when the user can approve/create leave, wfh, and exception entries for others. */
   canManage?: boolean;
+  /** Allows editing existing attendance logs without granting leave-management rights. */
+  canEditAttendance?: boolean;
   usersList: UserProfile[];
   employees: EmployeeNode[];
 }
@@ -84,6 +86,7 @@ export default function CalendarTab({
   selectedCompanyCode,
   isManager,
   canManage,
+  canEditAttendance = false,
   employees,
   usersList = []
 }: CalendarTabProps) {
@@ -182,6 +185,12 @@ export default function CalendarTab({
   const [logStartDate, setLogStartDate] = useState("");
   const [logEndDate, setLogEndDate] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editAttendanceStatus, setEditAttendanceStatus] = useState("Present");
+  const [editAttendanceNote, setEditAttendanceNote] = useState("");
+  const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
 
   // Attendance View Mode & Week selection states
   const [attendanceViewMode, setAttendanceViewMode] = useState<"table" | "week">("table");
@@ -1231,6 +1240,44 @@ export default function CalendarTab({
       return { totalHours: totals.totalHours, totalCoeff: totals.totalDays };
     };
 
+    const openAttendanceEditor = (log: any) => {
+      if (!canEditAttendance || !log?._id) return;
+      setEditingAttendance(log);
+      setEditCheckIn(log.checkIn?.time ? formatLogTime(log.checkIn.time) : "");
+      setEditCheckOut(log.checkOut?.time ? formatLogTime(log.checkOut.time) : "");
+      setEditAttendanceStatus(log.status || "Present");
+      setEditAttendanceNote(log.note || "");
+    };
+
+    const saveAttendanceEditor = async () => {
+      if (!editingAttendance?._id) return;
+      setIsAttendanceSaving(true);
+      const detail = (existing: any, time: string) => time ? {
+        ...(existing || { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual payroll edit", ipAddress: "" }),
+        time: new Date(`${editingAttendance.date}T${time}:00+07:00`).toISOString(),
+      } : null;
+      try {
+        const response = await fetch(`/api/v1/crud/timekeeping-logs/${editingAttendance._id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+          body: JSON.stringify({
+            checkIn: detail(editingAttendance.checkIn, editCheckIn),
+            checkOut: detail(editingAttendance.checkOut, editCheckOut),
+            status: editAttendanceStatus,
+            note: editAttendanceNote,
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Không thể cập nhật chấm công.");
+        toast.success("Đã cập nhật lịch sử chấm công.");
+        setEditingAttendance(null);
+        await fetchTimekeepingLogs();
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Không thể cập nhật lịch sử chấm công."));
+      } finally {
+        setIsAttendanceSaving(false);
+      }
+    };
+
     const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
       if (sidebarEmployees.length === 0) {
         toast.warning("Không có dữ liệu nhân viên phù hợp để xuất.");
@@ -1565,6 +1612,7 @@ export default function CalendarTab({
                             const cell = getDayCellData(emp, day);
                             const isWeekend = cell.isWeekend;
                             const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                            const dbLog = logs.find((log: any) => log.uid === emp.uid && log.date === dateStr);
                             const isToday = dateStr === todayStr;
 
                             if (isWeekend) {
@@ -1590,7 +1638,8 @@ export default function CalendarTab({
                             return (
                               <td
                                 key={day}
-                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group cursor-default ${isToday ? "bg-cyan-50" : ""}`}
+                                onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
+                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
                                 title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
                               >
                                 {isScheduleMode ? (
@@ -1695,6 +1744,23 @@ export default function CalendarTab({
             </div>
           )}
         </div>
+        {editingAttendance && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="mb-4 flex items-center justify-between">
+                <div><h3 className="font-bold text-slate-800">Sửa lịch sử chấm công</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} · {editingAttendance.date}</p></div>
+                <button onClick={() => setEditingAttendance(null)} className="rounded-lg p-1.5 hover:bg-slate-100 cursor-pointer"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-semibold text-slate-600">Check-in<input type="time" value={editCheckIn} onChange={(e) => setEditCheckIn(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+                <label className="text-xs font-semibold text-slate-600">Check-out<input type="time" value={editCheckOut} onChange={(e) => setEditCheckOut(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+              </div>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Trạng thái<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">Đúng giờ</option><option value="Late">Muộn</option><option value="Left-Early">Về sớm</option><option value="Late-Left-Early">Muộn + về sớm</option><option value="Half-Day">Nửa ngày</option><option value="Absent">Vắng</option></select></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi chú<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

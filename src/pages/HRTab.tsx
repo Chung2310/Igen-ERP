@@ -25,8 +25,9 @@ export default function HRTab() {
   // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
   // must also be able to view/manage everyone's attendance, not just their own —
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
-  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
+  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll:manage");
   const canManageAttendance = isManager || hasPermission("timekeeping:manage");
+  const canEditAttendance = canManageAttendance || hasPermission("payroll:manage");
   const canManageOrgChart = isManager || hasPermission("user:manage");
   const canManageKanban = isManager || hasPermission("kanban:manage");
   const canViewPayroll = hasPermission("payroll:read") || hasPermission("payroll:manage");
@@ -250,6 +251,7 @@ export default function HRTab() {
             selectedCompanyCode={selectedCompanyCode}
             isManager={canViewAllAttendance}
             canManage={canManageAttendance}
+            canEditAttendance={canEditAttendance}
             usersList={usersList}
             employees={employees}
           />
