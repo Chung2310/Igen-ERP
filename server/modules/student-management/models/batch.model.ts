@@ -28,6 +28,11 @@ const batchSchema = new Schema<IBatch>(
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
     location: { type: String, default: "", trim: true },
+    geoLocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      radiusMeters: { type: Number, default: 150 },
+    },
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },
     status: {

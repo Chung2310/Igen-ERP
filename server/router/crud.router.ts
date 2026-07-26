@@ -2,7 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { crudController } from "../controller/crud.controller";
 import { validateRequest } from "../middleware/validation";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import type { ModuleKey } from "../config/module-keys";
 
@@ -24,6 +24,43 @@ export const CRUD_MODEL_MODULE_MAP: Record<string, ModuleKey> = {
 const crudModuleGuard = (req: any, res: any, next: any) => {
   const moduleKey = CRUD_MODEL_MODULE_MAP[String(req.params.modelName || "").toLowerCase()];
   return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
+};
+
+const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
+  products: "stock:read",
+  categories: "stock:read",
+  "stock-logs": "stock:read",
+  "kanban-tasks": "kanban:read",
+  projects: "project:read",
+  "hr-calendar-events": "timekeeping:read",
+  "timekeeping-logs": ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
+  workflows: "hr:read",
+  "training-courses": "hr:read",
+  "training-enrollments": "hr:read",
+  "hr-leave-templates": "hr:read",
+  "hr-leave-applications": "hr:read",
+  users: "user:read",
+};
+
+const CRUD_MODEL_MANAGE_PERMISSION: Record<string, string | string[]> = {
+  products: "stock:manage",
+  categories: "stock:manage",
+  "stock-logs": "stock:manage",
+  "kanban-tasks": "kanban:manage",
+  projects: "project:manage",
+  "hr-calendar-events": "timekeeping:manage",
+  "timekeeping-logs": ["timekeeping:manage", "payroll:manage"],
+  users: "user:manage",
+};
+
+const crudReadPermissionGuard = (req: any, res: any, next: any) => {
+  const code = CRUD_MODEL_READ_PERMISSION[String(req.params.modelName || "").toLowerCase()];
+  return code ? requirePermission(code)(req, res, next) : next();
+};
+
+const crudManagePermissionGuard = (req: any, res: any, next: any) => {
+  const code = CRUD_MODEL_MANAGE_PERMISSION[String(req.params.modelName || "").toLowerCase()];
+  return code ? requirePermission(code)(req, res, next) : next();
 };
 
 const SUPPORTED_MODELS = [
@@ -118,6 +155,7 @@ crudRouter.get(
   "/:modelName",
   requireAuth as any,
   crudModuleGuard,
+  crudReadPermissionGuard,
   validateRequest(listSchema),
   crudController.getList as any
 );
@@ -126,6 +164,7 @@ crudRouter.get(
   "/:modelName/:id",
   requireAuth as any,
   crudModuleGuard,
+  crudReadPermissionGuard,
   validateRequest(getByIdSchema),
   crudController.getById as any
 );
@@ -134,6 +173,7 @@ crudRouter.post(
   "/:modelName",
   requireAuth as any,
   crudModuleGuard,
+  crudManagePermissionGuard,
   validateRequest(createSchema),
   crudController.create as any
 );
@@ -142,6 +182,7 @@ crudRouter.patch(
   "/:modelName/:id",
   requireAuth as any,
   crudModuleGuard,
+  crudManagePermissionGuard,
   validateRequest(updateSchema),
   crudController.update as any
 );
@@ -150,6 +191,7 @@ crudRouter.delete(
   "/:modelName/:id",
   requireAuth as any,
   crudModuleGuard,
+  crudManagePermissionGuard,
   validateRequest(deleteSchema),
   crudController.delete as any
 );

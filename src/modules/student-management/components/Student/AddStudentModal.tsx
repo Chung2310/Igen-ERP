@@ -10,6 +10,7 @@ import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
+import { FaceCaptureInput } from './components/FaceCaptureInput';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -93,10 +94,14 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    // Student field settings are shared storage; do not let their education
+    // terminology override the worker-specific form copy.
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultLabel;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.label : defaultLabel;
   };
   const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultPlaceholder;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
@@ -122,6 +127,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
   const [referralMode, setReferralMode] = useState<'none' | 'partner' | 'custom'>('none');
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [faceBlob, setFaceBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     const fetchPartners = async () => {
@@ -228,6 +234,17 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
       if (res.success && res.data) {
         const studentWithId = { id: res.data._id, ...res.data };
 
+        if (faceBlob) {
+          try {
+            const faceBody = new FormData();
+            faceBody.append('file', new File([faceBlob], 'face.jpg', { type: faceBlob.type || 'image/jpeg' }));
+            await apiFetch(`/students/${res.data._id}/face`, { method: 'POST', body: faceBody });
+          } catch (faceError: unknown) {
+            const msg = faceError instanceof Error ? faceError.message : 'Không thể lưu mẫu khuôn mặt.';
+            toast.warning(`Đã tạo ${entityLabel.singular} nhưng chưa lưu được mẫu khuôn mặt: ${msg}`);
+          }
+        }
+
         if (batchId) {
           try {
             await apiFetch(`/batches/${batchId}/learners`, {
@@ -262,6 +279,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
         });
         setReferralMode('none');
         setBatchId('');
+        setFaceBlob(null);
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');
       }
     } catch (error: unknown) {
@@ -369,7 +387,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('email')}
                     <FormInput
-                      label={getFieldLabel('email', 'Email học viên')}
+                      label={getFieldLabel('email', `Email ${entityLabel.singular}`)}
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
@@ -473,7 +491,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   </div>
                 )}
                 
-                {isFieldVisible('batchId') && (
+                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('batchId') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('batchId')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
@@ -504,7 +522,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('registrationDate')}
                     <FormInput
-                      label={getFieldLabel('registrationDate', 'Ngày đăng ký')}
+                      label={getFieldLabel('registrationDate', entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? 'Ngày tạo hồ sơ' : 'Ngày đăng ký')}
                       name="registrationDate"
                       value={formData.registrationDate}
                       onChange={handleInputChange}
@@ -517,7 +535,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('enrollmentDate')}
                     <FormInput
-                      label={getFieldLabel('enrollmentDate', 'Ngày nhập học')}
+                      label={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
                       name="enrollmentDate"
                       type="date"
                       value={toInputDate(formData.enrollmentDate)}
@@ -526,7 +544,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                     />
                   </div>
                 )}
-                {isFieldVisible('fee') && (
+                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('fee') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('fee')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
@@ -552,6 +570,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   </div>
                 )}
               </div>
+
+              {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && (
+                <div className="pt-2 border-t border-slate-50">
+                  <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} entityName={entityLabel.singular} />
+                </div>
+              )}
 
               <CustomFieldsSection
                 moduleKey="students"

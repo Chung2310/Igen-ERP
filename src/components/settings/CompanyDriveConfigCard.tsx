@@ -3,6 +3,7 @@ import { HardDrive, ExternalLink, Loader2, Lock, CheckCircle2, Link2, Unlink } f
 import { toast } from "../../pages/Toast";
 import { authService } from "../../services/authService";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { useAuth } from "../../context/AuthContext";
 
 interface CompanyDriveConfigCardProps {
   userProfile: any;
@@ -13,8 +14,12 @@ interface CompanyDriveConfigCardProps {
  * Chỉ admin/superadmin được kết nối/ngắt; dùng ở tab "Tài nguyên → Google Drive".
  */
 export default function CompanyDriveConfigCard({ userProfile }: CompanyDriveConfigCardProps) {
+  const { hasPermission } = useAuth();
   const companyCode = userProfile?.companyCode || "";
-  const canEdit = userProfile?.role === "admin" || userProfile?.role === "superadmin";
+  const canEdit =
+    userProfile?.role === "admin" ||
+    userProfile?.role === "superadmin" ||
+    hasPermission("resource:manage");
 
   const [connected, setConnected] = useState(false);
   const [email, setEmail] = useState("");

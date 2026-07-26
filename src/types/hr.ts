@@ -1,4 +1,4 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL";
 
 /** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
 export interface TaskAttachment {
@@ -88,6 +88,7 @@ export interface EmployeeNode {
   status: "online" | "offline";
   division: string;
   jobDescriptionLink?: string;
+  monthlySalary?: number;
 }
 
 export interface Project {

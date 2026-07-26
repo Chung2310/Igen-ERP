@@ -7,7 +7,8 @@ import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
-import { ChevronDown, LayoutDashboard, Users, BookOpen, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, Handshake, Settings } from "lucide-react";
+import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
+import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, Handshake, Settings } from "lucide-react";
 
 type StudentSubTab =
   | "TỔNG QUAN"
@@ -66,10 +67,24 @@ export default function StudentManagementTab() {
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();
-  const subTabRoutes = React.useMemo(
-    () => SUB_TAB_ROUTES.map((item) => (item.slug === "hoc-vien" ? { ...item, label: entityLabel.tabLabel } : item)),
-    [entityLabel.tabLabel],
-  );
+  const subTabRoutes = React.useMemo(() => {
+    let routes = SUB_TAB_ROUTES.map((item) => ({
+      ...item,
+      label: item.slug === "hoc-vien"
+        ? entityLabel.tabLabel
+        : getStudentManagementSubTabLabel(entityLabel.preset, item.slug, item.label),
+      icon: (entityLabel.preset === "worker" || entityLabel.preset === "customer") && item.slug === "khoa-hoc"
+        ? BriefcaseBusiness
+        : item.icon,
+    }));
+
+    if (entityLabel.preset !== "student") {
+      const hiddenSlugs = ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+      routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
+    }
+
+    return routes;
+  }, [entityLabel.tabLabel, entityLabel.preset]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
     return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
   });

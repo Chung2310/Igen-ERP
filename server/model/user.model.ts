@@ -146,6 +146,7 @@ const UserSchema = new Schema<IUser>({
   permissions: { type: [String], default: [] },
   superAdminSecurity: { type: SuperAdminSecuritySchema },
   workHoursConfig: { type: WorkHoursConfigSchema, default: undefined },
+  monthlySalary: { type: Number, min: 0 },
   
   // SMTP Configuration
   smtpHost: { type: String },

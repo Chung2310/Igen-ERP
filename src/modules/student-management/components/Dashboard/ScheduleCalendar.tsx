@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { useSchedule } from '../../hooks/useSchedule';
 import { ScheduleEvent } from '../../types';
 import { ErpCard, ErpFilterTab } from '../Erp/ErpUI';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 function pad2(n: number): string {
   return n.toString().padStart(2, '0');
@@ -22,6 +23,8 @@ const typeStyle = (type: ScheduleEvent['type']) => {
 
 /** Lịch tháng tổng hợp: lớp học định kỳ + kỳ thi + booking tài nguyên (nguồn GET /schedule) */
 export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }) {
+  const entityLabel = useEntityLabel();
+  const isEducation = entityLabel.preset === 'student';
   const [selectedType, setSelectedType] = useState<'all' | 'class' | 'exam' | 'resource'>('all');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -92,9 +95,9 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
           </div>
           <div className="flex items-center gap-2">
             <ErpFilterTab active={selectedType === 'all'} onClick={() => setSelectedType('all')}>Tất cả</ErpFilterTab>
-            <ErpFilterTab active={selectedType === 'class'} onClick={() => setSelectedType('class')}>Lớp học</ErpFilterTab>
-            <ErpFilterTab active={selectedType === 'exam'} onClick={() => setSelectedType('exam')}>Kỳ thi</ErpFilterTab>
-            <ErpFilterTab active={selectedType === 'resource'} onClick={() => setSelectedType('resource')}>Tài nguyên</ErpFilterTab>
+            {isEducation && <ErpFilterTab active={selectedType === 'class'} onClick={() => setSelectedType('class')}>Lớp học</ErpFilterTab>}
+            {isEducation && <ErpFilterTab active={selectedType === 'exam'} onClick={() => setSelectedType('exam')}>Kỳ thi</ErpFilterTab>}
+            {isEducation && <ErpFilterTab active={selectedType === 'resource'} onClick={() => setSelectedType('resource')}>Tài nguyên</ErpFilterTab>}
           </div>
         </div>
 

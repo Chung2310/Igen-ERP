@@ -18,6 +18,7 @@ import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import * as XLSX from 'xlsx';
 
 interface StudentsPageProps {
@@ -48,6 +49,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const { courses } = useCourses(resolvedCenter);
   const { categories } = useCourseCategories(resolvedCenter);
   const entityLabel = useEntityLabel();
+  const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
+  const usesEducationBilling = presetUsesEducationBilling(entityLabel.preset);
 
   const [category, setCategory] = useState<string>(TAB_ALL);
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('Tất cả');
@@ -162,7 +165,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     }
 
     // 7. Tuition Status Filter
-    if (feeStatusFilter !== 'Tất cả học phí') {
+    if (usesEducationBilling && feeStatusFilter !== 'Tất cả học phí') {
       const totalFeeNum = parseInt(String(student.fee).replace(/\D/g, ''), 10) || 0;
       const paidSoFar = student.paidAmount || 0;
       const remaining = totalFeeNum - paidSoFar;
@@ -211,7 +214,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
 
   const handleBulkDelete = async () => {
     if (selectedStudentIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} ${entityLabel.singular} đã chọn? Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.`)) {
+    const relatedDataWarning = operationalCopy.isWorker
+      ? "Hành động này sẽ dọn dẹp các dữ liệu tuyển dụng liên quan và không thể hoàn tác."
+      : operationalCopy.isCustomer
+        ? "Hành động này sẽ dọn dẹp các dữ liệu dịch vụ liên quan và không thể hoàn tác."
+        : "Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.";
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} ${entityLabel.singular} đã chọn? ${relatedDataWarning}`)) {
       return;
     }
     setIsBulkDeleting(true);
@@ -252,9 +260,10 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     }
 
     const commonHeadersAfter = [
-      'Học phí', 'Đã đóng', 'Còn nợ',
-      'Ngày đăng ký', 'Trạng thái học phí', 'Trạng thái học tập',
-      'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ', 'Ngày nhập học',
+      ...(usesEducationBilling ? ['Học phí', 'Đã đóng', 'Còn nợ'] : []),
+      'Ngày đăng ký', ...(usesEducationBilling ? ['Trạng thái học phí'] : []), 'Trạng thái',
+      'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ',
+      entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học',
       'Ảnh CCCD mặt trước', 'Ảnh CCCD mặt sau', 'Ảnh chân dung'
     ];
 
@@ -271,12 +280,16 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       }
 
       return [
-        totalFeeNum.toLocaleString('vi-VN'),
-        paidSoFar.toLocaleString('vi-VN'),
-        remaining.toLocaleString('vi-VN'),
+        ...(usesEducationBilling ? [
+          totalFeeNum.toLocaleString('vi-VN'),
+          paidSoFar.toLocaleString('vi-VN'),
+          remaining.toLocaleString('vi-VN'),
+        ] : []),
         student.registrationDate,
-        feeStatusStr,
-        Array.isArray(student.status) ? student.status.join(', ') : student.status,
+        ...(usesEducationBilling ? [feeStatusStr] : []),
+        (Array.isArray(student.status) ? student.status : [student.status])
+          .map((status) => getOperationalStatusLabel(entityLabel.preset, status))
+          .join(', '),
         student.birthday || '',
         student.idCard || '',
         student.email || '',
@@ -313,7 +326,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, entityLabel.listTitle);
       
-      const fileName = `danh_sach_hoc_vien_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+      const fileName = `${operationalCopy.exportFilePrefix}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
       XLSX.writeFile(wb, fileName);
       toast.success('Đã xuất file Excel thành công!');
     } catch (error) {
@@ -342,7 +355,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.phone}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${cats.length > 0 ? cats.join(', ') : (student.rank || '')}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.registrationDate}</td>
-        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${Array.isArray(student.status) ? student.status.join(', ') : student.status}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${(Array.isArray(student.status) ? student.status : [student.status]).map((status) => getOperationalStatusLabel(entityLabel.preset, status)).join(', ')}</td>
       </tr>
     `;
     }).join('');
@@ -362,7 +375,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           </style>
         </head>
         <body>
-          <h1>DANH SÁCH HỌC VIÊN</h1>
+          <h1>${operationalCopy.printTitle}</h1>
           <p class="info">Ngày xuất: ${new Date().toLocaleDateString('vi-VN')} | Tổng số: ${filteredStudents.length} ${entityLabel.singular}</p>
           <table>
             <thead>
@@ -379,7 +392,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             </tbody>
           </table>
           <div class="footer">
-            Xuất bởi Hệ thống Quản lý Đào tạo & ${entityLabel.titleCase} iGen
+            Xuất bởi ${operationalCopy.printFooter}
           </div>
           <script>
             window.onload = function() {
@@ -425,12 +438,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
-          <button
+          {usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
-          </button>
+          </button>}
           <button
             onClick={onAddStudent}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer"
@@ -458,7 +471,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             )}
           >
             <item.icon className={cn("w-4 h-4", category === item.id ? "text-cyan-600" : "text-slate-400")} />
-            {item.id}
+            {item.id === TAB_UNASSIGNED ? operationalCopy.unassignedGroupLabel : item.id}
             {category === item.id && (
               <motion.div layoutId="catLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />
             )}
@@ -481,7 +494,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                   : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
               )}
             >
-              {tab.label}
+              {getOperationalStatusLabel(entityLabel.preset, tab.label)}
               {tab.count !== undefined && (
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full text-[9px]",
@@ -524,7 +537,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           </div>
         </div>
 
-        <div className="space-y-0.5">
+        {usesEducationBilling && <div className="space-y-0.5">
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Học phí</label>
           <div className="relative">
             <select
@@ -539,7 +552,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           </div>
-        </div>
+        </div>}
         <div className="space-y-0.5 col-span-2 lg:col-span-1">
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tìm kiếm</label>
           <div className="relative">
@@ -589,7 +602,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                 </th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Học phí</th>
+                {usesEducationBilling && <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Học phí</th>}
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right no-print">Thao tác</th>
               </tr>
@@ -615,7 +628,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                       className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  {usesEducationBilling && <td className="px-3 py-1.5">
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-800 capitalize">{student.fullName}</span>
                       <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-medium text-slate-400">
@@ -634,7 +647,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                         )}
                       </div>
                     </div>
-                  </td>
+                  </td>}
                   <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
                     {formatDisplayDate(student.registrationDate)}
                   </td>
@@ -684,7 +697,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                             getStatusBadgeClass(st)
                           )}
                         >
-                          {st}
+                          {getOperationalStatusLabel(entityLabel.preset, st)}
                         </span>
                       ))}
                     </div>
@@ -781,12 +794,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       />
 
       {/* Import Student Modal */}
-      <ImportStudentModal
+      {usesEducationBilling && <ImportStudentModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => setIsImportOpen(false)}
         selectedCenter={selectedCenter}
-      />
+      />}
     </div>
   );
 }

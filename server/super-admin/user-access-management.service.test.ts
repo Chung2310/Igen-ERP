@@ -60,9 +60,9 @@ test("assignRole persists valid permissions and rejects unknown codes", async ()
     sessions: {}, audit: async () => {},
   });
 
-  await service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["crm:manage", "stock:read"] });
+  await service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["stock:manage", "stock:read"] });
   assert.equal(saved.role, "admin");
-  assert.deepEqual(saved.permissions, ["crm:manage", "stock:read"]);
+  assert.deepEqual(saved.permissions, ["stock:manage", "stock:read"]);
 
   await assert.rejects(
     () => service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["not:a:permission"] }),

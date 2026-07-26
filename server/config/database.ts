@@ -66,16 +66,28 @@ async function seedPermissions() {
     const defaultPermissions = [
       { code: "user:read", name: "Xem thông tin nhân sự", module: "user", description: "Xem danh sách và sơ đồ nhân sự doanh nghiệp" },
       { code: "user:manage", name: "Quản trị nhân sự", module: "user", description: "Thêm, sửa, xóa tài khoản thành viên trong doanh nghiệp" },
-      { code: "crm:read", name: "Xem CRM Ticket", module: "crm", description: "Xem danh sách và chi tiết các cơ hội bán hàng CRM" },
-      { code: "crm:manage", name: "Quản trị CRM Ticket", module: "crm", description: "Thêm, sửa, cập nhật trạng thái, xóa cơ hội bán hàng CRM" },
       { code: "kanban:read", name: "Xem Kanban Task", module: "kanban", description: "Xem bảng công việc Kanban" },
       { code: "kanban:manage", name: "Quản trị Kanban Task", module: "kanban", description: "Tạo, cập nhật, phân công, kéo thả và xóa Kanban task" },
       { code: "project:read", name: "Xem Dự án", module: "project", description: "Xem danh sách dự án trong công ty" },
       { code: "project:manage", name: "Quản trị/Thiết lập Dự án", module: "project", description: "Tạo mới, chỉnh sửa thông tin dự án" },
       { code: "stock:read", name: "Xem Nhật ký Kho", module: "stock", description: "Xem lịch sử xuất nhập kho" },
       { code: "stock:manage", name: "Quản trị Kho", module: "stock", description: "Tạo phiếu nhập xuất kho hàng" },
-      { code: "marketing:post", name: "Đăng bài và liên kết MXH", module: "marketing", description: "Đăng bài Facebook/TikTok, liên kết tài khoản MXH" }
+      { code: "hr:read", name: "Xem trang tổng quan Nhân sự", module: "hr", description: "Xem thẻ và biểu đồ nhân sự trên trang Tổng quan" },
+      { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
+      { code: "timekeeping:manage", name: "Quản lý & duyệt chấm công", module: "hr", description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình vị trí/ca làm việc" },
+      { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
+      { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
+      { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
+      { code: "student:manage", name: "Quản lý học viên/khách hàng", module: "student", description: "Thêm, sửa, xóa học viên, khóa học, lớp, đối tác..." },
+      { code: "chat:read", name: "Xem trò chuyện (Tổng quan)", module: "chat", description: "Xem thẻ trò chuyện trên trang Tổng quan" },
+      { code: "resource:read", name: "Xem tài nguyên (Tổng quan)", module: "resource", description: "Xem thẻ tài nguyên trên trang Tổng quan" },
+      { code: "resource:manage", name: "Quản lý tài nguyên & kết nối Drive", module: "resource", description: "Kết nối/ngắt kết nối Google Drive doanh nghiệp và quản lý thư viện tài nguyên" }
     ];
+
+    // Xóa các quyền cũ không còn sử dụng trong dự án
+    await PermissionModel.deleteMany({
+      code: { $in: ["crm:read", "crm:manage", "marketing:post"] }
+    });
 
     for (const perm of defaultPermissions) {
       const existing = await PermissionModel.findOne({ code: perm.code });

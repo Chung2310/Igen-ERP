@@ -31,6 +31,7 @@ interface AuthContextType {
   updateProfileInfo: (displayName: string, photoURL: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string>;
   isModuleEnabled: (key: ModuleKey) => boolean;
+  hasPermission: (code: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -248,6 +249,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isModuleEnabled = (key: ModuleKey) => checkModule(userProfile?.enabledModules, key);
 
+  useEffect(() => {
+    if (!userProfile) return;
+    const companyCode = userProfile.companyCode?.trim().toUpperCase();
+    const userId = userProfile.uid;
+    return socketService.on("role_permissions_updated", (value: unknown) => {
+      const event = value as { userId?: string; companyCode?: string; role?: string };
+      if (event.userId !== userId) return;
+      if (event.role !== userProfile.role) return;
+      if (event.companyCode?.trim().toUpperCase() !== companyCode) return;
+      void authService.getMe().then((profile) => {
+        if (!profile) return;
+        setUser(profile as any);
+        setUserProfile(profile);
+      });
+    });
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
+
+  const hasPermission = (code: string) => Boolean(
+    userProfile?.permissions &&
+    (userProfile.permissions.includes("*") || userProfile.permissions.includes(code))
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -263,6 +286,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfileInfo,
         uploadAvatar,
         isModuleEnabled,
+        hasPermission,
       }}
     >
       {children}

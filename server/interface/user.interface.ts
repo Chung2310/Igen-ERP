@@ -92,6 +92,7 @@ export interface IWorkHoursConfig {
 
 export interface IUser extends Document {
   workHoursConfig?: IWorkHoursConfig;
+  monthlySalary?: number;
   email: string;
   password?: string; // Hashed password
   displayName: string;

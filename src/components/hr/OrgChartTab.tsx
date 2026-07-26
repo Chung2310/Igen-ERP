@@ -366,6 +366,7 @@ export default function OrgChartTab({
   const [editLevel, setEditLevel] = useState<number>(4);
   const [editParentId, setEditParentId] = useState("");
   const [editJobDescriptionLink, setEditJobDescriptionLink] = useState("");
+  const [editMonthlySalary, setEditMonthlySalary] = useState("");
   const [uploadingEditJobDescription, setUploadingEditJobDescription] = useState(false);
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = useState(false);
   const editJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
@@ -382,6 +383,7 @@ export default function OrgChartTab({
     setEditRoleText(selectedEmp.role || "");
     setEditDivision(selectedEmp.division || "Khối Vận Hành");
     setEditDepartment(selectedEmp.department || "");
+    setEditMonthlySalary(selectedEmp.monthlySalary == null ? "" : String(selectedEmp.monthlySalary));
     setEditEmail(selectedEmp.email || "");
     setEditPhone(selectedEmp.phone && selectedEmp.phone !== "Chưa cập nhật" ? selectedEmp.phone : "");
     setEditLevel(selectedEmp.level || 4);
@@ -447,6 +449,7 @@ export default function OrgChartTab({
         phone: editPhone.trim() || "",
         parentId: editParentId || null,
         jobDescriptionLink: editJobDescriptionLink.trim() || "",
+        monthlySalary: editMonthlySalary === "" ? undefined : Number(editMonthlySalary),
       };
 
       await authService.updateUser(selectedEmp.id, updateData);
@@ -1309,6 +1312,9 @@ export default function OrgChartTab({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
                   <input
@@ -1603,6 +1609,9 @@ export default function OrgChartTab({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-bold text-gray-500 mb-1">Luong thang (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>
                   <input

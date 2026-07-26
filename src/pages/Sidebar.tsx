@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import {
+  ChevronLeft,
   ChevronRight,
   FolderOpen,
   LayoutDashboard,
   MessageSquare,
   Package,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   Shield,
   GraduationCap,
   Users,
   Wallet,
   BookOpen,
+  Lock,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -25,7 +25,8 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { filterEnabledTabs } from "../config/modules";
+import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
+import { useEntityLabel } from "../modules/student-management/hooks/useEntityLabel";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -41,6 +42,7 @@ interface MenuItem {
   title: string;
   icon: React.ElementType;
   group: "main" | "operations" | "tools" | "system";
+  locked?: boolean;
 }
 
 const baseMenuItems: MenuItem[] = [
@@ -90,13 +92,21 @@ const groupTitles: Record<MenuItem["group"], string> = {
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
-  const { userProfile } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
+  const { tabLabel: studentTabLabel } = useEntityLabel();
 
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
-  const menuItems = baseMenuItems.filter((item) => enabledTabs.has(item.label));
+  const menuItems: MenuItem[] = baseMenuItems
+    .filter((item) => enabledTabs.has(item.label))
+    .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item))
+    .map((item) => {
+      const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
+      const locked = requiredPerms ? !requiredPerms.some((code) => hasPermission(code)) : false;
+      return { ...item, locked };
+    });
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
@@ -190,21 +200,35 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     <button
                       key={item.label}
                       onClick={() => {
+                        if (item.locked) return;
                         setActiveTab(item.label);
                         onMobileClose();
                       }}
+                      aria-disabled={item.locked}
                       className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] ${
-                        isActive
+                        item.locked
+                          ? "cursor-not-allowed text-slate-300 opacity-60"
+                          : isActive
                           ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
-                      title={isCollapsed ? item.title : undefined}
+                      title={
+                        item.locked
+                          ? "Bạn không có quyền truy cập mục này. Liên hệ quản trị viên để được cấp quyền."
+                          : isCollapsed
+                          ? item.title
+                          : undefined
+                      }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
                         <Icon
                           className={`h-5 w-5 shrink-0 transition-colors ${
-                            isActive ? "text-sky-600" : "text-slate-400 group-hover:text-slate-600"
+                            item.locked
+                              ? "text-slate-300"
+                              : isActive
+                              ? "text-sky-600"
+                              : "text-slate-400 group-hover:text-slate-600"
                           }`}
                         />
                         {!isCollapsed ? (
@@ -212,7 +236,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         ) : null}
                       </div>
 
-                      {!isCollapsed && isActive ? (
+                      {item.locked ? (
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                      ) : !isCollapsed && isActive ? (
                         <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
                       ) : null}
                     </button>
@@ -224,25 +250,19 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
         </nav>
 
         {/* Footer & Collapse Toggle */}
-        <div className={`border-t border-slate-100 ${isCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <div className={`border-t border-slate-100 flex flex-col items-center ${isCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
           <button
             type="button"
             onClick={() => setIsCollapsed((current) => !current)}
-            className={`hidden md:flex items-center rounded-xl border border-slate-200/80 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${
-              isCollapsed ? "mx-auto h-10 w-10 justify-center" : "w-full justify-between px-3 py-2"
-            }`}
+            className="hidden md:flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 shadow-xs cursor-pointer"
             title={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
             aria-label={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
           >
-            <span className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"}`}>
-              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              {!isCollapsed ? <span className="text-xs font-medium">Thu gọn thanh bên</span> : null}
-            </span>
-            {!isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : null}
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
           {!isCollapsed ? (
-            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 px-2 text-[11px] text-slate-400">
+            <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 px-2 text-[11px] text-slate-400">
               <a
                 href={PRIVACY_POLICY_URL}
                 target="_blank"

@@ -6,15 +6,20 @@ import { AddPayoutModal } from './AddPayoutModal';
 import { Handshake, Phone, Mail, Landmark, FileText, Plus, Landmark as BankIcon, Users, CheckCircle } from 'lucide-react';
 import { Partner, PartnerPayout, PartnerReferredStudent } from '../../../types';
 import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+import { getOperationalStatusLabel, getWorkerOperationalCopy } from '../../../config/workerRecruitmentCopy';
+import { ENTITY_LABEL_PRESETS, type EntityPreset } from '../../../config/entityLabels';
 
 interface PartnerDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   partnerId: string;
   onMutation?: () => void;
+  entityPreset?: EntityPreset;
 }
 
-export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: PartnerDetailModalProps) {
+export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, entityPreset = 'student' }: PartnerDetailModalProps) {
+  const entityLabel = { ...ENTITY_LABEL_PRESETS[entityPreset], preset: entityPreset };
+  const operationalCopy = getWorkerOperationalCopy(entityPreset);
   const [partner, setPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'info' | 'students' | 'payouts'>('info');
@@ -52,12 +57,12 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
     const status = Array.isArray(statusArray) ? statusArray[0] : statusArray;
     switch (status) {
       case 'Đã đậu':
-        return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">Đã đậu</span>;
+        return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
       case 'Thi lại':
       case 'Trượt':
-        return <span className="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-[10px] font-bold">Thi lại / Trượt</span>;
+        return <span className="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
       case 'Đang học':
-        return <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">Đang học</span>;
+        return <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
       case 'Chờ KSK':
         return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold">Chờ KSK</span>;
       default:
@@ -84,7 +89,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
             </div>
             <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Giới thiệu</span>
-              <h4 className="text-base font-black text-slate-800">{partner.referredStudentsCount} học viên</h4>
+              <h4 className="text-base font-black text-slate-800">{partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}</h4>
               <p className="text-[10px] font-bold text-slate-500">
                 Cấp bậc: {' '}
                 {partner.levelName === 'Mặc định'
@@ -134,7 +139,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
                   : "border-transparent text-slate-400 hover:text-slate-600"
               )}
             >
-              Học viên giới thiệu ({partner.referredStudentsCount})
+              {entityLabel.titleCase} giới thiệu ({partner.referredStudentsCount})
             </button>
             <button
               onClick={() => setActiveTab('payouts')}
@@ -211,8 +216,8 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
                 {partner.referredStudents.length === 0 ? (
                   <ErpEmptyState
                     icon={Users}
-                    title="Chưa giới thiệu học viên nào"
-                    subtitle="Tài khoản này chưa được gán giới thiệu cho bất kỳ học viên nào trong hệ thống."
+                    title={`Chưa giới thiệu ${entityLabel.singular} nào`}
+                    subtitle={`Tài khoản này chưa được gán giới thiệu cho bất kỳ ${entityLabel.singular} nào trong hệ thống.`}
                   />
                 ) : (
                   <div className="overflow-x-auto">
@@ -221,7 +226,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
                         <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <th className="py-4 px-6 text-left">Họ và tên</th>
                           <th className="py-4 px-6 text-left">Số điện thoại</th>
-                          <th className="py-4 px-6 text-left">Ngày nhập học</th>
+                          <th className="py-4 px-6 text-left">{entityPreset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityPreset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học'}</th>
                           <th className="py-4 px-6 text-left">Trạng thái</th>
                           <th className="py-4 px-6 text-right">Hoa hồng tích lũy</th>
                         </tr>

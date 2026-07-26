@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { Loader2, Users, Clock, Check, X, ShieldAlert, Sparkles } from "lucide-react";
@@ -6,6 +8,7 @@ import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { cn } from "../../lib/utils";
 import { useEntityLabel } from "../../hooks/useEntityLabel";
+import { ConfirmDialog } from "../../../../components/common/ConfirmDialog";
 
 interface QRAttendanceModalProps {
   isOpen: boolean;
@@ -43,6 +46,7 @@ export function QRAttendanceModal({
   const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(30); // 30s xoay QR
   const [loading, setLoading] = useState<boolean>(true);
   const [closing, setClosing] = useState<boolean>(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
 
   // Danh sách các ID học viên đã check-in thành công
   const [checkedInMap, setCheckedInMap] = useState<Map<string, { checkinAt: number }>>(new Map());
@@ -61,6 +65,23 @@ export function QRAttendanceModal({
     const s = seconds % 60;
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
+
+  // Đóng phiên điểm danh và lưu kết quả vào DB
+  const handleCloseAndSave = React.useCallback(async () => {
+    if (!sessionId || closing) return;
+    try {
+      setClosing(true);
+      await apiFetch(`/qr-attendance/session/${sessionId}/close`, {
+        method: "POST",
+      });
+      toast.success("Điểm danh thành công. Đã lưu kết quả.");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Có lỗi xảy ra khi lưu kết quả điểm danh.");
+      setClosing(false);
+    }
+  }, [sessionId, closing, onSuccess, onClose]);
 
   // 1. Tạo phiên điểm danh khi mở modal
   useEffect(() => {
@@ -149,7 +170,29 @@ export function QRAttendanceModal({
     };
   }, [sessionId]);
 
-  // 4. Polling trạng thái (để làm fallback dự phòng) và Polling xoay Token
+  const isRotatingRef = useRef<boolean>(false);
+
+  const rotateToken = React.useCallback(async () => {
+    if (!sessionId || isRotatingRef.current) return;
+    try {
+      isRotatingRef.current = true;
+      const res = await apiFetch(`/qr-attendance/session/${sessionId}/token`);
+      if (res.token) {
+        setQrToken(res.token);
+        setTokenExpiresAt(res.tokenExpiresAt);
+        if (res.sessionExpiresAt) setExpiresAt(res.sessionExpiresAt);
+        const now = Date.now();
+        const rem = Math.max(0, Math.floor((res.tokenExpiresAt - now) / 1000));
+        setTokenTimeRemaining(rem > 0 ? rem : 30);
+      }
+    } catch (err) {
+      console.warn("Rotate token error:", err);
+    } finally {
+      isRotatingRef.current = false;
+    }
+  }, [sessionId]);
+
+  // 4. Polling trạng thái điểm danh (fallback dự phòng)
   useEffect(() => {
     if (!sessionId) return;
 
@@ -177,28 +220,12 @@ export function QRAttendanceModal({
       }
     }, 5000);
 
-    // Polling token mỗi 25s để tự xoay trước khi token hết hạn hoàn toàn
-    const tokenInterval = setInterval(async () => {
-      try {
-        const res = await apiFetch(`/qr-attendance/session/${sessionId}/token`);
-        if (res.token) {
-          setQrToken(res.token);
-          setTokenExpiresAt(res.tokenExpiresAt);
-          setExpiresAt(res.sessionExpiresAt);
-          setTokenTimeRemaining(30);
-        }
-      } catch (err) {
-        console.warn("Rotate token error:", err);
-      }
-    }, 25000);
-
     return () => {
       clearInterval(statusInterval);
-      clearInterval(tokenInterval);
     };
   }, [sessionId]);
 
-  // 5. Timer đếm ngược (cho cả 5 phút và 30s xoay QR)
+  // 5. Timer đếm ngược (cho cả 5 phút và 30s xoay QR tự động)
   useEffect(() => {
     if (loading || !sessionId || !expiresAt || !tokenExpiresAt) return;
 
@@ -210,14 +237,20 @@ export function QRAttendanceModal({
       setTimeRemaining(remainingSecs);
 
       if (remainingSecs <= 0) {
-        clearInterval(countdownIntervalRef.current!);
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
         toast.info("Đã hết thời gian điểm danh.");
         handleCloseAndSave();
+        return;
       }
 
       // Đếm ngược 30s xoay QR dựa trên tokenExpiresAt thực tế
       const tokenRemainingSecs = Math.max(0, Math.floor((tokenExpiresAt - now) / 1000));
       setTokenTimeRemaining(tokenRemainingSecs);
+
+      // Khi đếm ngược token hết hạn (<= 1s), tự động kích hoạt xoay mã QR mới
+      if (tokenRemainingSecs <= 1) {
+        rotateToken();
+      }
     }, 1000);
 
     return () => {
@@ -225,29 +258,10 @@ export function QRAttendanceModal({
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [loading, sessionId, expiresAt, tokenExpiresAt]);
-
-  // 6. Đóng phiên điểm danh và lưu kết quả vào DB
-  const handleCloseAndSave = async () => {
-    if (!sessionId || closing) return;
-    try {
-      setClosing(true);
-      await apiFetch(`/qr-attendance/session/${sessionId}/close`, {
-        method: "POST",
-      });
-      toast.success("Điểm danh thành công. Đã lưu kết quả.");
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Có lỗi xảy ra khi lưu kết quả điểm danh.");
-      setClosing(false);
-    }
-  };
+  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken]);
 
   const handleCancel = () => {
-    if (window.confirm(`Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ ${entityLabel.singular} từ đầu phiên sẽ KHÔNG được lưu.`)) {
-      onClose();
-    }
+    setShowCancelConfirm(true);
   };
 
   // Lọc ra các học viên trong lớp
@@ -326,10 +340,15 @@ export function QRAttendanceModal({
 
                     {/* Rotating Indicator */}
                     <div className="absolute bottom-3 left-0 right-0 text-center">
-                      <span className="bg-slate-900/90 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
+                      <button
+                        type="button"
+                        onClick={rotateToken}
+                        className="bg-slate-900/90 hover:bg-slate-950 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10 cursor-pointer transition-all active:scale-95"
+                        title="Bấm để xoay mã QR mới ngay"
+                      >
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
                         Xoay sau {tokenTimeRemaining}s
-                      </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -455,6 +474,20 @@ export function QRAttendanceModal({
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          onClose();
+        }}
+        title="Hủy phiên điểm danh QR?"
+        description={`Bạn có chắc chắn muốn hủy phiên điểm danh QR này? Kết quả quét từ ${entityLabel.singular} từ đầu phiên sẽ KHÔNG được lưu.`}
+        confirmLabel="Hủy phiên điểm danh"
+        cancelLabel="Trở lại"
+        tone="warning"
+      />
     </div>
   );
 }

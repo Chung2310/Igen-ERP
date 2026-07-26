@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from "react";
 import { FolderOpen, GraduationCap, KanbanSquare, MessageSquare, PackageCheck, UserCheck, Users, Wallet } from "lucide-react";
 import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
@@ -5,18 +7,27 @@ import LowStockModal from "../inventory/LowStockModal";
 import { formatDashboardCurrency, buildPctSegments } from "./dashboardUtils";
 import { ModuleCard, DonutCard, BarChart } from "./DashboardWidgets";
 import { ActionItemsWidget } from "./ActionItemsWidget";
+import { useEntityLabel } from "../../modules/student-management/hooks/useEntityLabel";
 
 type CardKey = "hr" | "inventory" | "projects" | "students" | "tuition" | "timekeeping" | "chat" | "resources" | "charts" | "inventoryPanels";
 
 /**
- * Nhân viên thường chỉ thấy các chỉ số cá nhân (chấm công, task, trò chuyện,
- * tài nguyên) — ẩn số liệu toàn công ty (nhân sự tổng, kho, học phí, doanh
- * thu). Trưởng phòng/giám đốc/superadmin thấy đầy đủ như hiện tại.
+ * Mỗi card yêu cầu 1 mã quyền trong RolePermission.permissions[] của công ty
+ * (xem server/config/permission-catalog.ts). Card chỉ hiện khi module tương
+ * ứng được bật cho công ty (canSeeX) VÀ role của user có quyền này.
  */
-const VISIBLE_CARDS: Record<string, CardKey[]> = {
-  user: ["timekeeping", "projects", "chat", "resources"],
+const CARD_PERMISSION_MAP: Record<CardKey, string[]> = {
+  hr: ["user:read", "user:manage", "hr:read"],
+  inventory: ["stock:read", "stock:manage"],
+  projects: ["project:read", "project:manage", "kanban:read", "kanban:manage"],
+  students: ["student:read", "student:manage"],
+  tuition: ["student:read", "student:manage"],
+  timekeeping: ["timekeeping:read", "user:read", "user:manage"],
+  chat: ["chat:read", "chat:manage"],
+  resources: ["resource:read", "resource:manage"],
+  charts: ["user:read", "user:manage", "project:read", "project:manage", "kanban:read", "kanban:manage", "hr:read"],
+  inventoryPanels: ["stock:read", "stock:manage"],
 };
-const ALL_CARDS: CardKey[] = ["hr", "inventory", "projects", "students", "tuition", "timekeeping", "chat", "resources", "charts", "inventoryPanels"];
 
 export function OverviewPanel({
   employeeCount,
@@ -42,7 +53,7 @@ export function OverviewPanel({
   canSeeResource,
   canSeeChat,
   canSeeStudent,
-  role,
+  permissions,
   actionItems,
 }: {
   employeeCount: string;
@@ -68,12 +79,19 @@ export function OverviewPanel({
   canSeeResource: boolean;
   canSeeChat: boolean;
   canSeeStudent: boolean;
-  role?: string;
+  permissions?: string[];
   actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
-  const visibleCards = (role && VISIBLE_CARDS[role]) || ALL_CARDS;
-  const showCard = (key: CardKey) => visibleCards.includes(key);
+  const entityLabel = useEntityLabel();
+  const { titleCase: studentEntityTitle, singular: studentEntitySingular, preset } = entityLabel;
+  const isEducation = preset === "student";
+  const showCard = (key: CardKey) => {
+    if (!permissions) return true;
+    if (permissions.includes("*")) return true;
+    const requiredPerms = CARD_PERMISSION_MAP[key];
+    return requiredPerms.some((perm) => permissions.includes(perm));
+  };
 
   const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {
@@ -155,19 +173,19 @@ export function OverviewPanel({
             <ModuleCard
               icon={GraduationCap}
               tone="emerald"
-              title="Học viên"
+              title={studentEntityTitle}
               value={summary ? String(summary.students.totalStudents) : "..."}
-              label="Tổng học viên"
-              footer="Học viên mới trong kỳ"
+              label={`Tổng ${studentEntitySingular}`}
+              footer={`${studentEntityTitle} mới trong kỳ`}
               footerValue={summary ? `+${summary.students.newStudents}` : "..."}
               onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
             />
           )}
-          {canSeeStudent && showCard("tuition") && (
+          {isEducation && canSeeStudent && showCard("tuition") && (
             <ModuleCard
               icon={Wallet}
               tone="amber"
-              title="Học phí & Công nợ"
+              title={`Học phí & Công nợ ${studentEntitySingular}`}
               value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
               label="Học phí đã thu"
               footer="Công nợ còn lại"

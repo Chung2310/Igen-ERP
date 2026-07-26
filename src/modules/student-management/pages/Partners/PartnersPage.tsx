@@ -15,12 +15,16 @@ import { CommissionLevelModal } from './components/CommissionLevelModal';
 import { ImportPartnerModal } from './components/ImportPartnerModal';
 import { Partner } from '../../types';
 import * as XLSX from 'xlsx';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 
 interface PartnersPageProps {
   selectedCenter?: string;
 }
 
 export function PartnersPage({ selectedCenter }: PartnersPageProps) {
+  const entityLabel = useEntityLabel();
+  const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,8 +113,8 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
       'Tên chủ tài khoản',
       'Trạng thái',
       'Ghi chú',
-      'Số học viên giới thiệu',
-      'Tổng học phí giới thiệu',
+      operationalCopy.partnerReferralCountLabel,
+      operationalCopy.partnerReferralValueLabel,
       'Tổng hoa hồng',
       'Đã thanh toán',
       'Còn nợ',
@@ -278,21 +282,21 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
                       {partner.levelName === 'Mặc định' ? (
                         <>
                           <div className="text-[9px] font-black text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded-full inline-block">Mặc định</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">1%</span> học phí</div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">1%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
                         </>
                       ) : (
                         <>
                           <div className="text-[11px] font-bold text-slate-900">{partner.levelName}</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">{partner.commissionValue}%</span> học phí</div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">{partner.commissionValue}%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
                         </>
                       )}
                     </td>
                     <td className="py-1.5 px-3 text-center font-bold">
                       <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-[9px]">
-                        {partner.referredStudentsCount} học viên
+                        {partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}
                       </span>
                       <div className="text-[9px] text-slate-400 font-mono mt-0.5">
-                        Học phí: {formatVND(String(partner.totalReferredTuition || 0))}
+                        {operationalCopy.partnerValueLabel}: {formatVND(String(partner.totalReferredTuition || 0))}
                       </div>
                     </td>
                     <td className="py-1.5 px-3 text-right text-[11px] font-black text-slate-800">
@@ -376,6 +380,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
           onClose={() => setSelectedPartnerId(null)}
           partnerId={selectedPartnerId}
           onMutation={fetchPartners}
+          entityPreset={entityLabel.preset}
         />
       )}
 
@@ -396,7 +401,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
         <ErpConfirmModal
           isOpen={!!deletingPartner}
           title="Xác nhận xóa đối tác"
-          message={`Bạn có chắc chắn muốn xóa đối tác "${deletingPartner.name}" khỏi hệ thống? Lưu ý: chỉ có thể xóa đối tác chưa có bất kỳ lượt giới thiệu học viên nào.`}
+          message={`Bạn có chắc chắn muốn xóa đối tác "${deletingPartner.name}" khỏi hệ thống? Lưu ý: chỉ có thể xóa đối tác chưa có bất kỳ lượt giới thiệu ${entityLabel.singular} nào.`}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeletingPartner(null)}
         />

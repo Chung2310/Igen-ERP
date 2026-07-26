@@ -17,7 +17,7 @@ export const rolePermissionSwagger = {
                   permissions: {
                     type: "array",
                     items: { type: "string" },
-                    example: ["crm:read", "crm:manage", "kanban:read"],
+                    example: ["stock:read", "stock:manage", "kanban:read"],
                     description: "Mảng danh sách các mã quyền gán cho vai trò này"
                   }
                 },

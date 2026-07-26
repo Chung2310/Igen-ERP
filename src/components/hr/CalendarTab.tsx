@@ -20,7 +20,9 @@ import {
   Check,
   XCircle,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  ChevronDown
 } from "lucide-react";
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
@@ -28,11 +30,26 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
+import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
+import {
+  exportAttendanceExcel,
+  type AttendanceExportKind,
+} from "../../utils/attendanceExcel";
+import {
+  attendanceDisplayStatus,
+  attendanceTotalsFromMinutes,
+  calculateAttendanceWorkedMinutes,
+  hasApprovedPayrollLeave,
+} from "../../utils/attendancePayroll";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
   selectedCompanyCode: string;
   isManager: boolean;
+  /** True when the user can approve/create leave, wfh, and exception entries for others. */
+  canManage?: boolean;
+  /** Allows editing existing attendance logs without granting leave-management rights. */
+  canEditAttendance?: boolean;
   usersList: UserProfile[];
   employees: EmployeeNode[];
 }
@@ -54,17 +71,63 @@ interface CalendarItem {
   createdAt?: string;
 }
 
+interface EffectiveWorkHours {
+  checkInLimit?: string;
+  checkOutLimit?: string;
+  lunchBreakStart?: string;
+  lunchBreakEnd?: string;
+  workingDays?: number[];
+}
+
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export default function CalendarTab({
   userProfile,
   selectedCompanyCode,
   isManager,
+  canManage,
+  canEditAttendance = false,
   employees,
   usersList = []
 }: CalendarTabProps) {
+  // Fall back to role-string checks only when the caller doesn't pass canManage,
+  // so other embedders of this component keep working unchanged.
+  const canManageAttendance = canManage ?? (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin");
+  // Same fix as canManageAttendance: a custom role granted timekeeping:manage
+  // must be able to see/approve everyone's leave requests, not just their own.
+  const isLeaveAdmin = canManageAttendance;
   // Sub-tab Navigation
-  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance">("schedule");
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
+
+  // Leave Requests & Templates States
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [isTemplateLoading, setIsTemplateLoading] = useState<boolean>(false);
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(false);
+  const [isAppFormOpen, setIsAppFormOpen] = useState<boolean>(false);
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState<boolean>(false);
+  const [isTemplateListModalOpen, setIsTemplateListModalOpen] = useState<boolean>(false);
+  const [tplCurrentPage, setTplCurrentPage] = useState<number>(1);
+  const [filterSearchQuery, setFilterSearchQuery] = useState<string>("");
+  const [filterAppType, setFilterAppType] = useState<string>("");
+  const [appRejectModalOpen, setAppRejectModalOpen] = useState<boolean>(false);
+  const [appApproveModalOpen, setAppApproveModalOpen] = useState<boolean>(false);
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+  const [rejectReasonText, setRejectReasonText] = useState<string>("");
+  const [approveNoteText, setApproveNoteText] = useState<string>("");
+  const [appType, setAppType] = useState<string>("leave");
+  const [appStartDate, setAppStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [appStartTime, setAppStartTime] = useState<string>("08:00");
+  const [appEndDate, setAppEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [appEndTime, setAppEndTime] = useState<string>("17:00");
+  const [appReason, setAppReason] = useState<string>("");
+  const [appFile, setAppFile] = useState<File | null>(null);
+  const [appEmployeeId, setAppEmployeeId] = useState<string>(userProfile?.uid || "");
+  const [tplName, setTplName] = useState<string>("");
+  const [tplFile, setTplFile] = useState<File | null>(null);
+  const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
+
+
 
   // Premium confirm dialog state (replaces native window.confirm)
   const [confirmState, setConfirmState] = useState<{
@@ -105,6 +168,12 @@ export default function CalendarTab({
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [appliedHolidays, setAppliedHolidays] = useState<WorkCalendarDay[]>([]);
+  const [workingDaysByUid, setWorkingDaysByUid] = useState<Record<string, number[]>>({});
+  const [companyWorkingDays, setCompanyWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [workHoursByUid, setWorkHoursByUid] = useState<Record<string, EffectiveWorkHours>>({});
+  const [companyWorkHours, setCompanyWorkHours] = useState<EffectiveWorkHours>({
+    checkInLimit: "08:30", checkOutLimit: "17:30", lunchBreakStart: "12:00", lunchBreakEnd: "13:00",
+  });
 
   // Timekeeping logs state
   const [logs, setLogs] = useState<any[]>([]);
@@ -116,10 +185,24 @@ export default function CalendarTab({
   const [logStartDate, setLogStartDate] = useState("");
   const [logEndDate, setLogEndDate] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editAttendanceStatus, setEditAttendanceStatus] = useState("Present");
+  const [editAttendanceNote, setEditAttendanceNote] = useState("");
+  const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
 
   // Attendance View Mode & Week selection states
   const [attendanceViewMode, setAttendanceViewMode] = useState<"table" | "week">("table");
   const [currentWeekDate, setCurrentWeekDate] = useState<Date>(new Date());
+
+  // Monthly timesheet states
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [empSearchQuery, setEmpSearchQuery] = useState<string>("");
+  const [cellDisplayMode, setCellDisplayMode] = useState<"coeff" | "hours">("coeff");
+  const [isDisplayModeDropdownOpen, setIsDisplayModeDropdownOpen] = useState<boolean>(false);
+  const [isScheduleMode, setIsScheduleMode] = useState<boolean>(false);
 
   const formatLocalDate = (date: Date) => {
     const y = date.getFullYear();
@@ -285,6 +368,336 @@ export default function CalendarTab({
     }
   };
 
+  const getFileDownloadUrl = (url: string, filename: string) => {
+    if (!url) return "#";
+    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}`;
+  };
+
+  const uploadFileToCloudinary = async (file: File): Promise<string> => {
+    const reader = new FileReader();
+    const fileBase64Promise = new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+
+    const fileBase64 = await fileBase64Promise;
+
+    const res = await fetch("/api/v1/media/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        file: fileBase64,
+        folder: "hr_leaves",
+      }),
+    });
+
+    if (!res.ok) {
+      const errorJson = await res.json().catch(() => ({}));
+      let details = "";
+      if (errorJson.errors) {
+        details = Object.entries(errorJson.errors)
+          .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
+          .join("; ");
+      }
+      throw new Error((errorJson.message || "Lỗi tải tệp lên máy chủ.") + (details ? ` [${details}]` : ""));
+    }
+
+    const json = await res.json();
+    return json.url;
+  };
+
+  const fetchTemplates = async () => {
+    if (!selectedCompanyCode) return;
+    setIsTemplateLoading(true);
+    try {
+      const res = await fetch(`/api/v1/crud/hr-leave-templates?companyCode=${encodeURIComponent(selectedCompanyCode)}`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTemplates(json.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsTemplateLoading(false);
+    }
+  };
+
+  const fetchApplications = async () => {
+    if (!selectedCompanyCode) return;
+    setIsAppLoading(true);
+    try {
+      const res = await fetch(`/api/v1/crud/hr-leave-applications?companyCode=${encodeURIComponent(selectedCompanyCode)}`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setApplications(json.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAppLoading(false);
+    }
+  };
+
+  const handleUploadTemplateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tplName.trim()) {
+      toast.error("Vui lòng nhập tên biểu mẫu.");
+      return;
+    }
+    if (!tplFile) {
+      toast.error("Vui lòng chọn tệp biểu mẫu.");
+      return;
+    }
+
+    setIsFileUploading(true);
+    try {
+      const fileUrl = await uploadFileToCloudinary(tplFile);
+      const res = await fetch("/api/v1/crud/hr-leave-templates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name: tplName,
+          fileUrl,
+          fileName: tplFile.name,
+          uploadedBy: userProfile?.uid || "unknown"
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        let details = "";
+        if (errorData.errors) {
+          details = Object.entries(errorData.errors)
+            .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
+            .join("; ");
+        }
+        throw new Error((errorData.message || "Lỗi lưu biểu mẫu.") + (details ? ` [${details}]` : ""));
+      }
+
+      toast.success("Tải lên biểu mẫu mẫu thành công!");
+      setIsTemplateFormOpen(false);
+      setTplName("");
+      setTplFile(null);
+      fetchTemplates();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Tải lên biểu mẫu mẫu thất bại.");
+    } finally {
+      setIsFileUploading(false);
+    }
+  };
+
+  const openAppForm = () => {
+    if (templates.length > 0) {
+      setAppType(templates[0].name);
+    } else {
+      setAppType("other");
+    }
+    setIsAppFormOpen(true);
+  };
+
+  const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appReason.trim()) {
+      toast.error("Vui lòng nhập lý do.");
+      return;
+    }
+
+    const startDateTime = new Date(`${appStartDate}T${appStartTime}:00`);
+    const endDateTime = new Date(`${appEndDate}T${appEndTime}:00`);
+
+    if (endDateTime < startDateTime) {
+      toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
+      return;
+    }
+
+    setIsFileUploading(true);
+    try {
+      let fileUrl = "";
+      if (appFile) {
+        fileUrl = await uploadFileToCloudinary(appFile);
+      }
+      const targetEmp = usersList.find(u => u.uid === appEmployeeId);
+      const res = await fetch("/api/v1/crud/hr-leave-applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          employeeId: appEmployeeId,
+          employeeName: targetEmp?.displayName || userProfile?.displayName || "Nhân viên",
+          type: appType,
+          startDate: startDateTime.toISOString(),
+          endDate: endDateTime.toISOString(),
+          reason: appReason,
+          uploadedFileUrl: fileUrl,
+          uploadedFileName: appFile ? appFile.name : "",
+          status: "pending"
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        let details = "";
+        if (errorData.errors) {
+          details = Object.entries(errorData.errors)
+            .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
+            .join("; ");
+        }
+        throw new Error((errorData.message || "Lỗi lưu đơn xin nghỉ.") + (details ? ` [${details}]` : ""));
+      }
+
+      toast.success("Gửi đơn xin nghỉ phép thành công!");
+      setIsAppFormOpen(false);
+      setAppReason("");
+      setAppFile(null);
+      setAppEmployeeId(userProfile?.uid || "");
+      fetchApplications();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Gửi đơn thất bại.");
+    } finally {
+      setIsFileUploading(false);
+    }
+  };
+
+  const handleApproveApp = (app: any) => {
+    setSelectedAppId(app._id || app.id);
+    setApproveNoteText("");
+    setAppApproveModalOpen(true);
+  };
+
+  const handleApproveAppSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`/api/v1/crud/hr-leave-applications/${selectedAppId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          status: "approved",
+          note: approveNoteText,
+          approvedBy: userProfile?.uid
+        }),
+      });
+
+      if (!res.ok) throw new Error("Lỗi phê duyệt đơn.");
+
+      toast.success("Đã duyệt đơn thành công!");
+      setAppApproveModalOpen(false);
+      setSelectedAppId(null);
+      setApproveNoteText("");
+      fetchApplications();
+      fetchCalendarItems();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Phê duyệt đơn thất bại.");
+    }
+  };
+
+  const handleRejectAppSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectReasonText.trim()) {
+      toast.error("Vui lòng nhập lý do từ chối.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/v1/crud/hr-leave-applications/${selectedAppId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          status: "rejected",
+          rejectReason: rejectReasonText,
+          approvedBy: userProfile?.uid
+        }),
+      });
+
+      if (!res.ok) throw new Error("Lỗi từ chối đơn.");
+
+      toast.success("Đã từ chối đơn.");
+      setAppRejectModalOpen(false);
+      setSelectedAppId(null);
+      setRejectReasonText("");
+      fetchApplications();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Từ chối đơn thất bại.");
+    }
+  };
+
+  const handleDeleteApp = async (appId: string) => {
+    askConfirm(
+      "Xóa đơn xin nghỉ",
+      "Bạn có chắc chắn muốn xóa đơn xin nghỉ này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
+
+          if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
+
+          toast.success("Đã xóa đơn thành công.");
+          fetchApplications();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa đơn thất bại.");
+        }
+      },
+      "Xóa"
+    );
+  };
+
+  const handleDeleteTpl = async (tplId: string) => {
+    askConfirm(
+      "Xóa biểu mẫu",
+      "Bạn có chắc chắn muốn xóa biểu mẫu mẫu này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
+
+          if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
+
+          toast.success("Đã xóa biểu mẫu thành công.");
+          fetchTemplates();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa biểu mẫu thất bại.");
+        }
+      },
+      "Xóa"
+    );
+  };
+
+  useEffect(() => {
+    if ((currentSubTab === "leave-requests" || currentSubTab === "attendance") && selectedCompanyCode) {
+      fetchApplications();
+    }
+    if (currentSubTab === "leave-requests" && selectedCompanyCode) fetchTemplates();
+  }, [currentSubTab, selectedCompanyCode]);
+
   const handleDeleteItem = async (itemId: string) => {
     askConfirm(
       "Xóa lịch trình",
@@ -330,6 +743,49 @@ export default function CalendarTab({
   const holidayByDate = new Map(appliedHolidays.map((h) => [h.date, h]));
 
   useEffect(() => {
+    if (!selectedCompanyCode) return;
+    fetch("/api/v1/timekeeping/work-hours", {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        const map: Record<string, number[]> = {};
+        const hoursMap: Record<string, EffectiveWorkHours> = {};
+        (result?.data || []).forEach((u: any) => {
+          if (u.workHoursConfig?.useCustom && Array.isArray(u.workHoursConfig.workingDays) && u.workHoursConfig.workingDays.length) {
+            map[u._id] = u.workHoursConfig.workingDays;
+            hoursMap[u._id] = u.workHoursConfig;
+          }
+        });
+        setWorkingDaysByUid(map);
+        setWorkHoursByUid(hoursMap);
+      })
+      .catch(() => { setWorkingDaysByUid({}); setWorkHoursByUid({}); });
+
+    fetch("/api/v1/timekeeping/company-location", {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        setCompanyWorkHours(result?.data || {});
+        setCompanyWorkingDays(
+          Array.isArray(result?.data?.workingDays) && result.data.workingDays.length
+            ? result.data.workingDays
+            : [1, 2, 3, 4, 5]
+        );
+      })
+      .catch(() => {
+        setCompanyWorkingDays([1, 2, 3, 4, 5]);
+        setCompanyWorkHours({ checkInLimit: "08:30", checkOutLimit: "17:30", lunchBreakStart: "12:00", lunchBreakEnd: "13:00" });
+      });
+  }, [selectedCompanyCode]);
+
+  const isCustomWorkingDay = (uid: string, dow: number) => {
+    const customDays = workingDaysByUid[uid];
+    return (customDays || companyWorkingDays).includes(dow);
+  };
+
+  useEffect(() => {
     if (currentSubTab === "attendance" && selectedCompanyCode) {
       fetchTimekeepingLogs();
     }
@@ -341,10 +797,33 @@ export default function CalendarTab({
         case "leave": return "Nghỉ phép";
         case "late": return "Đi trễ";
         case "early": return "Về sớm";
-        case "other": return "Yêu cầu khác";
+        case "other": return "Đơn khác";
         default: return type;
       }
     };
+
+    const filteredApplications = applications.filter((app) => {
+      const matchType = !filterAppType || app.type === filterAppType;
+      if (!filterSearchQuery.trim()) {
+        return matchType;
+      }
+
+      const query = filterSearchQuery.toLowerCase();
+      const typeLabel = getAppTypeLabel(app.type).toLowerCase();
+      const employeeName = (app.employeeName || "").toLowerCase();
+      const reason = (app.reason || "").toLowerCase();
+      const note = (app.note || "").toLowerCase();
+      const rejectReason = (app.rejectReason || "").toLowerCase();
+
+      const matchSearch =
+        employeeName.includes(query) ||
+        typeLabel.includes(query) ||
+        reason.includes(query) ||
+        note.includes(query) ||
+        rejectReason.includes(query);
+
+      return matchType && matchSearch;
+    });
 
     const getStatusBadge = (status: string, rejectReason?: string) => {
       switch (status) {
@@ -363,6 +842,235 @@ export default function CalendarTab({
           return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-100 animate-pulse">Chờ duyệt</span>;
       }
     };
+
+    return (
+      <div className="space-y-6 animate-fade-in text-left">
+        {/* Header Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
+          <div>
+            <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
+              Quản lý Đơn từ & Phép
+            </h2>
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+              Nộp đơn xin nghỉ, đi trễ và quản lý biểu mẫu mẫu
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {!isLeaveAdmin && (
+              <button
+                onClick={openAppForm}
+                className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
+              >
+                <Plus className="h-4 w-4" />
+                Viết đơn mới
+              </button>
+            )}
+            {isLeaveAdmin && (
+              <>
+                <button
+                  onClick={() => {
+                    setTplCurrentPage(1);
+                    setIsTemplateListModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-4.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
+                >
+                  <FileText className="h-4 w-4 text-indigo-650" />
+                  Biểu mẫu mẫu
+                </button>
+                <button
+                  onClick={() => setIsTemplateFormOpen(true)}
+                  className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
+                >
+                  <Upload className="h-4 w-4" />
+                  Đăng biểu mẫu mới
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Right panel - Leave Applications */}
+          <div className="lg:col-span-12">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                  {isLeaveAdmin ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
+                </h3>
+                {isLeaveAdmin && (
+                  <div className="flex flex-wrap gap-2.5 items-center">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Tìm nhân viên, lý do, loại đơn..."
+                        value={filterSearchQuery}
+                        onChange={(e) => setFilterSearchQuery(e.target.value)}
+                        className="px-3 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none w-48 sm:w-64 placeholder:text-slate-400 font-medium transition-all"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                        Loại đơn:
+                      </span>
+                      <select
+                        value={filterAppType}
+                        onChange={(e) => setFilterAppType(e.target.value)}
+                        className="px-2.5 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+                      >
+                        <option value="">Tất cả</option>
+                        {templates.map((tpl) => (
+                          <option key={tpl._id || tpl.id} value={tpl.name}>
+                            {tpl.name}
+                          </option>
+                        ))}
+                        <option value="other">Đơn khác</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left text-slate-700">
+                  <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
+                    <tr>
+                      {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
+                      <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
+                      <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
+                      <th className="px-5 py-4 min-w-[220px]">Lý do</th>
+                      <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
+                      {isLeaveAdmin ? (
+                        <>
+                          <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                          <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
+                          <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
+                          <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {isAppLoading ? (
+                      <tr>
+                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
+                          <div className="flex justify-center items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                            Đang tải danh sách đơn từ...
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredApplications.length === 0 ? (
+                      <tr>
+                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                          {applications.length === 0 ? "Chưa có đơn từ nào được đăng ký." : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredApplications.map((app) => {
+                        const showDelete = app.status === "pending" || isLeaveAdmin;
+
+                        return (
+                          <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
+                            {isLeaveAdmin && (
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <div className="font-bold text-slate-800">{app.employeeName}</div>
+                              </td>
+                            )}
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <span className="font-bold text-slate-850">{getAppTypeLabel(app.type)}</span>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-slate-500">
+                              <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
+                              <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
+                            </td>
+                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" title={app.reason} style={{ wordBreak: "break-all" }}>
+                              {app.reason}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              {app.uploadedFileUrl ? (
+                                <a
+                                  href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
+                                  download={app.uploadedFileName}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold transition-all shadow-3xs"
+                                  title={`Tải xuống: ${app.uploadedFileName}`}
+                                >
+                                  <Download className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                                  <span>Xem đơn đính kèm</span>
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 italic">Chưa có tệp</span>
+                              )}
+                            </td>
+                            {isLeaveAdmin ? (
+                              <>
+                                <td className="px-5 py-4 whitespace-nowrap text-center">
+                                  {getStatusBadge(app.status, app.rejectReason)}
+                                </td>
+                                <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
+                                  {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {app.status === "pending" && (
+                                      <>
+                                        <button
+                                          onClick={() => handleApproveApp(app)}
+                                          className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
+                                          title="Duyệt đơn"
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedAppId(app._id || app.id);
+                                            setRejectReasonText("");
+                                            setAppRejectModalOpen(true);
+                                          }}
+                                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
+                                          title="Từ chối"
+                                        >
+                                          <XCircle className="h-3.5 w-3.5" />
+                                        </button>
+                                      </>
+                                    )}
+                                    {showDelete && (
+                                      <button
+                                        onClick={() => handleDeleteApp(app._id || app.id)}
+                                        className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
+                                        title="Xóa đơn"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
+                                  {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                                </td>
+                                <td className="px-5 py-4 whitespace-nowrap text-center">
+                                  {getStatusBadge(app.status, app.rejectReason)}
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderAttendanceTab = () => {
@@ -381,826 +1089,681 @@ export default function CalendarTab({
       return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     };
 
-    const formatDateString = (dateStr: string) => {
-      if (!dateStr) return "";
-      const parts = dateStr.split("-");
-      if (parts.length !== 3) return dateStr;
-      const [y, m, d] = parts;
-      return `${d}/${m}/${y}`;
-    };
-
-    const getStatusStyle = (status: string) => {
-      switch (status) {
-        case "Present":
-          return "bg-emerald-50 text-emerald-700 border-emerald-100";
-        case "Late":
-          return "bg-amber-50 text-amber-700 border-amber-100";
-        case "Approved-Leave":
-          return "bg-blue-50 text-blue-700 border-blue-100";
-        case "Approved-WFH":
-          return "bg-teal-50 text-teal-700 border-teal-100";
-        case "Approved-Exception":
-          return "bg-violet-50 text-violet-700 border-violet-100";
-        case "Left-Early":
-          return "bg-orange-50 text-orange-700 border-orange-100";
-        case "Half-Day":
-          return "bg-sky-50 text-sky-700 border-sky-100";
-        case "Late-Left-Early":
-          return "bg-amber-100 text-amber-800 border-amber-200";
-        case "Absent":
-          return "bg-rose-50 text-rose-700 border-rose-100";
-        default:
-          return "bg-slate-50 text-slate-700 border-slate-100";
-      }
-    };
-
-    const targetEmployees = isManager
-      ? (logFilterEmployee === "all" ? usersList : usersList.filter(u => u.uid === logFilterEmployee))
-      : (userProfile ? [userProfile] : []);
-
-    const weekDaysShort = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-    const weekDaysFull = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
-
-    // 1. Logic for Table View:
-    const getDatesRange = () => {
-      let start: Date;
-      if (logStartDate) {
-        const [y, m, d] = logStartDate.split("-").map(Number);
-        start = new Date(y, m - 1, d);
-      } else {
-        start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      }
-
-      let end: Date;
-      if (logEndDate) {
-        const [y, m, d] = logEndDate.split("-").map(Number);
-        end = new Date(y, m - 1, d);
-      } else {
-        end = new Date();
-      }
-
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-
-      const dates = [];
-      let current = new Date(start);
-      while (current <= end) {
-        dates.push(formatLocalDate(current));
-        current.setDate(current.getDate() + 1);
-      }
-      return dates.reverse();
-    };
-
-    const dates = getDatesRange();
-    const generatedRows: any[] = [];
     const todayStr = formatLocalDate(new Date());
 
-    dates.forEach(dateStr => {
-      targetEmployees.forEach(emp => {
-        const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-        if (dbLog) {
-          generatedRows.push({
-            id: dbLog._id || dbLog.id,
-            uid: emp.uid,
-            date: dateStr,
-            checkIn: dbLog.checkIn,
-            checkOut: dbLog.checkOut,
-            status: dbLog.status,
-            note: dbLog.note
-          });
-        } else {
-          const matchedItem = items.find(item => {
-            if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-            const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-            if (!empMatch) return false;
+    // Danh sách nhân viên hiển thị trên sidebar và lưới
+    const targetEmployees = isManager
+      ? usersList
+      : (userProfile ? [userProfile] : []);
 
-            const sDate = item.startDate.split("T")[0];
-            const eDate = item.endDate.split("T")[0];
-            return dateStr >= sDate && dateStr <= eDate;
-          });
+    // Lọc theo thanh search sidebar
+    const sidebarEmployees = targetEmployees.filter(emp => {
+      if (!empSearchQuery) return true;
+      const q = empSearchQuery.toLowerCase();
+      return (
+        (emp.displayName || "").toLowerCase().includes(q) ||
+        (emp.email || "").toLowerCase().includes(q)
+      );
+    });
 
-          const isTodayOrPast = dateStr <= todayStr;
+    // Tính số ngày trong tháng đã chọn
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const dayColumns: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-          if (isTodayOrPast) {
-            let status = "Absent";
-            let note = "Nghỉ không phép / Vắng mặt";
-            if (matchedItem) {
-              if (matchedItem.type === "leave") {
-                status = "Approved-Leave";
-                note = "Nghỉ phép có duyệt";
-              } else if (matchedItem.type === "wfh") {
-                status = "Approved-WFH";
-                note = "Làm tại nhà (WFH) có duyệt";
-              } else if (matchedItem.type === "exception") {
-                status = "Approved-Exception";
-                note = "Ngoại lệ có duyệt";
-              }
+    // Hàm lấy thứ của ngày (0=CN, 1=T2,..., 6=T7)
+    const getDayOfWeek = (day: number) => {
+      return new Date(selectedYear, selectedMonth - 1, day).getDay();
+    };
+
+    const dayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+    // Hàm tính hệ số công theo trạng thái
+    const clockMinutes = (value?: string) => {
+      if (!value) return 0;
+      const [hours, minutes] = value.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+    const clockDuration = (start?: string, end?: string) => {
+      if (!start || !end) return 0;
+      let result = clockMinutes(end) - clockMinutes(start);
+      if (result < 0) result += 24 * 60;
+      return result;
+    };
+    const effectiveHours = (uid: string): EffectiveWorkHours => workHoursByUid[uid] || companyWorkHours;
+    const standardDailyMinutes = (uid: string) => {
+      const schedule = effectiveHours(uid);
+      return Math.max(1, clockDuration(schedule.checkInLimit, schedule.checkOutLimit) - clockDuration(schedule.lunchBreakStart, schedule.lunchBreakEnd));
+    };
+    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date) =>
+      calculateAttendanceWorkedMinutes(checkIn, checkOut, effectiveHours(uid));
+
+    // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
+    const getStatusShort = (status: string): string => {
+      switch (status) {
+        case "Present": return "Đúng giờ";
+        case "Late": return "Muộn";
+        case "Approved-Leave": return "Phép";
+        case "Approved-WFH": return "WFH";
+        case "Approved-Exception": return "Ngoại lệ";
+        case "Left-Early": return "Về sớm";
+        case "Half-Day": return "½ Công";
+        case "Late-Left-Early": return "Muộn+Sớm";
+        case "Incomplete": return "Thiếu chấm công";
+        case "Partial": return "Thiếu công";
+        case "Absent": return "Vắng";
+        default: return "";
+      }
+    };
+
+    // Hàm tính dữ liệu một ô ngày cho một nhân viên
+    const getDayCellData = (emp: any, day: number) => {
+      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
+      const holiday = holidayByDate.get(dateStr);
+      const defaultWeekend = !isCustomWorkingDay(emp.uid, getDayOfWeek(day));
+      const isWeekend = holiday && holiday.isApplied
+        ? holiday.dayType === "working_override"
+          ? false
+          : true
+        : defaultWeekend;
+      const isFuture = dateStr > todayStr;
+
+      if (isWeekend) {
+        return { status: "weekend", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: true, isFuture };
+      }
+
+      if (isFuture) {
+        return { status: "", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: false, isFuture: true };
+      }
+
+      if (dbLog) {
+        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time);
+        const hours = Math.round((workedMinutes / 60) * 10) / 10;
+        const dailyMinutes = standardDailyMinutes(emp.uid);
+        const coeff = workedMinutes / dailyMinutes;
+        const displayStatus = attendanceDisplayStatus(
+          dbLog.status,
+          Boolean(dbLog.checkIn?.time),
+          Boolean(dbLog.checkOut?.time),
+          workedMinutes,
+          dailyMinutes,
+        );
+        return {
+          status: displayStatus,
+          coeff,
+          hours,
+          workedMinutes,
+          checkIn: dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "",
+          checkOut: dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "",
+          dateStr,
+          isWeekend: false,
+          isFuture: false,
+        };
+      }
+
+      // Payroll only credits approved leave applications, not standalone calendar events.
+      if (hasApprovedPayrollLeave(applications, emp.uid, dateStr)) {
+        return {
+          status: "Approved-Leave",
+          coeff: 1,
+          workedMinutes: standardDailyMinutes(emp.uid),
+          checkIn: "",
+          checkOut: "",
+          dateStr,
+          isWeekend: false,
+          isFuture: false,
+        };
+      }
+
+      return {
+        status: "Absent",
+        coeff: 0,
+        workedMinutes: 0,
+        checkIn: "",
+        checkOut: "",
+        dateStr,
+        isWeekend: false,
+        isFuture: false,
+      };
+    };
+
+    // Tính tổng giờ và tổng công của một nhân viên trong tháng
+    const calcMonthTotals = (emp: any) => {
+      let totalWorkedMinutes = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cell = getDayCellData(emp, day);
+        if (!cell.isWeekend && !cell.isFuture && cell.coeff !== null) {
+          totalWorkedMinutes += cell.workedMinutes || 0;
+        }
+      }
+      const totals = attendanceTotalsFromMinutes(totalWorkedMinutes, standardDailyMinutes(emp.uid));
+      return { totalHours: totals.totalHours, totalCoeff: totals.totalDays };
+    };
+
+    const openAttendanceEditor = (log: any) => {
+      if (!canEditAttendance || !log?._id) return;
+      setEditingAttendance(log);
+      setEditCheckIn(log.checkIn?.time ? formatLogTime(log.checkIn.time) : "");
+      setEditCheckOut(log.checkOut?.time ? formatLogTime(log.checkOut.time) : "");
+      setEditAttendanceStatus(log.status || "Present");
+      setEditAttendanceNote(log.note || "");
+    };
+
+    const saveAttendanceEditor = async () => {
+      if (!editingAttendance?._id) return;
+      setIsAttendanceSaving(true);
+      const detail = (existing: any, time: string) => time ? {
+        ...(existing || { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual payroll edit", ipAddress: "" }),
+        time: new Date(`${editingAttendance.date}T${time}:00+07:00`).toISOString(),
+      } : null;
+      try {
+        const response = await fetch(`/api/v1/crud/timekeeping-logs/${editingAttendance._id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+          body: JSON.stringify({
+            checkIn: detail(editingAttendance.checkIn, editCheckIn),
+            checkOut: detail(editingAttendance.checkOut, editCheckOut),
+            status: editAttendanceStatus,
+            note: editAttendanceNote,
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Không thể cập nhật chấm công.");
+        toast.success("Đã cập nhật lịch sử chấm công.");
+        setEditingAttendance(null);
+        await fetchTimekeepingLogs();
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Không thể cập nhật lịch sử chấm công."));
+      } finally {
+        setIsAttendanceSaving(false);
+      }
+    };
+
+    const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
+      if (sidebarEmployees.length === 0) {
+        toast.warning("Không có dữ liệu nhân viên phù hợp để xuất.");
+        return;
+      }
+
+      try {
+        const exportEmployees = sidebarEmployees.map((employee) => {
+          const detail = getUserDetail(employee.uid);
+          return {
+            uid: employee.uid,
+            displayName: detail.displayName || "",
+            login: detail.email || "",
+          };
+        });
+
+        exportAttendanceExcel({
+          kind,
+          month: selectedMonth,
+          year: selectedYear,
+          employees: exportEmployees,
+          getCell: (employee, day) => {
+            const gridEmployee = sidebarEmployees.find(
+              (item) => item.uid === employee.uid
+            );
+            if (!gridEmployee) {
+              return {
+                coeff: null,
+                hours: null,
+                hasRecord: false,
+                isAbsent: false,
+                isWeekend: false,
+                isFuture: false,
+              };
             }
 
-            generatedRows.push({
-              id: `missing-${emp.uid}-${dateStr}`,
-              uid: emp.uid,
-              date: dateStr,
-              checkIn: null,
-              checkOut: null,
-              status,
-              note
-            });
-          }
-        }
-      });
-    });
+            const cell = getDayCellData(gridEmployee, day);
+            const hours =
+              typeof cell.hours === "number" && cell.hours > 0
+                ? cell.hours
+                : typeof cell.coeff === "number" && cell.coeff > 0
+                  ? cell.coeff * 8
+                  : cell.status === "Absent"
+                    ? 0
+                    : null;
 
-    const filteredRows = generatedRows.filter(row => {
-      if (logFilterStatus === "all") return true;
-      return row.status === logFilterStatus;
-    });
+            return {
+              coeff: cell.coeff,
+              hours,
+              hasRecord:
+                !cell.isWeekend &&
+                !cell.isFuture &&
+                Boolean(cell.status),
+              isAbsent: cell.status === "Absent",
+              isWeekend: cell.isWeekend,
+              isFuture: cell.isFuture,
+            };
+          },
+        });
 
-    const totalPagesTable = Math.ceil(filteredRows.length / logsLimit) || 1;
-    const paginatedRows = filteredRows.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+        toast.success(
+          kind === "coeff"
+            ? "Đã xuất bảng số công ra Excel."
+            : "Đã xuất bảng số giờ ra Excel."
+        );
+      } catch (error) {
+        console.error("Lỗi xuất Excel chấm công:", error);
+        toast.error("Không thể xuất bảng chấm công ra Excel.");
+      }
+    };
 
-    // 2. Logic for Weekly View:
-    const weekDates = getWeekDates(currentWeekDate);
-    const totalPagesWeek = Math.ceil(targetEmployees.length / logsLimit) || 1;
-    const paginatedEmployees = targetEmployees.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+    // Navigation tháng
+    const goToPrevMonth = () => {
+      if (selectedMonth === 1) {
+        setSelectedMonth(12);
+        setSelectedYear(y => y - 1);
+      } else {
+        setSelectedMonth(m => m - 1);
+      }
+      setLogsPage(1);
+    };
+
+    const goToNextMonth = () => {
+      if (selectedMonth === 12) {
+        setSelectedMonth(1);
+        setSelectedYear(y => y + 1);
+      } else {
+        setSelectedMonth(m => m + 1);
+      }
+      setLogsPage(1);
+    };
+
+    // Phân trang nhân viên trên lưới
+    const gridPageSize = 15;
+    const totalGridPages = Math.ceil(sidebarEmployees.length / gridPageSize) || 1;
+    const paginatedGridEmployees = sidebarEmployees.slice((logsPage - 1) * gridPageSize, logsPage * gridPageSize);
+
+    const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="space-y-5 animate-fade-in text-left">
-        {/* Filters Panel */}
-        <div className="bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+      <div className="flex flex-col h-[calc(100vh-200px)] min-h-[600px] animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
+        {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header Controls */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
+            {/* Tiêu đề + chọn tháng */}
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
-                <CalendarCheck className="h-5 w-5 text-white" />
+              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={goToPrevMonth}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  title="Tháng trước"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={selectedMonth}
+                    onChange={e => { setSelectedMonth(Number(e.target.value)); setLogsPage(1); }}
+                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>{monthNames[i]}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={e => { setSelectedYear(Number(e.target.value)); setLogsPage(1); }}
+                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
+                  >
+                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                      <option key={y} value={y}>Năm {y}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={goToNextMonth}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  title="Tháng sau"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
-              <div>
-                <h1 className="text-xl md:text-2xl font-black text-cyan-700 tracking-tight">
-                  Lịch sử chấm công GPS
-                </h1>
-                <p className="text-xs text-slate-500 font-medium">Theo dõi dữ liệu vào/ra và vị trí chấm công của nhân sự</p>
-              </div>
+
+              {/* Ô tìm kiếm nhân viên */}
+              <input
+                type="text"
+                placeholder="Tìm nhân viên..."
+                value={empSearchQuery}
+                onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
+                className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
+              />
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* View Toggle */}
-              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50">
-                <button
-                  type="button"
-                  onClick={() => setAttendanceViewMode("table")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${attendanceViewMode === "table"
-                      ? "bg-white text-slate-850 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800 bg-transparent"
-                    }`}
-                >
-                  Dạng bảng
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAttendanceViewMode("week")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${attendanceViewMode === "week"
-                      ? "bg-white text-slate-850 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800 bg-transparent"
-                    }`}
-                >
-                  Dạng lịch
-                </button>
-              </div>
-
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={fetchTimekeepingLogs}
-                className="flex items-center justify-center p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl transition-all cursor-pointer border-0 active:scale-95"
-                title="Làm mới dữ liệu"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
+                title="Tải lại dữ liệu"
               >
-                <RefreshCw className={`h-4 w-4 ${isLogsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isLogsLoading ? "animate-spin" : ""}`} />
+                Tải lại
               </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsDisplayModeDropdownOpen(!isDisplayModeDropdownOpen)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
+                >
+                  <Eye className="h-3.5 w-3.5 text-slate-500" />
+                  <span>
+                    {cellDisplayMode === "coeff" ? "Số công" : "Số giờ"}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+
+                {isDisplayModeDropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => { setCellDisplayMode("coeff"); setIsDisplayModeDropdownOpen(false); }}
+                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
+                    >
+                      <span>Số công</span>
+                      {cellDisplayMode === "coeff" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCellDisplayMode("hours"); setIsDisplayModeDropdownOpen(false); }}
+                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
+                    >
+                      <span>Số giờ</span>
+                      {cellDisplayMode === "hours" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleMode(!isScheduleMode)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer border-0 ${
+                  isScheduleMode
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 bg-slate-100 hover:bg-slate-200"
+                }`}
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Chế độ lịch
+              </button>
+              <AttendanceUtilityMenu
+                disabled={isLogsLoading}
+                onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
+                onExportHours={() => handleAttendanceExcelExport("hours")}
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {isManager && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Nhân viên</label>
-                <select
-                  value={logFilterEmployee}
-                  onChange={(e) => {
-                    setLogFilterEmployee(e.target.value);
-                    setLogsPage(1);
-                  }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                >
-                  <option value="all">Tất cả nhân sự</option>
-                  {usersList.map((u) => (
-                    <option key={u.uid} value={u.uid}>
-                      {u.displayName}
-                    </option>
-                  ))}
-                </select>
+          {/* Bảng Grid Chấm Công */}
+          <div className="flex-1 overflow-auto visible-scrollbar">
+            {isLogsLoading ? (
+              <div className="flex items-center justify-center h-full text-slate-400 gap-2">
+                <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
               </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái</label>
-              <select
-                value={logFilterStatus}
-                onChange={(e) => {
-                  setLogFilterStatus(e.target.value);
-                  setLogsPage(1);
-                }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="Present">Đúng giờ (Present)</option>
-                <option value="Late">Đi muộn (Late)</option>
-                <option value="Approved-Leave">Nghỉ có phép (Leave)</option>
-                <option value="Approved-WFH">Làm tại nhà (WFH)</option>
-                <option value="Approved-Exception">Ngoại lệ (Exception)</option>
-                <option value="Left-Early">Về sớm (Left-Early)</option>
-                <option value="Half-Day">Làm nửa ngày (Half-Day)</option>
-                <option value="Late-Left-Early">Đi muộn & Về sớm (Late & Left-Early)</option>
-                <option value="Absent">Vắng mặt / Không phép (Absent)</option>
-              </select>
-            </div>
-
-            {attendanceViewMode === "table" ? (
-              <>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Từ ngày</label>
-                  <input
-                    type="date"
-                    value={logStartDate}
-                    onChange={(e) => {
-                      setLogStartDate(e.target.value);
-                      setLogsPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Đến ngày</label>
-                  <input
-                    type="date"
-                    value={logEndDate}
-                    onChange={(e) => {
-                      setLogEndDate(e.target.value);
-                      setLogsPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-                  />
-                </div>
-              </>
             ) : (
-              <div className="space-y-1.5 col-span-1 sm:col-span-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Ngày</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const prev = new Date(currentWeekDate);
-                      prev.setDate(prev.getDate() - 7);
-                      setCurrentWeekDate(prev);
-                    }}
-                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
-                    title="Tuần trước"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <select
-                    value={currentWeekDate.getFullYear()}
-                    onChange={(e) => {
-                      const newYear = Number(e.target.value);
-                      const newDate = new Date(currentWeekDate);
-                      newDate.setFullYear(newYear);
-                      setCurrentWeekDate(newDate);
-                    }}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none shrink-0"
-                  >
-                    {(() => {
-                      const currentYear = new Date().getFullYear();
-                      const years = [];
-                      for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-                        years.push(y);
-                      }
-                      return years.map((y) => (
-                        <option key={y} value={y}>
-                          Năm {y}
-                        </option>
-                      ));
-                    })()}
-                  </select>
-
-                  <select
-                    value={formatLocalDate(getStartAndEndOfWeek(currentWeekDate).monday)}
-                    onChange={(e) => {
-                      const [y, m, d] = e.target.value.split("-").map(Number);
-                      setCurrentWeekDate(new Date(y, m - 1, d));
-                    }}
-                    className="flex-1 text-center py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none"
-                  >
-                    {getWeeksOfYear(currentWeekDate.getFullYear()).map((wk, idx) => {
-                      const val = formatLocalDate(wk.monday);
-                      const label = formatWeekOption(wk.monday, wk.sunday);
+              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
+                {/* === THEAD === */}
+                <thead className="sticky top-0 z-40">
+                  <tr className="bg-slate-100 border-b border-slate-300">
+                    {/* Cột STT */}
+                    <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
+                      #
+                    </th>
+                    {/* Cột Họ và Tên */}
+                    <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
+                      Họ và Tên
+                    </th>
+                    {/* Cột Email */}
+                    <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
+                      Mã đăng nhập
+                    </th>
+                    {/* Cột Số giờ */}
+                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px]">
+                      Số<br/>giờ
+                    </th>
+                    {/* Cột Số công */}
+                    <th className="sticky left-[448px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                      Số<br/>công
+                    </th>
+                    {/* Các cột ngày */}
+                    {dayColumns.map(day => {
+                      const dow = getDayOfWeek(day);
+                      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const holiday = holidayByDate.get(dateStr);
+                      const isWeekend = holiday && holiday.isApplied
+                        ? holiday.dayType !== "working_override"
+                        : !companyWorkingDays.includes(dow);
+                      const isToday = dateStr === todayStr;
                       return (
-                        <option key={idx} value={val}>
-                          {label}
-                        </option>
+                        <th
+                          key={day}
+                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap min-w-[50px] w-[50px] ${
+                            isToday
+                              ? "bg-cyan-600 text-white"
+                              : isWeekend
+                                ? "bg-slate-200 text-slate-500"
+                                : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          <div className="text-[9px] font-bold">{dayLabels[dow]}</div>
+                          <div className={`text-sm font-black leading-tight ${isToday ? "text-white" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
+                            {day}
+                          </div>
+                        </th>
                       );
                     })}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = new Date(currentWeekDate);
-                      next.setDate(next.getDate() + 7);
-                      setCurrentWeekDate(next);
-                    }}
-                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
-                    title="Tuần sau"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentWeekDate(new Date())}
-                    className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-0 rounded-2xl text-xs font-bold transition cursor-pointer shrink-0"
-                  >
-                    Tuần này
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Attendance Content */}
-        {attendanceViewMode === "table" ? (
-          /* Original Table View */
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                  <tr>
-                    <th className="px-6 py-4">Ngày</th>
-                    <th className="px-6 py-4">Nhân sự</th>
-                    <th className="px-6 py-4">Giờ Vào (Check-in)</th>
-                    <th className="px-6 py-4">Giờ Ra (Check-out)</th>
-                    <th className="px-6 py-4">Trạng thái</th>
-                    <th className="px-6 py-4">Ghi chú</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {isLogsLoading ? (
+
+                {/* === TBODY === */}
+                <tbody>
+                  {paginatedGridEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                        <div className="flex justify-center items-center gap-2">
-                          <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                          Đang tải danh sách lịch sử...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                        Không tìm thấy lịch sử chấm công nào trong bộ lọc này.
+                      <td colSpan={5 + daysInMonth} className="px-6 py-16 text-center text-slate-400 font-medium">
+                        Không tìm thấy nhân viên nào.
                       </td>
                     </tr>
                   ) : (
-                    paginatedRows.map((log) => {
-                      const user = getUserDetail(log.uid);
+                    paginatedGridEmployees.map((emp, empIdx) => {
+                      const u = getUserDetail(emp.uid);
+                      const { totalHours, totalCoeff } = calcMonthTotals(emp);
+                      const globalIdx = (logsPage - 1) * gridPageSize + empIdx + 1;
+                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-slate-50";
                       return (
-                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">
-                            {formatDateString(log.date)}
+                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/50 transition-colors ${rowBg}`}>
+                          {/* STT */}
+                          <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
+                            {globalIdx}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              {user.photoURL ? (
-                                <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100" />
+                          {/* Họ và Tên */}
+                          <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
+                            <div className="flex items-center gap-2">
+                              {u.photoURL ? (
+                                <img src={u.photoURL} alt={u.displayName} className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
-                                  {user.displayName.slice(0, 2).toUpperCase()}
+                                <div className="w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[9px] shrink-0">
+                                  {u.displayName.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <div className="text-left">
-                                <p className="font-bold text-slate-800 leading-snug">{user.displayName}</p>
-                                <p className="text-[10px] text-slate-400 font-medium">{user.email}</p>
-                              </div>
+                              <span className="font-bold text-cyan-700 truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {log.checkIn ? (
-                              <div>
-                                <span className="font-bold text-slate-800">{formatLogTime(log.checkIn.time)}</span>
-                                <span className="block text-[10px] text-slate-400 font-medium">
-                                  IP: {log.checkIn.ipAddress || "N/A"} · {Math.round(log.checkIn.distance)}m
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">--:--</span>
-                            )}
+                          {/* Email */}
+                          <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
+                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {log.checkOut ? (
-                              <div>
-                                <span className="font-bold text-slate-800">{formatLogTime(log.checkOut.time)}</span>
-                                <span className="block text-[10px] text-slate-400 font-medium">
-                                  IP: {log.checkOut.ipAddress || "N/A"} · {Math.round(log.checkOut.distance)}m
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">--:--</span>
-                            )}
+                          {/* Tổng giờ */}
+                          <td className="sticky left-[392px] z-30 border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px]">
+                            <span className="text-xs font-black text-emerald-700">{totalHours}h</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getStatusStyle(log.status)}`}>
-                              {log.status === "Present"
-                                ? "Đúng giờ"
-                                : log.status === "Late"
-                                  ? "Đi muộn"
-                                  : log.status === "Approved-Leave"
-                                    ? "Nghỉ có phép"
-                                    : log.status === "Approved-WFH"
-                                      ? "Làm tại nhà"
-                                      : log.status === "Approved-Exception"
-                                        ? "Ngoại lệ"
-                                        : log.status === "Left-Early"
-                                          ? "Về sớm"
-                                          : log.status === "Half-Day"
-                                            ? "Làm nửa ngày"
-                                            : log.status === "Late-Left-Early"
-                                              ? "Đi muộn & Về sớm"
-                                              : "Nghỉ không phép"}
-                            </span>
+                          {/* Tổng công */}
+                          <td className="sticky left-[448px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                            <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
                           </td>
-                          <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={log.note}>
-                            {log.note || <span className="text-slate-350 italic">Không có ghi chú</span>}
-                          </td>
+                          {dayColumns.map(day => {
+                            const cell = getDayCellData(emp, day);
+                            const isWeekend = cell.isWeekend;
+                            const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                            const dbLog = logs.find((log: any) => log.uid === emp.uid && log.date === dateStr);
+                            const isToday = dateStr === todayStr;
+
+                            if (isWeekend) {
+                              return (
+                                <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
+                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
+                                </td>
+                              );
+                            }
+
+                            if (cell.isFuture) {
+                              return (
+                                <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
+                                  <span className="text-slate-200 text-[10px]">·</span>
+                                </td>
+                              );
+                            }
+
+                            const coeff = cell.coeff ?? 0;
+                            const isFullDay = coeff >= 1;
+                            const isAbsent = coeff === 0;
+
+                            return (
+                              <td
+                                key={day}
+                                onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
+                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
+                                title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
+                              >
+                                {isScheduleMode ? (
+                                  cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
+                                    <div className="flex flex-col items-start px-0.5 text-left max-w-full overflow-hidden">
+                                      <div className="flex items-center gap-1 text-[8.5px] font-extrabold leading-none truncate max-w-full text-slate-800">
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                          cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
+                                            ? "bg-emerald-500"
+                                            : cell.status === "Late" || cell.status === "Left-Early"
+                                              ? "bg-amber-500"
+                                              : "bg-rose-500"
+                                        }`} />
+                                        <span className="truncate" title={cell.status}>
+                                          {cell.status === "Incomplete"
+                                            ? "Thiếu chấm công"
+                                            : cell.status === "Partial"
+                                              ? "Thiếu công"
+                                              : cell.status === "Present"
+                                            ? `HCS(${cell.checkIn || "07:30"} - ${cell.checkOut || "17:30"})`
+                                            : cell.status === "Half-Day"
+                                              ? `CBH2(${cell.checkIn || "08:00"} - ${cell.checkOut || "12:00"})`
+                                              : cell.status === "Approved-Leave"
+                                                ? "Nghỉ phép"
+                                                : cell.status === "Approved-WFH"
+                                                  ? "Làm tại nhà"
+                                                  : cell.status === "Late"
+                                                    ? `CS(${cell.checkIn || "08:00"} - ${cell.checkOut || "17:00"})`
+                                                    : getStatusShort(cell.status)}
+                                        </span>
+                                      </div>
+                                      {(cell.checkIn || cell.checkOut) && (
+                                        <div className="text-[8px] font-semibold text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
+                                          {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null
+                                ) : cellDisplayMode === "coeff" ? (
+                                  <>
+                                    {/* Hệ số công */}
+                                    <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
+                                      {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
+                                    </div>
+                                    {/* Nhãn trạng thái */}
+                                    {cell.status && (
+                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
+                                        {getStatusShort(cell.status)}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* Số giờ */}
+                                    <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
+                                      {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
+                                    </div>
+                                    {cell.status && (
+                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : "text-slate-400"}`}>
+                                        {getStatusShort(cell.status)}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })
                   )}
                 </tbody>
               </table>
-            </div>
-
-            {/* Table Pagination */}
-            {!isLogsLoading && filteredRows.length > 0 && (
-              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-                <span className="text-xs text-slate-500">
-                  Hiển thị {paginatedRows.length} / {filteredRows.length} dòng
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={logsPage <= 1}
-                    onClick={() => setLogsPage(logsPage - 1)}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    Trước
-                  </button>
-                  <span className="text-xs font-bold text-slate-850 px-2">
-                    Trang {logsPage} / {totalPagesTable}
-                  </span>
-                  <button
-                    disabled={logsPage >= totalPagesTable}
-                    onClick={() => setLogsPage(logsPage + 1)}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    Sau
-                  </button>
-                </div>
-              </div>
             )}
           </div>
-        ) : (
-          /* Weekly Grid View */
-          <div className="space-y-4">
-            {isLogsLoading ? (
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
-                <div className="flex justify-center items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  Đang tải dữ liệu tuần...
-                </div>
+
+          {/* Footer Pagination */}
+          {!isLogsLoading && sidebarEmployees.length > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
+              <span className="text-xs text-slate-500">
+                Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage(logsPage - 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Trước
+                </button>
+                <span className="text-xs font-bold text-slate-800 px-2">
+                  Trang {logsPage} / {totalGridPages}
+                </span>
+                <button
+                  disabled={logsPage >= totalGridPages}
+                  onClick={() => setLogsPage(logsPage + 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Sau
+                </button>
               </div>
-            ) : targetEmployees.length === 1 ? (
-              /* Single Employee Weekly Card Grid View */
-              (() => {
-                const emp = targetEmployees[0];
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {weekDates.map((date, idx) => {
-                      const dateStr = formatLocalDate(date);
-                      const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-
-                      let displayStatus = "";
-                      let checkInTime = "";
-                      let checkOutTime = "";
-                      let statusStyle = "";
-                      let noteText = "";
-                      let checkInDetails = "";
-                      let checkOutDetails = "";
-
-                      if (dbLog) {
-                        displayStatus = dbLog.status === "Present" ? "Đúng giờ"
-                          : dbLog.status === "Late" ? "Đi muộn"
-                            : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
-                              : dbLog.status === "Approved-WFH" ? "Tại nhà"
-                                : dbLog.status === "Approved-Exception" ? "Ngoại lệ"
-                                  : dbLog.status === "Left-Early" ? "Về sớm"
-                                    : dbLog.status === "Half-Day" ? "Nửa ngày"
-                                      : dbLog.status === "Late-Left-Early" ? "Muộn & Sớm"
-                                        : "Nghỉ KP";
-                        checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
-                        checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
-                        statusStyle = getStatusStyle(dbLog.status);
-                        noteText = dbLog.note || "";
-                        if (dbLog.checkIn) {
-                          checkInDetails = `IP: ${dbLog.checkIn.ipAddress || "N/A"} · ${Math.round(dbLog.checkIn.distance)}m`;
-                        }
-                        if (dbLog.checkOut) {
-                          checkOutDetails = `IP: ${dbLog.checkOut.ipAddress || "N/A"} · ${Math.round(dbLog.checkOut.distance)}m`;
-                        }
-                      } else {
-                        const matchedItem = items.find(item => {
-                          if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-                          const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-                          if (!empMatch) return false;
-                          const sDate = item.startDate.split("T")[0];
-                          const eDate = item.endDate.split("T")[0];
-                          return dateStr >= sDate && dateStr <= eDate;
-                        });
-
-                        const isTodayOrPast = dateStr <= todayStr;
-                        if (isTodayOrPast) {
-                          if (matchedItem) {
-                            if (matchedItem.type === "leave") {
-                              displayStatus = "Nghỉ phép";
-                              statusStyle = getStatusStyle("Approved-Leave");
-                              noteText = "Nghỉ phép có duyệt";
-                            } else if (matchedItem.type === "wfh") {
-                              displayStatus = "Tại nhà";
-                              statusStyle = getStatusStyle("Approved-WFH");
-                              noteText = "Làm tại nhà có duyệt";
-                            } else if (matchedItem.type === "exception") {
-                              displayStatus = "Ngoại lệ";
-                              statusStyle = getStatusStyle("Approved-Exception");
-                              noteText = "Ngoại lệ có duyệt";
-                            }
-                          } else {
-                            displayStatus = "Nghỉ KP";
-                            statusStyle = getStatusStyle("Absent");
-                            noteText = "Nghỉ không phép / Vắng mặt";
-                          }
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        } else {
-                          displayStatus = "";
-                          statusStyle = "";
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        }
-                      }
-
-                      const isTodayDate = dateStr === todayStr;
-
-                      return (
-                        <div
-                          key={dateStr}
-                          className={`border rounded-2xl p-4 flex flex-col justify-between min-h-[170px] transition-all bg-white hover:shadow-md ${isTodayDate ? "ring-2 ring-indigo-500 ring-offset-1 border-indigo-200/50" : "border-slate-100"
-                            }`}
-                        >
-                          <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
-                            <span className="text-xs font-extrabold text-slate-700">{weekDaysFull[idx]}</span>
-                            <span className="text-[10px] font-bold font-mono text-slate-400">{date.getDate()}/{date.getMonth() + 1}</span>
-                          </div>
-
-                          <div className="flex-1 flex flex-col gap-2 justify-center text-left">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-in:</span>
-                                <span className="text-xs font-extrabold text-slate-800">{checkInTime}</span>
-                              </div>
-                              {checkInDetails && (
-                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkInDetails}>
-                                  {checkInDetails}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-out:</span>
-                                <span className="text-xs font-extrabold text-slate-800">{checkOutTime}</span>
-                              </div>
-                              {checkOutDetails && (
-                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkOutDetails}>
-                                  {checkOutDetails}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="mt-2 text-center">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold border ${statusStyle}`}>
-                                {displayStatus}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="border-t border-slate-100 pt-2 mt-2 max-h-[40px] overflow-hidden">
-                            <p className="text-[9px] text-slate-500 italic truncate text-center font-medium" title={noteText}>
-                              {noteText || "Không có ghi chú"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()
-            ) : (
-              /* Multiple Employees Weekly Pivoted Matrix Table View */
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left text-slate-700 table-fixed min-w-[1200px]">
-                    <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                      <tr>
-                        <th className="px-4 py-4 w-48 shrink-0">Nhân sự</th>
-                        {weekDates.map((date, idx) => (
-                          <th key={idx} className="px-3 py-4 text-center">
-                            <div className="font-extrabold text-slate-700">{weekDaysShort[idx]}</div>
-                            <div className="text-[8px] text-slate-400 font-mono mt-0.5">
-                              {date.getDate()}/{date.getMonth() + 1}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                      {paginatedEmployees.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium">
-                            Không tìm thấy nhân sự nào.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedEmployees.map(emp => {
-                          const user = getUserDetail(emp.uid);
-                          return (
-                            <tr key={emp.uid} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap align-middle">
-                                <div className="flex items-center gap-2">
-                                  {user.photoURL ? (
-                                    <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100 shrink-0" />
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs shrink-0">
-                                      {user.displayName.slice(0, 2).toUpperCase()}
-                                    </div>
-                                  )}
-                                  <div className="text-left min-w-0">
-                                    <p className="font-bold text-slate-800 leading-snug truncate text-xs font-black" title={user.displayName}>
-                                      {user.displayName}
-                                    </p>
-                                    <p className="text-[9px] text-slate-400 font-medium truncate" title={user.email}>
-                                      {user.email}
-                                    </p>
-                                  </div>
-                                </div>
-                              </td>
-
-                              {weekDates.map((date, idx) => {
-                                const dateStr = formatLocalDate(date);
-                                const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
-
-                                let displayStatus = "";
-                                let checkInTime = "";
-                                let checkOutTime = "";
-                                let statusStyle = "";
-                                let noteText = "";
-
-                                if (dbLog) {
-                                  displayStatus = dbLog.status === "Present" ? "Đúng giờ"
-                                    : dbLog.status === "Late" ? "Đi muộn"
-                                      : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
-                                        : dbLog.status === "Approved-WFH" ? "Tại nhà"
-                                          : dbLog.status === "Approved-Exception" ? "Ngoại lệ"
-                                            : dbLog.status === "Left-Early" ? "Về sớm"
-                                              : dbLog.status === "Half-Day" ? "Nửa ngày"
-                                                : dbLog.status === "Late-Left-Early" ? "Muộn & Sớm"
-                                                  : "Nghỉ KP";
-                                  checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
-                                  checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
-                                  statusStyle = getStatusStyle(dbLog.status);
-                                  noteText = dbLog.note || "";
-                                } else {
-                                  const matchedItem = items.find(item => {
-                                    if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
-                                    const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-                                    if (!empMatch) return false;
-                                    const sDate = item.startDate.split("T")[0];
-                                    const eDate = item.endDate.split("T")[0];
-                                    return dateStr >= sDate && dateStr <= eDate;
-                                  });
-
-                                  const isTodayOrPast = dateStr <= todayStr;
-                                  if (isTodayOrPast) {
-                                    if (matchedItem) {
-                                      if (matchedItem.type === "leave") {
-                                        displayStatus = "Nghỉ phép";
-                                        statusStyle = getStatusStyle("Approved-Leave");
-                                        noteText = "Nghỉ phép có duyệt";
-                                      } else if (matchedItem.type === "wfh") {
-                                        displayStatus = "Tại nhà";
-                                        statusStyle = getStatusStyle("Approved-WFH");
-                                        noteText = "Làm tại nhà có duyệt";
-                                      } else if (matchedItem.type === "exception") {
-                                        displayStatus = "Ngoại lệ";
-                                        statusStyle = getStatusStyle("Approved-Exception");
-                                        noteText = "Ngoại lệ có duyệt";
-                                      }
-                                    } else {
-                                      displayStatus = "Nghỉ KP";
-                                      statusStyle = getStatusStyle("Absent");
-                                      noteText = "Nghỉ không phép / Vắng mặt";
-                                    }
-                                    checkInTime = "--:--";
-                                    checkOutTime = "--:--";
-                                  } else {
-                                    displayStatus = "";
-                                    statusStyle = "";
-                                    checkInTime = "--:--";
-                                    checkOutTime = "--:--";
-                                  }
-                                }
-
-                                return (
-                                  <td key={idx} className="px-2 py-3 text-center align-middle">
-                                    <div className="flex flex-col items-center gap-1.5 min-h-[75px] justify-center bg-slate-50/20 hover:bg-slate-50/70 border border-slate-100/50 rounded-2xl p-2 transition-all">
-                                      {displayStatus ? (
-                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[8px] font-bold border ${statusStyle} scale-95`}>
-                                          {displayStatus}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-slate-300 font-bold">--:--</span>
-                                      )}
-
-                                      {(checkInTime !== "--:--" || checkOutTime !== "--:--") && (
-                                        <div className="text-[9px] font-bold text-slate-650 leading-none">
-                                          {checkInTime} / {checkOutTime}
-                                        </div>
-                                      )}
-
-                                      {noteText && (
-                                        <div className="text-[8px] text-slate-400 italic max-w-[80px] truncate leading-tight font-medium" title={noteText}>
-                                          {noteText}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Weekly Pivoted Table Pagination */}
-                {targetEmployees.length > 0 && (
-                  <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-                    <span className="text-xs text-slate-500">
-                      Hiển thị {paginatedEmployees.length} / {targetEmployees.length} nhân sự
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled={logsPage <= 1}
-                        onClick={() => setLogsPage(logsPage - 1)}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-xs font-bold text-slate-850 px-2">
-                        Trang {logsPage} / {totalPagesWeek}
-                      </span>
-                      <button
-                        disabled={logsPage >= totalPagesWeek}
-                        onClick={() => setLogsPage(logsPage + 1)}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        Sau
-                      </button>
-                    </div>
-                  </div>
-                )}
+            </div>
+          )}
+        </div>
+        {editingAttendance && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="mb-4 flex items-center justify-between">
+                <div><h3 className="font-bold text-slate-800">Sửa lịch sử chấm công</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} · {editingAttendance.date}</p></div>
+                <button onClick={() => setEditingAttendance(null)} className="rounded-lg p-1.5 hover:bg-slate-100 cursor-pointer"><X className="h-4 w-4" /></button>
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-semibold text-slate-600">Check-in<input type="time" value={editCheckIn} onChange={(e) => setEditCheckIn(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+                <label className="text-xs font-semibold text-slate-600">Check-out<input type="time" value={editCheckOut} onChange={(e) => setEditCheckOut(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+              </div>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Trạng thái<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">Đúng giờ</option><option value="Late">Muộn</option><option value="Left-Early">Về sớm</option><option value="Late-Left-Early">Muộn + về sớm</option><option value="Half-Day">Nửa ngày</option><option value="Absent">Vắng</option></select></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi chú<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
+            </div>
           </div>
         )}
       </div>
     );
   };
-
   // Navigate Months
   const handlePrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -1393,7 +1956,7 @@ export default function CalendarTab({
       return;
     }
 
-    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !canManageAttendance) {
       toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
       return;
     }
@@ -1483,11 +2046,22 @@ export default function CalendarTab({
           >
             Lịch sử chấm công
           </button>
+          <button
+            onClick={() => setCurrentSubTab("leave-requests")}
+            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "leave-requests"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
+                : "text-gray-500 hover:text-gray-800"
+              }`}
+          >
+            Quản lý Đơn từ
+          </button>
         </div>
       </div>
 
       {currentSubTab === "attendance" ? (
         renderAttendanceTab()
+      ) : currentSubTab === "leave-requests" ? (
+        renderLeaveRequestsTab()
       ) : (
         <>
           {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
@@ -1564,7 +2138,7 @@ export default function CalendarTab({
                       <CalendarCheck className="h-4 w-4 text-blue-500" />
                       Tạo sự kiện
                     </button>
-                    {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                    {isLeaveAdmin && (
                       <>
                         <button
                           onClick={() => openCreateModal(new Date(), "leave")}
@@ -1864,7 +2438,7 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
                             <button
                               onClick={() => openEditModal(item)}
                               className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -1873,7 +2447,7 @@ export default function CalendarTab({
                               <Edit className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
                             <button
                               onClick={() => handleDeleteItem((item._id || item.id)!)}
                               className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -1927,7 +2501,7 @@ export default function CalendarTab({
                 >
                   Sự kiện
                 </button>
-                {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                {canManageAttendance && (
                   <>
                     <button
                       onClick={() => openCreateModal(selectedDayDate, "leave")}
@@ -1993,7 +2567,7 @@ export default function CalendarTab({
                       { key: "wfh", label: "🏠 Tại nhà", color: "border-teal-500 text-teal-600", roleRestricted: true },
                       { key: "exception", label: "⚡ Ngoại lệ", color: "border-violet-500 text-violet-600", roleRestricted: true },
                       { key: "reminder", label: "🔔 Nhắc hẹn", color: "border-amber-500 text-amber-600" }
-                    ].filter(t => !t.roleRestricted || (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")).map((t) => (
+                    ].filter(t => !t.roleRestricted || isLeaveAdmin).map((t) => (
                       <button
                         key={t.key}
                         type="button"
@@ -2204,6 +2778,458 @@ export default function CalendarTab({
                     {formMode === "create" ? "Tạo lịch" : "Cập nhật"}
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Viết Đơn Mới */}
+      {isAppFormOpen && (() => {
+        const matchedTemplate = templates.find((t) => t.name === appType);
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+                <h3 className="font-extrabold text-slate-800 text-sm">Viết đơn xin nghỉ / đi trễ</h3>
+                <button
+                  onClick={() => setIsAppFormOpen(false)}
+                  className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateApplicationSubmit}>
+                <div className="p-6 flex flex-col gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Loại đơn
+                    </label>
+                    <select
+                      value={appType}
+                      onChange={(e) => setAppType(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-2xl text-xs font-semibold cursor-pointer outline-none focus:border-indigo-500"
+                    >
+                      {templates.map((t) => (
+                        <option key={t._id || t.id} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                      <option value="other">Đơn khác</option>
+                    </select>
+                  </div>
+
+                  {matchedTemplate && (
+                    <div className="bg-indigo-50/85 border border-indigo-150 p-3.5 rounded-2xl flex items-center justify-between text-xs text-indigo-750 font-bold transition-all animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4.5 w-4.5 text-indigo-650 shrink-0 animate-pulse" />
+                        <span className="truncate">Tải biểu mẫu mẫu: {matchedTemplate.name}</span>
+                      </div>
+                      <a
+                        href={matchedTemplate.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-1 shrink-0 transition-colors shadow-2xs border-0"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Tải mẫu
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                        Từ ngày
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={appStartDate}
+                        onChange={(e) => setAppStartDate(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                        Giờ bắt đầu
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={appStartTime}
+                        onChange={(e) => setAppStartTime(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                        Đến ngày
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={appEndDate}
+                        onChange={(e) => setAppEndDate(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                        Giờ kết thúc
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={appEndTime}
+                        onChange={(e) => setAppEndTime(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Lý do xin phép
+                    </label>
+                    <textarea
+                      required
+                      placeholder="Nhập lý do cụ thể..."
+                      value={appReason}
+                      onChange={(e) => setAppReason(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Đính kèm đơn (Đã điền thông tin - Không bắt buộc)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx"
+                      onChange={(e) => setAppFile(e.target.files?.[0] || null)}
+                      className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAppFormOpen(false)}
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isFileUploading}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isFileUploading ? "Đang nộp đơn..." : "Nộp đơn"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal Danh sách Biểu mẫu mẫu */}
+      {isTemplateListModalOpen && (() => {
+        const tplPageSize = 5;
+        const totalTplPages = Math.ceil(templates.length / tplPageSize) || 1;
+        const activePage = Math.min(tplCurrentPage, totalTplPages);
+        const indexOfLastTpl = activePage * tplPageSize;
+        const indexOfFirstTpl = indexOfLastTpl - tplPageSize;
+        const currentTemplates = templates.slice(indexOfFirstTpl, indexOfLastTpl);
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200 text-left">
+              <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+                <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                  <FileText className="h-4.5 w-4.5 text-indigo-600 animate-pulse" />
+                  Danh sách Biểu mẫu mẫu
+                </h3>
+                <button
+                  onClick={() => setIsTemplateListModalOpen(false)}
+                  className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                {isTemplateLoading && (
+                  <div className="flex justify-center py-4">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {!isTemplateLoading && templates.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic text-center py-6">
+                    Chưa có biểu mẫu mẫu nào được đăng ký.
+                  </p>
+                ) : (
+                  <>
+                    <div className="divide-y divide-slate-100 border border-slate-150 rounded-2xl overflow-hidden bg-slate-50/30">
+                      {currentTemplates.map((tpl) => (
+                        <div
+                          key={tpl._id || tpl.id}
+                          className="flex items-center justify-between p-3.5 hover:bg-slate-100/50 transition-colors gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-800 text-xs truncate" title={tpl.name}>
+                                {tpl.name}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-medium truncate" title={tpl.fileName}>
+                                {tpl.fileName}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <a
+                              href={tpl.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={tpl.fileName}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 cursor-pointer shadow-3xs text-decoration-none"
+                              title="Tải biểu mẫu"
+                            >
+                              <Download className="h-3 w-3" />
+                              Tải mẫu
+                            </a>
+                            {isLeaveAdmin && (
+                              <button
+                                onClick={() => handleDeleteTpl(tpl._id || tpl.id)}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold transition-all border border-rose-200 cursor-pointer shadow-3xs"
+                                title="Xóa biểu mẫu"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {totalTplPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                        <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">
+                          Trang {activePage} / {totalTplPages}
+                        </span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setTplCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={activePage === 1}
+                            className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-slate-650 flex items-center justify-center bg-white"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTplCurrentPage(prev => Math.min(prev + 1, totalTplPages))}
+                            disabled={activePage === totalTplPages}
+                            className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-slate-650 flex items-center justify-center bg-white"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateListModalOpen(false)}
+                  className="px-4.5 py-2 bg-slate-200 hover:bg-slate-300 hover:shadow-sm text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal Tải Biểu Mẫu Mẫu (Admin/Manager) */}
+      {isTemplateFormOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+              <h3 className="font-extrabold text-slate-800 text-sm">Đăng tải biểu mẫu mẫu mới</h3>
+              <button
+                onClick={() => setIsTemplateFormOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadTemplateSubmit}>
+              <div className="p-6 flex flex-col gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Tên biểu mẫu
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Đơn xin nghỉ phép năm, Đơn xin đi trễ..."
+                    value={tplName}
+                    onChange={(e) => setTplName(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Tệp tài liệu mẫu (Word/Excel/PDF...)
+                  </label>
+                  <input
+                    type="file"
+                    required
+                    accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx"
+                    onChange={(e) => setTplFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateFormOpen(false)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isFileUploading}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                >
+                  {isFileUploading ? "Đang tải lên..." : "Tải lên"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Lý do Từ chối đơn */}
+      {appRejectModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+              <h3 className="font-extrabold text-slate-800 text-sm">Từ chối duyệt đơn</h3>
+              <button
+                onClick={() => setAppRejectModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRejectAppSubmit}>
+              <div className="p-6 flex flex-col gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Lý do từ chối đơn
+                  </label>
+                  <textarea
+                    required
+                    placeholder="Nhập lý do chi tiết để phản hồi nhân viên..."
+                    value={rejectReasonText}
+                    onChange={(e) => setRejectReasonText(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAppRejectModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
+                >
+                  Từ chối đơn
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Duyệt đơn & Phản hồi (Admin/Manager) */}
+      {appApproveModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+              <h3 className="font-extrabold text-slate-800 text-sm">Phê duyệt đơn xin nghỉ</h3>
+              <button
+                onClick={() => setAppApproveModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleApproveAppSubmit}>
+              <div className="p-6 flex flex-col gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Ghi chú / Phản hồi cho nhân viên (Tùy chọn)
+                  </label>
+                  <textarea
+                    placeholder="Nhập ghi chú phản hồi cho nhân viên nếu cần..."
+                    value={approveNoteText}
+                    onChange={(e) => setApproveNoteText(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAppApproveModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
+                >
+                  Duyệt đơn
+                </button>
               </div>
             </form>
           </div>

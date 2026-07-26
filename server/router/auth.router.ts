@@ -38,6 +38,7 @@ const registerSchema = {
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -210,6 +211,7 @@ const registerUserSchema = {
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -229,7 +231,9 @@ const getUsersSchema = {
 authRouter.get("/users/colleagues", requireAuth as any, authController.getColleagues as any);
 
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
-authRouter.get("/users", requireAuth as any, requirePermission("user:read") as any, validateRequest(getUsersSchema), authController.getUsers as any);
+// hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
+// (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
+authRouter.get("/users", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
@@ -301,6 +305,7 @@ authRouter.get(
 authRouter.get(
   "/companies/:code/drive/oauth-url",
   requireAuth as any,
+  requirePermission("resource:manage") as any,
   validateRequest(companyCodeParamSchema),
   authController.getDriveOAuthUrl as any
 );
@@ -308,6 +313,7 @@ authRouter.get(
 authRouter.post(
   "/companies/:code/drive/disconnect",
   requireAuth as any,
+  requirePermission("resource:manage") as any,
   validateRequest(companyCodeParamSchema),
   authController.disconnectDrive as any
 );
@@ -357,6 +363,7 @@ const updateUserSchema = {
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
+    monthlySalary: Joi.number().min(0).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),

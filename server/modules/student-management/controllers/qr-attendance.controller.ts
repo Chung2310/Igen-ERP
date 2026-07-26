@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { QRAttendanceService } from "../services/qr-attendance.service";
+import { QRAttendanceService, QrCheckinError } from "../services/qr-attendance.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
+
+type UploadRequest = Request & { file?: Express.Multer.File };
 
 export class QRAttendanceController {
   // 1. Tạo phiên điểm danh mới (GV/Admin)
@@ -98,17 +100,28 @@ export class QRAttendanceController {
     }
   }
 
-  // 5. Học viên checkin (PUBLIC - Rate-limited)
-  static async checkin(req: Request, res: Response) {
+  // 5. Học viên checkin (PUBLIC - Rate-limited) — multipart: ảnh khuôn mặt + GPS
+  static async checkin(req: UploadRequest, res: Response) {
     try {
-      const { token, phone, fingerprint } = req.body;
+      const { token, phone, fingerprint, latitude, longitude } = req.body;
       if (!token || !phone) {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR và số điện thoại." });
       }
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: "Vui lòng chụp ảnh khuôn mặt để điểm danh.", reasonCode: "missing_image" });
+      }
 
-      const result = await QRAttendanceService.checkin(token, phone, fingerprint || "");
+      const lat = latitude !== undefined && latitude !== "" ? Number(latitude) : undefined;
+      const lng = longitude !== undefined && longitude !== "" ? Number(longitude) : undefined;
+
+      const result = await QRAttendanceService.checkin(
+        token, phone, fingerprint || "", req.file.buffer, req.file.mimetype, lat, lng
+      );
       res.json(result);
     } catch (error: any) {
+      if (error instanceof QrCheckinError) {
+        return res.status(400).json({ success: false, error: error.message, reasonCode: error.reasonCode });
+      }
       res.status(400).json({ success: false, error: error.message || "Điểm danh không thành công." });
     }
   }

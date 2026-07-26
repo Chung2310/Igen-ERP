@@ -29,6 +29,19 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 };
 
 /**
+ * Mã quyền tối thiểu (OR — có 1 trong danh sách là đủ) để user được coi là có quyền
+ * truy cập tab, dùng để hiển thị khóa (Lock icon) trên sidebar khi module đã bật cho
+ * công ty nhưng user cá nhân không được cấp quyền nào liên quan.
+ */
+export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
+  "NHÂN SỰ": ["hr:read", "user:read", "kanban:read", "project:read", "timekeeping:read"],
+  "KHO & SẢN PHẨM": ["stock:read"],
+  "QUẢN LÝ HỌC VIÊN": ["student:read"],
+  "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
+  "TRÒ CHUYỆN": ["chat:read"],
+};
+
+/**
  * Cấu hình ẩn tạm các module ở tầng UI (global — áp dụng cho mọi người dùng).
  * Đây là nguồn sự thật duy nhất: sidebar, router, cài đặt, header, dashboard đều
  * đọc từ đây. Muốn hiện lại module chỉ cần bỏ khỏi các tập hợp bên dưới.

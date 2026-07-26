@@ -1,3 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -19,7 +23,7 @@ import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { MODULE_KEYS } from "../config/modules";
-import { getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
+import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -88,6 +92,7 @@ export default function UserAdminTab() {
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
+  const [userMonthlySalary, setUserMonthlySalary] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   const resetUserForm = () => {
@@ -99,6 +104,7 @@ export default function UserAdminTab() {
     setUserParentId("");
     setUserDepartment("");
     setUserJobDescriptionLink("");
+    setUserMonthlySalary("");
   };
   const companyFormState: CompanyFormState = {
     companyName,
@@ -186,6 +192,7 @@ export default function UserAdminTab() {
     if (!isUserModalOpen) {
       setUserDepartment("");
       setUserJobDescriptionLink("");
+    setUserMonthlySalary("");
       setEditingUser(null);
     }
   }, [isUserModalOpen]);
@@ -241,9 +248,14 @@ export default function UserAdminTab() {
   const fetchSystemPermissions = async () => {
     try {
       const data = await rolePermissionService.getPermissions();
-      setSystemPermissions(data);
+      if (data && data.length > 0) {
+        setSystemPermissions(data);
+      } else {
+        setSystemPermissions(DEFAULT_SYSTEM_PERMISSIONS as any);
+      }
     } catch (error) {
       console.error("Lấy mã quyền hệ thống thất bại:", error);
+      setSystemPermissions(DEFAULT_SYSTEM_PERMISSIONS as any);
     }
   };
 
@@ -592,6 +604,7 @@ export default function UserAdminTab() {
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
+          monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -646,6 +659,7 @@ export default function UserAdminTab() {
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
+    setUserMonthlySalary(user.monthlySalary == null ? "" : String(user.monthlySalary));
     setIsUserModalOpen(true);
   };
 
@@ -1090,19 +1104,28 @@ export default function UserAdminTab() {
                   admin: ["*"],
                   manager: [
                     "user:read", "user:manage",
-                    "crm:read", "crm:manage",
+                    "timekeeping:read", "timekeeping:manage",
+                    "payroll:read",
                     "kanban:read", "kanban:manage",
                     "project:read", "project:manage",
-                    "stock:read",
-                    "marketing:post"
+                    "stock:read", "stock:manage",
+                    "student:read", "student:manage",
+                    "course:read",
+                    "resource:read", "resource:manage",
+                    "chat:read", "chat:manage",
+                    "wallet:read"
                   ],
                   user: [
                     "user:read",
-                    "crm:read",
+                    "timekeeping:read",
                     "kanban:read", "kanban:manage",
                     "project:read",
                     "stock:read",
-                    "marketing:post"
+                    "student:read",
+                    "course:read",
+                    "resource:read",
+                    "chat:read",
+                    "wallet:read"
                   ]
                 };
 
@@ -1259,6 +1282,8 @@ export default function UserAdminTab() {
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
         userJobDescriptionLink={userJobDescriptionLink}
+        userMonthlySalary={userMonthlySalary}
+        setUserMonthlySalary={setUserMonthlySalary}
         setUserJobDescriptionLink={setUserJobDescriptionLink}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}

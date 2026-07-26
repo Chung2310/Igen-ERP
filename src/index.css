@@ -358,6 +358,34 @@ code, kbd, samp, pre {
   background: transparent;
 }
 
+/* Explicitly Visible Scrollbar Utility */
+.visible-scrollbar {
+  -ms-overflow-style: auto !important;
+  scrollbar-width: auto !important;
+}
+
+.visible-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 10px !important;
+  height: 12px !important;
+  background: #f1f5f9 !important;
+}
+
+.visible-scrollbar::-webkit-scrollbar-track {
+  background: #e2e8f0 !important;
+  border-radius: 6px !important;
+}
+
+.visible-scrollbar::-webkit-scrollbar-thumb {
+  background: #008bad !important;
+  border-radius: 6px !important;
+  border: 2px solid #e2e8f0 !important;
+}
+
+.visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #006f8d !important;
+}
+
 /* Toast Animations */
 @keyframes slide-in {
   from {

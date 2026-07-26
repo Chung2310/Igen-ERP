@@ -8,10 +8,12 @@ import { cn, toInputDate, toDisplayDate } from '../../lib/utils';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { useAuth } from '../../../../context/AuthContext';
 import { FormInput } from './components/StudentFormFields';
+import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getOperationalStatusLabel } from '../../config/workerRecruitmentCopy';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
@@ -29,7 +31,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,
@@ -92,10 +93,12 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultLabel;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.label : defaultLabel;
   };
   const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultPlaceholder;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
@@ -293,7 +296,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('email')}
                     <FormInput
-                      label={getFieldLabel('email', 'Email học viên')}
+                      label={getFieldLabel('email', `Email ${entityLabel.singular}`)}
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
@@ -401,7 +404,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('registrationDate')}
                     <FormInput
-                      label={getFieldLabel('registrationDate', 'Ngày đăng ký')}
+                      label={getFieldLabel('registrationDate', entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? 'Ngày tạo hồ sơ' : 'Ngày đăng ký')}
                       name="registrationDate"
                       value={formData.registrationDate}
                       onChange={handleInputChange}
@@ -415,7 +418,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('enrollmentDate')}
                     <FormInput
-                      label={getFieldLabel('enrollmentDate', 'Ngày nhập học')}
+                      label={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
                       name="enrollmentDate"
                       type="date"
                       value={toInputDate(formData.enrollmentDate)}
@@ -424,7 +427,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     />
                   </div>
                 )}
-                {isFieldVisible('fee') && (
+                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('fee') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('fee')}
                     <FormInput
@@ -456,7 +459,9 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     Trạng thái (Chọn nhiều)
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    {['Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học', 'Nợ học phí'].map((st) => {
+                    {(entityLabel.preset === 'worker' || entityLabel.preset === 'customer'
+                      ? ['Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học']
+                      : ['Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học', 'Nợ học phí']).map((st) => {
                       const isChecked = formData.status.includes(st);
                       return (
                         <label
@@ -482,13 +487,19 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                             }}
                             className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-3.5 h-3.5"
                           />
-                          {st}
+                          {getOperationalStatusLabel(entityLabel.preset, st)}
                         </label>
                       );
                     })}
                   </div>
                 </div>
               </div>
+
+              {student && (
+                <div className="pt-2">
+                  <FaceEnrollmentTab student={student} />
+                </div>
+              )}
 
               <CustomFieldsSection
                 moduleKey="students"

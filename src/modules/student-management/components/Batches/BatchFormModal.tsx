@@ -29,6 +29,9 @@ export interface BatchForm {
   startTime: string;
   endTime: string;
   location: string;
+  latitude: string;
+  longitude: string;
+  radiusMeters: string;
   startDate: string;
   endDate: string;
   status: BatchStatus;
@@ -42,6 +45,9 @@ const EMPTY_FORM: BatchForm = {
   startTime: '18:00',
   endTime: '20:00',
   location: '',
+  latitude: '',
+  longitude: '',
+  radiusMeters: '150',
   startDate: '',
   endDate: '',
   status: 'Sắp khai giảng',
@@ -75,6 +81,9 @@ export function BatchFormModal({
       startTime: batchToEdit.startTime,
       endTime: batchToEdit.endTime,
       location: batchToEdit.location || '',
+      latitude: batchToEdit.geoLocation?.latitude != null ? String(batchToEdit.geoLocation.latitude) : '',
+      longitude: batchToEdit.geoLocation?.longitude != null ? String(batchToEdit.geoLocation.longitude) : '',
+      radiusMeters: batchToEdit.geoLocation?.radiusMeters != null ? String(batchToEdit.geoLocation.radiusMeters) : '150',
       startDate: batchToEdit.startDate,
       endDate: batchToEdit.endDate,
       status: batchToEdit.status,
@@ -102,9 +111,23 @@ export function BatchFormModal({
       return;
     }
 
+    const lat = form.latitude.trim() ? Number(form.latitude) : undefined;
+    const lng = form.longitude.trim() ? Number(form.longitude) : undefined;
+    if ((lat !== undefined) !== (lng !== undefined)) {
+      toast.error('Vui lòng nhập đầy đủ cả vĩ độ và kinh độ, hoặc để trống cả hai.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const payload = { ...form, code: form.code.toUpperCase() };
+      const { latitude: _latitude, longitude: _longitude, radiusMeters, ...rest } = form;
+      const payload = {
+        ...rest,
+        code: form.code.toUpperCase(),
+        geoLocation: lat !== undefined && lng !== undefined
+          ? { latitude: lat, longitude: lng, radiusMeters: radiusMeters.trim() ? Number(radiusMeters) : 150 }
+          : undefined,
+      };
       if (editingId) {
         await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
         if (payload.instructorId && payload.instructorId !== batchToEdit?.instructorId) {
@@ -314,6 +337,32 @@ export function BatchFormModal({
               <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                 <MapPin className="w-4 h-4" />
               </div>
+            </div>
+          </ErpField>
+
+          <ErpField label="Toạ độ điểm danh QR (tùy chọn — giới hạn học viên điểm danh trong bán kính)">
+            <div className="grid grid-cols-3 gap-3">
+              <ErpInput
+                type="number"
+                step="any"
+                placeholder="Vĩ độ"
+                value={form.latitude}
+                onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+              />
+              <ErpInput
+                type="number"
+                step="any"
+                placeholder="Kinh độ"
+                value={form.longitude}
+                onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+              />
+              <ErpInput
+                type="number"
+                min={0}
+                placeholder="Bán kính (m)"
+                value={form.radiusMeters}
+                onChange={(e) => setForm({ ...form, radiusMeters: e.target.value })}
+              />
             </div>
           </ErpField>
         </div>

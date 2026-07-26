@@ -2,7 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import multer from "multer";
 import { timekeepingController } from "../controller/timekeeping.controller";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { attendanceFaceGate } from "../middleware/attendance-face-gate";
 import { companyWorkCalendarController } from "../controller/company-work-calendar.controller";
@@ -123,25 +123,28 @@ timekeepingRouter.get(
   timekeepingController.getCompanyLocation as any
 );
 
-// Update company location config (restricted to superadmin, admin inside controller)
+// Update company location config (requires timekeeping:manage permission)
 timekeepingRouter.patch(
   "/company-location",
   requireAuth as any,
+  requirePermission("timekeeping:manage") as any,
   validateRequest(updateLocationSchema),
   timekeepingController.updateCompanyLocation as any
 );
 
-// List per-employee work-hours config (admin/superadmin, checked in controller)
+// List per-employee work-hours config (requires timekeeping:manage permission)
 timekeepingRouter.get(
   "/work-hours",
   requireAuth as any,
+  requirePermission("timekeeping:manage") as any,
   timekeepingController.listEmployeeWorkHours as any
 );
 
-// Update one employee's work-hours config (admin/superadmin, checked in controller)
+// Update one employee's work-hours config (requires timekeeping:manage permission)
 timekeepingRouter.patch(
   "/work-hours/:uid",
   requireAuth as any,
+  requirePermission("timekeeping:manage") as any,
   validateRequest(updateWorkHoursSchema),
   timekeepingController.updateEmployeeWorkHours as any
 );
@@ -164,7 +167,7 @@ const updateCalendarDaySchema = {
 };
 
 timekeepingRouter.get("/work-calendar", requireAuth as any, companyWorkCalendarController.list as any);
-timekeepingRouter.post("/work-calendar/sync", requireAuth as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
-timekeepingRouter.post("/work-calendar", requireAuth as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
-timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
+timekeepingRouter.post("/work-calendar/sync", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
+timekeepingRouter.post("/work-calendar", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
+timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
 timekeepingRouter.get("/work-calendar/:id/audit", requireAuth as any, companyWorkCalendarController.audit as any);
