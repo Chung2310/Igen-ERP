@@ -59,7 +59,10 @@ const crudReadPermissionGuard = (req: any, res: any, next: any) => {
 };
 
 const crudManagePermissionGuard = (req: any, res: any, next: any) => {
-  const code = CRUD_MODEL_MANAGE_PERMISSION[String(req.params.modelName || "").toLowerCase()];
+  const modelName = String(req.params.modelName || "").toLowerCase();
+  const code = modelName === "timekeeping-logs" && req.method !== "PATCH"
+    ? "timekeeping:manage"
+    : CRUD_MODEL_MANAGE_PERMISSION[modelName];
   return code ? requirePermission(code)(req, res, next) : next();
 };
 

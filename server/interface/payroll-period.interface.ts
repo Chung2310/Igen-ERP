@@ -19,6 +19,7 @@ export interface IAttendancePeriodResult extends Document {
   status: "draft" | "locked";
   lockedAt?: Date;
   lockedBy?: string;
+  needsRecalculation?: boolean;
 }
 
 export interface IPayrollRun extends Document {
