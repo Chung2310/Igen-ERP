@@ -41,13 +41,13 @@ export function calculatePayroll(input: PayrollCalculationInput): PayrollCalcula
     0,
   );
 
-  const adjustedBase = money(input.monthlySalary - shortageValue - paidLeaveDeduction);
+  const adjustedBase = Math.max(0, money(input.monthlySalary - shortageValue - paidLeaveDeduction));
   const overtime = input.overtime.reduce(
     (total, item) => total + money((item.minutes / 60) * hourlyRate * OVERTIME_MULTIPLIERS[item.category]),
     0,
   );
-  const gross = money(adjustedBase + overtime + input.allowances + input.bonuses + Math.max(input.adjustments, 0));
-  const net = money(gross - input.deductions - Math.max(-input.adjustments, 0));
+  const gross = Math.max(0, money(adjustedBase + overtime + input.allowances + input.bonuses + Math.max(input.adjustments, 0)));
+  const net = Math.max(0, money(gross - input.deductions - Math.max(-input.adjustments, 0)));
 
   return { hourlyRate, shortageValue, paidLeaveValue, adjustedBase, overtime, gross, net };
 }
