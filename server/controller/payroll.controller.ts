@@ -31,7 +31,7 @@ const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metada
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number; standardHours?: number }[] | undefined;
-    const company = await CompanyModel.findOne({ companyCode: tenant(req) }).select("locationConfig").lean();
+    const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();
     const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
     const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
     const employees = requestedEmployees?.length
