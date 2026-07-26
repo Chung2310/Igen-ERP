@@ -274,7 +274,7 @@ export class AuthController {
   static async updateSmsSettings(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, error: "ChÆ°a xÃ¡c thá»±c." });
+        return res.status(401).json({ success: false, error: "Chưa xác thực." });
       }
       const settings = await AuthService.updateSmsSettings(req.user.uid, req.body);
       res.json({

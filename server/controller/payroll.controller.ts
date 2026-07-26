@@ -73,7 +73,7 @@ export const payrollController = {
             lunchBreakEnd: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakEnd : company?.locationConfig?.lunchBreakEnd,
           };
         });
-    if (!employees.length) return res.status(400).json({ status: "error", message: "Chua c� nh�n vi�n du?c c?u h�nh luong." });
+    if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
