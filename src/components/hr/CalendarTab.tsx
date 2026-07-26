@@ -35,6 +35,10 @@ import {
   exportAttendanceExcel,
   type AttendanceExportKind,
 } from "../../utils/attendanceExcel";
+import {
+  attendanceTotalsFromMinutes,
+  calculateAttendanceWorkedMinutes,
+} from "../../utils/attendancePayroll";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -1119,39 +1123,8 @@ export default function CalendarTab({
       const schedule = effectiveHours(uid);
       return Math.max(1, clockDuration(schedule.checkInLimit, schedule.checkOutLimit) - clockDuration(schedule.lunchBreakStart, schedule.lunchBreakEnd));
     };
-    const localClock = (value: string | Date) => new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-    }).format(new Date(value));
-    const calculateWorkedMinutes = (uid: string, checkIn: string | Date, checkOut: string | Date) => {
-      const startDate = new Date(checkIn);
-      const endDate = new Date(checkOut);
-      const rawMinutes = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
-      const schedule = effectiveHours(uid);
-      if (!schedule.lunchBreakStart || !schedule.lunchBreakEnd) return rawMinutes;
-      const start = clockMinutes(localClock(startDate));
-      let end = clockMinutes(localClock(endDate));
-      if (end < start) end += 24 * 60;
-      const lunchStart = clockMinutes(schedule.lunchBreakStart);
-      let lunchEnd = clockMinutes(schedule.lunchBreakEnd);
-      if (lunchEnd < lunchStart) lunchEnd += 24 * 60;
-      const breakMinutes = Math.max(0, Math.min(end, lunchEnd) - Math.max(start, lunchStart));
-      return Math.max(0, rawMinutes - breakMinutes);
-    };
-
-    const getCoefficient = (status: string): number => {
-      switch (status) {
-        case "Present": return 1;
-        case "Approved-Leave": return 1;
-        case "Approved-WFH": return 1;
-        case "Approved-Exception": return 1;
-        case "Late": return 0.9;
-        case "Left-Early": return 0.9;
-        case "Late-Left-Early": return 0.8;
-        case "Half-Day": return 0.5;
-        case "Absent": return 0;
-        default: return 0;
-      }
-    };
+    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date) =>
+      calculateAttendanceWorkedMinutes(checkIn, checkOut, effectiveHours(uid));
 
     // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
     const getStatusShort = (status: string): string => {
@@ -1191,17 +1164,14 @@ export default function CalendarTab({
       }
 
       if (dbLog) {
-        let coeff = getCoefficient(dbLog.status);
-        let hours = 0;
-        if (dbLog.checkIn?.time && dbLog.checkOut?.time) {
-          const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn.time, dbLog.checkOut.time);
-          hours = Math.round((workedMinutes / 60) * 10) / 10;
-          coeff = Math.round((workedMinutes / standardDailyMinutes(emp.uid)) * 100) / 100;
-        }
+        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time);
+        const hours = Math.round((workedMinutes / 60) * 10) / 10;
+        const coeff = workedMinutes / standardDailyMinutes(emp.uid);
         return {
           status: dbLog.status,
           coeff,
           hours,
+          workedMinutes,
           checkIn: dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "",
           checkOut: dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "",
           dateStr,
@@ -1228,6 +1198,7 @@ export default function CalendarTab({
         return {
           status: mappedStatus,
           coeff: 1,
+          workedMinutes: standardDailyMinutes(emp.uid),
           checkIn: "",
           checkOut: "",
           dateStr,
@@ -1239,6 +1210,7 @@ export default function CalendarTab({
       return {
         status: "Absent",
         coeff: 0,
+        workedMinutes: 0,
         checkIn: "",
         checkOut: "",
         dateStr,
@@ -1249,20 +1221,15 @@ export default function CalendarTab({
 
     // Tính tổng giờ và tổng công của một nhân viên trong tháng
     const calcMonthTotals = (emp: any) => {
-      let totalHours = 0;
-      let totalCoeff = 0;
+      let totalWorkedMinutes = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const cell = getDayCellData(emp, day);
         if (!cell.isWeekend && !cell.isFuture && cell.coeff !== null) {
-          totalCoeff += cell.coeff;
-          if (cell.hours && cell.hours > 0) {
-            totalHours += cell.hours;
-          } else if (cell.coeff > 0) {
-            totalHours += cell.coeff * (standardDailyMinutes(emp.uid) / 60);
-          }
+          totalWorkedMinutes += cell.workedMinutes || 0;
         }
       }
-      return { totalHours: Math.round(totalHours * 10) / 10, totalCoeff: Math.round(totalCoeff * 10) / 10 };
+      const totals = attendanceTotalsFromMinutes(totalWorkedMinutes, standardDailyMinutes(emp.uid));
+      return { totalHours: totals.totalHours, totalCoeff: totals.totalDays };
     };
 
     const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
