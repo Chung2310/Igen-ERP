@@ -14,6 +14,7 @@ export interface PayrollCalculationInput {
   monthlySalary: number;
   standardDays: number;
   standardHours: number;
+  workedMinutes: number;
   shortageMinutes: number;
   paidLeaveMinutesByRate: PaidLeaveMinutes[];
   overtime: OvertimeMinutes[];

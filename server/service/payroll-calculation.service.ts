@@ -27,6 +27,7 @@ function assertRate(name: string, value: number): void {
 export function calculatePayroll(input: PayrollCalculationInput): PayrollCalculationResult {
   assertNonNegative("monthlySalary", input.monthlySalary);
   assertNonNegative("standardHours", input.standardHours);
+  assertNonNegative("workedMinutes", input.workedMinutes);
   assertNonNegative("shortageMinutes", input.shortageMinutes);
   assertNonNegative("standardDays", input.standardDays);
   assertNonNegative("allowances", input.allowances);
@@ -44,7 +45,6 @@ export function calculatePayroll(input: PayrollCalculationInput): PayrollCalcula
   if (input.standardHours === 0) throw new Error("standardHours must be greater than zero");
 
   const hourlyRate = input.monthlySalary / input.standardHours;
-  const shortageValue = money((input.shortageMinutes / 60) * hourlyRate);
   
   // Số tiền nghỉ phép được hưởng
   const paidLeaveValue = input.paidLeaveMinutesByRate.reduce(
@@ -52,13 +52,10 @@ export function calculatePayroll(input: PayrollCalculationInput): PayrollCalcula
     0,
   );
 
-  // Số tiền khấu trừ do nghỉ phép không hưởng đủ lương (ví dụ nghỉ hưởng 50% lương, hoặc 0% lương)
-  const paidLeaveDeduction = input.paidLeaveMinutesByRate.reduce(
-    (total, leave) => total + money((leave.minutes / 60) * hourlyRate * (1 - leave.payRate)),
-    0,
-  );
-
-  const adjustedBase = Math.max(0, money(input.monthlySalary - shortageValue - paidLeaveDeduction));
+  const standardMinutes = input.standardHours * 60;
+  const regularWorkedValue = (Math.min(input.workedMinutes, standardMinutes) / 60) * hourlyRate;
+  const adjustedBase = Math.min(input.monthlySalary, Math.max(0, money(regularWorkedValue + paidLeaveValue)));
+  const shortageValue = Math.max(0, input.monthlySalary - adjustedBase);
   const overtime = input.overtime.reduce(
     (total, item) => total + money((item.minutes / 60) * hourlyRate * OVERTIME_MULTIPLIERS[item.category]),
     0,

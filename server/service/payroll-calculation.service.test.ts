@@ -7,6 +7,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 26_000_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_450,
       shortageMinutes: 30,
       paidLeaveMinutesByRate: [],
       overtime: [],
@@ -25,6 +26,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 20_800_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_480,
       shortageMinutes: 0,
       paidLeaveMinutesByRate: [],
       overtime: [
@@ -47,6 +49,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 26_000_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_000,
       shortageMinutes: 0,
       paidLeaveMinutesByRate: [{ minutes: 480, payRate: 1 }],
       overtime: [],
@@ -66,6 +69,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 26_000_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_000,
       shortageMinutes: 0,
       paidLeaveMinutesByRate: [{ minutes: 480, payRate: 0.5 }],
       overtime: [],
@@ -85,6 +89,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 26_000_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_000,
       shortageMinutes: 0,
       paidLeaveMinutesByRate: [{ minutes: 480, payRate: 0 }],
       overtime: [],
@@ -104,6 +109,7 @@ describe("calculatePayroll", () => {
       monthlySalary: 26_000_000,
       standardDays: 26,
       standardHours: 208,
+      workedMinutes: 12_480,
       shortageMinutes: 0,
       paidLeaveMinutesByRate: [] as { minutes: number; payRate: number }[],
       overtime: [],
@@ -116,5 +122,42 @@ describe("calculatePayroll", () => {
     expect(() => calculatePayroll({ ...base, bonuses: -1 })).toThrow("bonuses");
     expect(() => calculatePayroll({ ...base, paidLeaveMinutesByRate: [{ minutes: 60, payRate: 1.5 }] })).toThrow("payRate");
     expect(() => calculatePayroll({ ...base, adjustments: Number.NaN })).toThrow("adjustments");
+  });
+
+  it("pays zero base salary when no worked time is recorded", () => {
+    const result = calculatePayroll({
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      workedMinutes: 0,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    });
+
+    expect(result.adjustedBase).toBe(0);
+    expect(result.net).toBe(0);
+  });
+
+  it("prorates base salary from actual worked minutes", () => {
+    const result = calculatePayroll({
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      workedMinutes: 341,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    });
+
+    expect(result.adjustedBase).toBe(710_417);
   });
 });
