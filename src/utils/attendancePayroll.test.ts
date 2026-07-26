@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceTotalsFromMinutes, calculateAttendanceWorkedMinutes, hasApprovedPayrollLeave } from "./attendancePayroll";
+import { attendanceDisplayStatus, attendanceTotalsFromMinutes, calculateAttendanceWorkedMinutes, hasApprovedPayrollLeave } from "./attendancePayroll";
 
 const schedule = { lunchBreakStart: "12:00", lunchBreakEnd: "13:00" };
 
@@ -30,5 +30,11 @@ describe("attendance history payroll calculation", () => {
 
     expect(hasApprovedPayrollLeave(applications, "employee-1", "2026-07-02")).toBe(true);
     expect(hasApprovedPayrollLeave(applications, "employee-2", "2026-07-02")).toBe(false);
+  });
+
+  it("does not label incomplete or short attendance as on time", () => {
+    expect(attendanceDisplayStatus("Present", true, false, 0, 480)).toBe("Incomplete");
+    expect(attendanceDisplayStatus("Present", true, true, 240, 480)).toBe("Partial");
+    expect(attendanceDisplayStatus("Present", true, true, 480, 480)).toBe("Present");
   });
 });
