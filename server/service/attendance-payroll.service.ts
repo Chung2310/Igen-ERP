@@ -5,7 +5,25 @@ export interface AttendancePayrollSummary { workedMinutes: number; shortageMinut
 
 function timeToMinutes(value: string): number { const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; }
 
-export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: number; logs: PayrollAttendanceLog[]; paidLeaves: PayrollPaidLeave[]; overtime: PayrollOvertime[] }): AttendancePayrollSummary {
+function elapsedMinutes(checkIn: string, checkOut: string): number {
+  const start = timeToMinutes(checkIn);
+  let end = timeToMinutes(checkOut);
+  if (end < start) end += 24 * 60;
+  return Math.max(0, end - start);
+}
+
+function overlappingBreakMinutes(checkIn: string, checkOut: string, breakStart?: string, breakEnd?: string): number {
+  if (!breakStart || !breakEnd) return 0;
+  const start = timeToMinutes(checkIn);
+  let end = timeToMinutes(checkOut);
+  if (end < start) end += 24 * 60;
+  const lunchStart = timeToMinutes(breakStart);
+  let lunchEnd = timeToMinutes(breakEnd);
+  if (lunchEnd < lunchStart) lunchEnd += 24 * 60;
+  return Math.max(0, Math.min(end, lunchEnd) - Math.max(start, lunchStart));
+}
+
+export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: number; lunchBreakStart?: string; lunchBreakEnd?: string; logs: PayrollAttendanceLog[]; paidLeaves: PayrollPaidLeave[]; overtime: PayrollOvertime[] }): AttendancePayrollSummary {
   const paidLeaveByDate = new Map(input.paidLeaves.map((leave) => [leave.date, leave]));
   let workedMinutes = 0;
   let shortageMinutes = 0;
@@ -13,8 +31,11 @@ export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: num
   for (const log of input.logs) {
     const leave = paidLeaveByDate.get(log.date);
     if (leave) { paidLeaveMinutesByRate.push({ minutes: input.standardDailyMinutes, payRate: leave.payRate }); continue; }
-    const rawWorked = log.checkIn && log.checkOut ? Math.max(0, timeToMinutes(log.checkOut) - timeToMinutes(log.checkIn)) : 0;
-    const worked = log.status === "Half-Day" ? rawWorked : Math.max(0, rawWorked - (rawWorked > 360 ? 60 : 0));
+    const rawWorked = log.checkIn && log.checkOut ? elapsedMinutes(log.checkIn, log.checkOut) : 0;
+    const breakMinutes = log.checkIn && log.checkOut && log.status !== "Half-Day"
+      ? overlappingBreakMinutes(log.checkIn, log.checkOut, input.lunchBreakStart, input.lunchBreakEnd)
+      : 0;
+    const worked = Math.max(0, rawWorked - breakMinutes);
     workedMinutes += worked;
     shortageMinutes += Math.max(0, input.standardDailyMinutes - worked);
   }
