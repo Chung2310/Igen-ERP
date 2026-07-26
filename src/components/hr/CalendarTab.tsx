@@ -1081,7 +1081,13 @@ export default function CalendarTab({
     const getDayCellData = (emp: any, day: number) => {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
-      const isWeekend = [0, 6].includes(getDayOfWeek(day));
+      const holiday = holidayByDate.get(dateStr);
+      const defaultWeekend = [0, 6].includes(getDayOfWeek(day));
+      const isWeekend = holiday && holiday.isApplied
+        ? holiday.dayType === "working_override"
+          ? false
+          : true
+        : defaultWeekend;
       const isFuture = dateStr > todayStr;
 
       if (isWeekend) {
@@ -1427,8 +1433,11 @@ export default function CalendarTab({
                     {/* Các cột ngày */}
                     {dayColumns.map(day => {
                       const dow = getDayOfWeek(day);
-                      const isWeekend = dow === 0 || dow === 6;
                       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const holiday = holidayByDate.get(dateStr);
+                      const isWeekend = holiday && holiday.isApplied
+                        ? holiday.dayType !== "working_override"
+                        : dow === 0 || dow === 6;
                       const isToday = dateStr === todayStr;
                       return (
                         <th
@@ -1498,8 +1507,7 @@ export default function CalendarTab({
                           </td>
                           {dayColumns.map(day => {
                             const cell = getDayCellData(emp, day);
-                            const dow = getDayOfWeek(day);
-                            const isWeekend = dow === 0 || dow === 6;
+                            const isWeekend = cell.isWeekend;
                             const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                             const isToday = dateStr === todayStr;
 
