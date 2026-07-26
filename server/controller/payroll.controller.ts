@@ -48,13 +48,13 @@ const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metada
 
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
-    const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number; standardHours?: number }[] | undefined;
+    const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number }[] | undefined;
     const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();
     const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
     const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
     const employees = requestedEmployees?.length
       ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
-      : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours workHoursConfig").lean()).map((user) => {
+      : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map((user) => {
           const standardDailyMinutes = user.workHoursConfig?.useCustom
             ? computeStandardDailyMinutes(user.workHoursConfig.checkInLimit, user.workHoursConfig.checkOutLimit, user.workHoursConfig.lunchBreakStart, user.workHoursConfig.lunchBreakEnd)
             : companyDailyMinutes;
