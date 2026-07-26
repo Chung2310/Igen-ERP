@@ -98,4 +98,23 @@ describe("calculatePayroll", () => {
     expect(result.adjustedBase).toBe(25_000_000);
     expect(result.paidLeaveValue).toBe(0);
   });
+
+  it("rejects invalid monetary values and leave rates", () => {
+    const base = {
+      monthlySalary: 26_000_000,
+      standardDays: 26,
+      standardHours: 208,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [] as { minutes: number; payRate: number }[],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+    };
+
+    expect(() => calculatePayroll({ ...base, bonuses: -1 })).toThrow("bonuses");
+    expect(() => calculatePayroll({ ...base, paidLeaveMinutesByRate: [{ minutes: 60, payRate: 1.5 }] })).toThrow("payRate");
+    expect(() => calculatePayroll({ ...base, adjustments: Number.NaN })).toThrow("adjustments");
+  });
 });

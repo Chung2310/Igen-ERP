@@ -9,6 +9,7 @@ export interface IAttendancePeriodResult extends Document {
   employeeName?: string;
   monthlySalary: number;
   standardHours: number;
+  standardDays: number;
   shortageMinutes: number;
   workedDays?: number;
   shortageDays?: number;

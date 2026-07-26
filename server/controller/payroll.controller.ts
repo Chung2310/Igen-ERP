@@ -13,13 +13,31 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { getEffectivePermissions } from "../middleware/auth";
 
 const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
+const PAYROLL_TIME_ZONE = "Asia/Ho_Chi_Minh";
 const timeToMinutes = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; };
+const formatInPayrollTimeZone = (value: Date | string, kind: "date" | "time") => {
+  const options: Intl.DateTimeFormatOptions = kind === "date"
+    ? { timeZone: PAYROLL_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }
+    : { timeZone: PAYROLL_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+  const parts = new Intl.DateTimeFormat("en-CA", options).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return kind === "date" ? `${part("year")}-${part("month")}-${part("day")}` : `${part("hour")}:${part("minute")}`;
+};
 const computeStandardDailyMinutes = (checkInLimit?: string, checkOutLimit?: string, lunchBreakStart?: string, lunchBreakEnd?: string) => {
   if (!checkInLimit || !checkOutLimit) return 480;
   const gross = timeToMinutes(checkOutLimit) - timeToMinutes(checkInLimit);
   const lunch = lunchBreakStart && lunchBreakEnd ? Math.max(0, timeToMinutes(lunchBreakEnd) - timeToMinutes(lunchBreakStart)) : 0;
   const net = gross - lunch;
   return net > 0 ? net : 480;
+};
+const countStandardDays = (period: string, workingDays: number[]) => {
+  const [year, month] = period.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  let count = 0;
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    if (workingDays.includes(new Date(Date.UTC(year, month - 1, day)).getUTCDay())) count += 1;
+  }
+  return count;
 };
 const canManagePayroll = async (req: AuthenticatedRequest) => {
   const { id: userId, role, companyCode } = req.user!;
@@ -35,7 +53,7 @@ export const payrollController = {
     const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
     const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
     const employees = requestedEmployees?.length
-      ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes }))
+      ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
       : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours workHoursConfig").lean()).map((user) => {
           const standardDailyMinutes = user.workHoursConfig?.useCustom
             ? computeStandardDailyMinutes(user.workHoursConfig.checkInLimit, user.workHoursConfig.checkOutLimit, user.workHoursConfig.lunchBreakStart, user.workHoursConfig.lunchBreakEnd)
@@ -44,9 +62,12 @@ export const payrollController = {
             employeeId: String(user._id),
             employeeName: user.displayName,
             monthlySalary: user.monthlySalary || 0,
-            standardHours: user.standardHours || Math.round((standardDailyMinutes / 60) * 26),
             workingDays: user.workHoursConfig?.useCustom && Array.isArray(user.workHoursConfig.workingDays) && user.workHoursConfig.workingDays.length ? user.workHoursConfig.workingDays : companyWorkingDays,
             standardDailyMinutes,
+            checkInLimit: user.workHoursConfig?.useCustom ? user.workHoursConfig.checkInLimit : company?.locationConfig?.checkInLimit || "08:30",
+            checkOutLimit: user.workHoursConfig?.useCustom ? user.workHoursConfig.checkOutLimit : company?.locationConfig?.checkOutLimit || "17:30",
+            lunchBreakStart: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakStart : company?.locationConfig?.lunchBreakStart,
+            lunchBreakEnd: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakEnd : company?.locationConfig?.lunchBreakEnd,
           };
         });
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chua c� nh�n vi�n du?c c?u h�nh luong." });
@@ -57,7 +78,9 @@ export const payrollController = {
     const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
     const results = [];
     for (const employee of employees) {
-      const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? new Date(log.checkIn.time).toISOString().slice(11, 16) : undefined, checkOut: log.checkOut?.time ? new Date(log.checkOut.time).toISOString().slice(11, 16) : undefined }));
+      const standardDays = countStandardDays(period, employee.workingDays);
+      const standardHours = (employee.standardDailyMinutes * standardDays) / 60;
+      const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? formatInPayrollTimeZone(log.checkIn.time, "time") : undefined, checkOut: log.checkOut?.time ? formatInPayrollTimeZone(log.checkOut.time, "time") : undefined }));
       const loggedDates = new Set(employeeLogs.map((log) => log.date));
       const leaveDates = new Set<string>();
       for (const leave of leaves) {
@@ -65,20 +88,19 @@ export const payrollController = {
         const leaveStart = new Date(leave.startDate);
         const leaveEnd = new Date(leave.endDate);
         for (let d = new Date(leaveStart); d <= leaveEnd; d.setDate(d.getDate() + 1)) {
-          leaveDates.add(d.toISOString().slice(0, 10));
+          leaveDates.add(formatInPayrollTimeZone(d, "date"));
         }
       }
-      const fullDayMinutes = employee.standardDailyMinutes + 60;
-      const fullDayCheckOut = `${String(Math.floor(fullDayMinutes / 60)).padStart(2, "0")}:${String(fullDayMinutes % 60).padStart(2, "0")}`;
       for (let day = 1; day <= endDate.getDate(); day += 1) {
         const date = `${period}-${String(day).padStart(2, "0")}`;
-        const weekday = new Date(`${date}T00:00:00`).getDay();
+        const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
         if (!employee.workingDays.includes(weekday) || loggedDates.has(date)) continue;
-        if (leaveDates.has(date)) { employeeLogs.push({ date, status: "Present", checkIn: "00:00", checkOut: fullDayCheckOut }); continue; }
+        if (leaveDates.has(date)) { employeeLogs.push({ date, status: "Present", checkIn: employee.checkInLimit, checkOut: employee.checkOutLimit }); continue; }
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }
-      const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, logs: employeeLogs, paidLeaves: [], overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours: employee.standardHours || 208, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, lunchBreakStart: employee.lunchBreakStart, lunchBreakEnd: employee.lunchBreakEnd, logs: employeeLogs, paidLeaves: [], overtime: [] });
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      console.log(`[payroll.snapshot] ${employee.employeeName} (${employee.employeeId}) rawLogsMatched=${logs.filter((log) => log.uid === employee.employeeId).length} totalLogsInPeriod=${logs.length} presentDays=${employeeLogs.filter((l) => l.status !== "Absent").length} absentGenerated=${employeeLogs.filter((l) => l.status === "Absent").length} standardDailyMinutes=${employee.standardDailyMinutes} workingDays=${JSON.stringify(employee.workingDays)} workedMinutes=${summary.workedMinutes} shortageMinutes=${summary.shortageMinutes}`);
     }
     await audit(req, period, "snapshot", { count: results.length });
     return res.status(201).json({ status: "success", data: results });
@@ -109,7 +131,7 @@ export const payrollController = {
       employeeId: row.employeeId,
       calculation: { ...calculatePayroll({
         monthlySalary: row.monthlySalary,
-        standardDays: 26,
+        standardDays: row.standardDays,
         standardHours: row.standardHours,
         shortageMinutes: row.shortageMinutes,
         paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
