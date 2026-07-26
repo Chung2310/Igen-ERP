@@ -1444,7 +1444,7 @@ export default function CalendarTab({
                 <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
               </div>
             ) : (
-              <table className="text-xs border-collapse" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
+              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
                 {/* === THEAD === */}
                 <thead className="sticky top-0 z-40">
                   <tr className="bg-slate-100 border-b border-slate-300">
