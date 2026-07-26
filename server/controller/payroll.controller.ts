@@ -4,6 +4,7 @@ import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { summarizeAttendanceForPayroll } from "../service/attendance-payroll.service";
 import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
@@ -12,6 +13,14 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { getEffectivePermissions } from "../middleware/auth";
 
 const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
+const timeToMinutes = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; };
+const computeStandardDailyMinutes = (checkInLimit?: string, checkOutLimit?: string, lunchBreakStart?: string, lunchBreakEnd?: string) => {
+  if (!checkInLimit || !checkOutLimit) return 480;
+  const gross = timeToMinutes(checkOutLimit) - timeToMinutes(checkInLimit);
+  const lunch = lunchBreakStart && lunchBreakEnd ? Math.max(0, timeToMinutes(lunchBreakEnd) - timeToMinutes(lunchBreakStart)) : 0;
+  const net = gross - lunch;
+  return net > 0 ? net : 480;
+};
 const canManagePayroll = async (req: AuthenticatedRequest) => {
   const { id: userId, role, companyCode } = req.user!;
   const permissions = await getEffectivePermissions(userId, role, companyCode);
@@ -22,7 +31,21 @@ const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metada
 export const payrollController = {
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number; standardHours?: number }[] | undefined;
-    const employees = requestedEmployees?.length ? requestedEmployees : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours").lean()).map((user) => ({ employeeId: String(user._id), employeeName: user.displayName, monthlySalary: user.monthlySalary || 0, standardHours: user.standardHours || 208 }));
+    const company = await CompanyModel.findOne({ companyCode: tenant(req) }).select("locationConfig").lean();
+    const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
+    const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
+    const employees = requestedEmployees?.length
+      ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes }))
+      : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary standardHours workHoursConfig").lean()).map((user) => ({
+          employeeId: String(user._id),
+          employeeName: user.displayName,
+          monthlySalary: user.monthlySalary || 0,
+          standardHours: user.standardHours || 208,
+          workingDays: user.workHoursConfig?.useCustom && Array.isArray(user.workHoursConfig.workingDays) && user.workHoursConfig.workingDays.length ? user.workHoursConfig.workingDays : companyWorkingDays,
+          standardDailyMinutes: user.workHoursConfig?.useCustom
+            ? computeStandardDailyMinutes(user.workHoursConfig.checkInLimit, user.workHoursConfig.checkOutLimit, user.workHoursConfig.lunchBreakStart, user.workHoursConfig.lunchBreakEnd)
+            : companyDailyMinutes,
+        }));
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chua c� nh�n vi�n du?c c?u h�nh luong." });
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
@@ -32,11 +55,19 @@ export const payrollController = {
     const results = [];
     for (const employee of employees) {
       const employeeLogs = logs.filter((log) => log.uid === employee.employeeId).map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? new Date(log.checkIn.time).toISOString().slice(11, 16) : undefined, checkOut: log.checkOut?.time ? new Date(log.checkOut.time).toISOString().slice(11, 16) : undefined }));
-      const employeeLeaves = leaves.filter((leave) => leave.employeeId === employee.employeeId).map((leave) => ({ date: String(leave.startDate).slice(0, 10), payRate: 1 }));
+      const employeeLeaves = leaves.filter((leave) => leave.employeeId === employee.employeeId).map((leave) => ({ date: String(leave.startDate).slice(0, 10) }));
       const loggedDates = new Set(employeeLogs.map((log) => log.date));
       const leaveDates = new Set(employeeLeaves.map((leave) => leave.date));
-      for (let day = 1; day <= endDate.getDate(); day += 1) { const date = `${period}-${String(day).padStart(2, "0")}`; const weekday = new Date(`${date}T00:00:00`).getDay(); if (weekday >= 1 && weekday <= 5 && !loggedDates.has(date) && !leaveDates.has(date)) employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" }); }
-      const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: 480, logs: employeeLogs, paidLeaves: employeeLeaves, overtime: [] });
+      const fullDayMinutes = employee.standardDailyMinutes + 60;
+      const fullDayCheckOut = `${String(Math.floor(fullDayMinutes / 60)).padStart(2, "0")}:${String(fullDayMinutes % 60).padStart(2, "0")}`;
+      for (let day = 1; day <= endDate.getDate(); day += 1) {
+        const date = `${period}-${String(day).padStart(2, "0")}`;
+        const weekday = new Date(`${date}T00:00:00`).getDay();
+        if (!employee.workingDays.includes(weekday) || loggedDates.has(date)) continue;
+        if (leaveDates.has(date)) { employeeLogs.push({ date, status: "Present", checkIn: "00:00", checkOut: fullDayCheckOut }); continue; }
+        employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
+      }
+      const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, logs: employeeLogs, paidLeaves: [], overtime: [] });
       results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours: employee.standardHours || 208, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft" } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
     }
     await audit(req, period, "snapshot", { count: results.length });
