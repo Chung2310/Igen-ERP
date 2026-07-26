@@ -93,7 +93,6 @@ export default function UserAdminTab() {
   const [userDepartment, setUserDepartment] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
   const [userMonthlySalary, setUserMonthlySalary] = useState("");
-  const [userStandardHours, setUserStandardHours] = useState("208");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   const resetUserForm = () => {
@@ -106,7 +105,6 @@ export default function UserAdminTab() {
     setUserDepartment("");
     setUserJobDescriptionLink("");
     setUserMonthlySalary("");
-    setUserStandardHours("208");
   };
   const companyFormState: CompanyFormState = {
     companyName,
@@ -195,7 +193,6 @@ export default function UserAdminTab() {
       setUserDepartment("");
       setUserJobDescriptionLink("");
     setUserMonthlySalary("");
-    setUserStandardHours("208");
       setEditingUser(null);
     }
   }, [isUserModalOpen]);
@@ -608,7 +605,6 @@ export default function UserAdminTab() {
           phone: editingUser.phone || "",
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
-          standardHours: Number(userStandardHours) || 208,
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -664,7 +660,6 @@ export default function UserAdminTab() {
     setUserDepartment(user.department || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
     setUserMonthlySalary(user.monthlySalary == null ? "" : String(user.monthlySalary));
-    setUserStandardHours(String(user.standardHours || 208));
     setIsUserModalOpen(true);
   };
 
@@ -1289,8 +1284,6 @@ export default function UserAdminTab() {
         userJobDescriptionLink={userJobDescriptionLink}
         userMonthlySalary={userMonthlySalary}
         setUserMonthlySalary={setUserMonthlySalary}
-        userStandardHours={userStandardHours}
-        setUserStandardHours={setUserStandardHours}
         setUserJobDescriptionLink={setUserJobDescriptionLink}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}

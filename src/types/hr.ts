@@ -89,7 +89,6 @@ export interface EmployeeNode {
   division: string;
   jobDescriptionLink?: string;
   monthlySalary?: number;
-  standardHours?: number;
 }
 
 export interface Project {

@@ -137,7 +137,6 @@ export default function HRTab() {
     division: usr.division || "Khối Vận Hành",
     jobDescriptionLink: usr.jobDescriptionLink || "",
     monthlySalary: usr.monthlySalary,
-    standardHours: usr.standardHours,
   }));
 
   return (
