@@ -151,6 +151,8 @@ export default function CalendarTab({
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [appliedHolidays, setAppliedHolidays] = useState<WorkCalendarDay[]>([]);
+  const [workingDaysByUid, setWorkingDaysByUid] = useState<Record<string, number[]>>({});
+  const [companyWorkingDays, setCompanyWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
   // Timekeeping logs state
   const [logs, setLogs] = useState<any[]>([]);
@@ -714,6 +716,42 @@ export default function CalendarTab({
   const holidayByDate = new Map(appliedHolidays.map((h) => [h.date, h]));
 
   useEffect(() => {
+    if (!selectedCompanyCode) return;
+    fetch("/api/v1/timekeeping/work-hours", {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        const map: Record<string, number[]> = {};
+        (result?.data || []).forEach((u: any) => {
+          if (u.workHoursConfig?.useCustom && Array.isArray(u.workHoursConfig.workingDays) && u.workHoursConfig.workingDays.length) {
+            map[u._id] = u.workHoursConfig.workingDays;
+          }
+        });
+        setWorkingDaysByUid(map);
+      })
+      .catch(() => setWorkingDaysByUid({}));
+
+    fetch("/api/v1/timekeeping/company-location", {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        setCompanyWorkingDays(
+          Array.isArray(result?.data?.workingDays) && result.data.workingDays.length
+            ? result.data.workingDays
+            : [1, 2, 3, 4, 5]
+        );
+      })
+      .catch(() => setCompanyWorkingDays([1, 2, 3, 4, 5]));
+  }, [selectedCompanyCode]);
+
+  const isCustomWorkingDay = (uid: string, dow: number) => {
+    const customDays = workingDaysByUid[uid];
+    return (customDays || companyWorkingDays).includes(dow);
+  };
+
+  useEffect(() => {
     if (currentSubTab === "attendance" && selectedCompanyCode) {
       fetchTimekeepingLogs();
     }
@@ -1082,7 +1120,7 @@ export default function CalendarTab({
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
       const holiday = holidayByDate.get(dateStr);
-      const defaultWeekend = [0, 6].includes(getDayOfWeek(day));
+      const defaultWeekend = !isCustomWorkingDay(emp.uid, getDayOfWeek(day));
       const isWeekend = holiday && holiday.isApplied
         ? holiday.dayType === "working_override"
           ? false
@@ -1437,7 +1475,7 @@ export default function CalendarTab({
                       const holiday = holidayByDate.get(dateStr);
                       const isWeekend = holiday && holiday.isApplied
                         ? holiday.dayType !== "working_override"
-                        : dow === 0 || dow === 6;
+                        : !companyWorkingDays.includes(dow);
                       const isToday = dateStr === todayStr;
                       return (
                         <th
