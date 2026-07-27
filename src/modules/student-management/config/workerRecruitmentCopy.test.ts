@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getCoursePageCopy,
+  getBatchPageCopy,
   getWorkerOperationalCopy,
   getStudentManagementSubTabLabel,
   usesEducationBilling,
@@ -22,6 +23,7 @@ describe("worker recruitment copy", () => {
     const copy = getCoursePageCopy("worker");
 
     expect(getStudentManagementSubTabLabel("worker", "khoa-hoc", "Khóa học")).toBe("Dự án");
+    expect(getStudentManagementSubTabLabel("worker", "lop-hoc", "Lớp học")).toBe("Dự án");
     expect(copy).toMatchObject({
       pageTitle: "Danh sách dự án tuyển dụng",
       addButton: "Thêm dự án mới",
@@ -46,6 +48,19 @@ describe("worker recruitment copy", () => {
     expect(copy.updatedMessage("DA-01")).toBe("Đã cập nhật dự án DA-01 thành công!");
     expect(copy.deletedMessage("DA-01")).toBe("Đã xóa dự án DA-01.");
     expect(copy.statusMessage("DA-01", "Tạm dừng")).toBe('Dự án DA-01 đã chuyển sang "Tạm dừng".');
+  });
+
+  it("uses batches as recruitment projects for the worker preset", () => {
+    expect(getBatchPageCopy("worker")).toMatchObject({
+      pageTitle: "Dự án tuyển dụng",
+      createButton: "Thêm dự án",
+      codeLabel: "Mã dự án",
+      courseLabel: "Danh mục tuyển dụng",
+      instructorLabel: "Người phụ trách",
+      capacityLabel: "Chỉ tiêu",
+      createSubmit: "Tạo dự án",
+    });
+    expect(getBatchPageCopy("student").pageTitle).toBe("Lớp & Khai giảng");
   });
 
   it("does not apply worker project wording to the candidate preset", () => {

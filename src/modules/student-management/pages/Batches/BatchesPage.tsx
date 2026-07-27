@@ -25,6 +25,7 @@ import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
@@ -94,6 +95,7 @@ const notifyBatchMutation = () => {
 export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -287,15 +289,15 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       };
       if (editingId) {
         await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
-        toast.success(`Đã cập nhật lớp ${payload.code}.`);
+        toast.success(`Đã cập nhật ${copy.entityNameLower} ${payload.code}.`);
       } else {
         await apiFetch('/batches', { method: 'POST', body: JSON.stringify(payload) });
-        toast.success(`Đã mở lớp ${payload.code} thành công!`);
+        toast.success(`Đã tạo ${copy.entityNameLower} ${payload.code} thành công!`);
       }
       notifyBatchMutation();
       setShowFormModal(false);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu lớp học.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi lưu ${copy.entityNameLower}.`;
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -309,7 +311,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         body: JSON.stringify({ status }),
       });
       notifyBatchMutation();
-      toast.success(`Lớp ${batch.code} đã chuyển sang "${status}".`);
+      toast.success(`${copy.entityName} ${batch.code} đã chuyển sang "${status}".`);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật trạng thái.';
       toast.error(msg);
@@ -321,9 +323,9 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     try {
       await apiFetch(`/batches/${deleteConfirm.id}`, { method: 'DELETE' });
       notifyBatchMutation();
-      toast.success(`Đã xóa lớp ${deleteConfirm.code}.`);
+      toast.success(`Đã xóa ${copy.entityNameLower} ${deleteConfirm.code}.`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa lớp.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi xóa ${copy.entityNameLower}.`;
       toast.error(msg);
     } finally {
       setDeleteConfirm({ isOpen: false, id: '', code: '' });
@@ -339,7 +341,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       });
       notifyBatchMutation();
       setSelectedStudentId('');
-      toast.success(`Đã thêm ${entityLabel.singular} vào lớp.`);
+      toast.success(`Đã thêm ${entityLabel.singular} vào ${copy.entityNameLower}.`);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi thêm ${entityLabel.singular}.`;
       toast.error(msg);
@@ -351,7 +353,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     try {
       await apiFetch(`/batches/${manageBatch.id}/learners/${studentId}`, { method: 'DELETE' });
       notifyBatchMutation();
-      toast.success(`Đã bỏ ${entityLabel.singular} khỏi lớp.`);
+      toast.success(`Đã bỏ ${entityLabel.singular} khỏi ${copy.entityNameLower}.`);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi bỏ ${entityLabel.singular}.`;
       toast.error(msg);
@@ -388,17 +390,17 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   return (
     <div className="space-y-4 text-left">
       <ErpPageHeader
-        title="Lớp & Khai giảng"
+        title={copy.pageTitle}
         action={
           <ErpPrimaryButton onClick={openCreateModal}>
-            Mở lớp mới
+            {copy.createButton}
           </ErpPrimaryButton>
         }
       />
 
       {/* Controls */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tìm theo mã lớp, khóa học, giảng viên..." />
+        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
         <ErpFilterRail>
           <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
             Tất cả
@@ -418,15 +420,15 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         <ErpCard>
           <ErpEmptyState
             icon={School}
-            title="Chưa có lớp nào"
-            subtitle="Bấm 'Mở lớp mới' để khai giảng lớp đầu tiên cho một khóa học."
+            title={copy.emptyTitle}
+            subtitle={copy.emptySubtitle}
           />
         </ErpCard>
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
-              <ErpTableHead columns={['Mã lớp', 'Khóa học', 'Giảng viên', 'Lịch học', 'Thời gian', 'Sĩ số', 'Trạng thái', 'Thao tác']} />
+              <ErpTableHead columns={[copy.codeLabel, copy.courseLabel, copy.instructorLabel, 'Lịch hoạt động', 'Thời gian', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
                 {paginatedBatches.map((b) => (
                   <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
@@ -454,7 +456,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                     <td className="py-2 px-4">
                       <button
                         onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
-                        title={`Quản lý ${entityLabel.singular} trong lớp`}
+                        title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
                         className={cn(
                           "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
                           darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
@@ -481,7 +483,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => openEditModal(b)}
-                          title="Chỉnh sửa lớp"
+                          title={`Chỉnh sửa ${copy.entityNameLower}`}
                           className={cn(
                             "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
                             darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60"
@@ -491,7 +493,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         </button>
                         <button
                           onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })}
-                          title="Xóa lớp"
+                          title={`Xóa ${copy.entityNameLower}`}
                           className={cn(
                             "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
                             darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60"
@@ -552,14 +554,14 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
             onPageChange={setCurrentPage}
             totalItems={filteredBatches.length}
             pageSize={pageSize}
-            itemName="lớp học"
+            itemName={copy.entityNameLower}
           />
         </ErpCard>
       )}
 
       {/* Create / Edit Batch Modal */}
       {showFormModal && (
-        <ErpModal title={editingId ? 'Chỉnh sửa lớp học' : 'Mở lớp mới'} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
+        <ErpModal title={editingId ? copy.editTitle : copy.createTitle} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Section 1: Thông tin lớp học */}
             <div className="space-y-4">
@@ -567,14 +569,14 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   <School className="w-4 h-4 text-brand-primary" />
-                  Thông tin lớp học
+                  Thông tin {copy.entityNameLower}
                 </h4>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {isFieldVisible('code') && (
                   <div className="relative group/std">
                     {renderFieldActions('code')}
-                    <ErpField label={getFieldLabel('code', 'Mã lớp')}>
+                    <ErpField label={getFieldLabel('code', copy.codeLabel)}>
                       <div className="relative">
                         <ErpInput
                           type="text"
@@ -594,7 +596,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 {isFieldVisible('courseId') && (
                   <div className="relative group/std">
                     {renderFieldActions('courseId')}
-                    <ErpField label={getFieldLabel('courseId', 'Khóa học')}>
+                    <ErpField label={getFieldLabel('courseId', copy.courseLabel)}>
                       <div className="relative">
                         <ErpSelect
                           required={isFieldRequired('courseId', true)}
@@ -602,7 +604,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                           onChange={(e) => setForm({ ...form, courseId: e.target.value })}
                           className="pl-10"
                         >
-                          <option value="" disabled>-- Chọn khóa học --</option>
+                          <option value="" disabled>{`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`}</option>
                           {courses.map((c) => (
                             <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
                           ))}
@@ -619,7 +621,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
               {isFieldVisible('teacherId') && (
                 <div className="relative group/std">
                   {renderFieldActions('teacherId')}
-                  <ErpField label={getFieldLabel('teacherId', 'Giảng viên phụ trách')}>
+                  <ErpField label={getFieldLabel('teacherId', copy.instructorLabel)}>
                     <div className="relative">
                       <ErpSelect
                         value={form.instructorId}
@@ -627,7 +629,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
                         className="pl-10"
                       >
-                        <option value="">— Chưa gán giảng viên —</option>
+                        <option value="">{`— Chưa gán ${copy.instructorLabel.toLocaleLowerCase('vi')} —`}</option>
                         {instructors.map((i) => (
                           <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
                         ))}
@@ -821,7 +823,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
               ) : (
                 <School className="w-4 h-4" />
               )}
-              {isSubmitting ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Khai giảng lớp'}
+              {isSubmitting ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : copy.createSubmit}
             </button>
           </form>
         </ErpModal>
@@ -830,13 +832,13 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       {/* Manage Learners Modal */}
       {manageBatch && (
         <ErpModal
-          title={`${entityLabel.tabLabel} lớp ${manageBatch.code}`}
+          title={`${entityLabel.tabLabel} ${copy.entityNameLower} ${manageBatch.code}`}
           onClose={() => setManageLearnersId(null)}
           maxWidth="max-w-lg"
         >
           <div className="space-y-6">
             <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
-              {manageBatch.courseTitle} • Sĩ số: {manageBatch.learnerIds.length}
+              {manageBatch.courseTitle} • {copy.capacityLabel}: {manageBatch.learnerIds.length}
               {manageBatch.maxLearners ? `/${manageBatch.maxLearners}` : ''} {entityLabel.singular}
             </p>
 
@@ -847,7 +849,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
                 >
-                  <option value="">{`-- Chọn ${entityLabel.singular} để thêm vào lớp --`}</option>
+                  <option value="">{`-- Chọn ${entityLabel.singular} để thêm vào ${copy.entityNameLower} --`}</option>
                   {availableStudents.map((s) => (
                     <option key={s.id} value={s.id}>{s.fullName} ({s.phone})</option>
                   ))}
@@ -866,10 +868,10 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
             {/* Enrolled learners */}
             <div className="space-y-2">
               <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
-                Danh sách {entityLabel.singular} trong lớp
+                Danh sách {entityLabel.singular} trong {copy.entityNameLower}
               </h5>
               {enrolledStudents.length === 0 ? (
-                <p className="text-xs text-slate-400">Lớp chưa có {entityLabel.singular} nào.</p>
+                <p className="text-xs text-slate-400">{copy.entityName} chưa có {entityLabel.singular} nào.</p>
               ) : (
                 <div className={cn("border rounded-xl p-1 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
                   {enrolledStudents.map((s) => (
@@ -881,7 +883,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                       <button
                         type="button"
                         onClick={() => handleRemoveLearner(s.id)}
-                        title="Bỏ khỏi lớp"
+                        title={`Bỏ khỏi ${copy.entityNameLower}`}
                         className={cn(
                           "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
                           darkMode
@@ -903,8 +905,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       {/* Confirm Delete Modal */}
       <ErpConfirmModal
         isOpen={deleteConfirm.isOpen}
-        title="Xóa lớp học"
-        message={`Bạn có chắc chắn muốn xóa lớp "${deleteConfirm.code}" không? Danh sách ${entityLabel.singular} trong lớp sẽ bị gỡ liên kết. Hành động này không thể hoàn tác.`}
+        title={`Xóa ${copy.entityNameLower}`}
+        message={`Bạn có chắc chắn muốn xóa ${copy.entityNameLower} "${deleteConfirm.code}" không? Danh sách ${entityLabel.singular} trong ${copy.entityNameLower} sẽ bị gỡ liên kết. Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm({ isOpen: false, id: '', code: '' })}
         confirmText="Xác nhận xóa"
