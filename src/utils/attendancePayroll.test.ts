@@ -16,6 +16,20 @@ describe("attendance history payroll calculation", () => {
     )).toBe(480);
   });
 
+  it("repairs legacy overnight logs whose checkout was stored on the same date", () => {
+    expect(calculateAttendanceWorkedMinutes(
+      "2026-07-01T12:57:00.000Z",
+      "2026-07-01T23:00:00.000Z",
+      {},
+    )).toBe(603);
+
+    expect(calculateAttendanceWorkedMinutes(
+      "2026-07-01T19:57:00+07:00",
+      "2026-07-01T06:00:00+07:00",
+      {},
+    )).toBe(603);
+  });
+
   it("converts the monthly minute total to days before rounding", () => {
     expect(attendanceTotalsFromMinutes(900, 480)).toEqual({ totalHours: 15, totalDays: 1.88 });
   });
