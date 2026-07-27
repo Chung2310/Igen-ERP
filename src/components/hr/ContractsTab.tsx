@@ -79,6 +79,20 @@ const mimeFromName = (name: string) => {
     return `image/${extension === "jpg" ? "jpeg" : extension}`;
   return "";
 };
+const daysUntilExpiry = (value: string, now = new Date()) => {
+  const expiry = new Date(value);
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const expiryUtc = Date.UTC(
+    expiry.getFullYear(),
+    expiry.getMonth(),
+    expiry.getDate(),
+  );
+  return Math.ceil((expiryUtc - todayUtc) / 86_400_000);
+};
+const isExpiringSoon = (contract: Contract) => {
+  const remaining = daysUntilExpiry(contract.endDate);
+  return contract.status === "active" && remaining >= 1 && remaining <= 20;
+};
 const emptyContract = {
   contractType: "Hợp đồng xác định thời hạn",
   employeeId: "",
@@ -176,6 +190,15 @@ export default function ContractsTab({
         ]),
       ),
     [employees, contracts],
+  );
+  const expiringContracts = useMemo(
+    () =>
+      contracts
+        .filter(isExpiringSoon)
+        .sort(
+          (a, b) => daysUntilExpiry(a.endDate) - daysUntilExpiry(b.endDate),
+        ),
+    [contracts],
   );
   const visibleEmployees = employees.filter((e) =>
     `${e.displayName || ""} ${e.email} ${e.department || ""}`
@@ -419,6 +442,26 @@ export default function ContractsTab({
           </div>
         ) : tab === "contracts" ? (
           <>
+            {expiringContracts.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                <p className="text-xs font-bold">
+                  Có {expiringContracts.length} hợp đồng sắp hết hạn trong 20
+                  ngày tới
+                </p>
+                <p className="mt-1 text-[11px] text-amber-700">
+                  {expiringContracts
+                    .slice(0, 5)
+                    .map(
+                      (contract) =>
+                        `${contract.employeeName} (${daysUntilExpiry(contract.endDate)} ngày)`,
+                    )
+                    .join(" · ")}
+                  {expiringContracts.length > 5
+                    ? ` · và ${expiringContracts.length - 5} hợp đồng khác`
+                    : ""}
+                </p>
+              </div>
+            )}
             <div className="relative max-w-sm">
               <Search
                 className="absolute left-3 top-2.5 text-slate-400"
@@ -477,68 +520,84 @@ export default function ContractsTab({
                           </td>
                         </tr>,
                       ];
-                    return rows.map((c, i) => (
-                      <tr key={c._id}>
-                        <td className="p-3">
-                          <b>{emp.displayName || emp.email}</b>
-                          {i === 0 && (
-                            <div className="text-[10px] text-slate-400">
-                              {emp.department}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3">{c.contractType}</td>
-                        <td className="p-3 text-center">{date(c.startDate)}</td>
-                        <td className="p-3 text-center">{date(c.endDate)}</td>
-                        <td className="p-3 text-center">
-                          <span
-                            className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
-                          >
-                            {statusLabel[c.status]}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center space-x-2">
-                          {c.contractFileUrl && (
-                            <button
-                              type="button"
-                              className="font-bold text-cyan-700 hover:underline"
-                              onClick={() => preview(c, "contract")}
-                            >
-                              Xem file
-                            </button>
-                          )}
-                          {c.signedImageUrl && (
-                            <button
-                              type="button"
-                              className="font-bold text-cyan-700 hover:underline"
-                              onClick={() => preview(c, "signed")}
-                            >
-                              Xem ảnh ký
-                            </button>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            {canManage && (
-                              <>
-                                <button
-                                  title="Sửa"
-                                  onClick={() => openContract(c)}
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  title="Gia hạn"
-                                  onClick={() => openExtension(c)}
-                                >
-                                  <RefreshCw size={14} />
-                                </button>
-                              </>
+                    return rows.map((c, i) => {
+                      const remainingDays = daysUntilExpiry(c.endDate);
+                      const expiringSoon = isExpiringSoon(c);
+                      return (
+                        <tr
+                          key={c._id}
+                          className={expiringSoon ? "bg-amber-50/60" : ""}
+                        >
+                          <td className="p-3">
+                            <b>{emp.displayName || emp.email}</b>
+                            {i === 0 && (
+                              <div className="text-[10px] text-slate-400">
+                                {emp.department}
+                              </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ));
+                          </td>
+                          <td className="p-3">{c.contractType}</td>
+                          <td className="p-3 text-center">
+                            {date(c.startDate)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <div>{date(c.endDate)}</div>
+                            {expiringSoon && (
+                              <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                Sắp hết hạn · Còn {remainingDays} ngày
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
+                            >
+                              {statusLabel[c.status]}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center space-x-2">
+                            {c.contractFileUrl && (
+                              <button
+                                type="button"
+                                className="font-bold text-cyan-700 hover:underline"
+                                onClick={() => preview(c, "contract")}
+                              >
+                                Xem file
+                              </button>
+                            )}
+                            {c.signedImageUrl && (
+                              <button
+                                type="button"
+                                className="font-bold text-cyan-700 hover:underline"
+                                onClick={() => preview(c, "signed")}
+                              >
+                                Xem ảnh ký
+                              </button>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              {canManage && (
+                                <>
+                                  <button
+                                    title="Sửa"
+                                    onClick={() => openContract(c)}
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    title="Gia hạn"
+                                    onClick={() => openExtension(c)}
+                                  >
+                                    <RefreshCw size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
                   })}
                 </tbody>
               </table>
