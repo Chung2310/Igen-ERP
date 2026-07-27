@@ -8,6 +8,7 @@ const CategorySchema = new Schema<ICategory>({
   colorClass: { type: String, default: "bg-blue-100 text-blue-800" },
   status: { type: String, enum: ["Đang dùng", "Tạm khóa"], default: "Đang dùng" },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
 });
 
 // Đảm bảo tính duy nhất của tên/mã danh mục trong cùng doanh nghiệp

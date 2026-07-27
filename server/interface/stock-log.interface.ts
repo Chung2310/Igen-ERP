@@ -20,4 +20,5 @@ export interface IStockLog extends Document {
   notes: string;
   status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
   companyCode: string;
+  branchId?: string;
 }
