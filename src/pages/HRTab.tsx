@@ -141,7 +141,7 @@ export default function HRTab() {
   }));
 
   return (
-    <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
+    <div className="flex min-h-0 flex-1 flex-col bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
       <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}

@@ -103,6 +103,9 @@ const WorkHoursConfigSchema = new Schema(
     lunchBreakStart: { type: String, default: "12:00" },
     lunchBreakEnd: { type: String, default: "13:00" },
     workingDays: { type: [Number], default: [1, 2, 3, 4, 5] },
+    annualLeaveDays: { type: Number, min: 0 },
+    employmentStatus: { type: String, enum: ["official", "probation", "internship"], default: "official" },
+    officialDate: { type: Date },
   },
   { _id: false }
 );
@@ -143,6 +146,8 @@ const UserSchema = new Schema<IUser>({
   division: { type: String },
   companyCode: { type: String, index: true },
   companyName: { type: String },
+  employmentStatus: { type: String, enum: ["official", "probation", "internship"], default: "official" },
+  officialDate: { type: Date },
   permissions: { type: [String], default: [] },
   superAdminSecurity: { type: SuperAdminSecuritySchema },
   workHoursConfig: { type: WorkHoursConfigSchema, default: undefined },

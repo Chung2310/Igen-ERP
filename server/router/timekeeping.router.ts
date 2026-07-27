@@ -103,6 +103,9 @@ const updateWorkHoursSchema = {
       "string.pattern.base": "Giờ kết thúc nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 13:00).",
     }),
     workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().optional(),
+    annualLeaveDays: Joi.number().integer().min(0).optional(),
+    employmentStatus: Joi.string().valid("official", "probation", "internship").optional(),
+    officialDate: Joi.date().iso().optional(),
   }),
 };
 

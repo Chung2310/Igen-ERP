@@ -21,6 +21,7 @@ export default function ErpConfigTab() {
   const [lunchBreakStart, setLunchBreakStart] = useState("12:00");
   const [lunchBreakEnd, setLunchBreakEnd] = useState("13:00");
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [annualLeaveDays, setAnnualLeaveDays] = useState(12);
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
 
@@ -54,6 +55,7 @@ export default function ErpConfigTab() {
               setLunchBreakStart(result.data.lunchBreakStart || "12:00");
               setLunchBreakEnd(result.data.lunchBreakEnd || "13:00");
               setWorkingDays(Array.isArray(result.data.workingDays) && result.data.workingDays.length ? result.data.workingDays : [1, 2, 3, 4, 5]);
+              setAnnualLeaveDays(Number(result.data.annualLeaveDays ?? 12));
             }
           }
         } catch (err) {
@@ -113,6 +115,7 @@ export default function ErpConfigTab() {
           lunchBreakStart,
           lunchBreakEnd,
           workingDays,
+          annualLeaveDays,
         }),
       });
       const result = await res.json();

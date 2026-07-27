@@ -10,6 +10,13 @@ export interface IHRLeaveTemplate extends Document {
   updatedAt: Date;
 }
 
+export interface ILeaveAttachment {
+  url: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+}
+
 export interface IHRLeaveApplication extends Document {
   companyCode: string;
   employeeId: string;
@@ -20,10 +27,15 @@ export interface IHRLeaveApplication extends Document {
   reason: string;
   uploadedFileUrl?: string;
   uploadedFileName?: string;
+  attachments?: ILeaveAttachment[];
   status: "pending" | "approved" | "rejected";
   rejectReason?: string;
   note?: string;
   approvedBy?: string;
+  approvedAt?: Date;
+  approvalType?: "justified" | "unjustified";
+  approvalNote?: string;
+  year?: number;
   chargeableDays?: number;
   chargeableDates?: string[];
   reminderSentAt?: Date;
