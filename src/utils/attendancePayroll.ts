@@ -27,7 +27,13 @@ export const calculateAttendanceWorkedMinutes = (
   if (!checkIn || !checkOut) return 0;
 
   const startDate = new Date(checkIn);
-  const endDate = new Date(checkOut);
+  let endDate = new Date(checkOut);
+  // Manual attendance created before shift support may store an overnight
+  // checkout on the same calendar date. Interpret it as the following day.
+  if (endDate.getTime() < startDate.getTime()) {
+    const corrected = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+    if (corrected.getTime() >= startDate.getTime()) endDate = corrected;
+  }
   const rawMinutes = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 60_000));
   if (!schedule.lunchBreakStart || !schedule.lunchBreakEnd) return rawMinutes;
 
