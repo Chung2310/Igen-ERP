@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
 import { authService } from "../services/authService";
 import { walletService } from "../services/walletService";
 import { isTabHidden } from "../config/modules";
@@ -41,6 +42,7 @@ const searchIndex = [
 
 export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
+  const { branches, activeBranchId, setActiveBranchId, activeBranch } = useBranch();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -400,6 +402,15 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       </div>
 
       <div className="ml-2 sm:ml-6 flex items-center gap-1 sm:gap-3" id="header_controls">
+
+        {userProfile?.role === "admin" && branches.length > 0 && (
+          <label className="flex items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[10px] font-bold text-emerald-700" title="Chi nh?nh ?ang xem">
+            <span className="hidden sm:inline">Chi nh?nh</span>
+            <select value={activeBranchId} onChange={(e) => setActiveBranchId(e.target.value)} className="max-w-[130px] bg-transparent outline-none cursor-pointer">
+              {branches.map((branch) => <option key={branch._id} value={branch._id}>{branch.name}</option>)}
+            </select>
+          </label>
+        )}
 
         {/* Wallet Balance Pill */}
         {userProfile && (
