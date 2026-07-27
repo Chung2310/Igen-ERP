@@ -12,6 +12,7 @@ export interface IChatRoom extends Document {
   name?: string;
   isGroup: boolean;
   companyCode: string;
+  branchId?: string;
   creatorId: Types.ObjectId | string;
   members: IChatRoomMember[];
   lastMessage?: Types.ObjectId | string;
