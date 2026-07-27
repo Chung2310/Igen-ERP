@@ -522,6 +522,10 @@ export default function CalendarTab({
   };
 
   const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
+    if (!appStartDate || !appEndDate) {
+      toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
+      return;
+    }
     e.preventDefault();
     if (!appReason.trim()) {
       toast.error("Vui lòng nhập lý do.");
@@ -553,7 +557,7 @@ export default function CalendarTab({
           type: appType,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: appReason,
+          reason: appReason.trim() || "ÄÄƒng kÃ½ nghá»‰ phÃ©p",
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
           attachments,
@@ -2902,8 +2906,7 @@ export default function CalendarTab({
                       </label>
                       <input
                         type="date"
-                        required
-                        value={appStartDate}
+                          value={appStartDate}
                         onChange={(e) => setAppStartDate(e.target.value)}
                         className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
                       />
@@ -2914,8 +2917,7 @@ export default function CalendarTab({
                       </label>
                       <input
                         type="time"
-                        required
-                        value={appStartTime}
+                          value={appStartTime}
                         onChange={(e) => setAppStartTime(e.target.value)}
                         className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
                       />
@@ -2929,8 +2931,7 @@ export default function CalendarTab({
                       </label>
                       <input
                         type="date"
-                        required
-                        value={appEndDate}
+                          value={appEndDate}
                         onChange={(e) => setAppEndDate(e.target.value)}
                         className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
                       />
@@ -2941,8 +2942,7 @@ export default function CalendarTab({
                       </label>
                       <input
                         type="time"
-                        required
-                        value={appEndTime}
+                          value={appEndTime}
                         onChange={(e) => setAppEndTime(e.target.value)}
                         className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
                       />
@@ -2954,7 +2954,6 @@ export default function CalendarTab({
                       Lý do xin phép
                     </label>
                     <textarea
-                      required
                       placeholder="Nhập lý do cụ thể..."
                       value={appReason}
                       onChange={(e) => setAppReason(e.target.value)}
