@@ -553,7 +553,7 @@ export default function CalendarTab({
           type: appType,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: appReason,
+          reason: appReason.trim() || "ÄÄƒng kÃ½ nghá»‰ phÃ©p",
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
           attachments,
@@ -2969,6 +2969,7 @@ export default function CalendarTab({
                     </label>
                     <input
                       type="file"
+                      required
                       multiple
                       accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm"
                       onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }}
