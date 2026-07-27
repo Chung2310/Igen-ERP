@@ -169,13 +169,4 @@ const UserSchema = new Schema<IUser>({
   maxUsersLimit: { type: Number },
 }, { toJSON: { transform: removeSuperAdminSecrets }, toObject: { transform: removeSuperAdminSecrets } });
 
-UserSchema.index(
-  { role: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { role: "superadmin" },
-    name: "unique_superadmin_role",
-  },
-);
-
 export const UserModel = model<IUser>("User", UserSchema);
