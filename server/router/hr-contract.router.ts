@@ -47,7 +47,15 @@ const extensionBody = Joi.object({
   extensionDate: Joi.date().iso().required(),
   reason: Joi.string().allow("").max(1000),
   extensionFileUrl: url,
+  extensionFileName: Joi.string().allow("").max(300),
+  extensionFileMimeType: Joi.string().allow("").max(200),
+  extensionFileSize: Joi.number().min(0),
+  extensionResourceId: Joi.string().hex().length(24).allow("", null),
   signedImageUrl: url,
+  signedImageName: Joi.string().allow("").max(300),
+  signedImageMimeType: Joi.string().allow("").max(200),
+  signedImageSize: Joi.number().min(0),
+  signedImageResourceId: Joi.string().hex().length(24).allow("", null),
 });
 
 hrContractRouter.use(requireAuth as any, requireModule("hr"));
@@ -63,7 +71,9 @@ hrContractRouter.post(
         .min(0)
         .max(10 * 1024 * 1024)
         .required(),
-      kind: Joi.string().valid("contract", "signed").required(),
+      kind: Joi.string()
+        .valid("contract", "signed", "extension", "extensionSigned")
+        .required(),
     }),
   }),
   hrContractController.uploadResource as any,

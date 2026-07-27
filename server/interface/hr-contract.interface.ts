@@ -35,6 +35,14 @@ export interface IHRContractExtension extends Document {
   extensionDate: Date;
   reason?: string;
   extensionFileUrl?: string;
+  extensionFileName?: string;
+  extensionFileMimeType?: string;
+  extensionFileSize?: number;
+  extensionResourceId?: string;
   signedImageUrl?: string;
+  signedImageName?: string;
+  signedImageMimeType?: string;
+  signedImageSize?: number;
+  signedImageResourceId?: string;
   createdBy: string;
 }

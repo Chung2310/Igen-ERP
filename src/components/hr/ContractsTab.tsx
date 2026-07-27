@@ -49,7 +49,15 @@ type Extension = {
   extensionDate: string;
   reason?: string;
   extensionFileUrl?: string;
+  extensionFileName?: string;
+  extensionFileMimeType?: string;
+  extensionFileSize?: number;
+  extensionResourceId?: string;
   signedImageUrl?: string;
+  signedImageName?: string;
+  signedImageMimeType?: string;
+  signedImageSize?: number;
+  signedImageResourceId?: string;
 };
 const headers = () => ({
   "Content-Type": "application/json",
@@ -79,6 +87,20 @@ const mimeFromName = (name: string) => {
     return `image/${extension === "jpg" ? "jpeg" : extension}`;
   return "";
 };
+const daysUntilExpiry = (value: string, now = new Date()) => {
+  const expiry = new Date(value);
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const expiryUtc = Date.UTC(
+    expiry.getFullYear(),
+    expiry.getMonth(),
+    expiry.getDate(),
+  );
+  return Math.ceil((expiryUtc - todayUtc) / 86_400_000);
+};
+const isExpiringSoon = (contract: Contract) => {
+  const remaining = daysUntilExpiry(contract.endDate);
+  return contract.status === "active" && remaining >= 1 && remaining <= 20;
+};
 const emptyContract = {
   contractType: "Hợp đồng xác định thời hạn",
   employeeId: "",
@@ -103,7 +125,15 @@ const emptyExtension = {
   extensionDate: new Date().toISOString().slice(0, 10),
   reason: "",
   extensionFileUrl: "",
+  extensionFileName: "",
+  extensionFileMimeType: "",
+  extensionFileSize: 0,
+  extensionResourceId: "",
   signedImageUrl: "",
+  signedImageName: "",
+  signedImageMimeType: "",
+  signedImageSize: 0,
+  signedImageResourceId: "",
 };
 const input =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15";
@@ -138,9 +168,9 @@ export default function ContractsTab({
   const [extOpen, setExtOpen] = useState(false);
   const [extensionForm, setExtensionForm] = useState(emptyExtension);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState<"contract" | "signed" | null>(
-    null,
-  );
+  const [uploading, setUploading] = useState<
+    "contract" | "signed" | "extension" | "extensionSigned" | null
+  >(null);
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
   const suffix = `?companyCode=${encodeURIComponent(companyCode)}`;
   const load = async () => {
@@ -176,6 +206,15 @@ export default function ContractsTab({
         ]),
       ),
     [employees, contracts],
+  );
+  const expiringContracts = useMemo(
+    () =>
+      contracts
+        .filter(isExpiringSoon)
+        .sort(
+          (a, b) => daysUntilExpiry(a.endDate) - daysUntilExpiry(b.endDate),
+        ),
+    [contracts],
   );
   const visibleEmployees = employees.filter((e) =>
     `${e.displayName || ""} ${e.email} ${e.department || ""}`
@@ -326,6 +365,76 @@ export default function ContractsTab({
       setUploading(null);
     }
   };
+  const uploadExtensionFile = async (
+    file: File,
+    target: "extension" | "extensionSigned",
+  ) => {
+    const isSigned = target === "extensionSigned";
+    const allowed = isSigned
+      ? file.type.startsWith("image/")
+      : [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ].includes(file.type);
+    if (!allowed)
+      return toast.error(
+        isSigned
+          ? "Ảnh đã ký phải là tệp hình ảnh."
+          : "Phụ lục gia hạn chỉ hỗ trợ PDF, DOC hoặc DOCX.",
+      );
+    if (file.size > 10 * 1024 * 1024)
+      return toast.error("Tệp tải lên không được vượt quá 10 MB.");
+    setUploading(target);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch(`/api/v1/hr-contracts/upload${suffix}`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          file: base64,
+          name: file.name,
+          mimeType: file.type,
+          size: file.size,
+          kind: target,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Tải tệp thất bại.");
+      const resource = result.data?.resource;
+      setExtensionForm((current) =>
+        isSigned
+          ? {
+              ...current,
+              signedImageUrl: result.data.url,
+              signedImageName: file.name,
+              signedImageMimeType: file.type,
+              signedImageSize: file.size,
+              signedImageResourceId: resource?._id || "",
+            }
+          : {
+              ...current,
+              extensionFileUrl: result.data.url,
+              extensionFileName: file.name,
+              extensionFileMimeType: file.type,
+              extensionFileSize: file.size,
+              extensionResourceId: resource?._id || "",
+            },
+      );
+      toast.success(`Đã tải lên ${file.name}.`);
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, "Không thể tải tệp gia hạn hợp đồng."),
+      );
+    } finally {
+      setUploading(null);
+    }
+  };
   const preview = async (contract: Contract, kind: "contract" | "signed") => {
     const signed = kind === "signed";
     const fileUrl = signed ? contract.signedImageUrl : contract.contractFileUrl;
@@ -419,6 +528,26 @@ export default function ContractsTab({
           </div>
         ) : tab === "contracts" ? (
           <>
+            {expiringContracts.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                <p className="text-xs font-bold">
+                  Có {expiringContracts.length} hợp đồng sắp hết hạn trong 20
+                  ngày tới
+                </p>
+                <p className="mt-1 text-[11px] text-amber-700">
+                  {expiringContracts
+                    .slice(0, 5)
+                    .map(
+                      (contract) =>
+                        `${contract.employeeName} (${daysUntilExpiry(contract.endDate)} ngày)`,
+                    )
+                    .join(" · ")}
+                  {expiringContracts.length > 5
+                    ? ` · và ${expiringContracts.length - 5} hợp đồng khác`
+                    : ""}
+                </p>
+              </div>
+            )}
             <div className="relative max-w-sm">
               <Search
                 className="absolute left-3 top-2.5 text-slate-400"
@@ -477,68 +606,84 @@ export default function ContractsTab({
                           </td>
                         </tr>,
                       ];
-                    return rows.map((c, i) => (
-                      <tr key={c._id}>
-                        <td className="p-3">
-                          <b>{emp.displayName || emp.email}</b>
-                          {i === 0 && (
-                            <div className="text-[10px] text-slate-400">
-                              {emp.department}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3">{c.contractType}</td>
-                        <td className="p-3 text-center">{date(c.startDate)}</td>
-                        <td className="p-3 text-center">{date(c.endDate)}</td>
-                        <td className="p-3 text-center">
-                          <span
-                            className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
-                          >
-                            {statusLabel[c.status]}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center space-x-2">
-                          {c.contractFileUrl && (
-                            <button
-                              type="button"
-                              className="font-bold text-cyan-700 hover:underline"
-                              onClick={() => preview(c, "contract")}
-                            >
-                              Xem file
-                            </button>
-                          )}
-                          {c.signedImageUrl && (
-                            <button
-                              type="button"
-                              className="font-bold text-cyan-700 hover:underline"
-                              onClick={() => preview(c, "signed")}
-                            >
-                              Xem ảnh ký
-                            </button>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            {canManage && (
-                              <>
-                                <button
-                                  title="Sửa"
-                                  onClick={() => openContract(c)}
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  title="Gia hạn"
-                                  onClick={() => openExtension(c)}
-                                >
-                                  <RefreshCw size={14} />
-                                </button>
-                              </>
+                    return rows.map((c, i) => {
+                      const remainingDays = daysUntilExpiry(c.endDate);
+                      const expiringSoon = isExpiringSoon(c);
+                      return (
+                        <tr
+                          key={c._id}
+                          className={expiringSoon ? "bg-amber-50/60" : ""}
+                        >
+                          <td className="p-3">
+                            <b>{emp.displayName || emp.email}</b>
+                            {i === 0 && (
+                              <div className="text-[10px] text-slate-400">
+                                {emp.department}
+                              </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ));
+                          </td>
+                          <td className="p-3">{c.contractType}</td>
+                          <td className="p-3 text-center">
+                            {date(c.startDate)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <div>{date(c.endDate)}</div>
+                            {expiringSoon && (
+                              <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                Sắp hết hạn · Còn {remainingDays} ngày
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
+                            >
+                              {statusLabel[c.status]}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center space-x-2">
+                            {c.contractFileUrl && (
+                              <button
+                                type="button"
+                                className="font-bold text-cyan-700 hover:underline"
+                                onClick={() => preview(c, "contract")}
+                              >
+                                Xem file
+                              </button>
+                            )}
+                            {c.signedImageUrl && (
+                              <button
+                                type="button"
+                                className="font-bold text-cyan-700 hover:underline"
+                                onClick={() => preview(c, "signed")}
+                              >
+                                Xem ảnh ký
+                              </button>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              {canManage && (
+                                <>
+                                  <button
+                                    title="Sửa"
+                                    onClick={() => openContract(c)}
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    title="Gia hạn"
+                                    onClick={() => openExtension(c)}
+                                  >
+                                    <RefreshCw size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
                   })}
                 </tbody>
               </table>
@@ -792,7 +937,7 @@ export default function ContractsTab({
           title="Gia hạn hợp đồng"
           close={() => setExtOpen(false)}
           save={saveExtension}
-          saving={saving}
+          saving={saving || uploading !== null}
           valid={Boolean(
             extensionForm.contractId &&
             extensionForm.newEndDate &&
@@ -863,32 +1008,60 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <label className="text-xs">
-              Link file gia hạn
-              <input
-                className={input}
-                value={extensionForm.extensionFileUrl}
-                onChange={(e) =>
-                  setExtensionForm({
-                    ...extensionForm,
-                    extensionFileUrl: e.target.value,
-                  })
-                }
-              />
-            </label>
-            <label className="text-xs">
-              Link ảnh đã ký
-              <input
-                className={input}
-                value={extensionForm.signedImageUrl}
-                onChange={(e) =>
-                  setExtensionForm({
-                    ...extensionForm,
-                    signedImageUrl: e.target.value,
-                  })
-                }
-              />
-            </label>
+            <div className="text-xs">
+              <span>File phụ lục/gia hạn (PDF, DOC, DOCX)</span>
+              <label
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+              >
+                <Upload size={14} />
+                {uploading === "extension"
+                  ? "Đang tải lên..."
+                  : "Chọn file gia hạn"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  disabled={uploading !== null}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadExtensionFile(file, "extension");
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              {extensionForm.extensionFileUrl && (
+                <span className="mt-1 block truncate text-emerald-700">
+                  Đã tải: {extensionForm.extensionFileName}
+                </span>
+              )}
+            </div>
+            <div className="text-xs">
+              <span>Ảnh phụ lục đã ký</span>
+              <label
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+              >
+                <Upload size={14} />
+                {uploading === "extensionSigned"
+                  ? "Đang tải lên..."
+                  : "Chọn ảnh đã ký"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  disabled={uploading !== null}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadExtensionFile(file, "extensionSigned");
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              {extensionForm.signedImageUrl && (
+                <span className="mt-1 block truncate text-emerald-700">
+                  Đã tải: {extensionForm.signedImageName}
+                </span>
+              )}
+            </div>
           </div>
         </Modal>
       )}

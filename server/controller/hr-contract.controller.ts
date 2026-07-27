@@ -21,9 +21,10 @@ export const hrContractController = {
     try {
       const companyCode = tenant(req);
       const { file, name, mimeType, size, kind } = req.body;
+      const isSigned = kind === "signed" || kind === "extensionSigned";
       const fileUrl = await cloudinaryService.uploadMedia(
         file,
-        kind === "signed"
+        isSigned
           ? "igen_erp/hr-contracts/signed"
           : "igen_erp/hr-contracts/documents",
       );
@@ -54,13 +55,11 @@ export const hrContractController = {
         .status(201)
         .json({ status: "success", data: { url: fileUrl, resource } });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể tải và lưu tệp hợp đồng vào kho tài nguyên.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải và lưu tệp hợp đồng vào kho tài nguyên.",
+        details: error.message,
+      });
     }
   },
   async list(req: AuthenticatedRequest, res: Response) {
@@ -88,13 +87,11 @@ export const hrContractController = {
       ]);
       return res.json({ status: "success", data: { contracts, employees } });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể tải danh sách hợp đồng.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải danh sách hợp đồng.",
+        details: error.message,
+      });
     }
   },
 
@@ -108,12 +105,10 @@ export const hrContractController = {
         .select("displayName email")
         .lean();
       if (!employee)
-        return res
-          .status(404)
-          .json({
-            status: "error",
-            message: "Không tìm thấy nhân viên trong công ty.",
-          });
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy nhân viên trong công ty.",
+        });
       const data = await HRContractModel.create({
         ...req.body,
         companyCode,
@@ -122,13 +117,11 @@ export const hrContractController = {
       });
       return res.status(201).json({ status: "success", data });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể tạo hợp đồng.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tạo hợp đồng.",
+        details: error.message,
+      });
     }
   },
 
@@ -152,12 +145,10 @@ export const hrContractController = {
           .select("displayName email")
           .lean();
         if (!employee)
-          return res
-            .status(404)
-            .json({
-              status: "error",
-              message: "Không tìm thấy nhân viên trong công ty.",
-            });
+          return res.status(404).json({
+            status: "error",
+            message: "Không tìm thấy nhân viên trong công ty.",
+          });
         patch.employeeName = employee.displayName || employee.email;
       }
       const startDate = patch.startDate
@@ -167,12 +158,10 @@ export const hrContractController = {
         ? new Date(patch.endDate)
         : existing.endDate;
       if (endDate < startDate)
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message: "Ngày hết hạn phải sau ngày bắt đầu.",
-          });
+        return res.status(400).json({
+          status: "error",
+          message: "Ngày hết hạn phải sau ngày bắt đầu.",
+        });
       const data = await HRContractModel.findOneAndUpdate(
         { _id: existing._id, companyCode },
         { $set: patch },
@@ -180,13 +169,11 @@ export const hrContractController = {
       );
       return res.json({ status: "success", data });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể cập nhật hợp đồng.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể cập nhật hợp đồng.",
+        details: error.message,
+      });
     }
   },
 
@@ -201,13 +188,11 @@ export const hrContractController = {
         .lean();
       return res.json({ status: "success", data });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể tải lịch sử gia hạn.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải lịch sử gia hạn.",
+        details: error.message,
+      });
     }
   },
 
@@ -224,12 +209,10 @@ export const hrContractController = {
           .json({ status: "error", message: "Không tìm thấy hợp đồng." });
       const newEndDate = new Date(req.body.newEndDate);
       if (newEndDate <= contract.endDate)
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message: "Ngày hết hạn mới phải sau ngày hết hạn hiện tại.",
-          });
+        return res.status(400).json({
+          status: "error",
+          message: "Ngày hết hạn mới phải sau ngày hết hạn hiện tại.",
+        });
       const previousEndDate = contract.endDate;
       const extension = await HRContractExtensionModel.create({
         ...req.body,
@@ -248,13 +231,11 @@ export const hrContractController = {
         .status(201)
         .json({ status: "success", data: { contract, extension } });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          status: "error",
-          message: "Không thể gia hạn hợp đồng.",
-          details: error.message,
-        });
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể gia hạn hợp đồng.",
+        details: error.message,
+      });
     }
   },
 };
