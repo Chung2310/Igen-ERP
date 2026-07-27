@@ -17,6 +17,7 @@ const ChatRoomSchema = new Schema<IChatRoom>(
     name: { type: String, default: "" },
     isGroup: { type: Boolean, default: false, index: true },
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     creatorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     members: { type: [ChatRoomMemberSchema], default: [] },
     lastMessage: { type: Schema.Types.ObjectId, ref: "ChatMessage" },
