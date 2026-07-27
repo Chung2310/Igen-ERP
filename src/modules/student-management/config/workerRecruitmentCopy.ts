@@ -284,6 +284,15 @@ export function getBatchPageCopy(preset: EntityPreset): BatchPageCopy {
   };
 }
 
+export function getBatchStatusLabel(preset: EntityPreset, status: string): string {
+  if (preset !== "worker") return status;
+  return {
+    "Sắp khai giảng": "Sắp triển khai",
+    "Đang học": "Đang triển khai",
+    "Đã kết thúc": "Đã kết thúc",
+  }[status] ?? status;
+}
+
 export type WorkerOperationalCopy = {
   isWorker: boolean;
   isCustomer: boolean;

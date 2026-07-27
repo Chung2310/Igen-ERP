@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCoursePageCopy,
   getBatchPageCopy,
+  getBatchStatusLabel,
   getWorkerOperationalCopy,
   getStudentManagementSubTabLabel,
   usesEducationBilling,
@@ -61,6 +62,13 @@ describe("worker recruitment copy", () => {
       createSubmit: "Tạo dự án",
     });
     expect(getBatchPageCopy("student").pageTitle).toBe("Lớp & Khai giảng");
+  });
+
+  it("maps internal class statuses to project statuses without changing stored values", () => {
+    expect(getBatchStatusLabel("worker", "Sắp khai giảng")).toBe("Sắp triển khai");
+    expect(getBatchStatusLabel("worker", "Đang học")).toBe("Đang triển khai");
+    expect(getBatchStatusLabel("worker", "Đã kết thúc")).toBe("Đã kết thúc");
+    expect(getBatchStatusLabel("student", "Đang học")).toBe("Đang học");
   });
 
   it("does not apply worker project wording to the candidate preset", () => {

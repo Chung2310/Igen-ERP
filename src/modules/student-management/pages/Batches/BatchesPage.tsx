@@ -25,7 +25,7 @@ import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
-import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
+import { getBatchPageCopy, getBatchStatusLabel } from '../../config/workerRecruitmentCopy';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
@@ -96,6 +96,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
   const copy = getBatchPageCopy(entityLabel.preset);
+  const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -311,7 +312,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         body: JSON.stringify({ status }),
       });
       notifyBatchMutation();
-      toast.success(`${copy.entityName} ${batch.code} đã chuyển sang "${status}".`);
+      toast.success(`${copy.entityName} ${batch.code} đã chuyển sang "${statusLabel(status)}".`);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật trạng thái.';
       toast.error(msg);
@@ -407,7 +408,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
           </ErpFilterTab>
           {BATCH_STATUSES.map((st) => (
             <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
-              {st}
+              {statusLabel(st)}
             </ErpFilterTab>
           ))}
         </ErpFilterRail>
@@ -476,7 +477,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                           darkMode ? "bg-slate-900" : "bg-white"
                         )}
                       >
-                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
                       </select>
                     </td>
                     <td className="py-2 px-4">
