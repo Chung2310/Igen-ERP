@@ -6,6 +6,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { attendanceFaceGate } from "../middleware/attendance-face-gate";
 import { companyWorkCalendarController } from "../controller/company-work-calendar.controller";
+import { workShiftController } from "../controller/work-shift.controller";
 
 export const timekeepingRouter = Router();
 const attendanceImage = multer({
@@ -69,6 +70,18 @@ const updateLocationSchema = {
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
+const shiftBreakSchema = Joi.object({ name: Joi.string().trim().max(80).required(), startTime: Joi.string().regex(timeRegex).required(), endTime: Joi.string().regex(timeRegex).required(), paid: Joi.boolean() });
+const shiftSchema = Joi.object({
+  code: Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).max(30).required(), name: Joi.string().trim().max(100).required(),
+  color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/), startTime: Joi.string().regex(timeRegex).required(), endTime: Joi.string().regex(timeRegex).required(),
+  crossesMidnight: Joi.boolean(), checkInFrom: Joi.string().regex(timeRegex).allow("", null), checkInUntil: Joi.string().regex(timeRegex).allow("", null),
+  checkOutFrom: Joi.string().regex(timeRegex).allow("", null), checkOutUntil: Joi.string().regex(timeRegex).allow("", null), breakPeriods: Joi.array().items(shiftBreakSchema),
+  allowedLateMinutes: Joi.number().integer().min(0).max(240), allowedEarlyLeaveMinutes: Joi.number().integer().min(0).max(240),
+  standardMinutes: Joi.number().integer().min(1).max(1440), workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().required(), isDefault: Joi.boolean(), isActive: Joi.boolean(),
+});
+const updateShiftSchema = { params: Joi.object({ id: Joi.string().hex().length(24).required() }), body: shiftSchema.fork(["code", "name", "startTime", "endTime", "workingDays"], (field) => field.optional()) };
+const assignmentSchema = { body: Joi.object({ employeeIds: Joi.array().items(Joi.string().hex().length(24)).min(1).unique().required(), shiftId: Joi.string().hex().length(24).required(), effectiveFrom: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(), effectiveTo: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow("", null), daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique() }) };
+
 const updateWorkHoursSchema = {
   params: Joi.object({
     uid: Joi.string().hex().length(24).required(),
@@ -131,6 +144,13 @@ timekeepingRouter.patch(
   validateRequest(updateLocationSchema),
   timekeepingController.updateCompanyLocation as any
 );
+
+timekeepingRouter.get("/shifts", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.list as any);
+timekeepingRouter.post("/shifts", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest({ body: shiftSchema }), workShiftController.create as any);
+timekeepingRouter.patch("/shifts/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(updateShiftSchema), workShiftController.update as any);
+timekeepingRouter.delete("/shifts/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.remove as any);
+timekeepingRouter.get("/shift-assignments", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.listAssignments as any);
+timekeepingRouter.post("/shift-assignments", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(assignmentSchema), workShiftController.assign as any);
 
 // List per-employee work-hours config (requires timekeeping:manage permission)
 timekeepingRouter.get(
