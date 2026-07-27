@@ -20,13 +20,16 @@ import {
   Link2,
   Upload,
   Eye,
-  CalendarDays
+  CalendarDays,
+  List,
+  Network
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { getApiErrorMessage } from "../../utils/errorMessage";
+import { filterOrgChartEmployees, getManagerForEmployee } from "./orgChartUtils";
 
 interface OrgChartTabProps {
   userProfile: any;
@@ -323,6 +326,7 @@ export default function OrgChartTab({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeDropdownCardId, setActiveDropdownCardId] = useState<string | null>(null);
   const [selectedLeaveBalance, setSelectedLeaveBalance] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
 
   useEffect(() => {
     if (!selectedEmp || !selectedCompanyCode) {
@@ -993,6 +997,8 @@ export default function OrgChartTab({
 
   // Identify root employees (level 1 or nodes with no parent in the displayed tree)
   const rootEmployees = employees.filter(e => !e.parentId || !employees.some(p => p.id === e.parentId));
+  const visibleEmployees = filterOrgChartEmployees(employees, searchQuery, filterDepartment);
+  const missingValue = "Chua cap nhat";
 
   // Recursive Branch rendering component helper
   const renderBranch = (node: EmployeeNode) => {
@@ -1160,6 +1166,10 @@ export default function OrgChartTab({
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl border border-gray-200 bg-white p-1">
+            <button type="button" onClick={() => setViewMode("tree")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cay</button>
+            <button type="button" onClick={() => setViewMode("list")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sach</button>
+          </div>
 
 
 
@@ -1200,8 +1210,14 @@ export default function OrgChartTab({
       <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
         <div className="grid grid-cols-1 gap-6 h-full min-h-[500px]" id="org_chart_block">
 
+          {viewMode === "list" && (
+            <div className="col-span-1 bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-[500px]">
+              <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 border-b border-gray-200 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Nhan vien</th><th className="px-4 py-3">Chuc danh</th><th className="px-4 py-3">Phong ban</th><th className="px-4 py-3">Khoi</th><th className="px-4 py-3">Quan ly truc tiep</th><th className="px-4 py-3">Lien he</th><th className="px-4 py-3">Trang thai</th></tr></thead><tbody>{visibleEmployees.map((employee) => { const manager = getManagerForEmployee(employee, employees); return <tr key={employee.id} onClick={() => setSelectedEmp(employee)} className="border-b border-slate-100 hover:bg-indigo-50/50 cursor-pointer"><td className="px-4 py-3"><div className="flex items-center gap-2.5">{renderAvatar(employee.avatar, "w-8 h-8", "text-xs")}<div><div className="font-bold text-slate-800">{employee.name || missingValue}</div><div className="text-[10px] text-slate-400">{employee.id}</div></div></div></td><td className="px-4 py-3">{employee.role || missingValue}</td><td className="px-4 py-3">{employee.department || missingValue}</td><td className="px-4 py-3">{employee.division || missingValue}</td><td className="px-4 py-3">{manager?.name || missingValue}</td><td className="px-4 py-3">{employee.email || missingValue}<div className="text-[10px] text-slate-400">{employee.phone || missingValue}</div></td><td className="px-4 py-3">{employee.status === "online" ? "Dang hoat dong" : "Ngoai tuyen"}</td></tr>; })}</tbody></table>{visibleEmployees.length === 0 && <div className="py-16 text-center text-sm text-slate-400">Khong tim thay nhan vien</div>}</div>
+            </div>
+          )}
+
           {/* Interactive Tree viewport diagram - full width */}
-          <div className="col-span-1 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
+          <div className={`col-span-1 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px] ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
 
 
             {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
@@ -1437,7 +1453,7 @@ export default function OrgChartTab({
               </div>
             </div>
           ) : (
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-lg p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200 animate-out duration-150">
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200 animate-out duration-150">
               <div className="flex justify-between items-center pb-2 border-b">
                 <h4 className="font-extrabold text-slate-850 text-sm font-sans uppercase tracking-wide">Chi Tiết Nhân Sự</h4>
                 <button type="button" onClick={closeDetailModal} className="text-gray-400 hover:text-gray-650 cursor-pointer">
@@ -1467,6 +1483,8 @@ export default function OrgChartTab({
               )}
 
               <div className="space-y-4 text-xs text-slate-655 text-slate-600">
+                <div className="grid grid-cols-2 gap-3"><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Trang thai</span><strong>{selectedEmp.status === "online" ? "Dang hoat dong" : "Ngoai tuyen"}</strong></div><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Cap nhan su</span><strong>Cap {selectedEmp.level || missingValue}</strong></div></div>
+                <div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Luong thang</span><strong>{selectedEmp.monthlySalary ? selectedEmp.monthlySalary.toLocaleString("vi-VN") + " VND" : missingValue}</strong></div>
                 <div className="flex items-center gap-3">
                   <Building2 className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                   <div>
