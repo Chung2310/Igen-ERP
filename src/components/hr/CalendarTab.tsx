@@ -991,7 +991,15 @@ export default function CalendarTab({
 
                         return (
                           <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                            {isLeaveAdmin && (
+                            <button
+                      onClick={openAppForm}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Users className="h-4 w-4 text-rose-500" />
+                      Đăng ký nghỉ phép
+                    </button>
+
+                    {isLeaveAdmin && (
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="font-bold text-slate-800">{app.employeeName}</div>
                               </td>
