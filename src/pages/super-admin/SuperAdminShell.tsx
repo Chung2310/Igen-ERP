@@ -8,7 +8,8 @@ import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
 import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
-import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X } from "lucide-react";
+import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
+import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
 import {
   clearPendingSuperAdminChallenge,
   readPendingSuperAdminChallenge,
@@ -22,7 +23,7 @@ export default function SuperAdminShell() {
     localStorage.getItem("accessToken") ? "authenticated" : resolveSuperAdminChallengeStage(pendingChallenge)
   );
   
-  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users">("overview");
+  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users" | "admins">("overview");
   const [selectedTenantCode, setSelectedTenantCode] = React.useState<string | null>(null);
   const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
@@ -135,6 +136,8 @@ export default function SuperAdminShell() {
         );
       case "users":
         return <UserManagementPanel tenantId="SYSTEM" />;
+      case "admins":
+        return <SuperAdminAccountsPage />;
       case "overview":
       default:
         return <DashboardTab />;
@@ -145,6 +148,7 @@ export default function SuperAdminShell() {
     { id: "overview" as const, label: "Tổng quan hệ thống", icon: LayoutDashboard },
     { id: "audit" as const, label: "Nhật ký kiểm toán", icon: FileText },
     { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
+    { id: "admins" as const, label: "Tài khoản Super Admin", icon: ShieldCheck },
     { id: "tenants" as const, label: "Quản lý doanh nghiệp", icon: Building2 },
     { id: "sessions" as const, label: "Quản lý phiên làm việc", icon: Monitor },
   ];

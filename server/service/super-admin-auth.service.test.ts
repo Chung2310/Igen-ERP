@@ -96,6 +96,16 @@ test("TOTP login replaces the active privileged session", async () => {
   assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
 });
 
+test("login does not revoke another Super Admin's session", async () => {
+  const { service, user, sessions } = fixture();
+  user.superAdminSecurity.totpEnabled = true;
+  user.superAdminSecurity.totpSecretEncrypted = "enc:SECRET";
+  sessions.set("other", { sessionId: "other", userId: "u2", expiresAt: new Date("2026-07-18T00:00:00.000Z") });
+  const challenge = await service.beginSuperAdminLogin(user, device);
+  await service.completeTotpLogin(challenge.challengeId, "123456", device);
+  assert.equal(sessions.get("other").revokedAt, undefined);
+});
+
 test("recovery login replaces the active privileged session", async () => {
   const { service, user, sessions } = fixture();
   user.superAdminSecurity.totpEnabled = true;
@@ -115,22 +125,6 @@ test("enrollment login replaces the active privileged session", async () => {
   const login = await service.confirmEnrollment(challenge.challengeId, "123456", device);
   assert.equal(sessions.get("old").revokeReason, "replaced_by_new_login");
   assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
-});
-
-test("startup preflight reports every duplicate Super Admin without modifying records", async () => {
-  const duplicateService = createSuperAdminAuthService({
-    users: {
-      listSuperAdmins: async () => [
-        { _id: "root-1", email: "root1@example.com" },
-        { _id: "root-2", email: "root2@example.com" },
-      ],
-    },
-  } as any);
-
-  await assert.rejects(
-    () => duplicateService.assertSingleSuperAdmin(),
-    /root-1.*root1@example\.com.*root-2.*root2@example\.com/i,
-  );
 });
 
 test("challenge and session are bound to the originating device", async () => {
