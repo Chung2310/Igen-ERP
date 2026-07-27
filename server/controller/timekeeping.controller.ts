@@ -470,7 +470,9 @@ export const timekeepingController = {
               lunchBreakStart: lunchBreakStart || "12:00",
               lunchBreakEnd: lunchBreakEnd || "13:00",
               workingDays: workingDays || [1, 2, 3, 4, 5],
-
+              annualLeaveDays: Number.isInteger(annualLeaveDays) ? annualLeaveDays : undefined,
+              employmentStatus: employmentStatus || "official",
+              officialDate: officialDate || undefined,
             },
           },
         },
