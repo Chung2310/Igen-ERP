@@ -72,6 +72,8 @@ export const crudController = {
         ...otherParams,
       };
 
+      if (req.user?.branchId) filters.branchId = req.user.branchId;
+
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
         if (!isSupervisor && req.user?.id) {
