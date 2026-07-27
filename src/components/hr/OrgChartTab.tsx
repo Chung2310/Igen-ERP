@@ -19,7 +19,8 @@ import {
   Edit,
   Link2,
   Upload,
-  Eye
+  Eye,
+  CalendarDays
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
@@ -321,6 +322,21 @@ export default function OrgChartTab({
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeDropdownCardId, setActiveDropdownCardId] = useState<string | null>(null);
+  const [selectedLeaveBalance, setSelectedLeaveBalance] = useState<any>(null);
+
+  useEffect(() => {
+    if (!selectedEmp || !selectedCompanyCode) {
+      setSelectedLeaveBalance(null);
+      return;
+    }
+    const loadLeaveBalance = async () => {
+      try {
+        const res = await fetch(`/api/v1/leave/balance?employeeId=${encodeURIComponent(selectedEmp.id)}&year=${new Date().getFullYear()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (res.ok) setSelectedLeaveBalance((await res.json()).data || null);
+      } catch (error) { console.error("Không thể tải số phép nhân viên", error); }
+    };
+    loadLeaveBalance();
+  }, [selectedEmp?.id, selectedCompanyCode]);
 
   useEffect(() => {
     if (selectedEmp) {
@@ -333,6 +349,7 @@ export default function OrgChartTab({
   const closeDetailModal = () => {
     setIsDetailModalOpen(false);
     setSelectedEmp(null);
+    setSelectedLeaveBalance(null);
     setIsEditing(false);
   };
 
@@ -1436,6 +1453,18 @@ export default function OrgChartTab({
                   {selectedEmp.division}
                 </span>
               </div>
+
+              {selectedLeaveBalance && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-extrabold text-emerald-800"><CalendarDays className="h-4 w-4" /> Phép năm {selectedLeaveBalance.year}</div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div><div className="text-[9px] text-slate-500">Hạn mức</div><strong className="text-sm text-emerald-700">{selectedLeaveBalance.entitlement}</strong></div>
+                    <div><div className="text-[9px] text-slate-500">Đã dùng</div><strong className="text-sm text-slate-700">{selectedLeaveBalance.used}</strong></div>
+                    <div><div className="text-[9px] text-slate-500">Chờ duyệt</div><strong className="text-sm text-amber-600">{selectedLeaveBalance.pending}</strong></div>
+                    <div><div className="text-[9px] text-slate-500">Còn lại</div><strong className="text-sm text-cyan-700">{selectedLeaveBalance.remaining}</strong></div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4 text-xs text-slate-655 text-slate-600">
                 <div className="flex items-center gap-3">
