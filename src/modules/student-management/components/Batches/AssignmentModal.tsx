@@ -22,6 +22,7 @@ import { useEntityLabel } from "../../hooks/useEntityLabel";
 import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { Batch, Student } from "../../types";
+import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
 
 interface IAttachment {
   name: string;
@@ -60,6 +61,9 @@ interface AssignmentModalProps {
 
 export function AssignmentModal({ isOpen, batch, students, onClose }: AssignmentModalProps) {
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
+  const isWorker = entityLabel.preset === "worker";
+  const assignmentName = isWorker ? "nhiệm vụ" : "bài tập";
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [grading, setGrading] = useState(false);
@@ -105,7 +109,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     const unsubscribe = socketService.on("submission_updated", (data: any) => {
       // Check if it belongs to current active assignment
       if (selectedAssignment && data.assignmentId === selectedAssignment._id) {
-        toast.info(`Có ${entityLabel.singular} vừa cập nhật nộp bài.`);
+        toast.info(`Có ${entityLabel.singular} vừa cập nhật minh chứng ${assignmentName}.`);
         fetchSubmissions(selectedAssignment._id);
       }
     });
@@ -123,7 +127,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         setAssignments(res.data);
       }
     } catch (err: any) {
-      toast.error(err.message || "Không thể tải danh sách bài tập.");
+      toast.error(err.message || `Không thể tải danh sách ${assignmentName}.`);
     } finally {
       setLoading(false);
     }
@@ -185,7 +189,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
-      toast.error("Vui lòng nhập tiêu đề bài tập.");
+      toast.error(`Vui lòng nhập tiêu đề ${assignmentName}.`);
       return;
     }
 
@@ -203,7 +207,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
       });
 
       if (res && res.success) {
-        toast.success(`Giao bài tập mới và gửi email thông báo ${entityLabel.singular} thành công!`);
+        toast.success(`Giao ${assignmentName} mới và gửi email thông báo ${entityLabel.singular} thành công!`);
         setShowCreateForm(false);
         setNewTitle("");
         setNewDescription("");
@@ -212,7 +216,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         fetchAssignments();
       }
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi giao bài tập.");
+      toast.error(err.message || `Lỗi khi giao ${assignmentName}.`);
     } finally {
       setCreating(false);
     }
@@ -268,10 +272,10 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
             </div>
             <div>
               <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
-                Bài tập & Minh chứng
+                {isWorker ? "Nhiệm vụ & Minh chứng" : "Bài tập & Minh chứng"}
               </h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                Lớp học: <span className="text-indigo-600">{batch.code}</span> • Khóa học: {batch.courseTitle}
+                {copy.entityName}: <span className="text-indigo-600">{batch.code}</span> • {copy.courseLabel}: {batch.courseTitle}
               </p>
             </div>
           </div>
@@ -290,7 +294,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           <div className="w-1/3 border-r border-slate-100 flex flex-col bg-slate-50/20">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                Bài tập đã giao ({assignments.length})
+                {isWorker ? "Nhiệm vụ" : "Bài tập"} đã giao ({assignments.length})
               </span>
               {!showCreateForm && (
                 <button
@@ -307,7 +311,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                 /* Form giao bài mới */
                 <form onSubmit={handleCreateAssignment} className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3.5">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                    <span className="text-[10px] font-extrabold text-indigo-600 uppercase">Giao bài tập mới</span>
+                    <span className="text-[10px] font-extrabold text-indigo-600 uppercase">Giao {assignmentName} mới</span>
                     <button
                       type="button"
                       onClick={() => setShowCreateForm(false)}
@@ -332,7 +336,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     <textarea
                       value={newDescription}
                       onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Mô tả chi tiết yêu cầu bài tập..."
+                      placeholder={`Mô tả chi tiết yêu cầu ${assignmentName}...`}
                       rows={3}
                       className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition placeholder-slate-400 resize-none"
                     />
@@ -395,11 +399,11 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
               ) : loading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                   <Loader2 className="h-5 w-5 animate-spin text-indigo-600 mb-2" />
-                  <span className="text-[10px] font-semibold">Đang tải bài tập...</span>
+                  <span className="text-[10px] font-semibold">Đang tải {assignmentName}...</span>
                 </div>
               ) : assignments.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
-                  <p className="text-xs">Chưa giao bài tập nào.</p>
+                  <p className="text-xs">Chưa giao {assignmentName} nào.</p>
                 </div>
               ) : (
                 assignments.map((a) => (
@@ -438,7 +442,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
             <div className="p-4 border-b border-slate-100 bg-slate-50/10">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                 <Users className="h-3.5 w-3.5 text-indigo-500" />
-                {entityLabel.tabLabel} trong lớp ({batchStudents.length})
+                {entityLabel.tabLabel} trong {copy.entityNameLower} ({batchStudents.length})
               </span>
             </div>
 
@@ -446,7 +450,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
               {!selectedAssignment ? (
                 <div className="text-center py-20 text-slate-450">
                   <FileText className="h-10 w-10 text-slate-200 mx-auto mb-2" />
-                  <p className="text-xs">Vui lòng chọn một bài tập để xem trạng thái nộp bài.</p>
+                  <p className="text-xs">Vui lòng chọn một {assignmentName} để xem trạng thái minh chứng.</p>
                 </div>
               ) : (
                 batchStudents.map((student) => {
@@ -601,7 +605,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     ) : (
                       <div className="p-8 text-center bg-white border border-slate-150 rounded-2xl flex flex-col items-center justify-center">
                         <Clock className="h-10 w-10 text-slate-200 mb-2" />
-                        <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng bài tập.</p>
+                        <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng {assignmentName}.</p>
                       </div>
                     )}
                   </div>

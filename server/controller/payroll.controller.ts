@@ -3,6 +3,7 @@ import { AttendancePeriodResultModel } from "../model/attendance-period-result.m
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { summarizeAttendanceForPayroll } from "../service/attendance-payroll.service";
+import { resolveShift } from "../service/work-shift.service";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
@@ -55,27 +56,27 @@ export const payrollController = {
     const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();
     const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
     const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
+    const period = req.params.periodKey;
+    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const employees = requestedEmployees?.length
       ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
-      : (await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map((user) => {
-          const standardDailyMinutes = user.workHoursConfig?.useCustom
-            ? computeStandardDailyMinutes(user.workHoursConfig.checkInLimit, user.workHoursConfig.checkOutLimit, user.workHoursConfig.lunchBreakStart, user.workHoursConfig.lunchBreakEnd)
-            : companyDailyMinutes;
+      : await Promise.all((await UserModel.find({ companyCode: tenant(req), ...(req.user?.branchId ? { branchId: req.user.branchId } : {}), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
+          const resolved = await resolveShift(tenant(req), String(user._id), `${period}-01`);
+          const shift = resolved.shift;
+          const unpaidBreak = shift.breakPeriods?.find((item: any) => !item.paid);
           return {
             employeeId: String(user._id),
             employeeName: user.displayName,
             monthlySalary: user.monthlySalary || 0,
-            workingDays: user.workHoursConfig?.useCustom && Array.isArray(user.workHoursConfig.workingDays) && user.workHoursConfig.workingDays.length ? user.workHoursConfig.workingDays : companyWorkingDays,
-            standardDailyMinutes,
-            checkInLimit: user.workHoursConfig?.useCustom ? user.workHoursConfig.checkInLimit : company?.locationConfig?.checkInLimit || "08:30",
-            checkOutLimit: user.workHoursConfig?.useCustom ? user.workHoursConfig.checkOutLimit : company?.locationConfig?.checkOutLimit || "17:30",
-            lunchBreakStart: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakStart : company?.locationConfig?.lunchBreakStart,
-            lunchBreakEnd: user.workHoursConfig?.useCustom ? user.workHoursConfig.lunchBreakEnd : company?.locationConfig?.lunchBreakEnd,
+            workingDays: shift.workingDays,
+            standardDailyMinutes: shift.standardMinutes,
+            checkInLimit: shift.startTime,
+            checkOutLimit: shift.endTime,
+            lunchBreakStart: unpaidBreak?.startTime,
+            lunchBreakEnd: unpaidBreak?.endTime,
           };
-        });
+        }));
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
-    const period = req.params.periodKey;
-    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
     const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end } }).lean();
     const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end }, isApplied: true }).lean();

@@ -3,6 +3,7 @@ import { IResource } from "../interface/resource.interface";
 
 const ResourceSchema = new Schema<IResource>({
   companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   name: { type: String, required: true },
   mimeType: { type: String, required: true },

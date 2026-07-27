@@ -8,6 +8,7 @@ import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
+import { getEmployeeAnnualLeaveBalance } from "../service/annual-leave.service";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
@@ -34,7 +35,7 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin" || userRole === "manager") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("timekeeping:manage");
+  return permissions.has("*") || permissions.has("leave:approve");
 }
 
 /**
@@ -46,7 +47,7 @@ async function canApproveLeave(req: AuthenticatedRequest): Promise<boolean> {
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("timekeeping:manage");
+  return permissions.has("*") || permissions.has("leave:approve");
 }
 
 export const crudController = {
@@ -70,6 +71,8 @@ export const crudController = {
         ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
         ...otherParams,
       };
+
+      if (req.user?.branchId) filters.branchId = req.user.branchId;
 
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
@@ -161,6 +164,16 @@ export const crudController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
+
+      if (modelName === "hr-leave-applications") {
+        if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
+        const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
+        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+        const year = new Date(req.body.startDate).getUTCFullYear();
+        const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
+        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số phép còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
+        req.body = { ...req.body, status: "pending", year, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+      }
 
       const LEAVE_TYPES = ["leave", "wfh", "exception"];
       if (modelName === "hr-calendar-events" && LEAVE_TYPES.includes(req.body.type)) {
@@ -295,11 +308,18 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications" && req.body.status === "approved") {
+        if (!["justified", "unjustified"].includes(req.body.approvalType)) throw Object.assign(new Error("Cần chọn loại duyệt chính đáng hoặc không chính đáng."), { statusCode: 400 });
+        req.body.approvedAt = new Date();
+        req.body.approvalNote = req.body.note || req.body.approvalNote || "";
+      }
+
+      if (modelName === "hr-leave-applications" && (req.body.status === "approved" || req.body.status === "rejected")) {
         const leave = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
-        if (shouldSnapshotChargeableDays(leave)) {
+        if (req.body.status === "approved" && shouldSnapshotChargeableDays(leave)) {
           const { chargeableDates, chargeableDays } = await computeChargeableSnapshot(companyCode, leave as { startDate: Date; endDate: Date });
           req.body.chargeableDates = chargeableDates;
           req.body.chargeableDays = chargeableDays;
+          req.body.year = new Date(leave!.startDate).getUTCFullYear();
         }
       }
 

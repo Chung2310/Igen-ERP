@@ -25,6 +25,7 @@ const typeStyle = (type: ScheduleEvent['type']) => {
 export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }) {
   const entityLabel = useEntityLabel();
   const isEducation = entityLabel.preset === 'student';
+  const isWorker = entityLabel.preset === 'worker';
   const [selectedType, setSelectedType] = useState<'all' | 'class' | 'exam' | 'resource'>('all');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -96,6 +97,7 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
           <div className="flex items-center gap-2">
             <ErpFilterTab active={selectedType === 'all'} onClick={() => setSelectedType('all')}>Tất cả</ErpFilterTab>
             {isEducation && <ErpFilterTab active={selectedType === 'class'} onClick={() => setSelectedType('class')}>Lớp học</ErpFilterTab>}
+            {isWorker && <ErpFilterTab active={selectedType === 'class'} onClick={() => setSelectedType('class')}>Dự án</ErpFilterTab>}
             {isEducation && <ErpFilterTab active={selectedType === 'exam'} onClick={() => setSelectedType('exam')}>Kỳ thi</ErpFilterTab>}
             {isEducation && <ErpFilterTab active={selectedType === 'resource'} onClick={() => setSelectedType('resource')}>Tài nguyên</ErpFilterTab>}
           </div>
@@ -160,7 +162,9 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
         {upcomingEvents.length === 0 ? (
           <p className="text-xs font-bold text-slate-400 py-8 text-center">
             Không có sự kiện nào trong thời gian tới.<br />
-            Mở lớp, tạo đợt thi hoặc đặt lịch tài nguyên để hiển thị tại đây.
+            {isWorker
+              ? 'Tạo dự án và lịch hoạt động để hiển thị tại đây.'
+              : 'Mở lớp, tạo đợt thi hoặc đặt lịch tài nguyên để hiển thị tại đây.'}
           </p>
         ) : (
           <div className="space-y-3">
@@ -171,7 +175,7 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("px-2 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-wider", typeStyle(evt.type))}>
-                    {evt.type === 'exam' ? 'Kỳ thi' : evt.type === 'resource' ? 'Tài nguyên' : 'Lớp học'}
+                    {evt.type === 'exam' ? 'Kỳ thi' : evt.type === 'resource' ? 'Tài nguyên' : isWorker ? 'Dự án' : 'Lớp học'}
                   </span>
                   <span className="text-[9px] font-black text-slate-400">
                     {evt.date.split('-').reverse().join('/')} • {evt.time}

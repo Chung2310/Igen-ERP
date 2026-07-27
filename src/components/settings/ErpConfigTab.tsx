@@ -5,10 +5,11 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
 import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
+import WorkShiftsTab from "./WorkShiftsTab";
 
 export default function ErpConfigTab() {
   const { userProfile, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts">("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -20,6 +21,7 @@ export default function ErpConfigTab() {
   const [lunchBreakStart, setLunchBreakStart] = useState("12:00");
   const [lunchBreakEnd, setLunchBreakEnd] = useState("13:00");
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [annualLeaveDays, setAnnualLeaveDays] = useState(12);
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
 
@@ -53,6 +55,7 @@ export default function ErpConfigTab() {
               setLunchBreakStart(result.data.lunchBreakStart || "12:00");
               setLunchBreakEnd(result.data.lunchBreakEnd || "13:00");
               setWorkingDays(Array.isArray(result.data.workingDays) && result.data.workingDays.length ? result.data.workingDays : [1, 2, 3, 4, 5]);
+              setAnnualLeaveDays(Number(result.data.annualLeaveDays ?? 12));
             }
           }
         } catch (err) {
@@ -112,6 +115,7 @@ export default function ErpConfigTab() {
           lunchBreakStart,
           lunchBreakEnd,
           workingDays,
+          annualLeaveDays,
         }),
       });
       const result = await res.json();
@@ -132,6 +136,13 @@ export default function ErpConfigTab() {
       {/* Tab bar nội bộ của Cấu hình ERP */}
       {canManageLocation && (
         <div className="flex gap-2 border-b border-gray-100 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("workShifts")}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
+            Ca làm việc
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab("general")}
@@ -162,6 +173,7 @@ export default function ErpConfigTab() {
 
       {activeTab === "workHours" && canManageLocation && <EmployeeWorkHoursTab />}
       {activeTab === "workCalendar" && canManageLocation && <CompanyWorkCalendarTab />}
+      {activeTab === "workShifts" && canManageLocation && <WorkShiftsTab />}
 
       {/* Preferences Section */}
       {activeTab === "general" && (

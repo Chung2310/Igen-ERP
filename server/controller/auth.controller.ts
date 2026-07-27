@@ -426,7 +426,14 @@ export const authController = {
         companyCode = req.user?.companyCode;
       }
 
-      const filter = companyCode ? { companyCode } : {};
+      const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId : "";
+      const filter: Record<string, unknown> = companyCode ? { companyCode } : {};
+      if (requestedBranchId && companyCode) {
+        const { BranchModel } = await import("../model/branch.model");
+        const branch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id").lean();
+        if (!branch) return res.status(403).json({ status: "error", message: "Chi nh?nh kh?ng thu?c c?ng ty." });
+        filter.branchId = requestedBranchId;
+      }
       const users = await authService.getUsers(filter);
 
       return res.status(200).json({

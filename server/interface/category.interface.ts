@@ -7,4 +7,5 @@ export interface ICategory extends Document {
   colorClass: string;
   status: "Đang dùng" | "Tạm khóa";
   companyCode: string;
+  branchId?: string;
 }

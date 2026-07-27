@@ -14,4 +14,5 @@ export interface IProduct extends Document {
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";
   imageUrl: string;
   companyCode: string;
+  branchId?: string;
 }

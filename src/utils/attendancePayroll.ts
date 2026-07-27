@@ -27,7 +27,13 @@ export const calculateAttendanceWorkedMinutes = (
   if (!checkIn || !checkOut) return 0;
 
   const startDate = new Date(checkIn);
-  const endDate = new Date(checkOut);
+  let endDate = new Date(checkOut);
+  // Manual attendance created before shift support may store an overnight
+  // checkout on the same calendar date. Interpret it as the following day.
+  if (endDate.getTime() < startDate.getTime()) {
+    const corrected = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+    if (corrected.getTime() >= startDate.getTime()) endDate = corrected;
+  }
   const rawMinutes = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 60_000));
   if (!schedule.lunchBreakStart || !schedule.lunchBreakEnd) return rawMinutes;
 
@@ -54,6 +60,12 @@ export const attendanceTotalsFromMinutes = (workedMinutes: number, standardDaily
   totalHours: Math.round((workedMinutes / 60) * 10) / 10,
   totalDays: Math.round((workedMinutes / standardDailyMinutes) * 100) / 100,
 });
+
+/** Điểm công một ngày nằm trong khoảng 0..1; giờ vượt chuẩn được giữ cho báo cáo/tăng ca. */
+export const attendanceDayCoefficient = (workedMinutes: number, standardDailyMinutes: number) => {
+  if (standardDailyMinutes <= 0) return 0;
+  return Math.min(1, Math.max(0, workedMinutes / standardDailyMinutes));
+};
 
 const formatDateInTimeZone = (value: string | Date, timeZone: string) => {
   const parts = new Intl.DateTimeFormat("en-CA", {

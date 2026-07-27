@@ -37,6 +37,7 @@ import {
 } from "../../utils/attendanceExcel";
 import {
   attendanceDisplayStatus,
+  attendanceDayCoefficient,
   attendanceTotalsFromMinutes,
   calculateAttendanceWorkedMinutes,
   hasApprovedPayrollLeave,
@@ -115,6 +116,7 @@ export default function CalendarTab({
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [rejectReasonText, setRejectReasonText] = useState<string>("");
   const [approveNoteText, setApproveNoteText] = useState<string>("");
+  const [approvalType, setApprovalType] = useState<"justified" | "unjustified">("justified");
   const [appType, setAppType] = useState<string>("leave");
   const [appStartDate, setAppStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [appStartTime, setAppStartTime] = useState<string>("08:00");
@@ -122,7 +124,9 @@ export default function CalendarTab({
   const [appEndTime, setAppEndTime] = useState<string>("17:00");
   const [appReason, setAppReason] = useState<string>("");
   const [appFile, setAppFile] = useState<File | null>(null);
+  const [appFiles, setAppFiles] = useState<File[]>([]);
   const [appEmployeeId, setAppEmployeeId] = useState<string>(userProfile?.uid || "");
+  const [leaveBalance, setLeaveBalance] = useState<any>(null);
   const [tplName, setTplName] = useState<string>("");
   const [tplFile, setTplFile] = useState<File | null>(null);
   const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
@@ -411,6 +415,14 @@ export default function CalendarTab({
     return json.url;
   };
 
+  const fetchLeaveBalance = async (employeeId = appEmployeeId, leaveYear = Number(appStartDate.slice(0, 4))) => {
+    if (!employeeId || !selectedCompanyCode || !leaveYear) return;
+    try {
+      const res = await fetch(`/api/v1/leave/balance?employeeId=${encodeURIComponent(employeeId)}&year=${leaveYear}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      if (res.ok) setLeaveBalance((await res.json()).data || null);
+    } catch (error) { console.error("Không thể tải số dư phép", error); }
+  };
+
   const fetchTemplates = async () => {
     if (!selectedCompanyCode) return;
     setIsTemplateLoading(true);
@@ -506,17 +518,21 @@ export default function CalendarTab({
       setAppType("other");
     }
     setIsAppFormOpen(true);
+    fetchLeaveBalance(userProfile?.uid || appEmployeeId, new Date().getFullYear());
   };
 
   const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!appReason.trim()) {
-      toast.error("Vui lòng nhập lý do.");
+    if (!appStartDate || !appEndDate) {
+      toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
       return;
     }
-
-    const startDateTime = new Date(`${appStartDate}T${appStartTime}:00`);
-    const endDateTime = new Date(`${appEndDate}T${appEndTime}:00`);
+    e.preventDefault();
+    if (appFiles.length === 0) {
+      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
+      return;
+    }
+    const startDateTime = new Date(`${appStartDate}T00:00:00`);
+    const endDateTime = new Date(`${appEndDate}T23:59:59`);
 
     if (endDateTime < startDateTime) {
       toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
@@ -525,10 +541,8 @@ export default function CalendarTab({
 
     setIsFileUploading(true);
     try {
-      let fileUrl = "";
-      if (appFile) {
-        fileUrl = await uploadFileToCloudinary(appFile);
-      }
+      const attachments = await Promise.all(appFiles.map(async (file) => ({ url: await uploadFileToCloudinary(file), name: file.name, mimeType: file.type, size: file.size })));
+      const fileUrl = attachments[0]?.url || "";
       const targetEmp = usersList.find(u => u.uid === appEmployeeId);
       const res = await fetch("/api/v1/crud/hr-leave-applications", {
         method: "POST",
@@ -542,9 +556,10 @@ export default function CalendarTab({
           type: appType,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: appReason,
+          reason: "Đăng ký nghỉ phép",
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
+          attachments,
           status: "pending"
         }),
       });
@@ -564,6 +579,7 @@ export default function CalendarTab({
       setIsAppFormOpen(false);
       setAppReason("");
       setAppFile(null);
+      setAppFiles([]);
       setAppEmployeeId(userProfile?.uid || "");
       fetchApplications();
     } catch (err: any) {
@@ -577,6 +593,7 @@ export default function CalendarTab({
   const handleApproveApp = (app: any) => {
     setSelectedAppId(app._id || app.id);
     setApproveNoteText("");
+    setApprovalType("justified");
     setAppApproveModalOpen(true);
   };
 
@@ -592,6 +609,7 @@ export default function CalendarTab({
         body: JSON.stringify({
           status: "approved",
           note: approveNoteText,
+          approvalType,
           approvedBy: userProfile?.uid
         }),
       });
@@ -857,15 +875,13 @@ export default function CalendarTab({
             </p>
           </div>
           <div className="flex gap-2">
-            {!isLeaveAdmin && (
               <button
                 onClick={openAppForm}
                 className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
               >
                 <Plus className="h-4 w-4" />
-                Viết đơn mới
+                Đăng ký nghỉ phép
               </button>
-            )}
             {isLeaveAdmin && (
               <>
                 <button
@@ -976,7 +992,15 @@ export default function CalendarTab({
 
                         return (
                           <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                            {isLeaveAdmin && (
+                            <button
+                      onClick={openAppForm}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Users className="h-4 w-4 text-rose-500" />
+                      Đăng ký nghỉ phép
+                    </button>
+
+                    {isLeaveAdmin && (
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="font-bold text-slate-800">{app.employeeName}</div>
                               </td>
@@ -1135,8 +1159,18 @@ export default function CalendarTab({
       const schedule = effectiveHours(uid);
       return Math.max(1, clockDuration(schedule.checkInLimit, schedule.checkOutLimit) - clockDuration(schedule.lunchBreakStart, schedule.lunchBreakEnd));
     };
-    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date) =>
-      calculateAttendanceWorkedMinutes(checkIn, checkOut, effectiveHours(uid));
+    const scheduleFromLog = (uid: string, log?: any): EffectiveWorkHours => {
+      const unpaidBreak = log?.breakPeriods?.find((item: any) => !item.paid);
+      if (!log?.scheduledStartAt || !log?.scheduledEndAt) return effectiveHours(uid);
+      return {
+        checkInLimit: formatLogTime(log.scheduledStartAt),
+        checkOutLimit: formatLogTime(log.scheduledEndAt),
+        lunchBreakStart: unpaidBreak?.startTime,
+        lunchBreakEnd: unpaidBreak?.endTime,
+      };
+    };
+    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date, log?: any) =>
+      calculateAttendanceWorkedMinutes(checkIn, checkOut, scheduleFromLog(uid, log));
 
     // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
     const getStatusShort = (status: string): string => {
@@ -1178,10 +1212,10 @@ export default function CalendarTab({
       }
 
       if (dbLog) {
-        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time);
+        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time, dbLog);
         const hours = Math.round((workedMinutes / 60) * 10) / 10;
-        const dailyMinutes = standardDailyMinutes(emp.uid);
-        const coeff = workedMinutes / dailyMinutes;
+        const dailyMinutes = Number(dbLog.standardMinutes) > 0 ? Number(dbLog.standardMinutes) : standardDailyMinutes(emp.uid);
+        const coeff = attendanceDayCoefficient(workedMinutes, dailyMinutes);
         const displayStatus = attendanceDisplayStatus(
           dbLog.status,
           Boolean(dbLog.checkIn?.time),
@@ -1231,14 +1265,16 @@ export default function CalendarTab({
     // Tính tổng giờ và tổng công của một nhân viên trong tháng
     const calcMonthTotals = (emp: any) => {
       let totalWorkedMinutes = 0;
+      let totalCoeff = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const cell = getDayCellData(emp, day);
         if (!cell.isWeekend && !cell.isFuture && cell.coeff !== null) {
           totalWorkedMinutes += cell.workedMinutes || 0;
+          totalCoeff += Math.min(1, Math.max(0, cell.coeff || 0));
         }
       }
       const totals = attendanceTotalsFromMinutes(totalWorkedMinutes, standardDailyMinutes(emp.uid));
-      return { totalHours: totals.totalHours, totalCoeff: totals.totalDays };
+      return { totalHours: totals.totalHours, totalCoeff: Math.round(totalCoeff * 100) / 100 };
     };
 
     const openAttendanceEditor = (log: any) => {
@@ -1254,9 +1290,13 @@ export default function CalendarTab({
     const saveAttendanceEditor = async () => {
       if (!editingAttendance?._id) return;
       setIsAttendanceSaving(true);
-      const detail = (existing: any, time: string) => time ? {
+      const detail = (existing: any, time: string, nextDay = false) => time ? {
         ...(existing || { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual payroll edit", ipAddress: "" }),
-        time: new Date(`${editingAttendance.date}T${time}:00+07:00`).toISOString(),
+        time: (() => {
+          const value = new Date(`${editingAttendance.date}T${time}:00+07:00`);
+          if (nextDay) value.setUTCDate(value.getUTCDate() + 1);
+          return value.toISOString();
+        })(),
       } : null;
       try {
         const response = await fetch(`/api/v1/crud/timekeeping-logs/${editingAttendance._id}`, {
@@ -1264,7 +1304,7 @@ export default function CalendarTab({
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
           body: JSON.stringify({
             checkIn: detail(editingAttendance.checkIn, editCheckIn),
-            checkOut: detail(editingAttendance.checkOut, editCheckOut),
+            checkOut: detail(editingAttendance.checkOut, editCheckOut, Boolean(editCheckIn && editCheckOut && editCheckOut < editCheckIn)),
             status: editAttendanceStatus,
             note: editAttendanceNote,
             editReason: editAttendanceReason,
@@ -1382,7 +1422,7 @@ export default function CalendarTab({
       "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="flex flex-col h-[calc(100vh-200px)] min-h-[600px] animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
+      <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
         {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
@@ -1505,7 +1545,7 @@ export default function CalendarTab({
           </div>
 
           {/* Bảng Grid Chấm Công */}
-          <div className="flex-1 overflow-auto visible-scrollbar">
+          <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
@@ -2800,7 +2840,7 @@ export default function CalendarTab({
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-                <h3 className="font-extrabold text-slate-800 text-sm">Viết đơn xin nghỉ / đi trễ</h3>
+                <h3 className="font-extrabold text-slate-800 text-sm">Đăng ký nghỉ phép</h3>
                 <button
                   onClick={() => setIsAppFormOpen(false)}
                   className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
@@ -2811,124 +2851,10 @@ export default function CalendarTab({
 
               <form onSubmit={handleCreateApplicationSubmit}>
                 <div className="p-6 flex flex-col gap-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Loại đơn
-                    </label>
-                    <select
-                      value={appType}
-                      onChange={(e) => setAppType(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-2xl text-xs font-semibold cursor-pointer outline-none focus:border-indigo-500"
-                    >
-                      {templates.map((t) => (
-                        <option key={t._id || t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                      <option value="other">Đơn khác</option>
-                    </select>
-                  </div>
-
-                  {matchedTemplate && (
-                    <div className="bg-indigo-50/85 border border-indigo-150 p-3.5 rounded-2xl flex items-center justify-between text-xs text-indigo-750 font-bold transition-all animate-in fade-in slide-in-from-top-1 duration-150">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4.5 w-4.5 text-indigo-650 shrink-0 animate-pulse" />
-                        <span className="truncate">Tải biểu mẫu mẫu: {matchedTemplate.name}</span>
-                      </div>
-                      <a
-                        href={matchedTemplate.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-1 shrink-0 transition-colors shadow-2xs border-0"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Tải mẫu
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Từ ngày
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={appStartDate}
-                        onChange={(e) => setAppStartDate(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Giờ bắt đầu
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={appStartTime}
-                        onChange={(e) => setAppStartTime(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Đến ngày
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={appEndDate}
-                        onChange={(e) => setAppEndDate(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Giờ kết thúc
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={appEndTime}
-                        onChange={(e) => setAppEndTime(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Lý do xin phép
-                    </label>
-                    <textarea
-                      required
-                      placeholder="Nhập lý do cụ thể..."
-                      value={appReason}
-                      onChange={(e) => setAppReason(e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Đính kèm đơn (Đã điền thông tin - Không bắt buộc)
-                    </label>
-                    <input
-                      type="file"
-                      accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx"
-                      onChange={(e) => setAppFile(e.target.files?.[0] || null)}
-                      className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                  {leaveBalance && <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center"><div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div><div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div><div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div><div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div></div>}
+                  <div className="grid grid-cols-2 gap-3"><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Từ ngày</label><input type="date" required value={appStartDate} onChange={(e) => setAppStartDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Đến ngày</label><input type="date" required value={appEndDate} onChange={(e) => setAppEndDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div></div>
+                  <div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Minh chứng nghỉ phép (có thể chọn nhiều tệp)</label><input type="file" multiple required accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm" onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }} className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" /></div>
+                </div>                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsAppFormOpen(false)}

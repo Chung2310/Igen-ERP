@@ -67,6 +67,7 @@ const CompanySchema = new Schema<ICompany>({
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },
   locationConfig: { type: CompanyLocationConfigSchema, default: () => ({}) },
+  annualLeaveDays: { type: Number, min: 0, default: 12 },
   dashboardReportConfig: { type: CompanyDashboardReportConfigSchema, default: () => ({}) },
   lifecycleStatus: { type: String, enum: ["active", "suspended", "archived", "scheduled-deletion"], default: "active", index: true },
   lifecycleChangedAt: { type: Date, default: Date.now },

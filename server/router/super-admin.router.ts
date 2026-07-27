@@ -6,6 +6,7 @@ import { superAdminAuthService } from "../service/super-admin-auth.service";
 import { createTenantRouter } from "./super-admin-tenant.router";
 import { superAdminUserAccessRouter } from "./super-admin-user-access.router";
 import { superAdminController } from "../controller/super-admin.controller";
+import { superAdminAccountService } from "../service/super-admin-account.service";
 import { validateRequest } from "../middleware/validation";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import {
@@ -16,6 +17,7 @@ import {
   confirmEnrollmentSchema,
   verifyTotpSchema,
   verifyRecoverySchema,
+  createSuperAdminSchema,
 } from "../validation/super-admin.validation";
 
 export const superAdminRouter = Router();
@@ -77,6 +79,15 @@ superAdminRouter.post(
 
 superAdminRouter.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any);
 superAdminRouter.get("/environment", (_req, res) => res.json({ environment: getDeploymentEnv() }));
+superAdminRouter.get("/admins", async (_req, res) => res.json({ admins: await superAdminAccountService.list() }));
+superAdminRouter.post("/admins", validateRequest(createSuperAdminSchema), async (req: any, res) => {
+  try {
+    return res.status(201).json({ admin: await superAdminAccountService.create(req.body, req.user.id) });
+  } catch (error: any) {
+    const status = error.statusCode || (error.code === 11000 ? 409 : 500);
+    return res.status(status).json({ status: "error", message: status === 409 ? "Email đã được sử dụng." : error.message || "Không thể tạo Super Admin." });
+  }
+});
 superAdminRouter.use(createTenantRouter());
 superAdminRouter.use("/", superAdminUserAccessRouter);
 superAdminRouter.get("/auth/sessions", async (req: any, res) => res.json({ sessions: await superAdminAuthService.listSessions(req.user.id) }));

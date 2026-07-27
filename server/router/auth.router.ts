@@ -5,6 +5,7 @@ import { requireAuth, requireRole, requirePermission, requireCompanyAccess, requ
 import { validateRequest } from "../middleware/validation";
 import { authRateLimiter, loginAccountRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
 import { UserModel } from "../model/user.model";
+import { branchController } from "../controller/branch.controller";
 
 export const authRouter = Router();
 
@@ -237,6 +238,9 @@ authRouter.get("/users", requireAuth as any, requirePermission(["user:read", "hr
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
+authRouter.get("/branches", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, branchController.list as any);
+authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, branchController.create as any);
+authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, branchController.update as any);
 
 const updateCompanySchema = {
   params: Joi.object({
