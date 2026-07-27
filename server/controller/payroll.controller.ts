@@ -60,7 +60,7 @@ export const payrollController = {
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const employees = requestedEmployees?.length
       ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
-      : await Promise.all((await UserModel.find({ companyCode: tenant(req), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
+      : await Promise.all((await UserModel.find({ companyCode: tenant(req), ...(req.user?.branchId ? { branchId: req.user.branchId } : {}), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
           const resolved = await resolveShift(tenant(req), String(user._id), `${period}-01`);
           const shift = resolved.shift;
           const unpaidBreak = shift.breakPeriods?.find((item: any) => !item.paid);

@@ -6,6 +6,7 @@ export type CompanyWorkCalendarAction = "created" | "updated" | "enabled" | "dis
 
 export interface ICompanyWorkCalendarDay extends Document {
   companyCode: string;
+  branchId?: string;
   date: string;
   name: string;
   dayType: CompanyWorkCalendarDayType;

@@ -16,6 +16,7 @@ const TimekeepingDetailSchema = new Schema(
 const TimekeepingLogSchema = new Schema<ITimekeepingLog>({
   uid: { type: String, required: true, index: true },
   companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   date: { type: String, required: true, index: true },
   checkIn: { type: TimekeepingDetailSchema, default: null },
   checkOut: { type: TimekeepingDetailSchema, default: null },
