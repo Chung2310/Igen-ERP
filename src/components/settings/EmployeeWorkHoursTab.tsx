@@ -10,6 +10,9 @@ interface WorkHoursConfig {
   lunchBreakStart?: string;
   lunchBreakEnd?: string;
   workingDays?: number[];
+  annualLeaveDays?: number;
+  employmentStatus?: "official" | "probation" | "internship";
+  officialDate?: string;
 }
 
 interface EmployeeRow {
@@ -18,6 +21,8 @@ interface EmployeeRow {
   email?: string;
   role?: string;
   workHoursConfig?: WorkHoursConfig;
+  employmentStatus?: "official" | "probation" | "internship";
+  officialDate?: string;
 }
 
 const DAY_OPTIONS = [
@@ -37,6 +42,9 @@ const DEFAULT_CONFIG: WorkHoursConfig = {
   lunchBreakStart: "12:00",
   lunchBreakEnd: "13:00",
   workingDays: [1, 2, 3, 4, 5],
+  annualLeaveDays: undefined,
+  employmentStatus: "official",
+  officialDate: "",
 };
 
 const inputClass =
@@ -75,7 +83,7 @@ export default function EmployeeWorkHoursTab() {
 
   const openEdit = (emp: EmployeeRow) => {
     setEditing(emp);
-    setForm({ ...DEFAULT_CONFIG, ...(emp.workHoursConfig || {}) });
+    setForm({ ...DEFAULT_CONFIG, ...(emp.workHoursConfig || {}), employmentStatus: emp.employmentStatus || emp.workHoursConfig?.employmentStatus || "official", officialDate: emp.officialDate || emp.workHoursConfig?.officialDate || "" });
   };
 
   const handleSave = async () => {
@@ -202,6 +210,21 @@ export default function EmployeeWorkHoursTab() {
                 className="h-4 w-4 accent-indigo-600"
               />
             </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái nhân sự</label>
+                <select value={form.employmentStatus || "official"} onChange={(e) => setForm((f) => ({ ...f, employmentStatus: e.target.value as WorkHoursConfig["employmentStatus"] }))} className={inputClass}><option value="official">Chính thức</option><option value="probation">Thử việc</option><option value="internship">Thực tập</option></select>
+              </div>
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ngày chính thức</label>
+                <input type="date" value={form.officialDate || ""} onChange={(e) => setForm((f) => ({ ...f, officialDate: e.target.value }))} className={inputClass} />
+              </div>
+              <div className="space-y-1.5 text-left col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phép năm custom (để trống = theo công ty)</label>
+                <input type="number" min="0" value={form.annualLeaveDays ?? ""} onChange={(e) => setForm((f) => ({ ...f, annualLeaveDays: e.target.value === "" ? undefined : Number(e.target.value) }))} className={inputClass} />
+              </div>
+            </div>
+
             {!form.useCustom && (
               <p className="text-[10px] text-gray-500 text-left">Nhân viên này đang áp dụng giờ làm việc chung của công ty.</p>
             )}

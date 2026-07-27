@@ -115,6 +115,7 @@ export default function CalendarTab({
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [rejectReasonText, setRejectReasonText] = useState<string>("");
   const [approveNoteText, setApproveNoteText] = useState<string>("");
+  const [approvalType, setApprovalType] = useState<"justified" | "unjustified">("justified");
   const [appType, setAppType] = useState<string>("leave");
   const [appStartDate, setAppStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [appStartTime, setAppStartTime] = useState<string>("08:00");
@@ -122,7 +123,9 @@ export default function CalendarTab({
   const [appEndTime, setAppEndTime] = useState<string>("17:00");
   const [appReason, setAppReason] = useState<string>("");
   const [appFile, setAppFile] = useState<File | null>(null);
+  const [appFiles, setAppFiles] = useState<File[]>([]);
   const [appEmployeeId, setAppEmployeeId] = useState<string>(userProfile?.uid || "");
+  const [leaveBalance, setLeaveBalance] = useState<any>(null);
   const [tplName, setTplName] = useState<string>("");
   const [tplFile, setTplFile] = useState<File | null>(null);
   const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
@@ -411,6 +414,14 @@ export default function CalendarTab({
     return json.url;
   };
 
+  const fetchLeaveBalance = async (employeeId = appEmployeeId, leaveYear = Number(appStartDate.slice(0, 4))) => {
+    if (!employeeId || !selectedCompanyCode || !leaveYear) return;
+    try {
+      const res = await fetch(`/api/v1/leave/balance?employeeId=${encodeURIComponent(employeeId)}&year=${leaveYear}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      if (res.ok) setLeaveBalance((await res.json()).data || null);
+    } catch (error) { console.error("Không thể tải số dư phép", error); }
+  };
+
   const fetchTemplates = async () => {
     if (!selectedCompanyCode) return;
     setIsTemplateLoading(true);
@@ -506,6 +517,7 @@ export default function CalendarTab({
       setAppType("other");
     }
     setIsAppFormOpen(true);
+    fetchLeaveBalance(userProfile?.uid || appEmployeeId, new Date().getFullYear());
   };
 
   const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
@@ -525,10 +537,8 @@ export default function CalendarTab({
 
     setIsFileUploading(true);
     try {
-      let fileUrl = "";
-      if (appFile) {
-        fileUrl = await uploadFileToCloudinary(appFile);
-      }
+      const attachments = await Promise.all(appFiles.map(async (file) => ({ url: await uploadFileToCloudinary(file), name: file.name, mimeType: file.type, size: file.size })));
+      const fileUrl = attachments[0]?.url || "";
       const targetEmp = usersList.find(u => u.uid === appEmployeeId);
       const res = await fetch("/api/v1/crud/hr-leave-applications", {
         method: "POST",
@@ -545,6 +555,7 @@ export default function CalendarTab({
           reason: appReason,
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
+          attachments,
           status: "pending"
         }),
       });
@@ -564,6 +575,7 @@ export default function CalendarTab({
       setIsAppFormOpen(false);
       setAppReason("");
       setAppFile(null);
+      setAppFiles([]);
       setAppEmployeeId(userProfile?.uid || "");
       fetchApplications();
     } catch (err: any) {
@@ -577,6 +589,7 @@ export default function CalendarTab({
   const handleApproveApp = (app: any) => {
     setSelectedAppId(app._id || app.id);
     setApproveNoteText("");
+    setApprovalType("justified");
     setAppApproveModalOpen(true);
   };
 
@@ -592,6 +605,7 @@ export default function CalendarTab({
         body: JSON.stringify({
           status: "approved",
           note: approveNoteText,
+          approvalType,
           approvedBy: userProfile?.uid
         }),
       });
@@ -1382,7 +1396,7 @@ export default function CalendarTab({
       "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="flex flex-col h-[calc(100vh-200px)] min-h-[600px] animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
+      <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
         {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
@@ -1505,7 +1519,7 @@ export default function CalendarTab({
           </div>
 
           {/* Bảng Grid Chấm Công */}
-          <div className="flex-1 overflow-auto visible-scrollbar">
+          <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
@@ -2847,6 +2861,15 @@ export default function CalendarTab({
                     </div>
                   )}
 
+                  {leaveBalance && (
+                    <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center">
+                      <div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div>
+                      <div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div>
+                      <div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div>
+                      <div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
@@ -2921,8 +2944,9 @@ export default function CalendarTab({
                     </label>
                     <input
                       type="file"
-                      accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx"
-                      onChange={(e) => setAppFile(e.target.files?.[0] || null)}
+                      multiple
+                      accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm"
+                      onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }}
                       className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                     />
                   </div>

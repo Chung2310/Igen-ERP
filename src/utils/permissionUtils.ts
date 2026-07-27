@@ -32,6 +32,7 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Xem dữ liệu điểm danh, lịch làm việc và bảng chấm công ngày/tháng",
   },
+  "leave:approve": { label: "Duyệt đơn nghỉ phép", group: "Quản lý nhân sự", description: "Phê duyệt hoặc từ chối đơn nghỉ phép và phân loại nghỉ chính đáng/không chính đáng" },
   "timekeeping:manage": {
     label: "Quản lý & duyệt chấm công",
     group: "Quản lý nhân sự",

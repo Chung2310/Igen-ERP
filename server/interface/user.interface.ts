@@ -88,10 +88,15 @@ export interface IWorkHoursConfig {
   lunchBreakStart?: string;
   lunchBreakEnd?: string;
   workingDays?: number[];
+  annualLeaveDays?: number;
+  employmentStatus?: "official" | "probation" | "internship";
+  officialDate?: Date | string;
 }
 
 export interface IUser extends Document {
   workHoursConfig?: IWorkHoursConfig;
+  employmentStatus?: "official" | "probation" | "internship";
+  officialDate?: Date;
   monthlySalary?: number;
   email: string;
   password?: string; // Hashed password
