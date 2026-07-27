@@ -5,6 +5,8 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { ErpModal, ErpField, ErpInput, ErpSelect } from '../Erp/ErpUI';
 import { Course, ManagedUser, BatchStatus, Batch } from '../../types';
+import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 
 const DAY_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: 'T2' },
@@ -72,6 +74,9 @@ export function BatchFormModal({
   instructors,
   onSuccess,
 }: BatchFormModalProps) {
+  const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
+  const isWorker = entityLabel.preset === 'worker';
   const [form, setForm] = useState<BatchForm>(() => editingId && batchToEdit
     ? {
       code: batchToEdit.code,
@@ -103,11 +108,11 @@ export function BatchFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code || !form.courseId || !form.startDate || !form.endDate) {
-      toast.error('Vui lòng nhập đầy đủ thông tin lớp học.');
+      toast.error(`Vui lòng nhập đầy đủ thông tin ${copy.entityNameLower}.`);
       return;
     }
     if (form.daysOfWeek.length === 0) {
-      toast.error('Vui lòng chọn ít nhất một ngày học trong tuần.');
+      toast.error(`Vui lòng chọn ít nhất một ngày ${isWorker ? 'hoạt động' : 'học'} trong tuần.`);
       return;
     }
 
@@ -131,22 +136,22 @@ export function BatchFormModal({
       if (editingId) {
         await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
         if (payload.instructorId && payload.instructorId !== batchToEdit?.instructorId) {
-          toast.success(`Đã cập nhật lớp ${payload.code} và gửi email thông báo cho giảng viên mới!`);
+          toast.success(`Đã cập nhật ${copy.entityNameLower} ${payload.code} và gửi email thông báo cho ${copy.instructorLabel.toLocaleLowerCase('vi')} mới!`);
         } else {
-          toast.success(`Đã cập nhật lớp ${payload.code}.`);
+          toast.success(`Đã cập nhật ${copy.entityNameLower} ${payload.code}.`);
         }
       } else {
         await apiFetch('/batches', { method: 'POST', body: JSON.stringify(payload) });
         if (payload.instructorId) {
-          toast.success(`Đã mở lớp ${payload.code} thành công và đang gửi email thông báo cho giảng viên!`);
+          toast.success(`Đã tạo ${copy.entityNameLower} ${payload.code} thành công và đang gửi email thông báo cho ${copy.instructorLabel.toLocaleLowerCase('vi')}!`);
         } else {
-          toast.success(`Đã mở lớp ${payload.code} thành công!`);
+          toast.success(`Đã tạo ${copy.entityNameLower} ${payload.code} thành công!`);
         }
       }
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu lớp học.';
+      const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi lưu ${copy.entityNameLower}.`;
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -156,7 +161,7 @@ export function BatchFormModal({
   if (!isOpen) return null;
 
   return (
-    <ErpModal title={editingId ? 'Chỉnh sửa lớp học' : 'Mở lớp mới'} onClose={onClose} maxWidth="max-w-lg">
+    <ErpModal title={editingId ? copy.editTitle : copy.createTitle} onClose={onClose} maxWidth="max-w-lg">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section 1: Thông tin lớp học */}
         <div className="space-y-4">
@@ -164,11 +169,11 @@ export function BatchFormModal({
             <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <School className="w-4 h-4 text-brand-primary" />
-              Thông tin lớp học
+              Thông tin {copy.entityNameLower}
             </h4>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <ErpField label="Mã lớp">
+            <ErpField label={copy.codeLabel}>
               <div className="relative">
                 <ErpInput
                   type="text"
@@ -183,7 +188,7 @@ export function BatchFormModal({
                 </div>
               </div>
             </ErpField>
-            <ErpField label="Khóa học">
+            <ErpField label={copy.courseLabel}>
               <div className="relative">
                 <ErpSelect
                   required
@@ -191,7 +196,7 @@ export function BatchFormModal({
                   onChange={(e) => setForm({ ...form, courseId: e.target.value })}
                   className="pl-10"
                 >
-                  <option value="" disabled>-- Chọn khóa học --</option>
+                  <option value="" disabled>{`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`}</option>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
                   ))}
@@ -203,14 +208,14 @@ export function BatchFormModal({
             </ErpField>
           </div>
 
-          <ErpField label="Giảng viên phụ trách">
+          <ErpField label={copy.instructorLabel}>
             <div className="relative">
               <ErpSelect
                 value={form.instructorId}
                 onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
                 className="pl-10"
               >
-                <option value="">— Chưa gán giảng viên —</option>
+                <option value="">{`— Chưa gán ${copy.instructorLabel.toLocaleLowerCase('vi')} —`}</option>
                 {instructors.map((i) => (
                   <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
                 ))}
@@ -228,11 +233,11 @@ export function BatchFormModal({
             <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-brand-primary" />
-              Lịch học & Khung giờ
+              {isWorker ? 'Lịch hoạt động & Khung giờ' : 'Lịch học & Khung giờ'}
             </h4>
           </div>
 
-          <ErpField label="Ngày học trong tuần">
+          <ErpField label={isWorker ? 'Ngày hoạt động trong tuần' : 'Ngày học trong tuần'}>
             <div className="grid grid-cols-7 gap-1.5 mt-1">
               {DAY_OPTIONS.map((d) => (
                 <button
@@ -295,7 +300,7 @@ export function BatchFormModal({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <ErpField label="Ngày khai giảng">
+            <ErpField label={isWorker ? 'Ngày bắt đầu' : 'Ngày khai giảng'}>
               <div className="relative">
                 <ErpInput
                   type="date"
@@ -340,7 +345,7 @@ export function BatchFormModal({
             </div>
           </ErpField>
 
-          <ErpField label="Toạ độ điểm danh QR (tùy chọn — giới hạn học viên điểm danh trong bán kính)">
+          <ErpField label={`Toạ độ điểm danh QR (tùy chọn — giới hạn ${entityLabel.singular} điểm danh trong bán kính)`}>
             <div className="grid grid-cols-3 gap-3">
               <ErpInput
                 type="number"
@@ -378,7 +383,7 @@ export function BatchFormModal({
           ) : (
             <School className="w-4.5 h-4.5" />
           )}
-          {isSubmitting ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Khai giảng lớp'}
+          {isSubmitting ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : copy.createSubmit}
         </button>
       </form>
     </ErpModal>

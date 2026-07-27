@@ -3,6 +3,8 @@ import { Loader2, ShieldCheck, ShieldAlert, MapPin } from "lucide-react";
 import { ErpModal } from "../Erp/ErpUI";
 import { apiFetch } from "../../lib/api";
 import { cn } from "../../lib/utils";
+import { useEntityLabel } from "../../hooks/useEntityLabel";
+import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
 
 interface AttendanceAttemptsModalProps {
   isOpen: boolean;
@@ -46,6 +48,15 @@ interface AttemptItem {
 }
 
 export function AttendanceAttemptsModal({ isOpen, batchId, batchCode, onClose }: AttendanceAttemptsModalProps) {
+  const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
+  const reasonLabel = (reasonCode: string) => {
+    if (entityLabel.preset === "worker") {
+      if (reasonCode === "student_not_found") return "Không tìm thấy lao động";
+      if (reasonCode === "not_in_batch") return "Không thuộc dự án";
+    }
+    return REASON_LABELS[reasonCode] || reasonCode;
+  };
   const [loading, setLoading] = useState(true);
   const [attempts, setAttempts] = useState<AttemptItem[]>([]);
   const [outcomeFilter, setOutcomeFilter] = useState<"" | "accepted" | "rejected">("");
@@ -71,7 +82,7 @@ export function AttendanceAttemptsModal({ isOpen, batchId, batchCode, onClose }:
   if (!isOpen) return null;
 
   return (
-    <ErpModal title={`Lịch sử xác thực · Lớp ${batchCode}`} onClose={onClose} maxWidth="max-w-3xl">
+    <ErpModal title={`Lịch sử xác thực · ${copy.entityName} ${batchCode}`} onClose={onClose} maxWidth="max-w-3xl">
       <div className="space-y-3 text-left">
         <div className="flex items-center gap-2">
           {(["", "accepted", "rejected"] as const).map((v) => (
@@ -137,7 +148,7 @@ export function AttendanceAttemptsModal({ isOpen, batchId, batchCode, onClose }:
                         : "text-rose-700 bg-rose-50 border border-rose-200"
                     )}
                   >
-                    {REASON_LABELS[a.reasonCode] || a.reasonCode}
+                    {reasonLabel(a.reasonCode)}
                   </span>
                   <span className="text-[9px] text-slate-400 font-semibold whitespace-nowrap">
                     {new Date(a.attemptedAt).toLocaleString("vi-VN", {
