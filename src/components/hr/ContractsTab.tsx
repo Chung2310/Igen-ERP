@@ -59,6 +59,26 @@ const date = (value?: string) =>
   value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "—";
 const isoDate = (value?: string) =>
   value ? new Date(value).toISOString().slice(0, 10) : "";
+const fileNameFromUrl = (url: string, fallback: string) => {
+  try {
+    const name = decodeURIComponent(
+      new URL(url).pathname.split("/").pop() || "",
+    );
+    return name.includes(".") ? name : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const mimeFromName = (name: string) => {
+  const extension = name.toLowerCase().split(".").pop();
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (extension === "doc") return "application/msword";
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension || ""))
+    return `image/${extension === "jpg" ? "jpeg" : extension}`;
+  return "";
+};
 const emptyContract = {
   contractType: "Hợp đồng xác định thời hạn",
   employeeId: "",
@@ -306,26 +326,51 @@ export default function ContractsTab({
       setUploading(null);
     }
   };
-  const preview = (contract: Contract, kind: "contract" | "signed") => {
+  const preview = async (contract: Contract, kind: "contract" | "signed") => {
     const signed = kind === "signed";
     const fileUrl = signed ? contract.signedImageUrl : contract.contractFileUrl;
     if (!fileUrl) return;
+    const resourceId = signed
+      ? contract.signedImageResourceId
+      : contract.contractResourceId;
+    if (resourceId) {
+      try {
+        const response = await fetch(`/api/v1/resources/${resourceId}`, {
+          headers: headers(),
+        });
+        const result = await response.json();
+        if (response.ok && result.item?.fileUrl) {
+          setPreviewItem(result.item);
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          "Không tải được ResourceItem của hợp đồng, dùng metadata dự phòng:",
+          error,
+        );
+      }
+    }
+    const storedName = signed
+      ? contract.signedImageName
+      : contract.contractFileName;
+    const name =
+      storedName ||
+      fileNameFromUrl(
+        fileUrl,
+        signed ? "anh-hop-dong-da-ky.jpg" : "hop-dong.pdf",
+      );
     setPreviewItem({
-      _id:
-        (signed
-          ? contract.signedImageResourceId
-          : contract.contractResourceId) || `${contract._id}-${kind}`,
+      _id: resourceId || `${contract._id}-${kind}`,
       companyCode,
       section: "local",
       type: "file",
-      name:
-        (signed ? contract.signedImageName : contract.contractFileName) ||
-        (signed ? "Ảnh hợp đồng đã ký" : "Hợp đồng"),
+      name,
       parentId: null,
       fileUrl,
-      mimeType: signed
-        ? contract.signedImageMimeType
-        : contract.contractFileMimeType,
+      mimeType:
+        (signed
+          ? contract.signedImageMimeType
+          : contract.contractFileMimeType) || mimeFromName(name),
       size: signed ? contract.signedImageSize : contract.contractFileSize,
       createdAt: "",
       updatedAt: "",
