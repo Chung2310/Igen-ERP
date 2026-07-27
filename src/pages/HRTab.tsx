@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from "react";
 import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
 import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
@@ -19,6 +20,7 @@ const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
+  const { activeBranchId } = useBranch();
   const isManager =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
@@ -83,7 +85,7 @@ export default function HRTab() {
           data = userProfile ? [userProfile] : [];
         }
       } else {
-        data = await authService.getUsersByCompany(selectedCompanyCode);
+        data = await authService.getUsersByCompany(selectedCompanyCode, activeBranchId || undefined);
       }
       setUsersList(data);
     } catch (error) {
@@ -119,7 +121,7 @@ export default function HRTab() {
       fetchUsers();
       fetchCourses(selectedCompanyCode);
     }
-  }, [selectedCompanyCode, userProfile?.uid]);
+  }, [selectedCompanyCode, userProfile?.uid, activeBranchId]);
 
   // Map user profile from Firestore to EmployeeNode tree model
   const employees: EmployeeNode[] = usersList.map((usr) => ({

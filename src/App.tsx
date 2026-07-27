@@ -6,6 +6,7 @@ import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ChatUnreadProvider, useChatUnread } from "./context/ChatUnreadContext";
+import { BranchProvider } from "./context/BranchContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";

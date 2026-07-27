@@ -146,6 +146,7 @@ const UserSchema = new Schema<IUser>({
   division: { type: String },
   companyCode: { type: String, index: true },
   companyName: { type: String },
+  branchId: { type: String, index: true },
   employmentStatus: { type: String, enum: ["official", "probation", "internship"], default: "official" },
   officialDate: { type: Date },
   permissions: { type: [String], default: [] },

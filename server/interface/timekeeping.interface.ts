@@ -12,6 +12,7 @@ export interface ITimekeepingDetail {
 export interface ITimekeepingLog extends Document {
   uid: string;
   companyCode: string;
+  branchId?: string;
   date: string; // YYYY-MM-DD
   checkIn?: ITimekeepingDetail;
   checkOut?: ITimekeepingDetail;

@@ -27,6 +27,8 @@ export const chatService = {
    * Lấy danh sách các phòng chat mà người dùng tham gia
    */
   async getRooms(userId: string, companyCode: string): Promise<any[]> {
+    const branchId = (await UserModel.findById(userId).select("branchId").lean())?.branchId;
+    const branchFilter = branchId ? { branchId } : {};
     // Tự động tạo phòng "Trợ lý AI" nếu chưa có
     let chatbotRoom = await ChatRoomModel.findOne({
       isChatbot: true,

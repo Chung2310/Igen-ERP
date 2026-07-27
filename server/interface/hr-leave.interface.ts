@@ -2,6 +2,7 @@ import { Document } from "mongoose";
 
 export interface IHRLeaveTemplate extends Document {
   companyCode: string;
+  branchId?: string;
   name: string;
   fileUrl: string;
   fileName: string;
@@ -19,6 +20,7 @@ export interface ILeaveAttachment {
 
 export interface IHRLeaveApplication extends Document {
   companyCode: string;
+  branchId?: string;
   employeeId: string;
   employeeName: string;
   type: string;

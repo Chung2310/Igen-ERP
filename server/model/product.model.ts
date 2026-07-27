@@ -15,6 +15,7 @@ const ProductSchema = new Schema<IProduct>({
   demandForecast: { type: String, enum: ["Tăng mạnh", "Ổn định", "Giảm nhẹ"], default: "Ổn định" },
   imageUrl: { type: String, default: "" },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
 });
 
 export const ProductModel = model<IProduct>("Product", ProductSchema);

@@ -23,6 +23,7 @@ const StockLogSchema = new Schema<IStockLog>({
   notes: { type: String },
   status: { type: String, enum: ["Thành công", "Đang xử lý", "Đang chờ", "Hoàn thành"], default: "Thành công" },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
 });
 
 export const StockLogModel = model<IStockLog>("StockLog", StockLogSchema);

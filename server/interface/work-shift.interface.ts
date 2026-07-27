@@ -9,6 +9,7 @@ export interface IShiftBreak {
 
 export interface IWorkShift extends Document {
   companyCode: string;
+  branchId?: string;
   code: string;
   name: string;
   color: string;

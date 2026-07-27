@@ -5,6 +5,7 @@ const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const CompanyWorkCalendarDaySchema = new Schema<ICompanyWorkCalendarDay>({
   companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   date: { type: String, required: true, match: LOCAL_DATE_PATTERN, index: true },
   name: { type: String, required: true, trim: true },
   dayType: { type: String, enum: ["holiday", "substitute_holiday", "working_override"], required: true },

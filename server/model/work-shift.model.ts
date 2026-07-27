@@ -10,6 +10,7 @@ const ShiftBreakSchema = new Schema({
 
 const WorkShiftSchema = new Schema<IWorkShift>({
   companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   code: { type: String, required: true, trim: true, uppercase: true },
   name: { type: String, required: true, trim: true },
   color: { type: String, default: "#4F46E5" },
