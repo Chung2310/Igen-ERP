@@ -362,7 +362,7 @@ export const timekeepingController = {
 
       return res.status(200).json({
         status: "success",
-        data: { ...fallbackConfig, ...(company?.locationConfig || {}) },
+        data: { ...fallbackConfig, ...(company?.locationConfig || {}), annualLeaveDays: company?.annualLeaveDays ?? 12 },
       });
     } catch (error: any) {
       console.error("[timekeepingController.getCompanyLocation] Error:", error);
@@ -381,12 +381,13 @@ export const timekeepingController = {
     try {
       const companyCode = req.user?.companyCode || "SYSTEM";
 
-      const { latitude, longitude, allowedRadius, addressName, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
+      const { latitude, longitude, allowedRadius, addressName, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays, annualLeaveDays } = req.body;
 
       const updatedCompany = await CompanyModel.findOneAndUpdate(
         { code: companyCode },
         {
           $set: {
+            annualLeaveDays: Number.isInteger(annualLeaveDays) ? annualLeaveDays : 12,
             locationConfig: {
               latitude,
               longitude,
@@ -433,7 +434,7 @@ export const timekeepingController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
 
       const users = await UserModel.find({ companyCode })
-        .select("_id fullName email role workHoursConfig")
+        .select("_id fullName email role employmentStatus officialDate workHoursConfig")
         .lean();
 
       return res.status(200).json({ status: "success", data: users });
@@ -455,7 +456,7 @@ export const timekeepingController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
 
       const { uid } = req.params;
-      const { useCustom, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
+      const { useCustom, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays, annualLeaveDays, employmentStatus, officialDate } = req.body;
 
       const updatedUser = await UserModel.findOneAndUpdate(
         { _id: uid, companyCode },
@@ -468,12 +469,15 @@ export const timekeepingController = {
               lunchBreakStart: lunchBreakStart || "12:00",
               lunchBreakEnd: lunchBreakEnd || "13:00",
               workingDays: workingDays || [1, 2, 3, 4, 5],
+              annualLeaveDays: Number.isInteger(annualLeaveDays) ? annualLeaveDays : undefined,
+              employmentStatus: employmentStatus || "official",
+              officialDate: officialDate || undefined,
             },
           },
         },
         { new: true }
       )
-        .select("_id fullName email role workHoursConfig")
+        .select("_id fullName email role employmentStatus officialDate workHoursConfig")
         .lean();
 
       if (!updatedUser) {

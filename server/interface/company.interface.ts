@@ -54,6 +54,7 @@ export interface ICompany extends Document {
   /** ID thư mục do app tạo trong Drive của công ty để chứa tài liệu. */
   driveFolderId?: string;
   locationConfig?: ICompanyLocationConfig;
+  annualLeaveDays?: number;
   dashboardReportConfig?: ICompanyDashboardReportConfig;
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;

@@ -22,6 +22,7 @@ import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
 import { faceManagementRouter } from "./face-management.router";
 import { payrollRouter } from "./payroll.router";
+import { leaveRouter } from "./leave.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -65,6 +66,7 @@ apiRouter.use("/crud", crudRouter);
 // Gắn kết router chấm công (GPS Timekeeping)
 apiRouter.use("/timekeeping", requireAuth as any, requireModule("hr"), timekeepingRouter);
 apiRouter.use("/payroll", payrollRouter);
+apiRouter.use("/leave", leaveRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);
