@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { authService, getAccessToken } from "../services/authService";
@@ -15,6 +15,7 @@ const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
+const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
@@ -153,6 +154,7 @@ export default function HRTab() {
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
             { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+            { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
             ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
@@ -245,6 +247,7 @@ export default function HRTab() {
         )}
 
         {subTab === "PAYROLL" && <PayrollTab canManage={hasPermission("payroll:manage")} />}
+        {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} />}
         {subTab === "LỊCH" && (
           <CalendarTab
             userProfile={userProfile}
