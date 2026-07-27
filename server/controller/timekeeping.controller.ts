@@ -4,6 +4,7 @@ import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { UserModel } from "../model/user.model";
 import { getDayContext, toVietnamDate } from "../service/company-work-calendar.service";
+import { resolveShift, shiftWindow, vietnamWorkDate } from "../service/work-shift.service";
 
 // Haversine formula to compute distance in meters
 function calculateHaversineDistance(
@@ -98,6 +99,16 @@ function calculateAttendanceStatus(
   return "Present";
 }
 
+function calculateShiftStatus(checkInTime: Date, checkOutTime: Date | null, scheduledStartAt: Date, scheduledEndAt: Date, allowedLateMinutes = 0, allowedEarlyLeaveMinutes = 0): string {
+  const late = checkInTime.getTime() > scheduledStartAt.getTime() + allowedLateMinutes * 60_000;
+  if (!checkOutTime) return late ? "Late" : "Present";
+  const early = checkOutTime.getTime() < scheduledEndAt.getTime() - allowedEarlyLeaveMinutes * 60_000;
+  if (late && early) return "Late-Left-Early";
+  if (late) return "Late";
+  if (early) return "Left-Early";
+  return "Present";
+}
+
 export const timekeepingController = {
   /**
    * GET /api/v1/timekeeping/today
@@ -106,7 +117,7 @@ export const timekeepingController = {
     try {
       const uid = req.user?.id;
       const companyCode = req.user?.companyCode || "SYSTEM";
-      const todayStr = getLocalDateString();
+      const todayStr = vietnamWorkDate();
       const vietnamDate = toVietnamDate();
 
       if (!uid) {
@@ -116,7 +127,8 @@ export const timekeepingController = {
         });
       }
 
-      const log = await TimekeepingLogModel.findOne({ uid, date: todayStr }).lean();
+      const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      const log = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkOut: null }] }).sort({ date: -1 }).lean();
       const dayContext = await getDayContext(companyCode, vietnamDate);
       return res.status(200).json({
         status: "success",
@@ -171,10 +183,11 @@ export const timekeepingController = {
         });
       }
 
-      const todayStr = getLocalDateString();
+      const todayStr = vietnamWorkDate();
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
 
-      let log = await TimekeepingLogModel.findOne({ uid, date: todayStr });
+      const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      let log = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkIn: { $ne: null }, checkOut: null }] }).sort({ date: -1 });
       if (log && log.checkIn) {
         return res.status(400).json({
           status: "error",
@@ -183,19 +196,9 @@ export const timekeepingController = {
       }
 
       const now = new Date();
-      const me = await UserModel.findById(uid).select("workHoursConfig").lean();
-      const custom = me?.workHoursConfig?.useCustom ? me.workHoursConfig : undefined;
-      const checkInLimitStr = custom?.checkInLimit || company?.locationConfig?.checkInLimit || "08:30";
-      const lunchBreakStartStr = custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00";
-      const lunchBreakEndStr = custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00";
-      const checkOutLimitStr = custom?.checkOutLimit || company?.locationConfig?.checkOutLimit || "17:30";
-
-      const status = calculateAttendanceStatus(now, null, {
-        checkInLimit: checkInLimitStr,
-        checkOutLimit: checkOutLimitStr,
-        lunchBreakStart: lunchBreakStartStr,
-        lunchBreakEnd: lunchBreakEndStr,
-      }) as any;
+      const resolved = await resolveShift(companyCode, uid, todayStr);
+      const { scheduledStartAt, scheduledEndAt } = shiftWindow(resolved.shift, todayStr);
+      const status = calculateShiftStatus(now, null, scheduledStartAt, scheduledEndAt, resolved.shift.allowedLateMinutes) as any;
 
       const checkInDetail = {
         time: now,
@@ -213,6 +216,15 @@ export const timekeepingController = {
           date: todayStr,
           checkIn: checkInDetail,
           status,
+          shiftId: resolved.shift._id ? String(resolved.shift._id) : undefined,
+          shiftName: resolved.shift.name,
+          shiftCode: resolved.shift.code,
+          workDate: todayStr,
+          scheduledStartAt,
+          scheduledEndAt,
+          standardMinutes: resolved.shift.standardMinutes,
+          breakPeriods: resolved.shift.breakPeriods,
+          assignmentSource: resolved.source,
         });
       } else {
         log.checkIn = checkInDetail;
@@ -268,10 +280,11 @@ export const timekeepingController = {
         });
       }
 
-      const todayStr = getLocalDateString();
+      const todayStr = vietnamWorkDate();
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
 
-      const log = await TimekeepingLogModel.findOne({ uid, date: todayStr });
+      const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      const log = await TimekeepingLogModel.findOne({ uid, companyCode, date: { $in: [todayStr, yesterday] }, checkIn: { $ne: null }, checkOut: null }).sort({ date: -1 });
       if (!log || !log.checkIn) {
         return res.status(400).json({
           status: "error",
@@ -296,19 +309,19 @@ export const timekeepingController = {
         ipAddress,
       };
 
-      const me = await UserModel.findById(uid).select("workHoursConfig").lean();
-      const custom = me?.workHoursConfig?.useCustom ? me.workHoursConfig : undefined;
-      const checkInLimitStr = custom?.checkInLimit || company?.locationConfig?.checkInLimit || "08:30";
-      const lunchBreakStartStr = custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00";
-      const lunchBreakEndStr = custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00";
-      const checkOutLimitStr = custom?.checkOutLimit || company?.locationConfig?.checkOutLimit || "17:30";
-
-      log.status = calculateAttendanceStatus(log.checkIn.time, checkOutTime, {
-        checkInLimit: checkInLimitStr,
-        checkOutLimit: checkOutLimitStr,
-        lunchBreakStart: lunchBreakStartStr,
-        lunchBreakEnd: lunchBreakEndStr,
-      }) as any;
+      if (log.scheduledStartAt && log.scheduledEndAt) {
+        const resolved = await resolveShift(companyCode, uid, log.workDate || log.date);
+        log.status = calculateShiftStatus(log.checkIn.time, checkOutTime, log.scheduledStartAt, log.scheduledEndAt, resolved.shift.allowedLateMinutes, resolved.shift.allowedEarlyLeaveMinutes) as any;
+      } else {
+        const me = await UserModel.findById(uid).select("workHoursConfig").lean();
+        const custom = me?.workHoursConfig?.useCustom ? me.workHoursConfig : undefined;
+        log.status = calculateAttendanceStatus(log.checkIn.time, checkOutTime, {
+          checkInLimit: custom?.checkInLimit || company?.locationConfig?.checkInLimit || "08:30",
+          checkOutLimit: custom?.checkOutLimit || company?.locationConfig?.checkOutLimit || "17:30",
+          lunchBreakStart: custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00",
+          lunchBreakEnd: custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00",
+        }) as any;
+      }
 
       await log.save();
 

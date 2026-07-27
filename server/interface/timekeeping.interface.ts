@@ -21,4 +21,13 @@ export interface ITimekeepingLog extends Document {
   adjustedAt?: Date;
   adjustedBy?: string;
   adjustmentReason?: string;
+  shiftId?: string;
+  shiftName?: string;
+  shiftCode?: string;
+  workDate?: string;
+  scheduledStartAt?: Date;
+  scheduledEndAt?: Date;
+  standardMinutes?: number;
+  breakPeriods?: { name: string; startTime: string; endTime: string; paid: boolean }[];
+  assignmentSource?: "employee" | "company" | "legacy";
 }
