@@ -21,6 +21,7 @@ export interface DashboardUser {
   id: string;
   role: string;
   companyCode?: string;
+  branchId?: string;
   enabledModules?: string[];
   /** Tập hợp mã quyền hiệu lực của user, dùng để lọc dữ liệu theo RolePermission. */
   permissions?: Set<string>;
@@ -39,7 +40,7 @@ export interface DashboardRange {
  */
 function buildCompanyQuery(user: DashboardUser): Record<string, any> {
   if (user.role !== "superadmin" || (user.companyCode && user.companyCode !== "SYSTEM")) {
-    return { companyCode: user.companyCode };
+    return { companyCode: user.companyCode, ...(user.branchId ? { branchId: user.branchId } : {}) };
   }
   return {};
 }
