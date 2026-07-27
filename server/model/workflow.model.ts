@@ -81,6 +81,7 @@ const WorkflowSchema = new Schema<IWorkflow>({
   edges: { type: [WorkflowEdgeSchema], default: [] },
   autoAdvance: { type: Boolean, default: false },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
 });

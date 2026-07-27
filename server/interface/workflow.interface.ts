@@ -41,6 +41,7 @@ export interface IWorkflow extends Document {
   /** Tự chuyển case sang bước kế khi mọi task Kanban của bước hiện tại hoàn thành */
   autoAdvance?: boolean;
   companyCode: string;
+  branchId?: string;
   creatorUid: string;
   createdAt: Date;
 }

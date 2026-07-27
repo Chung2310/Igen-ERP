@@ -26,6 +26,7 @@ export interface IKanbanTask extends Document {
   status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
   category?: string;
   companyCode: string;
+  branchId?: string;
   creatorUid: string;
   createdAt: Date;
   projectId?: string;
