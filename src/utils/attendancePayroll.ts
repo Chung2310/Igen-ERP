@@ -61,6 +61,12 @@ export const attendanceTotalsFromMinutes = (workedMinutes: number, standardDaily
   totalDays: Math.round((workedMinutes / standardDailyMinutes) * 100) / 100,
 });
 
+/** Điểm công một ngày nằm trong khoảng 0..1; giờ vượt chuẩn được giữ cho báo cáo/tăng ca. */
+export const attendanceDayCoefficient = (workedMinutes: number, standardDailyMinutes: number) => {
+  if (standardDailyMinutes <= 0) return 0;
+  return Math.min(1, Math.max(0, workedMinutes / standardDailyMinutes));
+};
+
 const formatDateInTimeZone = (value: string | Date, timeZone: string) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
