@@ -105,7 +105,7 @@ const updateWorkHoursSchema = {
     workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().optional(),
     annualLeaveDays: Joi.number().integer().min(0).optional(),
     employmentStatus: Joi.string().valid("official", "probation", "internship").optional(),
-    officialDate: Joi.date().iso().optional(),
+    officialDate: Joi.alternatives().try(Joi.date().iso(), Joi.string().allow("")).optional(),
   }),
 };
 
