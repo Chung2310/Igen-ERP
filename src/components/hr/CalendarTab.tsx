@@ -1149,8 +1149,18 @@ export default function CalendarTab({
       const schedule = effectiveHours(uid);
       return Math.max(1, clockDuration(schedule.checkInLimit, schedule.checkOutLimit) - clockDuration(schedule.lunchBreakStart, schedule.lunchBreakEnd));
     };
-    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date) =>
-      calculateAttendanceWorkedMinutes(checkIn, checkOut, effectiveHours(uid));
+    const scheduleFromLog = (uid: string, log?: any): EffectiveWorkHours => {
+      const unpaidBreak = log?.breakPeriods?.find((item: any) => !item.paid);
+      if (!log?.scheduledStartAt || !log?.scheduledEndAt) return effectiveHours(uid);
+      return {
+        checkInLimit: formatLogTime(log.scheduledStartAt),
+        checkOutLimit: formatLogTime(log.scheduledEndAt),
+        lunchBreakStart: unpaidBreak?.startTime,
+        lunchBreakEnd: unpaidBreak?.endTime,
+      };
+    };
+    const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date, log?: any) =>
+      calculateAttendanceWorkedMinutes(checkIn, checkOut, scheduleFromLog(uid, log));
 
     // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
     const getStatusShort = (status: string): string => {
@@ -1192,9 +1202,9 @@ export default function CalendarTab({
       }
 
       if (dbLog) {
-        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time);
+        const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time, dbLog);
         const hours = Math.round((workedMinutes / 60) * 10) / 10;
-        const dailyMinutes = standardDailyMinutes(emp.uid);
+        const dailyMinutes = Number(dbLog.standardMinutes) > 0 ? Number(dbLog.standardMinutes) : standardDailyMinutes(emp.uid);
         const coeff = workedMinutes / dailyMinutes;
         const displayStatus = attendanceDisplayStatus(
           dbLog.status,
@@ -1268,9 +1278,13 @@ export default function CalendarTab({
     const saveAttendanceEditor = async () => {
       if (!editingAttendance?._id) return;
       setIsAttendanceSaving(true);
-      const detail = (existing: any, time: string) => time ? {
+      const detail = (existing: any, time: string, nextDay = false) => time ? {
         ...(existing || { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual payroll edit", ipAddress: "" }),
-        time: new Date(`${editingAttendance.date}T${time}:00+07:00`).toISOString(),
+        time: (() => {
+          const value = new Date(`${editingAttendance.date}T${time}:00+07:00`);
+          if (nextDay) value.setUTCDate(value.getUTCDate() + 1);
+          return value.toISOString();
+        })(),
       } : null;
       try {
         const response = await fetch(`/api/v1/crud/timekeeping-logs/${editingAttendance._id}`, {
@@ -1278,7 +1292,7 @@ export default function CalendarTab({
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
           body: JSON.stringify({
             checkIn: detail(editingAttendance.checkIn, editCheckIn),
-            checkOut: detail(editingAttendance.checkOut, editCheckOut),
+            checkOut: detail(editingAttendance.checkOut, editCheckOut, Boolean(editCheckIn && editCheckOut && editCheckOut < editCheckIn)),
             status: editAttendanceStatus,
             note: editAttendanceNote,
             editReason: editAttendanceReason,
