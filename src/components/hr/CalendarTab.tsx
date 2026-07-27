@@ -527,13 +527,12 @@ export default function CalendarTab({
       return;
     }
     e.preventDefault();
-    if (!appReason.trim()) {
-      toast.error("Vui lòng nhập lý do.");
+    if (appFiles.length === 0) {
+      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
       return;
     }
-
-    const startDateTime = new Date(`${appStartDate}T${appStartTime}:00`);
-    const endDateTime = new Date(`${appEndDate}T${appEndTime}:00`);
+    const startDateTime = new Date(`${appStartDate}T00:00:00`);
+    const endDateTime = new Date(`${appEndDate}T23:59:59`);
 
     if (endDateTime < startDateTime) {
       toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
@@ -557,7 +556,7 @@ export default function CalendarTab({
           type: appType,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: appReason.trim() || "ÄÄƒng kÃ½ nghá»‰ phÃ©p",
+          reason: "Đăng ký nghỉ phép",
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
           attachments,
@@ -876,15 +875,13 @@ export default function CalendarTab({
             </p>
           </div>
           <div className="flex gap-2">
-            {!isLeaveAdmin && (
               <button
                 onClick={openAppForm}
                 className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
               >
                 <Plus className="h-4 w-4" />
-                Viết đơn mới
+                Đăng ký nghỉ phép
               </button>
-            )}
             {isLeaveAdmin && (
               <>
                 <button
@@ -2843,7 +2840,7 @@ export default function CalendarTab({
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-                <h3 className="font-extrabold text-slate-800 text-sm">Viết đơn xin nghỉ / đi trễ</h3>
+                <h3 className="font-extrabold text-slate-800 text-sm">Đăng ký nghỉ phép</h3>
                 <button
                   onClick={() => setIsAppFormOpen(false)}
                   className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
@@ -2854,129 +2851,10 @@ export default function CalendarTab({
 
               <form onSubmit={handleCreateApplicationSubmit}>
                 <div className="p-6 flex flex-col gap-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Loại đơn
-                    </label>
-                    <select
-                      value={appType}
-                      onChange={(e) => setAppType(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-2xl text-xs font-semibold cursor-pointer outline-none focus:border-indigo-500"
-                    >
-                      {templates.map((t) => (
-                        <option key={t._id || t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                      <option value="other">Đơn khác</option>
-                    </select>
-                  </div>
-
-                  {matchedTemplate && (
-                    <div className="bg-indigo-50/85 border border-indigo-150 p-3.5 rounded-2xl flex items-center justify-between text-xs text-indigo-750 font-bold transition-all animate-in fade-in slide-in-from-top-1 duration-150">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4.5 w-4.5 text-indigo-650 shrink-0 animate-pulse" />
-                        <span className="truncate">Tải biểu mẫu mẫu: {matchedTemplate.name}</span>
-                      </div>
-                      <a
-                        href={matchedTemplate.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-1 shrink-0 transition-colors shadow-2xs border-0"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Tải mẫu
-                      </a>
-                    </div>
-                  )}
-
-                  {leaveBalance && (
-                    <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center">
-                      <div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div>
-                      <div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div>
-                      <div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div>
-                      <div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Từ ngày
-                      </label>
-                      <input
-                        type="date"
-                          value={appStartDate}
-                        onChange={(e) => setAppStartDate(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Giờ bắt đầu
-                      </label>
-                      <input
-                        type="time"
-                          value={appStartTime}
-                        onChange={(e) => setAppStartTime(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Đến ngày
-                      </label>
-                      <input
-                        type="date"
-                          value={appEndDate}
-                        onChange={(e) => setAppEndDate(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                        Giờ kết thúc
-                      </label>
-                      <input
-                        type="time"
-                          value={appEndTime}
-                        onChange={(e) => setAppEndTime(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Lý do xin phép
-                    </label>
-                    <textarea
-                      placeholder="Nhập lý do cụ thể..."
-                      value={appReason}
-                      onChange={(e) => setAppReason(e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Đính kèm đơn (Đã điền thông tin - Không bắt buộc)
-                    </label>
-                    <input
-                      type="file"
-                      multiple
-                      accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm"
-                      onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }}
-                      className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
+                  {leaveBalance && <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center"><div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div><div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div><div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div><div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div></div>}
+                  <div className="grid grid-cols-2 gap-3"><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Từ ngày</label><input type="date" required value={appStartDate} onChange={(e) => setAppStartDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Đến ngày</label><input type="date" required value={appEndDate} onChange={(e) => setAppEndDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div></div>
+                  <div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Minh chứng nghỉ phép (có thể chọn nhiều tệp)</label><input type="file" multiple required accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm" onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }} className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" /></div>
+                </div>                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsAppFormOpen(false)}
