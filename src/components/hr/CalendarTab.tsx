@@ -37,6 +37,7 @@ import {
 } from "../../utils/attendanceExcel";
 import {
   attendanceDisplayStatus,
+  attendanceDayCoefficient,
   attendanceTotalsFromMinutes,
   calculateAttendanceWorkedMinutes,
   hasApprovedPayrollLeave,
@@ -1205,7 +1206,7 @@ export default function CalendarTab({
         const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time, dbLog);
         const hours = Math.round((workedMinutes / 60) * 10) / 10;
         const dailyMinutes = Number(dbLog.standardMinutes) > 0 ? Number(dbLog.standardMinutes) : standardDailyMinutes(emp.uid);
-        const coeff = workedMinutes / dailyMinutes;
+        const coeff = attendanceDayCoefficient(workedMinutes, dailyMinutes);
         const displayStatus = attendanceDisplayStatus(
           dbLog.status,
           Boolean(dbLog.checkIn?.time),
@@ -1255,14 +1256,16 @@ export default function CalendarTab({
     // Tính tổng giờ và tổng công của một nhân viên trong tháng
     const calcMonthTotals = (emp: any) => {
       let totalWorkedMinutes = 0;
+      let totalCoeff = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const cell = getDayCellData(emp, day);
         if (!cell.isWeekend && !cell.isFuture && cell.coeff !== null) {
           totalWorkedMinutes += cell.workedMinutes || 0;
+          totalCoeff += Math.min(1, Math.max(0, cell.coeff || 0));
         }
       }
       const totals = attendanceTotalsFromMinutes(totalWorkedMinutes, standardDailyMinutes(emp.uid));
-      return { totalHours: totals.totalHours, totalCoeff: totals.totalDays };
+      return { totalHours: totals.totalHours, totalCoeff: Math.round(totalCoeff * 100) / 100 };
     };
 
     const openAttendanceEditor = (log: any) => {

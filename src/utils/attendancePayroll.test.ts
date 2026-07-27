@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceDisplayStatus, attendanceTotalsFromMinutes, calculateAttendanceWorkedMinutes, hasApprovedPayrollLeave } from "./attendancePayroll";
+import { attendanceDayCoefficient, attendanceDisplayStatus, attendanceTotalsFromMinutes, calculateAttendanceWorkedMinutes, hasApprovedPayrollLeave } from "./attendancePayroll";
 
 const schedule = { lunchBreakStart: "12:00", lunchBreakEnd: "13:00" };
 
@@ -32,6 +32,12 @@ describe("attendance history payroll calculation", () => {
 
   it("converts the monthly minute total to days before rounding", () => {
     expect(attendanceTotalsFromMinutes(900, 480)).toEqual({ totalHours: 15, totalDays: 1.88 });
+  });
+
+  it("caps the daily attendance coefficient at one", () => {
+    expect(attendanceDayCoefficient(240, 480)).toBe(0.5);
+    expect(attendanceDayCoefficient(480, 480)).toBe(1);
+    expect(attendanceDayCoefficient(603, 480)).toBe(1);
   });
 
   it("counts only approved leave applications belonging to the employee", () => {
