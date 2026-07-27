@@ -6,6 +6,7 @@ import { toast } from '../../../../pages/Toast';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 
 interface ManageLearnersModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function ManageLearnersModal({
 }: ManageLearnersModalProps) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -48,7 +50,7 @@ export function ManageLearnersModal({
     setSelectedStudentIds((current) => {
       if (current.includes(studentId)) return current.filter((id) => id !== studentId);
       if (current.length >= remainingSlots) {
-        toast.error(`Lớp chỉ còn ${remainingSlots} chỗ trống.`);
+        toast.error(`${copy.entityName} chỉ còn ${remainingSlots} chỗ trống.`);
         return current;
       }
       return [...current, studentId];
@@ -82,7 +84,7 @@ export function ManageLearnersModal({
         addedIds.push(studentId);
       }
       setSelectedStudentIds([]);
-      toast.success(`Đã thêm ${addedIds.length} ${entityLabel.singular} vào lớp.`);
+      toast.success(`Đã thêm ${addedIds.length} ${entityLabel.singular} vào ${copy.entityNameLower}.`);
       onSuccess();
     } catch (error: unknown) {
       setSelectedStudentIds((current) => current.filter((id) => !addedIds.includes(id)));
@@ -98,7 +100,7 @@ export function ManageLearnersModal({
     setRemovingStudentId(studentId);
     try {
       await apiFetch(`/batches/${batch.id}/learners/${studentId}`, { method: 'DELETE' });
-      toast.success(`Đã bỏ ${entityLabel.singular} khỏi lớp.`);
+      toast.success(`Đã bỏ ${entityLabel.singular} khỏi ${copy.entityNameLower}.`);
       onSuccess();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : `Có lỗi xảy ra khi bỏ ${entityLabel.singular}.`;
@@ -112,13 +114,13 @@ export function ManageLearnersModal({
 
   return (
     <ErpModal
-      title={`${entityLabel.tabLabel} lớp ${batch.code}`}
+      title={`${entityLabel.tabLabel} ${copy.entityNameLower} ${batch.code}`}
       onClose={onClose}
       maxWidth="max-w-2xl"
     >
       <div className="space-y-6">
         <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
-          {batch.courseTitle} • Sĩ số: {batch.learnerIds.length}
+          {batch.courseTitle} • {copy.capacityLabel}: {batch.learnerIds.length}
           {batch.maxLearners ? `/${batch.maxLearners}` : ''} {entityLabel.singular}
         </p>
 
@@ -145,9 +147,9 @@ export function ManageLearnersModal({
           </div>
 
           {remainingSlots === 0 ? (
-            <p className="py-6 text-center text-xs font-semibold text-slate-500">Lớp đã đủ sĩ số.</p>
+            <p className="py-6 text-center text-xs font-semibold text-slate-500">{copy.entityName} đã đủ {copy.capacityLabel.toLocaleLowerCase('vi')}.</p>
           ) : availableStudents.length === 0 ? (
-            <p className="py-6 text-center text-xs text-slate-400">Không còn {entityLabel.singular} để thêm vào lớp.</p>
+            <p className="py-6 text-center text-xs text-slate-400">Không còn {entityLabel.singular} để thêm vào {copy.entityNameLower}.</p>
           ) : filteredStudents.length === 0 ? (
             <p className="py-6 text-center text-xs text-slate-400">Không tìm thấy {entityLabel.singular} phù hợp.</p>
           ) : (
@@ -215,10 +217,10 @@ export function ManageLearnersModal({
         {/* Enrolled learners */}
         <div className="space-y-2 text-left">
           <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
-            Danh sách {entityLabel.singular} trong lớp
+            Danh sách {entityLabel.singular} trong {copy.entityNameLower}
           </h5>
           {enrolledStudents.length === 0 ? (
-            <p className="text-xs text-slate-400">Lớp chưa có {entityLabel.singular} nào.</p>
+            <p className="text-xs text-slate-400">{copy.entityName} chưa có {entityLabel.singular} nào.</p>
           ) : (
             <div className={cn("border rounded-2xl p-2 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
               {enrolledStudents.map((s) => (
@@ -231,7 +233,7 @@ export function ManageLearnersModal({
                     type="button"
                     onClick={() => handleRemoveLearner(s.id)}
                     disabled={removingStudentId !== null || isAdding}
-                    title="Bỏ khỏi lớp"
+                    title={`Bỏ khỏi ${copy.entityNameLower}`}
                     className={cn(
                       "p-1.5 rounded-lg transition-all border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                       darkMode

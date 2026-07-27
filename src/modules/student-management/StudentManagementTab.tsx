@@ -79,7 +79,9 @@ export default function StudentManagementTab() {
     }));
 
     if (entityLabel.preset !== "student") {
-      const hiddenSlugs = ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+      const hiddenSlugs = entityLabel.preset === "worker"
+        ? ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"]
+        : ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
       routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
     }
 
@@ -120,7 +122,9 @@ export default function StudentManagementTab() {
           />
         );
       case "KHÓA HỌC":
-        return <CoursesPage selectedCenter={selectedCenter} />;
+        return entityLabel.preset === "worker"
+          ? <BatchesPage selectedCenter={selectedCenter} />
+          : <CoursesPage selectedCenter={selectedCenter} />;
       case "LỚP HỌC":
         return <BatchesPage selectedCenter={selectedCenter} />;
       case "LỊCH THI":
