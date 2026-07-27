@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 import { AttendanceAttemptsModal } from './AttendanceAttemptsModal';
 
 interface AttendanceViewModalProps {
@@ -56,6 +57,7 @@ const getScheduledDates = (startDateStr: string, endDateStr: string, daysOfWeek:
 
 export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: AttendanceViewModalProps) {
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAttempts, setShowAttempts] = useState(false);
 
@@ -84,7 +86,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
 
   return (
     <ErpModal
-      title={`Điểm danh · Lớp ${batch.code}`}
+      title={`Điểm danh · ${copy.entityName} ${batch.code}`}
       onClose={() => { setSelectedDate(null); onClose(); }}
       maxWidth="max-w-3xl"
     >
@@ -226,7 +228,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
 
                 <div className="space-y-1 max-h-[260px] overflow-y-auto">
                   {batch.learnerIds.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-8">Lớp chưa có {entityLabel.singular}.</p>
+                    <p className="text-xs text-slate-400 text-center py-8">{copy.entityName} chưa có {entityLabel.singular}.</p>
                   ) : (
                     batch.learnerIds.map(studentId => {
                       const student = (students || []).find(s => s.id === studentId || String(s.id) === String(studentId));

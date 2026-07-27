@@ -25,7 +25,7 @@ import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
-import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
+import { getBatchPageCopy, getBatchStatusLabel } from '../../config/workerRecruitmentCopy';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
@@ -96,6 +96,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
   const copy = getBatchPageCopy(entityLabel.preset);
+  const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -311,7 +312,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
         body: JSON.stringify({ status }),
       });
       notifyBatchMutation();
-      toast.success(`${copy.entityName} ${batch.code} đã chuyển sang "${status}".`);
+      toast.success(`${copy.entityName} ${batch.code} đã chuyển sang "${statusLabel(status)}".`);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật trạng thái.';
       toast.error(msg);
@@ -407,7 +408,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
           </ErpFilterTab>
           {BATCH_STATUSES.map((st) => (
             <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
-              {st}
+              {statusLabel(st)}
             </ErpFilterTab>
           ))}
         </ErpFilterRail>
@@ -415,7 +416,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
       {/* Batch table */}
       {loading && batches.length === 0 ? (
-        <ErpCard><ErpLoadingState message="Đang tải danh sách lớp..." /></ErpCard>
+        <ErpCard><ErpLoadingState message={`Đang tải danh sách ${copy.entityNameLower}...`} /></ErpCard>
       ) : filteredBatches.length === 0 ? (
         <ErpCard>
           <ErpEmptyState
@@ -476,7 +477,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                           darkMode ? "bg-slate-900" : "bg-white"
                         )}
                       >
-                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
                       </select>
                     </td>
                     <td className="py-2 px-4">
@@ -513,7 +514,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         </button>
                         <button
                           onClick={() => setAssignmentBatchId(b.id)}
-                          title="Giao bài tập"
+                          title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'}
                           className={cn(
                             "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
                             darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
@@ -651,7 +652,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                   <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-brand-primary" />
-                    {getFieldLabel('schedule', 'Lịch học & Khung giờ')}
+                    {getFieldLabel('schedule', entityLabel.preset === 'worker' ? 'Lịch hoạt động & Khung giờ' : 'Lịch học & Khung giờ')}
                   </h4>
                 </div>
 
@@ -720,7 +721,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 {isFieldVisible('startDate') && (
                   <div className="relative group/std">
                     {renderFieldActions('startDate')}
-                    <ErpField label={getFieldLabel('startDate', 'Ngày khai giảng')}>
+                    <ErpField label={getFieldLabel('startDate', entityLabel.preset === 'worker' ? 'Ngày bắt đầu' : 'Ngày khai giảng')}>
                       <div className="relative">
                         <ErpInput
                           type="date"
@@ -739,7 +740,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 {isFieldVisible('endDate') && (
                   <div className="relative group/std">
                     {renderFieldActions('endDate')}
-                    <ErpField label={getFieldLabel('endDate', 'Ngày bế giảng')}>
+                    <ErpField label={getFieldLabel('endDate', entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng')}>
                       <div className="relative">
                         <ErpInput
                           type="date"
