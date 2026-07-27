@@ -124,6 +124,7 @@ export interface IUser extends Document {
   division?: string;
   companyCode?: string;
   companyName?: string;
+  branchId?: string;
   permissions?: string[];
   superAdminSecurity?: ISuperAdminSecurity;
   
