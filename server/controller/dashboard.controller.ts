@@ -79,6 +79,8 @@ export const dashboardController = {
           id: req.user.id,
           role: req.user.role,
           companyCode: req.user.companyCode,
+        branchId: req.user.branchId,
+          branchId: req.user.branchId,
           enabledModules,
           permissions,
         },
