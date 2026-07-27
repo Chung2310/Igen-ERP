@@ -11,7 +11,15 @@ export interface IHRContract extends Document {
   endDate: Date;
   status: HRContractStatus;
   contractFileUrl?: string;
+  contractFileName?: string;
+  contractFileMimeType?: string;
+  contractFileSize?: number;
+  contractResourceId?: string;
   signedImageUrl?: string;
+  signedImageName?: string;
+  signedImageMimeType?: string;
+  signedImageSize?: number;
+  signedImageResourceId?: string;
   note?: string;
   createdBy: string;
   updatedBy?: string;

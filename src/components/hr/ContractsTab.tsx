@@ -10,6 +10,8 @@ import {
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
+import { FilePreviewModal } from "../resource/FilePreviewModal";
+import type { ResourceItem } from "../../types";
 
 type ContractStatus = "draft" | "active" | "expired" | "terminated";
 type Contract = {
@@ -21,7 +23,15 @@ type Contract = {
   endDate: string;
   status: ContractStatus;
   contractFileUrl?: string;
+  contractFileName?: string;
+  contractFileMimeType?: string;
+  contractFileSize?: number;
+  contractResourceId?: string;
   signedImageUrl?: string;
+  signedImageName?: string;
+  signedImageMimeType?: string;
+  signedImageSize?: number;
+  signedImageResourceId?: string;
   note?: string;
 };
 type Employee = {
@@ -56,7 +66,15 @@ const emptyContract = {
   endDate: "",
   status: "active" as ContractStatus,
   contractFileUrl: "",
+  contractFileName: "",
+  contractFileMimeType: "",
+  contractFileSize: 0,
+  contractResourceId: "",
   signedImageUrl: "",
+  signedImageName: "",
+  signedImageMimeType: "",
+  signedImageSize: 0,
+  signedImageResourceId: "",
   note: "",
 };
 const emptyExtension = {
@@ -103,6 +121,7 @@ export default function ContractsTab({
   const [uploading, setUploading] = useState<"contract" | "signed" | null>(
     null,
   );
+  const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
   const suffix = `?companyCode=${encodeURIComponent(companyCode)}`;
   const load = async () => {
     setLoading(true);
@@ -154,7 +173,15 @@ export default function ContractsTab({
             endDate: isoDate(contract.endDate),
             status: contract.status,
             contractFileUrl: contract.contractFileUrl || "",
+            contractFileName: contract.contractFileName || "",
+            contractFileMimeType: contract.contractFileMimeType || "",
+            contractFileSize: contract.contractFileSize || 0,
+            contractResourceId: contract.contractResourceId || "",
             signedImageUrl: contract.signedImageUrl || "",
+            signedImageName: contract.signedImageName || "",
+            signedImageMimeType: contract.signedImageMimeType || "",
+            signedImageSize: contract.signedImageSize || 0,
+            signedImageResourceId: contract.signedImageResourceId || "",
             note: contract.note || "",
           }
         : emptyContract,
@@ -239,29 +266,70 @@ export default function ContractsTab({
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const res = await fetch("/api/v1/media/upload", {
+      const res = await fetch(`/api/v1/hr-contracts/upload${suffix}`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
           file: base64,
-          folder:
-            target === "signed"
-              ? "igen_erp/hr-contracts/signed"
-              : "igen_erp/hr-contracts/documents",
+          name: file.name,
+          mimeType: file.type,
+          size: file.size,
+          kind: target,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Tải tệp thất bại.");
-      setContractForm((current) => ({
-        ...current,
-        [target === "signed" ? "signedImageUrl" : "contractFileUrl"]: data.url,
-      }));
+      const resource = data.data?.resource;
+      setContractForm((current) =>
+        target === "signed"
+          ? {
+              ...current,
+              signedImageUrl: data.data.url,
+              signedImageName: file.name,
+              signedImageMimeType: file.type,
+              signedImageSize: file.size,
+              signedImageResourceId: resource?._id || "",
+            }
+          : {
+              ...current,
+              contractFileUrl: data.data.url,
+              contractFileName: file.name,
+              contractFileMimeType: file.type,
+              contractFileSize: file.size,
+              contractResourceId: resource?._id || "",
+            },
+      );
       toast.success(`Đã tải lên ${file.name}.`);
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Không thể tải tệp hợp đồng."));
     } finally {
       setUploading(null);
     }
+  };
+  const preview = (contract: Contract, kind: "contract" | "signed") => {
+    const signed = kind === "signed";
+    const fileUrl = signed ? contract.signedImageUrl : contract.contractFileUrl;
+    if (!fileUrl) return;
+    setPreviewItem({
+      _id:
+        (signed
+          ? contract.signedImageResourceId
+          : contract.contractResourceId) || `${contract._id}-${kind}`,
+      companyCode,
+      section: "local",
+      type: "file",
+      name:
+        (signed ? contract.signedImageName : contract.contractFileName) ||
+        (signed ? "Ảnh hợp đồng đã ký" : "Hợp đồng"),
+      parentId: null,
+      fileUrl,
+      mimeType: signed
+        ? contract.signedImageMimeType
+        : contract.contractFileMimeType,
+      size: signed ? contract.signedImageSize : contract.contractFileSize,
+      createdAt: "",
+      updatedAt: "",
+    });
   };
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-5 text-left">
@@ -386,24 +454,22 @@ export default function ContractsTab({
                         </td>
                         <td className="p-3 text-center space-x-2">
                           {c.contractFileUrl && (
-                            <a
-                              className="text-cyan-700"
-                              href={c.contractFileUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              className="font-bold text-cyan-700 hover:underline"
+                              onClick={() => preview(c, "contract")}
                             >
-                              File
-                            </a>
+                              Xem file
+                            </button>
                           )}
                           {c.signedImageUrl && (
-                            <a
-                              className="text-cyan-700"
-                              href={c.signedImageUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              className="font-bold text-cyan-700 hover:underline"
+                              onClick={() => preview(c, "signed")}
                             >
-                              Ảnh ký
-                            </a>
+                              Xem ảnh ký
+                            </button>
                           )}
                         </td>
                         <td className="p-3">
@@ -781,6 +847,11 @@ export default function ContractsTab({
           </div>
         </Modal>
       )}
+      <FilePreviewModal
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+        hideShare
+      />
     </div>
   );
 }
