@@ -278,7 +278,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ChatUnreadProvider>
-        <AppContent />
+        <BranchProvider>
+          <AppContent />
+        </BranchProvider>
         <ToastContainer />
       </ChatUnreadProvider>
     </AuthProvider>
