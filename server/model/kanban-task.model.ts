@@ -32,6 +32,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   status: { type: String, required: true, index: true },
   category: { type: String },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
   projectId: { type: String, index: true },
