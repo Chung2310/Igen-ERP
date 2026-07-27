@@ -4,6 +4,7 @@ import { IHRLeaveApplication } from "../interface/hr-leave.interface";
 const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
   {
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true },
     type: { type: String, required: true, index: true },

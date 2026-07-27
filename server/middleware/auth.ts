@@ -11,6 +11,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: string;
     companyCode?: string;
+    branchId?: string;
     sessionId?: string;
     authLevel?: string;
   };
