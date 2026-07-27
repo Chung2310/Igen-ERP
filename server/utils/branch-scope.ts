@@ -9,5 +9,5 @@ export async function resolveBranchScope(req: AuthenticatedRequest, requestedBra
     if (!branch) throw new Error("Branch is outside company scope");
     return { companyCode, branchId: String(branch._id) };
   }
-  return { companyCode, branchId: req.user?.branchId || requestedBranchId || undefined };
+  return { companyCode, branchId: (req.user as typeof req.user & { branchId?: string })?.branchId || requestedBranchId || undefined };
 }
