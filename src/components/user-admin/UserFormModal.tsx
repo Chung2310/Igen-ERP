@@ -52,6 +52,8 @@ export function UserFormModal({
   setUserRole,
   userCompanyCode,
   setUserCompanyCode,
+  userBranchId,
+  setUserBranchId,
   userParentId,
   setUserParentId,
   userDepartment,
@@ -63,6 +65,7 @@ export function UserFormModal({
   getAvailableRoles,
   userProfile,
   companies,
+  branches,
   usersList,
   onSubmit,
   submittingUser,
@@ -219,7 +222,19 @@ export function UserFormModal({
             </div>
 
             {/* Người quản lý trực tiếp */}
-            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
+'            {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh</label>
+                <select value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none">
+                  <option value="">Không gán chi nhánh</option>
+                  {branches.filter((branch) => branch.companyCode === userCompanyCode && branch.isActive).map((branch) => (
+                    <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+'            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Người quản lý trực tiếp
