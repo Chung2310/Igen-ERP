@@ -32,6 +32,7 @@ export const studentManagementRouter = Router();
 
 const requireStudentModule = requireModule("student") as RequestHandler;
 const requireStudentRead = requirePermission("student:read") as RequestHandler;
+const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
 
 studentManagementRouter.use("/auth", authRoutes);
 studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, studentRoutes);
@@ -47,7 +48,7 @@ studentManagementRouter.use("/courses", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/student-resources", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, resourceRoutes);
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, scheduleRoutes);
-studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, partnerRoutes);
+studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requirePartnerRead, partnerRoutes);
 studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, customFieldRoutes);
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, moduleSettingsRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
