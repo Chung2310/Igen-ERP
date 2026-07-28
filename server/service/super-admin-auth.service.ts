@@ -41,12 +41,6 @@ export function createSuperAdminAuthService(deps: any) {
     return { sessionId, ...deps.signTokens(user, sessionId) };
   };
   return {
-    async assertSingleSuperAdmin() {
-      const accounts = await deps.users.listSuperAdmins();
-      if (accounts.length <= 1) return;
-      const details = accounts.map((account: any) => `${account._id} (${account.email})`).join(", ");
-      throw new Error(`Multiple Super Admin accounts found; resolve manually: ${details}`);
-    },
     async beginSuperAdminLogin(user: any, metadata: any) {
       if (!metadata?.deviceId) throw new Error("Device verification failed");
       const challengeId = deps.id(); const expiresAt = new Date(deps.now().getTime() + CHALLENGE_MS);
@@ -113,11 +107,12 @@ const mongoDeps = {
           challenge.consumedAt = now;
           await challenge.save({ session: transactionSession });
           const active = await SuperAdminSessionModel.find({
+            userId,
             revokedAt: { $exists: false },
             expiresAt: { $gt: now },
           }).session(transactionSession).lean();
           await SuperAdminSessionModel.updateMany(
-            { revokedAt: { $exists: false }, expiresAt: { $gt: now } },
+            { userId, revokedAt: { $exists: false }, expiresAt: { $gt: now } },
             { $set: { revokedAt: now, revokeReason: "replaced_by_new_login" } },
             { session: transactionSession },
           );

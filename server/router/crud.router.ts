@@ -26,14 +26,14 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
   return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
 };
 
-const CRUD_MODEL_READ_PERMISSION: Record<string, string> = {
+const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
   products: "stock:read",
   categories: "stock:read",
   "stock-logs": "stock:read",
   "kanban-tasks": "kanban:read",
   projects: "project:read",
   "hr-calendar-events": "timekeeping:read",
-  "timekeeping-logs": "timekeeping:read",
+  "timekeeping-logs": ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
   workflows: "hr:read",
   "training-courses": "hr:read",
   "training-enrollments": "hr:read",
@@ -42,14 +42,14 @@ const CRUD_MODEL_READ_PERMISSION: Record<string, string> = {
   users: "user:read",
 };
 
-const CRUD_MODEL_MANAGE_PERMISSION: Record<string, string> = {
+const CRUD_MODEL_MANAGE_PERMISSION: Record<string, string | string[]> = {
   products: "stock:manage",
   categories: "stock:manage",
   "stock-logs": "stock:manage",
   "kanban-tasks": "kanban:manage",
   projects: "project:manage",
   "hr-calendar-events": "timekeeping:manage",
-  "timekeeping-logs": "timekeeping:manage",
+  "timekeeping-logs": ["timekeeping:manage", "payroll:manage"],
   users: "user:manage",
 };
 
@@ -59,7 +59,10 @@ const crudReadPermissionGuard = (req: any, res: any, next: any) => {
 };
 
 const crudManagePermissionGuard = (req: any, res: any, next: any) => {
-  const code = CRUD_MODEL_MANAGE_PERMISSION[String(req.params.modelName || "").toLowerCase()];
+  const modelName = String(req.params.modelName || "").toLowerCase();
+  const code = modelName === "timekeeping-logs" && req.method !== "PATCH"
+    ? "timekeeping:manage"
+    : CRUD_MODEL_MANAGE_PERMISSION[modelName];
   return code ? requirePermission(code)(req, res, next) : next();
 };
 

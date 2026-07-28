@@ -166,8 +166,10 @@ export const authService = {
   },
 
   // Lấy danh sách người dùng theo Doanh nghiệp
-  async getUsersByCompany(companyCode: string): Promise<UserProfile[]> {
-    const res = await fetch(`/api/v1/auth/users?companyCode=${encodeURIComponent(companyCode)}`, {
+  async getUsersByCompany(companyCode: string, branchId?: string): Promise<UserProfile[]> {
+    const params = new URLSearchParams({ companyCode });
+    if (branchId) params.set("branchId", branchId);
+    const res = await fetch(`/api/v1/auth/users?${params.toString()}`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
       },
@@ -363,7 +365,8 @@ export const authService = {
       voiceId?: string;
       apiKey?: string;
     },
-    jobDescriptionLink?: string
+    jobDescriptionLink?: string,
+    branchId?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -385,6 +388,7 @@ export const authService = {
         phone,
         heygenAccess,
         jobDescriptionLink,
+        branchId,
       }),
     });
 

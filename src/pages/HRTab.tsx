@@ -1,7 +1,8 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
 import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
@@ -15,9 +16,11 @@ const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
+const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
+  const { activeBranchId } = useBranch();
   const isManager =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
@@ -25,8 +28,9 @@ export default function HRTab() {
   // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
   // must also be able to view/manage everyone's attendance, not just their own —
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
-  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
+  const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll:manage");
   const canManageAttendance = isManager || hasPermission("timekeeping:manage");
+  const canEditAttendance = canManageAttendance || hasPermission("payroll:manage");
   const canManageOrgChart = isManager || hasPermission("user:manage");
   const canManageKanban = isManager || hasPermission("kanban:manage");
   const canViewPayroll = hasPermission("payroll:read") || hasPermission("payroll:manage");
@@ -81,7 +85,7 @@ export default function HRTab() {
           data = userProfile ? [userProfile] : [];
         }
       } else {
-        data = await authService.getUsersByCompany(selectedCompanyCode);
+        data = await authService.getUsersByCompany(selectedCompanyCode, activeBranchId || undefined);
       }
       setUsersList(data);
     } catch (error) {
@@ -117,7 +121,7 @@ export default function HRTab() {
       fetchUsers();
       fetchCourses(selectedCompanyCode);
     }
-  }, [selectedCompanyCode, userProfile?.uid]);
+  }, [selectedCompanyCode, userProfile?.uid, activeBranchId]);
 
   // Map user profile from Firestore to EmployeeNode tree model
   const employees: EmployeeNode[] = usersList.map((usr) => ({
@@ -140,7 +144,7 @@ export default function HRTab() {
   }));
 
   return (
-    <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
+    <div className="flex min-h-0 flex-1 flex-col bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
       <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
@@ -152,6 +156,7 @@ export default function HRTab() {
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
             { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+            { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
             ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
@@ -244,12 +249,14 @@ export default function HRTab() {
         )}
 
         {subTab === "PAYROLL" && <PayrollTab canManage={hasPermission("payroll:manage")} />}
+        {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} />}
         {subTab === "LỊCH" && (
           <CalendarTab
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             isManager={canViewAllAttendance}
             canManage={canManageAttendance}
+            canEditAttendance={canEditAttendance}
             usersList={usersList}
             employees={employees}
           />

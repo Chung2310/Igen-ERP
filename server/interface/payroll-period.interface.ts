@@ -4,12 +4,14 @@ export type PayrollPeriodStatus = "draft" | "attendance_locked" | "calculated" |
 
 export interface IAttendancePeriodResult extends Document {
   companyCode: string;
+  branchId?: string;
   periodKey: string;
   employeeId: string;
   employeeName?: string;
   monthlySalary: number;
   standardHours: number;
   standardDays: number;
+  workedMinutes: number;
   shortageMinutes: number;
   workedDays?: number;
   shortageDays?: number;
@@ -18,10 +20,12 @@ export interface IAttendancePeriodResult extends Document {
   status: "draft" | "locked";
   lockedAt?: Date;
   lockedBy?: string;
+  needsRecalculation?: boolean;
 }
 
 export interface IPayrollRun extends Document {
   companyCode: string;
+  branchId?: string;
   periodKey: string;
   status: PayrollPeriodStatus;
   lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];

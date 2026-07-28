@@ -67,6 +67,7 @@ export default function StudentManagementTab() {
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();
+
   const subTabRoutes = React.useMemo(() => {
     let routes = SUB_TAB_ROUTES.map((item) => ({
       ...item,
@@ -79,7 +80,9 @@ export default function StudentManagementTab() {
     }));
 
     if (entityLabel.preset !== "student") {
-      const hiddenSlugs = ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+      const hiddenSlugs = entityLabel.preset === "worker"
+        ? ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"]
+        : ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
       routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
     }
 
@@ -99,6 +102,14 @@ export default function StudentManagementTab() {
     setSelectedStudent(student);
     setInitialStudentTab(tab);
   }, []);
+
+  if (entityLabel.loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-white p-6">
+        <PageLoader />
+      </div>
+    );
+  }
 
   const renderPage = () => {
     switch (activeSubTab) {
@@ -120,7 +131,9 @@ export default function StudentManagementTab() {
           />
         );
       case "KHÓA HỌC":
-        return <CoursesPage selectedCenter={selectedCenter} />;
+        return entityLabel.preset === "worker"
+          ? <BatchesPage selectedCenter={selectedCenter} />
+          : <CoursesPage selectedCenter={selectedCenter} />;
       case "LỚP HỌC":
         return <BatchesPage selectedCenter={selectedCenter} />;
       case "LỊCH THI":

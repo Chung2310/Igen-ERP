@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { CompanyModel } from "../model/company.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
@@ -555,6 +556,7 @@ export const authService = {
       division,
       phone,
       jobDescriptionLink,
+      branchId,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -590,6 +592,9 @@ export const authService = {
       }
     }
 
+    const validBranch = branchId ? await BranchModel.findOne({ _id: branchId, companyCode: finalCompanyCode, isActive: true }).lean() : null;
+    if (branchId && !validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new UserModel({
       email: emailLower,
@@ -598,6 +603,7 @@ export const authService = {
       role,
       companyCode: finalCompanyCode,
       companyName: companyName?.trim(),
+      branchId: branchId || undefined,
       parentId: parentId || undefined,
       level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : targetRoleLevel)),
       department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
@@ -630,6 +636,14 @@ export const authService = {
       }
       if (user.role === "superadmin") {
         throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
+      }
+    }
+
+    if (updateData.branchId !== undefined) {
+      const targetCompany = updateData.companyCode || user.companyCode;
+      if (updateData.branchId) {
+        const validBranch = await BranchModel.findOne({ _id: updateData.branchId, companyCode: targetCompany, isActive: true }).lean();
+        if (!validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
       }
     }
 

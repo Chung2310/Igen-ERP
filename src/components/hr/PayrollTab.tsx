@@ -78,6 +78,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [formulaRow, setFormulaRow] = useState<any>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -134,6 +135,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         adjustedBase: line.calculation?.adjustedBase || 0,
         overtime: line.calculation?.overtime || 0,
         net: line.calculation?.net || 0,
+        calculation: line.calculation || {},
       };
     });
   }, [run, results]);
@@ -176,6 +178,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const totalBase = runRows.reduce((sum: number, r: any) => sum + r.baseSalary, 0);
   const headcount = run ? runRows.length : draftRows.length;
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
+  const needsRecalculation = results.some((row: any) => row.needsRecalculation);
 
   const canSeeTable = canManage || !!run;
 
@@ -199,6 +202,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
+    {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
 
     {/* Quy trình xử lý kỳ lương */}
     <div className="rounded-xl border border-slate-200 bg-white p-4 overflow-x-auto">
@@ -251,7 +255,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
             <RefreshCw size={15} /> Đồng bộ công
           </button>
-          <button onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850">
+          <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
             <Lock size={15} /> Khóa công
           </button>
           <button onClick={() => void action(() => payrollService.createRun(period), "Đã tạo bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
@@ -314,7 +318,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.adjustedBase).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600"><button onClick={() => setFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
                     <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
                   </tr>
@@ -344,15 +348,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Công chuẩn (giờ)" sortKey="standardHours" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
-                  <SortHeader label="Thiếu công (ngày)" sortKey="shortageDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={6}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
+                  <tr><td colSpan={5}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={6}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
@@ -360,7 +363,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
                       <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
-                      <td className="p-3 text-center font-semibold text-rose-500">{row.shortageDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           row.status === "locked" ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-yellow-50 text-yellow-700 border border-yellow-100"
@@ -391,5 +393,19 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         setResetConfirmOpen(false);
       }}
     />
+    {formulaRow && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
+          <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+            <div className="flex justify-between"><span>Phút làm được công nhận</span><b>{Number(formulaRow.calculation?.workedMinutes || 0).toLocaleString()} phút</b></div>
+            <div className="flex justify-between"><span>Ngày công</span><b>{Number(formulaRow.calculation?.workedDays || 0).toFixed(2)} công</b></div>
+            <div className="flex justify-between"><span>Đơn giá giờ</span><b>{Math.round(formulaRow.calculation?.hourlyRate || 0).toLocaleString()} đ</b></div>
+            <div className="border-t pt-2 text-xs text-slate-600">Phút làm ÷ 60 × đơn giá giờ + phép hưởng lương, tối đa bằng lương tháng.</div>
+            <div className="flex justify-between border-t pt-2 text-base"><span>Lương điều chỉnh</span><b className="text-cyan-700">{Number(formulaRow.adjustedBase || 0).toLocaleString()} đ</b></div>
+          </div>
+        </div>
+      </div>
+    )}
   </section>;
 }

@@ -8,6 +8,11 @@ import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
+import { getEmployeeAnnualLeaveBalance } from "../service/annual-leave.service";
+import { TimekeepingLogModel } from "../model/timekeeping.model";
+import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
+import { PayrollRunModel } from "../model/payroll-run.model";
+import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
 export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
   return !!leave && leave.status !== "approved" && leave.type === "leave";
@@ -30,7 +35,7 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin" || userRole === "manager") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("timekeeping:manage");
+  return permissions.has("*") || permissions.has("leave:approve");
 }
 
 /**
@@ -42,7 +47,7 @@ async function canApproveLeave(req: AuthenticatedRequest): Promise<boolean> {
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("timekeeping:manage");
+  return permissions.has("*") || permissions.has("leave:approve");
 }
 
 export const crudController = {
@@ -66,6 +71,8 @@ export const crudController = {
         ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
         ...otherParams,
       };
+
+      if (req.user?.branchId) filters.branchId = req.user.branchId;
 
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
@@ -94,6 +101,18 @@ export const crudController = {
         search,
         filters,
       }, userRole);
+
+      if (modelName === "timekeeping-logs" && result.items.length) {
+        const logIds = result.items.map((item: any) => item._id);
+        const audits = await TimekeepingAdjustmentAuditModel.find({ companyCode, logId: { $in: logIds } }).sort({ createdAt: -1 }).lean();
+        const byLog = new Map<string, any[]>();
+        for (const entry of audits) {
+          const key = String(entry.logId);
+          if ((byLog.get(key)?.length || 0) >= 10) continue;
+          byLog.set(key, [...(byLog.get(key) || []), entry]);
+        }
+        result.items = result.items.map((item: any) => ({ ...item, adjustmentHistory: byLog.get(String(item._id)) || [] }));
+      }
 
       return res.status(200).json({
         status: "success",
@@ -146,6 +165,16 @@ export const crudController = {
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
+      if (modelName === "hr-leave-applications") {
+        if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
+        const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
+        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+        const year = new Date(req.body.startDate).getUTCFullYear();
+        const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
+        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số phép còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
+        req.body = { ...req.body, status: "pending", year, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+      }
+
       const LEAVE_TYPES = ["leave", "wfh", "exception"];
       if (modelName === "hr-calendar-events" && LEAVE_TYPES.includes(req.body.type)) {
         if (!(await canManageTimekeeping(req))) {
@@ -196,6 +225,26 @@ export const crudController = {
       const userRole = req.user?.role || "user";
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
+
+      let attendanceBefore: any = null;
+      let attendanceReason = "";
+      if (modelName === "timekeeping-logs") {
+        attendanceReason = String(req.body.editReason || "").trim();
+        if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
+        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode }).lean();
+        if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
+        const periodKey = attendanceBefore.date.slice(0, 7);
+        const [lockedResult, payrollRun] = await Promise.all([
+          AttendancePeriodResultModel.findOne({ companyCode, periodKey, status: "locked" }).lean(),
+          PayrollRunModel.findOne({ companyCode, periodKey }).lean(),
+        ]);
+        if (lockedResult || payrollRun) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+        delete req.body.editReason;
+        req.body.manuallyAdjusted = true;
+        req.body.adjustedAt = new Date();
+        req.body.adjustedBy = req.user?.id;
+        req.body.adjustmentReason = attendanceReason;
+      }
 
       if (modelName === "training-courses") {
         const course = await TrainingCourseModel.findOne({ _id: id, companyCode }).lean();
@@ -259,15 +308,30 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications" && req.body.status === "approved") {
+        if (!["justified", "unjustified"].includes(req.body.approvalType)) throw Object.assign(new Error("Cần chọn loại duyệt chính đáng hoặc không chính đáng."), { statusCode: 400 });
+        req.body.approvedAt = new Date();
+        req.body.approvalNote = req.body.note || req.body.approvalNote || "";
+      }
+
+      if (modelName === "hr-leave-applications" && (req.body.status === "approved" || req.body.status === "rejected")) {
         const leave = await HRLeaveApplicationModel.findOne({ _id: id, companyCode }).lean();
-        if (shouldSnapshotChargeableDays(leave)) {
+        if (req.body.status === "approved" && shouldSnapshotChargeableDays(leave)) {
           const { chargeableDates, chargeableDays } = await computeChargeableSnapshot(companyCode, leave as { startDate: Date; endDate: Date });
           req.body.chargeableDates = chargeableDates;
           req.body.chargeableDays = chargeableDays;
+          req.body.year = new Date(leave!.startDate).getUTCFullYear();
         }
       }
 
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
+
+      if (modelName === "timekeeping-logs" && attendanceBefore && item) {
+        const periodKey = attendanceBefore.date.slice(0, 7);
+        await Promise.all([
+          TimekeepingAdjustmentAuditModel.create({ companyCode, logId: attendanceBefore._id, employeeId: attendanceBefore.uid, date: attendanceBefore.date, actorId: req.user!.id, reason: attendanceReason, before: attendanceBefore, after: item }),
+          AttendancePeriodResultModel.updateMany({ companyCode, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+        ]);
+      }
 
       // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
       if (modelName === "hr-leave-applications" && item && item.status === "approved") {

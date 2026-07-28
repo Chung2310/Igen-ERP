@@ -6,6 +6,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { attendanceFaceGate } from "../middleware/attendance-face-gate";
 import { companyWorkCalendarController } from "../controller/company-work-calendar.controller";
+import { workShiftController } from "../controller/work-shift.controller";
 
 export const timekeepingRouter = Router();
 const attendanceImage = multer({
@@ -16,16 +17,16 @@ const attendanceImage = multer({
 const checkInOutSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
-      "any.required": "VÄ© Ä‘á»™ (latitude) lÃ  báº¯t buá»™c.",
-      "number.base": "VÄ© Ä‘á»™ pháº£i lÃ  má»™t sá»‘.",
-      "number.min": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -90 Ä‘áº¿n 90).",
-      "number.max": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -90 Ä‘áº¿n 90).",
+      "any.required": "Vĩ độ (latitude) là bắt buộc.",
+      "number.base": "Vĩ độ phải là một số.",
+      "number.min": "Vĩ độ không hợp lệ (phải từ -90 đến 90).",
+      "number.max": "Vĩ độ không hợp lệ (phải từ -90 đến 90).",
     }),
     longitude: Joi.number().min(-180).max(180).required().messages({
-      "any.required": "Kinh Ä‘á»™ (longitude) lÃ  báº¯t buá»™c.",
-      "number.base": "Kinh Ä‘á»™ pháº£i lÃ  má»™t sá»‘.",
-      "number.min": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -180 Ä‘áº¿n 180).",
-      "number.max": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡ (pháº£i tá»« -180 Ä‘áº¿n 180).",
+      "any.required": "Kinh độ (longitude) là bắt buộc.",
+      "number.base": "Kinh độ phải là một số.",
+      "number.min": "Kinh độ không hợp lệ (phải từ -180 đến 180).",
+      "number.max": "Kinh độ không hợp lệ (phải từ -180 đến 180).",
     }),
     deviceInfo: Joi.string().optional().allow(""),
   }),
@@ -34,40 +35,52 @@ const checkInOutSchema = {
 const updateLocationSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
-      "any.required": "VÄ© Ä‘á»™ vÄƒn phÃ²ng lÃ  báº¯t buá»™c.",
-      "number.base": "VÄ© Ä‘á»™ vÄƒn phÃ²ng pháº£i lÃ  sá»‘.",
-      "number.min": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡.",
-      "number.max": "VÄ© Ä‘á»™ khÃ´ng há»£p lá»‡.",
+      "any.required": "Vĩ độ văn phòng là bắt buộc.",
+      "number.base": "Vĩ độ văn phòng phải là số.",
+      "number.min": "Vĩ độ không hợp lệ.",
+      "number.max": "Vĩ độ không hợp lệ.",
     }),
     longitude: Joi.number().min(-180).max(180).required().messages({
-      "any.required": "Kinh Ä‘á»™ vÄƒn phÃ²ng lÃ  báº¯t buá»™c.",
-      "number.base": "Kinh Ä‘á»™ vÄƒn phÃ²ng pháº£i lÃ  sá»‘.",
-      "number.min": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡.",
-      "number.max": "Kinh Ä‘á»™ khÃ´ng há»£p lá»‡.",
+      "any.required": "Kinh độ văn phòng là bắt buộc.",
+      "number.base": "Kinh độ văn phòng phải là số.",
+      "number.min": "Kinh độ không hợp lệ.",
+      "number.max": "Kinh độ không hợp lệ.",
     }),
     allowedRadius: Joi.number().min(1).required().messages({
-      "any.required": "BÃ¡n kÃ­nh cháº¥m cÃ´ng lÃ  báº¯t buá»™c.",
-      "number.base": "BÃ¡n kÃ­nh pháº£i lÃ  sá»‘.",
-      "number.min": "BÃ¡n kÃ­nh tá»‘i thiá»ƒu pháº£i tá»« 1 mÃ©t trá»Ÿ lÃªn.",
+      "any.required": "Bán kính chấm công là bắt buộc.",
+      "number.base": "Bán kính phải là số.",
+      "number.min": "Bán kính tối thiểu phải từ 1 mét trở lên.",
     }),
     addressName: Joi.string().optional().allow(""),
     checkInLimit: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» vÃ o pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 08:30).",
+      "string.pattern.base": "Giờ vào phải đúng định dạng HH:MM (ví dụ: 08:30).",
     }),
     checkOutLimit: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» ra pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 17:30).",
+      "string.pattern.base": "Giờ ra phải đúng định dạng HH:MM (ví dụ: 17:30).",
     }),
     lunchBreakStart: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» báº¯t Ä‘áº§u nghá»‰ trÆ°a pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 12:00).",
+      "string.pattern.base": "Giờ bắt đầu nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 12:00).",
     }),
     workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().optional(),
     lunchBreakEnd: Joi.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().messages({
-      "string.pattern.base": "Giá» káº¿t thÃºc nghá»‰ trÆ°a pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng HH:MM (vÃ­ dá»¥: 13:00).",
+      "string.pattern.base": "Giờ kết thúc nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 13:00).",
     }),
   }),
 };
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+const shiftBreakSchema = Joi.object({ name: Joi.string().trim().max(80).required(), startTime: Joi.string().regex(timeRegex).required(), endTime: Joi.string().regex(timeRegex).required(), paid: Joi.boolean() });
+const shiftSchema = Joi.object({
+  code: Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).max(30).required(), name: Joi.string().trim().max(100).required(),
+  color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/), startTime: Joi.string().regex(timeRegex).required(), endTime: Joi.string().regex(timeRegex).required(),
+  crossesMidnight: Joi.boolean(), checkInFrom: Joi.string().regex(timeRegex).allow("", null), checkInUntil: Joi.string().regex(timeRegex).allow("", null),
+  checkOutFrom: Joi.string().regex(timeRegex).allow("", null), checkOutUntil: Joi.string().regex(timeRegex).allow("", null), breakPeriods: Joi.array().items(shiftBreakSchema),
+  allowedLateMinutes: Joi.number().integer().min(0).max(240), allowedEarlyLeaveMinutes: Joi.number().integer().min(0).max(240),
+  standardMinutes: Joi.number().integer().min(1).max(1440), workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().required(), isDefault: Joi.boolean(), isActive: Joi.boolean(),
+});
+const updateShiftSchema = { params: Joi.object({ id: Joi.string().hex().length(24).required() }), body: shiftSchema.fork(["code", "name", "startTime", "endTime", "workingDays"], (field) => field.optional()) };
+const assignmentSchema = { body: Joi.object({ employeeIds: Joi.array().items(Joi.string().hex().length(24)).min(1).unique().required(), shiftId: Joi.string().hex().length(24).required(), effectiveFrom: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(), effectiveTo: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow("", null), daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique() }) };
 
 const updateWorkHoursSchema = {
   params: Joi.object({
@@ -90,6 +103,9 @@ const updateWorkHoursSchema = {
       "string.pattern.base": "Giờ kết thúc nghỉ trưa phải đúng định dạng HH:MM (ví dụ: 13:00).",
     }),
     workingDays: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).unique().optional(),
+    annualLeaveDays: Joi.number().integer().min(0).optional(),
+    employmentStatus: Joi.string().valid("official", "probation", "internship").optional(),
+    officialDate: Joi.alternatives().try(Joi.date().iso(), Joi.string().allow("")).optional(),
   }),
 };
 
@@ -131,6 +147,13 @@ timekeepingRouter.patch(
   validateRequest(updateLocationSchema),
   timekeepingController.updateCompanyLocation as any
 );
+
+timekeepingRouter.get("/shifts", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.list as any);
+timekeepingRouter.post("/shifts", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest({ body: shiftSchema }), workShiftController.create as any);
+timekeepingRouter.patch("/shifts/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(updateShiftSchema), workShiftController.update as any);
+timekeepingRouter.delete("/shifts/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.remove as any);
+timekeepingRouter.get("/shift-assignments", requireAuth as any, requirePermission("timekeeping:manage") as any, workShiftController.listAssignments as any);
+timekeepingRouter.post("/shift-assignments", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(assignmentSchema), workShiftController.assign as any);
 
 // List per-employee work-hours config (requires timekeeping:manage permission)
 timekeepingRouter.get(

@@ -225,8 +225,72 @@ export function getStudentManagementSubTabLabel(
   fallback: string,
 ): string {
   if (preset === "worker" && slug === "khoa-hoc") return "Dự án";
+  if (preset === "worker" && slug === "lop-hoc") return "Dự án";
   if (preset === "customer" && slug === "khoa-hoc") return "Dịch vụ";
   return fallback;
+}
+
+export type BatchPageCopy = {
+  entityName: string;
+  entityNameLower: string;
+  pageTitle: string;
+  createButton: string;
+  searchPlaceholder: string;
+  emptyTitle: string;
+  emptySubtitle: string;
+  codeLabel: string;
+  courseLabel: string;
+  instructorLabel: string;
+  capacityLabel: string;
+  createTitle: string;
+  editTitle: string;
+  createSubmit: string;
+};
+
+export function getBatchPageCopy(preset: EntityPreset): BatchPageCopy {
+  if (preset === "worker") {
+    return {
+      entityName: "Dự án",
+      entityNameLower: "dự án",
+      pageTitle: "Dự án tuyển dụng",
+      createButton: "Thêm dự án",
+      searchPlaceholder: "Tìm theo mã dự án, vị trí, người phụ trách...",
+      emptyTitle: "Chưa có dự án nào",
+      emptySubtitle: "Bấm 'Thêm dự án' để khởi tạo dự án tuyển dụng đầu tiên.",
+      codeLabel: "Mã dự án",
+      courseLabel: "Danh mục tuyển dụng",
+      instructorLabel: "Người phụ trách",
+      capacityLabel: "Chỉ tiêu",
+      createTitle: "Thêm dự án",
+      editTitle: "Chỉnh sửa dự án",
+      createSubmit: "Tạo dự án",
+    };
+  }
+  return {
+    entityName: "Lớp",
+    entityNameLower: "lớp",
+    pageTitle: "Lớp & Khai giảng",
+    createButton: "Mở lớp mới",
+    searchPlaceholder: "Tìm theo mã lớp, khóa học, giảng viên...",
+    emptyTitle: "Chưa có lớp nào",
+    emptySubtitle: "Bấm 'Mở lớp mới' để khai giảng lớp đầu tiên cho một khóa học.",
+    codeLabel: "Mã lớp",
+    courseLabel: "Khóa học",
+    instructorLabel: "Giảng viên",
+    capacityLabel: "Sĩ số",
+    createTitle: "Mở lớp mới",
+    editTitle: "Chỉnh sửa lớp học",
+    createSubmit: "Khai giảng lớp",
+  };
+}
+
+export function getBatchStatusLabel(preset: EntityPreset, status: string): string {
+  if (preset !== "worker") return status;
+  return {
+    "Sắp khai giảng": "Sắp triển khai",
+    "Đang học": "Đang triển khai",
+    "Đã kết thúc": "Đã kết thúc",
+  }[status] ?? status;
 }
 
 export type WorkerOperationalCopy = {

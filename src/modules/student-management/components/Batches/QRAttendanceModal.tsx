@@ -8,6 +8,7 @@ import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { cn } from "../../lib/utils";
 import { useEntityLabel } from "../../hooks/useEntityLabel";
+import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
 import { ConfirmDialog } from "../../../../components/common/ConfirmDialog";
 
 interface QRAttendanceModalProps {
@@ -37,6 +38,7 @@ export function QRAttendanceModal({
   onSuccess,
 }: QRAttendanceModalProps) {
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string>("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -279,7 +281,7 @@ export function QRAttendanceModal({
               <span className="bg-brand-primary/10 text-brand-primary text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg">
                 QR
               </span>
-              <h3 className="text-base font-black text-slate-800 tracking-tight">Điểm danh lớp {batch.code}</h3>
+              <h3 className="text-base font-black text-slate-800 tracking-tight">Điểm danh {copy.entityNameLower} {batch.code}</h3>
             </div>
             <p className="text-xs text-slate-500 font-semibold">
               {batch.courseTitle} • Ngày {formatDate(date)}
@@ -377,7 +379,7 @@ export function QRAttendanceModal({
                     <Users className="w-4 h-4 text-slate-400" /> Danh sách buổi học
                   </h4>
                   <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    Sĩ số: {totalCount}
+                    {copy.capacityLabel}: {totalCount}
                   </span>
                 </div>
 
@@ -386,7 +388,7 @@ export function QRAttendanceModal({
                   {classStudents.length === 0 ? (
                     <div className="text-center py-12">
                       <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                      <p className="text-xs text-slate-400 font-bold">Không có {entityLabel.singular} nào trong lớp này.</p>
+                      <p className="text-xs text-slate-400 font-bold">Không có {entityLabel.singular} nào trong {copy.entityNameLower} này.</p>
                     </div>
                   ) : (
                     classStudents.map((student) => {

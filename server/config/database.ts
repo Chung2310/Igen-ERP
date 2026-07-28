@@ -61,6 +61,15 @@ async function seedSuperAdmin() {
 /**
  * Tự động seed danh sách mã quyền hệ thống ban đầu
  */
+async function allowMultipleSuperAdmins() {
+  try {
+    await UserModel.collection.dropIndex("unique_superadmin_role");
+    console.log("[Backend Database] Đã gỡ giới hạn một tài khoản Super Admin.");
+  } catch (error: any) {
+    if (error?.codeName !== "IndexNotFound" && error?.code !== 27) throw error;
+  }
+}
+
 async function seedPermissions() {
   try {
     const defaultPermissions = [
@@ -133,6 +142,7 @@ export async function connectDB() {
     await mongoose.connect(connectionUri);
     console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
+    await allowMultipleSuperAdmins();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {

@@ -2,6 +2,14 @@ import Joi from "joi";
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
+export const createSuperAdminSchema = {
+  body: Joi.object({
+    displayName: Joi.string().trim().min(2).max(100).required(),
+    email: Joi.string().trim().lowercase().email().max(254).required(),
+    password: Joi.string().min(12).max(128).required(),
+  }).unknown(false),
+};
+
 export const getAuditEventsSchema = {
   query: Joi.object({
     page: Joi.number().integer().min(1).optional().default(1).messages({

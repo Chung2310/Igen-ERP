@@ -7,6 +7,7 @@ import { QRAttendanceModal } from './QRAttendanceModal';
 import { ErpModal, ErpField, ErpInput } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export function AttendanceModal({
   onSuccess,
 }: AttendanceModalProps) {
   const entityLabel = useEntityLabel();
+  const copy = getBatchPageCopy(entityLabel.preset);
   const [selectedSessionDate, setSelectedSessionDate] = useState<string | null>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionDate, setNewSessionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -141,7 +143,7 @@ export function AttendanceModal({
 
   return (
     <ErpModal
-      title={`Điểm danh lớp ${batch.code}`}
+      title={`Điểm danh ${copy.entityNameLower} ${batch.code}`}
       onClose={onClose}
       maxWidth="max-w-2xl"
     >
@@ -154,7 +156,7 @@ export function AttendanceModal({
                 {batch.courseTitle}
               </h4>
               <p className="text-[10px] text-slate-400">
-                Sĩ số: {batch.learnerIds.length} {entityLabel.singular} • Lịch học: {formatDays(batch.daysOfWeek)} ({batch.startTime} - {batch.endTime})
+                {copy.capacityLabel}: {batch.learnerIds.length} {entityLabel.singular} • Lịch hoạt động: {formatDays(batch.daysOfWeek)} ({batch.startTime} - {batch.endTime})
               </p>
             </div>
             {!showAddSession && (
@@ -173,7 +175,7 @@ export function AttendanceModal({
 
           {batch.learnerIds.length === 0 && (
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 font-medium">
-              ⚠️ Lớp học này hiện tại chưa có {entityLabel.singular} nào. Vui lòng ra bảng lớp học bấm nút <strong>Quản lý {entityLabel.singular} (👥)</strong> để gán {entityLabel.singular} vào lớp trước khi tiến hành điểm danh.
+              ⚠️ {copy.entityName} này hiện chưa có {entityLabel.singular} nào. Hãy bấm <strong>Quản lý {entityLabel.singular} (👥)</strong> để thêm {entityLabel.singular} vào {copy.entityNameLower} trước khi điểm danh.
             </div>
           )}
 
@@ -399,7 +401,7 @@ export function AttendanceModal({
           {/* Student list */}
           <div className="border border-cyan-100 rounded-2xl divide-y divide-cyan-50/60 max-h-72 overflow-y-auto bg-white">
             {batch.learnerIds.length === 0 ? (
-              <p className="text-center py-6 text-xs text-slate-400">Lớp học hiện tại chưa có {entityLabel.singular} nào.</p>
+              <p className="text-center py-6 text-xs text-slate-400">{copy.entityName} hiện chưa có {entityLabel.singular} nào.</p>
             ) : (
               batch.learnerIds.map((studentId) => {
                 const student = students.find(s => s.id === studentId);

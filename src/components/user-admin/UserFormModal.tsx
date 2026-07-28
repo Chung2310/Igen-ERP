@@ -1,6 +1,7 @@
 import React from "react";
 import { User, Mail, Lock, X, RefreshCw, Link2, Upload, Eye } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
+import { BranchRecord } from "../../services/branchService";
 import { authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 
@@ -11,6 +12,8 @@ export interface UserFormModalProps {
   userDisplayName: string;
   setUserDisplayName: (val: string) => void;
   userEmail: string;
+  userPhone: string;
+  setUserPhone: (val: string) => void;
   setUserEmail: (val: string) => void;
   userPassword: string;
   setUserPassword: (val: string) => void;
@@ -18,6 +21,8 @@ export interface UserFormModalProps {
   setUserRole: (val: string) => void;
   userCompanyCode: string;
   setUserCompanyCode: (val: string) => void;
+  userBranchId: string;
+  setUserBranchId: (val: string) => void;
   userParentId: string;
   setUserParentId: (val: string) => void;
   userDepartment: string;
@@ -29,6 +34,7 @@ export interface UserFormModalProps {
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
   companies: CompanyProfile[];
+  branches: BranchRecord[];
   usersList: UserProfile[];
   onSubmit: (e: React.FormEvent) => void;
   submittingUser: boolean;
@@ -42,12 +48,16 @@ export function UserFormModal({
   setUserDisplayName,
   userEmail,
   setUserEmail,
+  userPhone,
+  setUserPhone,
   userPassword,
   setUserPassword,
   userRole,
   setUserRole,
   userCompanyCode,
   setUserCompanyCode,
+  userBranchId,
+  setUserBranchId,
   userParentId,
   setUserParentId,
   userDepartment,
@@ -59,6 +69,7 @@ export function UserFormModal({
   getAvailableRoles,
   userProfile,
   companies,
+  branches,
   usersList,
   onSubmit,
   submittingUser,
@@ -149,7 +160,12 @@ export function UserFormModal({
                 </div>
               </div>
 
-              {/* Mật khẩu */}
+'              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
+                <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+              </div>
+
+'              {/* Mật khẩu */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
                 <div className="relative">
@@ -215,7 +231,19 @@ export function UserFormModal({
             </div>
 
             {/* Người quản lý trực tiếp */}
-            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
+'            {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh</label>
+                <select value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none">
+                  <option value="">Không gán chi nhánh</option>
+                  {branches.filter((branch) => branch.companyCode === userCompanyCode && branch.isActive).map((branch) => (
+                    <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+'            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Người quản lý trực tiếp
