@@ -88,6 +88,7 @@ export default function UserAdminTab() {
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [userDisplayName, setUserDisplayName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userPhone, setUserPhone] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<string>("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
@@ -102,6 +103,7 @@ export default function UserAdminTab() {
     setEditingUser(null);
     setUserDisplayName("");
     setUserEmail("");
+    setUserPhone("");
     setUserPassword("");
     setUserRole("user");
     setUserBranchId("");
@@ -611,7 +613,7 @@ export default function UserAdminTab() {
           level: userRole === "user" && managerProfile?.level ? managerProfile.level + 1 : undefined,
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
-          phone: editingUser.phone || "",
+          phone: userPhone.trim(),
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
           branchId: userBranchId || null,
@@ -664,6 +666,7 @@ export default function UserAdminTab() {
     setEditingUser(user);
     setUserDisplayName(user.displayName || "");
     setUserEmail(user.email || "");
+    setUserPhone(user.phone && user.phone !== "Chưa cập nhật" ? user.phone : "");
     setUserPassword("");
     setUserRole(user.role || "user");
     setUserCompanyCode(user.companyCode || "");
@@ -1282,6 +1285,8 @@ export default function UserAdminTab() {
         userDisplayName={userDisplayName}
         setUserDisplayName={setUserDisplayName}
         userEmail={userEmail}
+        userPhone={userPhone}
+        setUserPhone={setUserPhone}
         setUserEmail={setUserEmail}
         userPassword={userPassword}
         setUserPassword={setUserPassword}
