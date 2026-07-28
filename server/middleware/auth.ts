@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
 
@@ -81,7 +82,7 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
 /**
  * Middleware yêu cầu đăng nhập bằng Access Token
  */
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   let token = "";
   const authHeader = req.headers.authorization;
 
@@ -102,11 +103,20 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
+    const userDoc = await UserModel.findById(decoded.id).select("branchId").lean();
+    let branchId = userDoc?.branchId ? String(userDoc.branchId) : undefined;
+    const requestedBranchId = typeof req.headers["x-branch-id"] === "string" ? req.headers["x-branch-id"] : "";
+    if (decoded.role === "admin" && requestedBranchId && decoded.companyCode) {
+      const selectedBranch = await BranchModel.findOne({ _id: requestedBranchId, companyCode: String(decoded.companyCode).toUpperCase(), isActive: true }).select("_id").lean();
+      if (!selectedBranch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty hoặc đã ngừng hoạt động." });
+      branchId = String(selectedBranch._id);
+    }
     req.user = {
       id: decoded.id,
       email: decoded.email,
       role: decoded.role,
       companyCode: decoded.companyCode,
+      branchId,
       sessionId: decoded.sid,
       authLevel: decoded.authLevel,
     };
