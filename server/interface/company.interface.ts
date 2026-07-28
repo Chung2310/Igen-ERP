@@ -66,8 +66,7 @@ export interface ICompany extends Document {
   dashboardReportConfig?: ICompanyDashboardReportConfig;
   smtpConfig?: ICompanySmtpConfig;
   celebrationConfig?: ICompanyCelebrationConfig;
-  smtpConfig?: ICompanySmtpConfig;
-  celebrationConfig?: ICompanyCelebrationConfig;
+
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;
   deletionScheduledAt?: Date | null;
