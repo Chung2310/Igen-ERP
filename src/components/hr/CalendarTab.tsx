@@ -591,17 +591,10 @@ export default function CalendarTab({
     }
   };
 
-  const handleApproveApp = (app: any) => {
-    setSelectedAppId(app._id || app.id);
-    setApproveNoteText("");
-    setApprovalType("justified");
-    setAppApproveModalOpen(true);
-  };
-
-  const handleApproveAppSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApproveApp = async (app: any) => {
+    const appId = app._id || app.id;
     try {
-      const res = await fetch(`/api/v1/crud/hr-leave-applications/${selectedAppId}`, {
+      const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -609,18 +602,14 @@ export default function CalendarTab({
         },
         body: JSON.stringify({
           status: "approved",
-          note: approveNoteText,
-          approvalType,
-          approvedBy: userProfile?.uid
+          approvalType: "justified",
+          approvedBy: userProfile?.uid,
         }),
       });
 
       if (!res.ok) throw new Error("Lỗi phê duyệt đơn.");
 
       toast.success("Đã duyệt đơn thành công!");
-      setAppApproveModalOpen(false);
-      setSelectedAppId(null);
-      setApproveNoteText("");
       fetchApplications();
       fetchCalendarItems();
     } catch (err: any) {
@@ -875,36 +864,28 @@ export default function CalendarTab({
               Nộp đơn xin nghỉ, đi trễ và quản lý biểu mẫu mẫu
             </p>
           </div>
-          <div className="flex gap-2">
+
+          {isLeaveAdmin && (
+            <div className="flex gap-2">
               <button
-                onClick={openAppForm}
-                className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
+                onClick={() => {
+                  setTplCurrentPage(1);
+                  setIsTemplateListModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-4.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
               >
-                <Plus className="h-4 w-4" />
-                Đăng ký nghỉ phép
+                <FileText className="h-4 w-4 text-indigo-650" />
+                Biểu mẫu mẫu
               </button>
-            {isLeaveAdmin && (
-              <>
-                <button
-                  onClick={() => {
-                    setTplCurrentPage(1);
-                    setIsTemplateListModalOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 px-4.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
-                >
-                  <FileText className="h-4 w-4 text-indigo-650" />
-                  Biểu mẫu mẫu
-                </button>
-                <button
-                  onClick={() => setIsTemplateFormOpen(true)}
-                  className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
-                >
-                  <Upload className="h-4 w-4" />
-                  Đăng biểu mẫu mới
-                </button>
-              </>
-            )}
-          </div>
+              <button
+                onClick={() => setIsTemplateFormOpen(true)}
+                className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
+              >
+                <Upload className="h-4 w-4" />
+                Đăng biểu mẫu mới
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -993,14 +974,6 @@ export default function CalendarTab({
 
                         return (
                           <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                            <button
-                      onClick={openAppForm}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <Users className="h-4 w-4 text-rose-500" />
-                      Đăng ký nghỉ phép
-                    </button>
-
                     {isLeaveAdmin && (
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="font-bold text-slate-800">{app.employeeName}</div>
@@ -2092,7 +2065,7 @@ export default function CalendarTab({
                 : "text-gray-500 hover:text-gray-800"
               }`}
           >
-            Lịch trình & Nghỉ phép
+            Lịch trình
           </button>
           <button
             onClick={() => setCurrentSubTab("attendance")}
@@ -2137,7 +2110,7 @@ export default function CalendarTab({
                     Tháng {month + 1} / {year}
                   </p>
                 </div>
-                <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white">
+                <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white items-center">
                   <button
                     onClick={handlePrevMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
@@ -2145,12 +2118,17 @@ export default function CalendarTab({
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
-                  <button
-                    onClick={handleGoToday}
-                    className="px-4 py-1.5 hover:bg-slate-50 active:bg-slate-100 transition-colors font-bold text-xs text-slate-700 border-x border-slate-150 cursor-pointer"
-                  >
-                    Tháng này
-                  </button>
+                  <input
+                    type="date"
+                    value={formatLocalDate(currentDate)}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setCurrentDate(new Date(e.target.value + "T00:00:00"));
+                      }
+                    }}
+                    className="px-3 py-1.5 font-bold text-xs text-slate-700 border-x border-slate-200/80 bg-transparent outline-none cursor-pointer hover:bg-slate-50 transition-colors"
+                    title="Chọn ngày"
+                  />
                   <button
                     onClick={handleNextMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
@@ -2161,37 +2139,7 @@ export default function CalendarTab({
                 </div>
               </div>
 
-              {/* Search and direct create dropdown */}
-              <div className="flex items-center gap-3 self-end md:self-auto">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Tìm tiêu đề, mô tả..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-3.5 pr-9 py-2 bg-slate-50 hover:bg-slate-100/50 border border-slate-200/80 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-44 md:w-56 font-semibold shadow-2xs transition-all duration-200"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
 
-                {/* Admin Quick Add Button */}
-                {isAdmin && (
-                  <button
-                    onClick={() => openCreateModal(new Date(), "event")}
-                    className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:scale-98 text-white rounded-2xl text-xs font-extrabold transition-all shadow-sm cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Thêm mới
-                  </button>
-                )}
-              </div>
             </div>
 
             {/* Filters and Stats Row */}
@@ -3032,55 +2980,7 @@ export default function CalendarTab({
         </div>
       )}
 
-      {/* Modal Duyệt đơn & Phản hồi (Admin/Manager) */}
-      {appApproveModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Phê duyệt đơn xin nghỉ</h3>
-              <button
-                onClick={() => setAppApproveModalOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            <form onSubmit={handleApproveAppSubmit}>
-              <div className="p-6 flex flex-col gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Ghi chú / Phản hồi cho nhân viên (Tùy chọn)
-                  </label>
-                  <textarea
-                    placeholder="Nhập ghi chú phản hồi cho nhân viên nếu cần..."
-                    value={approveNoteText}
-                    onChange={(e) => setApproveNoteText(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setAppApproveModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Duyệt đơn
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Custom confirm dialog — thay thế native window.confirm */}
       {confirmState && (
