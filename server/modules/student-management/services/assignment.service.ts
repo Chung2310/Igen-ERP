@@ -94,6 +94,7 @@ export class AssignmentService {
       courseId: batch.courseId,
       instructorId,
       ownerId: assignmentOwnerId,
+      branchId: batch.branchId,
     });
 
     // Bắt đầu gửi email bất đồng bộ cho học viên trong lớp

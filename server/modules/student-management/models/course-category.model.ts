@@ -5,6 +5,7 @@ const courseCategorySchema = new Schema<ICourseCategory>(
   {
     name: { type: String, required: true, trim: true, index: true },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

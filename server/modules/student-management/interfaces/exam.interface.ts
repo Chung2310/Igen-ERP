@@ -16,6 +16,7 @@ export interface IExam extends Document {
   passCount: number;
   failCount: number;
   ownerId: string;
+  branchId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

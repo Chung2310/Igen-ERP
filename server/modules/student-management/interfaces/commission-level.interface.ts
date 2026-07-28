@@ -5,6 +5,7 @@ export interface ICommissionLevel extends Document {
   minTuition: number;
   commissionRate: number;
   ownerId: string;
+  branchId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

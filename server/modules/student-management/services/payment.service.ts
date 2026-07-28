@@ -56,6 +56,7 @@ export class PaymentService {
       ...data,
       studentName: student.fullName,
       ownerId: student.ownerId,
+      branchId: student.branchId,
     });
     const savedPayment = await payment.save();
     logger.info(`[Payment] Giao dịch thanh toán đã tạo: id=${savedPayment._id}, studentId=${savedPayment.studentId}`);

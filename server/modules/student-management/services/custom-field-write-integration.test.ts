@@ -56,15 +56,15 @@ test("all six create controllers pass the authenticated tenant and exact module 
   t.mock.method(User as any, "find", () => ({ select: async () => [] }));
 
   const cases = [
-    [StudentController, StudentService, "createStudent", "students"],
-    [CourseController, CourseService, "createCourse", "courses"],
-    [BatchController, BatchService, "createBatch", "batches"],
-    [ExamController, ExamService, "createExam", "exams"],
-    [ResourceController, ResourceService, "createResource", "resources"],
-    [PartnerController, PartnerService, "createPartner", "partners"],
+    [StudentController, StudentService, "createStudent", "students", 2],
+    [CourseController, CourseService, "createCourse", "courses", 1],
+    [BatchController, BatchService, "createBatch", "batches", 2],
+    [ExamController, ExamService, "createExam", "exams", 1],
+    [ResourceController, ResourceService, "createResource", "resources", 1],
+    [PartnerController, PartnerService, "createPartner", "partners", 1],
   ] as const;
 
-  for (const [controller, service, method, moduleKey] of cases) {
+  for (const [controller, service, method, moduleKey, dataIndex] of cases) {
     const calls: unknown[][] = [];
     t.mock.method(service as any, method, async (...args: unknown[]) => {
       calls.push(args);
@@ -78,8 +78,9 @@ test("all six create controllers pass the authenticated tenant and exact module 
         role: "user",
         centerId: "center-a",
         companyCode: "tenant-a",
+        branchId: "branch-a",
       },
-      body: { companyCode: "tenant-b", customFields: {} },
+      body: { companyCode: "tenant-b", branchId: "branch-b", customFields: {} },
       query: {},
       params: {},
     } as any;
@@ -93,6 +94,7 @@ test("all six create controllers pass the authenticated tenant and exact module 
     assert.equal(forwarded, undefined, moduleKey);
     assert.equal(res.statusCode, 201, moduleKey);
     assert.deepEqual(calls[0]?.at(-1), { tenantId: "tenant-a", moduleKey, actorRole: "user" }, moduleKey);
+    assert.equal((calls[0]?.[dataIndex] as { branchId?: string })?.branchId, "branch-a", moduleKey);
   }
 });
 
@@ -102,6 +104,7 @@ test("public student registration stays on the legacy create path without dynami
     role: "user",
     companyCode: "tenant-a",
     centerId: "tenant-a",
+    branchId: "branch-a",
     isActive: true,
   }));
   t.mock.method(User as any, "find", () => ({ select: async () => [] }));
@@ -120,6 +123,7 @@ test("public student registration stays on the legacy create path without dynami
   assert.equal(calls.length, 1);
   assert.equal(calls[0].length, 3);
   assert.equal(calls[0][0], "teacher-a");
+  assert.equal((calls[0][2] as { branchId?: string }).branchId, "branch-a");
 });
 
 test("all six create services validate custom fields with create mode before persistence", async (t) => {
