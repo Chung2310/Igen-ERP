@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
+import { cloudinaryService } from "./cloudinary.service";
 import {
   changeJobStatus,
   createJob,
@@ -53,5 +54,13 @@ describe("recruitment job service", () => {
     await restoreJob(scope, "job-1", 3, "actor-1");
     expect(update).toHaveBeenCalledTimes(4);
     expect(update.mock.calls.every(([filter]) => (filter as any).companyCode === "ACME" && (filter as any).branchId === "branch-a")).toBe(true);
+  });
+  it("deletes the previous owned JD only after a durable replacement update", async () => {
+    vi.spyOn(RecruitmentJobModel, "findOne").mockReturnValue({ lean: async () => ({ jdFileUrl: "old-url", jdFilePublicId: "old-id" }) } as any);
+    const update = vi.spyOn(RecruitmentJobModel, "findOneAndUpdate").mockResolvedValue({ jdFileUrl: "new-url", jdFilePublicId: "new-id" } as any);
+    const remove = vi.spyOn(cloudinaryService, "deletePublicRaw").mockResolvedValue();
+    await updateJob(scope, "job-1", 2, "actor-1", { jdFileUrl: "new-url", jdFilePublicId: "new-id" });
+    expect(update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
+    expect(remove).toHaveBeenCalledWith("old-id");
   });
 });
