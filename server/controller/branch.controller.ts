@@ -20,7 +20,12 @@ export const branchController = {
   async update(req: AuthenticatedRequest, res: Response) {
     if (!canManage(req)) return res.status(403).json({ status: "error", message: "Không có quyền quản lý chi nhánh." });
     const filter = { _id: req.params.id, companyCode: company(req) };
-    const data = await BranchModel.findOneAndUpdate(filter, { $set: req.body }, { new: true, runValidators: true }).lean();
+    const updates: Record<string, unknown> = {};
+    for (const field of ["code", "name", "address", "phone", "managerId", "locationConfig", "isActive"]) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) updates[field] = req.body[field];
+    }
+    if (typeof updates.code === "string") updates.code = updates.code.toUpperCase();
+    const data = await BranchModel.findOneAndUpdate(filter, { $set: updates }, { new: true, runValidators: true }).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy chi nhánh." });
     return res.json({ status: "success", data });
   },
