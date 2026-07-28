@@ -44,8 +44,10 @@ recruitmentRouter.get("/interviews/:id", controller.getInterview);
 recruitmentRouter.patch("/interviews/:id", validateBody(interviewUpdateBodySchema), controller.updateInterview);
 recruitmentRouter.post("/interviews/:id/delete", validateBody(versionBodySchema), controller.deleteInterview);
 recruitmentRouter.post("/interviews/:id/restore", validateBody(versionBodySchema), controller.restoreInterview);
-recruitmentRouter.post("/applicants/:applicantId/attachments", upload.single("file"), controller.uploadAttachment);
-recruitmentRouter.get("/applicants/:applicantId/attachments", controller.listAttachments);
+recruitmentRouter.get("/jobs/:jobId/attachment", controller.getJobAttachment);
+recruitmentRouter.post("/jobs/:jobId/attachment", upload.single("file"), controller.uploadJobAttachment);
+recruitmentRouter.get("/applicants/:applicantId/attachment", controller.getApplicantAttachment);
+recruitmentRouter.post("/applicants/:applicantId/attachment", upload.single("file"), controller.uploadApplicantAttachment);
 recruitmentRouter.get("/attachments/:id/download", controller.downloadAttachment);
 recruitmentRouter.delete("/attachments/:id", controller.deleteAttachment);
 
