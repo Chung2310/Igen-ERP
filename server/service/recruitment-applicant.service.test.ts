@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import mongoose from "mongoose";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
@@ -40,5 +41,21 @@ describe("recruitment applicant service", () => {
       expect.objectContaining({ $set: expect.objectContaining({ stageId: "hired", outcome: "hired" }), $inc: { version: 1 } }),
       { new: true, runValidators: true },
     );
+  });
+
+  it("uses a MongoDB transaction for stage update and history when connected", async () => {
+    vi.spyOn(mongoose.connection, "readyState", "get").mockReturnValue(1);
+    const withTransaction = vi.fn(async (callback: () => Promise<void>) => callback());
+    const endSession = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(mongoose, "startSession").mockResolvedValue({ withTransaction, endSession } as any);
+    vi.spyOn(RecruitmentPipelineModel, "findOne").mockReturnValue({ lean: async () => ({ stages: [
+      { id: "new", name: "New", isActive: true }, { id: "screen", name: "Screen", isActive: true },
+    ] }) } as any);
+    vi.spyOn(RecruitmentApplicantModel, "findOne").mockReturnValue({ lean: async () => ({ _id: "app", stageId: "new", version: 0 }) } as any);
+    vi.spyOn(RecruitmentApplicantModel, "findOneAndUpdate").mockResolvedValue({ _id: "app" } as any);
+    vi.spyOn(RecruitmentStageHistoryModel, "create").mockResolvedValue([] as any);
+    await transitionApplicant(scope, "app", 0, "actor", "screen");
+    expect(withTransaction).toHaveBeenCalledOnce();
+    expect(endSession).toHaveBeenCalledOnce();
   });
 });

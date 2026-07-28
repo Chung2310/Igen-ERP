@@ -1,3 +1,4 @@
+import mongoose, { type ClientSession } from "mongoose";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
@@ -91,16 +92,28 @@ export async function transitionApplicant(scope: RecruitmentScope, id: string, v
   const fromStage = pipeline?.stages?.find((stage: any) => stage.id === applicant.stageId);
   const toStage = pipeline?.stages?.find((stage: any) => stage.id === toStageId && stage.isActive);
   if (!fromStage || !toStage) throw new Error("Pipeline stage not found");
-  const updated = await RecruitmentApplicantModel.findOneAndUpdate(
-    { _id: id, ...scope, isDeleted: false, version },
-    { $set: { stageId: toStage.id, outcome: toStage.terminalOutcome || "active", updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
-  );
-  if (!updated) throw new Error("Applicant version conflict");
-  await RecruitmentStageHistoryModel.create({
-    ...scope, applicantId: id, fromStageId: fromStage.id, fromStageName: fromStage.name,
-    toStageId: toStage.id, toStageName: toStage.name, actorId, note,
-  });
+  let updated: any;
+  const persist = async (session?: ClientSession) => {
+    updated = await RecruitmentApplicantModel.findOneAndUpdate(
+      { _id: id, ...scope, isDeleted: false, version },
+      { $set: { stageId: toStage.id, outcome: toStage.terminalOutcome || "active", updatedBy: actorId }, $inc: { version: 1 } },
+      { new: true, runValidators: true, ...(session && { session }) },
+    );
+    if (!updated) throw new Error("Applicant version conflict");
+    const history = {
+      ...scope, applicantId: id, fromStageId: fromStage.id, fromStageName: fromStage.name,
+      toStageId: toStage.id, toStageName: toStage.name, actorId, note,
+    };
+    if (session) await RecruitmentStageHistoryModel.create([history], { session });
+    else await RecruitmentStageHistoryModel.create(history);
+  };
+  if (mongoose.connection.readyState === 1) {
+    const session = await mongoose.startSession();
+    try { await session.withTransaction(() => persist(session)); }
+    finally { await session.endSession(); }
+  } else {
+    await persist();
+  }
   return updated;
 }
 
