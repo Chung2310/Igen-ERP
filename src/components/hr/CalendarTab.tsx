@@ -87,6 +87,7 @@ export default function CalendarTab({
   // Same fix as canManageAttendance: a custom role granted timekeeping:manage
   // must be able to see/approve everyone's leave requests, not just their own.
   const isLeaveAdmin = canManageAttendance;
+  const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
 
@@ -1856,16 +1857,20 @@ export default function CalendarTab({
     if (itemsOnDay.length > 0) {
       // If there are existing items, show detail popup first
       setIsDetailModalOpen(true);
-    } else {
-      // Otherwise directly open create popup
+    } else if (isAdmin) {
+      // Otherwise directly open create popup for Admin
       openCreateModal(dayDate);
     }
   };
 
   const openCreateModal = (date: Date, type: "event" | "leave" | "wfh" | "exception" | "reminder" = "event") => {
+    if (!isAdmin) {
+      toast.error("Chỉ Admin mới có quyền tạo sự kiện.");
+      return;
+    }
     const formattedDate = date.toISOString().slice(0, 10);
     setFormMode("create");
-    setFormType(type);
+    setFormType("event");
     setFormTitle("");
     setFormDescription("");
     setFormStartDate(formattedDate);
@@ -1874,7 +1879,7 @@ export default function CalendarTab({
     setFormEndTime("17:00");
     setFormEmployeeId(userProfile?.uid || "");
     setFormAssigneeId(userProfile?.uid || "");
-    setFormStatus(type === "leave" ? "pending" : "active");
+    setFormStatus("active");
 
     setIsFormModalOpen(true);
     setIsDetailModalOpen(false);
@@ -1882,6 +1887,10 @@ export default function CalendarTab({
 
   // Open edit modal for an item
   const openEditModal = (item: CalendarItem) => {
+    if (!isAdmin || item.type !== "event") {
+      toast.error("Chỉ Admin mới có quyền chỉnh sửa sự kiện.");
+      return;
+    }
     setSelectedItem(item);
     setFormMode("edit");
     setFormType(item.type);
@@ -2088,54 +2097,16 @@ export default function CalendarTab({
                   )}
                 </div>
 
-                {/* Quick Add Dropdown */}
-                <div className="relative group">
-                  <button className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:scale-98 text-white rounded-2xl text-xs font-extrabold transition-all shadow-sm cursor-pointer">
+                {/* Admin Quick Add Button */}
+                {isAdmin && (
+                  <button
+                    onClick={() => openCreateModal(new Date(), "event")}
+                    className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:scale-98 text-white rounded-2xl text-xs font-extrabold transition-all shadow-sm cursor-pointer"
+                  >
                     <Plus className="h-4 w-4" />
                     Thêm mới
                   </button>
-                  <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-150 rounded-2xl shadow-xl py-1.5 hidden group-hover:block group-focus-within:block z-20 transition-all animate-in fade-in duration-100">
-                    <button
-                      onClick={() => openCreateModal(new Date(), "event")}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <CalendarCheck className="h-4 w-4 text-blue-500" />
-                      Tạo sự kiện
-                    </button>
-                    {isLeaveAdmin && (
-                      <>
-                        <button
-                          onClick={() => openCreateModal(new Date(), "leave")}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <Users className="h-4 w-4 text-rose-500" />
-                          Đăng ký nghỉ phép
-                        </button>
-                        <button
-                          onClick={() => openCreateModal(new Date(), "wfh")}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <Info className="h-4 w-4 text-teal-500" />
-                          Làm tại nhà
-                        </button>
-                        <button
-                          onClick={() => openCreateModal(new Date(), "exception")}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <CheckCircle className="h-4 w-4 text-violet-500" />
-                          Ngoại lệ
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => openCreateModal(new Date(), "reminder")}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <Bell className="h-4 w-4 text-amber-500" />
-                      Tạo nhắc hẹn
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -2324,7 +2295,12 @@ export default function CalendarTab({
                                 key={idx}
                                 onClick={(e) => {
                                   e.stopPropagation(); // Avoid triggering day click
-                                  openEditModal(item);
+                                  if (isAdmin && item.type === "event") {
+                                    openEditModal(item);
+                                  } else {
+                                    setSelectedDayDate(dayDate);
+                                    setIsDetailModalOpen(true);
+                                  }
                                 }}
                                 className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
                                 title={`${item.title} (${item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
@@ -2402,7 +2378,7 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
+                          {isAdmin && item.type === "event" && (
                             <button
                               onClick={() => openEditModal(item)}
                               className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -2411,7 +2387,7 @@ export default function CalendarTab({
                               <Edit className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {(!["leave", "wfh", "exception"].includes(item.type) || isLeaveAdmin) && (
+                          {isAdmin && item.type === "event" && (
                             <button
                               onClick={() => handleDeleteItem((item._id || item.id)!)}
                               className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -2456,45 +2432,19 @@ export default function CalendarTab({
             </div>
 
             {/* Modal Footer (Actions to Quick Add) */}
-            <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới:</span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => openCreateModal(selectedDayDate, "event")}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                >
-                  Sự kiện
-                </button>
-                {canManageAttendance && (
-                  <>
-                    <button
-                      onClick={() => openCreateModal(selectedDayDate, "leave")}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                    >
-                      Nghỉ phép
-                    </button>
-                    <button
-                      onClick={() => openCreateModal(selectedDayDate, "wfh")}
-                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                    >
-                      Tại nhà
-                    </button>
-                    <button
-                      onClick={() => openCreateModal(selectedDayDate, "exception")}
-                      className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                    >
-                      Ngoại lệ
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => openCreateModal(selectedDayDate, "reminder")}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                >
-                  Nhắc hẹn
-                </button>
+            {isAdmin && (
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => openCreateModal(selectedDayDate, "event")}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                  >
+                    Sự kiện
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -2506,7 +2456,7 @@ export default function CalendarTab({
             {/* Modal Header */}
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-4 sm:px-6 py-4.5 shrink-0">
               <h3 className="font-extrabold text-slate-800 text-sm">
-                {formMode === "create" ? "Tạo lịch trình mới" : "Chỉnh sửa lịch trình"}
+                {formMode === "create" ? "Tạo sự kiện mới" : "Chỉnh sửa sự kiện"}
               </h3>
               <button
                 onClick={() => setIsFormModalOpen(false)}
@@ -2519,38 +2469,6 @@ export default function CalendarTab({
             {/* Modal Form */}
             <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
               <div className="p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-                {/* Category Picker */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Loại lịch trình
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {[
-                      { key: "event", label: "📅 Sự kiện", color: "border-blue-500 text-blue-600" },
-                      { key: "leave", label: "🌴 Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
-                      { key: "wfh", label: "🏠 Tại nhà", color: "border-teal-500 text-teal-600", roleRestricted: true },
-                      { key: "exception", label: "⚡ Ngoại lệ", color: "border-violet-500 text-violet-600", roleRestricted: true },
-                      { key: "reminder", label: "🔔 Nhắc hẹn", color: "border-amber-500 text-amber-600" }
-                    ].filter(t => !t.roleRestricted || isLeaveAdmin).map((t) => (
-                      <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => {
-                          setFormType(t.key as any);
-                          if (["leave", "wfh", "exception"].includes(t.key)) setFormStatus("pending");
-                          else setFormStatus("active");
-                        }}
-                        className={`py-2 border text-center rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${formType === t.key
-                            ? `${t.color} bg-slate-50/50 font-black border-2 shadow-3xs`
-                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                          }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Title */}
                 <div>
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
@@ -2559,13 +2477,7 @@ export default function CalendarTab({
                   <input
                     type="text"
                     required
-                    placeholder={
-                      formType === "leave"
-                        ? "Ví dụ: Nghỉ phép cá nhân, Nghỉ ốm..."
-                        : formType === "reminder"
-                          ? "Ví dụ: Gọi điện cho khách hàng, Nộp báo cáo..."
-                          : "Ví dụ: Họp nội bộ phòng ban..."
-                    }
+                    placeholder="Ví dụ: Họp nội bộ phòng ban..."
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all shadow-2xs"
