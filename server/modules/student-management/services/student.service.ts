@@ -345,6 +345,10 @@ export class StudentService {
   static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string) {
     logger.info(`[Student] Bulk importing ${studentsData.length} students: creatorId=${creatorId}, ownerId=${ownerId}, targetOwnerId=${targetOwnerId}`);
 
+    if (branchId && !targetOwnerId) {
+      throw new Error("Không thể xác định chủ sở hữu thuộc chi nhánh đã chọn.");
+    }
+
     const businessType: string = "general";
 
     let importedCount = 0;

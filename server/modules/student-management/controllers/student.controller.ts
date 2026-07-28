@@ -19,6 +19,7 @@ export class StudentController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
         centerOwnerIds = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        ownerId = await resolveCreateOwnerId(req.user!);
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
@@ -122,6 +123,7 @@ export class StudentController {
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
         ownerId = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        targetOwnerId = await resolveCreateOwnerId(req.user!);
         ownerId = await getCenterOwnerIds(req.user!);
       }
 
