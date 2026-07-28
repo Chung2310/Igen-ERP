@@ -11,9 +11,9 @@ async function validateReferences(scope: RecruitmentScope, input: Record<string,
     RecruitmentJobModel.findOne({ _id: input.jobId, ...scope, isDeleted: false }).lean(),
   ]);
   if (!applicant || !job || String(applicant.jobId) !== String(job._id)) throw new Error("Applicant or job not found in branch");
-  const interviewerIds = [...new Set((input.interviewerIds || []).map(String))];
+  const interviewerIds: string[] = [...new Set<string>((input.interviewerIds || []).map(String))];
   if (interviewerIds.length) {
-    const count = await UserModel.countDocuments({ _id: { $in: interviewerIds }, ...scope, isActive: true });
+    const count = await UserModel.countDocuments({ _id: { $in: interviewerIds }, ...scope, isActive: true } as any);
     if (count !== interviewerIds.length) throw new Error("Interviewer not found in branch");
   }
   const start = new Date(input.scheduledStart);

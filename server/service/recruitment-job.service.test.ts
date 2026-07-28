@@ -52,6 +52,6 @@ describe("recruitment job service", () => {
     await softDeleteJob(scope, "job-1", 2, "actor-1");
     await restoreJob(scope, "job-1", 3, "actor-1");
     expect(update).toHaveBeenCalledTimes(4);
-    expect(update.mock.calls.every(([filter]) => filter.companyCode === "ACME" && filter.branchId === "branch-a")).toBe(true);
+    expect(update.mock.calls.every(([filter]) => (filter as any).companyCode === "ACME" && (filter as any).branchId === "branch-a")).toBe(true);
   });
 });

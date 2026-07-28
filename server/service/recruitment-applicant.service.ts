@@ -61,6 +61,12 @@ export async function getApplicant(scope: RecruitmentScope, id: string, includeD
   return applicant;
 }
 
+export function listApplicantHistory(scope: RecruitmentScope, applicantId: string) {
+  return RecruitmentStageHistoryModel.find({ ...scope, applicantId, isDeleted: false })
+    .sort({ createdAt: 1 })
+    .lean();
+}
+
 export async function updateApplicant(scope: RecruitmentScope, id: string, version: number, actorId: string, input: Record<string, any>) {
   await validateRecruiter(scope, input.recruiterId);
   const { companyCode: _companyCode, branchId: _branchId, stageId: _stageId, outcome: _outcome, version: _version, ...safe } = input;
