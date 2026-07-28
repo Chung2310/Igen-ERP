@@ -10,13 +10,16 @@ type CategoryInput = {
 };
 
 export const inventoryCategoryService = {
-  subscribe(callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
+  subscribe(branchId: string, callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
+    const controller = new AbortController();
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/v1/crud/categories?sort=-_id", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
+            "x-branch-id": branchId,
           },
+          signal: controller.signal,
         });
         if (!res.ok) {
           throw new Error("Không thể tải danh sách danh mục.");
@@ -30,8 +33,10 @@ export const inventoryCategoryService = {
           colorClass: typeof item.colorClass === "string" ? item.colorClass : "bg-blue-50 text-blue-700 border-blue-100",
           status: typeof item.status === "string" ? item.status : "Đang dùng",
         }));
+        if (controller.signal.aborted) return;
         callback(categories);
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (onError) {
           onError(err);
         } else {
@@ -42,7 +47,10 @@ export const inventoryCategoryService = {
 
     fetchCategories();
     const interval = setInterval(fetchCategories, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   },
 
   async createCategory(input: CategoryInput) {

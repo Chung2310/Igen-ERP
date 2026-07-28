@@ -17,6 +17,7 @@ import { InventoryTabHeader } from "../components/inventory/InventoryTabHeader";
 import { ProductCatalogSection } from "../components/inventory/ProductCatalogSection";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
@@ -66,6 +67,7 @@ function getStockLogItems(log: StockLog) {
 
 export default function InventoryTab() {
   const { user, userProfile } = useAuth();
+  const { activeBranchId, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -121,11 +123,21 @@ export default function InventoryTab() {
       return;
     }
 
+    if (branchLoading || !activeBranchId) {
+      if (!branchLoading) {
+        setCategoryLoading(false);
+        setProductLoading(false);
+        setStockLogLoading(false);
+      }
+      return;
+    }
+
     setCategoryLoading(true);
     setProductLoading(true);
     setStockLogLoading(true);
 
     unsubscribeCategories = inventoryCategoryService.subscribe(
+      activeBranchId,
       (nextCategories) => {
         setCategories(nextCategories);
         setCategoryLoading(false);
@@ -137,6 +149,7 @@ export default function InventoryTab() {
     );
 
     unsubscribeProducts = inventoryProductService.subscribe(
+      activeBranchId,
       (nextProducts) => {
         setProducts(nextProducts);
         setProductLoading(false);
@@ -148,6 +161,7 @@ export default function InventoryTab() {
     );
 
     unsubscribeStockLogs = inventoryStockLogService.subscribe(
+      activeBranchId,
       (nextLogs) => {
         setStockLogs(nextLogs);
         setStockLogLoading(false);
@@ -163,7 +177,7 @@ export default function InventoryTab() {
       unsubscribeProducts();
       unsubscribeStockLogs();
     };
-  }, [user]);
+  }, [user, activeBranchId, branchLoading]);
 
   useEffect(() => {
     if (!categories.length || newProdCategory) return;
