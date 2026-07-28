@@ -47,6 +47,7 @@ const registerSchema = {
     // endpoint đăng ký công khai này — các trường đó chỉ được gán qua
     // register-company/register-user (đã kiểm tra xác thực + phân quyền).
     companyName: Joi.string().optional().allow(""),
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
@@ -372,6 +373,7 @@ const updateUserSchema = {
     displayName: Joi.string().optional().allow(""),
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
     heygenAccess: Joi.object({
       avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),

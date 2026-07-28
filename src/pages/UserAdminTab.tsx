@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
+import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
 import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
@@ -60,6 +61,7 @@ export default function UserAdminTab() {
   
   // SaaS States
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+  const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [selectedCompanyCode, setSelectedCompanyCode] = useState<string>("all");
 
   // Advanced Filter States
@@ -89,6 +91,7 @@ export default function UserAdminTab() {
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<string>("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
+  const [userBranchId, setUserBranchId] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
@@ -101,6 +104,7 @@ export default function UserAdminTab() {
     setUserEmail("");
     setUserPassword("");
     setUserRole("user");
+    setUserBranchId("");
     setUserParentId("");
     setUserDepartment("");
     setUserJobDescriptionLink("");
@@ -156,6 +160,11 @@ export default function UserAdminTab() {
       }
     }
   }, [editingUser, isUserModalOpen, userProfile, selectedCompanyCode]);
+
+  useEffect(() => {
+    if (!isUserModalOpen || !userCompanyCode || userCompanyCode === "SYSTEM") { setBranches([]); return; }
+    branchService.list().then(setBranches).catch(() => setBranches([]));
+  }, [isUserModalOpen, userCompanyCode]);
 
   // Handle parentId based on userRole and userCompanyCode automatically
   useEffect(() => {
@@ -605,6 +614,7 @@ export default function UserAdminTab() {
           phone: editingUser.phone || "",
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
+          branchId: userBranchId || null,
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -623,6 +633,7 @@ export default function UserAdminTab() {
           undefined,
           undefined,
           userJobDescriptionLink.trim() || undefined,
+          userBranchId || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -656,6 +667,7 @@ export default function UserAdminTab() {
     setUserPassword("");
     setUserRole(user.role || "user");
     setUserCompanyCode(user.companyCode || "");
+    setUserBranchId(user.branchId || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
@@ -1277,6 +1289,8 @@ export default function UserAdminTab() {
         setUserRole={setUserRole}
         userCompanyCode={userCompanyCode}
         setUserCompanyCode={setUserCompanyCode}
+        userBranchId={userBranchId}
+        setUserBranchId={setUserBranchId}
         userParentId={userParentId}
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
@@ -1288,6 +1302,7 @@ export default function UserAdminTab() {
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}
+        branches={branches}
         usersList={usersList}
         onSubmit={handleRegisterUser}
         submittingUser={submittingUser}
