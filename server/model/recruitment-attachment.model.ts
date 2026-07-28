@@ -4,11 +4,8 @@ const RecruitmentAttachmentSchema = new Schema(
   {
     companyCode: { type: String, required: true, uppercase: true, trim: true },
     branchId: { type: Schema.Types.ObjectId, required: true, ref: "Branch" },
-    applicantId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: "RecruitmentApplicant",
-    },
+    ownerType: { type: String, enum: ["job", "applicant"], required: true },
+    ownerId: { type: Schema.Types.ObjectId, required: true },
     originalName: { type: String, required: true, trim: true },
     storageName: { type: String, required: true, trim: true },
     mimeType: { type: String, required: true, trim: true },
@@ -23,12 +20,10 @@ const RecruitmentAttachmentSchema = new Schema(
   { timestamps: true, versionKey: false },
 );
 
-RecruitmentAttachmentSchema.index({
-  companyCode: 1,
-  branchId: 1,
-  applicantId: 1,
-  createdAt: -1,
-});
+RecruitmentAttachmentSchema.index(
+  { companyCode: 1, branchId: 1, ownerType: 1, ownerId: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
+);
 
 export const RecruitmentAttachmentModel = model(
   "RecruitmentAttachment",
