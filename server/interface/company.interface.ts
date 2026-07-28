@@ -38,6 +38,14 @@ export interface ICompanyDashboardReportConfig {
   lastSentDate?: string;
 }
 
+export interface ICompanySmtpConfig { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string; fromEmail: string; fromName: string; updatedAt?: Date; }
+export interface ICelebrationTemplate { subject: string; html: string; }
+export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
+
+export interface ICompanySmtpConfig { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string; fromEmail: string; fromName: string; updatedAt?: Date; }
+export interface ICelebrationTemplate { subject: string; html: string; }
+export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
+
 export interface ICompany extends Document {
   code: string;
   name: string;
@@ -56,6 +64,10 @@ export interface ICompany extends Document {
   locationConfig?: ICompanyLocationConfig;
   annualLeaveDays?: number;
   dashboardReportConfig?: ICompanyDashboardReportConfig;
+  smtpConfig?: ICompanySmtpConfig;
+  celebrationConfig?: ICompanyCelebrationConfig;
+  smtpConfig?: ICompanySmtpConfig;
+  celebrationConfig?: ICompanyCelebrationConfig;
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;
   deletionScheduledAt?: Date | null;
