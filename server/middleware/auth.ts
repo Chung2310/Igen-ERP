@@ -56,7 +56,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   branch_owner: [
     "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"
   ],
-  manager:
+  manager: [
     "user:read", "user:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
@@ -79,7 +79,7 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   superadmin: 1,
   admin: 2,
   branch_owner: 2,
-  manager: 3,
+  manager: [ 3,
   user: 4
 };
 
