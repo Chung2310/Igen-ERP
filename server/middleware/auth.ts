@@ -53,7 +53,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "hr:read", "student:read", "student:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:manage",
     "chat:read", "resource:read", "resource:manage"
   ],
-  branch_owner: [\n    "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"\n  ],\n  manager:
+  branch_owner: [
+    "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"
+  ],
+  manager:
     "user:read", "user:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
@@ -75,7 +78,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   superadmin: 1,
   admin: 2,
-  branch_owner: 2,\n  manager: 3,
+  branch_owner: 2,
+  manager: 3,
   user: 4
 };
 

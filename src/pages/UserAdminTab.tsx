@@ -1122,7 +1122,8 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
-                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],`r`n                  manager: [
+                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],
+                  manager: [
                     "user:read", "user:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
