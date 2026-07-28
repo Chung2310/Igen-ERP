@@ -123,7 +123,7 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.getList] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: "Lỗi khi tải danh sách tài nguyên",
         details: error.message,
@@ -140,14 +140,14 @@ export const crudController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
 
-      const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole);
+      const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
         data: item,
       });
     } catch (error: any) {
       console.error("[crudController.getById] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: "Lỗi khi tải thông tin tài nguyên",
         details: error.message,
@@ -200,7 +200,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.create(modelName, req.body, companyCode);
+      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
       return res.status(201).json({
         status: "success",
         data: item,
@@ -323,7 +323,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
+      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId);
 
       if (modelName === "timekeeping-logs" && attendanceBefore && item) {
         const periodKey = attendanceBefore.date.slice(0, 7);
@@ -433,7 +433,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole);
+      const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
         message: "Xóa tài nguyên thành công",

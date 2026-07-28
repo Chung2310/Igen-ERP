@@ -16,6 +16,7 @@ export interface IAssignment extends Document {
   dueDate?: Date;
   instructorId: string;
   ownerId: string;
+  branchId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

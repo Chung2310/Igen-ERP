@@ -7,6 +7,7 @@ const commissionLevelSchema = new Schema<ICommissionLevel>(
     minTuition: { type: Number, required: true, default: 0 },
     commissionRate: { type: Number, required: true, default: 0 },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

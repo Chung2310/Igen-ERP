@@ -342,7 +342,7 @@ export class StudentService {
     return result.deletedCount || 0;
   }
 
-  static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string) {
+  static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string) {
     logger.info(`[Student] Bulk importing ${studentsData.length} students: creatorId=${creatorId}, ownerId=${ownerId}, targetOwnerId=${targetOwnerId}`);
 
     const businessType: string = "general";
@@ -447,6 +447,7 @@ export class StudentService {
         address,
         status: [status as StudentStatus],
         ownerId: targetOwnerId || creatorId,
+        branchId,
       });
 
       existingPhones.add(phone);

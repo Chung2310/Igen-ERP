@@ -9,6 +9,7 @@ const paymentSchema = new Schema<IPayment>(
     date: { type: String, required: true },
     note: { type: String, default: "" },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

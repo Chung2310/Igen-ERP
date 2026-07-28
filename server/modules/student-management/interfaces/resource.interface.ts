@@ -24,6 +24,7 @@ export interface IResource extends Document {
   status: ResourceStatus;
   bookings: IResourceBooking[];
   ownerId: string;
+  branchId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -18,7 +18,13 @@ const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 const CelebrationEmailTab = lazy(() => import("../components/hr/CelebrationEmailTab"));
+const RecruitmentTab = lazy(() => import("../components/hr/recruitment/RecruitmentTab"));
 const CELEBRATION_TAB = "EMAIL CHÚC MỪNG" as HRSubTabType;
+const RECRUITMENT_TAB = "TUYỂN DỤNG" as HRSubTabType;
+
+export function canAccessRecruitment(role: string | undefined, hasPermission: (code: string) => boolean) {
+  return role === "admin" || hasPermission("recruitment:manage");
+}
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
@@ -37,10 +43,15 @@ export default function HRTab() {
   const canManageKanban = isManager || hasPermission("kanban:manage");
   const canViewPayroll = hasPermission("payroll:read") || hasPermission("payroll:manage");
   const canManageCelebration = userProfile?.role === "admin" || hasPermission("company-email:manage");
+  const canManageRecruitment = canAccessRecruitment(userProfile?.role, hasPermission);
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (subTab === RECRUITMENT_TAB && !canManageRecruitment) setSubTab("SƠ ĐỒ TỔ CHỨC");
+  }, [subTab, canManageRecruitment, setSubTab]);
 
   // SaaS States
   const [companies, setCompanies] = useState<any[]>([]);
@@ -162,6 +173,7 @@ export default function HRTab() {
             { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
             ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
             ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
+            ...(canManageRecruitment ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: UserSearch }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
             const Icon = tab.icon;
@@ -254,6 +266,7 @@ export default function HRTab() {
 
         {subTab === "PAYROLL" && <PayrollTab canManage={hasPermission("payroll:manage")} />}
         {subTab === CELEBRATION_TAB && canManageCelebration && <CelebrationEmailTab />}
+        {subTab === RECRUITMENT_TAB && canManageRecruitment && <RecruitmentTab key={activeBranchId} />}
         {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} />}
         {subTab === "LỊCH" && (
           <CalendarTab

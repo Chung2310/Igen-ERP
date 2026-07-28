@@ -1,32 +1,55 @@
 import { User } from "../models/user.model";
 
-type StudentModuleUser = {
+export type StudentModuleUser = {
   uid: string;
   role: string;
   centerId: string;
   companyCode?: string;
+  branchId?: string;
 };
 
-async function getCompanyUserIds(companyCode?: string) {
+export function requireStudentBranch(user: StudentModuleUser): string {
+  const branchId = String(user.branchId || "").trim();
+  if (!branchId) {
+    const error: Error & { status?: number } = new Error("Vui lòng chọn chi nhánh trước khi thao tác.");
+    error.status = 400;
+    throw error;
+  }
+  return branchId;
+}
+
+export function buildStudentBranchQuery(branchId: string) {
+  return { branchId };
+}
+
+export function buildCompanyUserFilter(companyCode: string, branchId?: string) {
+  return {
+    companyCode,
+    ...(branchId ? { branchId } : {}),
+  };
+}
+
+async function getCompanyUserIds(companyCode?: string, branchId?: string) {
   if (!companyCode) return [];
-  const users = await User.find({ companyCode }).select("_id");
+  const users = await User.find(buildCompanyUserFilter(companyCode, branchId)).select("_id");
   return users.map((user) => user._id.toString());
 }
 
-async function getCompanyPrimaryOwnerId(companyCode?: string) {
+async function getCompanyPrimaryOwnerId(companyCode?: string, branchId?: string) {
   if (!companyCode) return null;
 
-  const adminUser = await User.findOne({ companyCode, role: "admin" }).sort({ createdAt: 1 }).select("_id");
+  const companyFilter = buildCompanyUserFilter(companyCode, branchId);
+  const adminUser = await User.findOne({ ...companyFilter, role: "admin" }).sort({ createdAt: 1 }).select("_id");
   if (adminUser) {
     return adminUser._id.toString();
   }
 
-  const managerUser = await User.findOne({ companyCode, role: "manager" }).sort({ createdAt: 1 }).select("_id");
+  const managerUser = await User.findOne({ ...companyFilter, role: "manager" }).sort({ createdAt: 1 }).select("_id");
   if (managerUser) {
     return managerUser._id.toString();
   }
 
-  const anyUser = await User.findOne({ companyCode }).sort({ createdAt: 1 }).select("_id");
+  const anyUser = await User.findOne(companyFilter).sort({ createdAt: 1 }).select("_id");
   return anyUser ? anyUser._id.toString() : null;
 }
 
@@ -53,9 +76,10 @@ export async function getAllowedOwnerIds(user: StudentModuleUser): Promise<strin
     return "ALL";
   }
 
-  const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId);
+  const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
+  const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
   if (user.role === "admin" || user.role === "manager") {
-    return companyUserIds.length > 0 ? companyUserIds : user.uid;
+    return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : user.uid;
   }
 
   return user.uid;
@@ -66,8 +90,9 @@ export async function getCenterOwnerIds(user: StudentModuleUser): Promise<string
     return "ALL";
   }
 
-  const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId);
-  return companyUserIds.length > 0 ? companyUserIds : [user.uid];
+  const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
+  const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
+  return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : [user.uid];
 }
 
 export async function resolveCreateOwnerId(
@@ -76,7 +101,7 @@ export async function resolveCreateOwnerId(
 ): Promise<string> {
   if (user.role === "superadmin") {
     const companyCode = requestedCompanyCode || user.companyCode || user.centerId;
-    const companyOwnerId = await getCompanyPrimaryOwnerId(companyCode);
+    const companyOwnerId = await getCompanyPrimaryOwnerId(companyCode, user.branchId);
     if (companyOwnerId) {
       return companyOwnerId;
     }
@@ -84,9 +109,12 @@ export async function resolveCreateOwnerId(
   }
 
   if (user.role === "admin" || user.role === "manager") {
-    const companyOwnerId = await getCompanyPrimaryOwnerId(user.companyCode || user.centerId);
+    const companyOwnerId = await getCompanyPrimaryOwnerId(user.companyCode || user.centerId, user.branchId);
     if (companyOwnerId) {
       return companyOwnerId;
+    }
+    if (user.branchId) {
+      return user.branchId;
     }
   }
 

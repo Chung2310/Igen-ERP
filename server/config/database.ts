@@ -87,6 +87,7 @@ async function seedPermissions() {
       { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
       { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
       { code: "company-email:manage", name: "Quản lý email chúc mừng", module: "hr", description: "Cấu hình mẫu và theo dõi email sinh nhật, lễ Tết của công ty" },
+      { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
       { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
       { code: "student:manage", name: "Quản lý học viên/khách hàng", module: "student", description: "Thêm, sửa, xóa học viên, khóa học, lớp, đối tác..." },
       { code: "partner:read", name: "Xem đối tác & cộng tác viên", module: "partner", description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác" },

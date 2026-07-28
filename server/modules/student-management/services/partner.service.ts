@@ -443,7 +443,7 @@ export class PartnerService {
 
   static async createCommissionLevel(
     ownerId: string,
-    data: { name: string; minTuition: number; commissionRate: number }
+    data: { name: string; minTuition: number; commissionRate: number; branchId?: string }
   ): Promise<ICommissionLevel> {
     logger.info(`[PartnerService] Creating commission level for ownerId: ${ownerId}, name: ${data.name}`);
     
