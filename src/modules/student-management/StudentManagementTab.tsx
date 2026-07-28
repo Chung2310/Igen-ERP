@@ -68,13 +68,6 @@ export default function StudentManagementTab() {
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();
 
-  if (entityLabel.loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-white p-6">
-        <PageLoader />
-      </div>
-    );
-  }
   const subTabRoutes = React.useMemo(() => {
     let routes = SUB_TAB_ROUTES.map((item) => ({
       ...item,
@@ -109,6 +102,14 @@ export default function StudentManagementTab() {
     setSelectedStudent(student);
     setInitialStudentTab(tab);
   }, []);
+
+  if (entityLabel.loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-white p-6">
+        <PageLoader />
+      </div>
+    );
+  }
 
   const renderPage = () => {
     switch (activeSubTab) {
