@@ -145,7 +145,7 @@ export default function StudentManagementTab() {
       case "TÀI NGUYÊN":
         return <ResourcesPage />;
       case "ĐỐI TÁC":
-        return <PartnersPage selectedCenter={selectedCenter} />;
+        return <PartnersPage selectedCenter={selectedCenter} canManagePartners={false} />;
       case "CÀI ĐẶT":
         return <SettingsPage selectedCenter={selectedCenter} />;
       default:
