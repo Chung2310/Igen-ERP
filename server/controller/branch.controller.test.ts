@@ -32,3 +32,23 @@ test("branch update cannot move a branch to another company", async () => {
     (BranchModel as any).findOneAndUpdate = original;
   }
 });
+
+test("branch list creates the default branch for an admin company", async () => {
+  const originalFind = BranchModel.find;
+  const originalCreate = BranchModel.create;
+  const originalFindOne = BranchModel.findOne;
+  const created: any[] = [];
+  (BranchModel as any).find = () => ({ sort: () => ({ lean: async () => created }) });
+  (BranchModel as any).findOne = () => ({ lean: async () => null });
+  (BranchModel as any).create = async (payload: any) => { created.push({ _id: "default", ...payload }); return created.at(-1); };
+  try {
+    const res = response();
+    await branchController.list({ user: { role: "admin", companyCode: "ACME" }, query: {} } as any, res);
+    assert.equal(created.length, 1);
+    assert.deepEqual(created[0], { _id: "default", companyCode: "ACME", code: "MAIN", name: "Trụ sở chính", isActive: true });
+  } finally {
+    (BranchModel as any).find = originalFind;
+    (BranchModel as any).findOne = originalFindOne;
+    (BranchModel as any).create = originalCreate;
+  }
+});
