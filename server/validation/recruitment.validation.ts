@@ -9,12 +9,14 @@ export const jobBodySchema = Joi.object({
   benefits: Joi.string().allow(""), salaryMin: Joi.number().min(0).allow(null), salaryMax: Joi.number().min(0).allow(null),
   showSalary: Joi.boolean(), employmentType: Joi.string().trim(), workplaceType: Joi.string().valid("onsite", "hybrid", "remote"),
   location: Joi.string().trim().allow(""), applicationDeadline: Joi.date().iso().allow(null), status: Joi.string().valid("draft", "open", "paused", "closed"),
+  jdFileUrl: Joi.string().uri().allow(""), jdFilePublicId: Joi.string().allow(""),
 }).unknown(false);
 export const applicantBodySchema = Joi.object({
   jobId: id, fullName: Joi.string().trim().required(), email: Joi.string().email().allow(""), phone: Joi.string().allow(""),
   birthDate: Joi.date().iso().allow(null), address: Joi.string().allow(""), experience: Joi.string().allow(""), education: Joi.string().allow(""),
   skills: Joi.array().items(Joi.string().trim()), expectedSalary: Joi.number().min(0).allow(null), availableDate: Joi.date().iso().allow(null),
   source: Joi.string().allow(""), notes: Joi.string().allow(""), recruiterId: Joi.string().allow(null, ""), confirmDuplicate: Joi.boolean(),
+  cvUrl: Joi.string().uri().allow(""), cvPublicId: Joi.string().allow(""),
 }).unknown(false);
 export const pipelineBodySchema = Joi.object({ version, stages: Joi.array().min(1).items(Joi.object({
   id: Joi.string().trim(), name: Joi.string().trim().required(), color: Joi.string().trim().required(), position: Joi.number().integer().min(0),
