@@ -1156,7 +1156,7 @@ export default function UserAdminTab() {
                   { role: "user", displayName: "USER (Nhân viên)", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "user"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "user"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {
