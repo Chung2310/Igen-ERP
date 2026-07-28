@@ -12,6 +12,8 @@ export interface UserFormModalProps {
   userDisplayName: string;
   setUserDisplayName: (val: string) => void;
   userEmail: string;
+  userPhone: string;
+  setUserPhone: (val: string) => void;
   setUserEmail: (val: string) => void;
   userPassword: string;
   setUserPassword: (val: string) => void;
@@ -46,6 +48,8 @@ export function UserFormModal({
   setUserDisplayName,
   userEmail,
   setUserEmail,
+  userPhone,
+  setUserPhone,
   userPassword,
   setUserPassword,
   userRole,
@@ -156,7 +160,12 @@ export function UserFormModal({
                 </div>
               </div>
 
-              {/* Mật khẩu */}
+'              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
+                <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+              </div>
+
+'              {/* Mật khẩu */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
                 <div className="relative">
