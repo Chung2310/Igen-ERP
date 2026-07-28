@@ -13,6 +13,21 @@ describe("recruitment router", () => {
     expect(names[0]).toBe("requireAuth");
     expect(names[1]).toBe("moduleAccessGuard");
     expect(names[2]).toBe("permissionGuard");
-    expect((recruitmentRouter as any).stack.some((layer: any) => layer.route?.path === "/applicants/:applicantId/attachments")).toBe(true);
+    expect((recruitmentRouter as any).stack.some((layer: any) => layer.route?.path === "/applicants/:applicantId/attachment")).toBe(true);
+  });
+
+  it("exposes one attachment endpoint for jobs and applicants", () => {
+    const routes = (recruitmentRouter as any).stack
+      .filter((layer: any) => layer.route)
+      .map((layer: any) => ({ path: layer.route.path, methods: layer.route.methods }));
+    for (const path of ["/jobs/:jobId/attachment", "/applicants/:applicantId/attachment"]) {
+      expect(routes).toContainEqual(expect.objectContaining({ path, methods: expect.objectContaining({ get: true }) }));
+      expect(routes).toContainEqual(expect.objectContaining({ path, methods: expect.objectContaining({ post: true }) }));
+    }
+  });
+  it("exposes public upload and cleanup routes", () => {
+    const routes = (recruitmentRouter as any).stack.filter((layer: any) => layer.route).map((layer: any) => ({ path: layer.route.path, methods: layer.route.methods }));
+    expect(routes).toContainEqual(expect.objectContaining({ path: "/files/public", methods: expect.objectContaining({ post: true }) }));
+    expect(routes).toContainEqual(expect.objectContaining({ path: "/files/public", methods: expect.objectContaining({ delete: true }) }));
   });
 });

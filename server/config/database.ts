@@ -90,6 +90,8 @@ async function seedPermissions() {
       { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
       { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
       { code: "student:manage", name: "Quản lý học viên/khách hàng", module: "student", description: "Thêm, sửa, xóa học viên, khóa học, lớp, đối tác..." },
+      { code: "partner:read", name: "Xem đối tác & cộng tác viên", module: "partner", description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác" },
+      { code: "partner:manage", name: "Quản lý đối tác & hoa hồng", module: "partner", description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng" },
       { code: "chat:read", name: "Xem trò chuyện (Tổng quan)", module: "chat", description: "Xem thẻ trò chuyện trên trang Tổng quan" },
       { code: "resource:read", name: "Xem tài nguyên (Tổng quan)", module: "resource", description: "Xem thẻ tài nguyên trên trang Tổng quan" },
       { code: "resource:manage", name: "Quản lý tài nguyên & kết nối Drive", module: "resource", description: "Kết nối/ngắt kết nối Google Drive doanh nghiệp và quản lý thư viện tài nguyên" }

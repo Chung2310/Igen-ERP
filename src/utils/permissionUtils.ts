@@ -64,6 +64,16 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý đào tạo",
     description: "Thêm mới học viên, xếp lớp, điểm danh và cấp chứng chỉ",
   },
+  "partner:read": {
+    label: "Xem đối tác & cộng tác viên",
+    group: "Quản lý Đối tác",
+    description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác",
+  },
+  "partner:manage": {
+    label: "Quản lý đối tác & hoa hồng",
+    group: "Quản lý Đối tác",
+    description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng",
+  },
   "course:read": {
     label: "Xem danh sách khóa học",
     group: "Quản lý đào tạo",

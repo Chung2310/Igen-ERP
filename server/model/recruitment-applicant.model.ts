@@ -21,6 +21,8 @@ const RecruitmentApplicantSchema = new Schema(
     availableDate: { type: Date, default: null },
     source: { type: String, default: "", trim: true },
     notes: { type: String, default: "" },
+    cvUrl: { type: String, default: "", trim: true },
+    cvPublicId: { type: String, default: "", trim: true },
     outcome: {
       type: String,
       enum: ["active", "hired", "rejected", "withdrawn"],

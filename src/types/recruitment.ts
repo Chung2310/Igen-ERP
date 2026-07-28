@@ -5,6 +5,7 @@ export interface RecruitmentJob {
   description: string; requirements: string; benefits: string; salaryMin?: number | null; salaryMax?: number | null;
   showSalary: boolean; employmentType: string; workplaceType: "onsite" | "hybrid" | "remote";
   location: string; applicationDeadline?: string | null; status: RecruitmentJobStatus; version: number;
+  jdFileUrl?: string; jdFilePublicId?: string;
 }
 export interface RecruitmentStage {
   id: string; name: string; color: string; position: number; isActive: boolean;
@@ -16,7 +17,9 @@ export interface RecruitmentApplicant {
   birthDate?: string | null; address: string; experience: string; education: string; skills: string[];
   expectedSalary?: number | null; availableDate?: string | null; source: string; notes: string;
   outcome: ApplicantOutcome; version: number; createdAt: string;
+  cvUrl?: string; cvPublicId?: string;
 }
+export interface RecruitmentPublicFile { url: string; publicId: string; originalName: string; size: number; }
 export interface RecruitmentInterview {
   _id: string; applicantId: string; jobId: string; scheduledStart: string; scheduledEnd: string;
   format: "onsite" | "online" | "phone"; location?: string; meetingLink?: string; interviewerIds: string[];
@@ -25,4 +28,7 @@ export interface RecruitmentInterview {
 export interface RecruitmentHistory {
   _id: string; fromStageName?: string; toStageName: string; note?: string; actorId: string; createdAt: string;
 }
-export interface RecruitmentAttachment { _id: string; originalName: string; mimeType: string; size: number; createdAt: string; }
+export interface RecruitmentAttachment {
+  _id: string; ownerType: "job" | "applicant"; ownerId: string; originalName: string;
+  mimeType: string; size: number; version: number; createdAt: string;
+}

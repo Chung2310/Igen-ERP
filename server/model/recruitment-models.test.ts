@@ -109,14 +109,23 @@ describe("recruitment model schemas", () => {
   });
 
   it("stores private attachment metadata without a public URL", () => {
+    expect(RecruitmentAttachmentModel.schema.path("ownerType")?.options.enum).toEqual(["job", "applicant"]);
+    expect(RecruitmentAttachmentModel.schema.path("ownerId")?.options.required).toBe(true);
+    expect(RecruitmentAttachmentModel.schema.path("applicantId")).toBeUndefined();
     expect(RecruitmentAttachmentModel.schema.path("storageKey")?.options.required).toBe(true);
     expect(RecruitmentAttachmentModel.schema.path("mimeType")?.options.required).toBe(true);
     expect(RecruitmentAttachmentModel.schema.path("size")?.options.required).toBe(true);
     expect(RecruitmentAttachmentModel.schema.path("url")).toBeUndefined();
     expect(indexes(RecruitmentAttachmentModel)).toContainEqual(
       expect.objectContaining({
-        fields: { companyCode: 1, branchId: 1, applicantId: 1, createdAt: -1 },
+        fields: { companyCode: 1, branchId: 1, ownerType: 1, ownerId: 1 },
+        options: { unique: true, partialFilterExpression: { isDeleted: false } },
       }),
     );
+  });
+
+  it("stores public JD and CV link metadata on their owners", () => {
+    for (const field of ["jdFileUrl", "jdFilePublicId"]) expect(RecruitmentJobModel.schema.path(field)?.options.default).toBe("");
+    for (const field of ["cvUrl", "cvPublicId"]) expect(RecruitmentApplicantModel.schema.path(field)?.options.default).toBe("");
   });
 });

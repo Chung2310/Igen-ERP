@@ -1,5 +1,5 @@
 import { getAccessToken } from "./authService";
-import type { RecruitmentApplicant, RecruitmentAttachment, RecruitmentHistory, RecruitmentInterview, RecruitmentJob, RecruitmentPipeline } from "../types/recruitment";
+import type { RecruitmentApplicant, RecruitmentAttachment, RecruitmentHistory, RecruitmentInterview, RecruitmentJob, RecruitmentPipeline, RecruitmentPublicFile } from "../types/recruitment";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const isForm = init.body instanceof FormData;
@@ -35,8 +35,12 @@ export const recruitmentApi = {
   listInterviews: (filters?: Record<string, unknown>) => request<RecruitmentInterview[]>(`/interviews${query(filters)}`),
   createInterview: (value: Partial<RecruitmentInterview>) => request<RecruitmentInterview>("/interviews", json("POST", value)),
   updateInterview: (id: string, value: Partial<RecruitmentInterview> & { version: number }) => request<RecruitmentInterview>(`/interviews/${id}`, json("PATCH", value)),
-  uploadAttachment: (applicantId: string, file: File) => { const form = new FormData(); form.append("file", file); return request(`/applicants/${applicantId}/attachments`, { method: "POST", body: form }); },
-  listAttachments: (applicantId: string) => request<RecruitmentAttachment[]>(`/applicants/${applicantId}/attachments`),
+  getJobAttachment: (jobId: string) => request<RecruitmentAttachment | null>(`/jobs/${jobId}/attachment`),
+  uploadJobAttachment: (jobId: string, file: File, version?: number) => { const form = new FormData(); form.append("file", file); if (version !== undefined) form.append("version", String(version)); return request<RecruitmentAttachment>(`/jobs/${jobId}/attachment`, { method: "POST", body: form }); },
+  getApplicantAttachment: (applicantId: string) => request<RecruitmentAttachment | null>(`/applicants/${applicantId}/attachment`),
+  uploadApplicantAttachment: (applicantId: string, file: File, version?: number) => { const form = new FormData(); form.append("file", file); if (version !== undefined) form.append("version", String(version)); return request<RecruitmentAttachment>(`/applicants/${applicantId}/attachment`, { method: "POST", body: form }); },
   downloadAttachment: (id: string) => request<{ signedUrl: string; originalName: string }>(`/attachments/${id}/download`),
   deleteAttachment: (id: string) => request(`/attachments/${id}`, { method: "DELETE" }),
+  uploadPublicFile: (file: File) => { const form = new FormData(); form.append("file", file); return request<RecruitmentPublicFile>("/files/public", { method: "POST", body: form }); },
+  deleteTemporaryPublicFile: (publicId: string) => request("/files/public", json("DELETE", { publicId })),
 };
