@@ -20,6 +20,17 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/HRTab")),
   },
   {
+    tab: "ĐỐI TÁC",
+    component: lazy(() => import("../pages/PartnersTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(
+        userProfile.permissions?.includes("*") ||
+        userProfile.permissions?.includes("partner:read"),
+      ),
+  },
+  {
     tab: "KHO & SẢN PHẨM",
     component: lazy(() => import("../pages/InventoryTab")),
   },
