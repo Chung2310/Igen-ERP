@@ -125,7 +125,7 @@ export function UserFormModal({
         </div>
 
         {/* Modal Content / Form */}
-        <form onSubmit={onSubmit} className="flex flex-col min-h-0">
+        <form autoComplete="off" onSubmit={onSubmit} className="flex flex-col min-h-0">
           <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Họ và Tên */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -150,7 +150,7 @@ export function UserFormModal({
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="email"
+                    type="email" autoComplete="off"
                     required
                     placeholder="name@company.com"
                     value={userEmail}
@@ -162,7 +162,7 @@ export function UserFormModal({
 
 '              <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
-                <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                <input type="tel" name="phone" autoComplete="off" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
               </div>
 
 '              {/* Mật khẩu */}
@@ -171,7 +171,7 @@ export function UserFormModal({
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="password"
+                    type="password" autoComplete="off"
                     required={!editingUser}
                     value={userPassword}
                     onChange={(e) => setUserPassword(e.target.value)}
