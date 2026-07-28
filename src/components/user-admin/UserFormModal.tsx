@@ -150,7 +150,7 @@ export function UserFormModal({
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="email"
+                    type="email" autoComplete="email"
                     required
                     placeholder="name@company.com"
                     value={userEmail}
@@ -162,7 +162,7 @@ export function UserFormModal({
 
 '              <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
-                <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                <input type="tel" name="phone" autoComplete="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
               </div>
 
 '              {/* Mật khẩu */}
@@ -171,7 +171,7 @@ export function UserFormModal({
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="password"
+                    type="password" autoComplete="new-password"
                     required={!editingUser}
                     value={userPassword}
                     onChange={(e) => setUserPassword(e.target.value)}
