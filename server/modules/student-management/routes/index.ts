@@ -2,7 +2,7 @@ import { Router, RequestHandler } from "express";
 import fs from "fs";
 import path from "path";
 import authRoutes from "./auth.routes";
-import studentRoutes from "./student.routes";
+import studentRoutes, { publicStudentRouter } from "./student.routes";
 import examRoutes from "./exam.routes";
 import paymentRoutes from "./payment.routes";
 import notificationRoutes from "./notification.routes";
@@ -20,6 +20,7 @@ import { logger } from "../config/logger";
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/students", publicStudentRouter);
 router.use("/students", studentRoutes);
 router.use("/exams", examRoutes);
 router.use("/payments", paymentRoutes);

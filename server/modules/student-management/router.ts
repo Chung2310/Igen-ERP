@@ -2,7 +2,7 @@ import { Router, RequestHandler } from "express";
 import fs from "fs";
 import path from "path";
 import authRoutes from "./routes/auth.routes";
-import studentRoutes from "./routes/student.routes";
+import studentRoutes, { publicStudentRouter } from "./routes/student.routes";
 import examRoutes from "./routes/exam.routes";
 import paymentRoutes from "./routes/payment.routes";
 import notificationRoutes from "./routes/notification.routes";
@@ -35,6 +35,7 @@ const requireStudentRead = requirePermission("student:read") as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
 
 studentManagementRouter.use("/auth", authRoutes);
+studentManagementRouter.use("/students", publicStudentRouter);
 studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, studentRoutes);
 studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, studentFaceRoutes);
 studentManagementRouter.use("/exams", authMiddleware as unknown as RequestHandler, requireStudentModule, requireStudentRead, examRoutes);

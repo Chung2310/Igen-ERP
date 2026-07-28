@@ -10,7 +10,7 @@ export class WebhookService {
    * Ưu tiên 1: Tìm theo ObjectID 24 ký tự hex của học viên trong nội dung.
    * Ưu tiên 2: Trích xuất SĐT (9-11 chữ số) và khớp SĐT học viên.
    */
-  static async matchStudentByDescription(description: string, ownerId: string) {
+  static async matchStudentByDescription(description: string, ownerId: string, branchId?: string) {
     logger.info(`[Webhook] Matching student for ownerId: ${ownerId}, description: "${description}"`);
 
     // Fetch the admin user
@@ -21,6 +21,7 @@ export class WebhookService {
     const companyCode = adminUser.companyCode;
     const companyUsers = companyCode ? await User.find({ companyCode }).select("_id") : [];
     const allowedOwnerIds = [...new Set([ownerId, ...companyUsers.map(u => u._id.toString())])];
+    const branchScope = branchId ? { branchId } : {};
     logger.info(`[Webhook] adminUser companyCode: ${companyCode}, allowedOwnerIds: ${JSON.stringify(allowedOwnerIds)}`);
 
     // 1. Tìm ObjectID 24 ký tự hex
@@ -28,12 +29,18 @@ export class WebhookService {
     const objectIdMatch = description.match(objectIdRegex);
     if (objectIdMatch) {
       const studentId = objectIdMatch[0];
-      const student = await Student.findOne({ _id: studentId, ownerId: { $in: allowedOwnerIds } });
+      const student = await Student.findOne({
+        _id: studentId,
+        ownerId: { $in: allowedOwnerIds },
+        ...branchScope,
+      });
       if (student) {
         logger.info(`[Webhook] Matched student by ID: ${student.fullName} (${student._id})`);
         return student;
       }
-      const studentAnyOwner = await Student.findById(studentId).select("fullName ownerId");
+      const studentAnyOwner = branchId
+        ? null
+        : await Student.findById(studentId).select("fullName ownerId");
       if (studentAnyOwner) {
         logger.warn(`[Webhook] Found studentId ${studentId} (${studentAnyOwner.fullName}) but its ownerId "${studentAnyOwner.ownerId}" is outside allowedOwnerIds for this center.`);
       } else {
@@ -45,7 +52,10 @@ export class WebhookService {
     const digitsRegex = /\d{9,11}/g;
     const digitMatches = description.match(digitsRegex);
     if (digitMatches) {
-      const students = await Student.find({ ownerId: { $in: allowedOwnerIds } });
+      const students = await Student.find({
+        ownerId: { $in: allowedOwnerIds },
+        ...branchScope,
+      });
       
       for (const num of digitMatches) {
         let cleanTarget = num;
@@ -114,9 +124,10 @@ export class WebhookService {
     }
 
     const ownerId = user._id.toString();
+    const branchId = user.branchId ? String(user.branchId) : undefined;
 
     // Tìm học viên khớp với nội dung chuyển khoản
-    const student = await this.matchStudentByDescription(description, ownerId);
+    const student = await this.matchStudentByDescription(description, ownerId, branchId);
     if (!student) {
       return { success: false, message: "Không khớp được học viên từ nội dung chuyển khoản." };
     }
@@ -141,7 +152,7 @@ export class WebhookService {
       date,
       note: description || `Thanh toán tự động qua Webhook ngân hàng`,
       method: "Chuyển khoản",
-    });
+    }, branchId);
 
     // Định dạng số tiền gửi qua SSE dạng VND
     const formattedAmount = new Intl.NumberFormat("vi-VN", {

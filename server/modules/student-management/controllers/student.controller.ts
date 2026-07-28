@@ -19,6 +19,7 @@ export class StudentController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
         centerOwnerIds = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        ownerId = await resolveCreateOwnerId(req.user!);
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
@@ -37,7 +38,7 @@ export class StudentController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await StudentService.getStudents(ownerId, req.query);
+      const result = await StudentService.getStudents(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -47,7 +48,7 @@ export class StudentController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const student = await StudentService.getStudentById(ownerId, req.params.id);
+      const student = await StudentService.getStudentById(ownerId, req.params.id, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien." });
       }
@@ -65,7 +66,7 @@ export class StudentController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "students",
         actorRole: req.user!.role,
-      });
+      }, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de cap nhat." });
       }
@@ -82,7 +83,7 @@ export class StudentController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const student = await StudentService.deleteStudent(ownerId, req.params.id);
+      const student = await StudentService.deleteStudent(ownerId, req.params.id, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de xoa." });
       }
@@ -99,7 +100,7 @@ export class StudentController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
       }
-      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids);
+      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
       res.json({ success: true, message: `Da xoa thanh cong ${deletedCount} hoc vien.`, deletedCount });
     } catch (error: unknown) {
       next(error);
@@ -122,6 +123,7 @@ export class StudentController {
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
         ownerId = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        targetOwnerId = await resolveCreateOwnerId(req.user!);
         ownerId = await getCenterOwnerIds(req.user!);
       }
 
@@ -183,7 +185,7 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "So dot khong hop le." });
       }
 
-      const result = await StudentService.markInstallmentPaid(ownerId, id, installmentNo);
+      const result = await StudentService.markInstallmentPaid(ownerId, id, installmentNo, req.user!.branchId);
       if (!result.success) {
         return res.status(400).json({ success: false, error: result.error });
       }

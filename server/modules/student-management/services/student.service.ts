@@ -75,13 +75,16 @@ function buildOwnerScopeQuery(ownerId: string | string[]) {
   };
 }
 
+function buildBranchScopeQuery(branchId?: string) {
+  return branchId ? { branchId } : {};
+}
+
 async function ensureUniqueFieldsInScope(
   ownerScope: string | string[],
   data: StudentUpdateData,
+  branchId?: string,
   excludeId?: string
 ) {
-  const isDriving = false;
-
   const checks: Array<{ field: "email" | "phone" | "idCard"; value: string; message: string }> = [
     {
       field: "email",
@@ -101,15 +104,13 @@ async function ensureUniqueFieldsInScope(
   ];
 
   for (const check of checks) {
-    if (check.field === "idCard" && !isDriving) {
-      continue;
-    }
     if (!check.value) {
       continue;
     }
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerScope),
+      ...buildBranchScopeQuery(branchId),
       [check.field]: check.value,
     };
 
@@ -148,7 +149,8 @@ export class StudentService {
       courseId: typeof writeData.courseId === "string" ? writeData.courseId.trim() : writeData.courseId,
     };
 
-    await ensureUniqueFieldsInScope(ownerScope, normalizedPayload);
+    const branchId = typeof writeData.branchId === "string" ? writeData.branchId : undefined;
+    await ensureUniqueFieldsInScope(ownerScope, normalizedPayload, branchId);
 
     const student = new Student({
       ...normalizedPayload,
@@ -159,7 +161,7 @@ export class StudentService {
     return savedStudent;
   }
 
-  static async getStudents(ownerId: string | string[], filters: StudentFilters) {
+  static async getStudents(ownerId: string | string[], filters: StudentFilters, branchId?: string) {
     logger.info(`[Student] Fetching students list for ownerId=${ownerId} with filters: ${JSON.stringify(filters)}`);
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
@@ -170,6 +172,7 @@ export class StudentService {
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(resolvedOwnerId),
+      ...buildBranchScopeQuery(branchId),
     };
 
     if (filters.status) {
@@ -201,11 +204,12 @@ export class StudentService {
     };
   }
 
-  static async getStudentById(ownerId: string | string[], id: string): Promise<IStudent | null> {
+  static async getStudentById(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
     logger.info(`[Student] Fetching student detail: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
     return await Student.findOne(query);
   }
@@ -216,12 +220,14 @@ export class StudentService {
     id: string,
     data: StudentUpdateData,
     context: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<IStudent | null> {
     logger.info(`[Student] Updating student: id=${id}, ownerId=${ownerId}`);
 
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
     const existingStudent = await Student.findOne(query);
     if (!existingStudent) return null;
@@ -249,7 +255,7 @@ export class StudentService {
       writeData.courseId = writeData.courseId.trim();
     }
 
-    await ensureUniqueFieldsInScope(ownerScope, writeData, id);
+    await ensureUniqueFieldsInScope(ownerScope, writeData, branchId, id);
 
     if (writeData.paymentHistory && Array.isArray(writeData.paymentHistory)) {
       const history = writeData.paymentHistory as Record<string, unknown>[];
@@ -298,11 +304,12 @@ export class StudentService {
     return updatedStudent;
   }
 
-  static async deleteStudent(ownerId: string | string[], id: string): Promise<IStudent | null> {
+  static async deleteStudent(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
     logger.info(`[Student] Deleting student: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
     const deletedStudent = await Student.findOneAndDelete(query);
     if (deletedStudent) {
@@ -319,13 +326,14 @@ export class StudentService {
     return deletedStudent;
   }
 
-  static async bulkDeleteStudents(ownerId: string | string[], ids: string[]): Promise<number> {
+  static async bulkDeleteStudents(ownerId: string | string[], ids: string[], branchId?: string): Promise<number> {
     const validIds = ids.filter(id => Types.ObjectId.isValid(id));
     if (validIds.length === 0) return 0;
 
     const query: Record<string, unknown> = {
       _id: { $in: validIds },
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
     const studentsToDelete = await Student.find(query).select("_id");
     const resolvedIds = studentsToDelete.map(s => s._id.toString());
@@ -338,12 +346,20 @@ export class StudentService {
       logger.error(`[Student] Failed to clean up associated records for bulk deleted students: %o`, err);
     }
 
-    const result = await Student.deleteMany({ _id: { $in: resolvedIds } });
+    const result = await Student.deleteMany({
+      _id: { $in: resolvedIds },
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    });
     return result.deletedCount || 0;
   }
 
   static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string) {
     logger.info(`[Student] Bulk importing ${studentsData.length} students: creatorId=${creatorId}, ownerId=${ownerId}, targetOwnerId=${targetOwnerId}`);
+
+    if (branchId && !targetOwnerId) {
+      throw new Error("Không thể xác định chủ sở hữu thuộc chi nhánh đã chọn.");
+    }
 
     const businessType: string = "general";
 
@@ -356,6 +372,7 @@ export class StudentService {
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
     const existingStudents = await Student.find(query).select("phone email idCard");
     const existingPhones = new Set(existingStudents.map((s) => normalizePhone(s.phone)));
@@ -473,13 +490,15 @@ export class StudentService {
   static async markInstallmentPaid(
     ownerId: string | string[],
     studentId: string,
-    installmentNo: number
+    installmentNo: number,
+    branchId?: string,
   ): Promise<{ success: boolean; error?: string }> {
     logger.info(`[Student] Mark installment paid: studentId=${studentId}, installmentNo=${installmentNo}, ownerId=${ownerId}`);
 
     const query: Record<string, unknown> = {
       _id: studentId,
       ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
     };
 
     const student = await Student.findOne(query);
