@@ -346,7 +346,7 @@ export default function UserAdminTab() {
   const getAvailableRoles = () => {
     const defaultRoles = [
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
-      { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 }
+      { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 },
       { role: "branch_owner", displayName: "BRANCH OWNER", level: 2 }
     ];
     
