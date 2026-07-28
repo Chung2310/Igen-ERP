@@ -13,13 +13,22 @@ export type PipelineStageInput = {
 };
 
 const DEFAULT_STAGES: PipelineStageInput[] = [
-  { id: "new", name: "New application", color: "#2563eb" },
-  { id: "screening", name: "Screening", color: "#0891b2" },
-  { id: "interview", name: "Interview", color: "#7c3aed" },
-  { id: "offer", name: "Offer", color: "#ca8a04" },
-  { id: "hired", name: "Hired", color: "#16a34a", terminalOutcome: "hired" },
-  { id: "rejected", name: "Rejected", color: "#dc2626", terminalOutcome: "rejected" },
+  { id: "new", name: "Hồ sơ mới", color: "#2563eb" },
+  { id: "screening", name: "Sàng lọc", color: "#0891b2" },
+  { id: "interview", name: "Phỏng vấn", color: "#7c3aed" },
+  { id: "offer", name: "Đề nghị nhận việc", color: "#ca8a04" },
+  { id: "hired", name: "Đã tuyển", color: "#16a34a", terminalOutcome: "hired" },
+  { id: "rejected", name: "Từ chối", color: "#dc2626", terminalOutcome: "rejected" },
 ];
+
+const LEGACY_DEFAULT_NAMES: Record<string, { english: string[]; vietnamese: string }> = {
+  new: { english: ["New application", "New"], vietnamese: "Hồ sơ mới" },
+  screening: { english: ["Screening"], vietnamese: "Sàng lọc" },
+  interview: { english: ["Interview"], vietnamese: "Phỏng vấn" },
+  offer: { english: ["Offer"], vietnamese: "Đề nghị nhận việc" },
+  hired: { english: ["Hired"], vietnamese: "Đã tuyển" },
+  rejected: { english: ["Rejected"], vietnamese: "Từ chối" },
+};
 
 function normalizeStages(stages: PipelineStageInput[]) {
   const normalized = stages.map((stage, position) => ({
@@ -36,8 +45,24 @@ function normalizeStages(stages: PipelineStageInput[]) {
 }
 
 export async function getOrCreatePipeline(scope: RecruitmentScope, actorId: string) {
-  const existing = await RecruitmentPipelineModel.findOne({ ...scope, isDeleted: false }).lean();
-  if (existing) return existing;
+  const existing: any = await RecruitmentPipelineModel.findOne({ ...scope, isDeleted: false }).lean();
+  if (existing) {
+    let changed = false;
+    const stages = (existing.stages || []).map((stage: any) => {
+      const legacy = LEGACY_DEFAULT_NAMES[stage.id];
+      if (!legacy?.english.includes(stage.name)) return stage;
+      changed = true;
+      return { ...stage, name: legacy.vietnamese };
+    });
+    if (!changed) return existing;
+    const updated = await RecruitmentPipelineModel.findOneAndUpdate(
+      { _id: existing._id, ...scope, isDeleted: false, version: existing.version },
+      { $set: { stages, updatedBy: actorId }, $inc: { version: 1 } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) throw new Error("Pipeline version conflict");
+    return updated;
+  }
   return RecruitmentPipelineModel.create({
     ...scope,
     stages: normalizeStages(DEFAULT_STAGES),

@@ -18,6 +18,7 @@ import {
   RECRUITMENT_FILE_ACCEPT,
   validateRecruitmentFile,
 } from "./recruitmentFile";
+import { jobStatusLabels } from "./recruitmentLabels";
 
 const emptyJob = {
   code: "",
@@ -34,12 +35,7 @@ const emptyJob = {
   showSalary: false,
   status: "draft" as const,
 };
-const statusLabel: Record<RecruitmentJobStatus, string> = {
-  draft: "Nháp",
-  open: "Đang tuyển",
-  paused: "Tạm dừng",
-  closed: "Đã đóng",
-};
+const statusLabel: Record<RecruitmentJobStatus, string> = jobStatusLabels;
 
 export default function RecruitmentJobsView() {
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);

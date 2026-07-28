@@ -14,8 +14,16 @@ describe("recruitment pipeline service", () => {
     const result: any = await getOrCreatePipeline(scope, "actor-1");
     expect(create).toHaveBeenCalledWith(expect.objectContaining(scope));
     expect(result.stages.map((stage: any) => stage.name)).toEqual([
-      "New application", "Screening", "Interview", "Offer", "Hired", "Rejected",
+      "Hồ sơ mới", "Sàng lọc", "Phỏng vấn", "Đề nghị nhận việc", "Đã tuyển", "Từ chối",
     ]);
+  });
+
+  it("migrates known English defaults but preserves custom stage names", async () => {
+    vi.spyOn(RecruitmentPipelineModel, "findOne").mockReturnValue({ lean: async () => ({ _id: "pipe", version: 2, stages: [{ id: "new", name: "New application", color: "#1", position: 0, isActive: true }, { id: "screening", name: "Duyệt nội bộ", color: "#2", position: 1, isActive: true }] }) } as any);
+    const update = vi.spyOn(RecruitmentPipelineModel, "findOneAndUpdate").mockResolvedValue({ _id: "pipe", version: 3, stages: [{ id: "new", name: "Hồ sơ mới" }, { id: "screening", name: "Duyệt nội bộ" }] } as any);
+    const result: any = await getOrCreatePipeline(scope, "actor");
+    expect(update).toHaveBeenCalledWith({ _id: "pipe", ...scope, isDeleted: false, version: 2 }, expect.objectContaining({ $inc: { version: 1 } }), { new: true, runValidators: true });
+    expect(result.stages.map((stage: any) => stage.name)).toEqual(["Hồ sơ mới", "Duyệt nội bộ"]);
   });
 
   it("rejects removal or disabling of a stage containing applicants", async () => {

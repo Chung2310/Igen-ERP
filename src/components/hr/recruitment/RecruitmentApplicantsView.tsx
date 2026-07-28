@@ -19,6 +19,7 @@ import {
   RECRUITMENT_FILE_ACCEPT,
   validateRecruitmentFile,
 } from "./recruitmentFile";
+import { applicantOutcomeLabels } from "./recruitmentLabels";
 
 export default function RecruitmentApplicantsView() {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[]>([]);
@@ -148,7 +149,7 @@ export default function RecruitmentApplicantsView() {
                         ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 capitalize">{a.outcome}</td>
+                  <td className="px-4 py-3">{applicantOutcomeLabels[a.outcome]}</td>
                 </tr>
               ))}
             </tbody>
