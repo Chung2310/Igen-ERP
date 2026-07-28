@@ -25,4 +25,7 @@ export interface RecruitmentInterview {
 export interface RecruitmentHistory {
   _id: string; fromStageName?: string; toStageName: string; note?: string; actorId: string; createdAt: string;
 }
-export interface RecruitmentAttachment { _id: string; originalName: string; mimeType: string; size: number; createdAt: string; }
+export interface RecruitmentAttachment {
+  _id: string; ownerType: "job" | "applicant"; ownerId: string; originalName: string;
+  mimeType: string; size: number; version: number; createdAt: string;
+}
