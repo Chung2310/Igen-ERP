@@ -42,6 +42,7 @@ export const recruitmentController = {
   deleteInterview: asyncHandler(async (req, res) => ok(res, await interviews.softDeleteInterview(scope(req), req.params.id, req.body.version, actor(req)))),
   restoreInterview: asyncHandler(async (req, res) => ok(res, await interviews.restoreInterview(scope(req), req.params.id, req.body.version, actor(req)))),
   uploadAttachment: asyncHandler(async (req, res) => { if (!req.file) throw new Error("Attachment is required"); ok(res, await attachments.uploadApplicantAttachment(scope(req), actor(req), req.params.applicantId, req.file), 201); }),
+  listAttachments: asyncHandler(async (req, res) => ok(res, await attachments.listApplicantAttachments(scope(req), req.params.applicantId))),
   downloadAttachment: asyncHandler(async (req, res) => ok(res, await attachments.downloadApplicantAttachment(scope(req), req.params.id))),
   deleteAttachment: asyncHandler(async (req, res) => ok(res, await attachments.deleteApplicantAttachment(scope(req), req.params.id, actor(req)))),
 };

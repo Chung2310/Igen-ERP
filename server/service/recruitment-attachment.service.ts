@@ -37,6 +37,13 @@ export async function downloadApplicantAttachment(scope: RecruitmentScope, attac
   return { signedUrl: cloudinaryService.createSignedRawUrl(attachment.storageKey, expiresAt), expiresAt, originalName: attachment.originalName, mimeType: attachment.mimeType };
 }
 
+export function listApplicantAttachments(scope: RecruitmentScope, applicantId: string) {
+  return RecruitmentAttachmentModel.find({ ...scope, applicantId, isDeleted: false })
+    .select("originalName mimeType size createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
 export async function deleteApplicantAttachment(scope: RecruitmentScope, attachmentId: string, actorId: string) {
   const attachment: any = await RecruitmentAttachmentModel.findOneAndUpdate(
     { _id: attachmentId, ...scope, isDeleted: false },
