@@ -27,10 +27,35 @@ export function useSubTabRouter<T extends string>(
 
   const [activeSubTab, setActiveSubTabState] = useState<T>(resolveFromUrl);
 
+  const replaceSubTabInUrl = useCallback(
+    (tab: T) => {
+      const match = routeMap.find((entry) => entry.value === tab);
+      const url = new URL(window.location.href);
+      if (match) {
+        url.searchParams.set("sub", match.slug);
+      } else {
+        url.searchParams.delete("sub");
+      }
+      window.history.replaceState(null, "", url.toString());
+    },
+    [routeMap],
+  );
+
+  const isStateValid = routeMap.some((entry) => entry.value === activeSubTab);
+  const resolvedActiveSubTab = isStateValid ? activeSubTab : defaultValue;
+
   // Sync URL → state when the page is loaded (handles F5, direct link)
   useEffect(() => {
-    setActiveSubTabState(resolveFromUrl());
-  }, [resolveFromUrl]);
+    const resolvedFromUrl = resolveFromUrl();
+    setActiveSubTabState(resolvedFromUrl);
+    replaceSubTabInUrl(resolvedFromUrl);
+  }, [replaceSubTabInUrl, resolveFromUrl]);
+
+  useEffect(() => {
+    if (activeSubTab === resolvedActiveSubTab) return;
+    setActiveSubTabState(resolvedActiveSubTab);
+    replaceSubTabInUrl(resolvedActiveSubTab);
+  }, [activeSubTab, replaceSubTabInUrl, resolvedActiveSubTab]);
 
   // Sync URL → state when popstate fires (handles browser back/forward buttons)
   useEffect(() => {
@@ -44,17 +69,10 @@ export function useSubTabRouter<T extends string>(
   const setActiveSubTab = useCallback(
     (tab: T) => {
       setActiveSubTabState(tab);
-      const match = routeMap.find((entry) => entry.value === tab);
-      const url = new URL(window.location.href);
-      if (match) {
-        url.searchParams.set("sub", match.slug);
-      } else {
-        url.searchParams.delete("sub");
-      }
-      window.history.replaceState(null, "", url.toString());
+      replaceSubTabInUrl(tab);
     },
-    [routeMap]
+    [replaceSubTabInUrl]
   );
 
-  return [activeSubTab, setActiveSubTab];
+  return [resolvedActiveSubTab, setActiveSubTab];
 }
