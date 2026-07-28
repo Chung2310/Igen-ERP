@@ -225,7 +225,7 @@ const registerUserSchema = {
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
-    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(", null),
+    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -382,7 +382,7 @@ const updateUserSchema = {
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
-    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(", null),
+    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
