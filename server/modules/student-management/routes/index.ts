@@ -37,6 +37,7 @@ router.use("/partners", partnerRoutes);
 import { authMiddleware, AuthRequest } from "../middlewares/auth.middleware";
 import { EmailService } from "../services/email.service";
 import { AuthService } from "../services/auth.service";
+import { companyEmailService } from "../../../service/company-email.service";
 
 router.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
   try {
@@ -57,11 +58,12 @@ router.post("/send-email", authMiddleware as unknown as RequestHandler, async (r
       };
     } else {
       const user = await AuthService.getUserProfile(req.user.uid);
+      if (user?.companyCode) smtpSettings = await companyEmailService.resolveLegacySettings(user.companyCode);
       const smtpOwner = user && user.role === "user" && user.centerId
         ? await AuthService.getUserProfile(user.centerId)
         : user;
       const hasCustomSmtp = !!(smtpOwner && smtpOwner.smtpHost && smtpOwner.smtpUser && smtpOwner.smtpPass);
-      if (hasCustomSmtp) {
+      if (!smtpSettings && hasCustomSmtp) {
         smtpSettings = {
           smtpHost: smtpOwner.smtpHost,
           smtpPort: smtpOwner.smtpPort,

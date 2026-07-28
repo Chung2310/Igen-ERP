@@ -13,6 +13,7 @@ import {
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
 import { EmailService, SmtpSettings } from "./email.service";
+import { companyEmailService } from "../../../service/company-email.service";
 
 interface BatchFilters {
   page?: number | string;
@@ -123,8 +124,12 @@ function formatDaysOfWeek(days: unknown): string {
  */
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
   const owner = await User.findById(ownerId).select(
-    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail"
+    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
   );
+  if (owner?.companyCode) {
+    const companySettings = await companyEmailService.resolveLegacySettings(owner.companyCode);
+    if (companySettings) return companySettings;
+  }
   if (!owner || !owner.smtpHost || !owner.smtpUser || !owner.smtpPass) {
     return undefined;
   }

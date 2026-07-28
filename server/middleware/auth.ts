@@ -51,7 +51,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "project:read", "project:manage",
     "stock:read", "stock:manage",
     "hr:read", "student:read", "student:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:manage",
-    "chat:read", "resource:read", "resource:manage"
+    "chat:read", "resource:read", "resource:manage", "company-email:manage"
   ],
   branch_owner: [
     "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"
