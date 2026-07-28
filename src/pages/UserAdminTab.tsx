@@ -89,6 +89,7 @@ export default function UserAdminTab() {
   const [userDisplayName, setUserDisplayName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPhone, setUserPhone] = useState("");
+  const [userBirthDate, setUserBirthDate] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<string>("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
@@ -104,6 +105,7 @@ export default function UserAdminTab() {
     setUserDisplayName("");
     setUserEmail("");
     setUserPhone("");
+    setUserBirthDate("");
     setUserPassword("");
     setUserRole("user");
     setUserBranchId("");
@@ -614,6 +616,7 @@ export default function UserAdminTab() {
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
           phone: userPhone.trim(),
+          birthDate: userBirthDate || null,
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
           branchId: userBranchId || null,
@@ -636,6 +639,7 @@ export default function UserAdminTab() {
           undefined,
           userJobDescriptionLink.trim() || undefined,
           userBranchId || undefined,
+          userBirthDate || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -667,6 +671,7 @@ export default function UserAdminTab() {
     setUserDisplayName(user.displayName || "");
     setUserEmail(user.email || "");
     setUserPhone(user.phone && user.phone !== "Chưa cập nhật" ? user.phone : "");
+    setUserBirthDate(user.birthDate ? String(user.birthDate).slice(0, 10) : "");
     setUserPassword("");
     setUserRole(user.role || "user");
     setUserCompanyCode(user.companyCode || "");
@@ -1117,7 +1122,7 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
-                  manager: [
+                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],`r`n                  manager: [
                     "user:read", "user:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
@@ -1287,6 +1292,8 @@ export default function UserAdminTab() {
         userEmail={userEmail}
         userPhone={userPhone}
         setUserPhone={setUserPhone}
+        userBirthDate={userBirthDate}
+        setUserBirthDate={setUserBirthDate}
         setUserEmail={setUserEmail}
         userPassword={userPassword}
         setUserPassword={setUserPassword}
