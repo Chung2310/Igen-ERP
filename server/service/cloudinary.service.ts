@@ -20,6 +20,8 @@ export interface PrivateImageAsset {
   bytes: number;
 }
 
+export type PrivateRawAsset = PrivateImageAsset;
+
 export const cloudinaryService = {
   /**
    * Tải tệp tin (Base64 hoặc URL công khai) lên Cloudinary
@@ -135,6 +137,26 @@ export const cloudinaryService = {
     });
   },
 
+  async uploadPrivateRaw(buffer: Buffer, folder: string, filename: string): Promise<PrivateRawAsset> {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      throw new Error("Cloudinary configuration is incomplete");
+    }
+    ensureConfigured();
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder, public_id: filename, resource_type: "raw", type: "authenticated", use_filename: false },
+        (error, result) => {
+          if (error) return reject(new Error(`Private Cloudinary upload failed: ${error.message || error}`));
+          if (!result?.public_id || !result.resource_type || !result.type || typeof result.bytes !== "number") {
+            return reject(new Error("Cloudinary returned incomplete private asset metadata"));
+          }
+          resolve({ publicId: result.public_id, resourceType: result.resource_type, type: result.type, format: result.format || "", bytes: result.bytes });
+        },
+      );
+      uploadStream.end(buffer);
+    });
+  },
+
   createSignedImageUrl(publicId: string, expiresAt: Date): string {
     return cloudinary.url(publicId, {
       resource_type: "image",
@@ -143,6 +165,19 @@ export const cloudinaryService = {
       sign_url: true,
       expires_at: Math.floor(expiresAt.getTime() / 1000),
     });
+  },
+
+  createSignedRawUrl(publicId: string, expiresAt: Date): string {
+    ensureConfigured();
+    return cloudinary.url(publicId, {
+      resource_type: "raw", type: "authenticated", secure: true, sign_url: true,
+      expires_at: Math.floor(expiresAt.getTime() / 1000),
+    });
+  },
+
+  async deleteRawAsset(publicId: string): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, { resource_type: "raw", type: "authenticated", invalidate: true });
   },
 
   async deleteAsset(publicId: string): Promise<void> {
