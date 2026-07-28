@@ -1,4 +1,4 @@
-import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX } from 'lucide-react';
+import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX, UserCheck } from 'lucide-react';
 import { LuxuryCard } from '../ui/LuxuryCard';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
@@ -31,6 +31,27 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
 
     const hasStatus = (s: (typeof students)[number], st: string) =>
       Array.isArray(s.status) ? s.status.includes(st as (typeof s.status)[number]) : s.status === st;
+
+    if (entityLabel.preset === 'worker') {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const newWorkersCount = students.filter(s => {
+        if (!s.registrationDate) return false;
+        const parts = s.registrationDate.split('/').map(Number);
+        if (parts.length < 3) return false;
+        const regDate = new Date(parts[2], parts[1] - 1, parts[0]);
+        return regDate >= thirtyDaysAgo;
+      }).length;
+
+      return [
+        { label: 'Tổng lao động', value: students.length, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
+        { label: 'Mới đăng ký (30 ngày)', value: newWorkersCount, icon: BookOpen, color: 'text-sky-500', bg: 'bg-sky-50' },
+        { label: 'Đã tiếp nhận / Đi làm', value: students.filter(s => hasStatus(s, 'Đã đậu') || hasStatus(s, 'Đang học')).length, icon: UserCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+      ];
+    }
 
     const statsMap: Record<string, number> = {
       [totalLabel]: students.length,
