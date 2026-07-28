@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { branchService, type BranchRecord } from "../services/branchService";
+import { buildBranchRequestInit } from "./branchFetch";
 
 export type BranchOption = BranchRecord;
 interface BranchContextValue { branches: BranchOption[]; activeBranchId: string; activeBranch?: BranchOption; setActiveBranchId: (id: string) => void; loading: boolean; }
@@ -17,10 +18,8 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       if (!url.includes("/api/v1/") || !userProfile?.companyCode) return originalFetch(input, init);
-      const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
       const selected = localStorage.getItem(`igen.activeBranch.${userProfile.companyCode}`);
-      if (selected) headers.set("x-branch-id", selected);
-      return originalFetch(input, { ...init, headers });
+      return originalFetch(input, buildBranchRequestInit(input, init, selected));
     };
     return () => { window.fetch = originalFetch; };
   }, [userProfile?.companyCode]);
@@ -42,7 +41,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("branch-change", handleBranchChange);
     return () => window.removeEventListener("branch-change", handleBranchChange);
   }, [userProfile?.uid, userProfile?.companyCode, userProfile?.role, canSwitch]);
-  const setActiveBranchId = (id: string) => { setActiveBranchIdState(id); if (userProfile?.companyCode) localStorage.setItem(`igen.activeBranch.${userProfile.companyCode}`, id); window.dispatchEvent(new CustomEvent("branch-change", { detail: { branchId: id } })); };
+  const setActiveBranchId = (id: string) => { setActiveBranchIdState(id); if (userProfile?.companyCode) localStorage.setItem(`igen.activeBranch.${userProfile.companyCode}`, id); };
   const value = useMemo(() => ({ branches, activeBranchId, activeBranch: branches.find((b) => b._id === activeBranchId), setActiveBranchId, loading }), [branches, activeBranchId, loading]);
   return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
 }
