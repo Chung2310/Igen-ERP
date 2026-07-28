@@ -81,7 +81,12 @@ if (branchId && !targetOwnerId) {
 
 - [ ] **Step 5: Run ownership tests and verify GREEN**
 
-Run: `npx vitest run server/modules/student-management/services/student-branch-ownership.test.ts server/modules/student-management/services/custom-field-write-integration.test.ts`
+Run:
+
+```bash
+npx vitest run server/modules/student-management/services/student-branch-ownership.test.ts
+npx tsx --test server/modules/student-management/services/custom-field-write-integration.test.ts
+```
 
 Expected: all tests pass, including public registration.
 
@@ -162,7 +167,12 @@ Public lookup remains unscoped because it is a separate deliberately public path
 
 - [ ] **Step 5: Run branch-query and integration tests and verify GREEN**
 
-Run: `npx vitest run server/modules/student-management/services/student-branch-query.test.ts server/modules/student-management/services/student-branch-ownership.test.ts server/modules/student-management/services/custom-field-write-integration.test.ts server/modules/student-management/utils/auth.util.test.ts`
+Run:
+
+```bash
+npx vitest run server/modules/student-management/services/student-branch-query.test.ts server/modules/student-management/services/student-branch-ownership.test.ts server/modules/student-management/utils/auth.util.test.ts
+npx tsx --test server/modules/student-management/services/custom-field-write-integration.test.ts
+```
 
 Expected: all tests pass and all captured authenticated queries include `branchId`.
 
@@ -185,7 +195,12 @@ git commit -m "fix: enforce student branch query isolation"
 
 - [ ] **Step 1: Run the complete student-management test set**
 
-Run: `npx vitest run server/modules/student-management src/modules/student-management`
+Run the Vitest-native student suites explicitly, then run Node-native integration suites with the Node test runner:
+
+```bash
+npx vitest run server/modules/student-management/utils server/modules/student-management/models server/modules/student-management/routes src/modules/student-management
+npx tsx --test server/modules/student-management/services/*.test.ts server/modules/student-management/controllers/*.test.ts
+```
 
 Expected: zero failed test files and zero failed tests.
 
