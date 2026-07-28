@@ -347,6 +347,7 @@ export default function UserAdminTab() {
     const defaultRoles = [
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
       { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 }
+      { role: "branch_owner", displayName: "BRANCH OWNER", level: 2 }
     ];
     
     if (userProfile?.role === "superadmin") {
@@ -1153,6 +1154,7 @@ export default function UserAdminTab() {
                 const defaultRolesList = [
                   { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
                   { role: "manager", displayName: "MANAGER (Quản lý)", level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
+                  { role: "branch_owner", displayName: "BRANCH OWNER", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
                   { role: "user", displayName: "USER (Nhân viên)", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
