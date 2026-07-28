@@ -9,6 +9,8 @@ export interface PermissionCatalogEntry {
   group: string;
 }
 
+export const RECRUITMENT_PERMISSION = "recruitment:manage";
+
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "user:read", label: "Xem người dùng", group: "Người dùng" },
   { code: "user:manage", label: "Quản lý người dùng", group: "Người dùng" },
@@ -31,6 +33,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "resource:read", label: "Xem tài nguyên", group: "Tài nguyên" },
   { code: "resource:manage", label: "Quản lý tài nguyên & kết nối Google Drive", group: "Tài nguyên" },
   { code: "company-email:manage", label: "Quản lý email chúc mừng", group: "Nhân sự" },
+  { code: RECRUITMENT_PERMISSION, label: "Quản lý tuyển dụng", group: "Nhân sự" },
 ];
 
 export const PERMISSION_CODES = PERMISSION_CATALOG.map((entry) => entry.code);
