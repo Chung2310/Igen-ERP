@@ -55,6 +55,19 @@ const CompanyDashboardReportConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanySmtpConfigSchema = new Schema({
+  host: String, port: { type: Number, default: 587 }, secure: { type: Boolean, default: false }, user: String,
+  passwordEncrypted: { type: String, select: false }, fromEmail: String, fromName: String, updatedAt: Date,
+}, { _id: false });
+
+const CelebrationTemplateSchema = new Schema({ subject: { type: String, default: "" }, html: { type: String, default: "" } }, { _id: false });
+const CompanyCelebrationConfigSchema = new Schema({
+  birthdayEnabled: { type: Boolean, default: false }, holidayEnabled: { type: Boolean, default: false }, sendTime: { type: String, default: "08:00" },
+  birthdayTemplate: { type: CelebrationTemplateSchema, default: () => ({ subject: "Chúc mừng sinh nhật {{employeeName}}", html: "<p>Chúc mừng sinh nhật {{employeeName}}!</p>" }) },
+  holidayTemplate: { type: CelebrationTemplateSchema, default: () => ({ subject: "Chúc mừng {{holidayName}}", html: "<p>{{companyName}} kính chúc bạn một kỳ nghỉ vui vẻ.</p>" }) },
+  holidayOverrides: { type: [{ date: String, enabled: { type: Boolean, default: true }, subject: String, html: String }], default: () => [] },
+}, { _id: false });
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -69,6 +82,8 @@ const CompanySchema = new Schema<ICompany>({
   locationConfig: { type: CompanyLocationConfigSchema, default: () => ({}) },
   annualLeaveDays: { type: Number, min: 0, default: 12 },
   dashboardReportConfig: { type: CompanyDashboardReportConfigSchema, default: () => ({}) },
+  smtpConfig: { type: CompanySmtpConfigSchema, default: undefined },
+  celebrationConfig: { type: CompanyCelebrationConfigSchema, default: () => ({}) },
   lifecycleStatus: { type: String, enum: ["active", "suspended", "archived", "scheduled-deletion"], default: "active", index: true },
   lifecycleChangedAt: { type: Date, default: Date.now },
   deletionScheduledAt: { type: Date, default: null },

@@ -366,7 +366,8 @@ export const authService = {
       apiKey?: string;
     },
     jobDescriptionLink?: string,
-    branchId?: string
+    branchId?: string,
+    birthDate?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -389,6 +390,7 @@ export const authService = {
         heygenAccess,
         jobDescriptionLink,
         branchId,
+        birthDate,
       }),
     });
 
