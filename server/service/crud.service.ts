@@ -130,6 +130,17 @@ function sanitizeInventoryResult(modelName: string, item: any) {
  * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
  */
 const WRITE_PROTECTED_MODELS = new Set<string>(["users", "kanban-tasks", "projects"]);
+const INVENTORY_MODELS = new Set<SupportedModelName>(["products", "categories", "stock-logs"]);
+
+export function requireInventoryBranch(modelName: SupportedModelName, branchId?: string): string | undefined {
+  if (!INVENTORY_MODELS.has(modelName)) return undefined;
+  if (!branchId) {
+    const error: Error & { statusCode?: number } = new Error("Vui lòng chọn chi nhánh trước khi thao tác.");
+    error.statusCode = 400;
+    throw error;
+  }
+  return branchId;
+}
 
 /** Loại bỏ trường nhạy cảm khỏi kết quả trả về của model users */
 function sanitizeUserResult(modelName: string, item: any) {
@@ -189,6 +200,10 @@ export const crudService = {
     }
 
     const query: any = {};
+    const inventoryBranch = requireInventoryBranch(
+      modelName,
+      typeof options.filters?.branchId === "string" ? options.filters.branchId : undefined,
+    );
 
     // Áp dụng các bộ lọc động truyền từ client (loại bỏ key nguy hiểm trước khi merge)
     if (options.filters) {
@@ -204,6 +219,8 @@ export const crudService = {
     }
 
     // Áp dụng tìm kiếm tương đối (Search)
+    if (inventoryBranch) query.branchId = inventoryBranch;
+
     if (options.search) {
       const searchRegex = new RegExp(options.search, "i");
       query.$or = [
@@ -237,7 +254,8 @@ export const crudService = {
     modelName: SupportedModelName,
     id: string,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -248,6 +266,8 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
 
     const item = await model.findOne(query).lean();
     if (!item) {
@@ -262,7 +282,8 @@ export const crudService = {
   async create(
     modelName: SupportedModelName,
     data: any,
-    companyCode: string
+    companyCode: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -271,9 +292,11 @@ export const crudService = {
     assertWritable(modelName);
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
     const payload = {
       ...sanitizeInventoryPayload(modelName, data),
       companyCode,
+      ...(inventoryBranch ? { branchId: inventoryBranch } : {}),
     };
 
     const newItem = new model(payload);
@@ -319,7 +342,8 @@ export const crudService = {
     id: string,
     data: any,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -332,9 +356,11 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
-    const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
+    const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
 
     // Enforce the planned start time for every task update entry point, not only
@@ -374,7 +400,8 @@ export const crudService = {
     modelName: SupportedModelName,
     id: string,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -386,6 +413,8 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
 
     const deletedItem = await model.findOneAndDelete(query);
     if (!deletedItem) {

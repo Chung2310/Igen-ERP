@@ -17,7 +17,7 @@ export class PartnerController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
-      const partner = await PartnerService.createPartner(ownerId, req.body, {
+      const partner = await PartnerService.createPartner(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "partners",
         actorRole: req.user!.role,
@@ -145,7 +145,7 @@ export class PartnerController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
-      const level = await PartnerService.createCommissionLevel(ownerId, req.body);
+      const level = await PartnerService.createCommissionLevel(ownerId, { ...req.body, branchId: req.user!.branchId });
       res.status(201).json({ success: true, data: level });
     } catch (error: unknown) {
       next(error);

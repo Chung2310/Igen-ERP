@@ -85,6 +85,7 @@ export interface IStudent extends Document {
   address: string;
   status: StudentStatus[];
   ownerId: string;
+  branchId?: string;
   centerId?: string;
   healthCheckDate?: string;
   healthCheckNotes?: string;

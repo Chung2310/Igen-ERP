@@ -1,12 +1,26 @@
 import { User } from "../models/user.model";
 
-type StudentModuleUser = {
+export type StudentModuleUser = {
   uid: string;
   role: string;
   centerId: string;
   companyCode?: string;
   branchId?: string;
 };
+
+export function requireStudentBranch(user: StudentModuleUser): string {
+  const branchId = String(user.branchId || "").trim();
+  if (!branchId) {
+    const error: Error & { status?: number } = new Error("Vui lòng chọn chi nhánh trước khi thao tác.");
+    error.status = 400;
+    throw error;
+  }
+  return branchId;
+}
+
+export function buildStudentBranchQuery(branchId: string) {
+  return { branchId };
+}
 
 export function buildCompanyUserFilter(companyCode: string, branchId?: string) {
   return {
@@ -63,8 +77,9 @@ export async function getAllowedOwnerIds(user: StudentModuleUser): Promise<strin
   }
 
   const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
+  const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
   if (user.role === "admin" || user.role === "manager") {
-    return companyUserIds.length > 0 ? companyUserIds : user.uid;
+    return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : user.uid;
   }
 
   return user.uid;
@@ -76,7 +91,8 @@ export async function getCenterOwnerIds(user: StudentModuleUser): Promise<string
   }
 
   const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
-  return companyUserIds.length > 0 ? companyUserIds : [user.uid];
+  const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
+  return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : [user.uid];
 }
 
 export async function resolveCreateOwnerId(
@@ -96,6 +112,9 @@ export async function resolveCreateOwnerId(
     const companyOwnerId = await getCompanyPrimaryOwnerId(user.companyCode || user.centerId, user.branchId);
     if (companyOwnerId) {
       return companyOwnerId;
+    }
+    if (user.branchId) {
+      return user.branchId;
     }
   }
 

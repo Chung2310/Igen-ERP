@@ -11,7 +11,7 @@ export class CourseController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const course = await CourseService.createCourse(ownerId, req.body, {
+      const course = await CourseService.createCourse(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "courses",
         actorRole: req.user!.role,

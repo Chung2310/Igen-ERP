@@ -10,7 +10,7 @@ export class NotificationController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const notification = await NotificationService.createNotification(ownerId, req.body);
+      const notification = await NotificationService.createNotification(ownerId, { ...req.body, branchId: req.user!.branchId });
       res.status(201).json({ success: true, data: notification });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";

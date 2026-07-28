@@ -21,6 +21,7 @@ export interface IPartner extends Document {
   bankAccountName?: string;
   isActive: boolean;
   ownerId: string;
+  branchId?: string;
   notes?: string;
   payoutHistory?: IPayout[];
   createdAt?: Date;

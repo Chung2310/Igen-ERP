@@ -11,7 +11,7 @@ export class BatchController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const batch = await BatchService.createBatch(ownerId, req.user!, req.body, {
+      const batch = await BatchService.createBatch(ownerId, req.user!, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "batches",
         actorRole: req.user!.role,

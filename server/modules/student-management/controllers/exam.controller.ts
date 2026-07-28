@@ -11,7 +11,7 @@ export class ExamController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const exam = await ExamService.createExam(ownerId, req.body, {
+      const exam = await ExamService.createExam(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "exams",
         actorRole: req.user!.role,

@@ -12,7 +12,7 @@ const CategorySchema = new Schema<ICategory>({
 });
 
 // Đảm bảo tính duy nhất của tên/mã danh mục trong cùng doanh nghiệp
-CategorySchema.index({ companyCode: 1, name: 1 }, { unique: true });
-CategorySchema.index({ companyCode: 1, code: 1 }, { unique: true });
+CategorySchema.index({ companyCode: 1, branchId: 1, name: 1 }, { unique: true });
+CategorySchema.index({ companyCode: 1, branchId: 1, code: 1 }, { unique: true });
 
 export const CategoryModel = model<ICategory>("Category", CategorySchema);

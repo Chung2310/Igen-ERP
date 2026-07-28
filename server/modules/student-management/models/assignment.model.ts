@@ -16,7 +16,8 @@ const assignmentSchema = new Schema<IAssignment>({
   courseId: { type: String, required: true, index: true },
   dueDate: { type: Date },
   instructorId: { type: String, required: true, index: true },
-  ownerId: { type: String, required: true, index: true }
+  ownerId: { type: String, required: true, index: true },
+  branchId: { type: String, index: true }
 }, { timestamps: true });
 
 export const AssignmentModel = model<IAssignment>("Assignment", assignmentSchema);

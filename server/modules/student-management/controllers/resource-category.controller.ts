@@ -21,7 +21,7 @@ export class ResourceCategoryController {
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
       const { name } = req.body;
-      const category = await ResourceCategoryService.createCategory(ownerId, name);
+      const category = await ResourceCategoryService.createCategory(ownerId, name, req.user!.branchId);
       res.status(201).json({ success: true, data: category });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";

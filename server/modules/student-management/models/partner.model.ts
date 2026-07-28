@@ -27,6 +27,7 @@ const partnerSchema = new Schema<IPartner>(
     bankAccountName: { type: String, default: "" },
     isActive: { type: Boolean, required: true, default: true },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     notes: { type: String, default: "" },
     payoutHistory: { type: [payoutSchema], default: [] },
   },

@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { requireAuth, AuthenticatedRequest } from "../../../middleware/auth";
+import { requireStudentBranch } from "../utils/auth.util";
 
 export interface AuthRequest extends AuthenticatedRequest {
   user?: {
@@ -29,6 +30,15 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       companyCode: erpUser.companyCode,
       branchId: erpUser.branchId,
     };
+
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && req.user.role === "admin" && !req.user.branchId) {
+      try {
+        requireStudentBranch(req.user);
+      } catch (error) {
+        return res.status(400).json({ success: false, error: (error as Error).message });
+      }
+    }
+
     next();
   });
 }
