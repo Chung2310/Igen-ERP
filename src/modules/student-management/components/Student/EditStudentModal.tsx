@@ -218,6 +218,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
         enrollmentDate: toDisplayDate(formData.enrollmentDate),
         partnerId: formData.partnerId || "",
       };
+      if (!isFieldVisible('phone')) delete (payload as Partial<typeof payload>).phone;
       await apiFetch(`/students/${student?.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       window.dispatchEvent(new Event('student-mutation'));
       toast.success(`Đã cập nhật thông tin ${entityLabel.singular} thành công!`);
@@ -279,7 +280,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     />
                   </div>
                 )}
-                {isFieldVisible('phone') && (
+                {(
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('phone')}
                     <FormInput
