@@ -39,8 +39,6 @@ export const recruitmentApi = {
   uploadJobAttachment: (jobId: string, file: File, version?: number) => { const form = new FormData(); form.append("file", file); if (version !== undefined) form.append("version", String(version)); return request<RecruitmentAttachment>(`/jobs/${jobId}/attachment`, { method: "POST", body: form }); },
   getApplicantAttachment: (applicantId: string) => request<RecruitmentAttachment | null>(`/applicants/${applicantId}/attachment`),
   uploadApplicantAttachment: (applicantId: string, file: File, version?: number) => { const form = new FormData(); form.append("file", file); if (version !== undefined) form.append("version", String(version)); return request<RecruitmentAttachment>(`/applicants/${applicantId}/attachment`, { method: "POST", body: form }); },
-  uploadAttachment: (applicantId: string, file: File) => recruitmentApi.uploadApplicantAttachment(applicantId, file),
-  listAttachments: async (applicantId: string) => { const file = await recruitmentApi.getApplicantAttachment(applicantId); return file ? [file] : []; },
   downloadAttachment: (id: string) => request<{ signedUrl: string; originalName: string }>(`/attachments/${id}/download`),
   deleteAttachment: (id: string) => request(`/attachments/${id}`, { method: "DELETE" }),
 };
