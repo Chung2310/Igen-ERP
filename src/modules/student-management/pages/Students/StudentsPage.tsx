@@ -609,9 +609,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 6 : 5} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 6 : 5} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
@@ -628,7 +628,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                       className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
                     />
                   </td>
-                  {usesEducationBilling && <td className="px-3 py-1.5">
+                  <td className="px-3 py-1.5">
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-800 capitalize">{student.fullName}</span>
                       <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-medium text-slate-400">
@@ -647,12 +647,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                         )}
                       </div>
                     </div>
-                  </td>}
+                  </td>
                   <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
                     {formatDisplayDate(student.registrationDate)}
                   </td>
 
-                  <td className="px-3 py-1.5">
+                  {usesEducationBilling && <td className="px-3 py-1.5">
                     <div className="flex flex-col gap-0.5 w-24">
                       <div className="flex items-center text-[10px] font-bold">
                         {(() => {
@@ -686,7 +686,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                         })()}
                       </div>
                     </div>
-                  </td>
+                  </td>}
                   <td className="px-3 py-1.5 text-center">
                     <div className="flex flex-wrap justify-center gap-1">
                       {(Array.isArray(student.status) ? student.status : [student.status]).map((st) => (
