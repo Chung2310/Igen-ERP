@@ -79,7 +79,7 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   superadmin: 1,
   admin: 2,
   branch_owner: 2,
-  manager: [ 3,
+  manager: 3,
   user: 4
 };
 
