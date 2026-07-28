@@ -4,11 +4,25 @@ import { BranchModel } from "../model/branch.model";
 
 const company = (req: AuthenticatedRequest) => String(req.user?.companyCode || "").trim().toUpperCase();
 const canManage = (req: AuthenticatedRequest) => ["admin", "superadmin"].includes(String(req.user?.role || ""));
+async function ensureDefaultBranch(companyCode: string) {
+  const existing = await BranchModel.findOne({ companyCode }).lean();
+  if (existing) return existing;
+  try {
+    return await BranchModel.create({ companyCode, code: "MAIN", name: "Trụ sở chính", isActive: true });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    return BranchModel.findOne({ companyCode, code: "MAIN" }).lean();
+  }
+}
 
 export const branchController = {
   async list(req: AuthenticatedRequest, res: Response) {
     const code = req.user?.role === "superadmin" && req.query.companyCode ? String(req.query.companyCode).toUpperCase() : company(req);
-    const data = await BranchModel.find({ companyCode: code }).sort({ isActive: -1, name: 1 }).lean();
+    let data = await BranchModel.find({ companyCode: code }).sort({ isActive: -1, name: 1 }).lean();
+    if (data.length === 0 && req.user?.role === "admin" && code) {
+      const created = await ensureDefaultBranch(code);
+      data = created ? [created] : [];
+    }
     return res.json({ status: "success", data });
   },
   async create(req: AuthenticatedRequest, res: Response) {

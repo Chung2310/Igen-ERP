@@ -1,6 +1,7 @@
 import React from "react";
 import { User, Mail, Lock, X, RefreshCw, Link2, Upload, Eye } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
+import { BranchRecord } from "../../services/branchService";
 import { authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 
@@ -18,6 +19,8 @@ export interface UserFormModalProps {
   setUserRole: (val: string) => void;
   userCompanyCode: string;
   setUserCompanyCode: (val: string) => void;
+  userBranchId: string;
+  setUserBranchId: (val: string) => void;
   userParentId: string;
   setUserParentId: (val: string) => void;
   userDepartment: string;
@@ -29,6 +32,7 @@ export interface UserFormModalProps {
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
   companies: CompanyProfile[];
+  branches: BranchRecord[];
   usersList: UserProfile[];
   onSubmit: (e: React.FormEvent) => void;
   submittingUser: boolean;
