@@ -9,6 +9,7 @@ import {
   Shield,
   HardDrive,
   UserCheck
+  ,Mail
 } from "lucide-react";
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
@@ -22,6 +23,7 @@ const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
 const GoogleDriveTab = lazy(() => import("../components/settings/GoogleDriveTab"));
 const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
 const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
+const CompanySmtpSettingsTab = lazy(() => import("../components/settings/CompanySmtpSettingsTab"));
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -134,6 +136,7 @@ export default function SettingsTab() {
               ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
               : []),
             ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
+            ...(userProfile?.role === "admin" ? [{ id: "smtp", label: "SMTP công ty", icon: Mail }] : []),
           ].map((tab) => {
             const isActive = activeSubTab === tab.id;
             const Icon = tab.icon;
@@ -225,6 +228,7 @@ export default function SettingsTab() {
             {activeSubTab === "google-drive" && <GoogleDriveTab />}
             {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
             {activeSubTab === "branches" && userProfile?.role === "admin" && <BranchManagementTab />}
+            {activeSubTab === "smtp" && userProfile?.role === "admin" && <CompanySmtpSettingsTab />}
           </Suspense>
         </div>
 

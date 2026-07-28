@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -17,6 +17,8 @@ const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
+const CelebrationEmailTab = lazy(() => import("../components/hr/CelebrationEmailTab"));
+const CELEBRATION_TAB = "EMAIL CHÚC MỪNG" as HRSubTabType;
 
 export default function HRTab() {
   const { userProfile, hasPermission } = useAuth();
@@ -34,6 +36,7 @@ export default function HRTab() {
   const canManageOrgChart = isManager || hasPermission("user:manage");
   const canManageKanban = isManager || hasPermission("kanban:manage");
   const canViewPayroll = hasPermission("payroll:read") || hasPermission("payroll:manage");
+  const canManageCelebration = userProfile?.role === "admin" || hasPermission("company-email:manage");
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -158,6 +161,7 @@ export default function HRTab() {
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
             { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
             ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
+            ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
             const Icon = tab.icon;
@@ -249,6 +253,7 @@ export default function HRTab() {
         )}
 
         {subTab === "PAYROLL" && <PayrollTab canManage={hasPermission("payroll:manage")} />}
+        {subTab === CELEBRATION_TAB && canManageCelebration && <CelebrationEmailTab />}
         {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} />}
         {subTab === "LỊCH" && (
           <CalendarTab

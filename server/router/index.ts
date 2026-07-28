@@ -24,6 +24,7 @@ import { faceManagementRouter } from "./face-management.router";
 import { payrollRouter } from "./payroll.router";
 import { leaveRouter } from "./leave.router";
 import { hrContractRouter } from "./hr-contract.router";
+import { companyEmailRouter } from "./company-email.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -69,6 +70,7 @@ apiRouter.use("/timekeeping", requireAuth as any, requireModule("hr"), timekeepi
 apiRouter.use("/payroll", payrollRouter);
 apiRouter.use("/leave", leaveRouter);
 apiRouter.use("/hr-contracts", hrContractRouter);
+apiRouter.use("/company-email", companyEmailRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);

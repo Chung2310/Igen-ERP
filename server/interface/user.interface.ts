@@ -104,6 +104,7 @@ export interface IUser extends Document {
   photoURL?: string;
   role: string;
   createdAt: Date;
+  birthDate?: Date;
   facebookIntegration?: IFacebookIntegration | null;
   tiktokIntegration?: ITikTokIntegration | null;
   zaloIntegration?: IZaloIntegration | null;

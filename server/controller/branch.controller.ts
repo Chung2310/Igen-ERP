@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { BranchModel } from "../model/branch.model";
 
 const company = (req: AuthenticatedRequest) => String(req.user?.companyCode || "").trim().toUpperCase();
-const canManage = (req: AuthenticatedRequest) => ["admin", "superadmin"].includes(String(req.user?.role || ""));
+const canManage = (req: AuthenticatedRequest) => ["admin", "superadmin", "branch_owner"].includes(String(req.user?.role || ""));
 async function ensureDefaultBranch(companyCode: string) {
   const existing = await BranchModel.findOne({ companyCode }).lean();
   if (existing) return existing;
@@ -33,7 +33,8 @@ export const branchController = {
   },
   async update(req: AuthenticatedRequest, res: Response) {
     if (!canManage(req)) return res.status(403).json({ status: "error", message: "Không có quyền quản lý chi nhánh." });
-    const filter = { _id: req.params.id, companyCode: company(req) };
+    const filter: Record<string, unknown> = { _id: req.params.id, companyCode: company(req) };
+    if (req.user?.role === "branch_owner" && req.user.branchId) filter._id = req.user.branchId;
     const updates: Record<string, unknown> = {};
     for (const field of ["code", "name", "address", "phone", "managerId", "locationConfig", "isActive"]) {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) updates[field] = req.body[field];

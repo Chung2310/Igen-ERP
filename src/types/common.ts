@@ -23,9 +23,10 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "manager" | "admin" | "superadmin";
+  role: "user" | "manager" | "branch_owner" | "admin" | "superadmin";
   permissions?: string[];
   createdAt: any;
+  birthDate?: string;
   jobTitle?: string;
   department?: string;
   jobDescriptionLink?: string;
