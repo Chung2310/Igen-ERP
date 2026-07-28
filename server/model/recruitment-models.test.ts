@@ -123,4 +123,9 @@ describe("recruitment model schemas", () => {
       }),
     );
   });
+
+  it("stores public JD and CV link metadata on their owners", () => {
+    for (const field of ["jdFileUrl", "jdFilePublicId"]) expect(RecruitmentJobModel.schema.path(field)?.options.default).toBe("");
+    for (const field of ["cvUrl", "cvPublicId"]) expect(RecruitmentApplicantModel.schema.path(field)?.options.default).toBe("");
+  });
 });

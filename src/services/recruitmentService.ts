@@ -1,5 +1,5 @@
 import { getAccessToken } from "./authService";
-import type { RecruitmentApplicant, RecruitmentAttachment, RecruitmentHistory, RecruitmentInterview, RecruitmentJob, RecruitmentPipeline } from "../types/recruitment";
+import type { RecruitmentApplicant, RecruitmentAttachment, RecruitmentHistory, RecruitmentInterview, RecruitmentJob, RecruitmentPipeline, RecruitmentPublicFile } from "../types/recruitment";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const isForm = init.body instanceof FormData;
@@ -41,4 +41,6 @@ export const recruitmentApi = {
   uploadApplicantAttachment: (applicantId: string, file: File, version?: number) => { const form = new FormData(); form.append("file", file); if (version !== undefined) form.append("version", String(version)); return request<RecruitmentAttachment>(`/applicants/${applicantId}/attachment`, { method: "POST", body: form }); },
   downloadAttachment: (id: string) => request<{ signedUrl: string; originalName: string }>(`/attachments/${id}/download`),
   deleteAttachment: (id: string) => request(`/attachments/${id}`, { method: "DELETE" }),
+  uploadPublicFile: (file: File) => { const form = new FormData(); form.append("file", file); return request<RecruitmentPublicFile>("/files/public", { method: "POST", body: form }); },
+  deleteTemporaryPublicFile: (publicId: string) => request("/files/public", json("DELETE", { publicId })),
 };

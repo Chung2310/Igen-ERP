@@ -11,6 +11,8 @@ const RecruitmentJobSchema = new Schema(
     description: { type: String, default: "" },
     requirements: { type: String, default: "" },
     benefits: { type: String, default: "" },
+    jdFileUrl: { type: String, default: "", trim: true },
+    jdFilePublicId: { type: String, default: "", trim: true },
     salaryMin: { type: Number, default: null },
     salaryMax: { type: Number, default: null },
     showSalary: { type: Boolean, default: false },

@@ -21,6 +21,7 @@ export interface PrivateImageAsset {
 }
 
 export type PrivateRawAsset = PrivateImageAsset;
+export type PublicRawAsset = { publicId: string; secureUrl: string; bytes: number };
 
 export const cloudinaryService = {
   /**
@@ -155,6 +156,27 @@ export const cloudinaryService = {
       );
       uploadStream.end(buffer);
     });
+  },
+
+  async uploadPublicRaw(buffer: Buffer, folder: string, filename: string): Promise<PublicRawAsset> {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) throw new Error("Cloudinary configuration is incomplete");
+    ensureConfigured();
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, public_id: filename, resource_type: "raw", type: "upload", use_filename: false },
+        (error, result) => {
+          if (error) return reject(new Error(`Public Cloudinary upload failed: ${error.message || error}`));
+          if (!result?.public_id || !result.secure_url || typeof result.bytes !== "number") return reject(new Error("Cloudinary returned incomplete public asset metadata"));
+          resolve({ publicId: result.public_id, secureUrl: result.secure_url, bytes: result.bytes });
+        },
+      );
+      stream.end(buffer);
+    });
+  },
+
+  async deletePublicRaw(publicId: string): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, { resource_type: "raw", type: "upload", invalidate: true });
   },
 
   createSignedImageUrl(publicId: string, expiresAt: Date): string {
