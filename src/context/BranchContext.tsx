@@ -13,6 +13,18 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const canSwitch = userProfile?.role === "admin";
   useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (!url.includes("/api/v1/") || !userProfile?.companyCode) return originalFetch(input, init);
+      const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+      const selected = localStorage.getItem(`igen.activeBranch.${userProfile.companyCode}`);
+      if (selected) headers.set("x-branch-id", selected);
+      return originalFetch(input, { ...init, headers });
+    };
+    return () => { window.fetch = originalFetch; };
+  }, [userProfile?.companyCode]);
+  useEffect(() => {
     if (!userProfile?.companyCode || !canSwitch) { setBranches([]); setActiveBranchIdState(userProfile?.branchId || ""); return; }
     const load = async () => {
       setLoading(true);
