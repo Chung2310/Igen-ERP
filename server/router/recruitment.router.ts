@@ -50,6 +50,8 @@ recruitmentRouter.get("/applicants/:applicantId/attachment", controller.getAppli
 recruitmentRouter.post("/applicants/:applicantId/attachment", upload.single("file"), controller.uploadApplicantAttachment);
 recruitmentRouter.get("/attachments/:id/download", controller.downloadAttachment);
 recruitmentRouter.delete("/attachments/:id", controller.deleteAttachment);
+recruitmentRouter.post("/files/public", upload.single("file"), controller.uploadPublicFile);
+recruitmentRouter.delete("/files/public", controller.deletePublicFile);
 
 recruitmentRouter.use((error: any, _req: RecruitmentRequest, res: Response, _next: NextFunction) => {
   const message = error?.message || "Recruitment request failed";

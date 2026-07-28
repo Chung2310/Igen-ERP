@@ -4,7 +4,8 @@ import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model"
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import { RecruitmentStageHistoryModel } from "../model/recruitment-stage-history.model";
-import { createApplicant, transitionApplicant } from "./recruitment-applicant.service";
+import { cloudinaryService } from "./cloudinary.service";
+import { createApplicant, transitionApplicant, updateApplicant } from "./recruitment-applicant.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 
@@ -57,5 +58,14 @@ describe("recruitment applicant service", () => {
     await transitionApplicant(scope, "app", 0, "actor", "screen");
     expect(withTransaction).toHaveBeenCalledOnce();
     expect(endSession).toHaveBeenCalledOnce();
+  });
+  it("clears ownership for a manually pasted CV URL and cleans the previous asset after update", async () => {
+    vi.spyOn(RecruitmentApplicantModel, "findOne").mockReturnValue({ lean: async () => ({ cvUrl: "old-url", cvPublicId: "old-id" }) } as any);
+    const update = vi.spyOn(RecruitmentApplicantModel, "findOneAndUpdate").mockResolvedValue({ cvUrl: "external-url", cvPublicId: "" } as any);
+    const remove = vi.spyOn(cloudinaryService, "deletePublicRaw").mockResolvedValue();
+    await updateApplicant(scope, "app", 1, "actor", { cvUrl: "external-url" });
+    expect(update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ $set: expect.objectContaining({ cvUrl: "external-url", cvPublicId: "" }) }), expect.anything());
+    expect(update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
+    expect(remove).toHaveBeenCalledWith("old-id");
   });
 });

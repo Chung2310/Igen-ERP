@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Columns3, List, Plus } from "lucide-react";
+import { Columns3, List, Pencil, Plus } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
 import type {
   RecruitmentApplicant,
@@ -19,6 +19,7 @@ import {
   RECRUITMENT_FILE_ACCEPT,
   validateRecruitmentFile,
 } from "./recruitmentFile";
+import { applicantOutcomeLabels } from "./recruitmentLabels";
 
 export default function RecruitmentApplicantsView() {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[]>([]);
@@ -28,6 +29,7 @@ export default function RecruitmentApplicantsView() {
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"list" | "kanban">("list");
   const [adding, setAdding] = useState(false);
+  const [editingApplicant, setEditingApplicant] = useState<RecruitmentApplicant | null>(null);
   const [selected, setSelected] = useState<RecruitmentApplicant | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +115,7 @@ export default function RecruitmentApplicantsView() {
                 <th className="px-4 py-3">Nguồn</th>
                 <th className="px-4 py-3">Giai đoạn</th>
                 <th className="px-4 py-3">Kết quả</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -148,7 +151,8 @@ export default function RecruitmentApplicantsView() {
                         ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 capitalize">{a.outcome}</td>
+                  <td className="px-4 py-3">{applicantOutcomeLabels[a.outcome]}</td>
+                  <td className="px-4 py-3 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -193,12 +197,14 @@ export default function RecruitmentApplicantsView() {
             ))}
         </div>
       )}
-      {adding && (
+      {(adding || editingApplicant) && (
         <ApplicantForm
-          jobs={jobs.filter((j) => j.status === "open")}
-          onClose={() => setAdding(false)}
+          jobs={editingApplicant ? jobs : jobs.filter((j) => j.status === "open")}
+          applicant={editingApplicant}
+          onClose={() => { setAdding(false); setEditingApplicant(null); }}
           onSaved={async () => {
             setAdding(false);
+            setEditingApplicant(null);
             await load();
           }}
         />
@@ -216,32 +222,22 @@ export default function RecruitmentApplicantsView() {
 
 function ApplicantForm({
   jobs,
+  applicant,
   onClose,
   onSaved,
 }: {
   jobs: RecruitmentJob[];
+  applicant: RecruitmentApplicant | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
-    jobId: jobs[0]?._id || "",
-    fullName: "",
-    email: "",
-    phone: "",
-    birthDate: "",
-    address: "",
-    experience: "",
-    education: "",
-    skills: "",
-    expectedSalary: "",
-    availableDate: "",
-    source: "",
-    notes: "",
-  });
+  const [form, setForm] = useState<any>(applicant ? { ...applicant, birthDate: applicant.birthDate?.slice(0, 10) || "", availableDate: applicant.availableDate?.slice(0, 10) || "", skills: applicant.skills?.join(", ") || "", expectedSalary: applicant.expectedSalary ?? "", cvUrl: applicant.cvUrl || "", cvPublicId: applicant.cvPublicId || "" } : { jobId: jobs[0]?._id || "", fullName: "", email: "", phone: "", birthDate: "", address: "", experience: "", education: "", skills: "", expectedSalary: "", availableDate: "", source: "", notes: "", cvUrl: "", cvPublicId: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [savedApplicantId, setSavedApplicantId] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [temporaryPublicId, setTemporaryPublicId] = useState("");
+  const [saved, setSaved] = useState(false);
   const fields = useMemo(
     () =>
       [
@@ -261,43 +257,16 @@ function ApplicantForm({
     setSaving(true);
     setError("");
     try {
-      let applicantId = savedApplicantId;
-      if (!applicantId) {
-        const result = await recruitmentApi.createApplicant({
-          ...form,
-          skills: form.skills
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-          expectedSalary: form.expectedSalary
-            ? Number(form.expectedSalary)
-            : null,
-          birthDate: form.birthDate || null,
-          availableDate: form.availableDate || null,
-          confirmDuplicate,
-        });
+      const payload = { ...form, skills: String(form.skills || "").split(",").map((s) => s.trim()).filter(Boolean), expectedSalary: form.expectedSalary ? Number(form.expectedSalary) : null, birthDate: form.birthDate || null, availableDate: form.availableDate || null };
+      if (applicant) await recruitmentApi.updateApplicant(applicant._id, { ...payload, version: applicant.version });
+      else {
+        const result = await recruitmentApi.createApplicant({ ...payload, confirmDuplicate });
         if (result.duplicateWarning) {
-          if (
-            confirm(
-              "Đã có hồ sơ trùng email hoặc điện thoại trong chi nhánh. Vẫn tạo hồ sơ mới?",
-            )
-          )
-            return submit(e, true);
-          return;
-        }
-        applicantId = result._id;
-        setSavedApplicantId(applicantId);
-      }
-      if (file) {
-        try {
-          await recruitmentApi.uploadApplicantAttachment(applicantId, file);
-        } catch (uploadError: any) {
-          setError(
-            `Ứng viên đã được lưu nhưng tải CV thất bại: ${uploadError.message}. Hãy thử lại.`,
-          );
+          if (confirm("Đã có hồ sơ trùng email hoặc điện thoại trong chi nhánh. Vẫn tạo hồ sơ mới?")) return submit(e, true);
           return;
         }
       }
+      setSaved(true);
       await onSaved();
     } catch (err: any) {
       setError(err.message);
@@ -305,8 +274,17 @@ function ApplicantForm({
       setSaving(false);
     }
   };
+  const chooseFile = async (next?: File) => {
+    if (!next) return;
+    const message = validateRecruitmentFile(next); setError(message); if (message) return;
+    setFile(next); setUploading(true);
+    try { const uploaded = await recruitmentApi.uploadPublicFile(next); setForm((old: any) => ({ ...old, cvUrl: uploaded.url, cvPublicId: uploaded.publicId })); setTemporaryPublicId(uploaded.publicId); }
+    catch (e: any) { setError(e.message); }
+    finally { setUploading(false); }
+  };
+  const close = () => { if (!saved && temporaryPublicId) void recruitmentApi.deleteTemporaryPublicFile(temporaryPublicId).catch(() => undefined); onClose(); };
   return (
-    <RecruitmentDialog title="Thêm ứng viên" onClose={onClose}>
+    <RecruitmentDialog title={applicant ? "Sửa ứng viên" : "Thêm ứng viên"} onClose={close}>
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
         <label className={`${labelClass} sm:col-span-2`}>
@@ -375,28 +353,19 @@ function ApplicantForm({
             type="file"
             accept={RECRUITMENT_FILE_ACCEPT}
             className={fieldClass}
-            onChange={(e) => {
-              const next = e.target.files?.[0];
-              if (!next) return;
-              const message = validateRecruitmentFile(next);
-              setError(message);
-              if (!message) setFile(next);
-            }}
+            onChange={(e) => void chooseFile(e.target.files?.[0])}
           />
           <span className="font-normal text-slate-500">
-            {file?.name || "Chưa có tệp"}
+            {uploading ? "Đang tải lên..." : file?.name || "Chưa có tệp"}
           </span>
         </label>
+        <label className={`${labelClass} sm:col-span-2`}>Link CV<input aria-label="Link CV" type="url" className={fieldClass} value={form.cvUrl || ""} onChange={(e) => setForm({ ...form, cvUrl: e.target.value, cvPublicId: "" })} /></label>
         <div className="flex justify-end gap-2 sm:col-span-2">
-          <button type="button" className={secondaryButton} onClick={onClose}>
+          <button type="button" className={secondaryButton} onClick={close}>
             Hủy
           </button>
-          <button className={primaryButton} disabled={saving}>
-            {saving
-              ? "Đang lưu..."
-              : savedApplicantId
-                ? "Thử tải lại CV"
-                : "Thêm ứng viên"}
+          <button className={primaryButton} disabled={saving || uploading}>
+            {saving ? "Đang lưu..." : applicant ? "Lưu thay đổi" : "Thêm ứng viên"}
           </button>
         </div>
       </form>

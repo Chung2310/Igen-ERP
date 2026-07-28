@@ -5,6 +5,7 @@ import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import { RecruitmentStageHistoryModel } from "../model/recruitment-stage-history.model";
 import { UserModel } from "../model/user.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
+import { cloudinaryService } from "./cloudinary.service";
 
 type ApplicantInput = Record<string, any> & { jobId: string; fullName: string };
 const normalizeEmail = (value: unknown) => String(value || "").trim().toLowerCase();
@@ -71,6 +72,13 @@ export function listApplicantHistory(scope: RecruitmentScope, applicantId: strin
 export async function updateApplicant(scope: RecruitmentScope, id: string, version: number, actorId: string, input: Record<string, any>) {
   await validateRecruiter(scope, input.recruiterId);
   const { companyCode: _companyCode, branchId: _branchId, stageId: _stageId, outcome: _outcome, version: _version, ...safe } = input;
+  let previousPublicId = "";
+  if ("cvUrl" in safe || "cvPublicId" in safe) {
+    const current: any = await RecruitmentApplicantModel.findOne({ _id: id, ...scope, isDeleted: false }).lean();
+    if (!current) throw new Error("Applicant not found");
+    previousPublicId = current.cvPublicId || "";
+    if (safe.cvUrl !== current.cvUrl && !safe.cvPublicId) safe.cvPublicId = "";
+  }
   if ("email" in safe) safe.normalizedEmail = normalizeEmail(safe.email);
   if ("phone" in safe) safe.normalizedPhone = normalizePhone(safe.phone);
   const updated = await RecruitmentApplicantModel.findOneAndUpdate(
@@ -79,6 +87,7 @@ export async function updateApplicant(scope: RecruitmentScope, id: string, versi
     { new: true, runValidators: true },
   );
   if (!updated) throw new Error("Applicant version conflict");
+  if (previousPublicId && previousPublicId !== (updated as any).cvPublicId) await cloudinaryService.deletePublicRaw(previousPublicId).catch((error) => console.warn("[recruitment-applicant] Public CV cleanup failed:", (error as Error).message));
   return updated;
 }
 

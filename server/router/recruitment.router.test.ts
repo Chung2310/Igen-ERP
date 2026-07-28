@@ -25,4 +25,9 @@ describe("recruitment router", () => {
       expect(routes).toContainEqual(expect.objectContaining({ path, methods: expect.objectContaining({ post: true }) }));
     }
   });
+  it("exposes public upload and cleanup routes", () => {
+    const routes = (recruitmentRouter as any).stack.filter((layer: any) => layer.route).map((layer: any) => ({ path: layer.route.path, methods: layer.route.methods }));
+    expect(routes).toContainEqual(expect.objectContaining({ path: "/files/public", methods: expect.objectContaining({ post: true }) }));
+    expect(routes).toContainEqual(expect.objectContaining({ path: "/files/public", methods: expect.objectContaining({ delete: true }) }));
+  });
 });

@@ -24,6 +24,20 @@ function validateFile(file: Express.Multer.File) {
   return { originalName, extension };
 }
 
+const publicFolder = (scope: RecruitmentScope) => `igen_erp/recruitment/${scope.companyCode.toLowerCase()}/${scope.branchId}`;
+
+export async function uploadPublicRecruitmentFile(scope: RecruitmentScope, file: Express.Multer.File) {
+  const { originalName, extension } = validateFile(file);
+  const asset = await cloudinaryService.uploadPublicRaw(file.buffer, publicFolder(scope), `${randomUUID()}${extension}`);
+  return { url: asset.secureUrl, publicId: asset.publicId, originalName, size: asset.bytes };
+}
+
+export async function deleteTemporaryPublicRecruitmentFile(scope: RecruitmentScope, publicId: string) {
+  if (!publicId.startsWith(`${publicFolder(scope)}/`)) throw new Error("Invalid public file scope");
+  await cloudinaryService.deletePublicRaw(publicId);
+  return { publicId };
+}
+
 async function validateOwner(scope: RecruitmentScope, ownerType: RecruitmentAttachmentOwner, ownerId: string) {
   const owner = ownerType === "job"
     ? await RecruitmentJobModel.findOne({ _id: ownerId, ...scope, isDeleted: false }).lean()

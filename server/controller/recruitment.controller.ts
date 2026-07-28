@@ -47,4 +47,6 @@ export const recruitmentController = {
   uploadApplicantAttachment: asyncHandler(async (req, res) => { if (!req.file) throw new Error("Attachment is required"); ok(res, await attachments.uploadOwnerAttachment(scope(req), actor(req), "applicant", req.params.applicantId, req.file, req.body.version === undefined ? undefined : Number(req.body.version)), 201); }),
   downloadAttachment: asyncHandler(async (req, res) => ok(res, await attachments.downloadApplicantAttachment(scope(req), req.params.id))),
   deleteAttachment: asyncHandler(async (req, res) => ok(res, await attachments.deleteApplicantAttachment(scope(req), req.params.id, actor(req)))),
+  uploadPublicFile: asyncHandler(async (req, res) => { if (!req.file) throw new Error("Attachment is required"); ok(res, await attachments.uploadPublicRecruitmentFile(scope(req), req.file), 201); }),
+  deletePublicFile: asyncHandler(async (req, res) => ok(res, await attachments.deleteTemporaryPublicRecruitmentFile(scope(req), String(req.body.publicId || "")))),
 };

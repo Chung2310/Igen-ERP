@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Archive, CirclePause, Download, Plus, RefreshCw } from "lucide-react";
+import { Archive, CirclePause, Pencil, Plus, RefreshCw } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
 import type {
-  RecruitmentAttachment,
   RecruitmentJob,
   RecruitmentJobStatus,
 } from "../../../types/recruitment";
@@ -18,6 +17,7 @@ import {
   RECRUITMENT_FILE_ACCEPT,
   validateRecruitmentFile,
 } from "./recruitmentFile";
+import { jobStatusLabels } from "./recruitmentLabels";
 
 const emptyJob = {
   code: "",
@@ -34,12 +34,7 @@ const emptyJob = {
   showSalary: false,
   status: "draft" as const,
 };
-const statusLabel: Record<RecruitmentJobStatus, string> = {
-  draft: "Nháp",
-  open: "Đang tuyển",
-  paused: "Tạm dừng",
-  closed: "Đã đóng",
-};
+const statusLabel: Record<RecruitmentJobStatus, string> = jobStatusLabels;
 
 export default function RecruitmentJobsView() {
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
@@ -187,6 +182,7 @@ export default function RecruitmentJobsView() {
                       >
                         <Archive className="h-4 w-4" />
                       </button>
+                      <button type="button" title={`Sửa tin tuyển dụng ${job.code}`} aria-label={`Sửa tin tuyển dụng ${job.code}`} className={secondaryButton} onClick={() => setEditing(job)}><Pencil className="h-4 w-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -229,58 +225,19 @@ function JobDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [attachment, setAttachment] = useState<RecruitmentAttachment | null>(
-    null,
-  );
-  const [savedJob, setSavedJob] = useState<RecruitmentJob | null>(null);
-  useEffect(() => {
-    if (!job) return;
-    recruitmentApi
-      .getJobAttachment(job._id)
-      .then(setAttachment)
-      .catch((e) => setError(e.message));
-  }, [job]);
+  const [uploading, setUploading] = useState(false);
+  const [temporaryPublicId, setTemporaryPublicId] = useState("");
+  const [saved, setSaved] = useState(false);
   const set = (key: string, value: any) =>
     setForm((old: any) => ({ ...old, [key]: value }));
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
-    let owner = savedJob;
     try {
-      if (!owner) {
-        const payload = {
-          ...form,
-          headcount: Number(form.headcount),
-          applicationDeadline: form.applicationDeadline || null,
-        };
-        owner = job
-          ? await recruitmentApi.updateJob(job._id, {
-              ...payload,
-              version: job.version,
-            })
-          : await recruitmentApi.createJob(payload);
-        setSavedJob(owner);
-      }
-      if (file) {
-        try {
-          setAttachment(
-            attachment
-              ? await recruitmentApi.uploadJobAttachment(
-                  owner._id,
-                  file,
-                  attachment.version,
-                )
-              : await recruitmentApi.uploadJobAttachment(owner._id, file),
-          );
-          setFile(null);
-        } catch (uploadError: any) {
-          setError(
-            `Tin tuyển dụng đã được lưu nhưng tải File JD thất bại: ${uploadError.message}. Hãy thử lại.`,
-          );
-          return;
-        }
-      }
+      const payload = { ...form, headcount: Number(form.headcount), applicationDeadline: form.applicationDeadline || null };
+      job ? await recruitmentApi.updateJob(job._id, { ...payload, version: job.version }) : await recruitmentApi.createJob(payload);
+      setSaved(true);
       await onSaved();
     } catch (err: any) {
       setError(err.message);
@@ -288,34 +245,21 @@ function JobDialog({
       setSaving(false);
     }
   };
-  const chooseFile = (next?: File) => {
+  const chooseFile = async (next?: File) => {
     if (!next) return;
     const message = validateRecruitmentFile(next);
     setError(message);
-    if (!message) setFile(next);
+    if (message) return;
+    setFile(next); setUploading(true);
+    try { const uploaded = await recruitmentApi.uploadPublicFile(next); setForm((old: any) => ({ ...old, jdFileUrl: uploaded.url, jdFilePublicId: uploaded.publicId })); setTemporaryPublicId(uploaded.publicId); }
+    catch (e: any) { setError(e.message); }
+    finally { setUploading(false); }
   };
-  const download = async () => {
-    if (!attachment) return;
-    try {
-      const result = await recruitmentApi.downloadAttachment(attachment._id);
-      window.open(result.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-  const removeAttachment = async () => {
-    if (!attachment || !confirm(`Xóa ${attachment.originalName}?`)) return;
-    try {
-      await recruitmentApi.deleteAttachment(attachment._id);
-      setAttachment(null);
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
+  const close = () => { if (!saved && temporaryPublicId) void recruitmentApi.deleteTemporaryPublicFile(temporaryPublicId).catch(() => undefined); onClose(); };
   return (
     <RecruitmentDialog
       title={job ? "Cập nhật tin tuyển dụng" : "Tạo tin tuyển dụng"}
-      onClose={onClose}
+      onClose={close}
     >
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
@@ -437,34 +381,16 @@ function JobDialog({
             onChange={(e) => chooseFile(e.target.files?.[0])}
           />
           <span className="font-normal text-slate-500">
-            {file?.name || attachment?.originalName || "Chưa có tệp"}
+            {uploading ? "Đang tải lên..." : file?.name || "Chưa có tệp"}
           </span>
         </label>
-        {attachment && (
-          <div className="flex gap-2 sm:col-span-2">
-            <button
-              type="button"
-              className={secondaryButton}
-              onClick={download}
-            >
-              <Download className="h-4 w-4" />
-              Tải xuống
-            </button>
-            <button
-              type="button"
-              className={secondaryButton}
-              onClick={removeAttachment}
-            >
-              Xóa
-            </button>
-          </div>
-        )}
+        <label className={`${labelClass} sm:col-span-2`}>Link JD<input aria-label="Link JD" type="url" className={fieldClass} value={form.jdFileUrl || ""} onChange={(e) => setForm((old: any) => ({ ...old, jdFileUrl: e.target.value, jdFilePublicId: "" }))} /></label>
         <div className="flex justify-end gap-2 sm:col-span-2">
-          <button type="button" className={secondaryButton} onClick={onClose}>
+          <button type="button" className={secondaryButton} onClick={close}>
             Hủy
           </button>
-          <button className={primaryButton} disabled={saving}>
-            {saving ? "Đang lưu..." : savedJob ? "Thử tải lại" : "Lưu"}
+          <button className={primaryButton} disabled={saving || uploading}>
+            {saving ? "Đang lưu..." : "Lưu"}
           </button>
         </div>
       </form>

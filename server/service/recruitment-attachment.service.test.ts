@@ -3,7 +3,7 @@ import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model"
 import { RecruitmentAttachmentModel } from "../model/recruitment-attachment.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { cloudinaryService } from "./cloudinary.service";
-import { downloadApplicantAttachment, uploadApplicantAttachment, uploadOwnerAttachment } from "./recruitment-attachment.service";
+import { deleteTemporaryPublicRecruitmentFile, downloadApplicantAttachment, uploadApplicantAttachment, uploadOwnerAttachment, uploadPublicRecruitmentFile } from "./recruitment-attachment.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 describe("recruitment attachment service", () => {
@@ -39,5 +39,14 @@ describe("recruitment attachment service", () => {
     );
     expect(update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect(remove).toHaveBeenCalledWith("old-key");
+  });
+  it("uploads and cleans up public files only inside the scoped recruitment folder", async () => {
+    vi.spyOn(cloudinaryService, "uploadPublicRaw").mockResolvedValue({ publicId: "igen_erp/recruitment/acme/branch-a/file", secureUrl: "https://cloudinary.test/file.pdf", bytes: 10 });
+    await expect(uploadPublicRecruitmentFile(scope, { originalname: "jd.pdf", mimetype: "application/pdf", size: 10, buffer: Buffer.from("pdf") } as any)).resolves.toEqual({ url: "https://cloudinary.test/file.pdf", publicId: "igen_erp/recruitment/acme/branch-a/file", originalName: "jd.pdf", size: 10 });
+    expect(cloudinaryService.uploadPublicRaw).toHaveBeenCalledWith(expect.any(Buffer), "igen_erp/recruitment/acme/branch-a", expect.stringMatching(/\.pdf$/));
+    const remove = vi.spyOn(cloudinaryService, "deletePublicRaw").mockResolvedValue();
+    await deleteTemporaryPublicRecruitmentFile(scope, "igen_erp/recruitment/acme/branch-a/file");
+    expect(remove).toHaveBeenCalledWith("igen_erp/recruitment/acme/branch-a/file");
+    await expect(deleteTemporaryPublicRecruitmentFile(scope, "igen_erp/recruitment/acme/other/file")).rejects.toThrow("Invalid public file scope");
   });
 });

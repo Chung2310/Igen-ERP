@@ -1,5 +1,6 @@
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
+import { cloudinaryService } from "./cloudinary.service";
 
 type JobStatus = "draft" | "open" | "paused" | "closed";
 type JobInput = Record<string, any> & { code?: string; status?: JobStatus };
@@ -75,7 +76,16 @@ export async function updateJob(
 ) {
   if (input.status === "open") assertReadyToOpen(input);
   const { companyCode: _companyCode, branchId: _branchId, version: _version, ...safeInput } = input;
-  return versionedUpdate(scope, id, version, actorId, { $set: safeInput }, false);
+  let previousPublicId = "";
+  if ("jdFileUrl" in safeInput || "jdFilePublicId" in safeInput) {
+    const current: any = await RecruitmentJobModel.findOne({ _id: id, ...scope, isDeleted: false }).lean();
+    if (!current) throw new Error("Job not found");
+    previousPublicId = current.jdFilePublicId || "";
+    if (safeInput.jdFileUrl !== current.jdFileUrl && !safeInput.jdFilePublicId) safeInput.jdFilePublicId = "";
+  }
+  const updated: any = await versionedUpdate(scope, id, version, actorId, { $set: safeInput }, false);
+  if (previousPublicId && previousPublicId !== updated.jdFilePublicId) await cloudinaryService.deletePublicRaw(previousPublicId).catch((error) => console.warn("[recruitment-job] Public JD cleanup failed:", (error as Error).message));
+  return updated;
 }
 
 export async function changeJobStatus(
