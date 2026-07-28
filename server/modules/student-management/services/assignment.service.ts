@@ -11,6 +11,7 @@ import { emitToUser } from "../../../socket";
 import { cloudinaryService } from "../../../service/cloudinary.service";
 import { logger } from "../config/logger";
 import { IAssignment } from "../interfaces/assignment.interface";
+import { companyEmailService } from "../../../service/company-email.service";
 
 type OwnerScope = string | string[];
 
@@ -33,6 +34,12 @@ async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | unde
       );
     }
 
+    const companyCode = owner?.companyCode || (typeof ownerId === "string" ? ownerId : undefined);
+    if (companyCode) {
+      const companySettings = await companyEmailService.resolveLegacySettings(companyCode);
+      if (companySettings) return companySettings;
+    }
+
     if (owner?.smtpHost && owner?.smtpUser && owner?.smtpPass) {
       return {
         smtpHost: owner.smtpHost,
@@ -45,7 +52,6 @@ async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | unde
       };
     }
 
-    const companyCode = owner?.companyCode || (typeof ownerId === "string" ? ownerId : undefined);
     if (companyCode) {
       const companyAdmin = await User.findOne({
         companyCode,

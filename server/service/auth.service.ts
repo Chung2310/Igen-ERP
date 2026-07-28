@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
+import { normalizeBirthDate } from "./birth-date";
 import { BranchModel } from "../model/branch.model";
 import { CompanyModel } from "../model/company.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
@@ -557,6 +558,7 @@ export const authService = {
       phone,
       jobDescriptionLink,
       branchId,
+      birthDate,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -611,6 +613,7 @@ export const authService = {
       jobTitle: role === "admin" ? "CEO" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
       phone: phone || "Chưa cập nhật",
       jobDescriptionLink: jobDescriptionLink || "",
+      birthDate: normalizeBirthDate(birthDate) || undefined,
       createdAt: new Date(),
       status: "offline",
       photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
@@ -627,6 +630,8 @@ export const authService = {
     if (!user) {
       throw new Error("Không tìm thấy người dùng");
     }
+
+    if (updateData.birthDate !== undefined) updateData.birthDate = normalizeBirthDate(updateData.birthDate);
 
     if (callerRole !== "superadmin") {
       delete updateData.companyCode;

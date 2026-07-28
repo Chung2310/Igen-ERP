@@ -1,4 +1,4 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG";
 
 /** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
 export interface TaskAttachment {

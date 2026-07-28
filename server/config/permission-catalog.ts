@@ -30,6 +30,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "chat:read", label: "Xem trò chuyện", group: "Trò chuyện" },
   { code: "resource:read", label: "Xem tài nguyên", group: "Tài nguyên" },
   { code: "resource:manage", label: "Quản lý tài nguyên & kết nối Google Drive", group: "Tài nguyên" },
+  { code: "company-email:manage", label: "Quản lý email chúc mừng", group: "Nhân sự" },
 ];
 
 export const PERMISSION_CODES = PERMISSION_CATALOG.map((entry) => entry.code);

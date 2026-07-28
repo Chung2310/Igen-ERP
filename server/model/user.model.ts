@@ -129,6 +129,7 @@ const UserSchema = new Schema<IUser>({
   photoURL: { type: String },
   role: { type: String, default: "user" },
   createdAt: { type: Date, default: Date.now },
+  birthDate: { type: Date },
   facebookIntegration: { type: FacebookIntegrationSchema, default: null },
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
