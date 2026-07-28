@@ -2,12 +2,14 @@ import { Response, NextFunction } from "express";
 import { requireAuth, AuthenticatedRequest } from "../../../middleware/auth";
 import { requireStudentBranch } from "../utils/auth.util";
 
+type StudentManagementRole = "superadmin" | "admin" | "branch_owner" | "manager" | "user";
+
 export interface AuthRequest extends AuthenticatedRequest {
   user?: {
     uid: string;
     id: string;
     email: string;
-    role: "superadmin" | "admin" | "manager" | "user";
+    role: StudentManagementRole;
     centerId: string;
     companyCode?: string;
     branchId?: string;
@@ -31,7 +33,9 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       branchId: erpUser.branchId,
     };
 
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && req.user.role === "admin" && !req.user.branchId) {
+    // Tenant-scoped student/payment roles must fail closed on reads and writes.
+    // Superadmin and legacy user callers remain explicitly branch-optional.
+    if (["admin", "manager", "branch_owner"].includes(req.user.role) && !req.user.branchId) {
       try {
         requireStudentBranch(req.user);
       } catch (error) {
@@ -43,7 +47,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   });
 }
 
-export function requireRoles(...roles: Array<"superadmin" | "admin" | "manager" | "user">) {
+export function requireRoles(...roles: StudentManagementRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ success: false, error: "Chưa xác thực." });

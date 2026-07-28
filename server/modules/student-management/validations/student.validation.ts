@@ -10,6 +10,11 @@ export const idParamSchema = Joi.object({
   id: objectIdSchema.required(),
 });
 
+export const installmentParamsSchema = Joi.object({
+  id: objectIdSchema.required(),
+  no: Joi.number().integer().positive().required(),
+});
+
 const uploadedFileSchema = Joi.object({
   _id: Joi.any().optional(),
   name: Joi.string().required(),

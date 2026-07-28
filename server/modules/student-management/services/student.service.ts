@@ -82,10 +82,9 @@ function buildBranchScopeQuery(branchId?: string) {
 async function ensureUniqueFieldsInScope(
   ownerScope: string | string[],
   data: StudentUpdateData,
+  branchId?: string,
   excludeId?: string
 ) {
-  const isDriving = false;
-
   const checks: Array<{ field: "email" | "phone" | "idCard"; value: string; message: string }> = [
     {
       field: "email",
@@ -105,15 +104,13 @@ async function ensureUniqueFieldsInScope(
   ];
 
   for (const check of checks) {
-    if (check.field === "idCard" && !isDriving) {
-      continue;
-    }
     if (!check.value) {
       continue;
     }
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerScope),
+      ...buildBranchScopeQuery(branchId),
       [check.field]: check.value,
     };
 
@@ -152,7 +149,8 @@ export class StudentService {
       courseId: typeof writeData.courseId === "string" ? writeData.courseId.trim() : writeData.courseId,
     };
 
-    await ensureUniqueFieldsInScope(ownerScope, normalizedPayload);
+    const branchId = typeof writeData.branchId === "string" ? writeData.branchId : undefined;
+    await ensureUniqueFieldsInScope(ownerScope, normalizedPayload, branchId);
 
     const student = new Student({
       ...normalizedPayload,
@@ -257,7 +255,7 @@ export class StudentService {
       writeData.courseId = writeData.courseId.trim();
     }
 
-    await ensureUniqueFieldsInScope(ownerScope, writeData, id);
+    await ensureUniqueFieldsInScope(ownerScope, writeData, branchId, id);
 
     if (writeData.paymentHistory && Array.isArray(writeData.paymentHistory)) {
       const history = writeData.paymentHistory as Record<string, unknown>[];
