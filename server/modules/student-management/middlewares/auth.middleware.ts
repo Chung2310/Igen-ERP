@@ -9,6 +9,7 @@ export interface AuthRequest extends AuthenticatedRequest {
     role: "superadmin" | "admin" | "manager" | "user";
     centerId: string;
     companyCode?: string;
+    branchId?: string;
   };
 }
 
@@ -26,6 +27,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       role: erpUser.role as AuthRequest["user"]["role"],
       centerId: erpUser.companyCode || "SYSTEM",
       companyCode: erpUser.companyCode,
+      branchId: erpUser.branchId,
     };
     next();
   });
