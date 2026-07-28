@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { requireAuth, AuthenticatedRequest } from "../../../middleware/auth";
+import { requireStudentBranch } from "../utils/auth.util";
 
 export interface AuthRequest extends AuthenticatedRequest {
   user?: {
@@ -9,6 +10,7 @@ export interface AuthRequest extends AuthenticatedRequest {
     role: "superadmin" | "admin" | "manager" | "user";
     centerId: string;
     companyCode?: string;
+    branchId?: string;
   };
 }
 
@@ -26,7 +28,17 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       role: erpUser.role as AuthRequest["user"]["role"],
       centerId: erpUser.companyCode || "SYSTEM",
       companyCode: erpUser.companyCode,
+      branchId: erpUser.branchId,
     };
+
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && req.user.role === "admin" && !req.user.branchId) {
+      try {
+        requireStudentBranch(req.user);
+      } catch (error) {
+        return res.status(400).json({ success: false, error: (error as Error).message });
+      }
+    }
+
     next();
   });
 }

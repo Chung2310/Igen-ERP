@@ -36,6 +36,7 @@ export interface IBatch extends Document {
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;
   ownerId: string;
+  branchId?: string;
   attendanceSessions: IAttendanceSession[];
   createdAt?: Date;
   updatedAt?: Date;

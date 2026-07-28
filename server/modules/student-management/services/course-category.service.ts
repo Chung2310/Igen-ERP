@@ -18,7 +18,7 @@ export class CourseCategoryService {
     return await CourseCategory.find(query).sort({ createdAt: 1 });
   }
 
-  static async createCategory(ownerId: string, name: string): Promise<ICourseCategory> {
+  static async createCategory(ownerId: string, name: string, branchId?: string): Promise<ICourseCategory> {
     const trimmedName = name.trim();
     logger.info(`[CourseCategory] Creating category "${trimmedName}" for ownerId: ${ownerId}`);
 
@@ -27,7 +27,7 @@ export class CourseCategoryService {
       throw new Error(`Phân loại "${trimmedName}" đã tồn tại.`);
     }
 
-    const category = new CourseCategory({ name: trimmedName, ownerId });
+    const category = new CourseCategory({ name: trimmedName, ownerId, branchId });
     return await category.save();
   }
 

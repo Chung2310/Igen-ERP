@@ -22,7 +22,7 @@ export class StudentController {
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
-      const student = await StudentService.createStudent(ownerId, centerOwnerIds, req.body, {
+      const student = await StudentService.createStudent(ownerId, centerOwnerIds, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "students",
         actorRole: req.user!.role,
@@ -130,7 +130,7 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Du lieu hoc vien khong hop le." });
       }
 
-      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId);
+      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId, req.user!.branchId);
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -165,7 +165,7 @@ export class StudentController {
 
       // Public registration has no dynamic-field UI and is intentionally exempt
       // from admin-form custom-field requirements.
-      const student = await StudentService.createStudent(teacherId, teacherScope, payload);
+      const student = await StudentService.createStudent(teacherId, teacherScope, { ...payload, branchId: teacher.branchId });
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";

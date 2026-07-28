@@ -32,6 +32,7 @@ const resourceSchema = new Schema<IResource>(
     },
     bookings: { type: [bookingSchema], default: [] },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

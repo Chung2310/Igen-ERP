@@ -15,6 +15,7 @@ export interface ICourse extends Document {
   activeBatches: number;
   status: CourseStatus;
   ownerId: string;
+  branchId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -28,13 +28,16 @@ function toIsoDateString(value?: string) {
 }
 
 export const inventoryStockLogService = {
-  subscribe(callback: (logs: StockLog[]) => void, onError?: (error: unknown) => void) {
+  subscribe(branchId: string, callback: (logs: StockLog[]) => void, onError?: (error: unknown) => void) {
+    const controller = new AbortController();
     const fetchLogs = async () => {
       try {
         const res = await fetch("/api/v1/crud/stock-logs?sort=-createdAt", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
+            "x-branch-id": branchId,
           },
+          signal: controller.signal,
         });
         if (!res.ok) {
           throw new Error("Không thể tải lịch sử kho hàng.");
@@ -51,8 +54,10 @@ export const inventoryStockLogService = {
               ? item.createdAt
               : new Date(item.createdAt || Date.now()).toISOString(),
         }));
+        if (controller.signal.aborted) return;
         callback(logs);
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (onError) {
           onError(err);
         } else {
@@ -63,7 +68,10 @@ export const inventoryStockLogService = {
 
     fetchLogs();
     const interval = setInterval(fetchLogs, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   },
 
   async createLog(input: StockLogCreateInput): Promise<string> {

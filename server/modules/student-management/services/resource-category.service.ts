@@ -15,7 +15,7 @@ export class ResourceCategoryService {
     return await ResourceCategory.find(query).sort({ createdAt: 1 });
   }
 
-  static async createCategory(ownerId: string, name: string): Promise<IResourceCategory> {
+  static async createCategory(ownerId: string, name: string, branchId?: string): Promise<IResourceCategory> {
     const trimmedName = name.trim();
     logger.info(`[ResourceCategory] Creating category "${trimmedName}" for ownerId: ${ownerId}`);
 
@@ -24,7 +24,7 @@ export class ResourceCategoryService {
       throw new Error(`Phân loại "${trimmedName}" đã tồn tại.`);
     }
 
-    const category = new ResourceCategory({ name: trimmedName, ownerId });
+    const category = new ResourceCategory({ name: trimmedName, ownerId, branchId });
     return await category.save();
   }
 

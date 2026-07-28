@@ -25,6 +25,7 @@ const examSchema = new Schema<IExam>(
     passCount: { type: Number, default: 0 },
     failCount: { type: Number, default: 0 },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

@@ -22,6 +22,7 @@ const courseSchema = new Schema<ICourse>(
       index: true,
     },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
   },
   {
     timestamps: true,

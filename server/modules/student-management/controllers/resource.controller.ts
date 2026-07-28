@@ -11,7 +11,7 @@ export class ResourceController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const resource = await ResourceService.createResource(ownerId, req.body, {
+      const resource = await ResourceService.createResource(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "resources",
         actorRole: req.user!.role,
