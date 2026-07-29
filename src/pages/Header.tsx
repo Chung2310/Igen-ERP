@@ -11,7 +11,6 @@ import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { authService } from "../services/authService";
-import { walletService } from "../services/walletService";
 import { isTabHidden } from "../config/modules";
 import { toast } from "./Toast";
 import { notificationService, WebNotification } from "../services/notificationService";
@@ -37,7 +36,6 @@ const searchIndex = [
   { label: "Lịch đăng Content", tab: "MARKETING" as TabType, subTab: "LỊCH ĐĂNG CONTENT", keywords: "lich dang content calendar publish" },
   { label: "Phễu Khách hàng", tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG", keywords: "crm phieu khach hang lead cold warm hot" },
   { label: "Hộp thư đa kênh", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
-  { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du vietqr nap bank" },
 ];
 
 export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
@@ -48,8 +46,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showUtilities, setShowUtilities] = useState(false);
-  const [balance, setBalance] = useState<number>(0);
-  const [showPricingModal, setShowPricingModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
@@ -273,23 +269,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.uid]);
 
-  // ─── Wallet balance ──────────────────────────────────────────
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const bal = await walletService.getWalletBalance();
-        setBalance(bal);
-      } catch (err) {
-        console.error("Lỗi khi lấy số dư ví ở Header:", err);
-      }
-    };
-
-    fetchBalance();
-
-    // Polling số dư định kỳ mỗi 10 giây để đồng bộ tức thời
-    const interval = setInterval(fetchBalance, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     loadTelegramLinkStatus();
@@ -418,19 +397,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </div>
         )}
 
-        {/* Wallet Balance Pill */}
-        {userProfile && (
-          <button
-            onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-blue-50 border border-blue-100 px-2.5 sm:px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
-            id="header_wallet_pill"
-          >
-            <Wallet className="h-4 w-4 text-blue-600 shrink-0" />
-            <span className="hidden sm:inline text-xs font-bold text-blue-700 font-mono select-none">
-              {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(balance)} Credit
-            </span>
-          </button>
-        )}
 
         {/* Attendance Check-In / Check-Out Button */}
         {userProfile && (
@@ -484,15 +450,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           )
         )}
 
-        {/* Pricing Info Button */}
-        <button
-          onClick={() => setShowPricingModal(true)}
-          className="hidden sm:flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-          title="Bảng giá dịch vụ"
-          id="header_pricing_info_btn"
-        >
-          <Info className="h-4.5 w-4.5 shrink-0" />
-        </button>
 
         {/* Dark Mode Toggle Button */}
         <button
@@ -1016,273 +973,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         </div>
       </div>
 
-      {showPricingModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-xs p-4 animate-fade-in"
-          onClick={() => setShowPricingModal(false)}
-        >
-          <div
-            className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-white rounded-3xl p-6 shadow-2xl transition-all border border-gray-100 flex flex-col gap-6"
-            onClick={(e) => e.stopPropagation()}
-            id="pricing_modal_content"
-          >
-            {/* Close button */}
-            <button
-              onClick={() => setShowPricingModal(false)}
-              className="absolute top-5 right-5 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
-              id="pricing_modal_close_btn"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {/* Header */}
-            <div>
-              <h2 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-                Bảng giá dịch vụ
-              </h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Chi phí được tính dựa trên số lượng Credit tiêu thụ cho mỗi đơn vị sử dụng.
-              </p>
-            </div>
-
-            {/* Exchange Rate Card */}
-            <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 flex flex-col gap-1.5 shadow-xs">
-              <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
-                <span>💡</span> 100 VND = 1 Credit
-              </div>
-              <div className="text-xs text-blue-800 font-medium leading-relaxed">
-                Chi phí được tính cố định cho mỗi lần phân tích prompt hoặc mỗi ảnh/video được tạo ra.
-              </div>
-            </div>
-
-            {/* 1. Hình ảnh */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
-                <div className="p-1.5 bg-cyan-50 text-cyan-600 rounded-lg">
-                  <Image className="h-4 w-4" />
-                </div>
-                <span>Hình ảnh</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 3.1 flash image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (Tính theo Credit)</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">27,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 3 pro image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (Tính theo Credit)</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">57</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* 2. Video */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
-                <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                  <Video className="h-4 w-4" />
-                </div>
-                <span>Video</span>
-              </div>
-
-              <div className="flex flex-col gap-6">
-                {/* iGen Veo 3.1 Fast */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between items-baseline">
-                    <div>
-                      <span className="font-bold text-gray-800 text-xs">iGen Veo 3.1 Fast</span>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">
-                        720p: 4s=162.0, 6s=243.0, 8s=324.0 | 1080p: 4s=194.4, 6s=291.6, 8s=388.8
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-medium">/ video (8s)</span>
-                  </div>
-
-                  <div className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50">
-                    <table className="w-full text-center text-[10px] border-collapse">
-                      <thead>
-                        <tr className="bg-gray-100/70 text-gray-500 font-semibold border-b border-gray-100">
-                          <th className="py-1.5 text-left pl-3 font-semibold">Res</th>
-                          <th className="py-1.5 font-semibold">4s</th>
-                          <th className="py-1.5 font-semibold">6s</th>
-                          <th className="py-1.5 font-semibold">8s</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        <tr className="hover:bg-gray-50/40">
-                          <td className="py-1.5 text-left pl-3 font-semibold text-gray-600">720P</td>
-                          <td className="py-1.5 font-bold text-blue-600">162</td>
-                          <td className="py-1.5 font-bold text-blue-600">243</td>
-                          <td className="py-1.5 font-bold text-blue-600">324</td>
-                        </tr>
-                        <tr className="hover:bg-gray-50/40">
-                          <td className="py-1.5 text-left pl-3 font-semibold text-gray-600">1080P</td>
-                          <td className="py-1.5 font-bold text-blue-600">194,4</td>
-                          <td className="py-1.5 font-bold text-blue-600">291,6</td>
-                          <td className="py-1.5 font-bold text-blue-600">388,8</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* iGen Veo 3.1 Lite */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between items-baseline">
-                    <div>
-                      <span className="font-bold text-gray-800 text-xs">iGen Veo 3.1 Lite</span>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">
-                        720p: 4s=81.0, 6s=121.5, 8s=162.0 | 1080p: 4s=129.6, 6s=194.4, 8s=259.2
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-medium">/ video (8s)</span>
-                  </div>
-
-                  <div className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50">
-                    <table className="w-full text-center text-[10px] border-collapse">
-                      <thead>
-                        <tr className="bg-gray-100/70 text-gray-500 font-semibold border-b border-gray-100">
-                          <th className="py-1.5 text-left pl-3 font-semibold">Res</th>
-                          <th className="py-1.5 font-semibold">4s</th>
-                          <th className="py-1.5 font-semibold">6s</th>
-                          <th className="py-1.5 font-semibold">8s</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        <tr className="hover:bg-gray-50/40">
-                          <td className="py-1.5 text-left pl-3 font-semibold text-gray-600">720P</td>
-                          <td className="py-1.5 font-bold text-blue-600">81</td>
-                          <td className="py-1.5 font-bold text-blue-600">121,5</td>
-                          <td className="py-1.5 font-bold text-blue-600">162</td>
-                        </tr>
-                        <tr className="hover:bg-gray-50/40">
-                          <td className="py-1.5 text-left pl-3 font-semibold text-gray-600">1080P</td>
-                          <td className="py-1.5 font-bold text-blue-600">129,6</td>
-                          <td className="py-1.5 font-bold text-blue-600">194,4</td>
-                          <td className="py-1.5 font-bold text-blue-600">259,2</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Âm thanh */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
-                <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
-                  <Volume2 className="h-4 w-4" />
-                </div>
-                <span>Âm thanh</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 2.5 Flash TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.0005/giây gốc</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,128</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 2.5 Pro TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.001/giây gốc</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,255</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* 4. Văn bản / Prompt */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
-                <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
-                  <FileText className="h-4 w-4" />
-                </div>
-                <span>Văn bản / Prompt</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 3.1 pro</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">10</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 3.1 flash lite</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">1,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen 3 flash</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
-                      </td>
-                      <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">2,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Note Footer */}
-            <div className="text-[10px] text-gray-400 font-medium italic mt-2 border-t border-gray-100 pt-3">
-              * Bảng giá có thể thay đổi tùy theo chính sách của nhà cung cấp dịch vụ AI.
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {showTelegramModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4" onClick={() => setShowTelegramModal(false)}>

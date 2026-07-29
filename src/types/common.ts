@@ -9,7 +9,6 @@ export type TabType =
   | "TÀI NGUYÊN"
   | "QUẢN LÝ HỌC VIÊN"
   | "QUẢN TRỊ USER"
-  | "VÍ & NẠP TIỀN"
   | "CÀI ĐẶT"
   | "HƯỚNG DẪN";
 

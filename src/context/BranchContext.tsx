@@ -32,7 +32,9 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         setBranches(list);
         const key = `igen.activeBranch.${userProfile.companyCode}`;
         const saved = localStorage.getItem(key);
-        setActiveBranchIdState(list.some((branch) => branch._id === saved) ? saved! : (list[0]?._id || ""));
+        const resolvedBranchId = list.some((branch) => branch._id === saved) ? saved! : (list[0]?._id || "");
+        if (resolvedBranchId) localStorage.setItem(key, resolvedBranchId);
+        setActiveBranchIdState(resolvedBranchId);
       } catch { setBranches([]); }
       finally { setLoading(false); }
     };
