@@ -8,7 +8,7 @@ import RecruitmentTab from "./RecruitmentTab";
 
 vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   listJobs: vi.fn(), getPipeline: vi.fn(), listApplicants: vi.fn(), listInterviews: vi.fn(),
-  createJob: vi.fn(), updateJob: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
+  createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
   uploadPublicFile: vi.fn(), deleteTemporaryPublicFile: vi.fn(),
 } }));
 
@@ -61,6 +61,22 @@ describe("RecruitmentTab", () => {
     await waitFor(() => expect(recruitmentApi.createApplicant).toHaveBeenCalledWith(expect.objectContaining({ cvUrl: "https://cloud.test/nguyen-an.docx", cvPublicId: "public/nguyen-an.docx" })));
   });
 
+  it("updates a job status from the jobs list instead of the detail dialog", async () => {
+    vi.mocked(recruitmentApi.changeJobStatus).mockResolvedValue({ ...job, status: "paused", version: 1 });
+    render(<RecruitmentTab />);
+    await screen.findByText("Developer");
+
+    const statusSelect = screen.getByRole("combobox", { name: "Trạng thái DEV" }) as HTMLSelectElement;
+    expect(statusSelect.value).toBe("open");
+    expect(screen.queryByTitle("Mở tuyển")).toBeNull();
+    expect(screen.queryByTitle("Tạm dừng")).toBeNull();
+
+    await userEvent.selectOptions(statusSelect, "paused");
+    await waitFor(() => expect(recruitmentApi.changeJobStatus).toHaveBeenCalledWith("job", 0, "paused"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
+    expect(within(screen.getByRole("dialog")).queryByLabelText("Trạng thái")).toBeNull();
+  });
   it("edits an existing job with its version", async () => {
     render(<RecruitmentTab />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));

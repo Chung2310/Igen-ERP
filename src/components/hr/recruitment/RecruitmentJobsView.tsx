@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Archive, CirclePause, Pencil, Plus, RefreshCw } from "lucide-react";
+import { Archive, Pencil, Plus } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
 import type {
   RecruitmentJob,
@@ -43,6 +43,7 @@ export default function RecruitmentJobsView() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<RecruitmentJob | null | undefined>();
+  const [changingStatusJobId, setChangingStatusJobId] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -61,6 +62,8 @@ export default function RecruitmentJobsView() {
     job: RecruitmentJob,
     next: RecruitmentJobStatus,
   ) => {
+    if (next === job.status) return;
+    setChangingStatusJobId(job._id);
     try {
       await recruitmentApi.changeJobStatus(job._id, job.version, next);
       await load();
@@ -71,6 +74,8 @@ export default function RecruitmentJobsView() {
           : e.message,
       );
       await load();
+    } finally {
+      setChangingStatusJobId(null);
     }
   };
   const remove = async (job: RecruitmentJob) => {
@@ -151,30 +156,20 @@ export default function RecruitmentJobsView() {
                       : "-"}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold">
-                      {statusLabel[job.status]}
-                    </span>
+                    <select
+                      aria-label={`Trạng thái ${job.code}`}
+                      className={`${fieldClass} min-w-32 py-2`}
+                      value={job.status}
+                      disabled={changingStatusJobId === job._id}
+                      onChange={(event) => void changeStatus(job, event.target.value as RecruitmentJobStatus)}
+                    >
+                      {Object.entries(statusLabel).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      {job.status !== "open" && (
-                        <button
-                          title="Mở tuyển"
-                          className={secondaryButton}
-                          onClick={() => changeStatus(job, "open")}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </button>
-                      )}
-                      {job.status === "open" && (
-                        <button
-                          title="Tạm dừng"
-                          className={secondaryButton}
-                          onClick={() => changeStatus(job, "paused")}
-                        >
-                          <CirclePause className="h-4 w-4" />
-                        </button>
-                      )}
                       <button
                         title="Xóa"
                         className={secondaryButton}
@@ -347,20 +342,6 @@ function JobDialog({
             value={form.applicationDeadline}
             onChange={(e) => set("applicationDeadline", e.target.value)}
           />
-        </label>
-        <label className={labelClass}>
-          Trạng thái
-          <select
-            className={fieldClass}
-            value={form.status}
-            onChange={(e) => set("status", e.target.value)}
-          >
-            {Object.entries(statusLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
         </label>
         <label className={`${labelClass} sm:col-span-2`}>
           Mô tả
