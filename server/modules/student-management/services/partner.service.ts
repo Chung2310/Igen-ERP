@@ -1,3 +1,4 @@
+import { ConflictError, NotFoundError } from "../../../errors/app-error";
 import { Partner } from "../models/partner.model";
 import { Student } from "../models/student.model";
 import { CommissionLevel } from "../models/commission-level.model";
@@ -201,7 +202,7 @@ export class PartnerService {
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
     const existing = await Partner.findOne({ ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
     if (existing) {
-      throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho đối tác của trung tâm.`);
+      throw new ConflictError("PARTNER_PHONE_ALREADY_EXISTS", "Số điện thoại đã tồn tại cho đối tác của trung tâm.", { field: "phone" });
     }
 
     const partner = new Partner({ ...writeData, ownerId, branchId });
@@ -383,7 +384,7 @@ export class PartnerService {
     
     const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) {
-      throw new Error("Không tìm thấy đối tác.");
+      throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác.");
     }
 
     const expectedVersion = expectedVersionOf(data);
@@ -393,7 +394,7 @@ export class PartnerService {
     if (writeData.phone && writeData.phone !== partner.phone) {
       const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
       if (dup) {
-        throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho một đối tác khác.`);
+        throw new ConflictError("PARTNER_PHONE_ALREADY_EXISTS", "Số điện thoại đã tồn tại cho một đối tác khác.", { field: "phone" });
       }
     }
 
@@ -414,7 +415,7 @@ export class PartnerService {
     // Check if partner has referred students
     const studentCount = await Student.countDocuments({ partnerId: id });
     if (studentCount > 0) {
-      throw new Error(`Không thể xóa đối tác vì đã giới thiệu ${studentCount} học viên. Vui lòng vô hiệu hóa thay vì xóa.`);
+      throw new ConflictError("PARTNER_HAS_REFERRED_STUDENTS", `Không thể xóa đối tác vì đã giới thiệu ${studentCount} học viên. Vui lòng vô hiệu hóa thay vì xóa.`, { studentCount });
     }
 
     return await Partner.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
@@ -430,7 +431,7 @@ export class PartnerService {
     
     const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) {
-      throw new Error("Không tìm thấy đối tác.");
+      throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác.");
     }
 
     const newPayout = {
@@ -460,7 +461,7 @@ export class PartnerService {
     // Check unique name per ownerId
     const existing = await CommissionLevel.findOne({ name: data.name, ownerId });
     if (existing) {
-      throw new Error(`Cấp bậc hoa hồng "${data.name}" đã tồn tại.`);
+      throw new ConflictError("COMMISSION_LEVEL_ALREADY_EXISTS", "Cấp bậc hoa hồng đã tồn tại.", { field: "name" });
     }
 
     const level = new CommissionLevel({
