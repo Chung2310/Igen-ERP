@@ -9,6 +9,7 @@ import {
   USER_DATA_DELETION_URL,
 } from "../config/brand";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
+import { savePendingSuperAdminChallenge } from "../services/pendingSuperAdminChallenge";
 
 export default function AuthPage() {
   const { loginWithEmail } = useAuth();
@@ -59,6 +60,7 @@ export default function AuthPage() {
     try {
       const result = await loginWithEmail(email.trim(), password.trim(), rememberMe);
       if (result.status === "challenge_required") {
+        savePendingSuperAdminChallenge(sessionStorage, result);
         window.location.href = "/super-admin";
         return;
       }
