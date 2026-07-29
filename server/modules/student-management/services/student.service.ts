@@ -4,6 +4,7 @@ import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
 import { Batch } from "../models/batch.model";
+import { BranchModel } from "../../../model/branch.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import {
@@ -75,8 +76,21 @@ function buildOwnerScopeQuery(ownerId: string | string[]) {
   };
 }
 
-function buildBranchScopeQuery(branchId?: string) {
+export function buildBranchScopeQuery(branchId?: string) {
   return branchId ? { branchId } : {};
+}
+export function buildUnassignedBranchScopeQuery() {
+  return {
+    $or: [
+      { branchId: { $exists: false } },
+      { branchId: null },
+      { branchId: "" },
+    ],
+  };
+}
+
+export function buildAssignableBranchQuery(branchId: string, companyCode: string) {
+  return { _id: branchId, companyCode: companyCode.toUpperCase(), isActive: true };
 }
 
 async function ensureUniqueFieldsInScope(
@@ -204,6 +218,38 @@ export class StudentService {
     };
   }
 
+  static async getUnassignedStudents(ownerId: string | string[], filters: StudentFilters) {
+    const page = filters.page ? parseInt(String(filters.page)) : 1;
+    const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
+    const query: Record<string, unknown> = {
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildUnassignedBranchScopeQuery(),
+    };
+    if (filters.status) query.status = filters.status;
+    if (filters.rank) query.rank = filters.rank;
+    if (filters.search) {
+      const searchRegex = new RegExp(filters.search, "i");
+      query.$and = [{ $or: [{ fullName: searchRegex }, { phone: searchRegex }] }];
+    }
+    const total = await Student.countDocuments(query);
+    const students = await Student.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit);
+    return { students, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  static async assignUnassignedStudentBranch(
+    ownerId: string | string[],
+    studentId: string,
+    branchId: string,
+    companyCode: string,
+  ): Promise<IStudent | null> {
+    const branch = await BranchModel.findOne(buildAssignableBranchQuery(branchId, companyCode)).select("_id").lean();
+    if (!branch) return null;
+    return Student.findOneAndUpdate(
+      { _id: studentId, ...buildOwnerScopeQuery(ownerId), ...buildUnassignedBranchScopeQuery() },
+      { $set: { branchId: String(branch._id) }, $inc: { __v: 1 } },
+      { new: true, runValidators: true },
+    );
+  }
   static async getStudentById(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
     logger.info(`[Student] Fetching student detail: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = {

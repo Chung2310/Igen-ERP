@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { useAuth } from "./AuthContext";
 import { branchService, type BranchRecord } from "../services/branchService";
 import { buildBranchRequestInit } from "./branchFetch";
+import { resolveActiveBranchId } from "./branchSelection";
 
 export type BranchOption = BranchRecord;
 interface BranchContextValue { branches: BranchOption[]; activeBranchId: string; activeBranch?: BranchOption; setActiveBranchId: (id: string) => void; loading: boolean; }
@@ -32,9 +33,10 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         setBranches(list);
         const key = `igen.activeBranch.${userProfile.companyCode}`;
         const saved = localStorage.getItem(key);
-        const resolvedBranchId = list.some((branch) => branch._id === saved) ? saved! : (list[0]?._id || "");
-        if (resolvedBranchId) localStorage.setItem(key, resolvedBranchId);
+        const resolvedBranchId = resolveActiveBranchId(list, saved);
         setActiveBranchIdState(resolvedBranchId);
+        localStorage.setItem(key, resolvedBranchId);
+
       } catch { setBranches([]); }
       finally { setLoading(false); }
     };

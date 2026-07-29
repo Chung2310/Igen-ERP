@@ -4,7 +4,7 @@ import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
   X, Calendar as CalendarIcon, ChevronDown,
-  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX
+  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, GitBranch
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -15,9 +15,12 @@ import { toast } from '../../../../pages/Toast';
 import { Student } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
+import { AssignStudentBranchModal } from '../../components/Student/AssignStudentBranchModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useBranch } from '../../../../context/BranchContext';
+import { useAuth } from '../../../../context/AuthContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import * as XLSX from 'xlsx';
 
@@ -44,7 +47,12 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
 
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { students, loading } = useStudents(resolvedCenter);
+  const { userProfile } = useAuth();
+  const [listScope, setListScope] = useState<'branch' | 'unassigned'>('branch');
+  const isUnassignedScope = listScope === 'unassigned';
+  const { students, loading } = useStudents(resolvedCenter, listScope);
+  const { branches } = useBranch();
+  const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
   const { batches } = useBatches();
   const { courses } = useCourses(resolvedCenter);
   const { categories } = useCourseCategories(resolvedCenter);
@@ -64,6 +72,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -417,7 +426,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          {selectedStudentIds.length > 0 && (
+          {userProfile?.role === 'admin' && (
+            <button onClick={() => { setListScope(isUnassignedScope ? 'branch' : 'unassigned'); setSelectedStudentIds([]); }} className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm", isUnassignedScope ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-white text-slate-600 border border-slate-200")}>
+              <GitBranch className="w-3.5 h-3.5" /> {isUnassignedScope ? 'Quay lại chi nhánh đang chọn' : 'Chưa gán chi nhánh'}
+            </button>
+          )}
+          {selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
@@ -618,6 +632,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                     <input
                       type="checkbox"
                       checked={selectedStudentIds.includes(student.id)}
+                      disabled={isUnassignedScope}
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedStudentIds([...selectedStudentIds, student.id]);
@@ -638,6 +653,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                             <span className="text-slate-200">•</span>
                             <span className="bg-slate-100 px-1 py-0.5 rounded text-[9px] text-slate-600 font-semibold">CCCD: {student.idCard}</span>
                           </>
+                        )}
+                        <span className="text-slate-200">•</span>
+                        {getBranchLabel(student.branchId) ? (
+                          <span className="bg-cyan-50 px-1 py-0.5 rounded text-[9px] text-cyan-700 font-semibold">{getBranchLabel(student.branchId)}</span>
+                        ) : (
+                          <span className="bg-amber-50 px-1 py-0.5 rounded text-[9px] text-amber-700 font-semibold">Chưa gán chi nhánh</span>
                         )}
                         {student.birthday && (
                           <>
@@ -704,25 +725,28 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                   </td>
                   <td className="px-3 py-1.5 no-print">
                     <div className="flex items-center justify-end gap-1">
+                      {isUnassignedScope && (
+                        <button onClick={() => setAssigningStudent(student)} className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100">Gán chi nhánh</button>
+                      )}
                       <button
                         onClick={() => setEditingStudent(student)}
                         title="Sửa thông tin"
-                        className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer"
+                        className={cn("p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer", isUnassignedScope && "hidden")}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onSelectStudent(student)}
                         title="Xem chi tiết"
-                        className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer"
+                        className={cn("p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer", isUnassignedScope && "hidden")}
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
 
-                       <div className="relative">
+                       <div className={cn("relative", isUnassignedScope && "hidden")}>
                         <button
                           onClick={() => setConfirmDeleteId(confirmDeleteId === student.id ? null : student.id)}
-                          disabled={isDeleting === student.id}
+                          disabled={isDeleting === student.id || isUnassignedScope}
                           title="Xóa"
                           className={cn(
                             "p-1 rounded-lg transition-colors disabled:opacity-50 cursor-pointer",
@@ -782,6 +806,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       </div>
 
 
+
+      <AssignStudentBranchModal
+        student={assigningStudent}
+        branches={branches}
+        onClose={() => setAssigningStudent(null)}
+        onSuccess={() => setAssigningStudent(null)}
+      />
 
       {/* Edit Student Modal */}
       <EditStudentModal

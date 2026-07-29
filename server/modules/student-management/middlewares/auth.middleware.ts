@@ -16,7 +16,12 @@ export interface AuthRequest extends AuthenticatedRequest {
   };
 }
 
-export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+function authenticateStudentRequest(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+  options: { unassignedAdminOnly?: boolean } = {},
+) {
   requireAuth(req as unknown as AuthenticatedRequest, res, () => {
     const erpUser = (req as unknown as AuthenticatedRequest).user;
     if (!erpUser) {
@@ -33,8 +38,13 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       branchId: erpUser.branchId,
     };
 
-    // Tenant-scoped student/payment roles must fail closed on reads and writes.
-    // Superadmin and legacy user callers remain explicitly branch-optional.
+    if (options.unassignedAdminOnly) {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ success: false, error: "Chỉ quản trị viên được xử lý dữ liệu chưa gán chi nhánh." });
+      }
+      return next();
+    }
+
     if (["admin", "manager", "branch_owner"].includes(req.user.role) && !req.user.branchId) {
       try {
         requireStudentBranch(req.user);
@@ -47,6 +57,13 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   });
 }
 
+export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  return authenticateStudentRequest(req, res, next);
+}
+
+export function adminUnassignedAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  return authenticateStudentRequest(req, res, next, { unassignedAdminOnly: true });
+}
 export function requireRoles(...roles: StudentManagementRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {

@@ -2,12 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import { StudentService } from "../services/student.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
-import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class StudentController {
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       let ownerId = req.user!.uid;
       let centerOwnerIds: string | string[] = "ALL";
 
@@ -45,6 +48,34 @@ export class StudentController {
     }
   }
 
+  static async getUnassignedList(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds({ ...req.user!, branchId: undefined });
+      const result = await StudentService.getUnassignedStudents(ownerId, req.query);
+      res.json({ success: true, ...result });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
+  static async assignBranch(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const companyCode = req.user!.companyCode || req.user!.centerId;
+      const ownerId = await getAllowedOwnerIds({ ...req.user!, branchId: undefined });
+      const student = await StudentService.assignUnassignedStudentBranch(
+        ownerId,
+        req.params.id,
+        req.body.branchId,
+        companyCode,
+      );
+      if (!student) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy dữ liệu chưa gán hoặc chi nhánh hợp lệ." });
+      }
+      res.json({ success: true, data: student });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

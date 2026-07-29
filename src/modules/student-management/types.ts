@@ -36,6 +36,7 @@ export interface DrivingStudent {
   ownerId: string;
   centerId?: string;
   partnerId?: string;
+  branchId?: string;
   healthCheckDate?: string;
   healthCheckNotes?: string;
   healthCheckFiles?: UploadedFile[];

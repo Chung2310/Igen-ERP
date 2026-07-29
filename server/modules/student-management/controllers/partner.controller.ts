@@ -2,7 +2,7 @@ import { NotFoundError, ValidationError } from "../../../errors/app-error";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
-import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class PartnerController {
@@ -138,6 +138,9 @@ export class PartnerController {
 
   static async createCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       let ownerId = req.user!.uid;
 
       if (req.user!.role === "superadmin") {

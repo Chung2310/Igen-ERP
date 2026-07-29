@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../types';
+import { buildStudentListEndpoint, type StudentListScope } from './studentListScope';
 
-export function useStudents(ownerFilter?: string) {
+export function useStudents(ownerFilter?: string, scope: StudentListScope = "branch") {
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,36 +17,31 @@ export function useStudents(ownerFilter?: string) {
       setLoading(false);
       return;
     }
-    
+    setLoading(true);
     try {
-      const url = ownerFilter ? `/students?ownerFilter=${encodeURIComponent(ownerFilter)}` : "/students";
-      const res = await apiFetch(url);
+      const res = await apiFetch(buildStudentListEndpoint(scope, ownerFilter));
       if (res.success && res.students) {
         const mapped = res.students.map((s: Omit<Student, 'id'> & { _id: string }) => ({
           ...s,
           id: s._id,
         })) as Student[];
         setStudents(mapped);
+      } else {
+        setStudents([]);
       }
     } catch (error) {
       console.error("Error fetching students:", error);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
-  }, [user, ownerFilter]);
+  }, [user, ownerFilter, scope, activeBranchId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchStudents();
-
-    const handleMutation = () => {
-      fetchStudents();
-    };
-
+    const handleMutation = () => { fetchStudents(); };
     window.addEventListener("student-mutation", handleMutation);
-    return () => {
-      window.removeEventListener("student-mutation", handleMutation);
-    };
+    return () => { window.removeEventListener("student-mutation", handleMutation); };
   }, [fetchStudents]);
 
   return { students, loading, refetch: fetchStudents };
