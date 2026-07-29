@@ -14,10 +14,12 @@ import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
 import { buildDocumentTitle, getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "./src/config/brand";
-import { selectiveBodyParser, isLargeBodyRoute } from "./server/middleware/body-limit";
+import { selectiveBodyParser } from "./server/middleware/body-limit";
 import { globalApiRateLimiter } from "./server/middleware/rate-limit";
-import { ddosConfig } from "./server/config/ddos";
 import { userActivityMiddleware } from "./server/middleware/user-activity";
+import { requestContextMiddleware } from "./server/middleware/request-context";
+import { apiNotFound } from "./server/middleware/api-not-found";
+import { apiErrorHandler } from "./server/middleware/api-error-handler";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -217,6 +219,7 @@ async function startServer() {
     })
   );
   app.use(cookieParser());
+  app.use("/api/v1", requestContextMiddleware);
   app.use(selectiveBodyParser);
 
   // 1. Cấu hình CORS bảo mật sử dụng allowedOrigins từ biến môi trường LINK_COR
@@ -278,15 +281,8 @@ async function startServer() {
   app.use("/api/v1", apiRouter);
 
   // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (err.type === "entity.too.large" || err.status === 413 || err.name === "PayloadTooLargeError") {
-      return res.status(413).json({
-        status: "error",
-        message: `Dung lượng dữ liệu yêu cầu vượt quá giới hạn cho phép (${isLargeBodyRoute(req.path) ? ddosConfig.largeBodyLimit : ddosConfig.generalBodyLimit}).`
-      });
-    }
-    next(err);
-  });
+  app.use("/api/v1", apiNotFound);
+  app.use(apiErrorHandler);
 
   // 4. Cấu hình phục vụ tệp tĩnh (Vite Dev Server hoặc Static production files)
   if (process.env.NODE_ENV !== "production") {
