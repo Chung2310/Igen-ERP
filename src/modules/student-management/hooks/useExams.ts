@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useBranch } from '../../../context/BranchContext';
 import { ExamSession } from '../types';
 
 export function useExams(ownerFilter?: string) {
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const [exams, setExams] = useState<ExamSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +32,7 @@ export function useExams(ownerFilter?: string) {
     } finally {
       setLoading(false);
     }
-  }, [user, ownerFilter]);
+  }, [user, ownerFilter, activeBranchId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

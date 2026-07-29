@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useBranch } from '../../../context/BranchContext';
 import { Course } from '../types';
 
 interface CourseApiItem extends Omit<Course, 'id'> {
@@ -14,6 +15,7 @@ interface CoursesResponse {
 
 export function useCourses(ownerFilter?: string) {
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +45,7 @@ export function useCourses(ownerFilter?: string) {
     } finally {
       setLoading(false);
     }
-  }, [user, ownerFilter]);
+  }, [user, ownerFilter, activeBranchId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

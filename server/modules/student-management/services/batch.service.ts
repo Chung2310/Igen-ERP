@@ -218,20 +218,20 @@ export class BatchService {
   ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
     const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
-    const existing = await Batch.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
+    const existing = await Batch.findOne({ ownerId, branchId: actor.branchId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
     assertScheduleValid(writeData);
 
-    const course = await Course.findOne({ _id: writeData.courseId, ownerId });
+    const course = await Course.findOne({ _id: writeData.courseId, ownerId, branchId: actor.branchId });
     if (!course) {
       throw new Error("Không tìm thấy khóa học của lớp.");
     }
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
-    const batch = new Batch({ ...writeData, ownerId });
+    const batch = new Batch({ ...writeData, ownerId, branchId: actor.branchId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
     const enriched = (await enrichBatches([saved]))[0];
@@ -293,7 +293,7 @@ export class BatchService {
     const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
 
     if (writeData.code && String(writeData.code).toUpperCase() !== batch.code) {
-      const dup = await Batch.findOne({ ownerId: batch.ownerId, code: String(writeData.code).toUpperCase() });
+      const dup = await Batch.findOne({ ownerId: batch.ownerId, branchId: batch.branchId, code: String(writeData.code).toUpperCase() });
       if (dup) {
         throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
       }
@@ -307,7 +307,7 @@ export class BatchService {
     });
 
     if (writeData.courseId && writeData.courseId !== batch.courseId) {
-      const course = await Course.findOne({ _id: writeData.courseId, ownerId: batch.ownerId });
+      const course = await Course.findOne({ _id: writeData.courseId, ownerId: batch.ownerId, branchId: batch.branchId });
       if (!course) {
         throw new Error("Không tìm thấy khóa học của lớp.");
       }
