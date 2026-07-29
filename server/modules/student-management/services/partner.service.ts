@@ -86,6 +86,10 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 function parseCurrency(val: string | undefined): number {
   return parseInt(String(val || "").replace(/\D/g, ""), 10) || 0;
 }
@@ -436,9 +440,9 @@ export class PartnerService {
     return enriched[0];
   }
 
-  static async getCommissionLevels(ownerId: string | string[]): Promise<ICommissionLevel[]> {
+  static async getCommissionLevels(ownerId: string | string[], branchId?: string): Promise<ICommissionLevel[]> {
     logger.info(`[PartnerService] Fetching commission levels for ownerId: ${ownerId}`);
-    return await CommissionLevel.find(buildOwnerQuery(ownerId)).sort({ minTuition: 1 });
+    return await CommissionLevel.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) }).sort({ minTuition: 1 });
   }
 
   static async createCommissionLevel(
@@ -460,9 +464,9 @@ export class PartnerService {
     return await level.save();
   }
 
-  static async deleteCommissionLevel(ownerId: string | string[], id: string): Promise<ICommissionLevel | null> {
+  static async deleteCommissionLevel(ownerId: string | string[], id: string, branchId?: string): Promise<ICommissionLevel | null> {
     logger.info(`[PartnerService] Deleting commission level id: ${id}`);
-    return await CommissionLevel.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await CommissionLevel.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 }
 

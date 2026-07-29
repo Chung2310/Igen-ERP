@@ -44,6 +44,9 @@ export class ScheduleController {
       if (resolvedOwnerId !== "ALL") {
         examQuery.ownerId = Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId;
       }
+      if (req.user!.branchId) {
+        examQuery.branchId = req.user!.branchId;
+      }
       const exams = await Exam.find(examQuery);
       for (const exam of exams) {
         if (exam.status === "Đã hủy") continue;
@@ -62,13 +65,13 @@ export class ScheduleController {
       }
 
       // Booking tài nguyên (phòng, xe, thiết bị)
-      const bookings = await ResourceService.getBookingsInRange(resolvedOwnerId, from, to);
+      const bookings = await ResourceService.getBookingsInRange(resolvedOwnerId, from, to, req.user!.branchId);
       for (const b of bookings) {
         events.push({ ...b, type: "resource" });
       }
 
       // Lịch học định kỳ của các lớp mở
-      const classes = await BatchService.getClassEventsInRange(resolvedOwnerId, from, to);
+      const classes = await BatchService.getClassEventsInRange(resolvedOwnerId, from, to, req.user!.branchId);
       for (const c of classes) {
         events.push({ ...c, type: "class" });
       }

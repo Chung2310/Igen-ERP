@@ -126,7 +126,7 @@ export class PartnerController {
             ? "ALL"
             : req.user!.uid;
 
-      const levels = await PartnerService.getCommissionLevels(ownerId);
+      const levels = await PartnerService.getCommissionLevels(ownerId, req.user!.branchId);
       res.json({ success: true, data: levels });
     } catch (error: unknown) {
       next(error);
@@ -155,7 +155,7 @@ export class PartnerController {
   static async deleteCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id);
+      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id, req.user!.branchId);
       if (!level) {
         return res.status(404).json({ success: false, error: "Khong tim thay cap bac hoa hong de xoa." });
       }

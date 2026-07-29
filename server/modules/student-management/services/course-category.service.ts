@@ -5,15 +5,16 @@ import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
 
 export class CourseCategoryService {
-  static async getCategories(ownerId: string | string[], filters: { ownerFilter?: string } = {}): Promise<ICourseCategory[]> {
+  static async getCategories(ownerId: string | string[], filters: { ownerFilter?: string } = {}, branchId?: string): Promise<ICourseCategory[]> {
     logger.info(`[CourseCategory] Fetching categories for ownerId: ${ownerId}, ownerFilter: ${filters.ownerFilter}`);
-    
+
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
     let query: Record<string, unknown> = {};
     if (resolvedOwnerId !== "ALL") {
       query = { ownerId: Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId };
     }
+    if (branchId) query.branchId = branchId;
 
     return await CourseCategory.find(query).sort({ createdAt: 1 });
   }
@@ -31,13 +32,14 @@ export class CourseCategoryService {
     return await category.save();
   }
 
-  static async deleteCategory(ownerId: string | string[], id: string): Promise<ICourseCategory | null> {
+  static async deleteCategory(ownerId: string | string[], id: string, branchId?: string): Promise<ICourseCategory | null> {
     logger.info(`[CourseCategory] Deleting category with id: ${id}`);
-    
+
     let query: Record<string, unknown> = {};
     if (ownerId !== "ALL") {
       query = { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
     }
+    if (branchId) query.branchId = branchId;
 
     const category = await CourseCategory.findOne({ _id: id, ...query });
     if (!category) {

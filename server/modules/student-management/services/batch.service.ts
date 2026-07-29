@@ -51,6 +51,10 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 function hasLockedStudentFee(fee: string | undefined): boolean {
   const feeNum = parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
   return feeNum > 0;
@@ -243,14 +247,14 @@ export class BatchService {
     return enriched;
   }
 
-  static async getBatches(ownerId: string | string[], filters: BatchFilters) {
+  static async getBatches(ownerId: string | string[], filters: BatchFilters, branchId?: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
-    const query: Record<string, unknown> = buildOwnerQuery(resolvedOwnerId);
+    const query: Record<string, unknown> = { ...buildOwnerQuery(resolvedOwnerId), ...buildBranchScopeQuery(branchId) };
     if (filters.courseId) query.courseId = filters.courseId;
     if (filters.instructorId) query.instructorId = filters.instructorId;
     if (filters.status) query.status = filters.status;
@@ -270,8 +274,8 @@ export class BatchService {
     return { batches: await enrichBatches(batches), total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  static async getBatchById(ownerId: string | string[], id: string): Promise<EnrichedBatch | null> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async getBatchById(ownerId: string | string[], id: string, branchId?: string): Promise<EnrichedBatch | null> {
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) return null;
     return (await enrichBatches([batch]))[0];
   }
@@ -282,9 +286,10 @@ export class BatchService {
     id: string,
     data: BatchData,
     context?: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<EnrichedBatch | null> {
     logger.info(`[Batch] Updating batch: id=${id}`);
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) return null;
     const expectedVersion = expectedVersionOf(data);
     const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
@@ -319,7 +324,7 @@ export class BatchService {
     let saved: IBatch;
     if (context) {
       const updated = await Batch.findOneAndUpdate(
-        { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+        { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
         { $set: writeData, $inc: { __v: 1 } },
         { new: true, runValidators: true },
       );
@@ -339,25 +344,26 @@ export class BatchService {
     return enriched;
   }
 
-  static async deleteBatch(ownerId: string | string[], id: string): Promise<IBatch | null> {
+  static async deleteBatch(ownerId: string | string[], id: string, branchId?: string): Promise<IBatch | null> {
     logger.info(`[Batch] Deleting batch: id=${id}`);
-    return await Batch.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await Batch.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 
   static async addLearner(
     ownerId: string | string[],
     id: string,
     studentId: string,
-    businessType: "driving" | "language" | "general" = "general"
+    businessType: "driving" | "language" | "general" = "general",
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
     if (batch.learnerIds.includes(studentId)) {
       throw new Error("Học viên đã có trong lớp này.");
     }
-    const student = await Student.findOne({ _id: studentId, ...buildOwnerQuery(ownerId) });
+    const student = await Student.findOne({ _id: studentId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!student) {
       throw new Error("Không tìm thấy học viên.");
     }
@@ -390,8 +396,8 @@ export class BatchService {
     return (await enrichBatches([saved]))[0];
   }
 
-  static async removeLearner(ownerId: string | string[], id: string, studentId: string): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async removeLearner(ownerId: string | string[], id: string, studentId: string, branchId?: string): Promise<EnrichedBatch> {
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
@@ -423,8 +429,8 @@ export class BatchService {
     return new Map(rows.map((r: { _id: string; count: number }) => [r._id, r.count]));
   }
 
-  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string) {
-    const batches = await Batch.find(buildOwnerQuery(ownerId));
+  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
+    const batches = await Batch.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     const enriched = await enrichBatches(batches);
     const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
 
@@ -465,9 +471,10 @@ export class BatchService {
     batchId: string,
     date: string,
     records: { studentId: string; status: "present" | "absent" | "excused" }[],
-    note?: string
+    note?: string,
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
@@ -502,9 +509,10 @@ export class BatchService {
   static async deleteAttendanceSessionByDate(
     ownerId: string | string[],
     batchId: string,
-    date: string
+    date: string,
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }

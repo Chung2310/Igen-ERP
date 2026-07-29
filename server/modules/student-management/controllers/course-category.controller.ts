@@ -7,7 +7,7 @@ export class CourseCategoryController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const categories = await CourseCategoryService.getCategories(ownerId, req.query as { ownerFilter?: string });
+      const categories = await CourseCategoryService.getCategories(ownerId, req.query as { ownerFilter?: string }, req.user!.branchId);
       res.json({ success: true, data: categories });
     } catch (error: unknown) {
       next(error);
@@ -32,7 +32,7 @@ export class CourseCategoryController {
   static async delete(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const category = await CourseCategoryService.deleteCategory(ownerId, req.params.id);
+      const category = await CourseCategoryService.deleteCategory(ownerId, req.params.id, req.user!.branchId);
       if (!category) {
         return res.status(404).json({ success: false, error: "Không tìm thấy phân loại." });
       }

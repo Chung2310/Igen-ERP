@@ -26,7 +26,7 @@ export class BatchController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await BatchService.getBatches(ownerId, req.query);
+      const result = await BatchService.getBatches(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -36,7 +36,7 @@ export class BatchController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.getBatchById(ownerId, req.params.id);
+      const batch = await BatchService.getBatchById(ownerId, req.params.id, req.user!.branchId);
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học." });
       }
@@ -53,7 +53,7 @@ export class BatchController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "batches",
         actorRole: req.user!.role,
-      });
+      }, req.user!.branchId);
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học để cập nhật." });
       }
@@ -70,7 +70,7 @@ export class BatchController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.deleteBatch(ownerId, req.params.id);
+      const batch = await BatchService.deleteBatch(ownerId, req.params.id, req.user!.branchId);
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học để xóa." });
       }
@@ -84,7 +84,7 @@ export class BatchController {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const businessType = "general";
-      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType);
+      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType, req.user!.branchId);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -95,7 +95,7 @@ export class BatchController {
   static async removeLearner(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId);
+      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId, req.user!.branchId);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -110,7 +110,7 @@ export class BatchController {
       if (!date) {
         return res.status(400).json({ success: false, error: "Vui lòng truyền ngày điểm danh." });
       }
-      const batch = await BatchService.saveAttendanceSession(ownerId, req.params.id, date, records, note);
+      const batch = await BatchService.saveAttendanceSession(ownerId, req.params.id, date, records, note, req.user!.branchId);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -125,7 +125,7 @@ export class BatchController {
       if (!date) {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp ngày cần xóa điểm danh." });
       }
-      const batch = await BatchService.deleteAttendanceSessionByDate(ownerId, req.params.id, String(date));
+      const batch = await BatchService.deleteAttendanceSessionByDate(ownerId, req.params.id, String(date), req.user!.branchId);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
