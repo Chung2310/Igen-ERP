@@ -235,7 +235,25 @@ function JobDialog({
     setSaving(true);
     setError("");
     try {
-      const payload = { ...form, headcount: Number(form.headcount), applicationDeadline: form.applicationDeadline || null };
+      const payload = {
+        code: form.code,
+        title: form.title,
+        department: form.department,
+        headcount: Number(form.headcount),
+        description: form.description,
+        requirements: form.requirements,
+        benefits: form.benefits,
+        salaryMin: form.salaryMin,
+        salaryMax: form.salaryMax,
+        showSalary: form.showSalary,
+        employmentType: form.employmentType,
+        workplaceType: form.workplaceType,
+        location: form.location,
+        applicationDeadline: form.applicationDeadline || null,
+        status: form.status,
+        jdFileUrl: form.jdFileUrl,
+        jdFilePublicId: form.jdFilePublicId,
+      };
       job ? await recruitmentApi.updateJob(job._id, { ...payload, version: job.version }) : await recruitmentApi.createJob(payload);
       setSaved(true);
       await onSaved();
