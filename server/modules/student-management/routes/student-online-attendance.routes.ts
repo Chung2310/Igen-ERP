@@ -3,6 +3,8 @@ import multer from "multer";
 import { StudentOnlineAttendanceController } from "../controllers/student-online-attendance.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
 
@@ -18,6 +20,6 @@ const imageUpload = multer({
 router.post("/checkin", publicApiRateLimiter, imageUpload.single("file"), StudentOnlineAttendanceController.checkin);
 
 // Route cần đăng nhập (Giảng viên / Admin) - sinh mã và gửi email
-router.post("/sessions", authMiddleware as any, StudentOnlineAttendanceController.createSessions);
+router.post("/sessions", authMiddleware as any, requireAnyPermission([...STUDENT_AREA_PERMISSIONS.assignment.manage]) as any, StudentOnlineAttendanceController.createSessions);
 
 export default router;

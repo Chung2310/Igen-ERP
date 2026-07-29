@@ -4,11 +4,12 @@ import { adminUnassignedAuthMiddleware, authMiddleware } from "../middlewares/au
 import { validate } from "../middlewares/validate.middleware";
 import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, publicRegisterStudentSchema, assignStudentBranchSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
 export const publicStudentRouter = Router();
-const requireManage = requirePermission("student:manage") as any;
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student-profile"].manage]) as any;
 
 publicStudentRouter.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
 publicStudentRouter.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
