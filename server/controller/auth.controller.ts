@@ -55,6 +55,13 @@ async function resolveProfilePermissions(
   return Array.from(effective);
 }
 
+export function buildUserRosterFilter(companyCode?: string, branchId?: string): Record<string, unknown> {
+  return {
+    ...(companyCode ? { companyCode } : {}),
+    ...(companyCode && branchId ? { branchId } : {}),
+    isActive: true,
+  };
+}
 export const authController = {
   /**
    * POST /api/v1/auth/register
@@ -428,7 +435,7 @@ export const authController = {
 
       const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId : "";
       const scopedBranchId = requestedBranchId || (req.user?.role !== "superadmin" ? req.user?.branchId || "" : "");
-      const filter: Record<string, unknown> = companyCode ? { companyCode } : {};
+      const filter = buildUserRosterFilter(companyCode, scopedBranchId);
       if (scopedBranchId && companyCode) {
         const { BranchModel } = await import("../model/branch.model");
         const branch = await BranchModel.findOne({ _id: scopedBranchId, companyCode }).select("_id").lean();

@@ -213,6 +213,7 @@ const registerUserSchema = {
       "any.required": "Vai trò thành viên là bắt buộc.",
     }),
     companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
     parentId: Joi.string().optional().allow(""),
     level: Joi.number().integer().optional(),
@@ -238,6 +239,7 @@ authRouter.post("/register-user", requireAuth as any, requirePermission("user:ma
 const getUsersSchema = {
   query: Joi.object({
     companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
   }),
 };
 
@@ -373,6 +375,7 @@ const updateUserSchema = {
     jobTitle: Joi.string().optional().allow(""),
     displayName: Joi.string().optional().allow(""),
     companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
     branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
     heygenAccess: Joi.object({
