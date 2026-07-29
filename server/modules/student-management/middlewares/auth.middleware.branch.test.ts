@@ -33,13 +33,19 @@ function invoke(role: string, branchId?: string) {
   return { req, res, passed };
 }
 
-it("rejects branchless tenant-scoped roles on authenticated reads", () => {
-  for (const role of ["admin", "manager", "branch_owner"]) {
+it("rejects branchless branch-pinned roles on authenticated reads", () => {
+  for (const role of ["manager", "branch_owner"]) {
     const result = invoke(role);
     assert.equal(result.passed, false, role);
     assert.equal(result.res.statusCode, 400, role);
     assert.match(String((result.res.body as { error?: string })?.error), /chi nh/i, role);
   }
+});
+
+it("allows a branchless admin through (Tất cả chi nhánh view)", () => {
+  const result = invoke("admin");
+  assert.equal(result.passed, true);
+  assert.equal(result.req.user.branchId, undefined);
 });
 
 it("allows tenant-scoped roles when an authenticated branch is present", () => {

@@ -32,7 +32,11 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         setBranches(list);
         const key = `igen.activeBranch.${userProfile.companyCode}`;
         const saved = localStorage.getItem(key);
-        setActiveBranchIdState(list.some((branch) => branch._id === saved) ? saved! : (list[0]?._id || ""));
+        // null = never chosen yet (default to first branch); "" = explicit "Tất cả chi nhánh" (keep it).
+        setActiveBranchIdState(
+          saved === null ? (list[0]?._id || "") :
+          saved === "" || list.some((branch) => branch._id === saved) ? saved : (list[0]?._id || "")
+        );
       } catch { setBranches([]); }
       finally { setLoading(false); }
     };

@@ -1,12 +1,15 @@
 import { Response, NextFunction } from "express";
 import { BatchService } from "../services/batch.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class BatchController {
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       const ownerId = await resolveCreateOwnerId(
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined

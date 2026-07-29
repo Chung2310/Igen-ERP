@@ -2,12 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import { StudentService } from "../services/student.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
-import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class StudentController {
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       let ownerId = req.user!.uid;
       let centerOwnerIds: string | string[] = "ALL";
 

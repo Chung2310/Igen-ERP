@@ -18,6 +18,7 @@ import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useBranch } from '../../../../context/BranchContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import * as XLSX from 'xlsx';
 
@@ -45,6 +46,8 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { students, loading } = useStudents(resolvedCenter);
+  const { branches } = useBranch();
+  const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
   const { batches } = useBatches();
   const { courses } = useCourses(resolvedCenter);
   const { categories } = useCourseCategories(resolvedCenter);
@@ -638,6 +641,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                             <span className="text-slate-200">•</span>
                             <span className="bg-slate-100 px-1 py-0.5 rounded text-[9px] text-slate-600 font-semibold">CCCD: {student.idCard}</span>
                           </>
+                        )}
+                        <span className="text-slate-200">•</span>
+                        {getBranchLabel(student.branchId) ? (
+                          <span className="bg-cyan-50 px-1 py-0.5 rounded text-[9px] text-cyan-700 font-semibold">{getBranchLabel(student.branchId)}</span>
+                        ) : (
+                          <span className="bg-amber-50 px-1 py-0.5 rounded text-[9px] text-amber-700 font-semibold">Chưa gán chi nhánh</span>
                         )}
                         {student.birthday && (
                           <>

@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
 import { ResourceCategoryService } from "../services/resource-category.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 
 export class ResourceCategoryController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
@@ -16,6 +16,9 @@ export class ResourceCategoryController {
 
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       const ownerId = await resolveCreateOwnerId(
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
