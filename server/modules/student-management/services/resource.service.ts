@@ -26,6 +26,10 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 // Hai khung giờ giao nhau khi start < otherEnd và end > otherStart
 function isOverlapping(a: IResourceBooking, b: IResourceBooking): boolean {
   if (a.date !== b.date) return false;
@@ -44,12 +48,12 @@ export class ResourceService {
     return saved;
   }
 
-  static async getResources(ownerId: string | string[], filters: ResourceFilters) {
+  static async getResources(ownerId: string | string[], filters: ResourceFilters, branchId?: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
-    const query: Record<string, unknown> = buildOwnerQuery(ownerId);
+    const query: Record<string, unknown> = { ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) };
     if (filters.type) query.type = filters.type;
     if (filters.status) query.status = filters.status;
     if (filters.search) {
@@ -68,8 +72,8 @@ export class ResourceService {
     return { resources, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  static async getResourceById(ownerId: string | string[], id: string): Promise<IResource | null> {
-    return await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async getResourceById(ownerId: string | string[], id: string, branchId?: string): Promise<IResource | null> {
+    return await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 
   static async updateResource(
@@ -77,9 +81,10 @@ export class ResourceService {
     id: string,
     data: ResourceData,
     context: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<IResource | null> {
     logger.info(`[Resource] Updating resource: id=${id}`);
-    const query = { _id: id, ...buildOwnerQuery(ownerId) };
+    const query = { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) };
     const existing = await Resource.findOne(query);
     if (!existing) return null;
     const expectedVersion = expectedVersionOf(data);
@@ -94,14 +99,14 @@ export class ResourceService {
     return updated;
   }
 
-  static async deleteResource(ownerId: string | string[], id: string): Promise<IResource | null> {
+  static async deleteResource(ownerId: string | string[], id: string, branchId?: string): Promise<IResource | null> {
     logger.info(`[Resource] Deleting resource: id=${id}`);
-    return await Resource.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await Resource.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 
   /** Đặt lịch sử dụng tài nguyên, kiểm tra trùng khung giờ */
-  static async bookResource(ownerId: string | string[], id: string, booking: IResourceBooking): Promise<IResource> {
-    const resource = await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async bookResource(ownerId: string | string[], id: string, booking: IResourceBooking, branchId?: string): Promise<IResource> {
+    const resource = await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!resource) {
       throw new Error("Không tìm thấy tài nguyên.");
     }
@@ -135,8 +140,8 @@ export class ResourceService {
   }
 
   /** Hủy một lịch đặt */
-  static async cancelBooking(ownerId: string | string[], id: string, bookingId: string): Promise<IResource> {
-    const resource = await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async cancelBooking(ownerId: string | string[], id: string, bookingId: string, branchId?: string): Promise<IResource> {
+    const resource = await Resource.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!resource) {
       throw new Error("Không tìm thấy tài nguyên.");
     }
@@ -154,8 +159,8 @@ export class ResourceService {
   }
 
   /** Lấy toàn bộ booking trong khoảng ngày (phục vụ lịch tổng hợp) */
-  static async getBookingsInRange(ownerId: string | string[], from?: string, to?: string) {
-    const resources = await Resource.find(buildOwnerQuery(ownerId));
+  static async getBookingsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
+    const resources = await Resource.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
     for (const resource of resources) {
       for (const b of resource.bookings) {

@@ -26,7 +26,7 @@ export class CourseController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await CourseService.getCourses(ownerId, req.query);
+      const result = await CourseService.getCourses(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -36,7 +36,7 @@ export class CourseController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const course = await CourseService.getCourseById(ownerId, req.params.id);
+      const course = await CourseService.getCourseById(ownerId, req.params.id, req.user!.branchId);
       if (!course) {
         return res.status(404).json({ success: false, error: "Không tìm thấy khóa học." });
       }
@@ -53,7 +53,7 @@ export class CourseController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "courses",
         actorRole: req.user!.role,
-      });
+      }, req.user!.branchId);
       if (!course) {
         return res.status(404).json({ success: false, error: "Không tìm thấy khóa học để cập nhật." });
       }
@@ -70,7 +70,7 @@ export class CourseController {
   static async delete(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const course = await CourseService.deleteCourse(ownerId, req.params.id);
+      const course = await CourseService.deleteCourse(ownerId, req.params.id, req.user!.branchId);
       if (!course) {
         return res.status(404).json({ success: false, error: "Không tìm thấy khóa học để xóa." });
       }
