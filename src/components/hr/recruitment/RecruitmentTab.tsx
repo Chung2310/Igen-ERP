@@ -18,7 +18,7 @@ export default function RecruitmentTab() {
   return <section className="flex min-h-0 flex-1 flex-col bg-slate-50" aria-label="Quản lý tuyển dụng">
     <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-5 py-2">
       {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setView(id)} aria-pressed={view === id}
-        className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold ${view === id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
+        className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold ${view === id ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-600"}`}>
         <Icon className="h-4 w-4" />{label}
       </button>)}
     </div>
