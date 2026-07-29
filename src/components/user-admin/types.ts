@@ -1,8 +1,7 @@
-import { AdminUserBalance } from "../../services/walletService";
 import { RolePermission } from "../../services/rolePermissionService";
 import { CompanyProfile, UserProfile } from "../../types";
 
-export type UserAdminTabKey = "users" | "roles" | "balance";
+export type UserAdminTabKey = "users" | "roles";
 
 export interface UserFormState {
   displayName: string;
@@ -18,7 +17,6 @@ export interface UserTableProps {
   users: UserProfile[];
   currentUser?: UserProfile | null;
   rolePermissionsList: RolePermission[];
-  balanceByUserId: Record<string, AdminUserBalance>;
   userPage: number;
   totalUserPages: number;
   onPageChange: (page: number | ((prev: number) => number)) => void;
@@ -28,8 +26,6 @@ export interface UserTableProps {
   onToggleActionMenu: (uid: string) => void;
   onEditUser: (user: UserProfile) => void;
   onDeleteUser: (user: UserProfile) => void;
-  onOpenBalance: (user: UserProfile, balance?: AdminUserBalance) => void;
-  setActiveTab: (tab: UserAdminTabKey) => void;
 }
 
 export interface CompanyFormState {

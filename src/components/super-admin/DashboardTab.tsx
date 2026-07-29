@@ -4,9 +4,6 @@ import {
   Building,
   ShieldCheck,
   ShieldAlert,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownLeft,
   Server,
   Activity,
   Calendar,
@@ -14,14 +11,6 @@ import {
   Clock,
 } from "lucide-react";
 import { superAdminDashboardService } from "../../services/superAdminDashboardService";
-
-interface TenantFinance {
-  companyCode: string;
-  companyName: string;
-  revenue: number;
-  usage: number;
-  balance: number;
-}
 
 interface HealthStatus {
   api: string;
@@ -54,12 +43,6 @@ interface DashboardData {
     users: number;
     activeSessions: number;
     lockedAccounts: number;
-  };
-  finance: {
-    totalWalletBalance: number;
-    totalRevenue: number;
-    totalUsage: number;
-    revenueByTenant: TenantFinance[];
   };
   health: HealthStatus;
   securityAlerts: SecurityAlert[];
@@ -98,7 +81,6 @@ export function DashboardTab() {
   const [error, setError] = React.useState("");
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
-  const [financePage, setFinancePage] = React.useState(1);
   const [activityPage, setActivityPage] = React.useState(1);
 
   const fetchSummary = async () => {
@@ -124,7 +106,6 @@ export function DashboardTab() {
 
   React.useEffect(() => {
     fetchSummary();
-    setFinancePage(1);
     setActivityPage(1);
   }, [startDate, endDate]);
 
@@ -153,7 +134,6 @@ export function DashboardTab() {
   }
 
   const counts = data?.counts;
-  const finance = data?.finance;
   const health = data?.health;
   const alerts = data?.securityAlerts || [];
   const activities = data?.recentActivity || [];
@@ -293,94 +273,7 @@ export function DashboardTab() {
       )}
 
       {/* Finance & System Health */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Financial Cards */}
-        {finance && (
-          <div className="lg:col-span-2 space-y-4">
-            <h4 className="text-lg font-bold text-white flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-emerald-400" />
-              Tổng quan Tài chính & Tín dụng
-            </h4>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Số dư ví khả dụng</p>
-                <p className="text-xl font-black text-white mt-1">
-                  {finance.totalWalletBalance.toLocaleString("vi-VN")}
-                  <span className="text-xs text-slate-400 ml-1">USD</span>
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  Doanh thu nạp
-                  <ArrowUpRight className="h-3 w-3 text-green-400" />
-                </p>
-                <p className="text-xl font-black text-green-400 mt-1">
-                  +{finance.totalRevenue.toLocaleString("vi-VN")}
-                  <span className="text-xs ml-1 text-green-500">USD</span>
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  Chi tiêu sử dụng
-                  <ArrowDownLeft className="h-3 w-3 text-cyan-400" />
-                </p>
-                <p className="text-xl font-black text-cyan-400 mt-1">
-                  -{finance.totalUsage.toLocaleString("vi-VN")}
-                  <span className="text-xs ml-1 text-cyan-500">tín dụng</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Tenant finance breakdown table */}
-            <div className="rounded-2xl border border-white/10 bg-slate-900/30 overflow-hidden">
-              <div className="p-4 border-b border-white/10 bg-slate-950/20">
-                <h5 className="text-sm font-bold text-white">Thống kê theo Doanh nghiệp</h5>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[540px] text-left text-sm">
-                  <thead className="bg-slate-900/60 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/5">
-                    <tr>
-                      <th className="p-3">Doanh nghiệp</th>
-                      <th className="p-3 text-right">Tổng nạp (USD)</th>
-                      <th className="p-3 text-right">Tổng chi (tín dụng)</th>
-                      <th className="p-3 text-right">Số dư ví (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {finance.revenueByTenant.slice((financePage - 1) * TABLE_PAGE_SIZE, financePage * TABLE_PAGE_SIZE).map((tenant) => (
-                      <tr key={tenant.companyCode} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 font-semibold text-slate-200">
-                          {tenant.companyName}
-                          <span className="block font-mono text-[10px] font-normal text-slate-500">
-                            Mã doanh nghiệp: {tenant.companyCode}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right text-green-400 font-medium">
-                          +{tenant.revenue.toLocaleString("vi-VN")}
-                        </td>
-                        <td className="p-3 text-right text-cyan-400 font-medium">
-                          -{tenant.usage.toLocaleString("vi-VN")}
-                        </td>
-                        <td className="p-3 text-right text-slate-200 font-bold">
-                          {tenant.balance.toLocaleString("vi-VN")}
-                        </td>
-                      </tr>
-                    ))}
-                    {finance.revenueByTenant.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="p-4 text-center text-slate-500">
-                          Không có dữ liệu giao dịch.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <Pager page={financePage} total={finance.revenueByTenant.length} onChange={setFinancePage} />
-            </div>
-          </div>
-        )}
-
+      <div className="grid gap-6">
         {/* Health status checks */}
         {health && (
           <div className="space-y-4">

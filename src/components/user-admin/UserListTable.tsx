@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Shield, Trash2, Wallet } from "lucide-react";
+import { MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
 import { UserTableProps } from "./types";
 import { getRoleDisplayName } from "../../utils/permissionUtils";
 
@@ -6,7 +6,6 @@ export function UserListTable({
   users,
   currentUser,
   rolePermissionsList,
-  balanceByUserId,
   userPage,
   totalUserPages,
   onPageChange,
@@ -16,8 +15,6 @@ export function UserListTable({
   onToggleActionMenu,
   onEditUser,
   onDeleteUser,
-  onOpenBalance,
-  setActiveTab,
 }: UserTableProps) {
   return (
     <div className="max-w-full rounded-2xl border border-gray-150 bg-white shadow-xs" style={{ overflow: "clip" }}>
@@ -30,7 +27,6 @@ export function UserListTable({
               {currentUser?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
               <th className="p-4">Ngày đăng ký</th>
               <th className="p-4">Quyền hạn (role)</th>
-              {currentUser?.role === "superadmin" && <th className="p-4">Số dư</th>}
               <th className="p-4">HeyGen</th>
               <th className="p-4 pr-6 text-center">Hành động</th>
             </tr>
@@ -38,7 +34,6 @@ export function UserListTable({
           <tbody className="divide-y divide-gray-100 text-slate-700">
             {users.map((usr) => {
               const isSelf = usr.uid === currentUser?.uid;
-              const userBalance = balanceByUserId[usr.uid];
               return (
                 <tr key={usr.uid} className="transition-colors hover:bg-slate-50/40">
                   <td className="flex items-center gap-3 p-4 pl-6">
@@ -92,25 +87,6 @@ export function UserListTable({
                       {getRoleDisplayName(usr.role, rolePermissionsList.find((rp) => rp.role === usr.role)?.displayName)}
                     </span>
                   </td>
-                  {currentUser?.role === "superadmin" && (
-                    <td className="min-w-[170px] p-4">
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onOpenBalance(usr, userBalance);
-                            setActiveTab("balance");
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-sky-900 transition hover:bg-sky-100"
-                        >
-                          <Wallet className="h-3.5 w-3.5 text-sky-600" />
-                          <span className="text-xs font-bold">
-                            {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(userBalance?.balance || 0)} Credit
-                          </span>
-                        </button>
-                      </div>
-                    </td>
-                  )}
                   <td className="p-4">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1.5">

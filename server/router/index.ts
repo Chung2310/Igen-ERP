@@ -4,7 +4,6 @@ import { authRouter } from "./auth.router";
 import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
-import { walletRouter } from "./wallet.router";
 import { googleDriveRouter } from "./google-drive.router";
 import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
@@ -60,8 +59,6 @@ apiRouter.use("/permissions", permissionRouter);
 apiRouter.use("/role-permissions", rolePermissionRouter);
 apiRouter.use("/face-management", faceManagementRouter);
 
-// Gắn kết router ví của người dùng & nạp tiền PayOS
-apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
