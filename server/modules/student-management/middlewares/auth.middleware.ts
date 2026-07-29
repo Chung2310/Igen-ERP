@@ -32,14 +32,9 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       companyCode: erpUser.companyCode,
       branchId: erpUser.branchId,
     };
-
-    // Branch-pinned roles (manager/branch_owner) must fail closed on reads and writes —
-    // they never have an "all branches" view. Admin is allowed through branchless
-    // (an explicit "Tất cả chi nhánh" selection) so they can see/reassign legacy
-    // records without a branchId; admin-side create endpoints enforce their own
-    // branch-required check instead. Superadmin and legacy user callers remain
-    // explicitly branch-optional.
-    if (["manager", "branch_owner"].includes(req.user.role) && !req.user.branchId) {
+    // Tenant-scoped roles must always resolve a branch on normal student routes.
+    // Superadmin and legacy user callers remain explicitly branch-optional.
+    if (["admin", "manager", "branch_owner"].includes(req.user.role) && !req.user.branchId) {
       try {
         requireStudentBranch(req.user);
       } catch (error) {

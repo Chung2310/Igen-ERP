@@ -42,10 +42,11 @@ it("rejects branchless branch-pinned roles on authenticated reads", () => {
   }
 });
 
-it("allows a branchless admin through (Tất cả chi nhánh view)", () => {
+it("rejects a branchless admin on normal student routes", () => {
   const result = invoke("admin");
-  assert.equal(result.passed, true);
-  assert.equal(result.req.user.branchId, undefined);
+  assert.equal(result.passed, false);
+  assert.equal(result.res.statusCode, 400);
+  assert.match(String((result.res.body as { error?: string })?.error), /chi nh/i);
 });
 
 it("allows tenant-scoped roles when an authenticated branch is present", () => {

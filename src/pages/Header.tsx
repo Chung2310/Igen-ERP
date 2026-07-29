@@ -404,7 +404,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       <div className="ml-2 sm:ml-6 flex items-center gap-1 sm:gap-3" id="header_controls">
 
         {userProfile?.role === "admin" && branches.length > 0 && (
-          <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-800 shadow-sm" title={`Chi nhánh đang xem: ${activeBranchId ? (activeBranch?.name || "") : "Tất cả chi nhánh"}`}>
+          <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-800 shadow-sm" title={`Chi nhánh đang xem: ${activeBranch?.name || ""}`}>
             <GitBranch className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
             <span className="hidden whitespace-nowrap text-[11px] font-bold sm:inline">Chi nhánh</span>
             <select
@@ -413,7 +413,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               onChange={(e) => setActiveBranchId(e.target.value)}
               className="max-w-[150px] min-w-0 cursor-pointer truncate bg-transparent text-[11px] font-bold text-emerald-900 outline-none sm:max-w-[190px]"
             >
-              <option value="">Tất cả chi nhánh</option>
               {branches.map((branch) => <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>)}
             </select>
           </div>
