@@ -27,7 +27,12 @@ export class AppError extends Error {
       ? Object.freeze({ ...options.details })
       : undefined;
     this.expose = options.expose ?? options.status < 500;
-    this.cause = options.cause;
+    Object.defineProperty(this, "cause", {
+      value: options.cause,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
