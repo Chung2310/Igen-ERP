@@ -100,7 +100,7 @@ const DEFAULT_LEVELS = [
   { name: "Cấp 3", minTuition: 100000000, commissionRate: 10 },
 ];
 
-async function enrichPartners(partners: IPartner[]): Promise<EnrichedPartner[]> {
+async function enrichPartners(partners: IPartner[], branchId?: string): Promise<EnrichedPartner[]> {
   const partnerIds = partners.map(p => p._id.toString());
   const ownerIds = Array.from(new Set(partners.map(p => p.ownerId)));
   
@@ -119,7 +119,7 @@ async function enrichPartners(partners: IPartner[]): Promise<EnrichedPartner[]> 
   }
 
   // Fetch commission levels for these centers
-  const levels = await CommissionLevel.find({ ownerId: { $in: ownerIds } }).sort({ minTuition: 1 });
+  const levels = await CommissionLevel.find({ ownerId: { $in: ownerIds }, ...buildBranchScopeQuery(branchId) }).sort({ minTuition: 1 });
   const levelsMapByOwner = new Map<string, ICommissionLevel[]>();
   for (const lvl of levels) {
     if (!levelsMapByOwner.has(lvl.ownerId)) {
@@ -195,19 +195,20 @@ export class PartnerService {
     data: PartnerData,
     context: CustomFieldWriteContext,
   ): Promise<EnrichedPartner> {
+    const branchId = typeof data.branchId === "string" ? data.branchId : undefined;
     logger.info(`[Partner] Creating partner name=${data.name}, phone=${data.phone} for ownerId=${ownerId}`);
     
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
-    const existing = await Partner.findOne({ ownerId, phone: writeData.phone });
+    const existing = await Partner.findOne({ ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
     if (existing) {
       throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho đối tác của trung tâm.`);
     }
 
-    const partner = new Partner({ ...writeData, ownerId });
+    const partner = new Partner({ ...writeData, ownerId, branchId });
     const saved = await partner.save();
     logger.info(`[Partner] Partner created: id=${saved._id}`);
     
-    const enriched = await enrichPartners([saved]);
+    const enriched = await enrichPartners([saved], branchId);
     return enriched[0];
   }
 
@@ -215,7 +216,8 @@ export class PartnerService {
     creatorId: string,
     ownerId: string | string[],
     partnersData: BulkPartnerInput[],
-    targetOwnerId?: string
+    targetOwnerId?: string,
+    branchId?: string,
   ) {
     let importedCount = 0;
     let skippedCount = 0;
@@ -223,7 +225,7 @@ export class PartnerService {
     const validPartners: Partial<IPartner>[] = [];
     const seenPhonesInBatch = new Set<string>();
 
-    const query = buildOwnerQuery(ownerId);
+    const query = { ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) };
     const existingPartners = await Partner.find(query).select("phone");
     const existingPhones = new Set(existingPartners.map((p) => normalizePhone(p.phone)));
 
@@ -284,6 +286,7 @@ export class PartnerService {
         isActive,
         notes: String(data.notes || "").trim(),
         ownerId: partnerOwnerId,
+        branchId,
         commissionType: "fixed",
         commissionValue: 0,
         payoutHistory: [],
@@ -305,14 +308,14 @@ export class PartnerService {
     };
   }
 
-  static async getPartners(ownerId: string | string[], filters: PartnerFilters) {
+  static async getPartners(ownerId: string | string[], filters: PartnerFilters, branchId?: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
-    const query: Record<string, unknown> = buildOwnerQuery(resolvedOwnerId);
+    const query: Record<string, unknown> = { ...buildOwnerQuery(resolvedOwnerId), ...buildBranchScopeQuery(branchId) };
     if (filters.isActive !== undefined && filters.isActive !== "") {
       query.isActive = String(filters.isActive) === "true";
     }
@@ -329,7 +332,7 @@ export class PartnerService {
       .skip(skip)
       .limit(limit);
 
-    const enriched = await enrichPartners(partners);
+    const enriched = await enrichPartners(partners, branchId);
 
     return { partners: enriched, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
@@ -337,12 +340,13 @@ export class PartnerService {
 
   static async getPartnerById(
     ownerId: string | string[],
-    id: string
+    id: string,
+    branchId?: string,
   ): Promise<(EnrichedPartner & { referredStudents: ReferredStudentItem[] }) | null> {
-    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) return null;
 
-    const enriched = (await enrichPartners([partner]))[0];
+    const enriched = (await enrichPartners([partner], branchId))[0];
 
     // Fetch detailed list of referred students
     const students = await Student.find({ partnerId: id }).sort({ createdAt: -1 });
@@ -373,10 +377,11 @@ export class PartnerService {
     id: string,
     data: Partial<PartnerData>,
     context: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<EnrichedPartner | null> {
     logger.info(`[Partner] Updating partner: id=${id}`);
     
-    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) {
       throw new Error("Không tìm thấy đối tác.");
     }
@@ -386,24 +391,24 @@ export class PartnerService {
     const writeData = await this.customFieldWrites.prepareUpdate(targetContext, partner, data);
 
     if (writeData.phone && writeData.phone !== partner.phone) {
-      const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: writeData.phone });
+      const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
       if (dup) {
         throw new Error(`Số điện thoại "${data.phone}" đã tồn tại cho một đối tác khác.`);
       }
     }
 
     const saved = await Partner.findOneAndUpdate(
-      { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },
       { new: true, runValidators: true },
     );
     if (!saved) throw new CustomFieldWriteConflictError();
     
-    const enriched = await enrichPartners([saved]);
+    const enriched = await enrichPartners([saved], branchId);
     return enriched[0];
   }
 
-  static async deletePartner(ownerId: string | string[], id: string): Promise<IPartner | null> {
+  static async deletePartner(ownerId: string | string[], id: string, branchId?: string): Promise<IPartner | null> {
     logger.info(`[Partner] Deleting partner: id=${id}`);
     
     // Check if partner has referred students
@@ -412,17 +417,18 @@ export class PartnerService {
       throw new Error(`Không thể xóa đối tác vì đã giới thiệu ${studentCount} học viên. Vui lòng vô hiệu hóa thay vì xóa.`);
     }
 
-    return await Partner.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await Partner.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 
   static async addPayout(
     ownerId: string | string[],
     id: string,
-    payoutData: { amount: number; date: string; method: "Tiền mặt" | "Chuyển khoản"; note?: string }
+    payoutData: { amount: number; date: string; method: "Tiền mặt" | "Chuyển khoản"; note?: string },
+    branchId?: string,
   ): Promise<EnrichedPartner> {
     logger.info(`[Partner] Adding payout for partner: id=${id}, amount=${payoutData.amount}`);
     
-    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) {
       throw new Error("Không tìm thấy đối tác.");
     }
@@ -436,7 +442,7 @@ export class PartnerService {
     partner.payoutHistory.push(newPayout);
     
     const saved = await partner.save();
-    const enriched = await enrichPartners([saved]);
+    const enriched = await enrichPartners([saved], branchId);
     return enriched[0];
   }
 
