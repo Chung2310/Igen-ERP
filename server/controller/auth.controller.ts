@@ -59,7 +59,6 @@ export function buildUserRosterFilter(companyCode?: string, branchId?: string): 
   return {
     ...(companyCode ? { companyCode } : {}),
     ...(companyCode && branchId ? { branchId } : {}),
-    isActive: true,
   };
 }
 export const authController = {
