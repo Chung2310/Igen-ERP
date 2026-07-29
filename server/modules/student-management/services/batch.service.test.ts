@@ -94,6 +94,7 @@ test("BatchService teacher assignment notification email flow", async (t) => {
       uid: "admin-1",
       role: "admin",
       companyCode: "SYSTEM",
+      branchId: "branch-a",
     };
 
     const result = await BatchService.createBatch("owner-1", actor, batchData);
@@ -159,6 +160,7 @@ test("BatchService teacher assignment notification email flow", async (t) => {
       uid: "admin-1",
       role: "admin",
       companyCode: "SYSTEM",
+      branchId: "branch-a",
     };
 
     await BatchService.updateBatch("owner-1", actor, "batch-1", updateData);
