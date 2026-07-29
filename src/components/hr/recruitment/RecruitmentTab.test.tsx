@@ -12,7 +12,7 @@ vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   uploadPublicFile: vi.fn(), deleteTemporaryPublicFile: vi.fn(),
 } }));
 
-const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0 } as any;
+const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0, companyCode: "ACME", branchId: "branch-a", createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
 const applicant = { _id: "app", jobId: "job", stageId: "new", fullName: "Nguyễn An", email: "an@example.com", phone: "", address: "", experience: "", education: "", skills: [], source: "", notes: "", outcome: "active", version: 0, createdAt: new Date().toISOString() } as any;
 
 describe("RecruitmentTab", () => {
@@ -67,6 +67,7 @@ describe("RecruitmentTab", () => {
     const title = screen.getByLabelText("Tên vị trí"); await userEvent.clear(title); await userEvent.type(title, "Senior Developer");
     await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(recruitmentApi.updateJob).toHaveBeenCalledWith("job", expect.objectContaining({ title: "Senior Developer", version: 0 })));
+    expect(vi.mocked(recruitmentApi.updateJob).mock.calls[0][1]).not.toEqual(expect.objectContaining({ _id: expect.anything(), companyCode: expect.anything(), branchId: expect.anything(), createdBy: expect.anything(), updatedBy: expect.anything(), isDeleted: expect.anything(), createdAt: expect.anything(), updatedAt: expect.anything() }));
   });
 
   it("edits an applicant and displays its Vietnamese outcome", async () => {
