@@ -36,6 +36,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         const resolvedBranchId = resolveActiveBranchId(list, saved);
         setActiveBranchIdState(resolvedBranchId);
         localStorage.setItem(key, resolvedBranchId);
+
       } catch { setBranches([]); }
       finally { setLoading(false); }
     };

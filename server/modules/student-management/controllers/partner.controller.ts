@@ -16,6 +16,8 @@ export class PartnerController {
           throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
+      } else if (req.user!.role === "admin" || req.user!.role === "manager") {
+        ownerId = await resolveCreateOwnerId(req.user!);
       }
 
       const partner = await PartnerService.createPartner(ownerId, { ...req.body, branchId: req.user!.branchId }, {
@@ -147,6 +149,8 @@ export class PartnerController {
           throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
+      } else if (req.user!.role === "admin" || req.user!.role === "manager") {
+        ownerId = await resolveCreateOwnerId(req.user!);
       }
 
       const level = await PartnerService.createCommissionLevel(ownerId, { ...req.body, branchId: req.user!.branchId });

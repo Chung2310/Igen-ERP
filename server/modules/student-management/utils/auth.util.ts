@@ -78,7 +78,10 @@ export async function getAllowedOwnerIds(user: StudentModuleUser): Promise<strin
 
   const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
   const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
-  if (user.role === "admin" || user.role === "manager") {
+  if (user.role === "admin") {
+    return [...new Set([...branchOwnerIds, user.uid])];
+  }
+  if (user.role === "manager") {
     return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : user.uid;
   }
 
