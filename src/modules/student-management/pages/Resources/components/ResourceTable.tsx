@@ -7,6 +7,7 @@ import { todayStr, getTypeColor } from '../utils';
 
 interface ResourceTableProps {
   resources: ResourceItem[];
+  canManage?: boolean;
   onBook: (r: ResourceItem) => void;
   onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
@@ -16,6 +17,7 @@ interface ResourceTableProps {
 
 export function ResourceTable({
   resources,
+  canManage = true,
   onBook,
   onEdit,
   onToggleMaintenance,
@@ -34,6 +36,7 @@ export function ResourceTable({
               <ResourceTableRow
                 key={resource.id}
                 resource={resource}
+                canManage={canManage}
                 onBook={onBook}
                 onEdit={onEdit}
                 onToggleMaintenance={onToggleMaintenance}
@@ -51,6 +54,7 @@ export function ResourceTable({
 interface ResourceTableRowProps {
   key?: React.Key;
   resource: ResourceItem;
+  canManage: boolean;
   onBook: (r: ResourceItem) => void;
   onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
@@ -59,6 +63,7 @@ interface ResourceTableRowProps {
 
 function ResourceTableRow({
   resource,
+  canManage,
   onBook,
   onEdit,
   onToggleMaintenance,
@@ -124,7 +129,7 @@ function ResourceTableRow({
         )}
       </td>
       <td className="py-2.5 px-4 text-left">
-        <div className="flex items-center gap-2">
+        {canManage && <div className="flex items-center gap-2">
           <button
             onClick={() => onEdit(resource)}
             title="Chỉnh sửa tài nguyên"
@@ -167,7 +172,7 @@ function ResourceTableRow({
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-        </div>
+        </div>}
       </td>
     </tr>
   );

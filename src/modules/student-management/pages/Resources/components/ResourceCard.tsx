@@ -8,6 +8,7 @@ import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 interface ResourceCardProps {
   key?: React.Key;
   resource: ResourceItem;
+  canManage?: boolean;
   onBook: (r: ResourceItem) => void;
   onEdit: (r: ResourceItem) => void;
   onToggleMaintenance: (r: ResourceItem) => void;
@@ -17,6 +18,7 @@ interface ResourceCardProps {
 
 export function ResourceCard({
   resource,
+  canManage = true,
   onBook,
   onEdit,
   onToggleMaintenance,
@@ -111,13 +113,13 @@ export function ResourceCard({
                   <span className="truncate">
                     {b.date.split('-').reverse().join('/')} • {b.startTime}-{b.endTime} • {b.purpose} ({b.by})
                   </span>
-                  <button
+                  {canManage && <button
                     onClick={() => onCancelBooking(resource, b.id)}
                     title="Hủy lịch đặt"
                     className="text-slate-400 hover:text-rose-500 transition-colors flex-shrink-0 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>
@@ -127,7 +129,7 @@ export function ResourceCard({
         </div>
       </div>
 
-      <div className={cn("flex items-center justify-between pt-2.5 mt-1.5 border-t", darkMode ? "border-slate-800/30" : "border-slate-100")}>
+      {canManage && <div className={cn("flex items-center justify-between pt-2.5 mt-1.5 border-t", darkMode ? "border-slate-800/30" : "border-slate-100")}>
         <div className="flex items-center gap-1">
           <button
             onClick={() => onEdit(resource)}
@@ -173,7 +175,7 @@ export function ResourceCard({
           <UserCheck className="w-3 h-3" />
           Đặt mượn
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -5,14 +5,14 @@ import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../types';
 import { buildStudentListEndpoint, type StudentListScope } from './studentListScope';
 
-export function useStudents(ownerFilter?: string, scope: StudentListScope = "branch") {
+export function useStudents(ownerFilter?: string, scope: StudentListScope = "branch", enabled = true) {
   const { userProfile: user } = useAuth();
   const { activeBranchId } = useBranch();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchStudents = useCallback(async () => {
-    if (!user) {
+    if (!user || !enabled) {
       setStudents([]);
       setLoading(false);
       return;
@@ -35,7 +35,7 @@ export function useStudents(ownerFilter?: string, scope: StudentListScope = "bra
     } finally {
       setLoading(false);
     }
-  }, [user, ownerFilter, scope, activeBranchId]);
+  }, [user, ownerFilter, scope, activeBranchId, enabled]);
 
   useEffect(() => {
     fetchStudents();

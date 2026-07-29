@@ -94,7 +94,7 @@ const notifyBatchMutation = () => {
   window.dispatchEvent(new Event('user-mutation'));
 };
 
-export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
+export function BatchesPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
   const copy = getBatchPageCopy(entityLabel.preset);
@@ -111,7 +111,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     deleteField: deleteStdField
   } = useStandardFields("batches");
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
   const [isEditingFields, setIsEditingFields] = useState(false);
@@ -396,11 +396,11 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     <div className="space-y-4 text-left">
       <ErpPageHeader
         title={copy.pageTitle}
-        action={
+        action={canManage ? (
           <ErpPrimaryButton onClick={openCreateModal}>
             {copy.createButton}
           </ErpPrimaryButton>
-        }
+        ) : undefined}
       />
 
       {/* Controls */}

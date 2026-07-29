@@ -40,7 +40,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   } = useStandardFields("students");
   const entityLabel = useEntityLabel();
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
 

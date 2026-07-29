@@ -38,7 +38,7 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
     deleteField: deleteStdField
   } = useStandardFields("partners");
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
 
