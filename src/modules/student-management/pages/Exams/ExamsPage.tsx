@@ -20,7 +20,7 @@ import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 
-export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
+export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { exams, loading: examsLoading } = useExams(resolvedCenter);
   const { students } = useStudents(resolvedCenter);
@@ -300,12 +300,12 @@ export function ExamsPage({ selectedCenter }: { selectedCenter?: string }) {
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
-          <button
+          {canManage && <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider shadow-md shadow-cyan-100 hover:bg-cyan-700 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Tạo đợt thi
-          </button>
+          </button>}
         </div>
       </div>
 

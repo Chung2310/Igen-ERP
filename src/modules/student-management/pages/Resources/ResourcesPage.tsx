@@ -18,7 +18,7 @@ import { ManageCategoriesModal } from './components/ManageCategoriesModal';
 import { ResourceCard } from './components/ResourceCard';
 import { ResourceTable } from './components/ResourceTable';
 
-export function ResourcesPage() {
+export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
   const darkMode = false;
 
   const { resources, loading } = useResources();
@@ -114,7 +114,7 @@ export function ResourcesPage() {
     <div className="space-y-6 text-left">
       <ErpPageHeader
         title="Quản lý Thiết bị & Tài nguyên"
-        action={
+        action={canManage ? (
           <div className="flex gap-2">
             <button
               onClick={() => setShowCategoryModal(true)}
@@ -131,7 +131,7 @@ export function ResourcesPage() {
               Khai báo tài nguyên mới
             </ErpPrimaryButton>
           </div>
-        }
+        ) : undefined}
       />
 
       {/* Controls */}
@@ -198,6 +198,7 @@ export function ResourcesPage() {
               <ResourceCard
                 key={r.id}
                 resource={r}
+                canManage={canManage}
                 onBook={setBookingResource}
                 onEdit={setEditingResource}
                 onToggleMaintenance={handleToggleMaintenance}
@@ -220,6 +221,7 @@ export function ResourcesPage() {
       ) : (
         <ResourceTable
           resources={paginatedResources}
+          canManage={canManage}
           onBook={setBookingResource}
           onEdit={setEditingResource}
           onToggleMaintenance={handleToggleMaintenance}
@@ -238,20 +240,20 @@ export function ResourcesPage() {
       )}
 
       {/* Add Resource Modal */}
-      <AddResourceModal
+      {canManage && <AddResourceModal
         isOpen={showAddModal || !!editingResource}
         onClose={() => { setShowAddModal(false); setEditingResource(null); }}
         categories={categories}
         onSuccess={refreshResources}
         resource={editingResource || undefined}
-      />
+      />}
 
       {/* Booking Modal */}
-      <BookingModal
+      {canManage && <BookingModal
         bookingResource={bookingResource}
         onClose={() => setBookingResource(null)}
         onSuccess={refreshResources}
-      />
+      />}
 
       {/* Manage Categories Modal */}
       <ManageCategoriesModal

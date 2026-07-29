@@ -16,11 +16,11 @@ describe("custom field frontend contracts", () => {
   });
 
   it("allows only field-management roles", () => {
-    expect(canManageCustomFields("superadmin")).toBe(true);
-    expect(canManageCustomFields("admin")).toBe(true);
-    expect(canManageCustomFields("manager")).toBe(true);
-    expect(canManageCustomFields("Leader")).toBe(false);
-    expect(canManageCustomFields("user")).toBe(false);
+    expect(canManageCustomFields(["*"])).toBe(true);
+    expect(canManageCustomFields(["custom-field:manage"])).toBe(true);
+    expect(canManageCustomFields(["student:manage"])).toBe(false);
+    expect(canManageCustomFields(["student:read"])).toBe(false);
+    expect(canManageCustomFields([])).toBe(false);
     expect(canManageCustomFields(null)).toBe(false);
     expect(canManageCustomFields()).toBe(false);
   });

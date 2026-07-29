@@ -32,7 +32,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     deleteField: deleteStdField
   } = useStandardFields("exams");
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
 

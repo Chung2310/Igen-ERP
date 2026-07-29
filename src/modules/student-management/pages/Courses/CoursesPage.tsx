@@ -128,7 +128,7 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
 }
 
-export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
+export function CoursesPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const darkMode = false;
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
@@ -143,7 +143,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     deleteField: deleteStdField
   } = useStandardFields("courses");
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
 
@@ -471,7 +471,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
     <div className="space-y-4 text-left">
       <ErpPageHeader
         title={copy.pageTitle}
-        action={
+        action={canManage ? (
           <div className="flex gap-2">
             <button
               onClick={() => setShowCategoryModal(true)}
@@ -488,7 +488,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
               {copy.addButton}
             </ErpPrimaryButton>
           </div>
-        }
+        ) : undefined}
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">

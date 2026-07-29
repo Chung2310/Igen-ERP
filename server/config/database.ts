@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
+import { RolePermissionModel } from "../model/role-permission.model";
+import { PERMISSION_CATALOG } from "./permission-catalog";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -102,13 +104,27 @@ async function seedPermissions() {
       code: { $in: ["crm:read", "crm:manage", "marketing:post"] }
     });
 
-    for (const perm of defaultPermissions) {
-      const existing = await PermissionModel.findOne({ code: perm.code });
-      if (!existing) {
-        await new PermissionModel(perm).save();
-        console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
-      }
+    const catalogPermissions = PERMISSION_CATALOG.map((entry) => ({
+      code: entry.code,
+      name: entry.label,
+      module: entry.code.split(":")[0],
+      description: entry.description,
+    }));
+    const permissionsByCode = new Map([...defaultPermissions, ...catalogPermissions].map((permission) => [permission.code, permission]));
+
+    for (const perm of permissionsByCode.values()) {
+      const result = await PermissionModel.updateOne({ code: perm.code }, { $setOnInsert: perm }, { upsert: true });
+      if (result.upsertedCount) console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
     }
+
+    await RolePermissionModel.updateMany(
+      { role: "admin" },
+      { $addToSet: { permissions: { $each: ["custom-field:manage", "student-settings:manage", "company-smtp:manage"] } } },
+    );
+    await RolePermissionModel.updateMany(
+      { role: "manager" },
+      { $addToSet: { permissions: "custom-field:manage" } },
+    );
   } catch (error) {
     console.error("[Backend Database] Lỗi khi tự động khởi tạo mã quyền:", error);
   }

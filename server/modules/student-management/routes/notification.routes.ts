@@ -4,10 +4,11 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createNotificationSchema } from "../validations/notification.validation";
 import { idParamSchema } from "../validations/student.validation";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
-const requireManage = requirePermission("student:manage") as any;
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student-notification"].manage]) as any;
 
 router.use(authMiddleware);
 

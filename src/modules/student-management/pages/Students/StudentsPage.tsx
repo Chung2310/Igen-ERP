@@ -28,6 +28,7 @@ interface StudentsPageProps {
   onSelectStudent: (student: Student) => void;
   onAddStudent: () => void;
   selectedCenter?: string;
+  canManage?: boolean;
 }
 
 type StatusFilter = 'Tất cả' | 'KSK' | 'Đã KSK' | 'Nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học';
@@ -45,7 +46,7 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
   return BookOpen;
 }
 
-export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
+export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, canManage = true }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { userProfile } = useAuth();
   const [listScope, setListScope] = useState<'branch' | 'unassigned'>('branch');
@@ -431,7 +432,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
               <GitBranch className="w-3.5 h-3.5" /> {isUnassignedScope ? 'Quay lại chi nhánh đang chọn' : 'Chưa gán chi nhánh'}
             </button>
           )}
-          {selectedStudentIds.length > 0 && !isUnassignedScope && (
+          {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
@@ -452,18 +453,18 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
-          {usesEducationBilling && <button
+          {canManage && usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
-          <button
+          {canManage && <button
             onClick={onAddStudent}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Thêm
-          </button>
+          </button>}
         </div>
       </div>
 

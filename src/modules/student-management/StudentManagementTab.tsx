@@ -9,6 +9,8 @@ import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
 import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen } from "lucide-react";
+import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
+import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 
 type StudentSubTab =
   | "TỔNG QUAN"
@@ -63,6 +65,7 @@ export default function StudentManagementTab() {
   const entityLabel = useEntityLabel();
 
   const subTabRoutes = React.useMemo(() => {
+    const allowedSlugs = getAllowedStudentTabSlugs(userProfile?.permissions || [], entityLabel.preset);
     let routes = SUB_TAB_ROUTES.map((item) => ({
       ...item,
       label: item.slug === "hoc-vien"
@@ -71,7 +74,7 @@ export default function StudentManagementTab() {
       icon: (entityLabel.preset === "worker" || entityLabel.preset === "customer") && item.slug === "khoa-hoc"
         ? BriefcaseBusiness
         : item.icon,
-    }));
+    })).filter((item) => allowedSlugs.some((slug) => slug === item.slug));
 
     if (entityLabel.preset !== "student") {
       const hiddenSlugs = entityLabel.preset === "worker"
@@ -81,16 +84,19 @@ export default function StudentManagementTab() {
     }
 
     return routes;
-  }, [entityLabel.tabLabel, entityLabel.preset]);
+  }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
     return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
   });
 
-  const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(subTabRoutes, "TỔNG QUAN");
+  const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
+  const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(subTabRoutes, defaultSubTab);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
-  const { students } = useStudents(selectedCenter === "all" ? undefined : selectedCenter);
+  const canReadStudents = canReadStudentArea(userProfile?.permissions || [], "student-profile");
+  const canManage = (area: Parameters<typeof canManageStudentArea>[1]) => canManageStudentArea(userProfile?.permissions || [], area);
+  const { students } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents);
 
   const handleOpenStudent = React.useCallback((student: Student, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => {
     setSelectedStudent(student);
@@ -101,6 +107,16 @@ export default function StudentManagementTab() {
     return (
       <div className="flex h-full w-full items-center justify-center bg-white p-6">
         <PageLoader />
+      </div>
+    );
+  }
+
+  if (subTabRoutes.length === 0) {
+    return (
+      <div className="flex h-full min-h-[320px] items-center justify-center bg-white p-6">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5 text-sm font-semibold text-amber-800">
+          Bạn chưa được cấp quyền sử dụng chức năng này
+        </div>
       </div>
     );
   }
@@ -122,22 +138,23 @@ export default function StudentManagementTab() {
             onSelectStudent={handleOpenStudent}
             onAddStudent={() => setIsAddStudentOpen(true)}
             selectedCenter={selectedCenter}
+            canManage={canManage("student-profile")}
           />
         );
       case "KHÓA HỌC":
         return entityLabel.preset === "worker"
-          ? <BatchesPage selectedCenter={selectedCenter} />
-          : <CoursesPage selectedCenter={selectedCenter} />;
+          ? <BatchesPage selectedCenter={selectedCenter} canManage={canManage("batch")} />
+          : <CoursesPage selectedCenter={selectedCenter} canManage={canManage("course")} />;
       case "LỚP HỌC":
-        return <BatchesPage selectedCenter={selectedCenter} />;
+        return <BatchesPage selectedCenter={selectedCenter} canManage={canManage("batch")} />;
       case "LỊCH THI":
-        return <ExamsPage selectedCenter={selectedCenter} />;
+        return <ExamsPage selectedCenter={selectedCenter} canManage={canManage("exam")} />;
       case "HỌC PHÍ":
         return <FeesPage onSelectStudent={handleOpenStudent} selectedCenter={selectedCenter} />;
       case "THÔNG BÁO":
-        return <NotificationsPage />;
+        return <NotificationsPage canManage={canManage("student-notification")} />;
       case "TÀI NGUYÊN":
-        return <ResourcesPage />;
+        return <ResourcesPage canManage={canManage("student-resource")} />;
       default:
         return null;
     }

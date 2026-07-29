@@ -36,7 +36,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
     deleteField: deleteStdField
   } = useStandardFields("resources");
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
 

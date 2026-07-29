@@ -7,6 +7,8 @@ import express, { type Router } from "express";
 import jwt from "jsonwebtoken";
 import type { NextFunction, Response } from "express";
 import { getJwtAccessSecret } from "../../../config/env";
+import { UserModel } from "../../../model/user.model";
+import { RolePermissionModel } from "../../../model/role-permission.model";
 import { CustomFieldController } from "../controllers/custom-field.controller";
 import customFieldRouter from "./custom-field.routes";
 import {
@@ -15,7 +17,7 @@ import {
   moduleParamSchema,
   updateFieldSchema,
 } from "../validations/custom-field.validation";
-import { authMiddleware, requireRoles } from "../middlewares/auth.middleware";
+import { authMiddleware } from "../middlewares/auth.middleware";
 
 type ResponseCapture = {
   statusCode: number;
@@ -39,14 +41,6 @@ function responseCapture(): ResponseCapture {
   };
 }
 
-function invokeRoleGuard(role?: "superadmin" | "admin" | "manager" | "user") {
-  const req = { user: role ? { role } : undefined } as any;
-  const res = responseCapture();
-  let passed = false;
-  requireRoles("superadmin", "admin", "manager")(req, res as unknown as Response, () => { passed = true; });
-  return { passed, res };
-}
-
 function validCreateBody() {
   return { label: "Preferred name", type: "text", isVisible: false, isRequired: true };
 }
@@ -58,7 +52,13 @@ async function requestRouter(router: Router, mountPath: string, method: string, 
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const { port } = server.address() as AddressInfo;
-  const token = jwt.sign({ id: "actor-a", email: "actor@example.com", role: "manager", companyCode: "tenant-a" }, getJwtAccessSecret());
+  const actorId = "669865fae3bbab7f00000002";
+  const branchId = "669865fae3bbab7f00000003";
+  const token = jwt.sign({ id: actorId, email: "actor@example.com", role: "manager", companyCode: "tenant-a" }, getJwtAccessSecret());
+  const originalFindById = UserModel.findById;
+  const originalRoleFindOne = RolePermissionModel.findOne;
+  (UserModel as any).findById = () => ({ select: () => ({ lean: async () => ({ branchId, permissions: ["custom-field:manage"] }) }) });
+  (RolePermissionModel as any).findOne = () => ({ lean: async () => null });
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}${path}`, {
@@ -68,6 +68,8 @@ async function requestRouter(router: Router, mountPath: string, method: string, 
     });
     return { status: response.status, contentType: response.headers.get("content-type"), raw: await response.text() };
   } finally {
+    (UserModel as any).findById = originalFindById;
+    (RolePermissionModel as any).findOne = originalRoleFindOne;
     server.close();
     await once(server, "close");
   }
@@ -102,18 +104,6 @@ test("unauthenticated requests receive 401 before the custom field handlers", ()
   }
   assert.equal(passed, false);
   assert.equal(res.statusCode, 401);
-});
-
-test("ordinary users cannot mutate custom fields", () => {
-  const user = invokeRoleGuard("user");
-  assert.equal(user.passed, false);
-  assert.equal(user.res.statusCode, 403);
-});
-
-test("manager, admin and superadmin can mutate custom fields", () => {
-  for (const role of ["manager", "admin", "superadmin"] as const) {
-    assert.equal(invokeRoleGuard(role).passed, true, role);
-  }
 });
 
 test("validates only supported modules and Mongo ObjectId parameters", () => {

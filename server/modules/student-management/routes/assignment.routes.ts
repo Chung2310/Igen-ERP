@@ -10,10 +10,12 @@ import {
 } from "../validations/assignment.validation";
 import { idParamSchema } from "../validations/student.validation";
 import { requireModule } from "../../../middleware/require-module";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
-const requireManage = requirePermission("student:manage") as any;
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.assignment.manage]) as any;
+const requireRead = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.assignment.read]) as any;
 
 // Public routes for student submission (via encrypted JWT token in query parameter)
 router.get("/public/detail", AssignmentController.getPublicDetail);
@@ -24,7 +26,7 @@ router.post("/public/cancel", AssignmentController.cancelSubmission);
 // Private routes for Teachers & Admins
 router.use(authMiddleware);
 router.use(requireModule("student"));
-router.use(requirePermission("student:read") as any);
+router.use(requireRead);
 router.post("/", requireManage, validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);

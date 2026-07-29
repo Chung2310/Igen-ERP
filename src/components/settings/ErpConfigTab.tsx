@@ -34,6 +34,9 @@ export default function ErpConfigTab() {
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     hasPermission("timekeeping:manage");
+  const canManageStudentSettings = hasPermission("student-settings:manage");
+  const canManageSmtp = hasPermission("company-smtp:manage");
+  const canManageCompanyModules = canManageStudentSettings || canManageSmtp;
 
 
   useEffect(() => {
@@ -136,7 +139,7 @@ export default function ErpConfigTab() {
   return (
     <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
       {/* Tab bar nội bộ của Cấu hình ERP */}
-      {canManageLocation && (
+      {(canManageLocation || canManageCompanyModules) && (
         <div className="flex gap-2 border-b border-gray-100 pb-3">
           <button
             type="button"
@@ -170,7 +173,7 @@ export default function ErpConfigTab() {
           >
             Giờ làm việc nhân viên
           </button>
-          {userProfile?.role === "admin" && (
+          {canManageCompanyModules && (
             <button type="button" onClick={() => setActiveTab("companyModules")}
               className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               Học viên & Email
@@ -184,10 +187,10 @@ export default function ErpConfigTab() {
       {activeTab === "workShifts" && canManageLocation && <WorkShiftsTab />}
 
       {/* Preferences Section */}
-      {activeTab === "companyModules" && userProfile?.role === "admin" && (
+      {activeTab === "companyModules" && canManageCompanyModules && (
         <div className="space-y-5">
-          <StudentManagementErpSettings />
-          <CompanySmtpSettingsTab />
+          {canManageStudentSettings && <StudentManagementErpSettings />}
+          {canManageSmtp && <CompanySmtpSettingsTab />}
         </div>
       )}
       {activeTab === "general" && (

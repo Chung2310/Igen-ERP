@@ -33,7 +33,7 @@ export function CustomFieldsSection({
   const { fields, archivedFields, loading, error, refresh, createField, updateField, archiveField, restoreField, deleteField } = useCustomFields(moduleKey, tenantId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
-  const manageable = canManageCustomFields(userProfile?.role);
+  const manageable = canManageCustomFields(userProfile?.permissions);
   const activeFields = useMemo(() => [...fields].filter((field) => !field.isArchived && field.isVisible).sort((left, right) => left.order - right.order), [fields]);
 
   const [localIsEditingFields, setLocalIsEditingFields] = useState(false);
