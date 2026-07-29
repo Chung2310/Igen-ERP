@@ -4,6 +4,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
+import { resolveUserAdminBranchId } from "../components/user-admin/userBranchScope";
 import { authService } from "../services/authService";
 import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
@@ -26,6 +28,7 @@ import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } fr
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmState, setConfirmState] = useState<{
@@ -206,7 +209,8 @@ export default function UserAdminTab() {
       if (userProfile?.role === "superadmin") {
         data = await authService.getAllUsers();
       } else if (userProfile?.companyCode && userProfile?.companyCode !== "SYSTEM") {
-        data = await authService.getUsersByCompany(userProfile.companyCode);
+        const branchId = resolveUserAdminBranchId(userProfile.role, activeBranchId, userProfile.branchId);
+        data = await authService.getUsersByCompany(userProfile.companyCode, branchId);
       }
       setUsersList(data);
     } catch (error) {
@@ -265,7 +269,7 @@ export default function UserAdminTab() {
     fetchCompanies();
     fetchRolePermissions();
     fetchSystemPermissions();
-  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, selectedCompanyCode]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, userProfile?.branchId, selectedCompanyCode, activeBranchId]);
 
 
   // Close action menu when clicking outside
