@@ -3,6 +3,7 @@ import { Shield, X, RefreshCw } from "lucide-react";
 import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
 import { getPermissionLabel, getPermissionDescription, PERMISSION_TRANSLATIONS } from "../../utils/permissionUtils";
+import { sortPermissionsForRoleEditor } from "./rolePresentation";
 
 export interface RoleModalProps {
   open: boolean;
@@ -147,7 +148,7 @@ export function RoleModal({
                 <div className="space-y-4 max-h-[380px] overflow-y-auto p-1 pr-2">
                   {(() => {
                     const groupsMap = new Map<string, Permission[]>();
-                    systemPermissions.forEach((perm) => {
+                    sortPermissionsForRoleEditor(systemPermissions).forEach((perm) => {
                       const groupName = perm.group || PERMISSION_TRANSLATIONS[perm.code]?.group || "Khác";
                       const list = groupsMap.get(groupName) || [];
                       list.push(perm);
@@ -173,7 +174,9 @@ export function RoleModal({
                                     if (prev.includes(perm.code)) {
                                       return prev.filter((p) => p !== perm.code);
                                     } else {
-                                      return [...prev, perm.code];
+                                      const readCode = perm.code.endsWith(":manage") ? perm.code.replace(/:manage$/, ":read") : "";
+                                      const hasReadPair = systemPermissions.some((item) => item.code === readCode);
+                                      return [...new Set([...prev, perm.code, ...(hasReadPair ? [readCode] : [])])];
                                     }
                                   });
                                 }}
@@ -191,8 +194,12 @@ export function RoleModal({
                                 />
                                 <div className="min-w-0 flex-1">
                                   <span className="text-xs font-bold block leading-tight truncate">{labelText}</span>
+                                  <span className="text-[9px] font-mono text-slate-400 mt-0.5 block">{perm.code}</span>
                                   {descText && (
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
+                                  )}
+                                  {(perm.code === "student:read" || perm.code === "student:manage") && (
+                                    <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>
                                   )}
                                 </div>
                               </div>

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { hasAnyPermission } from "./auth";
 
@@ -31,4 +32,9 @@ test("permission policy accepts wildcard or any matching permission", () => {
   assert.equal(hasAnyPermission(new Set(["*"]), ["course:manage"]), true);
   assert.equal(hasAnyPermission(new Set(["course:read"]), ["student:read", "course:read"]), true);
   assert.equal(hasAnyPermission(new Set(["batch:read"]), ["student:read", "course:read"]), false);
+});
+
+test("database seeding consumes the canonical permission catalog", () => {
+  const source = fs.readFileSync("server/config/database.ts", "utf8");
+  assert.match(source, /PERMISSION_CATALOG/);
 });

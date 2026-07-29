@@ -234,10 +234,14 @@ export function getRoleDisplayName(role: string, customDisplayName?: string): st
     return customDisplayName;
   }
   const roleMap: Record<string, string> = {
-    superadmin: "Quản trị viên tối cao (Super Admin)",
-    admin: "Chủ doanh nghiệp (Admin)",
-    manager: "Quản lý (Manager)",
-    user: "Nhân viên (User)",
+    superadmin: "Quản trị viên cấp cao",
+    admin: "Quản trị viên doanh nghiệp",
+    branch_owner: "Chủ chi nhánh",
+    manager: "Quản lý chi nhánh",
+    user: "Nhân viên",
+    staff: "Nhân viên",
+    teacher: "Giáo viên",
+    accountant: "Kế toán",
   };
   return roleMap[role?.toLowerCase()] || role || "Nhân viên";
 }

@@ -300,12 +300,12 @@ export default function UserAdminTab() {
     
     if (userProfile?.role === "superadmin") {
       defaultRoles.push(
-        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 },
-        { role: "superadmin", displayName: "SUPERADMIN (Toàn quyền)", level: 1 }
+        { role: "admin", displayName: getRoleDisplayName("admin"), level: 2 },
+        { role: "superadmin", displayName: getRoleDisplayName("superadmin"), level: 1 }
       );
     } else if (userProfile?.role === "admin") {
       defaultRoles.push(
-        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 }
+        { role: "admin", displayName: getRoleDisplayName("admin"), level: 2 }
       );
     }
 
@@ -314,7 +314,7 @@ export default function UserAdminTab() {
       .filter(rp => !["user", "manager", "admin", "superadmin"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
-        displayName: `${rp.role.toUpperCase()} (${rp.displayName || rp.role})`,
+        displayName: getRoleDisplayName(rp.role, rp.displayName),
         level: rp.level
       }));
 
@@ -806,10 +806,10 @@ export default function UserAdminTab() {
                 };
 
                 const defaultRolesList = [
-                  { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
-                  { role: "manager", displayName: "MANAGER (Quản lý)", level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
-                  { role: "branch_owner", displayName: "BRANCH OWNER", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
-                  { role: "user", displayName: "USER (Nhân viên)", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
+                  { role: "admin", displayName: getRoleDisplayName("admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
+                  { role: "manager", displayName: getRoleDisplayName("manager"), level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
+                  { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
+                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
                 const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "user"].includes(rp.role));
@@ -827,7 +827,7 @@ export default function UserAdminTab() {
                   }),
                   ...customRolesList.map(cr => ({
                     role: cr.role,
-                    displayName: cr.displayName || cr.role.toUpperCase(),
+                    displayName: getRoleDisplayName(cr.role, cr.displayName),
                     level: cr.level,
                     permissions: cr.permissions,
                     isDefault: false,
