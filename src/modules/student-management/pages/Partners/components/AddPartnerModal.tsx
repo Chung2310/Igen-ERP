@@ -14,6 +14,8 @@ import { CustomFieldEditorModal } from '../../../custom-fields/CustomFieldEditor
 import { canManageCustomFields } from '../../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../custom-fields/types';
 import { useEntityLabel } from '../../../hooks/useEntityLabel';
+import { useBranch } from '../../../../../context/BranchContext';
+import { buildPartnerBranchHeaders } from '../partnerBranchScope';
 
 interface AddPartnerModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ interface AddPartnerModalProps {
 export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPartnerModalProps) {
   const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const {
     fields: stdFields,
     activeFields: activeStdFields,
@@ -199,6 +202,7 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
 
       const res = await apiFetch(url, {
         method,
+        headers: buildPartnerBranchHeaders(activeBranchId),
         body: JSON.stringify(payload),
       });
 
