@@ -7,7 +7,6 @@ import { Student, Partner } from '../../types';
 import { cn, toInputDate, toDisplayDate } from '../../lib/utils';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { useAuth } from '../../../../context/AuthContext';
-import { useBranch } from '../../../../context/BranchContext';
 import { FormInput } from './components/StudentFormFields';
 import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
@@ -30,7 +29,6 @@ interface EditStudentModalProps {
 
 export function EditStudentModal({ student, isOpen, onClose, onSuccess, students }: EditStudentModalProps) {
   const { userProfile: user } = useAuth();
-  const { branches } = useBranch();
   const {
     fields: stdFields,
     archivedFields: archivedStdFields,
@@ -146,7 +144,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     email: '',
     status: [] as string[],
     customFields: {} as CustomFieldValues,
-    branchId: '',
   });
 
   useEffect(() => {
@@ -170,7 +167,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
           address: student.address || '',
           status: Array.isArray(student.status) ? student.status : (student.status ? [student.status] : []),
           customFields: student.customFields || {},
-          branchId: student.branchId || '',
         });
       }, 0);
     }
@@ -221,7 +217,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
         birthday: toDisplayDate(formData.birthday),
         enrollmentDate: toDisplayDate(formData.enrollmentDate),
         partnerId: formData.partnerId || "",
-        ...(user?.role === 'admin' ? { branchId: formData.branchId || undefined } : {}),
       };
       if (!isFieldVisible('phone')) delete (payload as Partial<typeof payload>).phone;
       await apiFetch(`/students/${student?.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -460,27 +455,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   </div>
                 )}
 
-                {user?.role === 'admin' && (
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                      Chi nhánh
-                    </label>
-                    <div className="relative">
-                      <select
-                        name="branchId"
-                        value={formData.branchId}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                      >
-                        <option value="">Chưa gán chi nhánh</option>
-                        {branches.map((branch) => (
-                          <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-                )}
                 <div className="sm:col-span-2 space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
                     Trạng thái (Chọn nhiều)
