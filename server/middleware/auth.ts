@@ -195,6 +195,12 @@ export async function getEffectivePermissions(
   return new Set([...customPermissions, ...rolePermissions]);
 }
 
+export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPermissions: readonly string[]) {
+  return allPermissions.has("*") || requiredPermissions.some((permission) => allPermissions.has(permission));
+}
+
+export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);
+
 /**
  * Middleware yêu cầu mã quyền động (PBAC)
  * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
@@ -217,7 +223,7 @@ export function requirePermission(requiredPermission: string | string[]) {
       const { id: userId, role, companyCode } = req.user;
       const allPermissions = await getEffectivePermissions(userId, role, companyCode);
 
-      if (allPermissions.has("*") || requiredPermissions.some((p) => allPermissions.has(p))) {
+      if (hasAnyPermission(allPermissions, requiredPermissions)) {
         return next();
       }
 
