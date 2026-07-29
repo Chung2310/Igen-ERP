@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { buildCompanyUserFilter, buildStudentBranchQuery, requireStudentBranch } from "./auth.util";
+import { describe, expect, it, vi } from "vitest";
+import { User } from "../models/user.model";
+import { buildCompanyUserFilter, buildStudentBranchQuery, getAllowedOwnerIds, requireStudentBranch } from "./auth.util";
 
 describe("student management branch owner scope", () => {
   it("limits company owners to the authenticated branch", () => {
@@ -24,5 +25,23 @@ describe("student management write branch", () => {
   it("rejects an admin write without a selected branch", () => {
     const user = { uid: "admin-a", role: "admin", centerId: "ACME", companyCode: "ACME" };
     expect(() => requireStudentBranch(user)).toThrow(/chi nhánh/i);
+  });
+});
+
+describe("admin Partner owner visibility", () => {
+  it("always includes the admin uid inside the selected branch scope", async () => {
+    const select = vi.fn().mockResolvedValue([{ _id: { toString: () => "worker-a" } }]);
+    vi.spyOn(User, "find").mockReturnValue({ select } as never);
+
+    const owners = await getAllowedOwnerIds({
+      uid: "admin-id",
+      role: "admin",
+      centerId: "ACME",
+      companyCode: "ACME",
+      branchId: "branch-a",
+    });
+
+    expect(owners).toEqual(expect.arrayContaining(["worker-a", "branch-a", "admin-id"]));
+    vi.restoreAllMocks();
   });
 });

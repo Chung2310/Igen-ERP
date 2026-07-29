@@ -18,6 +18,8 @@ import * as XLSX from 'xlsx';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 import { getPartnerActionVisibility } from './partnerAccess';
+import { useBranch } from '../../../../context/BranchContext';
+import { buildPartnerBranchHeaders } from './partnerBranchScope';
 
 interface PartnersPageProps {
   selectedCenter?: string;
@@ -28,6 +30,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   const actions = getPartnerActionVisibility(canManagePartners);
+  const { activeBranchId } = useBranch();
   
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +60,9 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
         params.append('ownerFilter', selectedCenter);
       }
 
-      const res = await apiFetch(`/partners?${params.toString()}`);
+      const res = await apiFetch(`/partners?${params.toString()}`, {
+        headers: buildPartnerBranchHeaders(activeBranchId),
+      });
       if (res.success && res.partners) {
         setPartners(res.partners);
       }
@@ -67,7 +72,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter, selectedCenter, toast]);
+  }, [searchTerm, statusFilter, selectedCenter, activeBranchId, toast]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -89,6 +94,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
     try {
       const res = await apiFetch(`/partners/${deletingPartner._id}`, {
         method: 'DELETE',
+        headers: buildPartnerBranchHeaders(activeBranchId),
       });
       if (res.success) {
         toast.success(`Đã xóa đối tác "${deletingPartner.name}" thành công!`);
