@@ -10,6 +10,7 @@ import {
 import { cn, parseVND, getVietQRBankCode } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
+import { useBranch } from '../../../../context/BranchContext';
 import { apiFetch, getAccessToken } from '../../lib/api';
 import { BroadcastNotification, Student } from '../../types';
 import { toast } from '../../../../pages/Toast';
@@ -309,6 +310,7 @@ function InstallmentPlanEditor({
 export function NotificationsPage() {
   const { students } = useStudents();
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   
@@ -437,7 +439,7 @@ export function NotificationsPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  }, [activeBranchId]);
 
   useEffect(() => {
     if (!user) return;

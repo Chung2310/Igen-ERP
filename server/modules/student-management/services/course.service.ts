@@ -48,7 +48,7 @@ export class CourseService {
   static async createCourse(ownerId: string, data: CourseData, context: CustomFieldWriteContext): Promise<ICourse> {
     logger.info(`[Course] Creating course for ownerId=${ownerId}, code=${data.code}`);
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
-    const existing = await Course.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
+    const existing = await Course.findOne({ ownerId, branchId: writeData.branchId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã khóa học "${data.code}" đã tồn tại.`);
     }
