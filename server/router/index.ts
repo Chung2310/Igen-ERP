@@ -26,6 +26,7 @@ import { leaveRouter } from "./leave.router";
 import { hrContractRouter } from "./hr-contract.router";
 import { companyEmailRouter } from "./company-email.router";
 import { recruitmentRouter } from "./recruitment.router";
+import { apiErrorHandler } from "../middleware/api-error";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -97,3 +98,6 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
+
+// Normalize errors forwarded by API controllers instead of falling through to Express 500 responses.
+apiRouter.use(apiErrorHandler);
