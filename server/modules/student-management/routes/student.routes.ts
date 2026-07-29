@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { StudentController } from "../controllers/student.controller";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { adminUnassignedAuthMiddleware, authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, publicRegisterStudentSchema } from "../validations/student.validation";
+import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, publicRegisterStudentSchema, assignStudentBranchSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
 import { requirePermission } from "../../../middleware/auth";
 
@@ -12,6 +12,9 @@ const requireManage = requirePermission("student:manage") as any;
 
 publicStudentRouter.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
 publicStudentRouter.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
+
+router.get("/unassigned", adminUnassignedAuthMiddleware, requireManage, StudentController.getUnassignedList);
+router.patch("/:id/assign-branch", adminUnassignedAuthMiddleware, requireManage, validate(idParamSchema, "params"), validate(assignStudentBranchSchema), StudentController.assignBranch);
 
 router.use(authMiddleware);
 
