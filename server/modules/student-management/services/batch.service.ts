@@ -34,6 +34,7 @@ interface BatchActor {
   role: string;
   centerId?: string;
   companyCode?: string;
+  branchId?: string;
 }
 
 export interface EnrichedBatch {
