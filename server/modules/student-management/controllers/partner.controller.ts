@@ -1,3 +1,4 @@
+import { NotFoundError, ValidationError } from "../../../errors/app-error";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
@@ -12,7 +13,7 @@ export class PartnerController {
       if (req.user!.role === "superadmin") {
         const companyCode = req.body.companyCode || req.body.centerId || req.query.companyCode || req.query.centerId;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui long chon cong ty quan ly." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
@@ -37,14 +38,14 @@ export class PartnerController {
       if (req.user!.role === "superadmin") {
         const companyCode = req.query.centerId || req.body.centerId || req.query.companyCode || req.body.companyCode;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui lòng chọn công ty quản lý." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
       const partners = req.body.partners;
       if (!Array.isArray(partners)) {
-        return res.status(400).json({ success: false, error: "Dữ liệu đối tác không hợp lệ (phải là danh sách)." });
+        throw new ValidationError("PARTNER_LIST_REQUIRED", "Dữ liệu đối tác phải là một danh sách.", { field: "partners" });
       }
 
       const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId, req.user!.branchId);
@@ -69,7 +70,7 @@ export class PartnerController {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const partner = await PartnerService.getPartnerById(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -86,7 +87,7 @@ export class PartnerController {
         actorRole: req.user!.role,
       });
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac de cap nhat." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để cập nhật.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -99,7 +100,7 @@ export class PartnerController {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const partner = await PartnerService.deletePartner(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac de xoa." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để xóa.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -140,7 +141,7 @@ export class PartnerController {
       if (req.user!.role === "superadmin") {
         const companyCode = req.body.companyCode || req.body.centerId || req.query.companyCode || req.query.centerId;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui long chon cong ty quan ly." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
@@ -157,7 +158,7 @@ export class PartnerController {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id, req.user!.branchId);
       if (!level) {
-        return res.status(404).json({ success: false, error: "Khong tim thay cap bac hoa hong de xoa." });
+        throw new NotFoundError("COMMISSION_LEVEL_NOT_FOUND", "Không tìm thấy cấp bậc hoa hồng để xóa.");
       }
       res.json({ success: true, data: level });
     } catch (error: unknown) {
