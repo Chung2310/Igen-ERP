@@ -14,6 +14,24 @@ import { AttendancePeriodResultModel } from "../model/attendance-period-result.m
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
+/**
+ * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
+ * xuống 500 mặc định. Ví dụ message gốc:
+ * "E11000 duplicate key error collection: igen-erp.categories index: companyCode_1_code_1 dup key: { companyCode: \"ABC\", code: \"ASA\" }"
+ */
+function toClientError(error: any): { statusCode: number; message: string } {
+  if (error?.statusCode) return { statusCode: error.statusCode, message: error.message };
+  if (error?.code === 11000) {
+    const dupFields = Object.keys(error.keyValue || {}).filter((key) => key !== "companyCode" && key !== "branchId");
+    const dupValues = dupFields.map((key) => `${key}="${error.keyValue[key]}"`).join(", ");
+    return {
+      statusCode: 409,
+      message: dupValues ? `Dữ liệu đã tồn tại (${dupValues}). Vui lòng dùng giá trị khác.` : "Dữ liệu đã tồn tại. Vui lòng dùng giá trị khác.",
+    };
+  }
+  return { statusCode: 500, message: error?.message || "Đã xảy ra lỗi không xác định." };
+}
+
 export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
   return !!leave && leave.status !== "approved" && leave.type === "leave";
 }
@@ -207,9 +225,10 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.create] Error:", error);
-      return res.status(error.statusCode || 500).json({
+      const { statusCode, message } = toClientError(error);
+      return res.status(statusCode).json({
         status: "error",
-        message: error.statusCode ? error.message : "Lỗi khi tạo mới tài nguyên",
+        message,
         details: error.message,
       });
     }
@@ -371,9 +390,10 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.update] Error:", error);
-      return res.status(error.statusCode || 500).json({
+      const { statusCode, message } = toClientError(error);
+      return res.status(statusCode).json({
         status: "error",
-        message: error.statusCode ? error.message : "Lỗi khi cập nhật tài nguyên",
+        message,
         details: error.message,
       });
     }
