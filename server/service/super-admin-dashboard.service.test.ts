@@ -15,11 +15,10 @@ test("getSummary aggregates correct counts, financial summaries, and health valu
   const { CompanyModel } = await import("../model/company.model");
   const { UserModel } = await import("../model/user.model");
   const { SuperAdminSessionModel } = await import("../model/super-admin-session.model");
-  const { WalletModel } = await import("../model/wallet.model");
-  const { TransactionModel } = await import("../model/transaction.model");
   const { AuditEventModel } = await import("../model/audit-event.model");
   const { superAdminDashboardService } = await import("./super-admin-dashboard.service");
   const socketModule = await import("../socket");
+
 
   // 3. Mocks
   const originalReadyState = mongoose.connection.readyState;
@@ -81,40 +80,6 @@ test("getSummary aggregates correct counts, financial summaries, and health valu
     return originalQueryExec.apply(this);
   };
 
-  // Mock Mongoose Aggregate exec
-  const originalAggregateExec = mongoose.Aggregate.prototype.exec;
-  mongoose.Aggregate.prototype.exec = async function (this: any) {
-    const modelName = this._model.modelName;
-    const pipeline = this.pipeline();
-
-    if (modelName === "Wallet") {
-      if (pipeline[0]?.$group) {
-        return [{ _id: null, total: 150000.5 }];
-      }
-      // Wallet breakdown lookup
-      return [
-        { _id: "SYSTEM", companyName: "Công ty Mẹ", totalBalance: 120000 },
-        { _id: "COMPANY_A", companyName: "Công ty A", totalBalance: 30000.5 },
-      ];
-    }
-
-    if (modelName === "Transaction") {
-      if (pipeline[0]?.$match?.type === "deposit") {
-        return [{ _id: null, total: 50000 }];
-      }
-      if (pipeline[0]?.$match?.type === "payment") {
-        return [{ _id: null, total: 25000 }];
-      }
-      // Transaction breakdown lookup
-      return [
-        { _id: "SYSTEM", companyName: "Công ty Mẹ", revenue: 40000, usage: 20000 },
-        { _id: "COMPANY_A", companyName: "Công ty A", revenue: 10000, usage: 5000 },
-      ];
-    }
-
-    return originalAggregateExec.apply(this);
-  };
-
   try {
     // 4. Call service
     const summary = await superAdminDashboardService.getSummary();
@@ -127,15 +92,6 @@ test("getSummary aggregates correct counts, financial summaries, and health valu
       lockedAccounts: 42,
     });
 
-    assert.equal(summary.finance.totalWalletBalance, 150000.5);
-    assert.equal(summary.finance.totalRevenue, 50000);
-    assert.equal(summary.finance.totalUsage, 25000);
-
-    const systemFinance = summary.finance.revenueByTenant.find(t => t.companyCode === "SYSTEM");
-    assert.ok(systemFinance);
-    assert.equal(systemFinance.balance, 120000);
-    assert.equal(systemFinance.revenue, 40000);
-    assert.equal(systemFinance.usage, 20000);
 
     assert.equal(summary.health.database, "healthy");
     assert.equal(summary.health.redis, "healthy");
@@ -157,7 +113,6 @@ test("getSummary aggregates correct counts, financial summaries, and health valu
     });
     socketModule.setSocketIoHealthyForTesting(false);
     mongoose.Query.prototype.exec = originalQueryExec;
-    mongoose.Aggregate.prototype.exec = originalAggregateExec;
     setRateLimitRedisClientForTesting(null);
   }
 });

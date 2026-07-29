@@ -163,7 +163,7 @@ export default function HRTab() {
 
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shrink-0" id="hr_sub_tabs_bar">
-        <div className="flex gap-1 overflow-x-auto select-none">
+        <div className="flex gap-1 overflow-x-auto select-none scrollbar-none max-w-full -mb-px">
           {[
             { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
             { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },

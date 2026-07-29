@@ -10,7 +10,6 @@ import { openrouterChat, type OpenRouterMessage } from "./openrouter.service";
 import { ProductModel } from "../model/product.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
-import { WalletModel } from "../model/wallet.model";
 
 export interface ChatbotMessage {
   role: "user" | "assistant" | "system";
@@ -47,11 +46,10 @@ export class ChatbotService {
     }
 
     // 1. Truy vấn dữ liệu doanh nghiệp song song
-    const [products, tasks, projects, wallet] = await Promise.all([
+    const [products, tasks, projects] = await Promise.all([
       ProductModel.find({ companyCode }).lean(),
       KanbanTaskModel.find({ companyCode }).lean(),
       ProjectModel.find({ companyCode }).lean(),
-      WalletModel.findOne({ userId: user.id }).lean(),
     ]);
 
     // 2. Kho hàng / sản phẩm
@@ -75,16 +73,11 @@ export class ChatbotService {
       .join(", ");
     const projectList = projects.slice(0, 20).map((p) => `- ${p.name}`).join("\n");
 
-    // 4. Ví / số dư
-    const walletInfo = wallet
-      ? `${(wallet.balance || 0).toLocaleString("vi-VN")} ${wallet.currency || "USD"}`
-      : "Chưa khởi tạo ví.";
-
-    // 5. Dựng System Prompt giàu ngữ cảnh
+    // 4. Dựng System Prompt giàu ngữ cảnh
     const systemPrompt: OpenRouterMessage = {
       role: "system",
       content: `Bạn là trợ lý ảo AI của hệ thống iGen ERP, hỗ trợ trực tiếp cho nhân sự của doanh nghiệp (mã: ${companyCode}).
-Bạn có quyền truy cập dữ liệu thời gian thực dưới đây. Hãy trả lời chính xác các câu hỏi về kho hàng, dự án, công việc và tài chính dựa trên dữ liệu này.
+Bạn có quyền truy cập dữ liệu thời gian thực dưới đây. Hãy trả lời chính xác các câu hỏi về kho hàng, dự án và công việc dựa trên dữ liệu này.
 
 DỮ LIỆU THỜI GIAN THỰC CỦA DOANH NGHIỆP:
 
@@ -99,15 +92,12 @@ ${productList || "- Chưa có sản phẩm nào."}
 ${projectList || "- Chưa có dự án nào."}
 - Công việc (Kanban) theo trạng thái: ${taskSummary || "Chưa có công việc nào."}
 
-3. TÀI CHÍNH:
-- Số dư ví của bạn: ${walletInfo}
-
 QUY TẮC PHẢN HỒI:
 - Trả lời bằng tiếng Việt lịch sự, thân thiện, dễ hiểu, thuần văn bản (PLAIN TEXT).
 - TUYỆT ĐỐI KHÔNG sử dụng bất kỳ ký tự định dạng Markdown nào (như dấu thăng #, ##, dấu sao **, *, gạch chân __, _, thẻ mã code, hay link).
 - Để trình bày danh sách hoặc nhiều ý, chỉ dùng dấu gạch ngang (-) thuần túy ở đầu dòng hoặc đánh số thứ tự (1, 2, 3) đơn giản, xuống dòng rõ ràng.
 - Chỉ dựa trên dữ liệu thực tế ở trên. Nếu người dùng hỏi về đối tượng không có trong dữ liệu, hãy báo lịch sự rằng không tìm thấy trong hệ thống của doanh nghiệp.
-- Khi được hỏi về con số (doanh thu pipeline, tồn kho, số dư...), trả lời trực tiếp con số thực tế đã thống kê ở trên.
+- Khi được hỏi về con số (tồn kho, dự án...), trả lời trực tiếp con số thực tế đã thống kê ở trên.
 - Tuyệt đối không bịa dữ liệu không có trong ngữ cảnh.`,
     };
 
@@ -117,6 +107,7 @@ QUY TẮC PHẢN HỒI:
     });
     return this.cleanMarkdownText(text);
   }
+
 
   /** Loại bỏ toàn bộ ký tự định dạng Markdown khỏi phản hồi */
   public static cleanMarkdownText(text: string): string {

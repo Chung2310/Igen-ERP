@@ -10,7 +10,6 @@ import {
   Shield,
   GraduationCap,
   Users,
-  Wallet,
   BookOpen,
   Lock,
   Handshake,
@@ -125,15 +124,6 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       label: "QUẢN TRỊ USER",
       title: "Quản lý người dùng",
       icon: Shield,
-      group: "system",
-    });
-  }
-
-  if (userProfile) {
-    menuItems.push({
-      label: "VÍ & NẠP TIỀN",
-      title: "Ví & Nạp tiền",
-      icon: Wallet,
       group: "system",
     });
   }

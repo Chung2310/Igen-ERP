@@ -228,35 +228,6 @@ export default function GuideTab() {
       warning: "Để tính năng gửi email tự động cho giảng viên hoạt động chính xác, hãy đảm bảo email trong hồ sơ của Giảng viên đã được nhập đúng định dạng và không bị viết sai chính tả."
     },
     {
-      id: "vi-nap-tien",
-      tabName: "VÍ & NẠP TIỀN",
-      title: "Ví cá nhân & Nạp tiền tự động qua chuyển khoản nhanh",
-      shortDesc: "Quản lý số dư tài khoản và nạp tiền nhanh chóng bằng quét mã ngân hàng tự động.",
-      icon: Wallet,
-      tone: "rose",
-      purpose: "Giúp người dùng tự quản lý số dư ví cá nhân để thực hiện các giao dịch trả phí trên hệ thống, nạp tiền tự động cực kỳ nhanh chóng không cần chờ duyệt thủ công.",
-      steps: [
-        {
-          title: "Kiểm tra số dư và lịch sử giao dịch",
-          desc: "Vào mục Ví & Nạp tiền, bạn sẽ thấy số dư khả dụng hiện tại được hiển thị rõ ràng bằng tiền Việt Nam Đồng (VNĐ), kèm theo bảng danh sách lịch sử nạp/rút tiền chi tiết."
-        },
-        {
-          title: "Tạo lệnh nạp tiền",
-          desc: "Nhập số tiền bạn muốn nạp vào tài khoản (ví dụ: 100,000đ) và bấm nút 'Tạo mã nạp tiền'."
-        },
-        {
-          title: "Quét mã chuyển khoản nhanh của ngân hàng",
-          desc: "Hệ thống sẽ hiển thị một mã hình vuông chuyển tiền (mã QR) thông minh tự động. Hãy mở ứng dụng ngân hàng trên điện thoại của bạn, quét mã này để thanh toán. Số tiền và nội dung chuyển khoản đã được tự động điền sẵn chính xác."
-        },
-        {
-          title: "Nhận tiền vào tài khoản tự động",
-          desc: "Sau khi bạn bấm xác nhận chuyển khoản trên điện thoại thành công, hệ thống sẽ xác thực tức thì và tự động cộng tiền vào tài khoản của bạn sau 3 - 5 giây. Không cần gửi ảnh chụp biên lai hay chờ kế toán duyệt thủ công."
-        }
-      ],
-      protip: "Tuyệt đối không sửa đổi Số tiền hoặc Nội dung chuyển khoản khi quét mã ngân hàng tự động, vì hệ thống dựa vào đó để nhận diện và cộng tiền tự động cho tài khoản của bạn ngay lập tức.",
-      warning: "Mỗi mã hình vuông (mã QR) nạp tiền chỉ có hiệu lực một lần duy nhất. Không sử dụng lại mã cũ cho lần nạp tiền sau."
-    },
-    {
       id: "cai-dat",
       tabName: "CÀI ĐẶT",
       title: "Cài đặt cá nhân & Cấu hình hòm thư điện tử",
@@ -319,7 +290,6 @@ export default function GuideTab() {
       "KHO & SẢN PHẨM": "/kho-san-pham",
       "QUẢN TRỊ USER": "/quan-tri-user",
       "CÀI ĐẶT": "/cai-dat",
-      "VÍ & NẠP TIỀN": "/vi-nap-tien",
       "QUẢN LÝ HỌC VIÊN": "/quan-ly-hoc-vien",
       "TRÒ CHUYỆN": "/tro-chuyen",
       "QUẢN LÝ TÀI NGUYÊN": "/quan-ly-tai-nguyen",
