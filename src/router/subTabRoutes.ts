@@ -12,8 +12,7 @@ export type SettingsSubTabType =
   | "erp"
   | "google-drive"
   | "face-recognition"
-  | "branches"
-  | "smtp";
+  | "branches";
 
 // Nguồn slug ?sub= duy nhất cho toàn app — các trang và điều hướng toàn cục
 // (handleSearchNavigation) đều dùng chung để không bao giờ lệch nhau.
@@ -48,7 +47,6 @@ export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "google-drive", value: "google-drive" },
   { slug: "nhan-dien-khuon-mat", value: "face-recognition" },
   { slug: "chi-nhanh", value: "branches" },
-  { slug: "smtp", value: "smtp" },
 ];
 
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {

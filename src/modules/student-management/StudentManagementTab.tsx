@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, Settings } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen } from "lucide-react";
 
 type StudentSubTab =
   | "TỔNG QUAN"
@@ -18,8 +18,7 @@ type StudentSubTab =
   | "LỊCH THI"
   | "HỌC PHÍ"
   | "THÔNG BÁO"
-  | "TÀI NGUYÊN"
-  | "CÀI ĐẶT";
+  | "TÀI NGUYÊN";
 
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
@@ -29,7 +28,6 @@ const ExamsPage = lazy(() => import("./pages/Exams/ExamsPage").then((m) => ({ de
 const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ default: m.FeesPage })));
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
-const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 const SUB_TAB_ROUTES = [
   { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: LayoutDashboard },
@@ -40,7 +38,6 @@ const SUB_TAB_ROUTES = [
   { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi", icon: Calendar },
   { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Tài nguyên", icon: FolderOpen },
   { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo", icon: Bell },
-  { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
 ];
 
 function formatDateLabel() {
@@ -141,8 +138,6 @@ export default function StudentManagementTab() {
         return <NotificationsPage />;
       case "TÀI NGUYÊN":
         return <ResourcesPage />;
-      case "CÀI ĐẶT":
-        return <SettingsPage selectedCenter={selectedCenter} />;
       default:
         return null;
     }

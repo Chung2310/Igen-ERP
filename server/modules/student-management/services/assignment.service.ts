@@ -22,56 +22,16 @@ function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
 
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
   try {
-    let owner: any = null;
+    let companyCode: string | undefined;
     if (mongoose.Types.ObjectId.isValid(ownerId)) {
-      owner = await User.findById(ownerId).select(
-        "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
-      );
+      const owner = await User.findById(ownerId).select("companyCode");
+      companyCode = owner?.companyCode;
     }
-    if (!owner) {
-      owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select(
-        "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
-      );
+    if (!companyCode) {
+      const owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select("companyCode");
+      companyCode = owner?.companyCode || ownerId;
     }
-
-    const companyCode = owner?.companyCode || (typeof ownerId === "string" ? ownerId : undefined);
-    if (companyCode) {
-      const companySettings = await companyEmailService.resolveLegacySettings(companyCode);
-      if (companySettings) return companySettings;
-    }
-
-    if (owner?.smtpHost && owner?.smtpUser && owner?.smtpPass) {
-      return {
-        smtpHost: owner.smtpHost,
-        smtpPort: owner.smtpPort,
-        smtpSecure: owner.smtpSecure,
-        smtpUser: owner.smtpUser,
-        smtpPass: owner.smtpPass,
-        smtpFrom: owner.smtpFrom,
-        smtpSandboxEmail: owner.smtpSandboxEmail,
-      };
-    }
-
-    if (companyCode) {
-      const companyAdmin = await User.findOne({
-        companyCode,
-        smtpHost: { $exists: true, $ne: "" },
-        smtpUser: { $exists: true, $ne: "" },
-        smtpPass: { $exists: true, $ne: "" },
-      }).select("smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail");
-
-      if (companyAdmin?.smtpHost && companyAdmin?.smtpUser && companyAdmin?.smtpPass) {
-        return {
-          smtpHost: companyAdmin.smtpHost,
-          smtpPort: companyAdmin.smtpPort,
-          smtpSecure: companyAdmin.smtpSecure,
-          smtpUser: companyAdmin.smtpUser,
-          smtpPass: companyAdmin.smtpPass,
-          smtpFrom: companyAdmin.smtpFrom,
-          smtpSandboxEmail: companyAdmin.smtpSandboxEmail,
-        };
-      }
-    }
+    return companyCode ? await companyEmailService.resolveLegacySettings(companyCode) : undefined;
   } catch (err) {
     logger.error("Lỗi khi tìm cấu hình SMTP cho ownerId %s: %o", ownerId, err);
   }

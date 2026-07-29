@@ -46,22 +46,9 @@ async function resolveSmtpSettings(actorUid: string) {
   const user = await AuthService.getUserProfile(actorUid);
   if (!user) return undefined;
   if (user.companyCode) {
-    const companySettings = await companyEmailService.resolveLegacySettings(user.companyCode);
-    if (companySettings) return companySettings;
+    return companyEmailService.resolveLegacySettings(user.companyCode);
   }
-  const smtpOwner = user.role === "user" && user.centerId
-    ? await AuthService.getUserProfile(user.centerId)
-    : user;
-  if (!smtpOwner?.smtpHost || !smtpOwner?.smtpUser || !smtpOwner?.smtpPass) return undefined;
-  return {
-    smtpHost: smtpOwner.smtpHost,
-    smtpPort: smtpOwner.smtpPort,
-    smtpSecure: smtpOwner.smtpSecure,
-    smtpUser: smtpOwner.smtpUser,
-    smtpPass: smtpOwner.smtpPass,
-    smtpFrom: smtpOwner.smtpFrom,
-    smtpSandboxEmail: smtpOwner.smtpSandboxEmail,
-  };
+  return undefined;
 }
 
 export class StudentOnlineAttendanceService {

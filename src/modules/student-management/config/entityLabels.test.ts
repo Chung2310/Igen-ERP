@@ -10,9 +10,9 @@ describe("entity preset options", () => {
     expect(ENTITY_PRESET_OPTIONS.some((option) => option.value === "candidate")).toBe(false);
   });
 
-  it("allows only superadmin to change the entity preset", () => {
-    expect(canChangeEntityPreset("superadmin")).toBe(true);
-    expect(canChangeEntityPreset("admin")).toBe(false);
+  it("allows only company admin to change the entity preset", () => {
+    expect(canChangeEntityPreset("superadmin")).toBe(false);
+    expect(canChangeEntityPreset("admin")).toBe(true);
     expect(canChangeEntityPreset("manager")).toBe(false);
     expect(canChangeEntityPreset("user")).toBe(false);
   });
