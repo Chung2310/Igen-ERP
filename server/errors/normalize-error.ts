@@ -97,6 +97,13 @@ export function normalizeError(error: unknown): AppError {
     return new PayloadTooLargeError("PAYLOAD_TOO_LARGE", "Tệp tải lên vượt quá dung lượng cho phép.", undefined, error);
   }
 
+  if (candidate.type === "entity.parse.failed" && candidate.status === 400) {
+    return new ValidationError("MALFORMED_JSON", "Dữ liệu JSON không hợp lệ.", undefined, error);
+  }
+
+  if (candidate.type === "entity.too.large" && candidate.status === 413) {
+    return new PayloadTooLargeError("PAYLOAD_TOO_LARGE", "Dung lượng dữ liệu vượt quá giới hạn cho phép.", undefined, error);
+  }
   const legacyStatus = isSafeHttpStatus(candidate.statusCode)
     ? candidate.statusCode
     : isSafeHttpStatus(candidate.status) ? candidate.status : undefined;
