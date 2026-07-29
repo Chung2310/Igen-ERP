@@ -47,7 +47,7 @@ export class PartnerController {
         return res.status(400).json({ success: false, error: "Dữ liệu đối tác không hợp lệ (phải là danh sách)." });
       }
 
-      const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId);
+      const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId, req.user!.branchId);
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -57,7 +57,7 @@ export class PartnerController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await PartnerService.getPartners(ownerId, req.query);
+      const result = await PartnerService.getPartners(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -67,7 +67,7 @@ export class PartnerController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.getPartnerById(ownerId, req.params.id);
+      const partner = await PartnerService.getPartnerById(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
         return res.status(404).json({ success: false, error: "Khong tim thay doi tac." });
       }
@@ -97,7 +97,7 @@ export class PartnerController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.deletePartner(ownerId, req.params.id);
+      const partner = await PartnerService.deletePartner(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
         return res.status(404).json({ success: false, error: "Khong tim thay doi tac de xoa." });
       }
@@ -110,7 +110,7 @@ export class PartnerController {
   static async addPayout(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.addPayout(ownerId, req.params.id, req.body);
+      const partner = await PartnerService.addPayout(ownerId, req.params.id, req.body, req.user!.branchId);
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
       next(error);

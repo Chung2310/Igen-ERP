@@ -5,6 +5,8 @@ import { Batch } from "../models/batch.model";
 import { Exam } from "../models/exam.model";
 import { Resource } from "../models/resource.model";
 import { CommissionLevel } from "../models/commission-level.model";
+import { Partner } from "../models/partner.model";
+import { Student } from "../models/student.model";
 import { User } from "../models/user.model";
 import { CourseCategory } from "../models/course-category.model";
 import { ResourceCategory } from "../models/resource-category.model";
@@ -99,6 +101,33 @@ it("scopes commission-level list/delete queries to the selected branch", async (
   assert.equal((findOneAndDelete.mock.calls[0]?.[0] as any).branchId, branchA);
 });
 
+it("stamps partner creates and scopes partner queries to the selected branch", async () => {
+  vi.spyOn(PartnerService.customFieldWrites, "prepareCreate").mockImplementation(async (_context, data) => data);
+  vi.spyOn(Partner as any, "findOne").mockResolvedValue(null);
+  vi.spyOn(Student as any, "find").mockImplementation(() => ({ select: async () => [] }));
+  vi.spyOn(CommissionLevel as any, "find").mockImplementation(() => ({ sort: async () => [] }));
+  const save = vi.spyOn(Partner.prototype as any, "save").mockImplementation(async function () { return this; });
+  const countDocuments = vi.spyOn(Partner as any, "countDocuments").mockResolvedValue(0);
+  const find = vi.spyOn(Partner as any, "find").mockImplementation(() => ({
+    sort: () => ({ skip: () => ({ limit: async () => [] }) }),
+  }));
+
+  await PartnerService.createPartner(
+    "shared-owner",
+    { name: "Partner A", phone: "0900000001", commissionType: "fixed", commissionValue: 0, branchId: branchA },
+    { tenantId: "ACME", moduleKey: "partners" },
+  );
+  assert.equal((save.mock.instances[0] as any).branchId, branchA);
+
+  await PartnerService.getPartners(ownerScope, {}, branchA);
+  assert.equal((countDocuments.mock.calls[0]?.[0] as any).branchId, branchA);
+  assert.equal((find.mock.calls[0]?.[0] as any).branchId, branchA);
+
+  const findOneAndDelete = vi.spyOn(Partner as any, "findOneAndDelete").mockResolvedValue(null);
+  vi.spyOn(Student as any, "countDocuments").mockResolvedValue(0);
+  await PartnerService.deletePartner(ownerScope, "partner-a", branchA);
+  assert.equal((findOneAndDelete.mock.calls[0]?.[0] as any).branchId, branchA);
+});
 it("scopes course/resource category list queries to the selected branch", async () => {
   const courseFind = vi.spyOn(CourseCategory as any, "find").mockImplementation(() => ({ sort: async () => [] }));
   await CourseCategoryService.getCategories(ownerScope, {}, branchA);
