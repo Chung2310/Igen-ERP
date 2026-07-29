@@ -10,6 +10,7 @@ test("partners use standalone read and manage permissions", () => {
   const catalog = read("server/config/permission-catalog.ts");
   const seed = read("server/config/database.ts");
   const uiCatalog = read("src/utils/permissionUtils.ts");
+  const auth = read("server/middleware/auth.ts");
 
   assert.match(mount, /requirePermission\("partner:read"\)/);
   assert.doesNotMatch(
@@ -22,4 +23,8 @@ test("partners use standalone read and manage permissions", () => {
     assert.match(source, /partner:read/);
     assert.match(source, /partner:manage/);
   }
+
+  const adminPermissions = auth.match(/admin:\s*\[([\s\S]*?)\r?\n\s*\],\r?\n\s*branch_owner:/)?.[1] || "";
+  assert.match(adminPermissions, /"partner:read"/);
+  assert.match(adminPermissions, /"partner:manage"/);
 });
