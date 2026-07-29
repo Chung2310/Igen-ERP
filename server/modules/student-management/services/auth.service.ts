@@ -41,13 +41,6 @@ export class AuthService {
       bankAccountNo: user.bankAccountNo,
       bankId: user.bankId,
       bankAccountName: user.bankAccountName,
-      smtpHost: user.smtpHost,
-      smtpPort: user.smtpPort,
-      smtpSecure: user.smtpSecure,
-      smtpUser: user.smtpUser,
-      smtpPass: user.smtpPass,
-      smtpFrom: user.smtpFrom,
-      smtpSandboxEmail: user.smtpSandboxEmail,
       isActive: user.isActive !== false,
       businessType: user.businessType || "driving",
       maxUsersLimit: user.maxUsersLimit,
@@ -173,25 +166,6 @@ export class AuthService {
       {
         $set: {
           businessType: data.businessType,
-        },
-      },
-      { new: true }
-    );
-  }
-
-  static async updateSmtpSettings(uid: string, data: Partial<IUser>): Promise<IUser | null> {
-    logger.info(`[Auth] Updating SMTP settings for uid: ${uid}`);
-    return await User.findByIdAndUpdate(
-      uid,
-      {
-        $set: {
-          smtpHost: data.smtpHost || "",
-          smtpPort: data.smtpPort !== undefined ? data.smtpPort : 587,
-          smtpSecure: data.smtpSecure !== undefined ? data.smtpSecure : false,
-          smtpUser: data.smtpUser || "",
-          smtpPass: data.smtpPass || "",
-          smtpFrom: data.smtpFrom || "",
-          smtpSandboxEmail: data.smtpSandboxEmail || "",
         },
       },
       { new: true }

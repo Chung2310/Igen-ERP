@@ -89,13 +89,6 @@ export class AuthController {
       let bankId = user.bankId || "";
       let bankAccountName = user.bankAccountName || "";
       let bankQrEnabled = user.bankQrEnabled !== false;
-      let smtpHost = user.smtpHost || "";
-      let smtpPort = user.smtpPort;
-      let smtpSecure = user.smtpSecure;
-      let smtpUser = user.smtpUser || "";
-      let smtpPass = user.smtpPass || "";
-      let smtpFrom = user.smtpFrom || "";
-      let smtpSandboxEmail = user.smtpSandboxEmail || "";
 
       if (user.role === "user" && user.centerId) {
         const adminUser = await AuthService.getUserProfile(user.centerId);
@@ -104,13 +97,6 @@ export class AuthController {
           bankId = adminUser.bankId || "";
           bankAccountName = adminUser.bankAccountName || adminUser.displayName || "";
           bankQrEnabled = adminUser.bankQrEnabled !== false;
-          smtpHost = adminUser.smtpHost || "";
-          smtpPort = adminUser.smtpPort;
-          smtpSecure = adminUser.smtpSecure;
-          smtpUser = adminUser.smtpUser || "";
-          smtpPass = adminUser.smtpPass || "";
-          smtpFrom = adminUser.smtpFrom || "";
-          smtpSandboxEmail = adminUser.smtpSandboxEmail || "";
         }
       }
 
@@ -127,13 +113,6 @@ export class AuthController {
             bankId,
             bankAccountName,
             bankQrEnabled,
-            smtpHost,
-            smtpPort,
-            smtpSecure,
-            smtpUser,
-            smtpPass,
-            smtpFrom,
-            smtpSandboxEmail,
             businessType: user.businessType || "driving",
             smsSettings: smsSettings ? {
               provider: smsSettings.provider,
@@ -216,52 +195,6 @@ export class AuthController {
             bankId: updatedUser.bankId,
             bankAccountName: updatedUser.bankAccountName,
             bankQrEnabled: updatedUser.bankQrEnabled,
-            smtpHost: updatedUser.smtpHost,
-            smtpPort: updatedUser.smtpPort,
-            smtpSecure: updatedUser.smtpSecure,
-            smtpUser: updatedUser.smtpUser,
-            smtpPass: updatedUser.smtpPass,
-            smtpFrom: updatedUser.smtpFrom,
-            smtpSandboxEmail: updatedUser.smtpSandboxEmail,
-            businessType: updatedUser.businessType || "driving",
-          },
-        },
-      });
-    } catch (error: unknown) {
-      next(error);
-    }
-  }
-
-  static async updateSmtpSettings(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ success: false, error: "Chưa xác thực." });
-      }
-      if (req.user.role === "user") {
-        return res.status(403).json({ success: false, error: "Nhân viên không có quyền thay đổi cấu hình SMTP." });
-      }
-      const updatedUser = await AuthService.updateSmtpSettings(req.user.uid, req.body);
-      if (!updatedUser) {
-        return res.status(404).json({ success: false, error: "Không tìm thấy người dùng." });
-      }
-      res.json({
-        success: true,
-        data: {
-          user: {
-            uid: updatedUser._id.toString(),
-            email: updatedUser.email,
-            displayName: updatedUser.displayName,
-            role: updatedUser.role,
-            centerId: updatedUser.centerId,
-            bankAccountNo: updatedUser.bankAccountNo,
-            bankId: updatedUser.bankId,
-            smtpHost: updatedUser.smtpHost,
-            smtpPort: updatedUser.smtpPort,
-            smtpSecure: updatedUser.smtpSecure,
-            smtpUser: updatedUser.smtpUser,
-            smtpPass: updatedUser.smtpPass,
-            smtpFrom: updatedUser.smtpFrom,
-            smtpSandboxEmail: updatedUser.smtpSandboxEmail,
             businessType: updatedUser.businessType || "driving",
           },
         },
@@ -374,13 +307,6 @@ export class AuthController {
             centerId: updatedUser.centerId,
             bankAccountNo: updatedUser.bankAccountNo,
             bankId: updatedUser.bankId,
-            smtpHost: updatedUser.smtpHost,
-            smtpPort: updatedUser.smtpPort,
-            smtpSecure: updatedUser.smtpSecure,
-            smtpUser: updatedUser.smtpUser,
-            smtpPass: updatedUser.smtpPass,
-            smtpFrom: updatedUser.smtpFrom,
-            smtpSandboxEmail: updatedUser.smtpSandboxEmail,
             businessType: updatedUser.businessType || "driving",
           },
         },

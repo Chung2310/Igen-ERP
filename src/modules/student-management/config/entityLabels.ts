@@ -52,7 +52,7 @@ export const ENTITY_PRESET_OPTIONS: { value: EntityPreset; label: string }[] = [
 ];
 
 export function canChangeEntityPreset(role: string | null | undefined): boolean {
-  return role === "superadmin";
+  return role === "admin";
 }
 
 export const DEFAULT_ENTITY_PRESET: EntityPreset = "student";

@@ -71,18 +71,6 @@ export const bankSettingsSchema = Joi.object({
   bankQrEnabled: Joi.boolean().optional(),
 });
 
-export const smtpSettingsSchema = Joi.object({
-  smtpHost: Joi.string().allow("").optional(),
-  smtpPort: Joi.number().integer().allow(null, "").optional(),
-  smtpSecure: Joi.boolean().allow(null, "").optional(),
-  smtpUser: Joi.string().allow("").optional(),
-  smtpPass: Joi.string().allow("").optional(),
-  smtpFrom: Joi.string().allow("").optional(),
-  smtpSandboxEmail: Joi.string().email().allow("").optional().messages({
-    "string.email": "Dinh dang email sandbox khong hop le.",
-  }),
-});
-
 export const smsSettingsSchema = Joi.object({
   provider: Joi.string().valid("twilio", "stringee", "tingting").optional(),
   twilioAccountSid: Joi.string().allow("").optional(),

@@ -124,25 +124,11 @@ function formatDaysOfWeek(days: unknown): string {
  * EmailService dùng cấu hình SMTP mặc định từ biến môi trường.
  */
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
-  const owner = await User.findById(ownerId).select(
-    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail companyCode"
-  );
+  const owner = await User.findById(ownerId).select("companyCode");
   if (owner?.companyCode) {
-    const companySettings = await companyEmailService.resolveLegacySettings(owner.companyCode);
-    if (companySettings) return companySettings;
+    return companyEmailService.resolveLegacySettings(owner.companyCode);
   }
-  if (!owner || !owner.smtpHost || !owner.smtpUser || !owner.smtpPass) {
-    return undefined;
-  }
-  return {
-    smtpHost: owner.smtpHost,
-    smtpPort: owner.smtpPort,
-    smtpSecure: owner.smtpSecure,
-    smtpUser: owner.smtpUser,
-    smtpPass: owner.smtpPass,
-    smtpFrom: owner.smtpFrom,
-    smtpSandboxEmail: owner.smtpSandboxEmail,
-  };
+  return undefined;
 }
 
 function buildInstructorAssignmentHtml(instructorName: string, batch: EnrichedBatch): string {
