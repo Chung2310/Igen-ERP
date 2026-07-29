@@ -34,6 +34,7 @@ interface BatchActor {
   role: string;
   centerId?: string;
   companyCode?: string;
+  branchId?: string;
 }
 
 export interface EnrichedBatch {
@@ -60,24 +61,20 @@ function hasLockedStudentFee(fee: string | undefined): boolean {
   return feeNum > 0;
 }
 
-async function assertInstructorAssignable(actor: BatchActor, instructorId: unknown) {
-  if (!instructorId) return;
-
-  const query: Record<string, unknown> = {
-    _id: instructorId,
-    role: "user",
-  };
-
-    if (actor.role !== "superadmin") {
-      query.companyCode = actor.companyCode || actor.centerId;
-    }
-
-  const instructor = await User.findOne(query);
-  if (!instructor) {
-    throw new Error("Không tìm thấy giảng viên được gán.");
-  }
+export function buildInstructorAssignmentQuery(actor: BatchActor, instructorId: unknown): Record<string, unknown> {
+  const companyCode = actor.companyCode || actor.centerId;
+  if (!companyCode) throw new Error("Không xác định được công ty khi gán người phụ trách.");
+  if (!actor.branchId) throw new Error("Vui lòng chọn chi nhánh trước khi gán người phụ trách.");
+  return { _id: instructorId, companyCode, branchId: actor.branchId, isActive: true };
 }
 
+async function assertInstructorAssignable(actor: BatchActor, instructorId: unknown) {
+  if (!instructorId) return;
+  const instructor = await User.findOne(buildInstructorAssignmentQuery(actor, instructorId));
+  if (!instructor) {
+    throw new Error("Không tìm thấy tài khoản đang hoạt động trong chi nhánh được chọn.");
+  }
+}
 function assertScheduleValid(data: BatchData) {
   if (data.startTime && data.endTime && String(data.startTime) >= String(data.endTime)) {
     throw new Error("Giờ bắt đầu phải trước giờ kết thúc.");

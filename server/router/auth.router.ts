@@ -238,6 +238,7 @@ authRouter.post("/register-user", requireAuth as any, requirePermission("user:ma
 const getUsersSchema = {
   query: Joi.object({
     companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
   }),
 };
 

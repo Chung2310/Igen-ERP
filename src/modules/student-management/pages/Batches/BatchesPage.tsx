@@ -21,6 +21,8 @@ import {
 import { Pagination } from '../../components/ui/Pagination';
 import { TimeInput24 } from '../../../../components/common/TimeInput24';
 import { useAuth } from '../../../../context/AuthContext';
+import { useBranch } from '../../../../context/BranchContext';
+import { buildInstructorOptions } from './instructorRoster';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -98,6 +100,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const copy = getBatchPageCopy(entityLabel.preset);
   const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const {
     fields: stdFields,
     activeFields: activeStdFields,
@@ -179,21 +182,22 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const [users, setUsers] = useState<any[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
+      const companyCode = selectedCenter && selectedCenter !== 'all' ? selectedCenter : user?.companyCode;
+      if (!companyCode || !activeBranchId) {
+        setUsers([]);
+        return;
+      }
       try {
-        let data;
-        if (selectedCenter && selectedCenter !== 'all') {
-          data = await authService.getUsersByCompany(selectedCenter);
-        } else {
-          data = await authService.getAllUsers();
-        }
+        const data = await authService.getUsersByCompany(companyCode, activeBranchId);
         setUsers(data || []);
       } catch (err) {
         console.error("Failed to fetch users:", err);
+        setUsers([]);
       }
     };
-    fetchUsers();
-  }, [selectedCenter]);
-  const instructors = users.filter(u => u.role === 'user');
+    void fetchUsers();
+  }, [selectedCenter, user?.companyCode, activeBranchId]);
+  const instructorOptions = buildInstructorOptions(users);
   const { students } = useStudents(resolvedCenter);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -631,8 +635,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         className="pl-10"
                       >
                         <option value="">{`— Chưa gán ${copy.instructorLabel.toLocaleLowerCase('vi')} —`}</option>
-                        {instructors.map((i) => (
-                          <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
+                        {instructorOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                       </ErpSelect>
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
