@@ -1,2 +1,3 @@
 import type { Document } from "mongoose";
-export interface IPayrollAudit extends Document { companyCode: string; branchId?: string; periodKey: string; action: "snapshot" | "lock" | "calculate" | "approve" | "close" | "adjustment" | "reset"; actorId: string; metadata?: Record<string, unknown>; createdAt: Date; }
+export type PayrollAuditAction = "snapshot" | "lock" | "calculate" | "approve" | "close" | "adjustment" | "reset" | "create_run" | "sync_attendance" | "lock_attendance";
+export interface IPayrollAudit extends Document { companyCode: string; branchId?: string; periodKey: string; action: PayrollAuditAction; actorId: string; metadata?: Record<string, unknown>; createdAt: Date; }

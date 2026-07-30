@@ -61,7 +61,17 @@ const canManagePayroll = async (req: AuthenticatedRequest) => {
   const permissions = await getEffectivePermissions(userId, role, companyCode);
   return permissions.has("*") || permissions.has("payroll:manage");
 };
-const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), periodKey, action, actorId: req.user!.id, metadata });
+const legacyPeriodScope = (req: AuthenticatedRequest) => ({
+  companyCode: tenant(req),
+  branchId: req.user?.branchId || "",
+  periodKey: req.params.periodKey,
+});
+const legacyRegularRunFilter = (req: AuthenticatedRequest) => ({
+  ...legacyPeriodScope(req),
+  type: "regular" as const,
+});
+const LEGACY_RUN_ORDER = { createdAt: 1 as const, _id: 1 as const };
+const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), branchId: req.user?.branchId || "", periodKey, action, actorId: req.user!.id, metadata });
 const operationalScope = (req: AuthenticatedRequest) => {
   const companyCode = tenant(req);
   const branchId = req.user?.branchId || "";
@@ -205,7 +215,7 @@ export const payrollController = {
   async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
   async listResults(req: AuthenticatedRequest, res: Response) {
     if (!(await canManagePayroll(req))) {
-      const run = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+      const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
       if (!run) return res.json({ status: "success", data: [] });
     }
     const data = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
@@ -227,7 +237,7 @@ export const payrollController = {
     const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, status: "locked" }).lean();
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
     if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
-    const existing = await PayrollRunModel.findOne({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey });
+    const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
     const lines = rows.map((row) => ({
       employeeId: row.employeeId,
@@ -245,19 +255,19 @@ export const payrollController = {
         adjustments: 0,
       }), workedMinutes: row.workedMinutes, workedDays: row.workedDays || 0, standardHours: row.standardHours, standardDays: row.standardDays },
     }));
-    const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, status: "calculated", createdBy: req.user!.id, lines });
+    const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "calculated", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
     return res.status(201).json({ status: "success", data: run });
   },
   async createAdjustment(req: AuthenticatedRequest, res: Response) {
     const { employeeId, kind, amount, reason } = req.body;
     if (!employeeId || !kind || !Number.isFinite(amount) || amount < 0 || !String(reason || "").trim()) return res.status(400).json({ status: "error", message: "Du lieu dieu chinh khong hop le." });
-    const adjustment = await PayrollAdjustmentModel.create({ companyCode: tenant(req), periodKey: req.params.periodKey, employeeId, kind, amount, reason, createdBy: req.user!.id });
+    const adjustment = await PayrollAdjustmentModel.create({ ...legacyPeriodScope(req), employeeId, kind, amount, reason, createdBy: req.user!.id });
     return res.status(201).json({ status: "success", data: adjustment });
   },
   async approveAdjustment(req: AuthenticatedRequest, res: Response) {
     const adjustment = await PayrollAdjustmentModel.findOneAndUpdate(
-      { _id: req.params.adjustmentId, companyCode: tenant(req), periodKey: req.params.periodKey, status: "pending" },
+      { _id: req.params.adjustmentId, ...legacyPeriodScope(req), status: "pending" },
       { $set: { status: "approved", approvedBy: req.user!.id } },
       { new: true },
     );
@@ -267,34 +277,35 @@ export const payrollController = {
   },
   async approveRun(req: AuthenticatedRequest, res: Response) {
     const run = await PayrollRunModel.findOneAndUpdate(
-      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "calculated" },
+      { ...legacyRegularRunFilter(req), status: "calculated" },
       { $set: { status: "approved", approvedBy: req.user!.id } },
-      { new: true },
+      { new: true, sort: LEGACY_RUN_ORDER },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
     return res.json({ status: "success", data: run });
   },
   async closeRun(req: AuthenticatedRequest, res: Response) {
     const run = await PayrollRunModel.findOneAndUpdate(
-      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "approved" },
+      { ...legacyRegularRunFilter(req), status: "approved" },
       { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date() } },
-      { new: true },
+      { new: true, sort: LEGACY_RUN_ORDER },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
     return res.json({ status: "success", data: run });
   },  async resetPeriod(req: AuthenticatedRequest, res: Response) {
-    const filter = { companyCode: tenant(req), periodKey: req.params.periodKey };
-    const run = await PayrollRunModel.findOne(filter).lean();
+    const periodFilter = legacyPeriodScope(req);
+    const runFilter = legacyRegularRunFilter(req);
+    const run = await PayrollRunModel.findOne(runFilter).sort(LEGACY_RUN_ORDER).lean();
     const [deletedRun, results, adjustments, audits] = await Promise.all([
-      PayrollRunModel.deleteOne(filter),
-      AttendancePeriodResultModel.deleteMany(filter),
-      PayrollAdjustmentModel.deleteMany(filter),
-      PayrollAuditModel.deleteMany(filter),
+      run ? PayrollRunModel.deleteOne({ _id: run._id, ...runFilter }) : Promise.resolve({ deletedCount: 0 }),
+      AttendancePeriodResultModel.deleteMany(periodFilter),
+      PayrollAdjustmentModel.deleteMany(periodFilter),
+      PayrollAuditModel.deleteMany(periodFilter),
     ]);
     await audit(req, req.params.periodKey, "reset", { hadRun: Boolean(run), results: results.deletedCount, adjustments: adjustments.deletedCount, auditsRemoved: audits.deletedCount });
     return res.json({ status: "success", deleted: { run: deletedRun.deletedCount, results: results.deletedCount, adjustments: adjustments.deletedCount } });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
-    const data = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+    const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
     return res.json({ status: "success", data });
   },

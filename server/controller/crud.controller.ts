@@ -241,6 +241,7 @@ export const crudController = {
     try {
       const { modelName, id } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
+      const branchId = req.user?.branchId || "";
       const userRole = req.user?.role || "user";
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
@@ -254,8 +255,10 @@ export const crudController = {
         if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
         const periodKey = attendanceBefore.date.slice(0, 7);
         const [lockedResult, payrollRun] = await Promise.all([
-          AttendancePeriodResultModel.findOne({ companyCode, periodKey, status: "locked" }).lean(),
-          PayrollRunModel.findOne({ companyCode, periodKey }).lean(),
+          AttendancePeriodResultModel.findOne({ companyCode, branchId, periodKey, status: "locked" }).lean(),
+          PayrollRunModel.findOne({ companyCode, branchId, periodKey, type: "regular" })
+            .sort({ createdAt: 1, _id: 1 })
+            .lean(),
         ]);
         if (lockedResult || payrollRun) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
         delete req.body.editReason;
@@ -348,7 +351,7 @@ export const crudController = {
         const periodKey = attendanceBefore.date.slice(0, 7);
         await Promise.all([
           TimekeepingAdjustmentAuditModel.create({ companyCode, logId: attendanceBefore._id, employeeId: attendanceBefore.uid, date: attendanceBefore.date, actorId: req.user!.id, reason: attendanceReason, before: attendanceBefore, after: item }),
-          AttendancePeriodResultModel.updateMany({ companyCode, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+          AttendancePeriodResultModel.updateMany({ companyCode, branchId, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
         ]);
       }
 

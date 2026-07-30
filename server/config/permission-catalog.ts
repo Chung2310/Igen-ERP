@@ -27,6 +27,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "timekeeping:manage", label: "Quản lý & duyệt chấm công", group: "Nhân sự" },
   { code: "leave:approve", label: "Duyệt đơn nghỉ phép", group: "Nhân sự" },
   { code: "payroll:read", label: "Xem bảng lương", group: "Nhân sự" },
+  { code: "payroll:prepare", label: "Chuẩn bị dữ liệu lương", group: "Nhân sự", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
   { code: "payroll:manage", label: "Quản lý & tính lương", group: "Nhân sự" },
   { code: "student:read", label: "Xem học viên/khách hàng", group: "Học viên & Khách hàng" },
   { code: "student:manage", label: "Quản lý học viên/khách hàng", group: "Học viên & Khách hàng" },

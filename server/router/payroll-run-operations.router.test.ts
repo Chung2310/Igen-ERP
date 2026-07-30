@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import mongoose from "mongoose";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
   runFindOneAndUpdate: vi.fn(),
   runCreate: vi.fn(),
+  reservationFindOneAndUpdate: vi.fn(),
   attendanceFind: vi.fn(),
   snapshotCreate: vi.fn(),
   jobFindOne: vi.fn(),
@@ -17,6 +19,11 @@ vi.mock("../model/payroll-run.model", () => ({
     findOne: mocks.runFindOne,
     findOneAndUpdate: mocks.runFindOneAndUpdate,
     create: mocks.runCreate,
+  },
+}));
+vi.mock("../model/payroll-run-scope-reservation.model", () => ({
+  PayrollRunScopeReservationModel: {
+    findOneAndUpdate: mocks.reservationFindOneAndUpdate,
   },
 }));
 vi.mock("../model/attendance-period-result.model", () => ({
@@ -125,6 +132,84 @@ describe("payroll run operations", () => {
     expect(mocks.runCreate).not.toHaveBeenCalled();
   });
 
+  it("serializes concurrent overlapping regular creates with a transaction scope reservation", async () => {
+    const priorReadyState = mongoose.connection.readyState;
+    const storedRuns: any[] = [];
+    let reservationTail = Promise.resolve();
+    const sessions: any[] = [];
+    (mongoose.connection as any).readyState = 1;
+    const startSession = vi.spyOn(mongoose, "startSession").mockImplementation(async () => {
+      const session: any = {
+        releaseReservation: undefined,
+        endSession: vi.fn(),
+      };
+      session.withTransaction = vi.fn(async (callback: () => Promise<unknown>) => {
+        try {
+          return await callback();
+        } finally {
+          session.releaseReservation?.();
+        }
+      });
+      sessions.push(session);
+      return session;
+    });
+    mocks.reservationFindOneAndUpdate.mockImplementation(async (_filter, _update, options) => {
+      const previous = reservationTail;
+      let release!: () => void;
+      reservationTail = new Promise<void>((resolve) => { release = resolve; });
+      await previous;
+      options.session.releaseReservation = release;
+      return {};
+    });
+    mocks.runFindOne.mockImplementation((filter) => {
+      const query: any = {
+        session: vi.fn(() => query),
+        lean: vi.fn(async () => {
+          const snapshot = storedRuns.find((run) => (
+            run.companyCode === filter.companyCode
+            && run.branchId === filter.branchId
+            && run.type === filter.type
+            && run.startDate <= filter.startDate.$lte
+            && run.endDate >= filter.endDate.$gte
+          )) || null;
+          await Promise.resolve();
+          return snapshot;
+        }),
+      };
+      return query;
+    });
+    mocks.runCreate.mockImplementation(async (value) => {
+      const run = Array.isArray(value) ? value[0] : value;
+      const stored = { ...run, _id: `run-${storedRuns.length + 1}` };
+      storedRuns.push(stored);
+      return Array.isArray(value) ? [stored] : stored;
+    });
+    mocks.auditCreate.mockImplementation(async (value) => (
+      Array.isArray(value) ? [value[0]] : value
+    ));
+    const input = {
+      periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31", type: "regular" as const,
+    };
+
+    try {
+      const outcomes = await Promise.allSettled([
+        createRun(scope, "actor-a", input),
+        createRun(scope, "actor-b", { ...input, startDate: "2026-07-15", endDate: "2026-08-14" }),
+      ]);
+
+      expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+      expect(outcomes.filter((outcome) => outcome.status === "rejected")).toEqual([
+        expect.objectContaining({ reason: expect.objectContaining({ code: "PAYROLL_PERIOD_OVERLAP" }) }),
+      ]);
+      expect(mocks.reservationFindOneAndUpdate).toHaveBeenCalledTimes(2);
+      expect(sessions.every((session) => session.withTransaction.mock.calls.length === 1)).toBe(true);
+      expect(storedRuns).toHaveLength(1);
+    } finally {
+      startSession.mockRestore();
+      (mongoose.connection as any).readyState = priorReadyState;
+    }
+  });
+
   it("permits multiple same-range supplemental runs", async () => {
     mocks.runCreate
       .mockResolvedValueOnce({ _id: "supplemental-1", version: 0 })
@@ -138,7 +223,9 @@ describe("payroll run operations", () => {
     await createRun(scope, "actor-a", input);
 
     expect(mocks.runFindOne).not.toHaveBeenCalled();
+    expect(mocks.reservationFindOneAndUpdate).not.toHaveBeenCalled();
     expect(mocks.runCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ action: "create_run" }));
   });
 
   it("enforces the supplemental parent-or-reason invariant in the service", async () => {
@@ -190,6 +277,7 @@ describe("payroll run operations", () => {
       expect.objectContaining({ new: true, runValidators: true }),
     );
     expect(result.job.status).toBe("succeeded");
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ action: "sync_attendance" }));
   });
 
   it("replays a completed sync idempotently without reading attendance again", async () => {
@@ -294,7 +382,9 @@ describe("payroll run operations", () => {
       expect.objectContaining({ new: true, runValidators: true }),
     );
     expect(result.run.version).toBe(2);
-    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-a", action: "lock" }));
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
+      branchId: "branch-a", action: "lock_attendance",
+    }));
     expect(mocks.runFindOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.snapshotCreate.mock.invocationCallOrder[0],
     );

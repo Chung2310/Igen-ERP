@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { PayrollAttendanceSnapshotModel } from "./payroll-attendance-snapshot.model";
+import { PayrollAuditModel } from "./payroll-audit.model";
 import { PayrollOperationJobModel } from "./payroll-operation-job.model";
 import { PayrollRunModel } from "./payroll-run.model";
+import { PayrollRunScopeReservationModel } from "./payroll-run-scope-reservation.model";
 
 const hasIndex = (indexes: any[], keys: object, options: object) => indexes.some(
   ([actual, actualOptions]) => JSON.stringify(actual) === JSON.stringify(keys)
@@ -21,6 +23,23 @@ test("indexes runs by scope without exact-range uniqueness", () => {
     indexes.some(([actual, options]) => JSON.stringify(actual) === JSON.stringify(keys) && options.unique === true),
     false,
   );
+});
+
+test("reserves one payroll-run creation fence per company and branch scope", () => {
+  const schema = PayrollRunScopeReservationModel.schema;
+
+  for (const path of ["scopeKey", "companyCode", "branchId", "revision"]) {
+    assert.equal(schema.path(path)?.options.required, true, path);
+  }
+  assert.equal(hasIndex(schema.indexes(), { scopeKey: 1 }, { unique: true }), true);
+});
+
+test("defines explicit audit actions for operational create, sync, and attendance lock", () => {
+  const actions = PayrollAuditModel.schema.path("action")?.options.enum;
+
+  for (const action of ["create_run", "sync_attendance", "lock_attendance"]) {
+    assert.ok(actions.includes(action), action);
+  }
 });
 
 test("versions payroll runs with operational totals and issues", () => {

@@ -4,11 +4,13 @@ import type {
   PayrollIssue,
   PayrollRunType,
 } from "../interface/payroll-operations.interface";
+import type { PayrollAuditAction } from "../interface/payroll-audit.interface";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollAttendanceSnapshotModel } from "../model/payroll-attendance-snapshot.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollOperationJobModel } from "../model/payroll-operation-job.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
+import { PayrollRunScopeReservationModel } from "../model/payroll-run-scope-reservation.model";
 import { assertPayrollTransition } from "./payroll-run-state.service";
 
 export interface PayrollOperationScope {
@@ -44,6 +46,10 @@ const replaySync = (job: any, expectedVersion: number) => ({
   job,
   runVersion: Number(job.result?.runVersion ?? expectedVersion),
 });
+const payrollRunScopeKey = (scope: PayrollOperationScope) => JSON.stringify([
+  scope.companyCode,
+  scope.branchId,
+]);
 
 async function inTransaction<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
   if (mongoose.connection.readyState !== 1) return operation();
@@ -66,7 +72,7 @@ async function createDocument(model: any, value: Record<string, unknown>, sessio
 async function appendAudit(
   scope: PayrollOperationScope,
   periodKey: string,
-  action: "snapshot" | "lock",
+  action: PayrollAuditAction,
   actorId: string,
   metadata: Record<string, unknown>,
   session?: ClientSession,
@@ -177,6 +183,14 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
   }
   return inTransaction(async (session) => {
     if (input.type === "regular") {
+      await PayrollRunScopeReservationModel.findOneAndUpdate(
+        { scopeKey: payrollRunScopeKey(scope) },
+        {
+          $setOnInsert: { ...scope },
+          $inc: { revision: 1 },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true, ...(session && { session }) },
+      );
       let overlapQuery: any = PayrollRunModel.findOne({
         ...scope,
         type: "regular",
@@ -205,7 +219,7 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
       totals: { grossPay: 0, deductions: 0, netPay: 0 },
       createdBy: actorId,
     }, session);
-    await appendAudit(scope, input.periodKey, "snapshot", actorId, {
+    await appendAudit(scope, input.periodKey, "create_run", actorId, {
       operation: "create_run", runId: idOf(run), type: input.type,
     }, session);
     return run;
@@ -273,7 +287,7 @@ export async function syncAttendance(
       { $set: { status: "succeeded", result } },
       updateOptions,
     );
-    await appendAudit(scope, run.periodKey, "snapshot", actorId, {
+    await appendAudit(scope, run.periodKey, "sync_attendance", actorId, {
       operation: "sync_attendance", runId, jobId: idOf(job),
       employeeCount: result.employeeCount, blockingIssueCount: result.blockingIssueCount,
       beforeVersion: expectedVersion, afterVersion: updated.version,
@@ -346,7 +360,7 @@ export async function lockAttendance(
       lockedAt,
       lockedBy: actorId,
     }, session);
-    await appendAudit(scope, run.periodKey, "lock", actorId, {
+    await appendAudit(scope, run.periodKey, "lock_attendance", actorId, {
       operation: "lock_attendance", runId, snapshotId: idOf(snapshot),
       beforeVersion: expectedVersion, afterVersion: updated.version,
     }, session);

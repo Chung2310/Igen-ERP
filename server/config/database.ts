@@ -88,6 +88,7 @@ async function seedPermissions() {
       { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
       { code: "timekeeping:manage", name: "Quản lý & duyệt chấm công", module: "hr", description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình vị trí/ca làm việc" },
       { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
+      { code: "payroll:prepare", name: "Chuẩn bị dữ liệu lương", module: "hr", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
       { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
       { code: "company-email:manage", name: "Quản lý email chúc mừng", module: "hr", description: "Cấu hình mẫu và theo dõi email sinh nhật, lễ Tết của công ty" },
       { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
@@ -120,7 +121,7 @@ async function seedPermissions() {
 
     await RolePermissionModel.updateMany(
       { role: "admin" },
-      { $addToSet: { permissions: { $each: ["custom-field:manage", "student-settings:manage", "company-smtp:manage"] } } },
+      { $addToSet: { permissions: { $each: ["custom-field:manage", "student-settings:manage", "company-smtp:manage", "payroll:prepare"] } } },
     );
     await RolePermissionModel.updateMany(
       { role: "manager" },

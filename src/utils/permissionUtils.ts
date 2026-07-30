@@ -43,6 +43,11 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Xem phiếu lương, phụ cấp và bảng tính lương nhân viên",
   },
+  "payroll:prepare": {
+    label: "Chuẩn bị dữ liệu lương nhân sự",
+    group: "Quản lý nhân sự",
+    description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương",
+  },
   "payroll:manage": {
     label: "Quản lý & tính lương nhân sự",
     group: "Quản lý nhân sự",
