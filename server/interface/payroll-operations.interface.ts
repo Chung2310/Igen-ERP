@@ -23,24 +23,24 @@ export interface PayrollIssue {
 }
 
 export interface PayrollAttendanceEmployeeSnapshot {
-  employeeId: string;
-  employeeName?: string;
-  standardHours: number;
-  standardDays: number;
-  workedMinutes: number;
-  shortageMinutes: number;
-  paidLeaveMinutesByRate: { minutes: number; payRate: number }[];
-  overtime: { minutes: number; category: "weekday" | "restDay" | "holiday" }[];
-  sourceResultId?: string;
-  sourceVersion?: number;
+  readonly employeeId: string;
+  readonly employeeName?: string;
+  readonly standardHours: number;
+  readonly standardDays: number;
+  readonly workedMinutes: number;
+  readonly shortageMinutes: number;
+  readonly paidLeaveMinutesByRate: readonly { readonly minutes: number; readonly payRate: number }[];
+  readonly overtime: readonly { readonly minutes: number; readonly category: "weekday" | "restDay" | "holiday" }[];
+  readonly sourceResultId?: string;
+  readonly sourceVersion?: number;
 }
 
 export interface PayrollAttendanceSnapshot {
-  companyCode: string;
-  branchId?: string;
-  runId: string;
-  periodKey: string;
-  employees: PayrollAttendanceEmployeeSnapshot[];
-  lockedAt: Date;
-  lockedBy: string;
+  readonly companyCode: string;
+  readonly branchId: string;
+  readonly runId: string;
+  readonly periodKey: string;
+  readonly employees: readonly PayrollAttendanceEmployeeSnapshot[];
+  readonly lockedAt: Date;
+  readonly lockedBy: string;
 }
