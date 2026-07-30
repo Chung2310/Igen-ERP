@@ -14,6 +14,7 @@ export const createBatchSchema = Joi.object({
     "string.empty": "Khóa học không được để trống.",
   }),
   instructorId: Joi.string().allow("", null).optional(),
+  instructorText: Joi.string().trim().max(120).allow("", null).optional(),
   daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).required().messages({
     "any.required": "Lịch học trong tuần là bắt buộc.",
     "array.min": "Phải chọn ít nhất một ngày học trong tuần.",
@@ -44,6 +45,7 @@ export const updateBatchSchema = Joi.object({
   code: Joi.string().optional(),
   courseId: Joi.string().optional(),
   instructorId: Joi.string().allow("", null).optional(),
+  instructorText: Joi.string().trim().max(120).allow("", null).optional(),
   daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).optional(),
   startTime: Joi.string().pattern(timePattern).optional(),
   endTime: Joi.string().pattern(timePattern).optional(),

@@ -26,6 +26,8 @@ export interface IBatch extends Document {
   code: string;
   courseId: string;
   instructorId?: string;
+  /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */
+  instructorText?: string;
   learnerIds: string[];
   daysOfWeek: number[]; // 0 = Chủ nhật ... 6 = Thứ 7
   startTime: string;    // HH:mm

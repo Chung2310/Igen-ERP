@@ -75,6 +75,22 @@ async function assertInstructorAssignable(actor: BatchActor, instructorId: unkno
     throw new Error("Không tìm thấy tài khoản đang hoạt động trong chi nhánh được chọn.");
   }
 }
+
+/**
+ * Người phụ trách có thể là tài khoản trong công ty (instructorId) hoặc tên nhập
+ * tay (instructorText) — không bao giờ cả hai. Gán tài khoản luôn thắng.
+ */
+function normalizeInstructorFields(data: BatchData): BatchData {
+  const hasId = "instructorId" in data;
+  const hasText = "instructorText" in data;
+  if (!hasId && !hasText) return data;
+
+  const id = String(data.instructorId ?? "").trim();
+  if (id) return { ...data, instructorId: id, instructorText: "" };
+  if (hasText) return { ...data, instructorId: "", instructorText: String(data.instructorText ?? "").trim() };
+  return { ...data, instructorId: "" };
+}
+
 function assertScheduleValid(data: BatchData) {
   if (data.startTime && data.endTime && String(data.startTime) >= String(data.endTime)) {
     throw new Error("Giờ bắt đầu phải trước giờ kết thúc.");
@@ -104,7 +120,8 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
       courseCode: course?.code || "",
       courseTitle: course?.title || "(Khóa học đã xóa)",
       maxLearners: course?.maxLearners ?? 0,
-      instructorName: instructor?.displayName || "",
+      // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
+      instructorName: instructor?.displayName || b.instructorText || "",
     };
   });
 }
@@ -217,7 +234,7 @@ export class BatchService {
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
-    const batch = new Batch({ ...writeData, ownerId, branchId: actor.branchId });
+    const batch = new Batch({ ...normalizeInstructorFields(writeData), ownerId, branchId: actor.branchId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
     const enriched = (await enrichBatches([saved]))[0];
@@ -245,6 +262,7 @@ export class BatchService {
       query.$or = [
         { code: { $regex: filters.search, $options: "i" } },
         { location: { $regex: filters.search, $options: "i" } },
+        { instructorText: { $regex: filters.search, $options: "i" } },
       ];
     }
 
@@ -304,17 +322,18 @@ export class BatchService {
     }
 
     const previousInstructorId = batch.instructorId;
+    const persistData = normalizeInstructorFields(writeData);
     let saved: IBatch;
     if (context) {
       const updated = await Batch.findOneAndUpdate(
         { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
-        { $set: writeData, $inc: { __v: 1 } },
+        { $set: persistData, $inc: { __v: 1 } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new CustomFieldWriteConflictError();
       saved = updated;
     } else {
-      batch.set(writeData);
+      batch.set(persistData);
       saved = await batch.save();
     }
     const enriched = (await enrichBatches([saved]))[0];
