@@ -4,7 +4,7 @@ import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modu
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
 
 import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
-import { ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+import { getEntityPresetOptions, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
 
 type Props = {
   code: string;
@@ -149,7 +149,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
                 disabled={saving}
                 className="mt-2.5 w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2.5 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
               >
-                {ENTITY_PRESET_OPTIONS.map((opt) => (
+                {getEntityPresetOptions(entityPreset).map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
