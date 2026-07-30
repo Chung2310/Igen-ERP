@@ -137,10 +137,10 @@ export const payrollController = {
   async createRun(req: AuthenticatedRequest, res: Response) {
     const branchId = req.user?.branchId;
     if (!branchId) return res.status(400).json({ status: "error", message: "Cannot create payroll run: the authenticated user has no branch." });
-    const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "locked" }).lean();
+    const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, status: "locked" }).lean();
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
     if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
-    const existing = await PayrollRunModel.findOne({ companyCode: tenant(req), periodKey: req.params.periodKey });
+    const existing = await PayrollRunModel.findOne({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey });
     if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
     const lines = rows.map((row) => ({
       employeeId: row.employeeId,

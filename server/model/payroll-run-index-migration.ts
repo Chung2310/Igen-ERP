@@ -17,10 +17,15 @@ const matchesLegacyIndex = (index: PayrollRunIndex) => index.unique === true
   && JSON.stringify(index.key) === JSON.stringify(legacyPayrollRunIndex);
 
 /** Removes only the legacy unique company/period index, and is safe to rerun. */
-export async function dropLegacyPayrollRunPeriodIndex(
+export async function dropLegacyPayrollRunPeriodKeyUniqueIndex(
   collection: PayrollRunIndexCollection = PayrollRunModel.collection as unknown as PayrollRunIndexCollection,
 ): Promise<boolean> {
-  const legacyIndex = (await collection.indexes()).find(matchesLegacyIndex);
+  let indexes: PayrollRunIndex[];
+  try { indexes = await collection.indexes(); } catch (error: any) {
+    if (error?.codeName === "NamespaceNotFound" || error?.code === 26) return false;
+    throw error;
+  }
+  const legacyIndex = indexes.find(matchesLegacyIndex);
   if (!legacyIndex?.name) return false;
 
   try {

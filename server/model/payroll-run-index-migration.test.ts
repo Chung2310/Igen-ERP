@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { dropLegacyPayrollRunPeriodIndex } from "./payroll-run-index-migration";
+import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "./payroll-run-index-migration";
 
 const legacyKeys = { companyCode: 1, periodKey: 1 };
 
-describe("dropLegacyPayrollRunPeriodIndex", () => {
+describe("dropLegacyPayrollRunPeriodKeyUniqueIndex", () => {
   it("drops only the discovered legacy unique period index", async () => {
     const dropIndex = vi.fn().mockResolvedValue(undefined);
     const collection = {
@@ -15,7 +15,7 @@ describe("dropLegacyPayrollRunPeriodIndex", () => {
       dropIndex,
     };
 
-    await expect(dropLegacyPayrollRunPeriodIndex(collection)).resolves.toBe(true);
+    await expect(dropLegacyPayrollRunPeriodKeyUniqueIndex(collection)).resolves.toBe(true);
     expect(dropIndex).toHaveBeenCalledTimes(1);
     expect(dropIndex).toHaveBeenCalledWith("company_period_legacy");
   });
@@ -27,7 +27,7 @@ describe("dropLegacyPayrollRunPeriodIndex", () => {
       dropIndex,
     };
 
-    await expect(dropLegacyPayrollRunPeriodIndex(collection)).resolves.toBe(false);
+    await expect(dropLegacyPayrollRunPeriodKeyUniqueIndex(collection)).resolves.toBe(false);
     expect(dropIndex).not.toHaveBeenCalled();
   });
 
@@ -38,6 +38,14 @@ describe("dropLegacyPayrollRunPeriodIndex", () => {
       dropIndex: vi.fn().mockRejectedValue(error),
     };
 
-    await expect(dropLegacyPayrollRunPeriodIndex(collection)).resolves.toBe(false);
+    await expect(dropLegacyPayrollRunPeriodKeyUniqueIndex(collection)).resolves.toBe(false);
+  });
+
+  it("is a no-op when the collection does not exist yet", async () => {
+    const error = Object.assign(new Error("namespace missing"), { codeName: "NamespaceNotFound", code: 26 });
+    const collection = { indexes: vi.fn().mockRejectedValue(error), dropIndex: vi.fn() };
+
+    await expect(dropLegacyPayrollRunPeriodKeyUniqueIndex(collection)).resolves.toBe(false);
+    expect(collection.dropIndex).not.toHaveBeenCalled();
   });
 });
