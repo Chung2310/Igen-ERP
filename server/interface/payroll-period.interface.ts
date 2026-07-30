@@ -1,6 +1,7 @@
 import type { Document } from "mongoose";
+import type { PayrollRunStatus } from "./payroll-operations.interface";
 
-export type PayrollPeriodStatus = "draft" | "attendance_locked" | "calculated" | "approved" | "closed";
+export type PayrollPeriodStatus = PayrollRunStatus;
 
 export interface IAttendancePeriodResult extends Document {
   companyCode: string;
