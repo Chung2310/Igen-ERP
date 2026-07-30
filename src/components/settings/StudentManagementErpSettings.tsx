@@ -4,7 +4,7 @@ import { toast } from "../../pages/Toast";
 import { getModuleSettings } from "../../modules/student-management/api/moduleSettings.api";
 import {
   DEFAULT_ENTITY_PRESET,
-  ENTITY_PRESET_OPTIONS,
+  getEntityPresetOptions,
   type EntityPreset,
 } from "../../modules/student-management/config/entityLabels";
 
@@ -34,7 +34,7 @@ export default function StudentManagementErpSettings() {
     };
   }, []);
 
-  const current = ENTITY_PRESET_OPTIONS.find((option) => option.value === entityPreset);
+  const options = getEntityPresetOptions(entityPreset);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -52,11 +52,48 @@ export default function StudentManagementErpSettings() {
           <RefreshCw className="h-4 w-4 animate-spin" /> Đang tải cấu hình...
         </div>
       ) : (
-        <div className="rounded-xl border border-cyan-500 bg-cyan-50 px-4 py-3">
-          <div className="text-sm font-bold text-cyan-800">
-            {current?.label ?? entityPreset}
-            <span className="ml-2 text-[10px] uppercase text-cyan-600">Đang dùng</span>
-          </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {options.map((option) => {
+            const active = option.value === entityPreset;
+            return (
+              <div
+                key={option.value}
+                aria-disabled
+                aria-current={active ? "true" : undefined}
+                title={
+                  active
+                    ? "Loại hình doanh nghiệp đang áp dụng"
+                    : "Chỉ SuperAdmin đổi được loại hình doanh nghiệp"
+                }
+                className={
+                  active
+                    ? "cursor-not-allowed rounded-xl border-2 border-cyan-500 bg-cyan-50 px-4 py-3 shadow-sm ring-2 ring-cyan-200"
+                    : "cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 opacity-60"
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={
+                      active ? "text-sm font-bold text-cyan-800" : "text-sm font-semibold text-slate-500"
+                    }
+                  >
+                    {option.label}
+                  </div>
+                  {active ? null : <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />}
+                </div>
+                <div
+                  className={
+                    active
+                      ? "mt-1 text-[10px] font-bold uppercase tracking-wide text-cyan-600"
+                      : "mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                  }
+                >
+                  {active ? "Đang dùng" : "Đã khoá"}
+                  {option.legacy ? " • Loại hình cũ" : ""}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
       <p className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
