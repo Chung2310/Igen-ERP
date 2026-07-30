@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 interface PayrollOperationJobDocument {
   companyCode: string;
-  branchId?: string;
+  branchId: string;
   runId?: string;
   idempotencyKey: string;
   operation: string;
@@ -16,7 +16,7 @@ interface PayrollOperationJobDocument {
 
 const schema = new Schema<PayrollOperationJobDocument>({
   companyCode: { type: String, required: true, index: true },
-  branchId: { type: String, index: true },
+  branchId: { type: String, required: true, index: true },
   runId: { type: String, index: true },
   idempotencyKey: { type: String, required: true },
   operation: { type: String, required: true },

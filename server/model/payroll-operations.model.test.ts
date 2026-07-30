@@ -9,14 +9,17 @@ const hasIndex = (indexes: any[], keys: object, options: object) => indexes.some
     && Object.entries(options).every(([key, value]) => actualOptions[key] === value),
 );
 
-test("requires one scoped regular run per date range", () => {
+test("indexes runs by scope without exact-range uniqueness", () => {
+  const indexes = PayrollRunModel.schema.indexes() as any[];
+  const keys = { companyCode: 1, branchId: 1, startDate: 1, endDate: 1, type: 1 };
+
   assert.equal(
-    hasIndex(
-      PayrollRunModel.schema.indexes(),
-      { companyCode: 1, branchId: 1, startDate: 1, endDate: 1, type: 1 },
-      { unique: true },
-    ),
+    hasIndex(indexes, keys, {}),
     true,
+  );
+  assert.equal(
+    indexes.some(([actual, options]) => JSON.stringify(actual) === JSON.stringify(keys) && options.unique === true),
+    false,
   );
 });
 
@@ -25,7 +28,10 @@ test("versions payroll runs with operational totals and issues", () => {
 
   assert.equal(schema.get("optimisticConcurrency"), true);
   assert.equal(schema.get("versionKey"), "version");
-  for (const path of ["startDate", "endDate", "type", "issues", "version"]) {
+  assert.equal(schema.path("branchId")?.options.required, true);
+  assert.notEqual(schema.path("startDate")?.options.required, true);
+  assert.notEqual(schema.path("endDate")?.options.required, true);
+  for (const path of ["startDate", "endDate", "type", "parentRunId", "supplementalReason", "issues", "version"]) {
     assert.ok(schema.path(path), path);
   }
   assert.deepEqual(schema.path("type")?.options.enum, ["regular", "supplemental"]);
@@ -69,7 +75,7 @@ test("stores a unique idempotency key per company for operation jobs", () => {
     hasIndex(schema.indexes(), { companyCode: 1, idempotencyKey: 1 }, { unique: true }),
     true,
   );
-  for (const path of ["companyCode", "idempotencyKey", "operation", "status"]) {
+  for (const path of ["companyCode", "branchId", "idempotencyKey", "operation", "status"]) {
     assert.equal(schema.path(path)?.options.required, true, path);
   }
   assert.deepEqual(schema.path("status")?.options.enum, ["queued", "running", "succeeded", "failed"]);

@@ -4,6 +4,7 @@ import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { PERMISSION_CATALOG } from "./permission-catalog";
+import { dropLegacyPayrollRunPeriodIndex } from "../model/payroll-run-index-migration";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -163,6 +164,7 @@ export async function connectDB() {
     console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
+    await dropLegacyPayrollRunPeriodIndex();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {

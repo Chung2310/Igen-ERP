@@ -24,11 +24,13 @@ type PayrollRunDocument = IPayrollRun & {
 
 const schema = new Schema<PayrollRunDocument>({
   companyCode: { type: String, required: true, index: true },
-  branchId: { type: String, index: true },
+  branchId: { type: String, required: true, index: true },
   periodKey: { type: String, required: true },
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
+  startDate: Date,
+  endDate: Date,
   type: { type: String, enum: ["regular", "supplemental"], default: "regular", required: true },
+  parentRunId: String,
+  supplementalReason: String,
   status: { type: String, enum: ["draft", "attendance_locked", "calculated", "reviewed", "approved", "closed", "partially_paid", "paid"], default: "draft", index: true },
   lines: [{ employeeId: { type: String, required: true }, calculation: { type: Schema.Types.Mixed, required: true } }],
   issues: [{
@@ -47,5 +49,5 @@ const schema = new Schema<PayrollRunDocument>({
   },
   createdBy: { type: String, required: true }, approvedBy: String, closedBy: String, closedAt: Date,
 }, { timestamps: true, optimisticConcurrency: true, versionKey: "version" });
-schema.index({ companyCode: 1, branchId: 1, startDate: 1, endDate: 1, type: 1 }, { unique: true });
+schema.index({ companyCode: 1, branchId: 1, startDate: 1, endDate: 1, type: 1 });
 export const PayrollRunModel = model<PayrollRunDocument>("PayrollRun", schema);

@@ -135,6 +135,8 @@ export const payrollController = {
     return res.json({ status: "success", lockedCount: result.modifiedCount });
   },
   async createRun(req: AuthenticatedRequest, res: Response) {
+    const branchId = req.user?.branchId;
+    if (!branchId) return res.status(400).json({ status: "error", message: "Cannot create payroll run: the authenticated user has no branch." });
     const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "locked" }).lean();
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
     if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
@@ -156,7 +158,7 @@ export const payrollController = {
         adjustments: 0,
       }), workedMinutes: row.workedMinutes, workedDays: row.workedDays || 0, standardHours: row.standardHours, standardDays: row.standardDays },
     }));
-    const run = await PayrollRunModel.create({ companyCode: tenant(req), periodKey: req.params.periodKey, status: "calculated", createdBy: req.user!.id, lines });
+    const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, status: "calculated", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
     return res.status(201).json({ status: "success", data: run });
   },

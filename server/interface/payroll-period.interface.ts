@@ -28,6 +28,8 @@ export interface IPayrollRun extends Document {
   companyCode: string;
   branchId?: string;
   periodKey: string;
+  parentRunId?: string;
+  supplementalReason?: string;
   status: PayrollPeriodStatus;
   lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];
   createdBy: string;
