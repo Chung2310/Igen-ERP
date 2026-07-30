@@ -41,3 +41,7 @@ type PaidLeaveIsImmutable = Expect<
 type OvertimeIsImmutable = Expect<
   Equal<PayrollAttendanceEmployeeSnapshot["overtime"], readonly { readonly minutes: number; readonly category: "weekday" | "restDay" | "holiday" }[]>
 >;
+
+type LockedAtIsIsoTimestamp = Expect<
+  Equal<PayrollAttendanceSnapshot["lockedAt"], string>
+>;

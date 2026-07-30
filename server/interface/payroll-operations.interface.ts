@@ -41,6 +41,7 @@ export interface PayrollAttendanceSnapshot {
   readonly runId: string;
   readonly periodKey: string;
   readonly employees: readonly PayrollAttendanceEmployeeSnapshot[];
-  readonly lockedAt: Date;
+  /** ISO-8601 UTC timestamp. */
+  readonly lockedAt: string;
   readonly lockedBy: string;
 }
