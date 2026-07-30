@@ -4,6 +4,8 @@ import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { ErpModal, ErpField, ErpInput, ErpSelect } from '../Erp/ErpUI';
+import { InstructorCombobox } from './InstructorCombobox';
+import { buildInstructorOptions } from '../../pages/Batches/instructorRoster';
 import { Course, ManagedUser, BatchStatus, Batch } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
@@ -27,6 +29,7 @@ export interface BatchForm {
   code: string;
   courseId: string;
   instructorId: string;
+  instructorText: string;
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
@@ -43,6 +46,7 @@ const EMPTY_FORM: BatchForm = {
   code: '',
   courseId: '',
   instructorId: '',
+  instructorText: '',
   daysOfWeek: [],
   startTime: '18:00',
   endTime: '20:00',
@@ -82,6 +86,7 @@ export function BatchFormModal({
       code: batchToEdit.code,
       courseId: batchToEdit.courseId,
       instructorId: batchToEdit.instructorId || '',
+      instructorText: batchToEdit.instructorText || '',
       daysOfWeek: batchToEdit.daysOfWeek || [],
       startTime: batchToEdit.startTime,
       endTime: batchToEdit.endTime,
@@ -209,21 +214,13 @@ export function BatchFormModal({
           </div>
 
           <ErpField label={copy.instructorLabel}>
-            <div className="relative">
-              <ErpSelect
-                value={form.instructorId}
-                onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
-                className="pl-10"
-              >
-                <option value="">{`— Chưa gán ${copy.instructorLabel.toLocaleLowerCase('vi')} —`}</option>
-                {instructors.map((i) => (
-                  <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
-                ))}
-              </ErpSelect>
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                <GraduationCap className="w-4 h-4" />
-              </div>
-            </div>
+            <InstructorCombobox
+              instructorId={form.instructorId}
+              instructorText={form.instructorText}
+              options={buildInstructorOptions(instructors)}
+              placeholder={`Nhập tên ${copy.instructorLabel.toLocaleLowerCase('vi')} hoặc chọn tài khoản...`}
+              onChange={(next) => setForm({ ...form, ...next })}
+            />
           </ErpField>
         </div>
 
