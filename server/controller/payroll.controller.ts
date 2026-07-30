@@ -14,6 +14,19 @@ import { calculatePayroll } from "../service/payroll-calculation.service";
 import { evaluateWorkingDate } from "../service/company-work-calendar.service";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { getEffectivePermissions } from "../middleware/auth";
+import {
+  createRun as createOperationalPayrollRun,
+  listIssues as listOperationalPayrollIssues,
+  lockAttendance as lockOperationalPayrollAttendance,
+  PayrollOperationError,
+  syncAttendance as syncOperationalPayrollAttendance,
+} from "../service/payroll-run-operations.service";
+import {
+  createOperationalRunSchema,
+  lockAttendanceSchema,
+  syncAttendanceHeadersSchema,
+  syncAttendanceSchema,
+} from "../validation/payroll-run.validation";
 
 const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
 const PAYROLL_TIME_ZONE = "Asia/Ho_Chi_Minh";
@@ -49,8 +62,82 @@ const canManagePayroll = async (req: AuthenticatedRequest) => {
   return permissions.has("*") || permissions.has("payroll:manage");
 };
 const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), periodKey, action, actorId: req.user!.id, metadata });
+const operationalScope = (req: AuthenticatedRequest) => {
+  const companyCode = tenant(req);
+  const branchId = req.user?.branchId || "";
+  return companyCode && branchId ? { companyCode, branchId } : null;
+};
+const validationFailure = (res: Response, message: string) => res.status(400).json({
+  status: "error", code: "PAYROLL_VALIDATION_ERROR", message,
+});
+const operationFailure = (res: Response, error: unknown) => {
+  if (error instanceof PayrollOperationError) {
+    return res.status(error.status).json({
+      status: "error",
+      code: error.code,
+      message: error.message,
+      ...(error.currentVersion !== undefined ? { currentVersion: error.currentVersion } : {}),
+    });
+  }
+  console.error("[payroll.operations] Unexpected error:", error);
+  return res.status(500).json({ status: "error", code: "PAYROLL_OPERATION_FAILED", message: "Payroll operation failed" });
+};
 
 export const payrollController = {
+  async createOperationalRun(req: AuthenticatedRequest, res: Response) {
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const { error, value } = createOperationalRunSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    try {
+      const run = await createOperationalPayrollRun(scope, req.user!.id, value);
+      return res.status(201).json({ status: "success", data: run });
+    } catch (operationError) {
+      return operationFailure(res, operationError);
+    }
+  },
+  async syncAttendance(req: AuthenticatedRequest, res: Response) {
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const body = syncAttendanceSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (body.error) return validationFailure(res, body.error.message);
+    const headers = syncAttendanceHeadersSchema.validate(req.headers, { abortEarly: false });
+    if (headers.error) return validationFailure(res, headers.error.message);
+    try {
+      const result = await syncOperationalPayrollAttendance(
+        scope,
+        req.params.id,
+        req.user!.id,
+        body.value.expectedVersion,
+        headers.value["idempotency-key"],
+      );
+      return res.json({ status: "success", data: result });
+    } catch (operationError) {
+      return operationFailure(res, operationError);
+    }
+  },
+  async listRunIssues(req: AuthenticatedRequest, res: Response) {
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    try {
+      const issues = await listOperationalPayrollIssues(scope, req.params.id);
+      return res.json({ status: "success", data: issues });
+    } catch (operationError) {
+      return operationFailure(res, operationError);
+    }
+  },
+  async lockAttendance(req: AuthenticatedRequest, res: Response) {
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const { error, value } = lockAttendanceSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    try {
+      const result = await lockOperationalPayrollAttendance(scope, req.params.id, req.user!.id, value.expectedVersion);
+      return res.json({ status: "success", data: result });
+    } catch (operationError) {
+      return operationFailure(res, operationError);
+    }
+  },
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number }[] | undefined;
     const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();

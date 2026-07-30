@@ -1,0 +1,334 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  runFindOne: vi.fn(),
+  runFindOneAndUpdate: vi.fn(),
+  runCreate: vi.fn(),
+  attendanceFind: vi.fn(),
+  snapshotCreate: vi.fn(),
+  jobFindOne: vi.fn(),
+  jobCreate: vi.fn(),
+  jobFindOneAndUpdate: vi.fn(),
+  auditCreate: vi.fn(),
+}));
+
+vi.mock("../model/payroll-run.model", () => ({
+  PayrollRunModel: {
+    findOne: mocks.runFindOne,
+    findOneAndUpdate: mocks.runFindOneAndUpdate,
+    create: mocks.runCreate,
+  },
+}));
+vi.mock("../model/attendance-period-result.model", () => ({
+  AttendancePeriodResultModel: { find: mocks.attendanceFind },
+}));
+vi.mock("../model/payroll-attendance-snapshot.model", () => ({
+  PayrollAttendanceSnapshotModel: { create: mocks.snapshotCreate },
+}));
+vi.mock("../model/payroll-operation-job.model", () => ({
+  PayrollOperationJobModel: {
+    findOne: mocks.jobFindOne,
+    create: mocks.jobCreate,
+    findOneAndUpdate: mocks.jobFindOneAndUpdate,
+  },
+}));
+vi.mock("../model/payroll-audit.model", () => ({
+  PayrollAuditModel: { create: mocks.auditCreate },
+}));
+
+import { payrollController } from "../controller/payroll.controller";
+import { payrollRouter } from "./payroll.router";
+import {
+  createRun,
+  listIssues,
+  lockAttendance,
+  syncAttendance,
+} from "../service/payroll-run-operations.service";
+import {
+  createOperationalRunSchema,
+  lockAttendanceSchema,
+  syncAttendanceHeadersSchema,
+  syncAttendanceSchema,
+} from "../validation/payroll-run.validation";
+
+const scope = { companyCode: "ACME", branchId: "branch-a" };
+const lean = <T>(value: T) => ({ lean: vi.fn().mockResolvedValue(value) });
+const sortedLean = <T>(value: T) => ({
+  sort: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(value) }),
+});
+const request = (body: Record<string, unknown>, headers: Record<string, string> = {}) => ({
+  body,
+  params: { id: "run-a" },
+  headers,
+  get: (name: string) => headers[name.toLowerCase()],
+  user: { id: "actor-a", email: "a@example.com", role: "admin", ...scope },
+}) as any;
+const response = () => {
+  const res: any = {};
+  res.status = vi.fn().mockReturnValue(res);
+  res.json = vi.fn().mockReturnValue(res);
+  return res;
+};
+
+describe("operational payroll request validation", () => {
+  it("requires date-only ISO boundaries, period key, and run type", () => {
+    expect(createOperationalRunSchema.validate({
+      periodKey: "2026-07",
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+      type: "regular",
+    }).error).toBeUndefined();
+
+    expect(createOperationalRunSchema.validate({ periodKey: "2026-07", type: "regular" }).error).toBeDefined();
+    expect(createOperationalRunSchema.validate({
+      periodKey: "2026-07", startDate: "07/01/2026", endDate: "2026-07-31", type: "regular",
+    }).error).toBeDefined();
+  });
+
+  it("requires a parent run or nonblank reason for supplemental runs", () => {
+    const base = { periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31", type: "supplemental" };
+
+    expect(createOperationalRunSchema.validate(base).error).toBeDefined();
+    expect(createOperationalRunSchema.validate({ ...base, supplementalReason: "  " }).error).toBeDefined();
+    expect(createOperationalRunSchema.validate({ ...base, parentRunId: "regular-run" }).error).toBeUndefined();
+  });
+
+  it("requires optimistic versions and the sync idempotency header", () => {
+    expect(syncAttendanceSchema.validate({ expectedVersion: 0 }).error).toBeUndefined();
+    expect(syncAttendanceSchema.validate({}).error).toBeDefined();
+    expect(lockAttendanceSchema.validate({}).error).toBeDefined();
+    expect(syncAttendanceHeadersSchema.validate({ "idempotency-key": "sync-1" }).error).toBeUndefined();
+    expect(syncAttendanceHeadersSchema.validate({}).error).toBeDefined();
+  });
+});
+
+describe("payroll run operations", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.auditCreate.mockResolvedValue({});
+  });
+
+  it("scopes regular overlap detection by company and branch", async () => {
+    mocks.runFindOne.mockReturnValue(lean({ _id: "existing-run" }));
+
+    await expect(createRun(scope, "actor-a", {
+      periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31", type: "regular",
+    })).rejects.toMatchObject({ code: "PAYROLL_PERIOD_OVERLAP", status: 409 });
+
+    expect(mocks.runFindOne).toHaveBeenCalledWith({
+      companyCode: "ACME",
+      branchId: "branch-a",
+      type: "regular",
+      startDate: { $lte: new Date("2026-07-31T23:59:59.999Z") },
+      endDate: { $gte: new Date("2026-07-01T00:00:00.000Z") },
+    });
+    expect(mocks.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("permits multiple same-range supplemental runs", async () => {
+    mocks.runCreate
+      .mockResolvedValueOnce({ _id: "supplemental-1", version: 0 })
+      .mockResolvedValueOnce({ _id: "supplemental-2", version: 0 });
+    const input = {
+      periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31",
+      type: "supplemental" as const, supplementalReason: "Late overtime approval",
+    };
+
+    await createRun(scope, "actor-a", input);
+    await createRun(scope, "actor-a", input);
+
+    expect(mocks.runFindOne).not.toHaveBeenCalled();
+    expect(mocks.runCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("enforces the supplemental parent-or-reason invariant in the service", async () => {
+    await expect(createRun(scope, "actor-a", {
+      periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31", type: "supplemental",
+    })).rejects.toMatchObject({ code: "PAYROLL_SUPPLEMENTAL_REFERENCE_REQUIRED", status: 400 });
+    await expect(createRun(scope, "actor-a", {
+      periodKey: "2026-07", startDate: "2026-07-01", endDate: "2026-07-31",
+      type: "supplemental", parentRunId: " ",
+    })).rejects.toMatchObject({ code: "PAYROLL_SUPPLEMENTAL_REFERENCE_REQUIRED", status: 400 });
+
+    expect(mocks.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("normalizes branch-scoped attendance and exposes unresolved approvals as blocking issues", async () => {
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 0, issues: [],
+    }));
+    mocks.jobFindOne.mockReturnValue(lean(null));
+    mocks.jobCreate.mockResolvedValue({ _id: "job-a" });
+    mocks.attendanceFind.mockReturnValue(lean([{
+      _id: "attendance-a",
+      version: 3,
+      employeeId: "employee-a",
+      employeeName: "A",
+      standardHours: 176,
+      standardDays: 22,
+      workedMinutes: 9600,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [],
+      overtime: [],
+      status: "draft",
+      needsRecalculation: false,
+    }]));
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", version: 1 });
+    mocks.jobFindOneAndUpdate.mockResolvedValue({
+      _id: "job-a", status: "succeeded", result: { employeeCount: 1, blockingIssueCount: 1 },
+    });
+
+    const result = await syncAttendance(scope, "run-a", "actor-a", 0, "sync-1");
+
+    expect(mocks.attendanceFind).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07" });
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "run-a", ...scope, status: "draft", version: 0 },
+      expect.objectContaining({
+        $set: { issues: [expect.objectContaining({ code: "ATTENDANCE_APPROVAL_PENDING", severity: "blocking" })] },
+        $inc: { version: 1 },
+      }),
+      expect.objectContaining({ new: true, runValidators: true }),
+    );
+    expect(result.job.status).toBe("succeeded");
+  });
+
+  it("replays a completed sync idempotently without reading attendance again", async () => {
+    const prior = {
+      _id: "job-a", companyCode: "ACME", branchId: "branch-a", runId: "run-a",
+      operation: "sync-attendance", idempotencyKey: "sync-1", status: "succeeded",
+      payload: { expectedVersion: 0 }, result: { employeeCount: 2, runVersion: 1 },
+    };
+    mocks.jobFindOne.mockReturnValue(lean(prior));
+
+    const result = await syncAttendance(scope, "run-a", "actor-a", 0, "sync-1");
+
+    expect(result).toEqual({ job: prior, runVersion: 1 });
+    expect(mocks.runFindOne).not.toHaveBeenCalled();
+    expect(mocks.attendanceFind).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("replays the winning sync when a concurrent idempotency reservation collides", async () => {
+    const winner = {
+      _id: "job-winner", ...scope, runId: "run-a", operation: "sync-attendance",
+      idempotencyKey: "sync-race", status: "succeeded",
+      payload: { expectedVersion: 0 }, result: { employeeCount: 2, runVersion: 1 },
+    };
+    mocks.jobFindOne
+      .mockReturnValueOnce(lean(null))
+      .mockReturnValueOnce(lean(winner));
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 0, issues: [],
+    }));
+    mocks.jobCreate.mockRejectedValue(Object.assign(new Error("duplicate key"), { code: 11000 }));
+
+    await expect(syncAttendance(scope, "run-a", "actor-a", 0, "sync-race")).resolves.toEqual({
+      job: winner, runVersion: 1,
+    });
+  });
+
+  it("returns the current version when the atomic sync update loses a race", async () => {
+    mocks.jobFindOne.mockReturnValue(lean(null));
+    mocks.runFindOne
+      .mockReturnValueOnce(lean({
+        _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 1, issues: [],
+      }))
+      .mockReturnValueOnce(lean({
+        _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 2, issues: [],
+      }));
+    mocks.jobCreate.mockResolvedValue({ _id: "job-a" });
+    mocks.attendanceFind.mockReturnValue(lean([{
+      _id: "attendance-a", employeeId: "employee-a", standardHours: 176, standardDays: 22,
+      workedMinutes: 9600, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [],
+      status: "locked", needsRecalculation: false,
+    }]));
+    mocks.runFindOneAndUpdate.mockResolvedValue(null);
+
+    await expect(syncAttendance(scope, "run-a", "actor-a", 1, "sync-race")).rejects.toMatchObject({
+      code: "PAYROLL_VERSION_CONFLICT", status: 409, currentVersion: 2,
+    });
+  });
+
+  it("lists issues only from the requested company and branch", async () => {
+    mocks.runFindOne.mockReturnValue(lean({ issues: [{ code: "A" }] }));
+
+    await expect(listIssues(scope, "run-a")).resolves.toEqual([{ code: "A" }]);
+    expect(mocks.runFindOne).toHaveBeenCalledWith({ _id: "run-a", ...scope });
+  });
+
+  it("refuses to lock attendance while blocking issues remain", async () => {
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 1,
+      issues: [{ code: "ATTENDANCE_APPROVAL_PENDING", severity: "blocking" }],
+    }));
+
+    await expect(lockAttendance(scope, "run-a", "actor-a", 1)).rejects.toMatchObject({
+      code: "PAYROLL_BLOCKING_ISSUES", status: 409,
+    });
+    expect(mocks.snapshotCreate).not.toHaveBeenCalled();
+  });
+
+  it("persists the synced attendance snapshot and atomically locks the run", async () => {
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 1, issues: [],
+    }));
+    mocks.jobFindOne.mockReturnValue(sortedLean({
+      _id: "job-a", status: "succeeded", result: { employees: [{
+        employeeId: "employee-a", standardHours: 176, standardDays: 22,
+        workedMinutes: 9600, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [],
+        sourceResultId: "attendance-a", sourceVersion: 3,
+      }] },
+    }));
+    mocks.snapshotCreate.mockResolvedValue({ _id: "snapshot-a", runId: "run-a" });
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "attendance_locked", version: 2 });
+
+    const result = await lockAttendance(scope, "run-a", "actor-a", 1);
+
+    expect(mocks.snapshotCreate).toHaveBeenCalledWith(expect.objectContaining({
+      companyCode: "ACME", branchId: "branch-a", runId: "run-a", periodKey: "2026-07",
+      lockedBy: "actor-a", employees: [expect.objectContaining({ sourceResultId: "attendance-a", sourceVersion: 3 })],
+    }));
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "run-a", ...scope, status: "draft", version: 1 },
+      { $set: { status: "attendance_locked" }, $inc: { version: 1 } },
+      expect.objectContaining({ new: true, runValidators: true }),
+    );
+    expect(result.run.version).toBe(2);
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-a", action: "lock" }));
+    expect(mocks.runFindOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.snapshotCreate.mock.invocationCallOrder[0],
+    );
+  });
+});
+
+describe("operational payroll controller and routes", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("returns HTTP 409 with the current version for stale mutations", async () => {
+    mocks.jobFindOne.mockReturnValue(lean(null));
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 4, issues: [],
+    }));
+    const res = response();
+
+    await payrollController.syncAttendance(request({ expectedVersion: 3 }, { "idempotency-key": "sync-1" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      status: "error", code: "PAYROLL_VERSION_CONFLICT", currentVersion: 4,
+    }));
+  });
+
+  it("mounts the create, sync, issue, and lock routes", () => {
+    const mounted = (payrollRouter as any).stack
+      .filter((layer: any) => layer.route)
+      .map((layer: any) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
+
+    expect(mounted).toEqual(expect.arrayContaining([
+      "POST /runs",
+      "POST /runs/:id/sync-attendance",
+      "POST /runs/:id/lock-attendance",
+      "GET /runs/:id/issues",
+    ]));
+  });
+});
