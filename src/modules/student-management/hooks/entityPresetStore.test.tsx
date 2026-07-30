@@ -58,6 +58,28 @@ describe("shared entity preset state", () => {
     expect(lateRenders).toEqual(["worker"]);
   });
 
+  it("retries instead of locking onto the default preset when the request fails", async () => {
+    vi.mocked(getModuleSettings).mockRejectedValueOnce(new Error("401"));
+    const first = render(<Probe name="first" />);
+    await waitFor(() => expect(getModuleSettings).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("first").textContent).toBe("loading");
+
+    // Lỗi tạm thời không được chốt "student": lần mount sau phải gọi lại API.
+    first.unmount();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await act(async () => {
+        vi.advanceTimersByTime(6000);
+      });
+      vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: "ACME", entityPreset: "worker" });
+      render(<Probe name="second" />);
+      await waitFor(() => expect(screen.getByLabelText("second").textContent).toBe("worker"));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(getModuleSettings).toHaveBeenCalledTimes(2);
+  });
+
   it("updates every consumer from a browser event", async () => {
     vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: "ACME", entityPreset: "student" });
     render(
