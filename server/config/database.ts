@@ -119,7 +119,13 @@ async function seedPermissions() {
 
     await RolePermissionModel.updateMany(
       { role: "admin" },
-      { $addToSet: { permissions: { $each: ["custom-field:manage", "student-settings:manage", "company-smtp:manage"] } } },
+      { $addToSet: { permissions: { $each: ["custom-field:manage", "company-smtp:manage"] } } },
+    );
+    // Thu hồi quyền đã cấp trước đây: loại hình doanh nghiệp là đặc quyền SuperAdmin,
+    // doanh nghiệp không được tự sửa.
+    await RolePermissionModel.updateMany(
+      { role: { $in: ["admin", "manager", "branch_owner", "user"] } },
+      { $pull: { permissions: "student-settings:manage" } },
     );
     await RolePermissionModel.updateMany(
       { role: "manager" },

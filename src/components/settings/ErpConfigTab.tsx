@@ -34,9 +34,11 @@ export default function ErpConfigTab() {
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     hasPermission("timekeeping:manage");
-  const canManageStudentSettings = hasPermission("student-settings:manage");
+  // Loại hình doanh nghiệp chỉ SuperAdmin sửa được; doanh nghiệp chỉ xem (chỉ-đọc)
+  const canViewStudentSettings =
+    userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canManageSmtp = hasPermission("company-smtp:manage");
-  const canManageCompanyModules = canManageStudentSettings || canManageSmtp;
+  const canManageCompanyModules = canViewStudentSettings || canManageSmtp;
 
 
   useEffect(() => {
@@ -189,7 +191,7 @@ export default function ErpConfigTab() {
       {/* Preferences Section */}
       {activeTab === "companyModules" && canManageCompanyModules && (
         <div className="space-y-5">
-          {canManageStudentSettings && <StudentManagementErpSettings />}
+          {canViewStudentSettings && <StudentManagementErpSettings />}
           {canManageSmtp && <CompanySmtpSettingsTab />}
         </div>
       )}

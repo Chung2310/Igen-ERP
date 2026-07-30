@@ -52,7 +52,9 @@ studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requirePartnerRead, partnerRoutes);
 studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("custom-field"), customFieldRoutes);
-studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-settings"), moduleSettingsRoutes);
+// Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
+// thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
+studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);
