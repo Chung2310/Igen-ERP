@@ -90,6 +90,16 @@ describe("operational payroll request validation", () => {
     expect(createOperationalRunSchema.validate({
       periodKey: "2026-07", startDate: "07/01/2026", endDate: "2026-07-31", type: "regular",
     }).error).toBeDefined();
+    for (const periodKey of ["2026-00", "2026-13"]) {
+      expect(createOperationalRunSchema.validate({
+        periodKey, startDate: "2026-07-01", endDate: "2026-07-31", type: "regular",
+      }).error).toBeDefined();
+    }
+    for (const periodKey of ["2026-01", "2026-12"]) {
+      expect(createOperationalRunSchema.validate({
+        periodKey, startDate: "2026-07-01", endDate: "2026-07-31", type: "regular",
+      }).error).toBeUndefined();
+    }
   });
 
   it("requires a parent run or nonblank reason for supplemental runs", () => {
@@ -210,6 +220,41 @@ describe("payroll run operations", () => {
     }
   });
 
+  it("retries the whole create transaction after a first-use reservation duplicate and returns overlap", async () => {
+    const priorReadyState = mongoose.connection.readyState;
+    (mongoose.connection as any).readyState = 1;
+    const sessions: any[] = [];
+    const startSession = vi.spyOn(mongoose, "startSession").mockImplementation(async () => {
+      const session = {
+        withTransaction: vi.fn(async (callback: () => Promise<unknown>) => callback()),
+        endSession: vi.fn(),
+      };
+      sessions.push(session);
+      return session as any;
+    });
+    mocks.reservationFindOneAndUpdate
+      .mockRejectedValueOnce(Object.assign(new Error("duplicate scope key"), { code: 11000 }))
+      .mockResolvedValueOnce({ revision: 2 });
+    const overlapQuery: any = lean({ _id: "winning-overlap" });
+    overlapQuery.session = vi.fn(() => overlapQuery);
+    mocks.runFindOne.mockReturnValue(overlapQuery);
+
+    try {
+      await expect(createRun(scope, "actor-b", {
+        periodKey: "2026-07", startDate: "2026-07-15", endDate: "2026-08-14", type: "regular",
+      })).rejects.toMatchObject({ code: "PAYROLL_PERIOD_OVERLAP", status: 409 });
+
+      expect(startSession).toHaveBeenCalledTimes(2);
+      expect(mocks.reservationFindOneAndUpdate).toHaveBeenCalledTimes(2);
+      expect(mocks.runFindOne).toHaveBeenCalledOnce();
+      expect(mocks.runCreate).not.toHaveBeenCalled();
+      expect(sessions.every((session) => session.endSession.mock.calls.length === 1)).toBe(true);
+    } finally {
+      startSession.mockRestore();
+      (mongoose.connection as any).readyState = priorReadyState;
+    }
+  });
+
   it("permits multiple same-range supplemental runs", async () => {
     mocks.runCreate
       .mockResolvedValueOnce({ _id: "supplemental-1", version: 0 })
@@ -291,6 +336,9 @@ describe("payroll run operations", () => {
     const result = await syncAttendance(scope, "run-a", "actor-a", 0, "sync-1");
 
     expect(result).toEqual({ job: prior, runVersion: 1 });
+    expect(mocks.jobFindOne).toHaveBeenCalledWith({
+      companyCode: "ACME", branchId: "branch-a", idempotencyKey: "sync-1", operation: "sync-attendance",
+    });
     expect(mocks.runFindOne).not.toHaveBeenCalled();
     expect(mocks.attendanceFind).not.toHaveBeenCalled();
     expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
@@ -388,6 +436,69 @@ describe("payroll run operations", () => {
     expect(mocks.runFindOneAndUpdate.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.snapshotCreate.mock.invocationCallOrder[0],
     );
+  });
+
+  it.each([
+    {
+      name: "ignores a newer sync from another run version",
+      candidates: [
+        { _id: "job-old", createdAt: "2026-07-01T00:00:00.000Z", result: { runVersion: 1, employees: [{ employeeId: "expected-old", standardHours: 1, standardDays: 1, workedMinutes: 1, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [] }] } },
+        { _id: "job-new", createdAt: "2026-07-02T00:00:00.000Z", result: { runVersion: 2, employees: [{ employeeId: "wrong-new", standardHours: 1, standardDays: 1, workedMinutes: 1, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [] }] } },
+      ],
+      expectedEmployee: "expected-old",
+    },
+    {
+      name: "uses descending id when matching sync jobs share createdAt",
+      candidates: [
+        { _id: "job-a", createdAt: "2026-07-01T00:00:00.000Z", result: { runVersion: 1, employees: [{ employeeId: "wrong-a", standardHours: 1, standardDays: 1, workedMinutes: 1, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [] }] } },
+        { _id: "job-b", createdAt: "2026-07-01T00:00:00.000Z", result: { runVersion: 1, employees: [{ employeeId: "expected-b", standardHours: 1, standardDays: 1, workedMinutes: 1, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [] }] } },
+      ],
+      expectedEmployee: "expected-b",
+    },
+  ])("selects a version-matched sync deterministically: $name", async ({ candidates, expectedEmployee }) => {
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-a", ...scope, periodKey: "2026-07", status: "draft", version: 1, issues: [],
+    }));
+    const sort = vi.fn((order) => ({
+      lean: vi.fn().mockResolvedValue(candidates
+        .filter((candidate) => candidate.result.runVersion === 1)
+        .sort((left, right) => {
+          const dateOrder = String(right.createdAt).localeCompare(String(left.createdAt));
+          return dateOrder || String(right._id).localeCompare(String(left._id));
+        })[0] || null),
+    }));
+    mocks.jobFindOne.mockImplementation((filter) => {
+      const matching = candidates.filter((candidate) => (
+        candidate.result.runVersion === filter["result.runVersion"]
+      ));
+      return {
+        sort: vi.fn((order) => {
+          sort(order);
+          return {
+            lean: vi.fn().mockResolvedValue(matching.sort((left, right) => {
+              const dateOrder = String(right.createdAt).localeCompare(String(left.createdAt));
+              return dateOrder || String(right._id).localeCompare(String(left._id));
+            })[0] || null),
+          };
+        }),
+      };
+    });
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "attendance_locked", version: 2 });
+    mocks.snapshotCreate.mockImplementation(async (value) => ({ ...(Array.isArray(value) ? value[0] : value), _id: "snapshot-a" }));
+
+    await lockAttendance(scope, "run-a", "actor-a", 1);
+
+    expect(mocks.jobFindOne).toHaveBeenCalledWith({
+      ...scope,
+      runId: "run-a",
+      operation: "sync-attendance",
+      status: "succeeded",
+      "result.runVersion": 1,
+    });
+    expect(sort).toHaveBeenCalledWith({ createdAt: -1, _id: -1 });
+    expect(mocks.snapshotCreate).toHaveBeenCalledWith(expect.objectContaining({
+      employees: [expect.objectContaining({ employeeId: expectedEmployee })],
+    }));
   });
 });
 

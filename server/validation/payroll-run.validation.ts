@@ -9,7 +9,7 @@ const validDateOnly = Joi.string().pattern(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/).custo
 }).required().messages({ "date.format": "{{#label}} must be a valid ISO date" });
 
 export const createOperationalRunSchema = Joi.object({
-  periodKey: Joi.string().pattern(/^\d{4}-\d{2}$/).required(),
+  periodKey: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).required(),
   startDate: validDateOnly,
   endDate: validDateOnly,
   type: Joi.string().valid("regular", "supplemental").required(),

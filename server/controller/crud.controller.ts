@@ -251,7 +251,7 @@ export const crudController = {
       if (modelName === "timekeeping-logs") {
         attendanceReason = String(req.body.editReason || "").trim();
         if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
-        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode }).lean();
+        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode, branchId }).lean();
         if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
         const periodKey = attendanceBefore.date.slice(0, 7);
         const [lockedResult, payrollRun] = await Promise.all([
@@ -260,7 +260,7 @@ export const crudController = {
             .sort({ createdAt: 1, _id: 1 })
             .lean(),
         ]);
-        if (lockedResult || payrollRun) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+        if (lockedResult || payrollRun?.status === "closed") return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
         delete req.body.editReason;
         req.body.manuallyAdjusted = true;
         req.body.adjustedAt = new Date();

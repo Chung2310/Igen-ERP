@@ -5,6 +5,10 @@ import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { PERMISSION_CATALOG } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
+import {
+  dropLegacyAttendancePeriodResultUniqueIndex,
+  dropLegacyPayrollOperationJobIdempotencyIndex,
+} from "../model/payroll-branch-index-migration";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -166,6 +170,8 @@ export async function connectDB() {
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
     await dropLegacyPayrollRunPeriodKeyUniqueIndex();
+    await dropLegacyPayrollOperationJobIdempotencyIndex();
+    await dropLegacyAttendancePeriodResultUniqueIndex();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {

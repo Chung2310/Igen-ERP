@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { PayrollAttendanceSnapshotModel } from "./payroll-attendance-snapshot.model";
 import { PayrollAuditModel } from "./payroll-audit.model";
+import { AttendancePeriodResultModel } from "./attendance-period-result.model";
 import { PayrollOperationJobModel } from "./payroll-operation-job.model";
 import { PayrollRunModel } from "./payroll-run.model";
 import { PayrollRunScopeReservationModel } from "./payroll-run-scope-reservation.model";
@@ -87,15 +88,26 @@ test("persists immutable employee attendance snapshots for a run", () => {
   assert.equal(hasIndex(schema.indexes(), { companyCode: 1, runId: 1 }, { unique: true }), true);
 });
 
-test("stores a unique idempotency key per company for operation jobs", () => {
+test("stores a unique idempotency key per company and branch for operation jobs", () => {
   const schema = PayrollOperationJobModel.schema;
 
   assert.equal(
-    hasIndex(schema.indexes(), { companyCode: 1, idempotencyKey: 1 }, { unique: true }),
+    hasIndex(schema.indexes(), { companyCode: 1, branchId: 1, idempotencyKey: 1 }, { unique: true }),
     true,
   );
   for (const path of ["companyCode", "branchId", "idempotencyKey", "operation", "status"]) {
     assert.equal(schema.path(path)?.options.required, true, path);
   }
   assert.deepEqual(schema.path("status")?.options.enum, ["queued", "running", "succeeded", "failed"]);
+});
+
+test("stores one attendance result per company, branch, period, and employee", () => {
+  assert.equal(
+    hasIndex(
+      AttendancePeriodResultModel.schema.indexes(),
+      { companyCode: 1, branchId: 1, periodKey: 1, employeeId: 1 },
+      { unique: true },
+    ),
+    true,
+  );
 });

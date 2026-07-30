@@ -50,6 +50,17 @@ const payrollRunScopeKey = (scope: PayrollOperationScope) => JSON.stringify([
   scope.companyCode,
   scope.branchId,
 ]);
+const regularOverlapFilter = (scope: PayrollOperationScope, input: CreatePayrollRunInput) => ({
+  ...scope,
+  type: "regular" as const,
+  startDate: { $lte: endOfDay(input.endDate) },
+  endDate: { $gte: startOfDay(input.startDate) },
+});
+const periodOverlapError = () => new PayrollOperationError(
+  "PAYROLL_PERIOD_OVERLAP",
+  "A regular payroll run overlaps this date range",
+  409,
+);
 
 async function inTransaction<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
   if (mongoose.connection.readyState !== 1) return operation();
@@ -181,7 +192,7 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
       400,
     );
   }
-  return inTransaction(async (session) => {
+  const createWithinTransaction = () => inTransaction(async (session) => {
     if (input.type === "regular") {
       await PayrollRunScopeReservationModel.findOneAndUpdate(
         { scopeKey: payrollRunScopeKey(scope) },
@@ -191,16 +202,11 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
         },
         { upsert: true, new: true, setDefaultsOnInsert: true, ...(session && { session }) },
       );
-      let overlapQuery: any = PayrollRunModel.findOne({
-        ...scope,
-        type: "regular",
-        startDate: { $lte: endOfDay(input.endDate) },
-        endDate: { $gte: startOfDay(input.startDate) },
-      });
+      let overlapQuery: any = PayrollRunModel.findOne(regularOverlapFilter(scope, input));
       if (session) overlapQuery = overlapQuery.session(session);
       const overlap = await overlapQuery.lean();
       if (overlap) {
-        throw new PayrollOperationError("PAYROLL_PERIOD_OVERLAP", "A regular payroll run overlaps this date range", 409);
+        throw periodOverlapError();
       }
     }
 
@@ -224,6 +230,25 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
     }, session);
     return run;
   });
+  if (input.type === "supplemental") return createWithinTransaction();
+
+  const reservationAttempts = 2;
+  for (let attempt = 0; attempt < reservationAttempts; attempt += 1) {
+    try {
+      return await createWithinTransaction();
+    } catch (error: any) {
+      if (error?.code !== 11000) throw error;
+      if (attempt + 1 < reservationAttempts) continue;
+      const overlap = await PayrollRunModel.findOne(regularOverlapFilter(scope, input)).lean();
+      if (overlap) throw periodOverlapError();
+      throw new PayrollOperationError(
+        "PAYROLL_RUN_RESERVATION_CONFLICT",
+        "Payroll run creation is already in progress for this branch",
+        409,
+      );
+    }
+  }
+  throw new PayrollOperationError("PAYROLL_RUN_RESERVATION_CONFLICT", "Payroll run creation could not reserve its branch", 409);
 }
 
 export async function syncAttendance(
@@ -333,8 +358,12 @@ export async function lockAttendance(
     }
 
     let syncQuery: any = PayrollOperationJobModel.findOne({
-      ...scope, runId, operation: "sync-attendance", status: "succeeded",
-    }).sort({ createdAt: -1 });
+      ...scope,
+      runId,
+      operation: "sync-attendance",
+      status: "succeeded",
+      "result.runVersion": expectedVersion,
+    }).sort({ createdAt: -1, _id: -1 });
     if (session) syncQuery = syncQuery.session(session);
     const syncJob: any = await syncQuery.lean();
     if (!syncJob || !Array.isArray(syncJob.result?.employees)) {

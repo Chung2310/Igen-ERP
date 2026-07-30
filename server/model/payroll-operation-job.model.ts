@@ -29,6 +29,6 @@ const schema = new Schema<PayrollOperationJobDocument>({
   },
 }, { timestamps: true });
 
-schema.index({ companyCode: 1, idempotencyKey: 1 }, { unique: true });
+schema.index({ companyCode: 1, branchId: 1, idempotencyKey: 1 }, { unique: true });
 
 export const PayrollOperationJobModel = model<PayrollOperationJobDocument>("PayrollOperationJob", schema);

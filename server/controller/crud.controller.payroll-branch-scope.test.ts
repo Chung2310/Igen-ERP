@@ -65,4 +65,46 @@ describe("crudController payroll period guard branch scope", () => {
     });
     expect(mocks.crudUpdate).toHaveBeenCalledOnce();
   });
+
+  it("does not allow Branch A to patch a Branch B timekeeping log", async () => {
+    mocks.timekeepingFindOne.mockImplementation((filter) => ({
+      lean: vi.fn().mockResolvedValue(filter.branchId === "branch-b"
+        ? { _id: "branch-b-log", uid: "employee-b", date: "2026-07-15", branchId: "branch-b" }
+        : null),
+    }));
+    const req: any = {
+      params: { modelName: "timekeeping-logs", id: "branch-b-log" },
+      body: { editReason: "Unauthorized correction" },
+      user: { id: "actor-a", role: "admin", companyCode: "ACME", branchId: "branch-a" },
+    };
+    const res = response();
+
+    await crudController.update(req, res);
+
+    expect(mocks.timekeepingFindOne).toHaveBeenCalledWith({
+      _id: "branch-b-log", companyCode: "ACME", branchId: "branch-a",
+    });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(mocks.crudUpdate).not.toHaveBeenCalled();
+    expect(mocks.attendanceFindOne).not.toHaveBeenCalled();
+    expect(mocks.payrollFindOne).not.toHaveBeenCalled();
+  });
+
+  it("blocks a branch-owned timekeeping edit when its deterministic regular run is closed", async () => {
+    mocks.payrollFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ _id: "closed-a", status: "closed" }),
+      sort: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: "closed-a", status: "closed" }) }),
+    });
+    const req: any = {
+      params: { modelName: "timekeeping-logs", id: "log-a" },
+      body: { editReason: "Correct missed checkout" },
+      user: { id: "actor-a", role: "admin", companyCode: "ACME", branchId: "branch-a" },
+    };
+    const res = response();
+
+    await crudController.update(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mocks.crudUpdate).not.toHaveBeenCalled();
+  });
 });

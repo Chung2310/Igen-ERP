@@ -150,14 +150,17 @@ export const payrollController = {
   },
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number }[] | undefined;
+    const period = req.params.periodKey;
+    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
+    const periodScope = legacyPeriodScope(req);
+    const existingRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+    if (existingRun?.status === "closed") return res.status(409).json({ status: "error", message: "Ky luong da chot. Hay reset ky truoc khi dong bo lai cham cong." });
     const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();
     const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
     const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
-    const period = req.params.periodKey;
-    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const employees = requestedEmployees?.length
       ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
-      : await Promise.all((await UserModel.find({ companyCode: tenant(req), ...(req.user?.branchId ? { branchId: req.user.branchId } : {}), isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
+      : await Promise.all((await UserModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
           const resolved = await resolveShift(tenant(req), String(user._id), `${period}-01`);
           const shift = resolved.shift;
           const unpaidBreak = shift.breakPeriods?.find((item: any) => !item.paid);
@@ -175,11 +178,11 @@ export const payrollController = {
         }));
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
-    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end } }).lean();
-    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), date: { $gte: start, $lte: end }, isApplied: true }).lean();
+    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end } }).lean();
+    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end }, isApplied: true }).lean();
     const calendarRules = new Map<string, any[]>();
     for (const rule of calendarDays) calendarRules.set(rule.date, [...(calendarRules.get(rule.date) || []), rule]);
-    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
+    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
     const today = formatInPayrollTimeZone(new Date(), "date");
     const results = [];
     for (const employee of employees) {
@@ -206,26 +209,29 @@ export const payrollController = {
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }
       const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, lunchBreakStart: employee.lunchBreakStart, lunchBreakEnd: employee.lunchBreakEnd, logs: employeeLogs, paidLeaves: [], overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId }, { $set: { companyCode: tenant(req), periodKey: period, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ ...periodScope, employeeId: employee.employeeId }, { $set: { ...periodScope, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
       console.log(`[payroll.snapshot] ${employee.employeeName} (${employee.employeeId}) rawLogsMatched=${logs.filter((log) => log.uid === employee.employeeId).length} totalLogsInPeriod=${logs.length} presentDays=${employeeLogs.filter((l) => l.status !== "Absent").length} absentGenerated=${employeeLogs.filter((l) => l.status === "Absent").length} standardDailyMinutes=${employee.standardDailyMinutes} workingDays=${JSON.stringify(employee.workingDays)} workedMinutes=${summary.workedMinutes} shortageMinutes=${summary.shortageMinutes}`);
     }
     await audit(req, period, "snapshot", { count: results.length });
     return res.status(201).json({ status: "success", data: results });
   },
-  async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
+  async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find(legacyPeriodScope(req)).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
   async listResults(req: AuthenticatedRequest, res: Response) {
     if (!(await canManagePayroll(req))) {
       const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
       if (!run) return res.json({ status: "success", data: [] });
     }
-    const data = await AttendancePeriodResultModel.find({ companyCode: tenant(req), periodKey: req.params.periodKey }).lean();
+    const data = await AttendancePeriodResultModel.find(legacyPeriodScope(req)).lean();
     return res.json({ status: "success", data });
   },
   async lockResults(req: AuthenticatedRequest, res: Response) {
-    const stale = await AttendancePeriodResultModel.exists({ companyCode: tenant(req), periodKey: req.params.periodKey, needsRecalculation: true });
+    const periodScope = legacyPeriodScope(req);
+    const existingRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+    if (existingRun?.status === "closed") return res.status(409).json({ status: "error", message: "Ky luong da chot. Hay reset ky truoc khi khoa lai cham cong." });
+    const stale = await AttendancePeriodResultModel.exists({ ...periodScope, needsRecalculation: true });
     if (stale) return res.status(409).json({ status: "error", message: "Lịch sử chấm công đã thay đổi. Hãy đồng bộ công trước khi khóa." });
     const result = await AttendancePeriodResultModel.updateMany(
-      { companyCode: tenant(req), periodKey: req.params.periodKey, status: "draft" },
+      { ...periodScope, status: "draft" },
       { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
     );
     await audit(req, req.params.periodKey, "lock", { count: result.modifiedCount });
