@@ -2,6 +2,22 @@ import { Document } from "mongoose";
 
 export type HRContractStatus = "draft" | "active" | "expired" | "terminated";
 
+export type HRSalaryType = "monthly" | "daily" | "hourly";
+
+/** Effective-dated pay terms; a mid-month change splits the payroll period into segments. */
+export interface IHRSalaryTerm {
+  salaryEffectiveFrom: Date;
+  salaryEffectiveTo?: Date;
+  contractSalary: number;
+  insuranceSalary: number;
+  payrollSalary: number;
+  salaryType: HRSalaryType;
+  probation?: boolean;
+  probationSalary?: number;
+  probationRate?: number;
+  currency: string;
+}
+
 export interface IHRContract extends Document {
   companyCode: string;
   contractType: string;
@@ -10,6 +26,7 @@ export interface IHRContract extends Document {
   startDate: Date;
   endDate: Date;
   status: HRContractStatus;
+  salaryTerms?: IHRSalaryTerm[];
   contractFileUrl?: string;
   contractFileName?: string;
   contractFileMimeType?: string;

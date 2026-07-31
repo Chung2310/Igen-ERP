@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, FileSpreadsheet, Inbox, Lock, Play, RefreshCw, Search, Trash2, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { payrollService } from "../../services/payrollService";
+import { buildPayrollDetails } from "./payrollDetails";
+import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
+import { PayrollPaymentsPanel } from "./payroll/PayrollPaymentsPanel";
+import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 
 type SortDir = "asc" | "desc";
 
@@ -74,15 +78,18 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
+  const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formulaRow, setFormulaRow] = useState<any>(null);
+  const [formulaLoading, setFormulaLoading] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } };
+  const reload = async () => { let nextRun: any = null; try { nextRun = await payrollService.getRun(period); setRun(nextRun); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } try { setPayments(nextRun?._id ? await payrollService.getPayments(String(nextRun._id)) : []); } catch { setPayments([]); } };
   useEffect(() => { void reload(); }, [period]);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); }, [period]);
 
@@ -180,6 +187,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
   const needsRecalculation = results.some((row: any) => row.needsRecalculation);
 
+  const openFormulaRow = async (line: any) => {
+    setFormulaRow(line); setFormulaLoading(Boolean(run?._id));
+    if (run?._id) { try { const detail = await payrollService.getLineDetail(String(run._id), line.employeeId); setFormulaRow({ ...line, calculation: detail.calculation || line.calculation, attendance: detail.attendance || line.attendance }); } catch { /* keep local detail */ } finally { setFormulaLoading(false); } }
+  };
+
+  const downloadExport = async (type: "detailed" | "insurance" | "pit" | "bank_transfer") => { if (!run?._id) return; try { const blob = await payrollService.exportWorkbook(String(run._id), type); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}-${type}.xlsx`; anchor.click(); URL.revokeObjectURL(url); setMessage("Đã tải export bảng lương"); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể export bảng lương"); } };
+  const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
   const canSeeTable = canManage || !!run;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
@@ -202,6 +216,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
+    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Payslip và export</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {canManage && run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Thanh toán bảng lương</div><PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} /></div>}
+    {canManage && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Điều chỉnh chờ duyệt</div><PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} /></div>}
     {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
 
     {/* Quy trình xử lý kỳ lương */}
@@ -318,7 +335,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600"><button onClick={() => setFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
+                    <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
                     <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
                   </tr>
@@ -397,15 +414,27 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
-          <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
-            <div className="flex justify-between"><span>Phút làm được công nhận</span><b>{Number(formulaRow.calculation?.workedMinutes || 0).toLocaleString()} phút</b></div>
-            <div className="flex justify-between"><span>Ngày công</span><b>{Number(formulaRow.calculation?.workedDays || 0).toFixed(2)} công</b></div>
-            <div className="flex justify-between"><span>Đơn giá giờ</span><b>{Math.round(formulaRow.calculation?.hourlyRate || 0).toLocaleString()} đ</b></div>
-            <div className="border-t pt-2 text-xs text-slate-600">Phút làm ÷ 60 × đơn giá giờ + phép hưởng lương, tối đa bằng lương tháng.</div>
-            <div className="flex justify-between border-t pt-2 text-base"><span>Lương điều chỉnh</span><b className="text-cyan-700">{Number(formulaRow.adjustedBase || 0).toLocaleString()} đ</b></div>
-          </div>
+          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Đang tải snapshot bảng lương mới nhất...</p>}
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">
+              <div><span className="text-xs text-slate-500">Lương cơ bản</span><b className="block">{money(detail.monthlySalary)}</b></div>
+              <div><span className="text-xs text-slate-500">Đơn giá giờ</span><b className="block">{money(Math.round(detail.hourlyRate))}</b></div>
+              <div><span className="text-xs text-slate-500">Công chuẩn</span><b className="block">{detail.standardDays.toFixed(2)} ngày / {detail.standardHours} giờ</b></div>
+              <div><span className="text-xs text-slate-500">Công thực tế</span><b className="block">{detail.workedDays.toFixed(2)} ngày</b></div>
+              <div><span className="text-xs text-slate-500">Thiếu công</span><b className="block text-rose-600">{detail.shortageDays.toFixed(2)} ngày ({detail.shortageMinutes.toLocaleString()} phút)</b></div>
+              <div><span className="text-xs text-slate-500">Phép hưởng lương</span><b className="block">{money(detail.paidLeaveValue)}</b></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Thu nhập và điều chỉnh</p>
+              {[['Lương theo công', detail.adjustedBase], ['Tăng ca', detail.overtimeValue], ['Phụ cấp', detail.allowances], ['Thưởng', detail.bonuses], ['Điều chỉnh', detail.adjustments]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b>{money(Number(value))}</b></div>)}
+              <div className="flex justify-between border-t pt-2 font-bold"><span>Tổng thu nhập</span><b>{money(detail.gross)}</b></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><div className="flex justify-between"><span>Giảm trừ</span><b className="text-rose-600">-{money(detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thực nhận</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
+          </div>; })()}
         </div>
       </div>
     )}
   </section>;
 }
+
+
+
+

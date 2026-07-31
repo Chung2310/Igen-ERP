@@ -1,6 +1,6 @@
 export interface PayrollAttendanceLog { date: string; checkIn?: string; checkOut?: string; status: "Present" | "Late" | "Left-Early" | "Half-Day" | "Late-Left-Early" | "Absent" | "Approved-Leave"; }
 export interface PayrollPaidLeave { date: string; payRate: number; }
-export interface PayrollOvertime { minutes: number; category: "weekday" | "restDay" | "holiday"; }
+export interface PayrollOvertime { minutes: number; category: "weekday" | "restDay" | "holiday"; night?: boolean; }
 export interface AttendancePayrollSummary { workedMinutes: number; shortageMinutes: number; workedDays: number; shortageDays: number; paidLeaveMinutesByRate: { minutes: number; payRate: number }[]; overtime: PayrollOvertime[]; }
 
 function timeToMinutes(value: string): number { const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; }

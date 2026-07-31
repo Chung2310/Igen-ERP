@@ -3,9 +3,6 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  Plus,
-  Trash2,
-  Edit,
   Filter,
   Users,
   Bell,
@@ -14,12 +11,7 @@ import {
   CalendarCheck,
   CheckCircle,
   X,
-  FileText,
-  Upload,
-  Download,
   Check,
-  XCircle,
-  AlertTriangle,
   RefreshCw,
   Eye,
   ChevronDown
@@ -28,7 +20,6 @@ import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
-import { ConfirmDialog } from "../common/ConfirmDialog";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
 import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
 import {
@@ -99,70 +90,11 @@ export default function CalendarTab({
   const isLeaveAdmin = canManageAttendance;
   const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
   // Sub-tab Navigation
-  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance">("schedule");
 
-  // Leave Requests & Templates States
-  const [templates, setTemplates] = useState<any[]>([]);
+  // �on ngh? d� duy?t du?c d�ng d? t�nh c�ng trong tab L?ch s? ch?m c�ng.
   const [applications, setApplications] = useState<any[]>([]);
-  const [isTemplateLoading, setIsTemplateLoading] = useState<boolean>(false);
-  const [isAppLoading, setIsAppLoading] = useState<boolean>(false);
-  const [isAppFormOpen, setIsAppFormOpen] = useState<boolean>(false);
-  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState<boolean>(false);
-  const [isTemplateListModalOpen, setIsTemplateListModalOpen] = useState<boolean>(false);
-  const [tplCurrentPage, setTplCurrentPage] = useState<number>(1);
-  const [filterSearchQuery, setFilterSearchQuery] = useState<string>("");
-  const [filterAppType, setFilterAppType] = useState<string>("");
-  const [appRejectModalOpen, setAppRejectModalOpen] = useState<boolean>(false);
-  const [appApproveModalOpen, setAppApproveModalOpen] = useState<boolean>(false);
-  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
-  const [rejectReasonText, setRejectReasonText] = useState<string>("");
-  const [approveNoteText, setApproveNoteText] = useState<string>("");
-  const [approvalType, setApprovalType] = useState<"justified" | "unjustified">("justified");
-  const [appType, setAppType] = useState<string>("leave");
-  const [appStartDate, setAppStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [appStartTime, setAppStartTime] = useState<string>("08:00");
-  const [appEndDate, setAppEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [appEndTime, setAppEndTime] = useState<string>("17:00");
-  const [appReason, setAppReason] = useState<string>("");
-  const [appFile, setAppFile] = useState<File | null>(null);
-  const [appFiles, setAppFiles] = useState<File[]>([]);
-  const [appEmployeeId, setAppEmployeeId] = useState<string>(userProfile?.uid || "");
-  const [leaveBalance, setLeaveBalance] = useState<any>(null);
-  const [tplName, setTplName] = useState<string>("");
-  const [tplFile, setTplFile] = useState<File | null>(null);
-  const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
 
-
-
-  // Premium confirm dialog state (replaces native window.confirm)
-  const [confirmState, setConfirmState] = useState<{
-    isOpen: boolean;
-    title: string;
-    description: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    onConfirm: () => void | Promise<void>;
-  } | null>(null);
-
-  const askConfirm = (
-    title: string,
-    description: string,
-    onConfirm: () => void | Promise<void>,
-    confirmLabel = "Xác nhận",
-    cancelLabel = "Hủy"
-  ) => {
-    setConfirmState({
-      isOpen: true,
-      title,
-      description,
-      confirmLabel,
-      cancelLabel,
-      onConfirm: async () => {
-        await onConfirm();
-        setConfirmState(null);
-      },
-    });
-  };
 
   // Time States
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -269,7 +201,7 @@ export default function CalendarTab({
   const formatWeekOption = (monday: Date, sunday: Date) => {
     const formatD = (d: Date) => String(d.getDate()).padStart(2, "0");
     const formatM = (d: Date) => String(d.getMonth() + 1).padStart(2, "0");
-    return `${formatD(monday)}/${formatM(monday)} tới ${formatD(sunday)}/${formatM(sunday)}`;
+    return `${formatD(monday)}/${formatM(monday)} t?i ${formatD(sunday)}/${formatM(sunday)}`;
   };
 
   useEffect(() => {
@@ -292,22 +224,7 @@ export default function CalendarTab({
 
   // Modals States
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
-  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
-  const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null);
-  const [formMode, setFormMode] = useState<"create" | "edit">("create");
-
-  // Form Fields
-  const [formType, setFormType] = useState<"event" | "leave" | "wfh" | "exception" | "reminder">("event");
-  const [formTitle, setFormTitle] = useState<string>("");
-  const [formDescription, setFormDescription] = useState<string>("");
-  const [formStartDate, setFormStartDate] = useState<string>("");
-  const [formStartTime, setFormStartTime] = useState<string>("08:00");
-  const [formEndDate, setFormEndDate] = useState<string>("");
-  const [formEndTime, setFormEndTime] = useState<string>("17:00");
-  const [formEmployeeId, setFormEmployeeId] = useState<string>("");
-  const [formAssigneeId, setFormAssigneeId] = useState<string>("");
-  const [formStatus, setFormStatus] = useState<string>("active");
 
   // Fetch Items
   const fetchCalendarItems = async () => {
@@ -322,7 +239,7 @@ export default function CalendarTab({
       });
 
       if (!res.ok) {
-        throw new Error("Không thể tải danh sách lịch.");
+        throw new Error("Kh�ng th? t?i danh s�ch l?ch.");
       }
 
       const json = await res.json();
@@ -332,8 +249,8 @@ export default function CalendarTab({
       }));
       setItems(list);
     } catch (err: any) {
-      console.error("Lỗi khi tải lịch:", err);
-      toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu lịch trình."));
+      console.error("L?i khi t?i l?ch:", err);
+      toast.error(getApiErrorMessage(err, "Kh�ng th? t?i d? li?u l?ch tr�nh."));
     } finally {
       setLoading(false);
     }
@@ -367,84 +284,15 @@ export default function CalendarTab({
         setLogs(result.data || []);
       }
     } catch (err) {
-      console.error("Lỗi khi tải lịch sử chấm công:", err);
-      toast.error(getApiErrorMessage(err, "Không thể tải lịch sử chấm công."));
+      console.error("L?i khi t?i l?ch s? ch?m c�ng:", err);
+      toast.error(getApiErrorMessage(err, "Kh�ng th? t?i l?ch s? ch?m c�ng."));
     } finally {
       setIsLogsLoading(false);
     }
   };
 
-  const getFileDownloadUrl = (url: string, filename: string) => {
-    if (!url) return "#";
-    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}`;
-  };
-
-  const uploadFileToCloudinary = async (file: File): Promise<string> => {
-    const reader = new FileReader();
-    const fileBase64Promise = new Promise<string>((resolve, reject) => {
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
-
-    const fileBase64 = await fileBase64Promise;
-
-    const res = await fetch("/api/v1/media/upload", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getAccessToken()}`,
-      },
-      body: JSON.stringify({
-        file: fileBase64,
-        folder: "hr_leaves",
-      }),
-    });
-
-    if (!res.ok) {
-      const errorJson = await res.json().catch(() => ({}));
-      let details = "";
-      if (errorJson.errors) {
-        details = Object.entries(errorJson.errors)
-          .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
-          .join("; ");
-      }
-      throw new Error((errorJson.message || "Lỗi tải tệp lên máy chủ.") + (details ? ` [${details}]` : ""));
-    }
-
-    const json = await res.json();
-    return json.url;
-  };
-
-  const fetchLeaveBalance = async (employeeId = appEmployeeId, leaveYear = Number(appStartDate.slice(0, 4))) => {
-    if (!employeeId || !selectedCompanyCode || !leaveYear) return;
-    try {
-      const res = await fetch(`/api/v1/leave/balance?employeeId=${encodeURIComponent(employeeId)}&year=${leaveYear}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
-      if (res.ok) setLeaveBalance((await res.json()).data || null);
-    } catch (error) { console.error("Không thể tải số dư phép", error); }
-  };
-
-  const fetchTemplates = async () => {
-    if (!selectedCompanyCode) return;
-    setIsTemplateLoading(true);
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-templates?companyCode=${encodeURIComponent(selectedCompanyCode)}`, {
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setTemplates(json.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsTemplateLoading(false);
-    }
-  };
-
   const fetchApplications = async () => {
     if (!selectedCompanyCode) return;
-    setIsAppLoading(true);
     try {
       const res = await fetch(`/api/v1/crud/hr-leave-applications?companyCode=${encodeURIComponent(selectedCompanyCode)}`, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
@@ -455,287 +303,14 @@ export default function CalendarTab({
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setIsAppLoading(false);
     }
   };
 
-  const handleUploadTemplateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tplName.trim()) {
-      toast.error("Vui lòng nhập tên biểu mẫu.");
-      return;
-    }
-    if (!tplFile) {
-      toast.error("Vui lòng chọn tệp biểu mẫu.");
-      return;
-    }
-
-    setIsFileUploading(true);
-    try {
-      const fileUrl = await uploadFileToCloudinary(tplFile);
-      const res = await fetch("/api/v1/crud/hr-leave-templates", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          name: tplName,
-          fileUrl,
-          fileName: tplFile.name,
-          uploadedBy: userProfile?.uid || "unknown"
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        let details = "";
-        if (errorData.errors) {
-          details = Object.entries(errorData.errors)
-            .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
-            .join("; ");
-        }
-        throw new Error((errorData.message || "Lỗi lưu biểu mẫu.") + (details ? ` [${details}]` : ""));
-      }
-
-      toast.success("Tải lên biểu mẫu mẫu thành công!");
-      setIsTemplateFormOpen(false);
-      setTplName("");
-      setTplFile(null);
-      fetchTemplates();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Tải lên biểu mẫu mẫu thất bại.");
-    } finally {
-      setIsFileUploading(false);
-    }
-  };
-
-  const openAppForm = () => {
-    if (templates.length > 0) {
-      setAppType(templates[0].name);
-    } else {
-      setAppType("other");
-    }
-    setIsAppFormOpen(true);
-    fetchLeaveBalance(userProfile?.uid || appEmployeeId, new Date().getFullYear());
-  };
-
-  const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
-    if (!appStartDate || !appEndDate) {
-      toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
-      return;
-    }
-    e.preventDefault();
-    if (appFiles.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
-      return;
-    }
-    const startDateTime = new Date(`${appStartDate}T00:00:00`);
-    const endDateTime = new Date(`${appEndDate}T23:59:59`);
-
-    if (endDateTime < startDateTime) {
-      toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
-      return;
-    }
-
-    setIsFileUploading(true);
-    try {
-      const attachments = await Promise.all(appFiles.map(async (file) => ({ url: await uploadFileToCloudinary(file), name: file.name, mimeType: file.type, size: file.size })));
-      const fileUrl = attachments[0]?.url || "";
-      const targetEmp = usersList.find(u => u.uid === appEmployeeId);
-      const res = await fetch("/api/v1/crud/hr-leave-applications", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          employeeId: appEmployeeId,
-          employeeName: targetEmp?.displayName || userProfile?.displayName || "Nhân viên",
-          type: appType,
-          startDate: startDateTime.toISOString(),
-          endDate: endDateTime.toISOString(),
-          reason: "Đăng ký nghỉ phép",
-          uploadedFileUrl: fileUrl,
-          uploadedFileName: appFile ? appFile.name : "",
-          attachments,
-          status: "pending"
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        let details = "";
-        if (errorData.errors) {
-          details = Object.entries(errorData.errors)
-            .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
-            .join("; ");
-        }
-        throw new Error((errorData.message || "Lỗi lưu đơn xin nghỉ.") + (details ? ` [${details}]` : ""));
-      }
-
-      toast.success("Gửi đơn xin nghỉ phép thành công!");
-      setIsAppFormOpen(false);
-      setAppReason("");
-      setAppFile(null);
-      setAppFiles([]);
-      setAppEmployeeId(userProfile?.uid || "");
-      fetchApplications();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Gửi đơn thất bại.");
-    } finally {
-      setIsFileUploading(false);
-    }
-  };
-
-  const handleApproveApp = async (app: any) => {
-    const appId = app._id || app.id;
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          status: "approved",
-          approvalType: "justified",
-          approvedBy: userProfile?.uid,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Lỗi phê duyệt đơn.");
-
-      toast.success("Đã duyệt đơn thành công!");
-      fetchApplications();
-      fetchCalendarItems();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Phê duyệt đơn thất bại.");
-    }
-  };
-
-  const handleRejectAppSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rejectReasonText.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối.");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-applications/${selectedAppId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          status: "rejected",
-          rejectReason: rejectReasonText,
-          approvedBy: userProfile?.uid
-        }),
-      });
-
-      if (!res.ok) throw new Error("Lỗi từ chối đơn.");
-
-      toast.success("Đã từ chối đơn.");
-      setAppRejectModalOpen(false);
-      setSelectedAppId(null);
-      setRejectReasonText("");
-      fetchApplications();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Từ chối đơn thất bại.");
-    }
-  };
-
-  const handleDeleteApp = async (appId: string) => {
-    askConfirm(
-      "Xóa đơn xin nghỉ",
-      "Bạn có chắc chắn muốn xóa đơn xin nghỉ này không? Hành động này không thể hoàn tác.",
-      async () => {
-        try {
-          const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${getAccessToken()}` },
-          });
-
-          if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
-
-          toast.success("Đã xóa đơn thành công.");
-          fetchApplications();
-        } catch (err: any) {
-          console.error(err);
-          toast.error("Xóa đơn thất bại.");
-        }
-      },
-      "Xóa"
-    );
-  };
-
-  const handleDeleteTpl = async (tplId: string) => {
-    askConfirm(
-      "Xóa biểu mẫu",
-      "Bạn có chắc chắn muốn xóa biểu mẫu mẫu này không? Hành động này không thể hoàn tác.",
-      async () => {
-        try {
-          const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${getAccessToken()}` },
-          });
-
-          if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
-
-          toast.success("Đã xóa biểu mẫu thành công.");
-          fetchTemplates();
-        } catch (err: any) {
-          console.error(err);
-          toast.error("Xóa biểu mẫu thất bại.");
-        }
-      },
-      "Xóa"
-    );
-  };
 
   useEffect(() => {
-    if ((currentSubTab === "leave-requests" || currentSubTab === "attendance") && selectedCompanyCode) {
-      fetchApplications();
-    }
-    if (currentSubTab === "leave-requests" && selectedCompanyCode) fetchTemplates();
+    if (currentSubTab === "attendance" && selectedCompanyCode) fetchApplications();
   }, [currentSubTab, selectedCompanyCode]);
 
-  const handleDeleteItem = async (itemId: string) => {
-    askConfirm(
-      "Xóa lịch trình",
-      "Bạn có chắc chắn muốn xóa lịch trình này không? Hành động này không thể hoàn tác.",
-      async () => {
-        try {
-          const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${getAccessToken()}`,
-            },
-          });
-
-          if (!res.ok) {
-            throw new Error((await res.json().catch(() => ({})))?.message || "Lỗi mạng khi xóa.");
-          }
-
-          toast.success("Đã xóa lịch trình thành công.");
-          setIsDetailModalOpen(false);
-          setIsFormModalOpen(false);
-          fetchCalendarItems();
-        } catch (err: any) {
-          console.error(err);
-          toast.error(getApiErrorMessage(err, "Xóa lịch trình thất bại."));
-        }
-      },
-      "Xóa"
-    );
-  };
 
   useEffect(() => {
     fetchCalendarItems();
@@ -800,283 +375,11 @@ export default function CalendarTab({
     }
   }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode]);
 
-  const renderLeaveRequestsTab = () => {
-    const getAppTypeLabel = (type: string) => {
-      switch (type) {
-        case "leave": return "Nghỉ phép";
-        case "late": return "Đi trễ";
-        case "early": return "Về sớm";
-        case "other": return "Đơn khác";
-        default: return type;
-      }
-    };
-
-    const filteredApplications = applications.filter((app) => {
-      const matchType = !filterAppType || app.type === filterAppType;
-      if (!filterSearchQuery.trim()) {
-        return matchType;
-      }
-
-      const query = filterSearchQuery.toLowerCase();
-      const typeLabel = getAppTypeLabel(app.type).toLowerCase();
-      const employeeName = (app.employeeName || "").toLowerCase();
-      const reason = (app.reason || "").toLowerCase();
-      const note = (app.note || "").toLowerCase();
-      const rejectReason = (app.rejectReason || "").toLowerCase();
-
-      const matchSearch =
-        employeeName.includes(query) ||
-        typeLabel.includes(query) ||
-        reason.includes(query) ||
-        note.includes(query) ||
-        rejectReason.includes(query);
-
-      return matchType && matchSearch;
-    });
-
-    const getStatusBadge = (status: string, rejectReason?: string) => {
-      switch (status) {
-        case "approved":
-          return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-100">Đã duyệt</span>;
-        case "rejected":
-          return (
-            <span
-              className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-rose-50 text-rose-700 border-rose-100 cursor-help"
-              title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}
-            >
-              Từ chối (?)
-            </span>
-          );
-        default:
-          return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-100 animate-pulse">Chờ duyệt</span>;
-      }
-    };
-
-    return (
-      <div className="space-y-6 animate-fade-in text-left">
-        {/* Header Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
-          <div>
-            <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
-              Quản lý Đơn từ & Phép
-            </h2>
-            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-              Nộp đơn xin nghỉ, đi trễ và quản lý biểu mẫu mẫu
-            </p>
-          </div>
-
-          {isLeaveAdmin && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setTplCurrentPage(1);
-                  setIsTemplateListModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-4.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
-              >
-                <FileText className="h-4 w-4 text-indigo-650" />
-                Biểu mẫu mẫu
-              </button>
-              <button
-                onClick={() => setIsTemplateFormOpen(true)}
-                className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
-              >
-                <Upload className="h-4 w-4" />
-                Đăng biểu mẫu mới
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Right panel - Leave Applications */}
-          <div className="lg:col-span-12">
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                  {isLeaveAdmin ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
-                </h3>
-                {isLeaveAdmin && (
-                  <div className="flex flex-wrap gap-2.5 items-center">
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        placeholder="Tìm nhân viên, lý do, loại đơn..."
-                        value={filterSearchQuery}
-                        onChange={(e) => setFilterSearchQuery(e.target.value)}
-                        className="px-3 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none w-48 sm:w-64 placeholder:text-slate-400 font-medium transition-all"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                        Loại đơn:
-                      </span>
-                      <select
-                        value={filterAppType}
-                        onChange={(e) => setFilterAppType(e.target.value)}
-                        className="px-2.5 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
-                      >
-                        <option value="">Tất cả</option>
-                        {templates.map((tpl) => (
-                          <option key={tpl._id || tpl.id} value={tpl.name}>
-                            {tpl.name}
-                          </option>
-                        ))}
-                        <option value="other">Đơn khác</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                    <tr>
-                      {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
-                      <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
-                      <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
-                      <th className="px-5 py-4 min-w-[220px]">Lý do</th>
-                      <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
-                      {isLeaveAdmin ? (
-                        <>
-                          <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                          <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
-                          <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
-                          <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                    {isAppLoading ? (
-                      <tr>
-                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
-                          <div className="flex justify-center items-center gap-2">
-                            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                            Đang tải danh sách đơn từ...
-                          </div>
-                        </td>
-                      </tr>
-                    ) : filteredApplications.length === 0 ? (
-                      <tr>
-                        <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
-                          {applications.length === 0 ? "Chưa có đơn từ nào được đăng ký." : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredApplications.map((app) => {
-                        const showDelete = app.status === "pending" || isLeaveAdmin;
-
-                        return (
-                          <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                    {isLeaveAdmin && (
-                              <td className="px-5 py-4 whitespace-nowrap">
-                                <div className="font-bold text-slate-800">{app.employeeName}</div>
-                              </td>
-                            )}
-                            <td className="px-5 py-4 whitespace-nowrap">
-                              <span className="font-bold text-slate-850">{getAppTypeLabel(app.type)}</span>
-                            </td>
-                            <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-slate-500">
-                              <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
-                              <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
-                            </td>
-                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" title={app.reason} style={{ wordBreak: "break-all" }}>
-                              {app.reason}
-                            </td>
-                            <td className="px-5 py-4 whitespace-nowrap">
-                              {app.uploadedFileUrl ? (
-                                <a
-                                  href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
-                                  download={app.uploadedFileName}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold transition-all shadow-3xs"
-                                  title={`Tải xuống: ${app.uploadedFileName}`}
-                                >
-                                  <Download className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
-                                  <span>Xem đơn đính kèm</span>
-                                </a>
-                              ) : (
-                                <span className="text-slate-400 italic">Chưa có tệp</span>
-                              )}
-                            </td>
-                            {isLeaveAdmin ? (
-                              <>
-                                <td className="px-5 py-4 whitespace-nowrap text-center">
-                                  {getStatusBadge(app.status, app.rejectReason)}
-                                </td>
-                                <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                                  {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    {app.status === "pending" && (
-                                      <>
-                                        <button
-                                          onClick={() => handleApproveApp(app)}
-                                          className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
-                                          title="Duyệt đơn"
-                                        >
-                                          <Check className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setSelectedAppId(app._id || app.id);
-                                            setRejectReasonText("");
-                                            setAppRejectModalOpen(true);
-                                          }}
-                                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
-                                          title="Từ chối"
-                                        >
-                                          <XCircle className="h-3.5 w-3.5" />
-                                        </button>
-                                      </>
-                                    )}
-                                    {showDelete && (
-                                      <button
-                                        onClick={() => handleDeleteApp(app._id || app.id)}
-                                        className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
-                                        title="Xóa đơn"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                                  {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
-                                </td>
-                                <td className="px-5 py-4 whitespace-nowrap text-center">
-                                  {getStatusBadge(app.status, app.rejectReason)}
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const renderAttendanceTab = () => {
     const getUserDetail = (uid: string) => {
       const uDetail = usersList.find((u) => u.uid === uid || (u as any)._id === uid);
       return {
-        displayName: uDetail?.displayName || "Nhân viên iGen",
+        displayName: uDetail?.displayName || "Nh�n vi�n iGen",
         photoURL: uDetail?.photoURL || "",
         email: uDetail?.email || "",
       };
@@ -1090,12 +393,12 @@ export default function CalendarTab({
 
     const todayStr = formatLocalDate(new Date());
 
-    // Danh sách nhân viên hiển thị trên sidebar và lưới
+    // Danh s�ch nh�n vi�n hi?n th? tr�n sidebar v� lu?i
     const targetEmployees = isManager
       ? usersList
       : (userProfile ? [userProfile] : []);
 
-    // Lọc theo thanh search sidebar
+    // L?c theo thanh search sidebar
     const sidebarEmployees = targetEmployees.filter(emp => {
       if (!empSearchQuery) return true;
       const q = empSearchQuery.toLowerCase();
@@ -1105,18 +408,18 @@ export default function CalendarTab({
       );
     });
 
-    // Tính số ngày trong tháng đã chọn
+    // T�nh s? ng�y trong th�ng d� ch?n
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     const dayColumns: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    // Hàm lấy thứ của ngày (0=CN, 1=T2,..., 6=T7)
+    // H�m l?y th? c?a ng�y (0=CN, 1=T2,..., 6=T7)
     const getDayOfWeek = (day: number) => {
       return new Date(selectedYear, selectedMonth - 1, day).getDay();
     };
 
     const dayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-    // Hàm tính hệ số công theo trạng thái
+    // H�m t�nh h? s? c�ng theo tr?ng th�i
     const clockMinutes = (value?: string) => {
       if (!value) return 0;
       const [hours, minutes] = value.split(":").map(Number);
@@ -1146,25 +449,25 @@ export default function CalendarTab({
     const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date, log?: any) =>
       calculateAttendanceWorkedMinutes(checkIn, checkOut, scheduleFromLog(uid, log));
 
-    // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
+    // H�m l?y nh�n ng?n tr?ng th�i hi?n th? trong �
     const getStatusShort = (status: string): string => {
       switch (status) {
-        case "Present": return "Đúng giờ";
-        case "Late": return "Muộn";
-        case "Approved-Leave": return "Phép";
+        case "Present": return "��ng gi?";
+        case "Late": return "Mu?n";
+        case "Approved-Leave": return "Ph�p";
         case "Approved-WFH": return "WFH";
-        case "Approved-Exception": return "Ngoại lệ";
-        case "Left-Early": return "Về sớm";
-        case "Half-Day": return "½ Công";
-        case "Late-Left-Early": return "Muộn+Sớm";
-        case "Incomplete": return "Thiếu chấm công";
-        case "Partial": return "Thiếu công";
-        case "Absent": return "Vắng";
+        case "Approved-Exception": return "Ngo?i l?";
+        case "Left-Early": return "V? s?m";
+        case "Half-Day": return "� C�ng";
+        case "Late-Left-Early": return "Mu?n+S?m";
+        case "Incomplete": return "Thi?u ch?m c�ng";
+        case "Partial": return "Thi?u c�ng";
+        case "Absent": return "V?ng";
         default: return "";
       }
     };
 
-    // Hàm tính dữ liệu một ô ngày cho một nhân viên
+    // H�m t�nh d? li?u m?t � ng�y cho m?t nh�n vi�n
     const getDayCellData = (emp: any, day: number) => {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
@@ -1236,7 +539,7 @@ export default function CalendarTab({
       };
     };
 
-    // Tính tổng giờ và tổng công của một nhân viên trong tháng
+    // T�nh t?ng gi? v� t?ng c�ng c?a m?t nh�n vi�n trong th�ng
     const calcMonthTotals = (emp: any) => {
       let totalWorkedMinutes = 0;
       let totalCoeff = 0;
@@ -1284,12 +587,12 @@ export default function CalendarTab({
             editReason: editAttendanceReason,
           }),
         });
-        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Không thể cập nhật chấm công.");
-        toast.success("Đã cập nhật lịch sử chấm công.");
+        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Kh�ng th? c?p nh?t ch?m c�ng.");
+        toast.success("�� c?p nh?t l?ch s? ch?m c�ng.");
         setEditingAttendance(null);
         await fetchTimekeepingLogs();
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không thể cập nhật lịch sử chấm công."));
+        toast.error(getApiErrorMessage(error, "Kh�ng th? c?p nh?t l?ch s? ch?m c�ng."));
       } finally {
         setIsAttendanceSaving(false);
       }
@@ -1297,7 +600,7 @@ export default function CalendarTab({
 
     const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
       if (sidebarEmployees.length === 0) {
-        toast.warning("Không có dữ liệu nhân viên phù hợp để xuất.");
+        toast.warning("Kh�ng c� d? li?u nh�n vi�n ph� h?p d? xu?t.");
         return;
       }
 
@@ -1357,16 +660,16 @@ export default function CalendarTab({
 
         toast.success(
           kind === "coeff"
-            ? "Đã xuất bảng số công ra Excel."
-            : "Đã xuất bảng số giờ ra Excel."
+            ? "�� xu?t b?ng s? c�ng ra Excel."
+            : "�� xu?t b?ng s? gi? ra Excel."
         );
       } catch (error) {
-        console.error("Lỗi xuất Excel chấm công:", error);
-        toast.error("Không thể xuất bảng chấm công ra Excel.");
+        console.error("L?i xu?t Excel ch?m c�ng:", error);
+        toast.error("Kh�ng th? xu?t b?ng ch?m c�ng ra Excel.");
       }
     };
 
-    // Navigation tháng
+    // Navigation th�ng
     const goToPrevMonth = () => {
       if (selectedMonth === 1) {
         setSelectedMonth(12);
@@ -1387,29 +690,29 @@ export default function CalendarTab({
       setLogsPage(1);
     };
 
-    // Phân trang nhân viên trên lưới
+    // Ph�n trang nh�n vi�n tr�n lu?i
     const gridPageSize = 15;
     const totalGridPages = Math.ceil(sidebarEmployees.length / gridPageSize) || 1;
     const paginatedGridEmployees = sidebarEmployees.slice((logsPage - 1) * gridPageSize, logsPage * gridPageSize);
 
-    const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
+    const monthNames = ["Th�ng 1", "Th�ng 2", "Th�ng 3", "Th�ng 4", "Th�ng 5", "Th�ng 6",
+      "Th�ng 7", "Th�ng 8", "Th�ng 9", "Th�ng 10", "Th�ng 11", "Th�ng 12"];
 
     return (
       <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
-        {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
+        {/* ===== HEADER CONTROLS + B?NG CH?M C�NG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
-            {/* Tiêu đề + chọn tháng */}
+            {/* Ti�u d? + ch?n th�ng */}
             <div className="flex items-center gap-3">
-              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
+              <h1 className="text-base font-black text-slate-800 tracking-tight">B?ng ch?m c�ng</h1>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={goToPrevMonth}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
-                  title="Tháng trước"
+                  title="Th�ng tru?c"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -1429,7 +732,7 @@ export default function CalendarTab({
                     className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
                   >
                     {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
-                      <option key={y} value={y}>Năm {y}</option>
+                      <option key={y} value={y}>Nam {y}</option>
                     ))}
                   </select>
                 </div>
@@ -1437,16 +740,16 @@ export default function CalendarTab({
                   type="button"
                   onClick={goToNextMonth}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
-                  title="Tháng sau"
+                  title="Th�ng sau"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Ô tìm kiếm nhân viên */}
+              {/* � t�m ki?m nh�n vi�n */}
               <input
                 type="text"
-                placeholder="Tìm nhân viên..."
+                placeholder="T�m nh�n vi�n..."
                 value={empSearchQuery}
                 onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
                 className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
@@ -1459,10 +762,10 @@ export default function CalendarTab({
                 type="button"
                 onClick={fetchTimekeepingLogs}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
-                title="Tải lại dữ liệu"
+                title="T?i l?i d? li?u"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLogsLoading ? "animate-spin" : ""}`} />
-                Tải lại
+                T?i l?i
               </button>
               <div className="relative">
                 <button
@@ -1472,7 +775,7 @@ export default function CalendarTab({
                 >
                   <Eye className="h-3.5 w-3.5 text-slate-500" />
                   <span>
-                    {cellDisplayMode === "coeff" ? "Số công" : "Số giờ"}
+                    {cellDisplayMode === "coeff" ? "S? c�ng" : "S? gi?"}
                   </span>
                   <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                 </button>
@@ -1484,7 +787,7 @@ export default function CalendarTab({
                       onClick={() => { setCellDisplayMode("coeff"); setIsDisplayModeDropdownOpen(false); }}
                       className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
                     >
-                      <span>Số công</span>
+                      <span>S? c�ng</span>
                       {cellDisplayMode === "coeff" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
                     </button>
                     <button
@@ -1492,7 +795,7 @@ export default function CalendarTab({
                       onClick={() => { setCellDisplayMode("hours"); setIsDisplayModeDropdownOpen(false); }}
                       className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
                     >
-                      <span>Số giờ</span>
+                      <span>S? gi?</span>
                       {cellDisplayMode === "hours" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
                     </button>
                   </div>
@@ -1508,7 +811,7 @@ export default function CalendarTab({
                 }`}
               >
                 <CalendarIcon className="h-3.5 w-3.5" />
-                Chế độ lịch
+                Ch? d? l?ch
               </button>
               <AttendanceUtilityMenu
                 disabled={isLogsLoading}
@@ -1518,39 +821,39 @@ export default function CalendarTab({
             </div>
           </div>
 
-          {/* Bảng Grid Chấm Công */}
+          {/* B?ng Grid Ch?m C�ng */}
           <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
+                <span className="text-sm font-medium">�ang t?i d? li?u ch?m c�ng...</span>
               </div>
             ) : (
               <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
                 {/* === THEAD === */}
                 <thead className="sticky top-0 z-40">
                   <tr className="bg-slate-100 border-b border-slate-300">
-                    {/* Cột STT */}
+                    {/* C?t STT */}
                     <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
                       #
                     </th>
-                    {/* Cột Họ và Tên */}
+                    {/* C?t H? v� T�n */}
                     <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
-                      Họ và Tên
+                      H? v� T�n
                     </th>
-                    {/* Cột Email */}
+                    {/* C?t Email */}
                     <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
-                      Mã đăng nhập
+                      M� dang nh?p
                     </th>
-                    {/* Cột Số giờ */}
+                    {/* C?t S? gi? */}
                     <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px]">
-                      Số<br/>giờ
+                      S?<br/>gi?
                     </th>
-                    {/* Cột Số công */}
+                    {/* C?t S? c�ng */}
                     <th className="sticky left-[448px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                      Số<br/>công
+                      S?<br/>c�ng
                     </th>
-                    {/* Các cột ngày */}
+                    {/* C�c c?t ng�y */}
                     {dayColumns.map(day => {
                       const dow = getDayOfWeek(day);
                       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -1585,7 +888,7 @@ export default function CalendarTab({
                   {paginatedGridEmployees.length === 0 ? (
                     <tr>
                       <td colSpan={5 + daysInMonth} className="px-6 py-16 text-center text-slate-400 font-medium">
-                        Không tìm thấy nhân viên nào.
+                        Kh�ng t�m th?y nh�n vi�n n�o.
                       </td>
                     </tr>
                   ) : (
@@ -1600,7 +903,7 @@ export default function CalendarTab({
                           <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
                             {globalIdx}
                           </td>
-                          {/* Họ và Tên */}
+                          {/* H? v� T�n */}
                           <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
                             <div className="flex items-center gap-2">
                               {u.photoURL ? (
@@ -1617,11 +920,11 @@ export default function CalendarTab({
                           <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
                             <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
-                          {/* Tổng giờ */}
+                          {/* T?ng gi? */}
                           <td className="sticky left-[392px] z-30 border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px]">
                             <span className="text-xs font-black text-emerald-700">{totalHours}h</span>
                           </td>
-                          {/* Tổng công */}
+                          {/* T?ng c�ng */}
                           <td className="sticky left-[448px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
                             <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
                           </td>
@@ -1635,7 +938,7 @@ export default function CalendarTab({
                             if (isWeekend) {
                               return (
                                 <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
-                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
+                                  <span className="text-slate-300 text-[10px] font-bold">�</span>
                                 </td>
                               );
                             }
@@ -1643,7 +946,7 @@ export default function CalendarTab({
                             if (cell.isFuture) {
                               return (
                                 <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
-                                  <span className="text-slate-200 text-[10px]">·</span>
+                                  <span className="text-slate-200 text-[10px]">�</span>
                                 </td>
                               );
                             }
@@ -1657,7 +960,7 @@ export default function CalendarTab({
                                 key={day}
                                 onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
                                 className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
-                                title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
+                                title={`${u.displayName} � ${dateStr}\nTr?ng th�i: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nH? s? c�ng: ${coeff}`}
                               >
                                 {isScheduleMode ? (
                                   cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
@@ -1672,17 +975,17 @@ export default function CalendarTab({
                                         }`} />
                                         <span className="truncate" title={cell.status}>
                                           {cell.status === "Incomplete"
-                                            ? "Thiếu chấm công"
+                                            ? "Thi?u ch?m c�ng"
                                             : cell.status === "Partial"
-                                              ? "Thiếu công"
+                                              ? "Thi?u c�ng"
                                               : cell.status === "Present"
                                             ? `HCS(${cell.checkIn || "07:30"} - ${cell.checkOut || "17:30"})`
                                             : cell.status === "Half-Day"
                                               ? `CBH2(${cell.checkIn || "08:00"} - ${cell.checkOut || "12:00"})`
                                               : cell.status === "Approved-Leave"
-                                                ? "Nghỉ phép"
+                                                ? "Ngh? ph�p"
                                                 : cell.status === "Approved-WFH"
-                                                  ? "Làm tại nhà"
+                                                  ? "L�m t?i nh�"
                                                   : cell.status === "Late"
                                                     ? `CS(${cell.checkIn || "08:00"} - ${cell.checkOut || "17:00"})`
                                                     : getStatusShort(cell.status)}
@@ -1693,16 +996,16 @@ export default function CalendarTab({
                                           {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
                                         </div>
                                       )}
-                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">Đã điều chỉnh</div>}
+                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">�� di?u ch?nh</div>}
                                     </div>
                                   ) : null
                                 ) : cellDisplayMode === "coeff" ? (
                                   <>
-                                    {/* Hệ số công */}
+                                    {/* H? s? c�ng */}
                                     <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
                                       {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
                                     </div>
-                                    {/* Nhãn trạng thái */}
+                                    {/* Nh�n tr?ng th�i */}
                                     {cell.status && (
                                       <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
                                         {getStatusShort(cell.status)}
@@ -1711,7 +1014,7 @@ export default function CalendarTab({
                                   </>
                                 ) : (
                                   <>
-                                    {/* Số giờ */}
+                                    {/* S? gi? */}
                                     <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
                                       {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
                                     </div>
@@ -1722,7 +1025,7 @@ export default function CalendarTab({
                                     )}
                                   </>
                                 )}
-                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">Đã sửa</div>}
+                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">�� s?a</div>}
                               </td>
                             );
                           })}
@@ -1739,7 +1042,7 @@ export default function CalendarTab({
           {!isLogsLoading && sidebarEmployees.length > 0 && (
             <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
               <span className="text-xs text-slate-500">
-                Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
+                Hi?n th? {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}�{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nh�n vi�n
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1747,7 +1050,7 @@ export default function CalendarTab({
                   onClick={() => setLogsPage(logsPage - 1)}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  Trước
+                  Tru?c
                 </button>
                 <span className="text-xs font-bold text-slate-800 px-2">
                   Trang {logsPage} / {totalGridPages}
@@ -1767,19 +1070,19 @@ export default function CalendarTab({
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
             <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
               <div className="mb-4 flex items-center justify-between">
-                <div><h3 className="font-bold text-slate-800">Sửa lịch sử chấm công</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} · {editingAttendance.date}</p></div>
+                <div><h3 className="font-bold text-slate-800">S?a l?ch s? ch?m c�ng</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} � {editingAttendance.date}</p></div>
                 <button onClick={() => setEditingAttendance(null)} className="rounded-lg p-1.5 hover:bg-slate-100 cursor-pointer"><X className="h-4 w-4" /></button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs font-semibold text-slate-600">Check-in<input type="time" value={editCheckIn} onChange={(e) => setEditCheckIn(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
                 <label className="text-xs font-semibold text-slate-600">Check-out<input type="time" value={editCheckOut} onChange={(e) => setEditCheckOut(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
               </div>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">Trạng thái<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">Đúng giờ</option><option value="Late">Muộn</option><option value="Left-Early">Về sớm</option><option value="Late-Left-Early">Muộn + về sớm</option><option value="Half-Day">Nửa ngày</option><option value="Absent">Vắng</option></select></label>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi chú<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">Lý do chỉnh sửa <span className="text-rose-500">*</span><textarea value={editAttendanceReason} onChange={(e) => setEditAttendanceReason(e.target.value)} rows={2} placeholder="Bắt buộc nhập lý do" className="mt-1 w-full rounded-lg border p-2" /></label>
-              {editingAttendance.manuallyAdjusted && <div className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-700">Lần sửa trước: {editingAttendance.adjustmentReason || "Không có lý do"}</div>}
-              {editingAttendance.adjustmentHistory?.length > 0 && <div className="mt-3 max-h-28 overflow-auto rounded-lg border p-2"><div className="mb-1 text-[10px] font-bold uppercase text-slate-500">Nhật ký điều chỉnh</div>{editingAttendance.adjustmentHistory.map((entry: any) => <div key={entry._id} className="border-t py-1 text-[10px] text-slate-600"><b>{entry.actorId}</b> · {new Date(entry.createdAt).toLocaleString("vi-VN")}<div>{entry.reason}</div></div>)}</div>}
-              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving || editAttendanceReason.trim().length < 3} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Tr?ng th�i<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">��ng gi?</option><option value="Late">Mu?n</option><option value="Left-Early">V? s?m</option><option value="Late-Left-Early">Mu?n + v? s?m</option><option value="Half-Day">N?a ng�y</option><option value="Absent">V?ng</option></select></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi ch�<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">L� do ch?nh s?a <span className="text-rose-500">*</span><textarea value={editAttendanceReason} onChange={(e) => setEditAttendanceReason(e.target.value)} rows={2} placeholder="B?t bu?c nh?p l� do" className="mt-1 w-full rounded-lg border p-2" /></label>
+              {editingAttendance.manuallyAdjusted && <div className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-700">L?n s?a tru?c: {editingAttendance.adjustmentReason || "Kh�ng c� l� do"}</div>}
+              {editingAttendance.adjustmentHistory?.length > 0 && <div className="mt-3 max-h-28 overflow-auto rounded-lg border p-2"><div className="mb-1 text-[10px] font-bold uppercase text-slate-500">Nh?t k� di?u ch?nh</div>{editingAttendance.adjustmentHistory.map((entry: any) => <div key={entry._id} className="border-t py-1 text-[10px] text-slate-600"><b>{entry.actorId}</b> � {new Date(entry.createdAt).toLocaleString("vi-VN")}<div>{entry.reason}</div></div>)}</div>}
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">H?y</button><button disabled={isAttendanceSaving || editAttendanceReason.trim().length < 3} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "�ang luu..." : "Luu thay d?i"}</button></div>
             </div>
           </div>
         )}
@@ -1906,147 +1209,10 @@ export default function CalendarTab({
 
   const stats = getStatistics();
 
-  // Open creation form for a specific day
+  // L?ch ch? hi?n th?: b?m v�o ng�y ch? m? popup chi ti?t (ch? d?c).
   const handleDayClick = (dayDate: Date) => {
     setSelectedDayDate(dayDate);
-    const itemsOnDay = filteredItems.filter((it) => itemMatchesDay(it, dayDate));
-
-    if (itemsOnDay.length > 0) {
-      // If there are existing items, show detail popup first
-      setIsDetailModalOpen(true);
-    } else if (isAdmin) {
-      // Otherwise directly open create popup for Admin
-      openCreateModal(dayDate);
-    }
-  };
-
-  const openCreateModal = (date: Date, type: "event" | "leave" | "wfh" | "exception" | "reminder" = "event") => {
-    if (!isAdmin) {
-      toast.error("Chỉ Admin mới có quyền tạo sự kiện.");
-      return;
-    }
-    const formattedDate = date.toISOString().slice(0, 10);
-    setFormMode("create");
-    setFormType("event");
-    setFormTitle("");
-    setFormDescription("");
-    setFormStartDate(formattedDate);
-    setFormStartTime("08:00");
-    setFormEndDate(formattedDate);
-    setFormEndTime("17:00");
-    setFormEmployeeId(userProfile?.uid || "");
-    setFormAssigneeId(userProfile?.uid || "");
-    setFormStatus("active");
-
-    setIsFormModalOpen(true);
-    setIsDetailModalOpen(false);
-  };
-
-  // Open edit modal for an item
-  const openEditModal = (item: CalendarItem) => {
-    if (!isAdmin || item.type !== "event") {
-      toast.error("Chỉ Admin mới có quyền chỉnh sửa sự kiện.");
-      return;
-    }
-    setSelectedItem(item);
-    setFormMode("edit");
-    setFormType(item.type);
-    setFormTitle(item.title);
-    setFormDescription(item.description || "");
-
-    const sDate = new Date(item.startDate);
-    const eDate = new Date(item.endDate);
-
-    setFormStartDate(sDate.toISOString().slice(0, 10));
-    setFormStartTime(sDate.toLocaleTimeString("en-US", { hour12: false }).slice(0, 5));
-    setFormEndDate(eDate.toISOString().slice(0, 10));
-    setFormEndTime(eDate.toLocaleTimeString("en-US", { hour12: false }).slice(0, 5));
-
-    setFormEmployeeId(item.employeeId || "");
-    setFormAssigneeId(item.assigneeId || "");
-    setFormStatus(item.status);
-
-    setIsFormModalOpen(true);
-    setIsDetailModalOpen(false);
-  };
-
-  // Form Submit Handler
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formTitle.trim()) {
-      toast.error("Vui lòng nhập tiêu đề.");
-      return;
-    }
-
-    const startDateTime = new Date(`${formStartDate}T${formStartTime}:00`);
-    const endDateTime = new Date(`${formEndDate}T${formEndTime}:00`);
-
-    if (endDateTime < startDateTime) {
-      toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
-      return;
-    }
-
-    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !canManageAttendance) {
-      toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
-      return;
-    }
-
-    if ((formType === "leave" || formType === "wfh" || formType === "exception") && formStatus === "approved") {
-      if (formMode === "create" || selectedItem?.creatorId === userProfile?.uid) {
-        toast.error("Người tạo đơn không được phép tự phê duyệt.");
-        return;
-      }
-    }
-
-    const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
-
-    const payload: Partial<CalendarItem> = {
-      type: formType,
-      title: formTitle,
-      description: formDescription,
-      startDate: startDateTime.toISOString(),
-      endDate: endDateTime.toISOString(),
-      employeeId: (formType === "leave" || formType === "wfh" || formType === "exception") ? formEmployeeId : undefined,
-      employeeName: (formType === "leave" || formType === "wfh" || formType === "exception") ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
-      assigneeId: formType === "reminder" ? formAssigneeId : undefined,
-      status: (formType === "leave" || formType === "wfh" || formType === "exception") && formMode === "create" ? "pending" : formStatus as any,
-      companyCode: selectedCompanyCode,
-      creatorId: userProfile?.uid || "unknown",
-    };
-
-    try {
-      let res;
-      if (formMode === "create") {
-        res = await fetch("/api/v1/crud/hr-calendar-events", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAccessToken()}`,
-          },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch(`/api/v1/crud/hr-calendar-events/${selectedItem?._id || selectedItem?.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAccessToken()}`,
-          },
-          body: JSON.stringify(payload),
-        });
-      }
-
-      if (!res.ok) {
-        throw new Error((await res.json().catch(() => ({})))?.message || "Lỗi mạng khi lưu lịch.");
-      }
-
-      toast.success(formMode === "create" ? "Tạo mới lịch trình thành công!" : "Cập nhật lịch trình thành công!");
-      setIsFormModalOpen(false);
-      fetchCalendarItems();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(getApiErrorMessage(err, "Không thể lưu lịch trình. Vui lòng thử lại."));
-    }
+    setIsDetailModalOpen(true);
   };
 
 
@@ -2065,7 +1231,7 @@ export default function CalendarTab({
                 : "text-gray-500 hover:text-gray-800"
               }`}
           >
-            Lịch trình
+            L?ch tr�nh
           </button>
           <button
             onClick={() => setCurrentSubTab("attendance")}
@@ -2074,24 +1240,13 @@ export default function CalendarTab({
                 : "text-gray-500 hover:text-gray-800"
               }`}
           >
-            Lịch sử chấm công
-          </button>
-          <button
-            onClick={() => setCurrentSubTab("leave-requests")}
-            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "leave-requests"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
-                : "text-gray-500 hover:text-gray-800"
-              }`}
-          >
-            Quản lý Đơn từ
+            L?ch s? ch?m c�ng
           </button>
         </div>
       </div>
 
       {currentSubTab === "attendance" ? (
         renderAttendanceTab()
-      ) : currentSubTab === "leave-requests" ? (
-        renderLeaveRequestsTab()
       ) : (
         <>
           {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
@@ -2104,17 +1259,17 @@ export default function CalendarTab({
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
-                    Lịch trình
+                    L?ch tr�nh
                   </h2>
                   <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                    Tháng {month + 1} / {year}
+                    Th�ng {month + 1} / {year}
                   </p>
                 </div>
                 <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white items-center">
                   <button
                     onClick={handlePrevMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Tháng trước"
+                    title="Th�ng tru?c"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
@@ -2127,12 +1282,12 @@ export default function CalendarTab({
                       }
                     }}
                     className="px-3 py-1.5 font-bold text-xs text-slate-700 border-x border-slate-200/80 bg-transparent outline-none cursor-pointer hover:bg-slate-50 transition-colors"
-                    title="Chọn ngày"
+                    title="Ch?n ng�y"
                   />
                   <button
                     onClick={handleNextMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Tháng sau"
+                    title="Th�ng sau"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
@@ -2148,7 +1303,7 @@ export default function CalendarTab({
               <div className="lg:col-span-6 flex flex-wrap gap-2.5">
                 <div className="flex items-center gap-1.5 bg-slate-100/50 px-3 py-1.5 rounded-2xl border border-slate-200/50">
                   <Filter className="h-3.5 w-3.5 text-slate-550" />
-                  <span className="text-xs text-slate-600 font-extrabold">Bộ lọc:</span>
+                  <span className="text-xs text-slate-600 font-extrabold">B? l?c:</span>
                 </div>
 
                 {/* Type selector */}
@@ -2157,12 +1312,12 @@ export default function CalendarTab({
                   onChange={(e) => setFilterType(e.target.value)}
                   className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all"
                 >
-                  <option value="all">Tất cả danh mục</option>
-                  <option value="event">📅 Sự kiện</option>
-                  <option value="leave">🌴 Nghỉ phép</option>
-                  <option value="wfh">🏠 Làm tại nhà</option>
-                  <option value="exception">⚡ Ngoại lệ</option>
-                  <option value="reminder">🔔 Nhắc hẹn</option>
+                  <option value="all">T?t c? danh m?c</option>
+                  <option value="event">?? S? ki?n</option>
+                  <option value="leave">?? Ngh? ph�p</option>
+                  <option value="wfh">?? L�m t?i nh�</option>
+                  <option value="exception">? Ngo?i l?</option>
+                  <option value="reminder">?? Nh?c h?n</option>
                 </select>
 
                 {/* Employee selector */}
@@ -2171,7 +1326,7 @@ export default function CalendarTab({
                   onChange={(e) => setFilterEmployee(e.target.value)}
                   className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all max-w-[180px]"
                 >
-                  <option value="all">Tất cả nhân sự</option>
+                  <option value="all">T?t c? nh�n s?</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
@@ -2184,7 +1339,7 @@ export default function CalendarTab({
               <div className="lg:col-span-6 flex justify-end gap-3 flex-wrap">
                 <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">S? ki?n</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.events}</span>
                   </div>
                   <div className="bg-blue-50 p-1.5 rounded-full text-blue-600">
@@ -2194,7 +1349,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nghỉ phép</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngh? ph�p</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.leaves}</span>
                   </div>
                   <div className="bg-rose-50 p-1.5 rounded-full text-rose-600">
@@ -2204,7 +1359,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-teal-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-teal-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Tại nhà</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">T?i nh�</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.wfhs}</span>
                   </div>
                   <div className="bg-teal-50 p-1.5 rounded-full text-teal-600">
@@ -2214,7 +1369,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-violet-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngoại lệ</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngo?i l?</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.exceptions}</span>
                   </div>
                   <div className="bg-violet-50 p-1.5 rounded-full text-violet-600">
@@ -2224,7 +1379,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nhắc hẹn</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nh?c h?n</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.reminders}</span>
                   </div>
                   <div className="bg-amber-50 p-1.5 rounded-full text-amber-600">
@@ -2240,7 +1395,7 @@ export default function CalendarTab({
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full py-20 gap-3.5">
                 <div className="w-9 h-9 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-slate-500 font-bold tracking-wider">Đang tải lịch trình...</span>
+                <span className="text-xs text-slate-500 font-bold tracking-wider">�ang t?i l?ch tr�nh...</span>
               </div>
             ) : (
               <div className="min-w-[750px] h-full flex flex-col">
@@ -2304,7 +1459,7 @@ export default function CalendarTab({
 
                         {holiday && (
                           <div className="text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
-                            🎌 {holiday.name}
+                            ?? {holiday.name}
                           </div>
                         )}
 
@@ -2327,25 +1482,21 @@ export default function CalendarTab({
                                 key={idx}
                                 onClick={(e) => {
                                   e.stopPropagation(); // Avoid triggering day click
-                                  if (isAdmin && item.type === "event") {
-                                    openEditModal(item);
-                                  } else {
-                                    setSelectedDayDate(dayDate);
-                                    setIsDetailModalOpen(true);
-                                  }
+                                  setSelectedDayDate(dayDate);
+                                  setIsDetailModalOpen(true);
                                 }}
                                 className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
-                                title={`${item.title} (${item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
+                                title={`${item.title} (${item.type === "leave" ? "Ngh? ph�p" : item.type === "wfh" ? "L�m t?i nh�" : item.type === "exception" ? "Ngo?i l?" : item.type === "reminder" ? "Nh?c h?n" : "S? ki?n"
                                   })`}
                               >
-                                {item.type === "leave" ? `🌴 ` : item.type === "wfh" ? `🏠 ` : item.type === "exception" ? `⚡ ` : item.type === "reminder" ? `🔔 ` : `📅 `}
+                                {item.type === "leave" ? `?? ` : item.type === "wfh" ? `?? ` : item.type === "exception" ? `? ` : item.type === "reminder" ? `?? ` : `?? `}
                                 {item.title}
                               </div>
                             );
                           })}
                           {dayItems.length > 3 && (
                             <div className="text-[9px] text-slate-450 font-extrabold pl-1.5">
-                              + {dayItems.length - 3} lịch...
+                              + {dayItems.length - 3} l?ch...
                             </div>
                           )}
                         </div>
@@ -2367,10 +1518,10 @@ export default function CalendarTab({
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <div>
                 <h3 className="font-extrabold text-slate-800 text-sm">
-                  Lịch trình ngày {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
+                  L?ch tr�nh ng�y {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
                 </h3>
                 <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wide mt-0.5">
-                  Có {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} lịch trình trong ngày
+                  C� {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} l?ch tr�nh trong ng�y
                 </p>
               </div>
               <button
@@ -2398,7 +1549,7 @@ export default function CalendarTab({
                             : "bg-blue-50 text-blue-700 border-blue-100";
 
                   const typeLabel =
-                    item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
+                    item.type === "leave" ? "Ngh? ph�p" : item.type === "wfh" ? "L�m t?i nh�" : item.type === "exception" ? "Ngo?i l?" : item.type === "reminder" ? "Nh?c h?n" : "S? ki?n";
 
                   return (
                     <div
@@ -2409,26 +1560,6 @@ export default function CalendarTab({
                         <span className={`text-[9px] px-2 py-0.5 font-extrabold rounded-lg border uppercase tracking-wider ${badgeColor}`}>
                           {typeLabel}
                         </span>
-                        <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {isAdmin && item.type === "event" && (
-                            <button
-                              onClick={() => openEditModal(item)}
-                              className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                              title="Sửa"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {isAdmin && item.type === "event" && (
-                            <button
-                              onClick={() => handleDeleteItem((item._id || item.id)!)}
-                              className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Xóa"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
                       </div>
 
                       <h4 className="font-extrabold text-xs text-slate-800 tracking-wide">{item.title}</h4>
@@ -2454,7 +1585,7 @@ export default function CalendarTab({
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                               : "bg-amber-50 text-amber-700 border border-amber-100"
                             }`}>
-                            {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                            {item.status === "approved" ? "�� duy?t" : "Ch? duy?t"}
                           </span>
                         )}
                       </div>
@@ -2463,537 +1594,10 @@ export default function CalendarTab({
                 })}
             </div>
 
-            {/* Modal Footer (Actions to Quick Add) */}
-            {isAdmin && (
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => openCreateModal(selectedDayDate, "event")}
-                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                  >
-                    Sự kiện
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* 4. Create/Edit Form Modal */}
-      {isFormModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90dvh] flex flex-col">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-4 sm:px-6 py-4.5 shrink-0">
-              <h3 className="font-extrabold text-slate-800 text-sm">
-                {formMode === "create" ? "Tạo sự kiện mới" : "Chỉnh sửa sự kiện"}
-              </h3>
-              <button
-                onClick={() => setIsFormModalOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
-              <div className="p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-                {/* Title */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Tiêu đề
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Họp nội bộ phòng ban..."
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all shadow-2xs"
-                  />
-                </div>
-
-                {/* Date & Time Pickers */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Ngày bắt đầu
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formStartDate}
-                      onChange={(e) => setFormStartDate(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Giờ bắt đầu
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      value={formStartTime}
-                      onChange={(e) => setFormStartTime(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Ngày kết thúc
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formEndDate}
-                      onChange={(e) => setFormEndDate(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Giờ kết thúc
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Conditional Fields based on Type */}
-                {["wfh", "exception"].includes(formType) && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      {formType === "wfh" ? "Nhân sự làm tại nhà" : "Nhân sự (Ngoại lệ)"}
-                    </label>
-                    <select
-                      value={formEmployeeId}
-                      onChange={(e) => setFormEmployeeId(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-                    >
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {formType === "leave" && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Nhân sự nghỉ phép
-                    </label>
-                    <div className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-500">
-                      {formMode === "edit" ? (selectedItem?.employeeName || userProfile?.displayName || "Bạn") : (userProfile?.displayName || "Bạn")}
-                    </div>
-                  </div>
-                )}
-
-                {formType === "reminder" && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Người nhận nhắc nhở
-                    </label>
-                    <select
-                      value={formAssigneeId}
-                      onChange={(e) => setFormAssigneeId(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-                    >
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Status for Leaves / WFH / Exception */}
-                {["leave", "wfh", "exception"].includes(formType) && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Trạng thái duyệt
-                    </label>
-                    <select
-                      value={formStatus}
-                      onChange={(e) => setFormStatus(e.target.value)}
-                      disabled={formMode === "create" || selectedItem?.creatorId === userProfile?.uid}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all disabled:bg-slate-50 disabled:text-slate-400"
-                    >
-                      <option value="pending">Chờ phê duyệt</option>
-                      {!(formMode === "create" || selectedItem?.creatorId === userProfile?.uid) && (
-                        <option value="approved">Đã phê duyệt</option>
-                      )}
-                    </select>
-                  </div>
-                )}
-
-                {/* Description */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Mô tả chi tiết
-                  </label>
-                  <textarea
-                    placeholder="Nhập nội dung mô tả hoặc ghi chú..."
-                    value={formDescription}
-                    onChange={(e) => setFormDescription(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all shadow-2xs resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="bg-slate-50 border-t border-slate-150 px-4 sm:px-6 py-4.5 flex justify-between items-center gap-3 shrink-0 flex-wrap">
-                <div>
-                  {formMode === "edit" && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteItem(selectedItem?._id || selectedItem?.id || "")}
-                      className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-xs font-bold transition-all border border-rose-200/80 hover:shadow-md cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Xóa lịch
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsFormModalOpen(false)}
-                    className="px-4.5 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition-all cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/10 text-white rounded-2xl text-xs font-extrabold transition-all cursor-pointer"
-                  >
-                    {formMode === "create" ? "Tạo lịch" : "Cập nhật"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Viết Đơn Mới */}
-      {isAppFormOpen && (() => {
-        const matchedTemplate = templates.find((t) => t.name === appType);
-
-        return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
-              <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-                <h3 className="font-extrabold text-slate-800 text-sm">Đăng ký nghỉ phép</h3>
-                <button
-                  onClick={() => setIsAppFormOpen(false)}
-                  className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateApplicationSubmit}>
-                <div className="p-6 flex flex-col gap-4">
-                  {leaveBalance && <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center"><div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div><div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div><div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div><div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div></div>}
-                  <div className="grid grid-cols-2 gap-3"><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Từ ngày</label><input type="date" required value={appStartDate} onChange={(e) => setAppStartDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div><div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Đến ngày</label><input type="date" required value={appEndDate} onChange={(e) => setAppEndDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" /></div></div>
-                  <div><label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Minh chứng nghỉ phép (có thể chọn nhiều tệp)</label><input type="file" multiple required accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm" onChange={(e) => { const files = Array.from(e.target.files || []); setAppFiles(files); setAppFile(files[0] || null); }} className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" /></div>
-                </div>                <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsAppFormOpen(false)}
-                    className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isFileUploading}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                  >
-                    {isFileUploading ? "Đang nộp đơn..." : "Nộp đơn"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal Danh sách Biểu mẫu mẫu */}
-      {isTemplateListModalOpen && (() => {
-        const tplPageSize = 5;
-        const totalTplPages = Math.ceil(templates.length / tplPageSize) || 1;
-        const activePage = Math.min(tplCurrentPage, totalTplPages);
-        const indexOfLastTpl = activePage * tplPageSize;
-        const indexOfFirstTpl = indexOfLastTpl - tplPageSize;
-        const currentTemplates = templates.slice(indexOfFirstTpl, indexOfLastTpl);
-
-        return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200 text-left">
-              <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-                <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-                  <FileText className="h-4.5 w-4.5 text-indigo-600 animate-pulse" />
-                  Danh sách Biểu mẫu mẫu
-                </h3>
-                <button
-                  onClick={() => setIsTemplateListModalOpen(false)}
-                  className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
-                {isTemplateLoading && (
-                  <div className="flex justify-center py-4">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-
-                {!isTemplateLoading && templates.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic text-center py-6">
-                    Chưa có biểu mẫu mẫu nào được đăng ký.
-                  </p>
-                ) : (
-                  <>
-                    <div className="divide-y divide-slate-100 border border-slate-150 rounded-2xl overflow-hidden bg-slate-50/30">
-                      {currentTemplates.map((tpl) => (
-                        <div
-                          key={tpl._id || tpl.id}
-                          className="flex items-center justify-between p-3.5 hover:bg-slate-100/50 transition-colors gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-slate-800 text-xs truncate" title={tpl.name}>
-                                {tpl.name}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-medium truncate" title={tpl.fileName}>
-                                {tpl.fileName}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <a
-                              href={tpl.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={tpl.fileName}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 cursor-pointer shadow-3xs text-decoration-none"
-                              title="Tải biểu mẫu"
-                            >
-                              <Download className="h-3 w-3" />
-                              Tải mẫu
-                            </a>
-                            {isLeaveAdmin && (
-                              <button
-                                onClick={() => handleDeleteTpl(tpl._id || tpl.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold transition-all border border-rose-200 cursor-pointer shadow-3xs"
-                                title="Xóa biểu mẫu"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Xóa
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {totalTplPages > 1 && (
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                        <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">
-                          Trang {activePage} / {totalTplPages}
-                        </span>
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setTplCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={activePage === 1}
-                            className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-slate-650 flex items-center justify-center bg-white"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTplCurrentPage(prev => Math.min(prev + 1, totalTplPages))}
-                            disabled={activePage === totalTplPages}
-                            className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-slate-650 flex items-center justify-center bg-white"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsTemplateListModalOpen(false)}
-                  className="px-4.5 py-2 bg-slate-200 hover:bg-slate-300 hover:shadow-sm text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal Tải Biểu Mẫu Mẫu (Admin/Manager) */}
-      {isTemplateFormOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Đăng tải biểu mẫu mẫu mới</h3>
-              <button
-                onClick={() => setIsTemplateFormOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUploadTemplateSubmit}>
-              <div className="p-6 flex flex-col gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Tên biểu mẫu
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Đơn xin nghỉ phép năm, Đơn xin đi trễ..."
-                    value={tplName}
-                    onChange={(e) => setTplName(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Tệp tài liệu mẫu (Word/Excel/PDF...)
-                  </label>
-                  <input
-                    type="file"
-                    required
-                    accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx"
-                    onChange={(e) => setTplFile(e.target.files?.[0] || null)}
-                    className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsTemplateFormOpen(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={isFileUploading}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                >
-                  {isFileUploading ? "Đang tải lên..." : "Tải lên"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Lý do Từ chối đơn */}
-      {appRejectModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Từ chối duyệt đơn</h3>
-              <button
-                onClick={() => setAppRejectModalOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRejectAppSubmit}>
-              <div className="p-6 flex flex-col gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Lý do từ chối đơn
-                  </label>
-                  <textarea
-                    required
-                    placeholder="Nhập lý do chi tiết để phản hồi nhân viên..."
-                    value={rejectReasonText}
-                    onChange={(e) => setRejectReasonText(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setAppRejectModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
-                >
-                  Từ chối đơn
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-
-
-      {/* Custom confirm dialog — thay thế native window.confirm */}
-      {confirmState && (
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          onClose={() => setConfirmState(null)}
-          onConfirm={confirmState.onConfirm}
-        />
-      )}
     </div>
   );
 }

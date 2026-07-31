@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, FileText, Mail, UserSearch } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -15,12 +15,13 @@ const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
+const LeaveRequestsTab = lazy(() => import("../components/hr/LeaveRequestsTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 const CelebrationEmailTab = lazy(() => import("../components/hr/CelebrationEmailTab"));
 const RecruitmentTab = lazy(() => import("../components/hr/recruitment/RecruitmentTab"));
 const CELEBRATION_TAB = "EMAIL CHÚC MỪNG" as HRSubTabType;
-const RECRUITMENT_TAB = "TUYỂN DỤNG" as HRSubTabType;
+const RECRUITMENT_TAB = "TUY?N D?NG" as HRSubTabType;
 
 export function canAccessRecruitment(role: string | undefined, hasPermission: (code: string) => boolean) {
   return role === "admin" || hasPermission("recruitment:manage");
@@ -34,7 +35,7 @@ export default function HRTab() {
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
   // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
-  // must also be able to view/manage everyone's attendance, not just their own —
+  // must also be able to view/manage everyone's attendance, not just their own �
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
   const canViewAllAttendance = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll:manage");
   const canManageAttendance = isManager || hasPermission("timekeeping:manage");
@@ -73,7 +74,7 @@ export default function HRTab() {
             setSelectedCompanyCode("SYSTEM");
           }
         } catch (err) {
-          console.error("Lỗi khi tải danh sách công ty:", err);
+          console.error("Lỗi khi tải danh s�ch c�ng ty:", err);
           setSelectedCompanyCode("SYSTEM");
         }
       } else if (userProfile.companyCode) {
@@ -103,8 +104,8 @@ export default function HRTab() {
       }
       setUsersList(data);
     } catch (error) {
-      console.error("Lỗi khi tải danh sách nhân sự:", error);
-      toast.error(getApiErrorMessage(error, "Không thể tải sơ đồ nhân sự."));
+      console.error("Lỗi khi tải danh s�ch nhân sự:", error);
+      toast.error(getApiErrorMessage(error, "Không thể tải so d? nhân sự."));
     } finally {
       setLoading(false);
     }
@@ -118,7 +119,7 @@ export default function HRTab() {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
       });
-      if (!res.ok) throw new Error("Không thể tải danh sách khóa học");
+      if (!res.ok) throw new Error("Không thể tải danh s�ch kh�a h?c");
       const json = await res.json();
       const list: TrainingCourse[] = (json.data || []).map((item: any) => ({
         ...item,
@@ -126,7 +127,7 @@ export default function HRTab() {
       }));
       setCourses(list);
     } catch (err) {
-      console.error("Lỗi tải khóa học:", err);
+      console.error("L?i t?i kh�a h?c:", err);
     }
   };
 
@@ -142,9 +143,9 @@ export default function HRTab() {
     id: usr.uid,
     name: usr.displayName,
     role: usr.jobTitle || (usr.role === "superadmin" ? "CEO" : "Nhân viên"),
-    department: usr.department || "Ban Giám Đốc",
+    department: usr.department || "Ban Giám đốc",
     email: usr.email,
-    phone: usr.phone || "Chưa cập nhật",
+    phone: usr.phone || "Chua c?p nh?t",
     avatar:
       usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/"))
         ? usr.photoURL
@@ -165,15 +166,16 @@ export default function HRTab() {
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-1 overflow-x-auto select-none scrollbar-none max-w-full -mb-px">
           {[
-            { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
+            { id: "SƠ ĐỒ TỔ CHỨC", label: "So d? t? ch?c", icon: FolderTree },
             { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
-            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
+            { id: "Giao Việc", label: "Giao vi?c", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
-            { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
-            ...(canViewPayroll ? [{ id: "PAYROLL", label: "Bảng lương", icon: Briefcase }] : []),
+            { id: "ĐƠN TỪ", label: "Quản lý đơn từ", icon: FileText },
+            { id: "HỢP ĐỒNG", label: "H?p d?ng", icon: FileSignature },
+            ...(canViewPayroll ? [{ id: "PAYROLL", label: "B?ng luong", icon: Briefcase }] : []),
             ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
-            ...(canManageRecruitment ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: UserSearch }] : []),
+            ...(canManageRecruitment ? [{ id: RECRUITMENT_TAB, label: "Tuy?n d?ng", icon: UserSearch }] : []),
           ].map((tab) => {
             const isActive = subTab === tab.id;
             const Icon = tab.icon;
@@ -204,7 +206,7 @@ export default function HRTab() {
                 onChange={(e) => setSelectedCompanyCode(e.target.value)}
                 className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer font-semibold max-w-[60vw] sm:max-w-none"
               >
-                <option value="SYSTEM">Hệ thống (SYSTEM)</option>
+                <option value="SYSTEM">H? th?ng (SYSTEM)</option>
                 {companies.map((c) => (
                   <option key={c.id || c._id || c.code} value={c.code}>
                     {c.name} ({c.code})
@@ -218,7 +220,7 @@ export default function HRTab() {
       </div>
 
       {/* Conditional Rendering of Modular Tab Components */}
-      <Suspense fallback={<TabLoader label="Đang tải dữ liệu nhân sự..." />}>
+      <Suspense fallback={<TabLoader label="�ang t?i d? li?u nhân sự..." />}>
         {subTab === "SƠ ĐỒ TỔ CHỨC" && (
           <OrgChartTab
             userProfile={userProfile}
@@ -275,6 +277,15 @@ export default function HRTab() {
             isManager={canViewAllAttendance}
             canManage={canManageAttendance}
             canEditAttendance={canEditAttendance}
+            usersList={usersList}
+            employees={employees}
+          />
+        )}
+        {subTab === "ĐƠN TỪ" && (
+          <LeaveRequestsTab
+            userProfile={userProfile}
+            selectedCompanyCode={selectedCompanyCode}
+            canApprove={canManageAttendance}
             usersList={usersList}
             employees={employees}
           />

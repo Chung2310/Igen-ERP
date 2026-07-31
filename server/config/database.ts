@@ -4,6 +4,11 @@ import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { PERMISSION_CATALOG } from "./permission-catalog";
+import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
+import {
+  dropLegacyAttendancePeriodResultUniqueIndex,
+  dropLegacyPayrollOperationJobIdempotencyIndex,
+} from "../model/payroll-branch-index-migration";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -87,7 +92,9 @@ async function seedPermissions() {
       { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
       { code: "timekeeping:manage", name: "Quản lý & duyệt chấm công", module: "hr", description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình vị trí/ca làm việc" },
       { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
+      { code: "payroll:prepare", name: "Chuẩn bị dữ liệu lương", module: "hr", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
       { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
+      { code: "payroll:pay", name: "Payroll payment", module: "hr", description: "Confirm payroll payments" },
       { code: "company-email:manage", name: "Quản lý email chúc mừng", module: "hr", description: "Cấu hình mẫu và theo dõi email sinh nhật, lễ Tết của công ty" },
       { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
       { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
@@ -119,10 +126,8 @@ async function seedPermissions() {
 
     await RolePermissionModel.updateMany(
       { role: "admin" },
-      { $addToSet: { permissions: { $each: ["custom-field:manage", "company-smtp:manage"] } } },
+      { $addToSet: { permissions: { $each: ["custom-field:manage", "company-smtp:manage", "payroll:prepare", "payroll:pay"] } } },
     );
-    // Thu hồi quyền đã cấp trước đây: loại hình doanh nghiệp là đặc quyền SuperAdmin,
-    // doanh nghiệp không được tự sửa.
     await RolePermissionModel.updateMany(
       { role: { $in: ["admin", "manager", "branch_owner", "user"] } },
       { $pull: { permissions: "student-settings:manage" } },
@@ -169,6 +174,9 @@ export async function connectDB() {
     console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
+    await dropLegacyPayrollRunPeriodKeyUniqueIndex();
+    await dropLegacyPayrollOperationJobIdempotencyIndex();
+    await dropLegacyAttendancePeriodResultUniqueIndex();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {
