@@ -333,28 +333,33 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <SortHeader label="Lương cơ bản" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Lương điều chỉnh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Tăng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="BHXH" sortKey="socialInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="BHYT" sortKey="healthInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="BHTN" sortKey="unemploymentInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Thuế TNCN" sortKey="personalIncomeTax" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Khấu trừ khác" sortKey="otherDeductions" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Tạm ứng" sortKey="advances" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={12}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
-                    <td className="p-3 text-right font-bold text-slate-900">
-                      <div>{Number(line.net).toLocaleString()} đ</div>
-                      <div className="mt-1 text-[11px] font-normal leading-4 text-slate-500">
-                        BHXH {Number(line.socialInsurance).toLocaleString()} đ · BHYT {Number(line.healthInsurance).toLocaleString()} đ · BHTN {Number(line.unemploymentInsurance).toLocaleString()} đ
-                      </div>
-                      <div className="text-[11px] font-normal leading-4 text-slate-500">
-                        Thuế {Number(line.personalIncomeTax).toLocaleString()} đ · Khấu trừ khác {Number(line.otherDeductions).toLocaleString()} đ · Tạm ứng {Number(line.advances).toLocaleString()} đ
-                      </div>
-                      <div className="text-[11px] font-normal leading-4 text-slate-500">Tổng khấu trừ {Number(line.deductionTotal).toLocaleString()} đ</div>
-                    </td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.socialInsurance).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.healthInsurance).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.unemploymentInsurance).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.personalIncomeTax).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.otherDeductions).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.advances).toLocaleString()} đ</td>
+                    <td className="p-3 text-right font-semibold text-rose-700">{Number(line.deductionTotal).toLocaleString()} đ</td>
+                    <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
                   </tr>
                 ))}
               </tbody>
@@ -365,6 +370,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.socialInsurance, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.healthInsurance, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.unemploymentInsurance, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.personalIncomeTax, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.otherDeductions, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.advances, 0).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-rose-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} đ</td>
                   </tr>
                 </tfoot>
