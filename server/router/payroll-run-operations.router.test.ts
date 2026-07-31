@@ -520,7 +520,7 @@ describe("operational payroll controller and routes", () => {
     }));
   });
 
-  it("mounts the create, sync, issue, and lock routes", () => {
+  it("mounts the create, sync, issue, lock, and calculate routes", () => {
     const mounted = (payrollRouter as any).stack
       .filter((layer: any) => layer.route)
       .map((layer: any) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
@@ -530,6 +530,13 @@ describe("operational payroll controller and routes", () => {
       "POST /runs/:id/sync-attendance",
       "POST /runs/:id/lock-attendance",
       "GET /runs/:id/issues",
+      "POST /runs/:id/calculate",
+      "POST /runs/:id/recalculate",
+      "POST /runs/:id/review",
+      "POST /runs/:id/approve",
+      "POST /runs/:id/reject",
+      "POST /runs/:id/close",
+      "GET /runs/:id/audit",
     ]));
   });
 });

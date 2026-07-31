@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   payrollFindOneAndUpdate: vi.fn(),
   payrollDeleteOne: vi.fn(),
   payrollCreate: vi.fn(),
+  payrollExists: vi.fn(),
   auditCreate: vi.fn(),
   auditDeleteMany: vi.fn(),
   adjustmentCreate: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("../model/payroll-run.model", () => ({
     findOneAndUpdate: mocks.payrollFindOneAndUpdate,
     deleteOne: mocks.payrollDeleteOne,
     create: mocks.payrollCreate,
+    exists: mocks.payrollExists,
   },
 }));
 vi.mock("../model/payroll-adjustment.model", () => ({
@@ -130,7 +132,7 @@ describe("payrollController.createRun branch scope", () => {
     expect(mocks.payrollFindOneAndUpdate).toHaveBeenCalledWith(
       {
         companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07",
-        type: "regular", status: fromStatus,
+        type: "regular", status: fromStatus, activeRevisionId: { $exists: false },
       },
       expect.any(Object),
       expect.objectContaining({ new: true, sort: { createdAt: 1, _id: 1 } }),

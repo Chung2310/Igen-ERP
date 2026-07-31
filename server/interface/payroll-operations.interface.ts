@@ -30,7 +30,7 @@ export interface PayrollAttendanceEmployeeSnapshot {
   readonly workedMinutes: number;
   readonly shortageMinutes: number;
   readonly paidLeaveMinutesByRate: readonly { readonly minutes: number; readonly payRate: number }[];
-  readonly overtime: readonly { readonly minutes: number; readonly category: "weekday" | "restDay" | "holiday" }[];
+  readonly overtime: readonly { readonly minutes: number; readonly category: "weekday" | "restDay" | "holiday"; readonly night?: boolean }[];
   readonly sourceResultId?: string;
   readonly sourceVersion?: number;
 }

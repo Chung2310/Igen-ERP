@@ -218,6 +218,13 @@ export const crudController = {
         }
       }
 
+      // Nhân viên thường chỉ được nộp đơn đứng tên chính mình và luôn ở trạng
+      // thái chờ duyệt — không cho gửi hộ người khác hay tự duyệt qua body.
+      if (modelName === "hr-leave-applications" && !(await canApproveLeave(req))) {
+        req.body.employeeId = req.user!.id;
+        req.body.status = "pending";
+      }
+
       const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
       return res.status(201).json({
         status: "success",

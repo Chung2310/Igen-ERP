@@ -136,7 +136,7 @@ function normalizeAttendance(row: any): PayrollAttendanceEmployeeSnapshot {
       minutes: Number(item.minutes || 0), payRate: Number(item.payRate || 0),
     })),
     overtime: (row.overtime || []).map((item: any) => ({
-      minutes: Number(item.minutes || 0), category: item.category,
+      minutes: Number(item.minutes || 0), category: item.category, night: Boolean(item.night),
     })),
     sourceResultId: idOf(row),
     sourceVersion: Number(row.version ?? row.__v ?? 0),

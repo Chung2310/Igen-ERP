@@ -1,4 +1,4 @@
-import type { Document } from "mongoose";
+﻿import type { Document } from "mongoose";
 import type { PayrollRunStatus } from "./payroll-operations.interface";
 
 export type PayrollPeriodStatus = PayrollRunStatus;
@@ -17,7 +17,7 @@ export interface IAttendancePeriodResult extends Document {
   workedDays?: number;
   shortageDays?: number;
   paidLeaveMinutesByRate: { minutes: number; payRate: number }[];
-  overtime: { minutes: number; category: "weekday" | "restDay" | "holiday" }[];
+  overtime: { minutes: number; category: "weekday" | "restDay" | "holiday"; night?: boolean }[];
   status: "draft" | "locked";
   lockedAt?: Date;
   lockedBy?: string;
@@ -29,6 +29,11 @@ export interface IPayrollRun extends Document {
   branchId?: string;
   periodKey: string;
   parentRunId?: string;
+  activeRevisionId?: string;
+  activeRevisionChecksum?: string;
+  reviewedBy?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
   supplementalReason?: string;
   status: PayrollPeriodStatus;
   lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];
@@ -37,3 +42,4 @@ export interface IPayrollRun extends Document {
   closedBy?: string;
   closedAt?: Date;
 }
+

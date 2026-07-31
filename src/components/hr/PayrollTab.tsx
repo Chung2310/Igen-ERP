@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, FileSpreadsheet, Inbox, Lock, Play, RefreshCw, Search, Trash2, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { payrollService } from "../../services/payrollService";
+import { buildPayrollDetails } from "./payrollDetails";
+import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
+import { PayrollPaymentsPanel } from "./payroll/PayrollPaymentsPanel";
+import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 
 type SortDir = "asc" | "desc";
 
@@ -31,7 +35,7 @@ function SortHeader({ label, sortKey, activeKey, dir, onSort, align = "left" }: 
   );
 }
 
-function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", onConfirm, onCancel, loading }: { open: boolean; title: string; description: string; confirmLabel?: string; onConfirm: () => void; onCancel: () => void; loading?: boolean }) {
+function ConfirmModal({ open, title, description, confirmLabel = "XÃ¡c nháº­n", onConfirm, onCancel, loading }: { open: boolean; title: string; description: string; confirmLabel?: string; onConfirm: () => void; onCancel: () => void; loading?: boolean }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={onCancel}>
@@ -50,7 +54,7 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
           <button onClick={onCancel} disabled={loading} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-slate-50 disabled:opacity-50">
-            Hủy
+            Há»§y
           </button>
           <button onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white cursor-pointer hover:bg-rose-700 disabled:opacity-50">
             {loading && <RefreshCw size={14} className="animate-spin" />}
@@ -63,26 +67,29 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
 }
 
 const STEPS = [
-  { key: "synced", label: "Đồng bộ công" },
-  { key: "locked", label: "Khóa công" },
-  { key: "calculated", label: "Tính lương" },
-  { key: "approved", label: "Duyệt" },
-  { key: "closed", label: "Chốt kỳ" },
+  { key: "synced", label: "Äá»“ng bá»™ cÃ´ng" },
+  { key: "locked", label: "KhÃ³a cÃ´ng" },
+  { key: "calculated", label: "TÃ­nh lÆ°Æ¡ng" },
+  { key: "approved", label: "Duyá»‡t" },
+  { key: "closed", label: "Chá»‘t ká»³" },
 ] as const;
 
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
+  const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formulaRow, setFormulaRow] = useState<any>(null);
+  const [formulaLoading, setFormulaLoading] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } };
+  const reload = async () => { let nextRun: any = null; try { nextRun = await payrollService.getRun(period); setRun(nextRun); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } try { setPayments(nextRun?._id ? await payrollService.getPayments(String(nextRun._id)) : []); } catch { setPayments([]); } };
   useEffect(() => { void reload(); }, [period]);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); }, [period]);
 
@@ -92,29 +99,29 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       ? run.lines.map((line: any) => {
           const originalResult = results.find((r) => r.employeeId === line.employeeId);
           return {
-            "Mã nhân viên": line.employeeId,
-            "Tên nhân viên": line.employeeName || originalResult?.employeeName || "",
-            "Lương cơ bản": originalResult?.monthlySalary || line.calculation?.monthlySalary || 0,
-            "Lương điều chỉnh": line.calculation?.adjustedBase || 0,
-            "Tăng ca": line.calculation?.overtime || 0,
-            "Thực nhận": line.calculation?.net || 0,
+            "MÃ£ nhÃ¢n viÃªn": line.employeeId,
+            "TÃªn nhÃ¢n viÃªn": line.employeeName || originalResult?.employeeName || "",
+            "LÆ°Æ¡ng cÆ¡ báº£n": originalResult?.monthlySalary || line.calculation?.monthlySalary || 0,
+            "LÆ°Æ¡ng Ä‘iá»u chá»‰nh": line.calculation?.adjustedBase || 0,
+            "TÄƒng ca": line.calculation?.overtime || 0,
+            "Thá»±c nháº­n": line.calculation?.net || 0,
           };
         })
       : results.map((row: any) => ({
-          "Mã nhân viên": row.employeeId,
-          "Tên nhân viên": row.employeeName || "",
-          "Lương cơ bản": row.monthlySalary || 0,
-          "Công chuẩn (giờ)": row.standardHours,
-          "Ngày công": Number(row.workedDays ?? 0).toFixed(2),
-          "Thiếu công (ngày)": Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2),
-          "Trạng thái công": row.status === "locked" ? "Đã khóa" : "Bản nháp",
+          "MÃ£ nhÃ¢n viÃªn": row.employeeId,
+          "TÃªn nhÃ¢n viÃªn": row.employeeName || "",
+          "LÆ°Æ¡ng cÆ¡ báº£n": row.monthlySalary || 0,
+          "CÃ´ng chuáº©n (giá»)": row.standardHours,
+          "NgÃ y cÃ´ng": Number(row.workedDays ?? 0).toFixed(2),
+          "Thiáº¿u cÃ´ng (ngÃ y)": Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2),
+          "Tráº¡ng thÃ¡i cÃ´ng": row.status === "locked" ? "ÄÃ£ khÃ³a" : "Báº£n nhÃ¡p",
         }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
     XLSX.writeFile(workbook, `bang-luong-${period}.xlsx`);
   };
-  const action = async (fn: () => Promise<unknown>, success: string) => { try { await fn(); setMessage(success); await reload(); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể thực hiện thao tác"); } };
+  const action = async (fn: () => Promise<unknown>, success: string) => { try { await fn(); setMessage(success); await reload(); } catch (error) { setMessage(error instanceof Error ? error.message : "KhÃ´ng thá»ƒ thá»±c hiá»‡n thao tÃ¡c"); } };
 
   const allLocked = results.length > 0 && results.every((r) => r.status === "locked");
   const currentStepIndex = run?.status === "closed" ? 4
@@ -180,20 +187,27 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
   const needsRecalculation = results.some((row: any) => row.needsRecalculation);
 
+  const openFormulaRow = async (line: any) => {
+    setFormulaRow(line); setFormulaLoading(Boolean(run?._id));
+    if (run?._id) { try { const detail = await payrollService.getLineDetail(String(run._id), line.employeeId); setFormulaRow({ ...line, calculation: detail.calculation || line.calculation, attendance: detail.attendance || line.attendance }); } catch { /* keep local detail */ } finally { setFormulaLoading(false); } }
+  };
+
+  const downloadExport = async (type: "detailed" | "insurance" | "pit" | "bank_transfer") => { if (!run?._id) return; try { const blob = await payrollService.exportWorkbook(String(run._id), type); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}-${type}.xlsx`; anchor.click(); URL.revokeObjectURL(url); setMessage("Đã tải export bảng lương"); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể export bảng lương"); } };
+  const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
   const canSeeTable = canManage || !!run;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="text-lg font-bold text-slate-800">Bảng lương</h2>
-        <p className="text-xs text-slate-500">Kỳ lương và kết quả công đã khóa</p>
+        <h2 className="text-lg font-bold text-slate-800">Báº£ng lÆ°Æ¡ng</h2>
+        <p className="text-xs text-slate-500">Ká»³ lÆ°Æ¡ng vÃ  káº¿t quáº£ cÃ´ng Ä‘Ã£ khÃ³a</p>
       </div>
       <div className="flex items-center gap-2">
         <input type="month" value={period} onChange={e => setPeriod(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
-        <button title="Tải lại" onClick={() => void reload()} className="rounded-lg border bg-white p-2 cursor-pointer hover:bg-slate-50"><RefreshCw size={16} /></button>
-        <button title="Xuất CSV" onClick={exportCsv} className="rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">CSV</button>
+        <button title="Táº£i láº¡i" onClick={() => void reload()} className="rounded-lg border bg-white p-2 cursor-pointer hover:bg-slate-50"><RefreshCw size={16} /></button>
+        <button title="Xuáº¥t CSV" onClick={exportCsv} className="rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">CSV</button>
         {canSeeTable && (
-          <button title="Xuất Excel" onClick={exportExcel} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
+          <button title="Xuáº¥t Excel" onClick={exportExcel} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
             <FileSpreadsheet size={16} className="text-emerald-600" />
             Excel
           </button>
@@ -202,9 +216,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
-    {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
+    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Payslip và export</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {canManage && run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Thanh toÃ¡n báº£ng lÆ°Æ¡ng</div><PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "ÄÃ£ xÃ¡c nháº­n thanh toÃ¡n")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "ÄÃ£ há»§y thanh toÃ¡n")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "ÄÃ£ hoÃ n tÃ¡c thanh toÃ¡n")} /></div>}
+    {canManage && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Äiá»u chá»‰nh chá» duyá»‡t</div><PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "ÄÃ£ duyá»‡t Ä‘iá»u chá»‰nh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "ÄÃ£ tá»« chá»‘i Ä‘iá»u chá»‰nh")} /></div>}
+    {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lá»‹ch sá»­ cháº¥m cÃ´ng Ä‘Ã£ thay Ä‘á»•i. HÃ£y â€œÄá»“ng bá»™ cÃ´ngâ€ trÆ°á»›c khi khÃ³a hoáº·c tÃ­nh lÆ°Æ¡ng láº¡i.</div>}
 
-    {/* Quy trình xử lý kỳ lương */}
+    {/* Quy trÃ¬nh xá»­ lÃ½ ká»³ lÆ°Æ¡ng */}
     <div className="rounded-xl border border-slate-200 bg-white p-4 overflow-x-auto">
       <div className="flex items-center min-w-max">
         {STEPS.map((step, index) => {
@@ -227,24 +244,24 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {/* Thẻ tổng quan */}
+    {/* Tháº» tá»•ng quan */}
     {canSeeTable && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">{run ? "Tổng thực nhận" : "Tổng lương cơ bản"}</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalNet : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} đ</p>
+          <p className="text-xs text-slate-500 font-medium">{run ? "Tá»•ng thá»±c nháº­n" : "Tá»•ng lÆ°Æ¡ng cÆ¡ báº£n"}</p>
+          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalNet : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} Ä‘</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Số nhân viên</p>
+          <p className="text-xs text-slate-500 font-medium">Sá»‘ nhÃ¢n viÃªn</p>
           <p className="mt-1 text-lg font-bold text-slate-900">{headcount}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Người thiếu công</p>
+          <p className="text-xs text-slate-500 font-medium">NgÆ°á»i thiáº¿u cÃ´ng</p>
           <p className="mt-1 text-lg font-bold text-rose-600">{shortageCount}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Tổng lương cơ bản</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} đ</p>
+          <p className="text-xs text-slate-500 font-medium">Tá»•ng lÆ°Æ¡ng cÆ¡ báº£n</p>
+          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} Ä‘</p>
         </div>
       </div>
     )}
@@ -252,31 +269,31 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {canManage && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-            <RefreshCw size={15} /> Đồng bộ công
+          <button onClick={() => void action(() => payrollService.snapshot(period), "ÄÃ£ Ä‘á»“ng bá»™ káº¿t quáº£ cÃ´ng")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <RefreshCw size={15} /> Äá»“ng bá»™ cÃ´ng
           </button>
-          <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
-            <Lock size={15} /> Khóa công
+          <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "ÄÃ£ khÃ³a káº¿t quáº£ cÃ´ng")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
+            <Lock size={15} /> KhÃ³a cÃ´ng
           </button>
-          <button onClick={() => void action(() => payrollService.createRun(period), "Đã tạo bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
-            <Play size={15} /> Tính lương
+          <button onClick={() => void action(() => payrollService.createRun(period), "ÄÃ£ táº¡o báº£ng lÆ°Æ¡ng")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
+            <Play size={15} /> TÃ­nh lÆ°Æ¡ng
           </button>
-          <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
-            <CheckCircle2 size={15} /> Duyệt
+          <button onClick={() => void action(() => payrollService.approve(period), "ÄÃ£ duyá»‡t báº£ng lÆ°Æ¡ng")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+            <CheckCircle2 size={15} /> Duyá»‡t
           </button>
-          <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-            Chốt kỳ
+          <button onClick={() => void action(() => payrollService.close(period), "ÄÃ£ chá»‘t ká»³ lÆ°Æ¡ng")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            Chá»‘t ká»³
           </button>
         </div>
         <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100">
-          <Trash2 size={15} /> Xóa kỳ lương
+          <Trash2 size={15} /> XÃ³a ká»³ lÆ°Æ¡ng
         </button>
       </div>
     )}
 
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="mb-3 flex flex-wrap justify-between gap-3 text-sm items-center">
-        <span className="text-slate-500 font-medium">Trạng thái kỳ lương:</span>
+        <span className="text-slate-500 font-medium">Tráº¡ng thÃ¡i ká»³ lÆ°Æ¡ng:</span>
         <div className="flex items-center gap-3">
           {canSeeTable && (
             <div className="relative">
@@ -284,7 +301,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên hoặc mã..."
+                placeholder="TÃ¬m theo tÃªn hoáº·c mÃ£..."
                 className="rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs w-52"
               />
             </div>
@@ -293,7 +310,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             run?.status === "approved" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
             run?.status === "calculated" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
           }`}>
-            {run?.status === "approved" ? "Đã duyệt" : run?.status === "closed" ? "Đã chốt" : run?.status === "calculated" ? "Đã tính lương" : "Chưa tạo"}
+            {run?.status === "approved" ? "ÄÃ£ duyá»‡t" : run?.status === "closed" ? "ÄÃ£ chá»‘t" : run?.status === "calculated" ? "ÄÃ£ tÃ­nh lÆ°Æ¡ng" : "ChÆ°a táº¡o"}
           </span>
         </div>
       </div>
@@ -304,70 +321,70 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-xs text-slate-500">
-                  <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Lương cơ bản" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Lương điều chỉnh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Tăng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="NhÃ¢n viÃªn" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                  <SortHeader label="LÆ°Æ¡ng cÆ¡ báº£n" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="LÆ°Æ¡ng Ä‘iá»u chá»‰nh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="TÄƒng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Thá»±c nháº­n" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={5}><EmptyState icon={Search} title="KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn phÃ¹ há»£p" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600"><button onClick={() => setFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
-                    <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
+                    <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "ChÆ°a cÃ³ tÃªn"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} Ä‘</td>
+                    <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} Ä‘</button></td>
+                    <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} Ä‘</td>
+                    <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} Ä‘</td>
                   </tr>
                 ))}
               </tbody>
               {filteredSortedRunRows.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-slate-50 font-bold text-slate-700">
-                    <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} đ</td>
+                    <td className="p-3">Tá»•ng cá»™ng ({filteredSortedRunRows.length})</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} Ä‘</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} Ä‘</td>
+                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} Ä‘</td>
+                    <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} Ä‘</td>
                   </tr>
                 </tfoot>
               )}
             </>
           ) : !canManage ? (
             <tbody>
-              <tr><td><EmptyState icon={Lock} title="Bảng lương chưa được tính cho kỳ này" hint="Vui lòng chờ người có quyền bắt đầu tính lương." /></td></tr>
+              <tr><td><EmptyState icon={Lock} title="Báº£ng lÆ°Æ¡ng chÆ°a Ä‘Æ°á»£c tÃ­nh cho ká»³ nÃ y" hint="Vui lÃ²ng chá» ngÆ°á»i cÃ³ quyá»n báº¯t Ä‘áº§u tÃ­nh lÆ°Æ¡ng." /></td></tr>
             </tbody>
           ) : (
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-xs text-slate-500">
-                  <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Công chuẩn (giờ)" sortKey="standardHours" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
-                  <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
-                  <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
+                  <SortHeader label="NhÃ¢n viÃªn" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                  <SortHeader label="LÆ°Æ¡ng cÆ¡ báº£n" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="CÃ´ng chuáº©n (giá»)" sortKey="standardHours" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
+                  <SortHeader label="NgÃ y cÃ´ng" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
+                  <th className="p-3 text-center font-semibold text-slate-500">Tráº¡ng thÃ¡i cÃ´ng</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
+                  <tr><td colSpan={5}><EmptyState icon={Inbox} title="ChÆ°a cÃ³ dá»¯ liá»‡u cÃ´ng" hint='Vui lÃ²ng áº¥n "Äá»“ng bá»™ cÃ´ng" Ä‘á»ƒ táº£i danh sÃ¡ch nhÃ¢n viÃªn.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={5}><EmptyState icon={Search} title="KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn phÃ¹ há»£p" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
-                      <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
-                      <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
-                      <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
+                      <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "ChÆ°a cÃ³ tÃªn"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
+                      <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} Ä‘</td>
+                      <td className="p-3 text-center text-slate-600">{row.standardHours} giá»</td>
+                      <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngÃ y</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           row.status === "locked" ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-yellow-50 text-yellow-700 border border-yellow-100"
                         }`}>
-                          {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
+                          {row.status === "locked" ? "ÄÃ£ khÃ³a" : "Báº£n nhÃ¡p"}
                         </span>
                       </td>
                     </tr>
@@ -381,14 +398,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
     <ConfirmModal
       open={resetConfirmOpen}
-      title="Xóa kỳ lương?"
-      description={`Toàn bộ dữ liệu công và lương của kỳ ${period} sẽ bị xóa để tính lại từ đầu. Thao tác này không thể hoàn tác.`}
-      confirmLabel="Xóa kỳ lương"
+      title="XÃ³a ká»³ lÆ°Æ¡ng?"
+      description={`ToÃ n bá»™ dá»¯ liá»‡u cÃ´ng vÃ  lÆ°Æ¡ng cá»§a ká»³ ${period} sáº½ bá»‹ xÃ³a Ä‘á»ƒ tÃ­nh láº¡i tá»« Ä‘áº§u. Thao tÃ¡c nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.`}
+      confirmLabel="XÃ³a ká»³ lÆ°Æ¡ng"
       loading={resetting}
       onCancel={() => setResetConfirmOpen(false)}
       onConfirm={async () => {
         setResetting(true);
-        await action(() => payrollService.reset(period), "Đã xóa kỳ lương");
+        await action(() => payrollService.reset(period), "ÄÃ£ xÃ³a ká»³ lÆ°Æ¡ng");
         setResetting(false);
         setResetConfirmOpen(false);
       }}
@@ -396,16 +413,28 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {formulaRow && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
-          <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
-            <div className="flex justify-between"><span>Phút làm được công nhận</span><b>{Number(formulaRow.calculation?.workedMinutes || 0).toLocaleString()} phút</b></div>
-            <div className="flex justify-between"><span>Ngày công</span><b>{Number(formulaRow.calculation?.workedDays || 0).toFixed(2)} công</b></div>
-            <div className="flex justify-between"><span>Đơn giá giờ</span><b>{Math.round(formulaRow.calculation?.hourlyRate || 0).toLocaleString()} đ</b></div>
-            <div className="border-t pt-2 text-xs text-slate-600">Phút làm ÷ 60 × đơn giá giờ + phép hưởng lương, tối đa bằng lương tháng.</div>
-            <div className="flex justify-between border-t pt-2 text-base"><span>Lương điều chỉnh</span><b className="text-cyan-700">{Number(formulaRow.adjustedBase || 0).toLocaleString()} đ</b></div>
-          </div>
+          <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiáº¿t cÃ´ng thá»©c lÆ°Æ¡ng</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
+          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation); const money = (value: number) => value.toLocaleString() + " Ä‘"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Äang táº£i snapshot báº£ng lÆ°Æ¡ng má»›i nháº¥t...</p>}
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">
+              <div><span className="text-xs text-slate-500">LÆ°Æ¡ng cÆ¡ báº£n</span><b className="block">{money(detail.monthlySalary)}</b></div>
+              <div><span className="text-xs text-slate-500">ÄÆ¡n giÃ¡ giá»</span><b className="block">{money(Math.round(detail.hourlyRate))}</b></div>
+              <div><span className="text-xs text-slate-500">CÃ´ng chuáº©n</span><b className="block">{detail.standardDays.toFixed(2)} ngÃ y / {detail.standardHours} giá»</b></div>
+              <div><span className="text-xs text-slate-500">CÃ´ng thá»±c táº¿</span><b className="block">{detail.workedDays.toFixed(2)} ngÃ y</b></div>
+              <div><span className="text-xs text-slate-500">Thiáº¿u cÃ´ng</span><b className="block text-rose-600">{detail.shortageDays.toFixed(2)} ngÃ y ({detail.shortageMinutes.toLocaleString()} phÃºt)</b></div>
+              <div><span className="text-xs text-slate-500">PhÃ©p hÆ°á»Ÿng lÆ°Æ¡ng</span><b className="block">{money(detail.paidLeaveValue)}</b></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Thu nháº­p vÃ  Ä‘iá»u chá»‰nh</p>
+              {[['LÆ°Æ¡ng theo cÃ´ng', detail.adjustedBase], ['TÄƒng ca', detail.overtimeValue], ['Phá»¥ cáº¥p', detail.allowances], ['ThÆ°á»Ÿng', detail.bonuses], ['Äiá»u chá»‰nh', detail.adjustments]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b>{money(Number(value))}</b></div>)}
+              <div className="flex justify-between border-t pt-2 font-bold"><span>Tá»•ng thu nháº­p</span><b>{money(detail.gross)}</b></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><div className="flex justify-between"><span>Giáº£m trá»«</span><b className="text-rose-600">-{money(detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thá»±c nháº­n</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
+          </div>; })()}
         </div>
       </div>
     )}
   </section>;
 }
+
+
+
+

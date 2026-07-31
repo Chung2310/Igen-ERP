@@ -15,6 +15,7 @@ const employeeSchema = new Schema({
   overtime: { type: [{
     minutes: { type: Number, required: true, min: 0, immutable: true },
     category: { type: String, required: true, enum: ["weekday", "restDay", "holiday"], immutable: true },
+    night: { type: Boolean, default: false, immutable: true },
   }], required: true, immutable: true },
   sourceResultId: { type: String, immutable: true },
   sourceVersion: { type: Number, min: 0, immutable: true },
