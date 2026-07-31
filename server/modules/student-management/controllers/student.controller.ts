@@ -5,6 +5,16 @@ import { AuthService } from "../services/auth.service";
 import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
+/** Tên hiển thị của người đang thao tác, để lưu làm "người thêm" trên bản ghi học viên. */
+async function resolveActorName(uid: string, fallbackEmail?: string): Promise<string> {
+  try {
+    const profile = await AuthService.getUserProfile(uid);
+    return profile?.displayName || profile?.email || fallbackEmail || "";
+  } catch {
+    return fallbackEmail || "";
+  }
+}
+
 export class StudentController {
   static async create(req: AuthRequest, res: Response) {
     try {
@@ -30,6 +40,9 @@ export class StudentController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "students",
         actorRole: req.user!.role,
+      }, {
+        uid: req.user!.uid,
+        name: await resolveActorName(req.user!.uid, req.user!.email),
       });
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
@@ -163,7 +176,8 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Du lieu hoc vien khong hop le." });
       }
 
-      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId, req.user!.branchId);
+      const creatorName = await resolveActorName(creatorId, req.user!.email);
+      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId, req.user!.branchId, creatorName);
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -198,7 +212,13 @@ export class StudentController {
 
       // Public registration has no dynamic-field UI and is intentionally exempt
       // from admin-form custom-field requirements.
-      const student = await StudentService.createStudent(teacherId, teacherScope, { ...payload, branchId: teacher.branchId });
+      const student = await StudentService.createStudent(
+        teacherId,
+        teacherScope,
+        { ...payload, branchId: teacher.branchId },
+        undefined,
+        { uid: teacherId, name: teacher.displayName || teacher.email || "" },
+      );
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";

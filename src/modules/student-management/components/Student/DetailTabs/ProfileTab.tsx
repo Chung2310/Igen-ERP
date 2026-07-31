@@ -2,6 +2,7 @@ import React from 'react';
 import { Student } from '../../../types';
 import { formatDisplayDate } from '../../../lib/utils';
 import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+import { useBatches } from '../../../hooks/useBatches';
 
 interface ProfileTabProps {
   student: Student;
@@ -9,6 +10,12 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ student }: ProfileTabProps) {
+  const { batches } = useBatches();
+  const joinedBatches = React.useMemo(
+    () => batches.filter((b) => b.learnerIds?.includes(student.id)),
+    [batches, student.id],
+  );
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-sm shadow-slate-200/50">
@@ -27,6 +34,15 @@ export function ProfileTab({ student }: ProfileTabProps) {
         <div className="md:col-span-2">
           <FormField label="TRẠNG THÁI" value={Array.isArray(student.status) ? student.status.join(', ') : student.status} />
         </div>
+        <FormField label="NGƯỜI PHỤ TRÁCH (NGƯỜI THÊM)" value={student.createdByName || 'Chưa xác định'} />
+        <FormField
+          label="LỚP / DỰ ÁN ĐANG THAM GIA"
+          value={
+            joinedBatches.length > 0
+              ? joinedBatches.map((b) => [b.code, b.courseTitle].filter(Boolean).join(' — ')).join(' | ')
+              : 'Chưa xếp lớp'
+          }
+        />
       </div>
       <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-sm shadow-slate-200/50">
         <CustomFieldDetails moduleKey="students" values={student.customFields ?? {}} />
