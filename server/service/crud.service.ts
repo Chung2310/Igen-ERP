@@ -362,6 +362,9 @@ export const crudService = {
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
+    if (modelName === "timekeeping-logs" && data.branchId) {
+      updatePayload.branchId = data.branchId;
+    }
 
     // Enforce the planned start time for every task update entry point, not only
     // the dedicated Kanban router.

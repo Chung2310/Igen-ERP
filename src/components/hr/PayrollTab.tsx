@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, FileSpreadsheet, Inbox, Lock, Play, RefreshCw, Search, Trash2, X } from "lucide-react";
 import * as XLSX from "xlsx";
+import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
@@ -89,6 +90,20 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  // States for creating adjustments
+  const [isAdjOpen, setIsAdjOpen] = useState(false);
+  const [adjEmployeeId, setAdjEmployeeId] = useState("");
+  const [adjKind, setAdjKind] = useState("bonus");
+  const [adjAmount, setAdjAmount] = useState("");
+  const [adjReason, setAdjReason] = useState("");
+  const [adjSaving, setAdjSaving] = useState(false);
+
+  // States for creating payments
+  const [isPayOpen, setIsPayOpen] = useState(false);
+  const [payLines, setPayLines] = useState<{ employeeId: string; amount: number; name: string; balance: number; selected: boolean }[]>([]);
+  const [payNote, setPayNote] = useState("");
+  const [paySaving, setPaySaving] = useState(false);
+
   const reload = async () => { let nextRun: any = null; try { nextRun = await payrollService.getRun(period); setRun(nextRun); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } try { setPayments(nextRun?._id ? await payrollService.getPayments(String(nextRun._id)) : []); } catch { setPayments([]); } };
   useEffect(() => { void reload(); }, [period]);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); }, [period]);
@@ -111,7 +126,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           "Mã nhân viên": row.employeeId,
           "Tên nhân viên": row.employeeName || "",
           "Lương cơ bản": row.monthlySalary || 0,
-          "Công chuẩn (giờ)": row.standardHours,
           "Ngày công": Number(row.workedDays ?? 0).toFixed(2),
           "Thiếu công (ngày)": Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)).toFixed(2),
           "Trạng thái công": row.status === "locked" ? "Đã khóa" : "Bản nháp",
@@ -134,8 +148,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const runRows = useMemo(() => {
     if (!run) return [];
     return run.lines.map((line: any) => {
-      const originalResult = results.find((r: any) => r.employeeId === line.employeeId);
-      const details = buildPayrollDetails({}, line.calculation || {});
+      const originalResult = results.find((r) => r.employeeId === line.employeeId);
+      const details = buildPayrollDetails({}, line.calculation || {}, line.vietnam);
       return {
         employeeId: line.employeeId,
         employeeName: line.employeeName || originalResult?.employeeName || "",
@@ -150,7 +164,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         otherDeductions: details.deductionBreakdown.otherDeductions,
         advances: details.deductionBreakdown.advances,
         deductionTotal: details.deductionBreakdown.total || 0,
-        calculation: line.calculation || {},
+        gross: line.calculation?.gross || 0,
+        workedDays: line.calculation?.workedDays || 0,
+        vietnam: line.vietnam || details.vietnam || {},
       };
     });
   }, [run, results]);
@@ -159,7 +175,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     employeeId: row.employeeId,
     employeeName: row.employeeName || "",
     monthlySalary: row.monthlySalary || 0,
-    standardHours: row.standardHours,
     workedDays: Number(row.workedDays ?? 0),
     shortageDays: Number(row.shortageDays ?? ((row.shortageMinutes || 0) / 480)),
     status: row.status,
@@ -197,11 +212,69 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
   const openFormulaRow = async (line: any) => {
     setFormulaRow(line); setFormulaLoading(Boolean(run?._id));
-    if (run?._id) { try { const detail = await payrollService.getLineDetail(String(run._id), line.employeeId); setFormulaRow({ ...line, calculation: detail.calculation || line.calculation, attendance: detail.attendance || line.attendance }); } catch { /* keep local detail */ } finally { setFormulaLoading(false); } }
+    if (run?._id) { try { const detail = await payrollService.getLineDetail(String(run._id), line.employeeId); setFormulaRow({ ...line, calculation: detail.calculation || line.calculation, attendance: detail.attendance || line.attendance, vietnam: detail.vietnam || line.vietnam }); } catch { /* keep local detail */ } finally { setFormulaLoading(false); } }
   };
 
   const downloadExport = async (type: "detailed" | "insurance" | "pit" | "bank_transfer") => { if (!run?._id) return; try { const blob = await payrollService.exportWorkbook(String(run._id), type); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}-${type}.xlsx`; anchor.click(); URL.revokeObjectURL(url); setMessage("Đã tải export bảng lương"); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể export bảng lương"); } };
   const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
+  const getEmployeeBalance = (employeeId: string, netPay: number) => {
+    const paid = payments
+      .filter((p: any) => p.status === "confirmed")
+      .reduce((sum: number, p: any) => sum + (p.lines?.find((pl: any) => pl.employeeId === employeeId)?.amount ?? 0), 0);
+    return netPay - paid;
+  };
+
+  const handleCreateAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjEmployeeId || !adjAmount || !adjReason.trim()) {
+      toast.error("Vui lòng nhập đầy đủ thông tin.");
+      return;
+    }
+    setAdjSaving(true);
+    try {
+      await payrollService.createAdjustment(period, {
+        employeeId: adjEmployeeId,
+        kind: adjKind,
+        amount: Number(adjAmount),
+        reason: adjReason,
+      });
+      toast.success("Đã tạo yêu cầu điều chỉnh.");
+      setIsAdjOpen(false);
+      await reload();
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tạo điều chỉnh.");
+    } finally {
+      setAdjSaving(false);
+    }
+  };
+
+  const handleCreatePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const selectedLines = payLines.filter((l) => l.selected && l.amount > 0);
+    if (selectedLines.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một nhân viên và nhập số tiền thanh toán.");
+      return;
+    }
+    setPaySaving(true);
+    try {
+      const totalAmount = selectedLines.reduce((sum, l) => sum + l.amount, 0);
+      const idempotencyKey = `pay-${run._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await payrollService.createPayment(String(run._id), {
+        amount: totalAmount,
+        idempotencyKey,
+        lines: selectedLines.map((l) => ({ employeeId: l.employeeId, amount: l.amount })),
+        note: payNote || undefined,
+      });
+      toast.success("Đã tạo đợt thanh toán.");
+      setIsPayOpen(false);
+      await reload();
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tạo đợt thanh toán.");
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
   const canSeeTable = canManage || !!run;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
@@ -212,21 +285,60 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
       <div className="flex items-center gap-2">
         <input type="month" value={period} onChange={e => setPeriod(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
-        <button title="Tải lại" onClick={() => void reload()} className="rounded-lg border bg-white p-2 cursor-pointer hover:bg-slate-50"><RefreshCw size={16} /></button>
-        <button title="Xuất CSV" onClick={exportCsv} className="rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">CSV</button>
-        {canSeeTable && (
-          <button title="Xuất Excel" onClick={exportExcel} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
-            <FileSpreadsheet size={16} className="text-emerald-600" />
-            Excel
-          </button>
-        )}
       </div>
     </div>
 
     {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
-    {canManage && run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Thanh toán bảng lương</div><PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} /></div>}
-    {canManage && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Điều chỉnh chờ duyệt</div><PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} /></div>}
+    {canManage && run?._id && (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex justify-between items-center">
+          <div className="text-sm font-bold text-slate-800">Thanh toán bảng lương</div>
+          <button
+            onClick={() => {
+              const initialLines = runRows.map((r: any) => {
+                const balance = getEmployeeBalance(r.employeeId, r.net);
+                return {
+                  employeeId: r.employeeId,
+                  name: r.employeeName,
+                  balance: balance,
+                  amount: balance,
+                  selected: balance > 0
+                };
+              });
+              setPayLines(initialLines);
+              setPayNote("");
+              setIsPayOpen(true);
+            }}
+            className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
+          >
+            + Tạo đợt thanh toán
+          </button>
+        </div>
+        <PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} />
+      </div>
+    )}
+    {canManage && (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex justify-between items-center">
+          <div className="text-sm font-bold text-slate-800">Điều chỉnh chờ duyệt</div>
+          <button
+            onClick={() => {
+              const empId = run?.lines?.[0]?.employeeId || results?.[0]?.employeeId || "";
+              setAdjEmployeeId(empId);
+              setAdjKind("bonus");
+              setAdjAmount("");
+              setAdjReason("");
+              setIsAdjOpen(true);
+            }}
+            className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
+          >
+            + Tạo điều chỉnh
+          </button>
+        </div>
+        <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
+      </div>
+    )}
     {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
 
     {/* Quy trình xử lý kỳ lương */}
@@ -274,28 +386,38 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     )}
 
-    {canManage && (
+    {canManage && (!run || run.status !== "closed") && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-            <RefreshCw size={15} /> Đồng bộ công
-          </button>
-          <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
-            <Lock size={15} /> Khóa công
-          </button>
-          <button onClick={() => void action(() => payrollService.createRun(period), "Đã tạo bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
-            <Play size={15} /> Tính lương
-          </button>
-          <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
-            <CheckCircle2 size={15} /> Duyệt
-          </button>
-          <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-            Chốt kỳ
-          </button>
+          {(!run || run.status === "calculated") && (
+            <>
+              <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+                <RefreshCw size={15} /> Đồng bộ công
+              </button>
+              <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
+                <Lock size={15} /> Khóa công
+              </button>
+              <button onClick={() => void action(() => payrollService.createRun(period), "Đã tạo bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
+                <Play size={15} /> Tính lương
+              </button>
+              {run && (
+                <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                  <CheckCircle2 size={15} /> Duyệt
+                </button>
+              )}
+            </>
+          )}
+          {run?.status === "approved" && (
+            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+              Chốt kỳ
+            </button>
+          )}
         </div>
-        <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100">
-          <Trash2 size={15} /> Xóa kỳ lương
-        </button>
+        {run?.status !== "approved" && (
+          <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100">
+            <Trash2 size={15} /> Xóa kỳ lương
+          </button>
+        )}
       </div>
     )}
 
@@ -348,7 +470,17 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr><td colSpan={12}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="p-3 font-medium text-slate-700"><div>{line.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{line.employeeId}</div></td>
+                    <td className="p-3 font-medium text-slate-700">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{line.employeeName || "Chưa có tên"}</span>
+                        {run?.publishedEmployeeIds?.includes(line.employeeId) ? (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-[9px] font-semibold text-emerald-700 border border-emerald-100">Đã phát hành</span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-semibold text-slate-500 border border-slate-200">Chưa phát hành</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{line.employeeId}</div>
+                    </td>
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
@@ -392,22 +524,20 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Công chuẩn (giờ)" sortKey="standardHours" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                       <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div></td>
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
-                      <td className="p-3 text-center text-slate-600">{row.standardHours} giờ</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -443,11 +573,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
-          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Đang tải snapshot bảng lương mới nhất...</p>}
+          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation, formulaRow.vietnam); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Đang tải snapshot bảng lương mới nhất...</p>}
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">
               <div><span className="text-xs text-slate-500">Lương cơ bản</span><b className="block">{money(detail.monthlySalary)}</b></div>
               <div><span className="text-xs text-slate-500">Đơn giá giờ</span><b className="block">{money(Math.round(detail.hourlyRate))}</b></div>
-              <div><span className="text-xs text-slate-500">Công chuẩn</span><b className="block">{detail.standardDays.toFixed(2)} ngày / {detail.standardHours} giờ</b></div>
+              <div><span className="text-xs text-slate-500">Công chuẩn</span><b className="block">{detail.standardDays.toFixed(2)} ngày</b></div>
               <div><span className="text-xs text-slate-500">Công thực tế</span><b className="block">{detail.workedDays.toFixed(2)} ngày</b></div>
               <div><span className="text-xs text-slate-500">Thiếu công</span><b className="block text-rose-600">{detail.shortageDays.toFixed(2)} ngày ({detail.shortageMinutes.toLocaleString()} phút)</b></div>
               <div><span className="text-xs text-slate-500">Phép hưởng lương</span><b className="block">{money(detail.paidLeaveValue)}</b></div>
@@ -461,6 +591,149 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <div className="flex justify-between border-t pt-2"><span>Tổng khấu trừ</span><b className="text-rose-600">-{money(detail.deductionBreakdown.total || detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thực nhận</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
           </div>; })()}
         </div>
+      </div>
+    )}
+
+    {/* Modal Tạo Điều Chỉnh */}
+    {isAdjOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsAdjOpen(false)}>
+        <form onSubmit={handleCreateAdjustment} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center border-b pb-2">
+            <h3 className="font-bold text-slate-900">Tạo đề xuất điều chỉnh lương</h3>
+            <button type="button" onClick={() => setIsAdjOpen(false)} className="cursor-pointer text-slate-500"><X size={17} /></button>
+          </div>
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nhân viên</label>
+              <select
+                value={adjEmployeeId}
+                onChange={(e) => setAdjEmployeeId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+              >
+                {(run?.lines || results).map((r: any) => (
+                  <option key={r.employeeId} value={r.employeeId}>
+                    {r.employeeName || r.employeeId} ({r.employeeId})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại điều chỉnh</label>
+              <select
+                value={adjKind}
+                onChange={(e) => setAdjKind(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+              >
+                <option value="bonus">Thưởng / Cộng thêm</option>
+                <option value="deduction">Khấu trừ / Phạt</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Số tiền (đ)</label>
+              <input
+                type="number"
+                min="0"
+                required
+                value={adjAmount}
+                onChange={(e) => setAdjAmount(e.target.value)}
+                placeholder="Ví dụ: 500000"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lý do điều chỉnh</label>
+              <textarea
+                required
+                rows={3}
+                value={adjReason}
+                onChange={(e) => setAdjReason(e.target.value)}
+                placeholder="Nhập lý do tăng thưởng hoặc phạt..."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onClick={() => setIsAdjOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
+            <button type="submit" disabled={adjSaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
+              {adjSaving ? "Đang lưu..." : "Lưu đề xuất"}
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+
+    {/* Modal Tạo Đợt Thanh Toán */}
+    {isPayOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsPayOpen(false)}>
+        <form onSubmit={handleCreatePayment} className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center border-b pb-2">
+            <h3 className="font-bold text-slate-900">Khởi tạo đợt chi trả lương</h3>
+            <button type="button" onClick={() => setIsPayOpen(false)} className="cursor-pointer text-slate-500"><X size={17} /></button>
+          </div>
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ghi chú đợt thanh toán</label>
+              <input
+                type="text"
+                value={payNote}
+                onChange={(e) => setPayNote(e.target.value)}
+                placeholder="Ví dụ: Chi lương đợt 1 tháng này"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Chọn nhân sự chi trả</label>
+              <div className="max-h-60 overflow-y-auto border rounded-lg divide-y">
+                {payLines.map((line, idx) => (
+                  <div key={line.employeeId} className="flex items-center justify-between p-3 hover:bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={line.selected}
+                        onChange={(e) => {
+                          const next = [...payLines];
+                          next[idx].selected = e.target.checked;
+                          setPayLines(next);
+                        }}
+                        className="rounded border-slate-300 text-indigo-600"
+                      />
+                      <div>
+                        <p className="font-semibold text-slate-700">{line.name || line.employeeId}</p>
+                        <p className="text-xs text-slate-400">Còn lại: {line.balance.toLocaleString()} đ</p>
+                      </div>
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        min="1"
+                        disabled={!line.selected}
+                        value={line.amount}
+                        onChange={(e) => {
+                          const next = [...payLines];
+                          next[idx].amount = Number(e.target.value);
+                          setPayLines(next);
+                        }}
+                        className="w-28 text-right rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 disabled:opacity-40"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg flex justify-between items-center text-sm font-bold text-slate-700">
+              <span>Tổng số tiền giải ngân:</span>
+              <span className="text-cyan-700 text-base">
+                {payLines.filter(l => l.selected).reduce((sum, l) => sum + l.amount, 0).toLocaleString()} đ
+              </span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onClick={() => setIsPayOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
+            <button type="submit" disabled={paySaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
+              {paySaving ? "Đang khởi tạo..." : "Khởi tạo đợt chi"}
+            </button>
+          </div>
+        </form>
       </div>
     )}
   </section>;

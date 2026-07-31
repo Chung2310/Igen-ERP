@@ -3,7 +3,9 @@ import { buildPayrollDetails } from "./payrollDetails";
 
 describe("buildPayrollDetails", () => {
   it("exposes the Vietnam deduction breakdown", () => {
-    const details = buildPayrollDetails({}, { net: 10000000, vietnam: { insurance: { funds: [{ code: "social", employeeAmount: 800000 }, { code: "health", employeeAmount: 150000 }, { code: "unemployment", employeeAmount: 100000 }] }, tax: { tax: 350000, deductions: { personal: 11000000, dependents: 4400000, insurance: 1050000, total: 16450000 } }, deductions: { other: 200000, advances: 500000, total: 2100000 } } } as any);
+    const vietnamData = { insurance: { funds: [{ code: "social", employeeAmount: 800000 }, { code: "health", employeeAmount: 150000 }, { code: "unemployment", employeeAmount: 100000 }] }, tax: { tax: 350000, deductions: { personal: 11000000, dependents: 4400000, insurance: 1050000, total: 16450000 } }, deductions: { other: 200000, advances: 500000, total: 2100000 } };
+    const details = buildPayrollDetails({}, { net: 10000000 }, vietnamData);
+    expect(details.vietnam).toEqual(vietnamData);
     expect(details.deductionBreakdown).toEqual(expect.objectContaining({ socialInsurance: 800000, healthInsurance: 150000, unemploymentInsurance: 100000, personalIncomeTax: 350000, otherDeductions: 200000, advances: 500000, total: 2100000 }));
   });
   it("combines calculation and attendance data for the payroll detail modal", () => {

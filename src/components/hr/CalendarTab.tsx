@@ -92,7 +92,7 @@ export default function CalendarTab({
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance">("schedule");
 
-  // �on ngh? d� duy?t du?c d�ng d? t�nh c�ng trong tab L?ch s? ch?m c�ng.
+  // Đơn nghỉ đã duyệt được dùng để tính công trong tab Lịch sử chấm công.
   const [applications, setApplications] = useState<any[]>([]);
 
 
@@ -117,7 +117,7 @@ export default function CalendarTab({
   const [logsTotal, setLogsTotal] = useState(0);
   const [logsPage, setLogsPage] = useState(1);
   const [logsLimit] = useState(10);
-  const [logFilterEmployee, setLogFilterEmployee] = useState("all");
+  const [logFilterEmployee, setLogFilterEmployee] = useState(userProfile?.uid || "all");
   const [logFilterStatus, setLogFilterStatus] = useState("all");
   const [logStartDate, setLogStartDate] = useState("");
   const [logEndDate, setLogEndDate] = useState("");
@@ -147,6 +147,15 @@ export default function CalendarTab({
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
+  };
+
+  const selectedAttendanceMonthRange = () => {
+    const month = String(selectedMonth).padStart(2, "0");
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    return {
+      start: `${selectedYear}-${month}-01`,
+      end: `${selectedYear}-${month}-${String(lastDay).padStart(2, "0")}`,
+    };
   };
 
   const getStartAndEndOfWeek = (date: Date) => {
@@ -201,7 +210,7 @@ export default function CalendarTab({
   const formatWeekOption = (monday: Date, sunday: Date) => {
     const formatD = (d: Date) => String(d.getDate()).padStart(2, "0");
     const formatM = (d: Date) => String(d.getMonth() + 1).padStart(2, "0");
-    return `${formatD(monday)}/${formatM(monday)} t?i ${formatD(sunday)}/${formatM(sunday)}`;
+    return `${formatD(monday)}/${formatM(monday)} tới ${formatD(sunday)}/${formatM(sunday)}`;
   };
 
   useEffect(() => {
@@ -239,7 +248,7 @@ export default function CalendarTab({
       });
 
       if (!res.ok) {
-        throw new Error("Kh�ng th? t?i danh s�ch l?ch.");
+        throw new Error("Không thể tải danh sách lịch.");
       }
 
       const json = await res.json();
@@ -249,8 +258,8 @@ export default function CalendarTab({
       }));
       setItems(list);
     } catch (err: any) {
-      console.error("L?i khi t?i l?ch:", err);
-      toast.error(getApiErrorMessage(err, "Kh�ng th? t?i d? li?u l?ch tr�nh."));
+      console.error("Lỗi khi tải lịch:", err);
+      toast.error(getApiErrorMessage(err, "Không thể tải dữ liệu lịch trình."));
     } finally {
       setLoading(false);
     }
@@ -259,7 +268,10 @@ export default function CalendarTab({
   const fetchTimekeepingLogs = async () => {
     setIsLogsLoading(true);
     try {
-      let url = `/api/v1/crud/timekeeping-logs?companyCode=${encodeURIComponent(selectedCompanyCode)}&limit=1000`;
+      const monthRange = selectedAttendanceMonthRange();
+      const startDate = logStartDate || monthRange.start;
+      const endDate = logEndDate || monthRange.end;
+      let url = `/api/v1/crud/timekeeping-logs?companyCode=${encodeURIComponent(selectedCompanyCode)}&limit=10000&sort=date`;
 
       if (!isManager) {
         url += `&uid=${userProfile?.uid}`;
@@ -267,12 +279,7 @@ export default function CalendarTab({
         url += `&uid=${logFilterEmployee}`;
       }
 
-      if (logStartDate) {
-        url += `&date[$gte]=${logStartDate}`;
-      }
-      if (logEndDate) {
-        url += `&date[$lte]=${logEndDate}`;
-      }
+      url += `&date[$gte]=${startDate}&date[$lte]=${endDate}`;
 
       const res = await fetch(url, {
         headers: {
@@ -284,8 +291,8 @@ export default function CalendarTab({
         setLogs(result.data || []);
       }
     } catch (err) {
-      console.error("L?i khi t?i l?ch s? ch?m c�ng:", err);
-      toast.error(getApiErrorMessage(err, "Kh�ng th? t?i l?ch s? ch?m c�ng."));
+      console.error("Lỗi khi tải lịch sử chấm công:", err);
+      toast.error(getApiErrorMessage(err, "Không thể tải lịch sử chấm công."));
     } finally {
       setIsLogsLoading(false);
     }
@@ -315,6 +322,12 @@ export default function CalendarTab({
   useEffect(() => {
     fetchCalendarItems();
   }, [selectedCompanyCode]);
+
+  useEffect(() => {
+    if (userProfile?.uid) {
+      setLogFilterEmployee(userProfile.uid);
+    }
+  }, [userProfile?.uid]);
 
   useEffect(() => {
     if (!selectedCompanyCode) return;
@@ -373,13 +386,13 @@ export default function CalendarTab({
     if (currentSubTab === "attendance" && selectedCompanyCode) {
       fetchTimekeepingLogs();
     }
-  }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode]);
+  }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode, selectedMonth, selectedYear]);
 
   const renderAttendanceTab = () => {
     const getUserDetail = (uid: string) => {
       const uDetail = usersList.find((u) => u.uid === uid || (u as any)._id === uid);
       return {
-        displayName: uDetail?.displayName || "Nh�n vi�n iGen",
+        displayName: uDetail?.displayName || "Nhân viên iGen",
         photoURL: uDetail?.photoURL || "",
         email: uDetail?.email || "",
       };
@@ -393,12 +406,12 @@ export default function CalendarTab({
 
     const todayStr = formatLocalDate(new Date());
 
-    // Danh s�ch nh�n vi�n hi?n th? tr�n sidebar v� lu?i
+    // Danh sách nhân viên hiển thị trên sidebar và lưới
     const targetEmployees = isManager
       ? usersList
       : (userProfile ? [userProfile] : []);
 
-    // L?c theo thanh search sidebar
+    // Lọc theo thanh search sidebar
     const sidebarEmployees = targetEmployees.filter(emp => {
       if (!empSearchQuery) return true;
       const q = empSearchQuery.toLowerCase();
@@ -408,18 +421,18 @@ export default function CalendarTab({
       );
     });
 
-    // T�nh s? ng�y trong th�ng d� ch?n
+    // Tính số ngày trong tháng đã chọn
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     const dayColumns: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    // H�m l?y th? c?a ng�y (0=CN, 1=T2,..., 6=T7)
+    // Hàm lấy thứ của ngày (0=CN, 1=T2,..., 6=T7)
     const getDayOfWeek = (day: number) => {
       return new Date(selectedYear, selectedMonth - 1, day).getDay();
     };
 
     const dayLabels = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-    // H�m t�nh h? s? c�ng theo tr?ng th�i
+    // Hàm tính hệ số công theo trạng thái
     const clockMinutes = (value?: string) => {
       if (!value) return 0;
       const [hours, minutes] = value.split(":").map(Number);
@@ -449,25 +462,25 @@ export default function CalendarTab({
     const calculateWorkedMinutes = (uid: string, checkIn?: string | Date, checkOut?: string | Date, log?: any) =>
       calculateAttendanceWorkedMinutes(checkIn, checkOut, scheduleFromLog(uid, log));
 
-    // H�m l?y nh�n ng?n tr?ng th�i hi?n th? trong �
+    // Hàm lấy nhãn ngắn trạng thái hiển thị trong ô
     const getStatusShort = (status: string): string => {
       switch (status) {
-        case "Present": return "��ng gi?";
-        case "Late": return "Mu?n";
-        case "Approved-Leave": return "Ph�p";
+        case "Present": return "Đúng giờ";
+        case "Late": return "Muộn";
+        case "Approved-Leave": return "Phép";
         case "Approved-WFH": return "WFH";
-        case "Approved-Exception": return "Ngo?i l?";
-        case "Left-Early": return "V? s?m";
-        case "Half-Day": return "� C�ng";
-        case "Late-Left-Early": return "Mu?n+S?m";
-        case "Incomplete": return "Thi?u ch?m c�ng";
-        case "Partial": return "Thi?u c�ng";
-        case "Absent": return "V?ng";
+        case "Approved-Exception": return "Ngoại lệ";
+        case "Left-Early": return "Về sớm";
+        case "Half-Day": return "½ Công";
+        case "Late-Left-Early": return "Muộn+Sớm";
+        case "Incomplete": return "Thiếu chấm công";
+        case "Partial": return "Thiếu công";
+        case "Absent": return "Vắng";
         default: return "";
       }
     };
 
-    // H�m t�nh d? li?u m?t � ng�y cho m?t nh�n vi�n
+    // Hàm tính dữ liệu một ô ngày cho một nhân viên
     const getDayCellData = (emp: any, day: number) => {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dbLog = logs.find((l: any) => l.uid === emp.uid && l.date === dateStr);
@@ -479,14 +492,6 @@ export default function CalendarTab({
           : true
         : defaultWeekend;
       const isFuture = dateStr > todayStr;
-
-      if (isWeekend) {
-        return { status: "weekend", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: true, isFuture };
-      }
-
-      if (isFuture) {
-        return { status: "", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: false, isFuture: true };
-      }
 
       if (dbLog) {
         const workedMinutes = calculateWorkedMinutes(emp.uid, dbLog.checkIn?.time, dbLog.checkOut?.time, dbLog);
@@ -511,6 +516,14 @@ export default function CalendarTab({
           isWeekend: false,
           isFuture: false,
         };
+      }
+
+      if (isWeekend) {
+        return { status: "weekend", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: true, isFuture };
+      }
+
+      if (isFuture) {
+        return { status: "", coeff: null, checkIn: "", checkOut: "", dateStr, isWeekend: false, isFuture: true };
       }
 
       // Payroll only credits approved leave applications, not standalone calendar events.
@@ -539,7 +552,7 @@ export default function CalendarTab({
       };
     };
 
-    // T�nh t?ng gi? v� t?ng c�ng c?a m?t nh�n vi�n trong th�ng
+    // Tính tổng giờ và tổng công của một nhân viên trong tháng
     const calcMonthTotals = (emp: any) => {
       let totalWorkedMinutes = 0;
       let totalCoeff = 0;
@@ -587,12 +600,12 @@ export default function CalendarTab({
             editReason: editAttendanceReason,
           }),
         });
-        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Kh�ng th? c?p nh?t ch?m c�ng.");
-        toast.success("�� c?p nh?t l?ch s? ch?m c�ng.");
+        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.message || "Không thể cập nhật chấm công.");
+        toast.success("Đã cập nhật lịch sử chấm công.");
         setEditingAttendance(null);
         await fetchTimekeepingLogs();
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Kh�ng th? c?p nh?t l?ch s? ch?m c�ng."));
+        toast.error(getApiErrorMessage(error, "Không thể cập nhật lịch sử chấm công."));
       } finally {
         setIsAttendanceSaving(false);
       }
@@ -600,7 +613,7 @@ export default function CalendarTab({
 
     const handleAttendanceExcelExport = (kind: AttendanceExportKind) => {
       if (sidebarEmployees.length === 0) {
-        toast.warning("Kh�ng c� d? li?u nh�n vi�n ph� h?p d? xu?t.");
+        toast.warning("Không có dữ liệu nhân viên phù hợp để xuất.");
         return;
       }
 
@@ -660,16 +673,16 @@ export default function CalendarTab({
 
         toast.success(
           kind === "coeff"
-            ? "�� xu?t b?ng s? c�ng ra Excel."
-            : "�� xu?t b?ng s? gi? ra Excel."
+            ? "Đã xuất bảng số công ra Excel."
+            : "Đã xuất bảng số giờ ra Excel."
         );
       } catch (error) {
-        console.error("L?i xu?t Excel ch?m c�ng:", error);
-        toast.error("Kh�ng th? xu?t b?ng ch?m c�ng ra Excel.");
+        console.error("Lỗi xuất Excel chấm công:", error);
+        toast.error("Không thể xuất bảng chấm công ra Excel.");
       }
     };
 
-    // Navigation th�ng
+    // Navigation tháng
     const goToPrevMonth = () => {
       if (selectedMonth === 1) {
         setSelectedMonth(12);
@@ -690,29 +703,29 @@ export default function CalendarTab({
       setLogsPage(1);
     };
 
-    // Ph�n trang nh�n vi�n tr�n lu?i
+    // Phân trang nhân viên trên lưới
     const gridPageSize = 15;
     const totalGridPages = Math.ceil(sidebarEmployees.length / gridPageSize) || 1;
     const paginatedGridEmployees = sidebarEmployees.slice((logsPage - 1) * gridPageSize, logsPage * gridPageSize);
 
-    const monthNames = ["Th�ng 1", "Th�ng 2", "Th�ng 3", "Th�ng 4", "Th�ng 5", "Th�ng 6",
-      "Th�ng 7", "Th�ng 8", "Th�ng 9", "Th�ng 10", "Th�ng 11", "Th�ng 12"];
+    const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
       <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
-        {/* ===== HEADER CONTROLS + B?NG CH?M C�NG ===== */}
+        {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
-            {/* Ti�u d? + ch?n th�ng */}
+            {/* Tiêu đề + chọn tháng */}
             <div className="flex items-center gap-3">
-              <h1 className="text-base font-black text-slate-800 tracking-tight">B?ng ch?m c�ng</h1>
+              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={goToPrevMonth}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
-                  title="Th�ng tru?c"
+                  title="Tháng trước"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -732,7 +745,7 @@ export default function CalendarTab({
                     className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
                   >
                     {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
-                      <option key={y} value={y}>Nam {y}</option>
+                      <option key={y} value={y}>Năm {y}</option>
                     ))}
                   </select>
                 </div>
@@ -740,16 +753,16 @@ export default function CalendarTab({
                   type="button"
                   onClick={goToNextMonth}
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
-                  title="Th�ng sau"
+                  title="Tháng sau"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* � t�m ki?m nh�n vi�n */}
+              {/* Ô tìm kiếm nhân viên */}
               <input
                 type="text"
-                placeholder="T�m nh�n vi�n..."
+                placeholder="Tìm nhân viên..."
                 value={empSearchQuery}
                 onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
                 className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
@@ -762,46 +775,12 @@ export default function CalendarTab({
                 type="button"
                 onClick={fetchTimekeepingLogs}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
-                title="T?i l?i d? li?u"
+                title="Tải lại dữ liệu"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLogsLoading ? "animate-spin" : ""}`} />
-                T?i l?i
+                Tải lại
               </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsDisplayModeDropdownOpen(!isDisplayModeDropdownOpen)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
-                >
-                  <Eye className="h-3.5 w-3.5 text-slate-500" />
-                  <span>
-                    {cellDisplayMode === "coeff" ? "S? c�ng" : "S? gi?"}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                </button>
-
-                {isDisplayModeDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 text-xs font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => { setCellDisplayMode("coeff"); setIsDisplayModeDropdownOpen(false); }}
-                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
-                    >
-                      <span>S? c�ng</span>
-                      {cellDisplayMode === "coeff" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setCellDisplayMode("hours"); setIsDisplayModeDropdownOpen(false); }}
-                      className="w-full px-3.5 py-2 text-left hover:bg-cyan-50 flex items-center justify-between text-slate-700 cursor-pointer"
-                    >
-                      <span>S? gi?</span>
-                      {cellDisplayMode === "hours" && <Check className="h-4 w-4 text-cyan-600 font-bold" />}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <button
+               <button
                 type="button"
                 onClick={() => setIsScheduleMode(!isScheduleMode)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer border-0 ${
@@ -811,49 +790,44 @@ export default function CalendarTab({
                 }`}
               >
                 <CalendarIcon className="h-3.5 w-3.5" />
-                Ch? d? l?ch
+                Chế độ lịch
               </button>
               <AttendanceUtilityMenu
                 disabled={isLogsLoading}
                 onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
-                onExportHours={() => handleAttendanceExcelExport("hours")}
               />
             </div>
           </div>
 
-          {/* B?ng Grid Ch?m C�ng */}
+          {/* Bảng Grid Chấm Công */}
           <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm font-medium">�ang t?i d? li?u ch?m c�ng...</span>
+                <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
               </div>
             ) : (
-              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${504 + daysInMonth * 50}px` }}>
+              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${448 + daysInMonth * 50}px` }}>
                 {/* === THEAD === */}
                 <thead className="sticky top-0 z-40">
                   <tr className="bg-slate-100 border-b border-slate-300">
-                    {/* C?t STT */}
+                    {/* Cột STT */}
                     <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
                       #
                     </th>
-                    {/* C?t H? v� T�n */}
+                    {/* Cột Họ và Tên */}
                     <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
-                      H? v� T�n
+                      Họ và Tên
                     </th>
-                    {/* C?t Email */}
+                    {/* Cột Email */}
                     <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
-                      M� dang nh?p
+                      Mã đăng nhập
                     </th>
-                    {/* C?t S? gi? */}
-                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r border-emerald-800 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px]">
-                      S?<br/>gi?
+                    {/* Cột Số công */}
+                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                      Số<br/>công
                     </th>
-                    {/* C?t S? c�ng */}
-                    <th className="sticky left-[448px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                      S?<br/>c�ng
-                    </th>
-                    {/* C�c c?t ng�y */}
+                    {/* Các cột ngày */}
                     {dayColumns.map(day => {
                       const dow = getDayOfWeek(day);
                       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -888,7 +862,7 @@ export default function CalendarTab({
                   {paginatedGridEmployees.length === 0 ? (
                     <tr>
                       <td colSpan={5 + daysInMonth} className="px-6 py-16 text-center text-slate-400 font-medium">
-                        Kh�ng t�m th?y nh�n vi�n n�o.
+                        Không tìm thấy nhân viên nào.
                       </td>
                     </tr>
                   ) : (
@@ -903,7 +877,7 @@ export default function CalendarTab({
                           <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
                             {globalIdx}
                           </td>
-                          {/* H? v� T�n */}
+                          {/* Họ và Tên */}
                           <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
                             <div className="flex items-center gap-2">
                               {u.photoURL ? (
@@ -920,12 +894,8 @@ export default function CalendarTab({
                           <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
                             <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
-                          {/* T?ng gi? */}
-                          <td className="sticky left-[392px] z-30 border-r border-emerald-200 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px]">
-                            <span className="text-xs font-black text-emerald-700">{totalHours}h</span>
-                          </td>
-                          {/* T?ng c�ng */}
-                          <td className="sticky left-[448px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                          {/* Tổng công */}
+                          <td className="sticky left-[392px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
                             <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
                           </td>
                           {dayColumns.map(day => {
@@ -938,7 +908,7 @@ export default function CalendarTab({
                             if (isWeekend) {
                               return (
                                 <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
-                                  <span className="text-slate-300 text-[10px] font-bold">�</span>
+                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
                                 </td>
                               );
                             }
@@ -946,7 +916,7 @@ export default function CalendarTab({
                             if (cell.isFuture) {
                               return (
                                 <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
-                                  <span className="text-slate-200 text-[10px]">�</span>
+                                  <span className="text-slate-200 text-[10px]">·</span>
                                 </td>
                               );
                             }
@@ -960,7 +930,7 @@ export default function CalendarTab({
                                 key={day}
                                 onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
                                 className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
-                                title={`${u.displayName} � ${dateStr}\nTr?ng th�i: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nH? s? c�ng: ${coeff}`}
+                                title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
                               >
                                 {isScheduleMode ? (
                                   cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
@@ -975,17 +945,17 @@ export default function CalendarTab({
                                         }`} />
                                         <span className="truncate" title={cell.status}>
                                           {cell.status === "Incomplete"
-                                            ? "Thi?u ch?m c�ng"
+                                            ? "Thiếu chấm công"
                                             : cell.status === "Partial"
-                                              ? "Thi?u c�ng"
+                                              ? "Thiếu công"
                                               : cell.status === "Present"
                                             ? `HCS(${cell.checkIn || "07:30"} - ${cell.checkOut || "17:30"})`
                                             : cell.status === "Half-Day"
                                               ? `CBH2(${cell.checkIn || "08:00"} - ${cell.checkOut || "12:00"})`
                                               : cell.status === "Approved-Leave"
-                                                ? "Ngh? ph�p"
+                                                ? "Nghỉ phép"
                                                 : cell.status === "Approved-WFH"
-                                                  ? "L�m t?i nh�"
+                                                  ? "Làm tại nhà"
                                                   : cell.status === "Late"
                                                     ? `CS(${cell.checkIn || "08:00"} - ${cell.checkOut || "17:00"})`
                                                     : getStatusShort(cell.status)}
@@ -996,16 +966,16 @@ export default function CalendarTab({
                                           {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
                                         </div>
                                       )}
-                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">�� di?u ch?nh</div>}
+                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">Đã điều chỉnh</div>}
                                     </div>
                                   ) : null
                                 ) : cellDisplayMode === "coeff" ? (
                                   <>
-                                    {/* H? s? c�ng */}
+                                    {/* Hệ số công */}
                                     <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
                                       {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
                                     </div>
-                                    {/* Nh�n tr?ng th�i */}
+                                    {/* Nhãn trạng thái */}
                                     {cell.status && (
                                       <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
                                         {getStatusShort(cell.status)}
@@ -1014,7 +984,7 @@ export default function CalendarTab({
                                   </>
                                 ) : (
                                   <>
-                                    {/* S? gi? */}
+                                    {/* Số giờ */}
                                     <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
                                       {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
                                     </div>
@@ -1025,7 +995,7 @@ export default function CalendarTab({
                                     )}
                                   </>
                                 )}
-                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">�� s?a</div>}
+                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">Đã sửa</div>}
                               </td>
                             );
                           })}
@@ -1042,7 +1012,7 @@ export default function CalendarTab({
           {!isLogsLoading && sidebarEmployees.length > 0 && (
             <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
               <span className="text-xs text-slate-500">
-                Hi?n th? {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}�{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nh�n vi�n
+                Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1050,7 +1020,7 @@ export default function CalendarTab({
                   onClick={() => setLogsPage(logsPage - 1)}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  Tru?c
+                  Trước
                 </button>
                 <span className="text-xs font-bold text-slate-800 px-2">
                   Trang {logsPage} / {totalGridPages}
@@ -1070,19 +1040,19 @@ export default function CalendarTab({
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
             <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
               <div className="mb-4 flex items-center justify-between">
-                <div><h3 className="font-bold text-slate-800">S?a l?ch s? ch?m c�ng</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} � {editingAttendance.date}</p></div>
+                <div><h3 className="font-bold text-slate-800">Sửa lịch sử chấm công</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} · {editingAttendance.date}</p></div>
                 <button onClick={() => setEditingAttendance(null)} className="rounded-lg p-1.5 hover:bg-slate-100 cursor-pointer"><X className="h-4 w-4" /></button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs font-semibold text-slate-600">Check-in<input type="time" value={editCheckIn} onChange={(e) => setEditCheckIn(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
                 <label className="text-xs font-semibold text-slate-600">Check-out<input type="time" value={editCheckOut} onChange={(e) => setEditCheckOut(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
               </div>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">Tr?ng th�i<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">��ng gi?</option><option value="Late">Mu?n</option><option value="Left-Early">V? s?m</option><option value="Late-Left-Early">Mu?n + v? s?m</option><option value="Half-Day">N?a ng�y</option><option value="Absent">V?ng</option></select></label>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi ch�<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
-              <label className="mt-3 block text-xs font-semibold text-slate-600">L� do ch?nh s?a <span className="text-rose-500">*</span><textarea value={editAttendanceReason} onChange={(e) => setEditAttendanceReason(e.target.value)} rows={2} placeholder="B?t bu?c nh?p l� do" className="mt-1 w-full rounded-lg border p-2" /></label>
-              {editingAttendance.manuallyAdjusted && <div className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-700">L?n s?a tru?c: {editingAttendance.adjustmentReason || "Kh�ng c� l� do"}</div>}
-              {editingAttendance.adjustmentHistory?.length > 0 && <div className="mt-3 max-h-28 overflow-auto rounded-lg border p-2"><div className="mb-1 text-[10px] font-bold uppercase text-slate-500">Nh?t k� di?u ch?nh</div>{editingAttendance.adjustmentHistory.map((entry: any) => <div key={entry._id} className="border-t py-1 text-[10px] text-slate-600"><b>{entry.actorId}</b> � {new Date(entry.createdAt).toLocaleString("vi-VN")}<div>{entry.reason}</div></div>)}</div>}
-              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">H?y</button><button disabled={isAttendanceSaving || editAttendanceReason.trim().length < 3} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "�ang luu..." : "Luu thay d?i"}</button></div>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Trạng thái<select value={editAttendanceStatus} onChange={(e) => setEditAttendanceStatus(e.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="Present">Đúng giờ</option><option value="Late">Muộn</option><option value="Left-Early">Về sớm</option><option value="Late-Left-Early">Muộn + về sớm</option><option value="Half-Day">Nửa ngày</option><option value="Absent">Vắng</option></select></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Ghi chú<textarea value={editAttendanceNote} onChange={(e) => setEditAttendanceNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="mt-3 block text-xs font-semibold text-slate-600">Lý do chỉnh sửa <span className="text-rose-500">*</span><textarea value={editAttendanceReason} onChange={(e) => setEditAttendanceReason(e.target.value)} rows={2} placeholder="Bắt buộc nhập lý do" className="mt-1 w-full rounded-lg border p-2" /></label>
+              {editingAttendance.manuallyAdjusted && <div className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-700">Lần sửa trước: {editingAttendance.adjustmentReason || "Không có lý do"}</div>}
+              {editingAttendance.adjustmentHistory?.length > 0 && <div className="mt-3 max-h-28 overflow-auto rounded-lg border p-2"><div className="mb-1 text-[10px] font-bold uppercase text-slate-500">Nhật ký điều chỉnh</div>{editingAttendance.adjustmentHistory.map((entry: any) => <div key={entry._id} className="border-t py-1 text-[10px] text-slate-600"><b>{entry.actorId}</b> · {new Date(entry.createdAt).toLocaleString("vi-VN")}<div>{entry.reason}</div></div>)}</div>}
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditingAttendance(null)} className="rounded-lg border px-4 py-2 text-sm cursor-pointer">Hủy</button><button disabled={isAttendanceSaving || editAttendanceReason.trim().length < 3} onClick={() => void saveAttendanceEditor()} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">{isAttendanceSaving ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
             </div>
           </div>
         )}
@@ -1209,7 +1179,7 @@ export default function CalendarTab({
 
   const stats = getStatistics();
 
-  // L?ch ch? hi?n th?: b?m v�o ng�y ch? m? popup chi ti?t (ch? d?c).
+  // Lịch chỉ hiển thị: bấm vào ngày chỉ mở popup chi tiết (chỉ đọc).
   const handleDayClick = (dayDate: Date) => {
     setSelectedDayDate(dayDate);
     setIsDetailModalOpen(true);
@@ -1231,7 +1201,7 @@ export default function CalendarTab({
                 : "text-gray-500 hover:text-gray-800"
               }`}
           >
-            L?ch tr�nh
+            Lịch trình
           </button>
           <button
             onClick={() => setCurrentSubTab("attendance")}
@@ -1240,7 +1210,7 @@ export default function CalendarTab({
                 : "text-gray-500 hover:text-gray-800"
               }`}
           >
-            L?ch s? ch?m c�ng
+            Lịch sử chấm công
           </button>
         </div>
       </div>
@@ -1259,17 +1229,17 @@ export default function CalendarTab({
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
-                    L?ch tr�nh
+                    Lịch trình
                   </h2>
                   <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                    Th�ng {month + 1} / {year}
+                    Tháng {month + 1} / {year}
                   </p>
                 </div>
                 <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white items-center">
                   <button
                     onClick={handlePrevMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Th�ng tru?c"
+                    title="Tháng trước"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
@@ -1282,12 +1252,12 @@ export default function CalendarTab({
                       }
                     }}
                     className="px-3 py-1.5 font-bold text-xs text-slate-700 border-x border-slate-200/80 bg-transparent outline-none cursor-pointer hover:bg-slate-50 transition-colors"
-                    title="Ch?n ng�y"
+                    title="Chọn ngày"
                   />
                   <button
                     onClick={handleNextMonth}
                     className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Th�ng sau"
+                    title="Tháng sau"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
@@ -1303,7 +1273,7 @@ export default function CalendarTab({
               <div className="lg:col-span-6 flex flex-wrap gap-2.5">
                 <div className="flex items-center gap-1.5 bg-slate-100/50 px-3 py-1.5 rounded-2xl border border-slate-200/50">
                   <Filter className="h-3.5 w-3.5 text-slate-550" />
-                  <span className="text-xs text-slate-600 font-extrabold">B? l?c:</span>
+                  <span className="text-xs text-slate-600 font-extrabold">Bộ lọc:</span>
                 </div>
 
                 {/* Type selector */}
@@ -1312,12 +1282,12 @@ export default function CalendarTab({
                   onChange={(e) => setFilterType(e.target.value)}
                   className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all"
                 >
-                  <option value="all">T?t c? danh m?c</option>
-                  <option value="event">?? S? ki?n</option>
-                  <option value="leave">?? Ngh? ph�p</option>
-                  <option value="wfh">?? L�m t?i nh�</option>
-                  <option value="exception">? Ngo?i l?</option>
-                  <option value="reminder">?? Nh?c h?n</option>
+                  <option value="all">Tất cả danh mục</option>
+                  <option value="event">📅 Sự kiện</option>
+                  <option value="leave">🌴 Nghỉ phép</option>
+                  <option value="wfh">🏠 Làm tại nhà</option>
+                  <option value="exception">⚡ Ngoại lệ</option>
+                  <option value="reminder">🔔 Nhắc hẹn</option>
                 </select>
 
                 {/* Employee selector */}
@@ -1326,7 +1296,7 @@ export default function CalendarTab({
                   onChange={(e) => setFilterEmployee(e.target.value)}
                   className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all max-w-[180px]"
                 >
-                  <option value="all">T?t c? nh�n s?</option>
+                  <option value="all">Tất cả nhân sự</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
@@ -1339,7 +1309,7 @@ export default function CalendarTab({
               <div className="lg:col-span-6 flex justify-end gap-3 flex-wrap">
                 <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">S? ki?n</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.events}</span>
                   </div>
                   <div className="bg-blue-50 p-1.5 rounded-full text-blue-600">
@@ -1349,7 +1319,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngh? ph�p</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nghỉ phép</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.leaves}</span>
                   </div>
                   <div className="bg-rose-50 p-1.5 rounded-full text-rose-600">
@@ -1359,7 +1329,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-teal-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-teal-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">T?i nh�</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Tại nhà</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.wfhs}</span>
                   </div>
                   <div className="bg-teal-50 p-1.5 rounded-full text-teal-600">
@@ -1369,7 +1339,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-violet-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngo?i l?</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngoại lệ</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.exceptions}</span>
                   </div>
                   <div className="bg-violet-50 p-1.5 rounded-full text-violet-600">
@@ -1379,7 +1349,7 @@ export default function CalendarTab({
 
                 <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nh?c h?n</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nhắc hẹn</span>
                     <span className="text-sm font-extrabold text-slate-800">{stats.reminders}</span>
                   </div>
                   <div className="bg-amber-50 p-1.5 rounded-full text-amber-600">
@@ -1395,7 +1365,7 @@ export default function CalendarTab({
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full py-20 gap-3.5">
                 <div className="w-9 h-9 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-slate-500 font-bold tracking-wider">�ang t?i l?ch tr�nh...</span>
+                <span className="text-xs text-slate-500 font-bold tracking-wider">Đang tải lịch trình...</span>
               </div>
             ) : (
               <div className="min-w-[750px] h-full flex flex-col">
@@ -1459,7 +1429,7 @@ export default function CalendarTab({
 
                         {holiday && (
                           <div className="text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
-                            ?? {holiday.name}
+                            🎌 {holiday.name}
                           </div>
                         )}
 
@@ -1486,17 +1456,17 @@ export default function CalendarTab({
                                   setIsDetailModalOpen(true);
                                 }}
                                 className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
-                                title={`${item.title} (${item.type === "leave" ? "Ngh? ph�p" : item.type === "wfh" ? "L�m t?i nh�" : item.type === "exception" ? "Ngo?i l?" : item.type === "reminder" ? "Nh?c h?n" : "S? ki?n"
+                                title={`${item.title} (${item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
                                   })`}
                               >
-                                {item.type === "leave" ? `?? ` : item.type === "wfh" ? `?? ` : item.type === "exception" ? `? ` : item.type === "reminder" ? `?? ` : `?? `}
+                                {item.type === "leave" ? `🌴 ` : item.type === "wfh" ? `🏠 ` : item.type === "exception" ? `⚡ ` : item.type === "reminder" ? `🔔 ` : `📅 `}
                                 {item.title}
                               </div>
                             );
                           })}
                           {dayItems.length > 3 && (
                             <div className="text-[9px] text-slate-450 font-extrabold pl-1.5">
-                              + {dayItems.length - 3} l?ch...
+                              + {dayItems.length - 3} lịch...
                             </div>
                           )}
                         </div>
@@ -1518,10 +1488,10 @@ export default function CalendarTab({
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <div>
                 <h3 className="font-extrabold text-slate-800 text-sm">
-                  L?ch tr�nh ng�y {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
+                  Lịch trình ngày {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
                 </h3>
                 <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wide mt-0.5">
-                  C� {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} l?ch tr�nh trong ng�y
+                  Có {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} lịch trình trong ngày
                 </p>
               </div>
               <button
@@ -1549,7 +1519,7 @@ export default function CalendarTab({
                             : "bg-blue-50 text-blue-700 border-blue-100";
 
                   const typeLabel =
-                    item.type === "leave" ? "Ngh? ph�p" : item.type === "wfh" ? "L�m t?i nh�" : item.type === "exception" ? "Ngo?i l?" : item.type === "reminder" ? "Nh?c h?n" : "S? ki?n";
+                    item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
 
                   return (
                     <div
@@ -1585,7 +1555,7 @@ export default function CalendarTab({
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                               : "bg-amber-50 text-amber-700 border border-amber-100"
                             }`}>
-                            {item.status === "approved" ? "�� duy?t" : "Ch? duy?t"}
+                            {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
                           </span>
                         )}
                       </div>
