@@ -66,7 +66,7 @@ export function resolveEmployeeSalaryTerms(
   if (!terms.length) {
     issues.push({
       code: "CONTRACT_SALARY_TERM_MISSING",
-      message: "Nhân viên chưa có điều khoản lương hiệu lực trong kỳ",
+      message: "Nh�n vi�n chua c� di?u kho?n luong hi?u l?c trong k?",
       employeeId,
       severity: "blocking",
     });
@@ -126,14 +126,14 @@ export function resolveTaxMethod(profile: ProfileLike | undefined): "progressive
 export function profileWarnings(employeeId: string, profile: ProfileLike | undefined): PayrollIssue[] {
   const issues: PayrollIssue[] = [];
   if (!profile) {
-    issues.push({ code: "PAYROLL_PROFILE_MISSING", message: "Nhân viên chưa có hồ sơ payroll", employeeId, severity: "warning" });
+    issues.push({ code: "PAYROLL_PROFILE_MISSING", message: "Nh�n vi�n chua c� h? so payroll", employeeId, severity: "warning" });
     return issues;
   }
   if (!profile.taxCode?.trim()) {
-    issues.push({ code: "PAYROLL_TAX_CODE_MISSING", message: "Thiếu mã số thuế", employeeId, severity: "warning" });
+    issues.push({ code: "PAYROLL_TAX_CODE_MISSING", message: "Thi?u m� s? thu?", employeeId, severity: "warning" });
   }
   if (!profile.bankAccountNumber?.trim()) {
-    issues.push({ code: "PAYROLL_BANK_ACCOUNT_MISSING", message: "Thiếu số tài khoản ngân hàng", employeeId, severity: "warning" });
+    issues.push({ code: "PAYROLL_BANK_ACCOUNT_MISSING", message: "Thi?u s? t�i kho?n ng�n h�ng", employeeId, severity: "warning" });
   }
   return issues;
 }

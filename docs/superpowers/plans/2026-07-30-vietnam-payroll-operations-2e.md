@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Requires phases 2Aâ€“2D.
+- Requires phases 2A–2D.
 - Employee self-service returns only the authenticated employee's published payslips.
 - Exported monetary data must equal closed snapshot values exactly.
 - Bank exports require `payroll:pay`; other exports require `payroll:read` with field-level redaction.

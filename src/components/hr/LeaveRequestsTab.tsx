@@ -70,8 +70,8 @@ export default function LeaveRequestsTab({
     title: string,
     description: string,
     onConfirm: () => void | Promise<void>,
-    confirmLabel = "Xác nhận",
-    cancelLabel = "Hủy"
+    confirmLabel = "X�c nh?n",
+    cancelLabel = "H?y"
   ) => {
     setConfirmState({
       isOpen: true,
@@ -116,7 +116,7 @@ export default function LeaveRequestsTab({
           .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
           .join("; ");
       }
-      throw new Error((errorJson.message || "Lỗi tải tệp lên máy chủ.") + (details ? ` [${details}]` : ""));
+      throw new Error((errorJson.message || "L?i t?i t?p l�n m�y ch?.") + (details ? ` [${details}]` : ""));
     }
 
     const json = await res.json();
@@ -132,7 +132,7 @@ export default function LeaveRequestsTab({
       );
       if (res.ok) setLeaveBalance((await res.json()).data || null);
     } catch (error) {
-      console.error("Không thể tải số dư phép", error);
+      console.error("Kh�ng th? t?i s? du ph�p", error);
     }
   };
 
@@ -183,11 +183,11 @@ export default function LeaveRequestsTab({
   const handleUploadTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tplName.trim()) {
-      toast.error("Vui lòng nhập tên biểu mẫu.");
+      toast.error("Vui l�ng nh?p t�n bi?u m?u.");
       return;
     }
     if (!tplFile) {
-      toast.error("Vui lòng chọn tệp biểu mẫu.");
+      toast.error("Vui l�ng ch?n t?p bi?u m?u.");
       return;
     }
 
@@ -216,17 +216,17 @@ export default function LeaveRequestsTab({
             .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
             .join("; ");
         }
-        throw new Error((errorData.message || "Lỗi lưu biểu mẫu.") + (details ? ` [${details}]` : ""));
+        throw new Error((errorData.message || "L?i luu bi?u m?u.") + (details ? ` [${details}]` : ""));
       }
 
-      toast.success("Tải lên biểu mẫu mẫu thành công!");
+      toast.success("T?i l�n bi?u m?u m?u th�nh c�ng!");
       setIsTemplateFormOpen(false);
       setTplName("");
       setTplFile(null);
       fetchTemplates();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Tải lên biểu mẫu mẫu thất bại.");
+      toast.error(err.message || "T?i l�n bi?u m?u m?u th?t b?i.");
     } finally {
       setIsFileUploading(false);
     }
@@ -234,7 +234,7 @@ export default function LeaveRequestsTab({
 
   const openAppForm = () => {
     setAppType(templates.length > 0 ? templates[0].name : "other");
-    // Nhân viên thường luôn nộp đơn cho chính mình; cấp duyệt có thể đổi ở form.
+    // Nh�n vi�n thu?ng lu�n n?p don cho ch�nh m�nh; c?p duy?t c� th? d?i ? form.
     const defaultEmployeeId = userProfile?.uid || "";
     setAppEmployeeId(defaultEmployeeId);
     setAppFile(null);
@@ -246,17 +246,17 @@ export default function LeaveRequestsTab({
   const handleCreateApplicationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appStartDate || !appEndDate) {
-      toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
+      toast.error("Vui l�ng ch?n d?y d? ng�y ngh?.");
       return;
     }
     if (appFiles.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
+      toast.error("Vui l�ng t?i l�n �t nh?t m?t minh ch?ng.");
       return;
     }
     const startDateTime = new Date(`${appStartDate}T00:00:00`);
     const endDateTime = new Date(`${appEndDate}T23:59:59`);
     if (endDateTime < startDateTime) {
-      toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
+      toast.error("Th?i gian k?t th�c ph?i l?n hon ho?c b?ng th?i gian b?t d?u.");
       return;
     }
 
@@ -280,11 +280,11 @@ export default function LeaveRequestsTab({
         },
         body: JSON.stringify({
           employeeId: appEmployeeId,
-          employeeName: targetEmp?.displayName || userProfile?.displayName || "Nhân viên",
+          employeeName: targetEmp?.displayName || userProfile?.displayName || "Nh�n vi�n",
           type: appType,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: "Đăng ký nghỉ phép",
+          reason: "�ang k� ngh? ph�p",
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
           attachments,
@@ -300,10 +300,10 @@ export default function LeaveRequestsTab({
             .map(([key, msgs]: any) => `${key}: ${msgs.join(", ")}`)
             .join("; ");
         }
-        throw new Error((errorData.message || "Lỗi lưu đơn xin nghỉ.") + (details ? ` [${details}]` : ""));
+        throw new Error((errorData.message || "L?i luu don xin ngh?.") + (details ? ` [${details}]` : ""));
       }
 
-      toast.success("Gửi đơn xin nghỉ phép thành công!");
+      toast.success("G?i don xin ngh? ph�p th�nh c�ng!");
       setIsAppFormOpen(false);
       setAppFile(null);
       setAppFiles([]);
@@ -311,7 +311,7 @@ export default function LeaveRequestsTab({
       fetchApplications();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Gửi đơn thất bại.");
+      toast.error(err.message || "G?i don th?t b?i.");
     } finally {
       setIsFileUploading(false);
     }
@@ -332,19 +332,19 @@ export default function LeaveRequestsTab({
           approvedBy: userProfile?.uid,
         }),
       });
-      if (!res.ok) throw new Error("Lỗi phê duyệt đơn.");
-      toast.success("Đã duyệt đơn thành công!");
+      if (!res.ok) throw new Error("L?i ph� duy?t don.");
+      toast.success("�� duy?t don th�nh c�ng!");
       fetchApplications();
     } catch (err: any) {
       console.error(err);
-      toast.error("Phê duyệt đơn thất bại.");
+      toast.error("Ph� duy?t don th?t b?i.");
     }
   };
 
   const handleRejectAppSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectReasonText.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối.");
+      toast.error("Vui l�ng nh?p l� do t? ch?i.");
       return;
     }
     try {
@@ -360,68 +360,68 @@ export default function LeaveRequestsTab({
           approvedBy: userProfile?.uid,
         }),
       });
-      if (!res.ok) throw new Error("Lỗi từ chối đơn.");
-      toast.success("Đã từ chối đơn.");
+      if (!res.ok) throw new Error("L?i t? ch?i don.");
+      toast.success("�� t? ch?i don.");
       setAppRejectModalOpen(false);
       setSelectedAppId(null);
       setRejectReasonText("");
       fetchApplications();
     } catch (err: any) {
       console.error(err);
-      toast.error("Từ chối đơn thất bại.");
+      toast.error("T? ch?i don th?t b?i.");
     }
   };
 
   const handleDeleteApp = async (appId: string) => {
     askConfirm(
-      "Xóa đơn xin nghỉ",
-      "Bạn có chắc chắn muốn xóa đơn xin nghỉ này không? Hành động này không thể hoàn tác.",
+      "X�a don xin ngh?",
+      "B?n c� ch?c ch?n mu?n x�a don xin ngh? n�y kh�ng? H�nh d?ng n�y kh�ng th? ho�n t�c.",
       async () => {
         try {
           const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${getAccessToken()}` },
           });
-          if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
-          toast.success("Đã xóa đơn thành công.");
+          if (!res.ok) throw new Error("L?i khi x�a don.");
+          toast.success("�� x�a don th�nh c�ng.");
           fetchApplications();
         } catch (err: any) {
           console.error(err);
-          toast.error("Xóa đơn thất bại.");
+          toast.error("X�a don th?t b?i.");
         }
       },
-      "Xóa"
+      "X�a"
     );
   };
 
   const handleDeleteTpl = async (tplId: string) => {
     askConfirm(
-      "Xóa biểu mẫu",
-      "Bạn có chắc chắn muốn xóa biểu mẫu mẫu này không? Hành động này không thể hoàn tác.",
+      "X�a bi?u m?u",
+      "B?n c� ch?c ch?n mu?n x�a bi?u m?u m?u n�y kh�ng? H�nh d?ng n�y kh�ng th? ho�n t�c.",
       async () => {
         try {
           const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${getAccessToken()}` },
           });
-          if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
-          toast.success("Đã xóa biểu mẫu thành công.");
+          if (!res.ok) throw new Error("L?i khi x�a bi?u m?u.");
+          toast.success("�� x�a bi?u m?u th�nh c�ng.");
           fetchTemplates();
         } catch (err: any) {
           console.error(err);
-          toast.error("Xóa biểu mẫu thất bại.");
+          toast.error("X�a bi?u m?u th?t b?i.");
         }
       },
-      "Xóa"
+      "X�a"
     );
   };
 
   const getAppTypeLabel = (type: string) => {
     switch (type) {
-      case "leave": return "Nghỉ phép";
-      case "late": return "Đi trễ";
-      case "early": return "Về sớm";
-      case "other": return "Đơn khác";
+      case "leave": return "Ngh? ph�p";
+      case "late": return "�i tr?";
+      case "early": return "V? s?m";
+      case "other": return "�on kh�c";
       default: return type;
     }
   };
@@ -429,18 +429,18 @@ export default function LeaveRequestsTab({
   const getStatusBadge = (status: string, rejectReason?: string) => {
     switch (status) {
       case "approved":
-        return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-100">Đã duyệt</span>;
+        return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-100">�� duy?t</span>;
       case "rejected":
         return (
           <span
             className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-rose-50 text-rose-700 border-rose-100 cursor-help"
-            title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}
+            title={rejectReason ? `L� do t? ch?i: ${rejectReason}` : "B? t? ch?i"}
           >
-            Từ chối (?)
+            T? ch?i (?)
           </span>
         );
       default:
-        return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-100 animate-pulse">Chờ duyệt</span>;
+        return <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-100 animate-pulse">Ch? duy?t</span>;
     }
   };
 
@@ -467,10 +467,10 @@ export default function LeaveRequestsTab({
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
         <div>
           <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
-            Quản lý Đơn từ &amp; Phép
+            Qu?n l� �on t? &amp; Ph�p
           </h2>
           <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-            Tải biểu mẫu mẫu, nộp đơn kèm minh chứng và theo dõi trạng thái duyệt
+            T?i bi?u m?u m?u, n?p don k�m minh ch?ng v� theo d�i tr?ng th�i duy?t
           </p>
         </div>
 
@@ -483,14 +483,14 @@ export default function LeaveRequestsTab({
             className="flex items-center gap-1.5 px-4.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
           >
             <FileText className="h-4 w-4 text-indigo-650" />
-            Biểu mẫu mẫu
+            Bi?u m?u m?u
           </button>
           <button
             onClick={openAppForm}
             className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
           >
             <Send className="h-4 w-4" />
-            Nộp đơn
+            N?p don
           </button>
           {isLeaveAdmin && (
             <button
@@ -498,7 +498,7 @@ export default function LeaveRequestsTab({
               className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0 shadow-3xs"
             >
               <Upload className="h-4 w-4" />
-              Đăng biểu mẫu mới
+              �ang bi?u m?u m?i
             </button>
           )}
         </div>
@@ -507,31 +507,31 @@ export default function LeaveRequestsTab({
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-            {isLeaveAdmin ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
+            {isLeaveAdmin ? "Danh s�ch �on c?a nh�n s?" : "�on t? d� n?p c?a b?n"}
           </h3>
           {isLeaveAdmin && (
             <div className="flex flex-wrap gap-2.5 items-center">
               <input
                 type="text"
-                placeholder="Tìm nhân viên, lý do, loại đơn..."
+                placeholder="T�m nh�n vi�n, l� do, lo?i don..."
                 value={filterSearchQuery}
                 onChange={(e) => setFilterSearchQuery(e.target.value)}
                 className="px-3 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none w-48 sm:w-64 placeholder:text-slate-400 transition-all"
               />
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                  Loại đơn:
+                  Lo?i don:
                 </span>
                 <select
                   value={filterAppType}
                   onChange={(e) => setFilterAppType(e.target.value)}
                   className="px-2.5 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
                 >
-                  <option value="">Tất cả</option>
+                  <option value="">T?t c?</option>
                   {templates.map((tpl) => (
                     <option key={tpl._id || tpl.id} value={tpl.name}>{tpl.name}</option>
                   ))}
-                  <option value="other">Đơn khác</option>
+                  <option value="other">�on kh�c</option>
                 </select>
               </div>
             </div>
@@ -542,21 +542,21 @@ export default function LeaveRequestsTab({
           <table className="w-full text-xs text-left text-slate-700">
             <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
               <tr>
-                {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
-                <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
-                <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
-                <th className="px-5 py-4 min-w-[220px]">Lý do</th>
-                <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
+                {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nh�n s?</th>}
+                <th className="px-5 py-4 min-w-[100px]">Lo?i ph�p</th>
+                <th className="px-5 py-4 min-w-[160px]">Th?i gian</th>
+                <th className="px-5 py-4 min-w-[220px]">L� do</th>
+                <th className="px-5 py-4 min-w-[150px]">�on d�nh k�m</th>
                 {isLeaveAdmin ? (
                   <>
-                    <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                    <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
-                    <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
+                    <th className="px-5 py-4 text-center min-w-[110px]">Tr?ng th�i</th>
+                    <th className="px-5 py-4 min-w-[200px]">Ph?n h?i c?a Admin</th>
+                    <th className="px-5 py-4 text-center min-w-[90px]">Thao t�c</th>
                   </>
                 ) : (
                   <>
-                    <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
-                    <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                    <th className="px-5 py-4 min-w-[200px]">Ghi ch�</th>
+                    <th className="px-5 py-4 text-center min-w-[110px]">Tr?ng th�i</th>
                   </>
                 )}
               </tr>
@@ -567,7 +567,7 @@ export default function LeaveRequestsTab({
                   <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
                     <div className="flex justify-center items-center gap-2">
                       <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                      Đang tải danh sách đơn từ...
+                      �ang t?i danh s�ch don t?...
                     </div>
                   </td>
                 </tr>
@@ -575,8 +575,8 @@ export default function LeaveRequestsTab({
                 <tr>
                   <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
                     {applications.length === 0
-                      ? "Chưa có đơn từ nào được đăng ký."
-                      : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+                      ? "Chua c� don t? n�o du?c dang k�."
+                      : "Kh�ng t�m th?y don t? n�o kh?p v?i b? l?c."}
                   </td>
                 </tr>
               ) : (
@@ -594,7 +594,7 @@ export default function LeaveRequestsTab({
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-slate-500">
                         <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
-                        <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
+                        <div>d?n {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
                       </td>
                       <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" title={app.reason} style={{ wordBreak: "break-all" }}>
                         {app.reason}
@@ -605,13 +605,13 @@ export default function LeaveRequestsTab({
                             href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
                             download={app.uploadedFileName}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold transition-all shadow-3xs"
-                            title={`Tải xuống: ${app.uploadedFileName}`}
+                            title={`T?i xu?ng: ${app.uploadedFileName}`}
                           >
                             <Download className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Xem đơn đính kèm</span>
+                            <span>Xem don d�nh k�m</span>
                           </a>
                         ) : (
-                          <span className="text-slate-400 italic">Chưa có tệp</span>
+                          <span className="text-slate-400 italic">Chua c� t?p</span>
                         )}
                       </td>
                       {isLeaveAdmin ? (
@@ -629,7 +629,7 @@ export default function LeaveRequestsTab({
                                   <button
                                     onClick={() => handleApproveApp(app)}
                                     className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
-                                    title="Duyệt đơn"
+                                    title="Duy?t don"
                                   >
                                     <Check className="h-3.5 w-3.5" />
                                   </button>
@@ -640,7 +640,7 @@ export default function LeaveRequestsTab({
                                       setAppRejectModalOpen(true);
                                     }}
                                     className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
-                                    title="Từ chối"
+                                    title="T? ch?i"
                                   >
                                     <XCircle className="h-3.5 w-3.5" />
                                   </button>
@@ -650,7 +650,7 @@ export default function LeaveRequestsTab({
                                 <button
                                   onClick={() => handleDeleteApp(app._id || app.id)}
                                   className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
-                                  title="Xóa đơn"
+                                  title="X�a don"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -677,12 +677,12 @@ export default function LeaveRequestsTab({
         </div>
       </div>
 
-      {/* Modal nộp đơn */}
+      {/* Modal n?p don */}
       {isAppFormOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Nộp đơn từ</h3>
+              <h3 className="font-extrabold text-slate-800 text-sm">N?p don t?</h3>
               <button
                 onClick={() => setIsAppFormOpen(false)}
                 className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
@@ -695,16 +695,16 @@ export default function LeaveRequestsTab({
               <div className="p-6 flex flex-col gap-4">
                 {leaveBalance && (
                   <div className="grid grid-cols-4 gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center">
-                    <div><div className="text-[10px] text-slate-500">Hạn mức</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div>
-                    <div><div className="text-[10px] text-slate-500">Đã dùng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div>
-                    <div><div className="text-[10px] text-slate-500">Chờ duyệt</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div>
-                    <div><div className="text-[10px] text-slate-500">Còn lại</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div>
+                    <div><div className="text-[10px] text-slate-500">H?n m?c</div><div className="font-black text-emerald-700">{leaveBalance.entitlement}</div></div>
+                    <div><div className="text-[10px] text-slate-500">�� d�ng</div><div className="font-black text-slate-700">{leaveBalance.used}</div></div>
+                    <div><div className="text-[10px] text-slate-500">Ch? duy?t</div><div className="font-black text-amber-600">{leaveBalance.pending}</div></div>
+                    <div><div className="text-[10px] text-slate-500">C�n l?i</div><div className="font-black text-cyan-700">{leaveBalance.remaining}</div></div>
                   </div>
                 )}
 
                 {isLeaveAdmin && (
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Nhân sự</label>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Nh�n s?</label>
                     <select
                       value={appEmployeeId}
                       onChange={(e) => {
@@ -721,7 +721,7 @@ export default function LeaveRequestsTab({
                 )}
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Loại đơn</label>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Lo?i don</label>
                   <select
                     value={appType}
                     onChange={(e) => setAppType(e.target.value)}
@@ -730,7 +730,7 @@ export default function LeaveRequestsTab({
                     {templates.map((tpl) => (
                       <option key={tpl._id || tpl.id} value={tpl.name}>{tpl.name}</option>
                     ))}
-                    <option value="other">Đơn khác</option>
+                    <option value="other">�on kh�c</option>
                   </select>
                   {selectedTemplate?.fileUrl && (
                     <a
@@ -739,25 +739,25 @@ export default function LeaveRequestsTab({
                       className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 hover:text-indigo-800"
                     >
                       <Download className="h-3 w-3" />
-                      Tải mẫu &quot;{selectedTemplate.name}&quot; để điền trước khi nộp
+                      T?i m?u &quot;{selectedTemplate.name}&quot; d? di?n tru?c khi n?p
                     </a>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Từ ngày</label>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">T? ng�y</label>
                     <input type="date" required value={appStartDate} onChange={(e) => setAppStartDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Đến ngày</label>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">�?n ng�y</label>
                     <input type="date" required value={appEndDate} onChange={(e) => setAppEndDate(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Đơn đã điền / minh chứng (có thể chọn nhiều tệp)
+                    �on d� di?n / minh ch?ng (c� th? ch?n nhi?u t?p)
                   </label>
                   <input
                     type="file"
@@ -780,14 +780,14 @@ export default function LeaveRequestsTab({
                   onClick={() => setIsAppFormOpen(false)}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
                 >
-                  Hủy bỏ
+                  H?y b?
                 </button>
                 <button
                   type="submit"
                   disabled={isFileUploading}
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
                 >
-                  {isFileUploading ? "Đang nộp đơn..." : "Nộp đơn"}
+                  {isFileUploading ? "�ang n?p don..." : "N?p don"}
                 </button>
               </div>
             </form>
@@ -795,7 +795,7 @@ export default function LeaveRequestsTab({
         </div>
       )}
 
-      {/* Modal Danh sách Biểu mẫu mẫu */}
+      {/* Modal Danh s�ch Bi?u m?u m?u */}
       {isTemplateListModalOpen && (() => {
         const tplPageSize = 5;
         const totalTplPages = Math.ceil(templates.length / tplPageSize) || 1;
@@ -808,7 +808,7 @@ export default function LeaveRequestsTab({
               <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
                 <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
                   <FileText className="h-4.5 w-4.5 text-indigo-600" />
-                  Danh sách Biểu mẫu mẫu
+                  Danh s�ch Bi?u m?u m?u
                 </h3>
                 <button
                   onClick={() => setIsTemplateListModalOpen(false)}
@@ -827,7 +827,7 @@ export default function LeaveRequestsTab({
 
                 {!isTemplateLoading && templates.length === 0 ? (
                   <p className="text-xs text-slate-400 italic text-center py-6">
-                    Chưa có biểu mẫu mẫu nào được đăng ký.
+                    Chua c� bi?u m?u m?u n�o du?c dang k�.
                   </p>
                 ) : (
                   <>
@@ -849,19 +849,19 @@ export default function LeaveRequestsTab({
                               href={getFileDownloadUrl(tpl.fileUrl, tpl.fileName)}
                               download={tpl.fileName}
                               className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 cursor-pointer shadow-3xs"
-                              title="Tải biểu mẫu"
+                              title="T?i bi?u m?u"
                             >
                               <Download className="h-3 w-3" />
-                              Tải mẫu
+                              T?i m?u
                             </a>
                             {isLeaveAdmin && (
                               <button
                                 onClick={() => handleDeleteTpl(tpl._id || tpl.id)}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold transition-all border border-rose-200 cursor-pointer shadow-3xs"
-                                title="Xóa biểu mẫu"
+                                title="X�a bi?u m?u"
                               >
                                 <Trash2 className="h-3 w-3" />
-                                Xóa
+                                X�a
                               </button>
                             )}
                           </div>
@@ -904,7 +904,7 @@ export default function LeaveRequestsTab({
                   onClick={() => setIsTemplateListModalOpen(false)}
                   className="px-4.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer border-0"
                 >
-                  Đóng
+                  ��ng
                 </button>
               </div>
             </div>
@@ -912,12 +912,12 @@ export default function LeaveRequestsTab({
         );
       })()}
 
-      {/* Modal Tải Biểu Mẫu Mẫu (Admin/Manager) */}
+      {/* Modal T?i Bi?u M?u M?u (Admin/Manager) */}
       {isTemplateFormOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Đăng tải biểu mẫu mẫu mới</h3>
+              <h3 className="font-extrabold text-slate-800 text-sm">�ang t?i bi?u m?u m?u m?i</h3>
               <button
                 onClick={() => setIsTemplateFormOpen(false)}
                 className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
@@ -929,11 +929,11 @@ export default function LeaveRequestsTab({
             <form onSubmit={handleUploadTemplateSubmit}>
               <div className="p-6 flex flex-col gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Tên biểu mẫu</label>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">T�n bi?u m?u</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ví dụ: Đơn xin nghỉ phép năm, Đơn xin làm online..."
+                    placeholder="V� d?: �on xin ngh? ph�p nam, �on xin l�m online..."
                     value={tplName}
                     onChange={(e) => setTplName(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
@@ -942,7 +942,7 @@ export default function LeaveRequestsTab({
 
                 <div>
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                    Tệp tài liệu mẫu (Word/Excel/PDF...)
+                    T?p t�i li?u m?u (Word/Excel/PDF...)
                   </label>
                   <input
                     type="file"
@@ -960,14 +960,14 @@ export default function LeaveRequestsTab({
                   onClick={() => setIsTemplateFormOpen(false)}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
                 >
-                  Hủy bỏ
+                  H?y b?
                 </button>
                 <button
                   type="submit"
                   disabled={isFileUploading}
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
                 >
-                  {isFileUploading ? "Đang tải lên..." : "Tải lên"}
+                  {isFileUploading ? "�ang t?i l�n..." : "T?i l�n"}
                 </button>
               </div>
             </form>
@@ -975,12 +975,12 @@ export default function LeaveRequestsTab({
         </div>
       )}
 
-      {/* Modal Lý do Từ chối đơn */}
+      {/* Modal L� do T? ch?i don */}
       {appRejectModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <h3 className="font-extrabold text-slate-800 text-sm">Từ chối duyệt đơn</h3>
+              <h3 className="font-extrabold text-slate-800 text-sm">T? ch?i duy?t don</h3>
               <button
                 onClick={() => setAppRejectModalOpen(false)}
                 className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
@@ -992,10 +992,10 @@ export default function LeaveRequestsTab({
             <form onSubmit={handleRejectAppSubmit}>
               <div className="p-6 flex flex-col gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Lý do từ chối đơn</label>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">L� do t? ch?i don</label>
                   <textarea
                     required
-                    placeholder="Nhập lý do chi tiết để phản hồi nhân viên..."
+                    placeholder="Nh?p l� do chi ti?t d? ph?n h?i nh�n vi�n..."
                     value={rejectReasonText}
                     onChange={(e) => setRejectReasonText(e.target.value)}
                     rows={3}
@@ -1010,13 +1010,13 @@ export default function LeaveRequestsTab({
                   onClick={() => setAppRejectModalOpen(false)}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition cursor-pointer"
                 >
-                  Hủy bỏ
+                  H?y b?
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold transition cursor-pointer"
                 >
-                  Từ chối đơn
+                  T? ch?i don
                 </button>
               </div>
             </form>

@@ -15,8 +15,8 @@ import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
 /**
- * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
- * xuống 500 mặc định. Ví dụ message gốc:
+ * Chuy?n l?i Mongo duplicate key (E11000) th�nh l?i 409 d? hi?u thay v� d? l?t
+ * xu?ng 500 m?c d?nh. V� d? message g?c:
  * "E11000 duplicate key error collection: igen-erp.categories index: companyCode_1_code_1 dup key: { companyCode: \"ABC\", code: \"ASA\" }"
  */
 function toClientError(error: any): { statusCode: number; message: string } {
@@ -26,10 +26,10 @@ function toClientError(error: any): { statusCode: number; message: string } {
     const dupValues = dupFields.map((key) => `${key}="${error.keyValue[key]}"`).join(", ");
     return {
       statusCode: 409,
-      message: dupValues ? `Dữ liệu đã tồn tại (${dupValues}). Vui lòng dùng giá trị khác.` : "Dữ liệu đã tồn tại. Vui lòng dùng giá trị khác.",
+      message: dupValues ? `D? li?u d� t?n t?i (${dupValues}). Vui l�ng d�ng gi� tr? kh�c.` : "D? li?u d� t?n t?i. Vui l�ng d�ng gi� tr? kh�c.",
     };
   }
-  return { statusCode: 500, message: error?.message || "Đã xảy ra lỗi không xác định." };
+  return { statusCode: 500, message: error?.message || "�� x?y ra l?i kh�ng x�c d?nh." };
 }
 
 export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
@@ -46,7 +46,7 @@ export async function computeChargeableSnapshot(
 
 /**
  * True for superadmin/admin/manager OR any role explicitly granted the
- * timekeeping:manage permission (e.g. a custom "hr" role) — used to gate
+ * timekeeping:manage permission (e.g. a custom "hr" role) � used to gate
  * approving/creating/deleting leave, wfh, exception, and template entries.
  */
 async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean> {
@@ -57,7 +57,7 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
 }
 
 /**
- * Narrower than canManageTimekeeping: superadmin/admin OR timekeeping:manage —
+ * Narrower than canManageTimekeeping: superadmin/admin OR timekeeping:manage �
  * used for actions previously restricted to admin/superadmin only (approving
  * leave applications, managing leave templates), where "manager" was never included.
  */
@@ -83,7 +83,7 @@ export const crudController = {
       const sort = req.query.sort as string;
       const search = req.query.search as string;
 
-      // Trích xuất các tham số còn lại làm bộ lọc động (filters)
+      // Tr�ch xu?t c�c tham s? c�n l?i l�m b? l?c d?ng (filters)
       const { page: _p, limit: _l, sort: _s, search: _sh, filters: queryFilters, ...otherParams } = req.query;
       const filters: any = {
         ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
@@ -143,7 +143,7 @@ export const crudController = {
       console.error("[crudController.getList] Error:", error);
       return res.status(error.statusCode || 500).json({
         status: "error",
-        message: "Lỗi khi tải danh sách tài nguyên",
+        message: "L?i khi t?i danh s�ch t�i nguy�n",
         details: error.message,
       });
     }
@@ -167,7 +167,7 @@ export const crudController = {
       console.error("[crudController.getById] Error:", error);
       return res.status(error.statusCode || 500).json({
         status: "error",
-        message: "Lỗi khi tải thông tin tài nguyên",
+        message: "L?i khi t?i th�ng tin t�i nguy�n",
         details: error.message,
       });
     }
@@ -184,12 +184,12 @@ export const crudController = {
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
       if (modelName === "hr-leave-applications") {
-        if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
+        if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thi?u nh�n vi�n v� kho?ng ng�y ngh?."), { statusCode: 400 });
         const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
-        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Kho?ng ng�y kh�ng c� ng�y l�m vi?c d? t�nh ngh?."), { statusCode: 400 });
         const year = new Date(req.body.startDate).getUTCFullYear();
         const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
-        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số phép còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
+        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`S? ng�y ngh? vu?t s? ph�p c�n l?i (${balance.remaining} ng�y).`), { statusCode: 400 });
         req.body = { ...req.body, status: "pending", year, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
       }
 
@@ -198,13 +198,13 @@ export const crudController = {
         if (!(await canManageTimekeeping(req))) {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.",
+            message: "Ch? qu?n l� v� admin m?i c� quy?n t?o don ngh? ph�p, l�m t?i nh� ho?c ngo?i l?.",
           });
         }
         if (req.body.status === "approved") {
           return res.status(403).json({
             status: "error",
-            message: "Bạn không được phép tự duyệt khi tạo đơn.",
+            message: "B?n kh�ng du?c ph�p t? duy?t khi t?o don.",
           });
         }
       }
@@ -213,13 +213,13 @@ export const crudController = {
         if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ admin mới có quyền tải lên biểu mẫu mẫu.",
+            message: "Ch? admin m?i c� quy?n t?i l�n bi?u m?u m?u.",
           });
         }
       }
 
-      // Nhân viên thường chỉ được nộp đơn đứng tên chính mình và luôn ở trạng
-      // thái chờ duyệt — không cho gửi hộ người khác hay tự duyệt qua body.
+      // Nh�n vi�n thu?ng ch? du?c n?p don d?ng t�n ch�nh m�nh v� lu�n ? tr?ng
+      // th�i ch? duy?t � kh�ng cho g?i h? ngu?i kh�c hay t? duy?t qua body.
       if (modelName === "hr-leave-applications" && !(await canApproveLeave(req))) {
         req.body.employeeId = req.user!.id;
         req.body.status = "pending";
@@ -257,9 +257,9 @@ export const crudController = {
       let attendanceReason = "";
       if (modelName === "timekeeping-logs") {
         attendanceReason = String(req.body.editReason || "").trim();
-        if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
+        if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui l�ng nh?p l� do ch?nh s?a ch?m c�ng." });
         attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode, branchId }).lean();
-        if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
+        if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Kh�ng t�m th?y l?ch s? ch?m c�ng." });
         const periodKey = attendanceBefore.date.slice(0, 7);
         const [lockedResult, payrollRun] = await Promise.all([
           AttendancePeriodResultModel.findOne({ companyCode, branchId, periodKey, status: "locked" }).lean(),
@@ -267,7 +267,7 @@ export const crudController = {
             .sort({ createdAt: 1, _id: 1 })
             .lean(),
         ]);
-        if (lockedResult || payrollRun?.status === "closed") return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+        if (lockedResult || payrollRun?.status === "closed") return res.status(409).json({ status: "error", message: "K? c�ng d� kh�a ho?c d� t�nh luong. H�y reset/m? k? tru?c khi s?a ch?m c�ng." });
         delete req.body.editReason;
         req.body.manuallyAdjusted = true;
         req.body.adjustedAt = new Date();
@@ -280,7 +280,7 @@ export const crudController = {
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Bạn không có quyền sửa đổi khóa học này vì không phải là người tạo.",
+            message: "B?n kh�ng c� quy?n s?a d?i kh�a h?c n�y v� kh�ng ph?i l� ngu?i t?o.",
           });
         }
       }
@@ -292,13 +292,13 @@ export const crudController = {
           if (!(await canManageTimekeeping(req))) {
             return res.status(403).json({
               status: "error",
-              message: "Chỉ quản lý và admin mới có quyền chỉnh sửa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+              message: "Ch? qu?n l� v� admin m?i c� quy?n ch?nh s?a don ngh? ph�p / l�m t?i nh� / ngo?i l?.",
             });
           }
           if (req.body.status === "approved" && event.creatorId === req.user?.id) {
             return res.status(403).json({
               status: "error",
-              message: "Người tạo đơn không được phép tự duyệt.",
+              message: "Ngu?i t?o don kh�ng du?c ph�p t? duy?t.",
             });
           }
         }
@@ -308,7 +308,7 @@ export const crudController = {
         if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ admin mới có quyền chỉnh sửa biểu mẫu mẫu.",
+            message: "Ch? admin m?i c� quy?n ch?nh s?a bi?u m?u m?u.",
           });
         }
       }
@@ -321,7 +321,7 @@ export const crudController = {
             if (app.employeeId !== req.user?.id) {
               return res.status(403).json({
                 status: "error",
-                message: "Bạn không có quyền chỉnh sửa đơn của người khác.",
+                message: "B?n kh�ng c� quy?n ch?nh s?a don c?a ngu?i kh�c.",
               });
             }
           }
@@ -329,7 +329,7 @@ export const crudController = {
             if (!isSupervisor) {
               return res.status(403).json({
                 status: "error",
-                message: "Chỉ Admin và Superadmin mới có quyền phê duyệt/thay đổi trạng thái đơn từ.",
+                message: "Ch? Admin v� Superadmin m?i c� quy?n ph� duy?t/thay d?i tr?ng th�i don t?.",
               });
             }
           }
@@ -337,7 +337,7 @@ export const crudController = {
       }
 
       if (modelName === "hr-leave-applications" && req.body.status === "approved") {
-        if (!["justified", "unjustified"].includes(req.body.approvalType)) throw Object.assign(new Error("Cần chọn loại duyệt chính đáng hoặc không chính đáng."), { statusCode: 400 });
+        if (!["justified", "unjustified"].includes(req.body.approvalType)) throw Object.assign(new Error("C?n ch?n lo?i duy?t ch�nh d�ng ho?c kh�ng ch�nh d�ng."), { statusCode: 400 });
         req.body.approvedAt = new Date();
         req.body.approvalNote = req.body.note || req.body.approvalNote || "";
       }
@@ -362,7 +362,7 @@ export const crudController = {
         ]);
       }
 
-      // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
+      // T? d?ng d?ng b? sang hr-calendar-events khi don xin ngh?/tr? du?c duy?t
       if (modelName === "hr-leave-applications" && item && item.status === "approved") {
         const existingEvent = await HRCalendarEventModel.findOne({
           employeeId: item.employeeId,
@@ -374,16 +374,16 @@ export const crudController = {
 
         if (!existingEvent) {
           let title = `${item.employeeName} - ${item.type}`;
-          if (item.type === "leave") title = `${item.employeeName} xin nghỉ phép`;
-          if (item.type === "late") title = `${item.employeeName} xin đi trễ`;
-          if (item.type === "early") title = `${item.employeeName} xin về sớm`;
-          if (item.type === "other") title = `${item.employeeName} xin phép khác`;
+          if (item.type === "leave") title = `${item.employeeName} xin ngh? ph�p`;
+          if (item.type === "late") title = `${item.employeeName} xin di tr?`;
+          if (item.type === "early") title = `${item.employeeName} xin v? s?m`;
+          if (item.type === "other") title = `${item.employeeName} xin ph�p kh�c`;
 
           await HRCalendarEventModel.create({
             companyCode: item.companyCode,
             type: "leave",
             title,
-            description: `Đơn đã duyệt. Lý do: ${item.reason}. Đơn đính kèm: ${item.uploadedFileName}${item.note ? `. Phản hồi: ${item.note}` : ""}`,
+            description: `�on d� duy?t. L� do: ${item.reason}. �on d�nh k�m: ${item.uploadedFileName}${item.note ? `. Ph?n h?i: ${item.note}` : ""}`,
             startDate: item.startDate,
             endDate: item.endDate,
             employeeId: item.employeeId,
@@ -423,7 +423,7 @@ export const crudController = {
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Bạn không có quyền xóa khóa học này vì không phải là người tạo.",
+            message: "B?n kh�ng c� quy?n x�a kh�a h?c n�y v� kh�ng ph?i l� ngu?i t?o.",
           });
         }
       }
@@ -435,7 +435,7 @@ export const crudController = {
           if (!(await canManageTimekeeping(req))) {
             return res.status(403).json({
               status: "error",
-              message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+              message: "Ch? qu?n l� v� admin m?i c� quy?n x�a don ngh? ph�p / l�m t?i nh� / ngo?i l?.",
             });
           }
         }
@@ -445,7 +445,7 @@ export const crudController = {
         if (!(await canApproveLeave(req))) {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ admin mới có quyền xóa biểu mẫu mẫu.",
+            message: "Ch? admin m?i c� quy?n x�a bi?u m?u m?u.",
           });
         }
       }
@@ -457,7 +457,7 @@ export const crudController = {
           if (!isSupervisor && app.employeeId !== req.user?.id) {
             return res.status(403).json({
               status: "error",
-              message: "Bạn không có quyền xóa đơn của người khác.",
+              message: "B?n kh�ng c� quy?n x�a don c?a ngu?i kh�c.",
             });
           }
         }
@@ -466,14 +466,14 @@ export const crudController = {
       const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
-        message: "Xóa tài nguyên thành công",
+        message: "X�a t�i nguy�n th�nh c�ng",
         data: item,
       });
     } catch (error: any) {
       console.error("[crudController.delete] Error:", error);
       return res.status(error.statusCode || 500).json({
         status: "error",
-        message: error.statusCode ? error.message : "Lỗi khi xóa tài nguyên",
+        message: error.statusCode ? error.message : "L?i khi x�a t�i nguy�n",
         details: error.message,
       });
     }

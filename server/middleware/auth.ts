@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
@@ -16,7 +16,7 @@ export interface AuthenticatedRequest extends Request {
     sessionId?: string;
     authLevel?: string;
   };
-  resource?: any; // Äá»ƒ Ä‘Ã­nh kÃ¨m tÃ i nguyÃªn sau khi qua requireCompanyAccess
+  resource?: any; // Để đính kèm tài nguyên sau khi qua requireCompanyAccess
 }
 
 function shouldSkipRoutineAuthLog(method: string, url: string) {
@@ -40,7 +40,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
 }
 
 /**
- * Danh sÃ¡ch mÃ£ quyá»n máº·c Ä‘á»‹nh cá»§a há»‡ thá»‘ng cho tá»«ng vai trÃ²
+ * Danh sách mã quyền mặc định của hệ thống cho từng vai trò
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
@@ -52,7 +52,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "stock:read", "stock:manage",
     "hr:read", "student:read", "student:manage", "partner:read", "partner:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:prepare", "payroll:manage", "payroll:pay",
     "chat:read", "resource:read", "resource:manage", "company-email:manage", "recruitment:manage",
-    // student-settings:manage không nằm ở đây: loại hình doanh nghiệp chỉ SuperAdmin sửa
+    // student-settings:manage kh�ng n?m ? d�y: lo?i h�nh doanh nghi?p ch? SuperAdmin s?a
     "custom-field:manage", "company-smtp:manage"
   ],
   branch_owner: [
@@ -75,7 +75,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 /**
- * Cáº¥p báº­c máº·c Ä‘á»‹nh cá»§a cÃ¡c vai trÃ² há»‡ thá»‘ng (Sá»‘ nhá» hÆ¡n = cáº¥p cao hÆ¡n)
+ * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)
  */
 export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   superadmin: 1,
@@ -86,7 +86,7 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
 };
 
 /**
- * Middleware yÃªu cáº§u Ä‘Äƒng nháº­p báº±ng Access Token
+ * Middleware yêu cầu đăng nhập bằng Access Token
  */
 export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   let token = "";
@@ -99,10 +99,10 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   }
 
   if (!token) {
-    console.warn(`[requireAuth] Tá»« chá»‘i truy cáº­p ${req.method} ${req.originalUrl}: KhÃ´ng tÃ¬m tháº¥y Access Token.`);
+    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không tìm thấy Access Token.`);
     return res.status(401).json({
       status: "error",
-      message: "YÃªu cáº§u Ä‘Äƒng nháº­p. KhÃ´ng tÃ¬m tháº¥y mÃ£ xÃ¡c thá»±c.",
+      message: "Yêu cầu đăng nhập. Không tìm thấy mã xác thực.",
     });
   }
 
@@ -114,7 +114,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     const requestedBranchId = typeof req.headers["x-branch-id"] === "string" ? req.headers["x-branch-id"] : "";
     if (decoded.role === "admin" && requestedBranchId && decoded.companyCode) {
       const selectedBranch = await BranchModel.findOne({ _id: requestedBranchId, companyCode: String(decoded.companyCode).toUpperCase(), isActive: true }).select("_id").lean();
-      if (!selectedBranch) return res.status(403).json({ status: "error", message: "Chi nhÃ¡nh khÃ´ng thuá»™c cÃ´ng ty hoáº·c Ä‘Ã£ ngá»«ng hoáº¡t Ä‘á»™ng." });
+      if (!selectedBranch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty hoặc đã ngừng hoạt động." });
       branchId = String(selectedBranch._id);
     }
     req.user = {
@@ -127,28 +127,28 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       authLevel: decoded.authLevel,
     };
 
-    // console.log(`[requireAuth] XÃ¡c thá»±c thÃ nh cÃ´ng: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
+    // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
     return next();
   } catch (error) {
     if (!shouldSkipRoutineAuthLog(req.method, req.originalUrl)) {
-      console.warn(`[requireAuth] JWT khÃ´ng há»£p lá»‡ hoáº·c háº¿t háº¡n cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
+      console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
     }
     return res.status(401).json({
       status: "error",
-      message: "MÃ£ xÃ¡c thá»±c khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.",
+      message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
     });
   }
 }
 
 /**
- * Middleware yÃªu cáº§u ngÆ°á»i dÃ¹ng pháº£i cÃ³ vai trÃ² phÃ¹ há»£p (RBAC tÄ©nh)
+ * Middleware yêu cầu người dùng phải có vai trò phù hợp (RBAC tĩnh)
  */
 export function requireRole(roles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
         status: "error",
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p tÃ i nguyÃªn nÃ y.",
+        message: "Bạn không có quyền truy cập tài nguyên này.",
       });
     }
     next();
@@ -156,12 +156,12 @@ export function requireRole(roles: string[]) {
 }
 
 /**
- * TÃ­nh táº­p há»£p mÃ£ quyá»n hiá»‡u lá»±c (permissions custom cá»§a user + RolePermission
- * cá»§a company/role, fallback DEFAULT_ROLE_PERMISSIONS náº¿u cÃ´ng ty chÆ°a cáº¥u hÃ¬nh).
- * Nguá»“n dÃ¹ng chung cho requirePermission (middleware) vÃ  má»i nÆ¡i khÃ¡c cáº§n biáº¿t
- * quyá»n tháº­t cá»§a user (vd: lá»c dá»¯ liá»‡u tá»•ng quan theo permission trong
- * dashboard.service.ts), Ä‘á»ƒ trÃ¡nh hai nÆ¡i tá»± tÃ­nh khÃ¡c nhau vÃ  lá»‡ch pha.
- * superadmin luÃ´n tráº£ vá» Set(["*"]).
+ * Tính tập hợp mã quyền hiệu lực (permissions custom của user + RolePermission
+ * của company/role, fallback DEFAULT_ROLE_PERMISSIONS nếu công ty chưa cấu hình).
+ * Nguồn dùng chung cho requirePermission (middleware) và mọi nơi khác cần biết
+ * quyền thật của user (vd: lọc dữ liệu tổng quan theo permission trong
+ * dashboard.service.ts), để tránh hai nơi tự tính khác nhau và lệch pha.
+ * superadmin luôn trả về Set(["*"]).
  */
 export async function getEffectivePermissions(
   userId: string,
@@ -187,7 +187,7 @@ export async function getEffectivePermissions(
     if (rolePermissionDoc) {
       rolePermissions = rolePermissionDoc.permissions || [];
     } else {
-      // Fallback vá» quyá»n há»‡ thá»‘ng máº·c Ä‘á»‹nh náº¿u chÆ°a cáº¥u hÃ¬nh trong DB
+      // Fallback về quyền hệ thống mặc định nếu chưa cấu hình trong DB
       rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
     }
   } else {
@@ -204,11 +204,11 @@ export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPe
 export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);
 
 /**
- * Middleware yÃªu cáº§u mÃ£ quyá»n Ä‘á»™ng (PBAC)
- * Kiá»ƒm tra káº¿t há»£p quyá»n tÃ¹y chá»‰nh cá»§a user vÃ  cáº¥u hÃ¬nh RolePermission trong database cá»§a doanh nghiá»‡p.
- * Truyá»n má»™t máº£ng Ä‘á»ƒ yÃªu cáº§u "cÃ³ Ã­t nháº¥t má»™t trong cÃ¡c mÃ£ quyá»n" (OR), vÃ­ dá»¥ khi hai nhÃ³m quyá»n
- * khÃ¡c nhau trÃªn UI cÃ¹ng cáº¥p quyá»n truy cáº­p má»™t tÃ i nguyÃªn dÃ¹ng chung (vd: hr:read vÃ  user:read
- * cÃ¹ng cho phÃ©p xem danh sÃ¡ch nhÃ¢n sá»±).
+ * Middleware yêu cầu mã quyền động (PBAC)
+ * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
+ * Truyền một mảng để yêu cầu "có ít nhất một trong các mã quyền" (OR), ví dụ khi hai nhóm quyền
+ * khác nhau trên UI cùng cấp quyền truy cập một tài nguyên dùng chung (vd: hr:read và user:read
+ * cùng cho phép xem danh sách nhân sự).
  */
 export function requirePermission(requiredPermission: string | string[]) {
   const requiredPermissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
@@ -218,7 +218,7 @@ export function requirePermission(requiredPermission: string | string[]) {
       if (!req.user) {
         return res.status(401).json({
           status: "error",
-          message: "NgÆ°á»i dÃ¹ng chÆ°a xÃ¡c thá»±c.",
+          message: "Người dùng chưa xác thực.",
         });
       }
 
@@ -231,13 +231,13 @@ export function requirePermission(requiredPermission: string | string[]) {
 
       return res.status(403).json({
         status: "error",
-        message: `TÃ i khoáº£n cá»§a báº¡n khÃ´ng cÃ³ mÃ£ quyá»n [${requiredPermissions.join(", ")}] cáº§n thiáº¿t Ä‘á»ƒ thá»±c hiá»‡n thao tÃ¡c nÃ y.`,
+        message: `Tài khoản của bạn không có mã quyền [${requiredPermissions.join(", ")}] cần thiết để thực hiện thao tác này.`,
       });
     } catch (error: any) {
       console.error("[requirePermission] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "CÃ³ lá»—i xáº£y ra khi xÃ¡c thá»±c quyá»n háº¡n.",
+        message: "Có lỗi xảy ra khi xác thực quyền hạn.",
         details: error.message,
       });
     }
@@ -245,7 +245,7 @@ export function requirePermission(requiredPermission: string | string[]) {
 }
 
 /**
- * Middleware báº£o vá»‡ tÃ i nguyÃªn theo doanh nghiá»‡p (Tenant isolation á»Ÿ cáº¥p Ä‘á»™ Object-level)
+ * Middleware bảo vệ tài nguyên theo doanh nghiệp (Tenant isolation ở cấp độ Object-level)
  */
 export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: string = "id") {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -253,11 +253,11 @@ export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: st
       if (!req.user) {
         return res.status(401).json({
           status: "error",
-          message: "NgÆ°á»i dÃ¹ng chÆ°a xÃ¡c thá»±c.",
+          message: "Người dùng chưa xác thực.",
         });
       }
 
-      // Superadmin Ä‘Æ°á»£c phÃ©p bá» qua cÃ¡ch ly tÃ i nguyÃªn Ä‘á»ƒ quáº£n trá»‹ há»‡ thá»‘ng
+      // Superadmin được phép bỏ qua cách ly tài nguyên để quản trị hệ thống
       if (req.user.role === "superadmin") {
         return next();
       }
@@ -267,11 +267,11 @@ export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: st
         return next();
       }
 
-      // Kiá»ƒm tra xem ID cÃ³ há»£p lá»‡ khÃ´ng
+      // Kiểm tra xem ID có hợp lệ không
       if (!mongoose.Types.ObjectId.isValid(resourceId)) {
         return res.status(400).json({
           status: "error",
-          message: "Äá»‹nh dáº¡ng ID tÃ i nguyÃªn khÃ´ng há»£p lá»‡.",
+          message: "Định dạng ID tài nguyên không hợp lệ.",
         });
       }
 
@@ -279,29 +279,29 @@ export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: st
       if (!resource) {
         return res.status(404).json({
           status: "error",
-          message: "KhÃ´ng tÃ¬m tháº¥y tÃ i nguyÃªn yÃªu cáº§u.",
+          message: "Không tìm thấy tài nguyên yêu cầu.",
         });
       }
 
-      // Kiá»ƒm tra trÆ°á»ng companyCode cá»§a tÃ i nguyÃªn. Náº¿u tÃ i nguyÃªn khÃ´ng cÃ³
-      // companyCode (VD: tÃ i khoáº£n SYSTEM/superadmin) thÃ¬ chá»‰ superadmin (Ä‘Ã£
-      // return á»Ÿ nhÃ¡nh trÃªn) má»›i Ä‘Æ°á»£c truy cáº­p â€” khÃ´ng Ä‘Æ°á»£c bá» qua kiá»ƒm tra
-      // vÃ¬ Ä‘iá»u Ä‘Ã³ sáº½ cho phÃ©p má»i cÃ´ng ty Ä‘á»¥ng vÃ o tÃ i nguyÃªn khÃ´ng thuá»™c cÃ´ng ty nÃ o.
+      // Kiểm tra trường companyCode của tài nguyên. Nếu tài nguyên không có
+      // companyCode (VD: tài khoản SYSTEM/superadmin) thì chỉ superadmin (đã
+      // return ở nhánh trên) mới được truy cập — không được bỏ qua kiểm tra
+      // vì điều đó sẽ cho phép mọi công ty đụng vào tài nguyên không thuộc công ty nào.
       if (resource.companyCode !== req.user.companyCode) {
         return res.status(403).json({
           status: "error",
-          message: "Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p hoáº·c chá»‰nh sá»­a tÃ i nguyÃªn cá»§a doanh nghiá»‡p khÃ¡c.",
+          message: "Bạn không có quyền truy cập hoặc chỉnh sửa tài nguyên của doanh nghiệp khác.",
         });
       }
 
-      // ÄÃ­nh kÃ¨m tÃ i nguyÃªn vÃ o request Ä‘á»ƒ sá»­ dá»¥ng á»Ÿ Controller mÃ  khÃ´ng cáº§n query láº¡i
+      // Đính kèm tài nguyên vào request để sử dụng ở Controller mà không cần query lại
       req.resource = resource;
       return next();
     } catch (error: any) {
       console.error("[requireCompanyAccess] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "CÃ³ lá»—i xáº£y ra khi kiá»ƒm tra quyá»n háº¡n doanh nghiá»‡p.",
+        message: "Có lỗi xảy ra khi kiểm tra quyền hạn doanh nghiệp.",
         details: error.message,
       });
     }
@@ -309,7 +309,7 @@ export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: st
 }
 
 /**
- * Äá»‡ quy kiá»ƒm tra xem employeeId cÃ³ thuá»™c cáº¥p dÆ°á»›i trá»±c thuá»™c hoáº·c giÃ¡n tiáº¿p cá»§a managerId hay khÃ´ng
+ * Đệ quy kiểm tra xem employeeId có thuộc cấp dưới trực thuộc hoặc gián tiếp của managerId hay không
  */
 async function isSubordinate(managerId: string, employeeId: string): Promise<boolean> {
   let currentId = employeeId;
@@ -320,7 +320,7 @@ async function isSubordinate(managerId: string, employeeId: string): Promise<boo
       return true;
     }
     if (visited.has(currentId)) {
-      break; // Chá»‘ng láº·p vÃ²ng láº·p
+      break; // Chống lặp vòng lặp
     }
     visited.add(currentId);
 
@@ -335,8 +335,8 @@ async function isSubordinate(managerId: string, employeeId: string): Promise<boo
 }
 
 /**
- * Middleware kiá»ƒm tra phÃ¢n cáº¥p quáº£n trá»‹ sÆ¡ Ä‘á»“ nhÃ¢n sá»± (Hierarchy Access)
- * Cáº£n manager hoáº·c user truy cáº­p / thay Ä‘á»•i trÃ¡i phÃ©p cáº¥p trÃªn hoáº·c ngÆ°á»i ngoÃ i nhÃ¡nh cá»§a mÃ¬nh.
+ * Middleware kiểm tra phân cấp quản trị sơ đồ nhân sự (Hierarchy Access)
+ * Cản manager hoặc user truy cập / thay đổi trái phép cấp trên hoặc người ngoài nhánh của mình.
  */
 export function requireHierarchyAccess(idParamName: string = "id") {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -344,7 +344,7 @@ export function requireHierarchyAccess(idParamName: string = "id") {
       if (!req.user) {
         return res.status(401).json({
           status: "error",
-          message: "NgÆ°á»i dÃ¹ng chÆ°a xÃ¡c thá»±c.",
+          message: "Người dùng chưa xác thực.",
         });
       }
 
@@ -355,17 +355,17 @@ export function requireHierarchyAccess(idParamName: string = "id") {
 
       const { id: callerId, role } = req.user;
 
-      // 1. Superadmin vÃ  Admin Ä‘Æ°á»£c toÃ n quyá»n quáº£n trá»‹ (nhÃ¢n sá»± trong cÃ¹ng cÃ´ng ty Ä‘Ã£ Ä‘Æ°á»£c check bá»Ÿi requireCompanyAccess)
+      // 1. Superadmin và Admin được toàn quyền quản trị (nhân sự trong cùng công ty đã được check bởi requireCompanyAccess)
       if (role === "superadmin" || role === "admin") {
         return next();
       }
 
-      // 2. Thao tÃ¡c trÃªn chÃ­nh mÃ¬nh -> Cho phÃ©p
+      // 2. Thao tác trên chính mình -> Cho phép
       if (callerId === targetUserId) {
         return next();
       }
 
-      // 3. Manager chá»‰ Ä‘Æ°á»£c xem/sá»­a nhÃ¢n sá»± trá»±c thuá»™c nhÃ¡nh con cá»§a mÃ¬nh
+      // 3. Manager chỉ được xem/sửa nhân sự trực thuộc nhánh con của mình
       if (role === "manager") {
         const isSub = await isSubordinate(callerId, targetUserId);
         if (isSub) {
@@ -373,20 +373,20 @@ export function requireHierarchyAccess(idParamName: string = "id") {
         }
         return res.status(403).json({
           status: "error",
-          message: "Báº¡n chá»‰ Ä‘Æ°á»£c thao tÃ¡c trÃªn há»“ sÆ¡ nhÃ¢n sá»± trá»±c thuá»™c nhÃ¡nh quáº£n lÃ½ cá»§a mÃ¬nh.",
+          message: "Bạn chỉ được thao tác trên hồ sơ nhân sự trực thuộc nhánh quản lý của mình.",
         });
       }
 
-      // 4. User thÆ°á»ng khÃ´ng cÃ³ quyá»n thao tÃ¡c trÃªn ngÆ°á»i khÃ¡c
+      // 4. User thường không có quyền thao tác trên người khác
       return res.status(403).json({
         status: "error",
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n thao tÃ¡c trÃªn há»“ sÆ¡ nhÃ¢n sá»± cá»§a ngÆ°á»i khÃ¡c.",
+        message: "Bạn không có quyền thao tác trên hồ sơ nhân sự của người khác.",
       });
     } catch (error: any) {
       console.error("[requireHierarchyAccess] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "CÃ³ lá»—i xáº£y ra khi xÃ¡c thá»±c phÃ¢n cáº¥p nhÃ¢n sá»±.",
+        message: "Có lỗi xảy ra khi xác thực phân cấp nhân sự.",
         details: error.message,
       });
     }

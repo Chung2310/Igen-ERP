@@ -83,5 +83,5 @@
 - [ ] Write failing UI tests for permission-gated actions, required rejection reason, stale-version reload prompt, and close confirmation summary.
 - [ ] Run the focused test; expect missing component failure.
 - [ ] Implement panels and service methods; never optimistically display a transition before the server response.
-- [ ] Run UI tests, typecheck, build, and all phase 2Aâ€“2C suites.
+- [ ] Run UI tests, typecheck, build, and all phase 2A–2C suites.
 - [ ] Commit with `feat: add payroll approval and closing ui`.

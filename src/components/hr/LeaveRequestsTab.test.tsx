@@ -10,7 +10,7 @@ vi.mock("../../pages/Toast", () => ({
 }));
 
 const templates = [
-  { _id: "tpl1", name: "Đơn xin nghỉ phép", fileUrl: "https://cdn/x.docx", fileName: "nghi-phep.docx" },
+  { _id: "tpl1", name: "�on xin ngh? ph�p", fileUrl: "https://cdn/x.docx", fileName: "nghi-phep.docx" },
 ];
 
 function mockFetch() {
@@ -22,7 +22,7 @@ function mockFetch() {
   });
 }
 
-const profile = { uid: "u1", displayName: "Nhân viên A" } as any;
+const profile = { uid: "u1", displayName: "Nh�n vi�n A" } as any;
 
 describe("LeaveRequestsTab", () => {
   beforeEach(() => {
@@ -38,28 +38,28 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
-    expect(screen.getByRole("button", { name: /nộp đơn/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /đăng biểu mẫu mới/i })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: /bi?u m?u m?u/i })).toBeTruthy());
+    expect(screen.getByRole("button", { name: /n?p don/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /dang bi?u m?u m?i/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
-    await waitFor(() => expect(screen.getByText("Đơn xin nghỉ phép")).toBeTruthy());
-    // Nhân viên tải được mẫu nhưng không xóa được.
-    expect(screen.getByRole("link", { name: /tải mẫu/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^xóa$/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /bi?u m?u m?u/i }));
+    await waitFor(() => expect(screen.getByText("�on xin ngh? ph�p")).toBeTruthy());
+    // Nh�n vi�n t?i du?c m?u nhung kh�ng x�a du?c.
+    expect(screen.getByRole("link", { name: /t?i m?u/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^x�a$/i })).toBeNull();
   });
 
-  it("opens the submit form when clicking Nộp đơn", async () => {
+  it("opens the submit form when clicking N?p don", async () => {
     render(
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /nộp đơn/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /nộp đơn/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /n?p don/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /n?p don/i }));
 
-    expect(screen.getByText("Nộp đơn từ")).toBeTruthy();
-    // Nhân viên thường không chọn được người khác.
-    expect(screen.queryByText("Nhân sự")).toBeNull();
+    expect(screen.getByText("N?p don t?")).toBeTruthy();
+    // Nh�n vi�n thu?ng kh�ng ch?n du?c ngu?i kh�c.
+    expect(screen.queryByText("Nh�n s?")).toBeNull();
   });
 
   it("gives an approver the upload, delete and employee-select affordances", async () => {
@@ -67,14 +67,14 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /đăng biểu mẫu mới/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: /dang bi?u m?u m?i/i })).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /^xóa$/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /đóng/i }));
+    fireEvent.click(screen.getByRole("button", { name: /bi?u m?u m?u/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^x�a$/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /d�ng/i }));
 
-    fireEvent.click(screen.getByRole("button", { name: /^nộp đơn$/i }));
-    const dialog = screen.getByText("Nộp đơn từ").closest("div")!.parentElement!;
-    expect(within(dialog).getByText("Nhân sự")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^n?p don$/i }));
+    const dialog = screen.getByText("N?p don t?").closest("div")!.parentElement!;
+    expect(within(dialog).getByText("Nh�n s?")).toBeTruthy();
   });
 });

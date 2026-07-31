@@ -317,7 +317,7 @@ export const payrollController = {
             lunchBreakEnd: unpaidBreak?.endTime,
           };
         }));
-    if (!employees.length) return res.status(400).json({ status: "error", message: "ChÆ°a cÃ³ nhÃ¢n viÃªn Ä‘Æ°á»£c cáº¥u hÃ¬nh lÆ°Æ¡ng." });
+    if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
     const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end } }).lean();
     const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end }, isApplied: true }).lean();
@@ -370,7 +370,7 @@ export const payrollController = {
     const existingRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (existingRun?.status === "closed") return res.status(409).json({ status: "error", message: "Ky luong da chot. Hay reset ky truoc khi khoa lai cham cong." });
     const stale = await AttendancePeriodResultModel.exists({ ...periodScope, needsRecalculation: true });
-    if (stale) return res.status(409).json({ status: "error", message: "Lá»‹ch sá»­ cháº¥m cÃ´ng Ä‘Ã£ thay Ä‘á»•i. HÃ£y Ä‘á»“ng bá»™ cÃ´ng trÆ°á»›c khi khÃ³a." });
+    if (stale) return res.status(409).json({ status: "error", message: "Lịch sử chấm công đã thay đổi. Hãy đồng bộ công trước khi khóa." });
     const result = await AttendancePeriodResultModel.updateMany(
       { ...periodScope, status: "draft" },
       { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
@@ -383,7 +383,7 @@ export const payrollController = {
     if (!branchId) return res.status(400).json({ status: "error", message: "Cannot create payroll run: the authenticated user has no branch." });
     const rows = await AttendancePeriodResultModel.find({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, status: "locked" }).lean();
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
-    if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dá»¯ liá»‡u cÃ´ng Ä‘Ã£ thay Ä‘á»•i. HÃ£y Ä‘á»“ng bá»™ vÃ  khÃ³a cÃ´ng láº¡i." });
+    if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
     const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
     const lines = rows.map((row) => ({
