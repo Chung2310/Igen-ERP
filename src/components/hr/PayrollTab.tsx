@@ -427,7 +427,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               {[['Lương theo công', detail.adjustedBase], ['Tăng ca', detail.overtimeValue], ['Phụ cấp', detail.allowances], ['Thưởng', detail.bonuses], ['Điều chỉnh', detail.adjustments]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b>{money(Number(value))}</b></div>)}
               <div className="flex justify-between border-t pt-2 font-bold"><span>Tổng thu nhập</span><b>{money(detail.gross)}</b></div>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><div className="flex justify-between"><span>Giảm trừ</span><b className="text-rose-600">-{money(detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thực nhận</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Chi tiết các khoản khấu trừ</p>
+              {[['BHXH', detail.deductionBreakdown.socialInsurance], ['BHYT', detail.deductionBreakdown.healthInsurance], ['BHTN', detail.deductionBreakdown.unemploymentInsurance], ['Thuế TNCN', detail.deductionBreakdown.personalIncomeTax], ['Khấu trừ khác', detail.deductionBreakdown.otherDeductions], ['Tạm ứng', detail.deductionBreakdown.advances]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b className="text-rose-600">-{money(Number(value))}</b></div>)}
+              <div className="flex justify-between border-t pt-2"><span>Tổng khấu trừ</span><b className="text-rose-600">-{money(detail.deductionBreakdown.total || detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thực nhận</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
           </div>; })()}
         </div>
       </div>

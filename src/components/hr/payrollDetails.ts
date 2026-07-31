@@ -10,7 +10,7 @@ type AttendanceDetails = {
   overtime?: { minutes: number; category: string }[];
 };
 
-type CalculationDetails = Record<string, number | undefined>;
+type CalculationDetails = Record<string, any>;
 
 export function buildPayrollDetails(attendance: AttendanceDetails = {}, calculation: CalculationDetails = {}) {
   const standardDays = Number(calculation.standardDays ?? attendance.standardDays ?? 0);
@@ -36,6 +36,17 @@ export function buildPayrollDetails(attendance: AttendanceDetails = {}, calculat
     deductions: Number(calculation.deductions ?? 0),
     adjustments: Number(calculation.adjustments ?? 0),
     gross: Number(calculation.gross ?? 0),
-    net: Number(calculation.net ?? 0),
+    net: Number(calculation.net ?? 0),    deductionBreakdown: (() => {
+      const vietnam = calculation.vietnam || {};
+      const funds = Array.isArray(vietnam.insurance?.funds) ? vietnam.insurance.funds : [];
+      const fundAmount = (code: string) => Number(funds.find((fund: any) => fund.code === code)?.employeeAmount ?? 0);
+      const otherDeductions = Number(vietnam.deductions?.other ?? 0);
+      const advances = Number(vietnam.deductions?.advances ?? 0);
+      const socialInsurance = fundAmount("social");
+      const healthInsurance = fundAmount("health");
+      const unemploymentInsurance = fundAmount("unemployment");
+      const personalIncomeTax = Number(vietnam.tax?.tax ?? 0);
+      return { socialInsurance, healthInsurance, unemploymentInsurance, personalIncomeTax, otherDeductions, advances, total: socialInsurance + healthInsurance + unemploymentInsurance + personalIncomeTax + otherDeductions + advances };
+    })(),
   };
 }
