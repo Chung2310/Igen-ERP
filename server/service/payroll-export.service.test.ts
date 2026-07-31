@@ -3,7 +3,7 @@ import { buildPayrollWorkbook } from "./payroll-export.service";
 
 describe("payroll workbook exports", () => {
   it.each([
-    ["detailed", "Bảng lương", ["Mã nhân viên", "Tên nhân viên", "Tổng thu nhập"]],
+    ["detailed", "Bảng lương chi tiết", ["Mã nhân viên", "Tên nhân viên", "Lương cơ bản"]],
     ["insurance", "Bảo hiểm", ["Mã nhân viên", "BHXH", "BHYT"]],
     ["pit", "Thuế TNCN", ["Mã nhân viên", "Thu nhập chịu thuế", "Thuế TNCN"]],
     ["bank_transfer", "Chuyển khoản ngân hàng", ["Mã nhân viên", "Tài khoản ngân hàng", "Số tiền"]],

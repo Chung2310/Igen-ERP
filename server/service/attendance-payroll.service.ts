@@ -26,6 +26,7 @@ function overlappingBreakMinutes(checkIn: string, checkOut: string, breakStart?:
 export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: number; lunchBreakStart?: string; lunchBreakEnd?: string; logs: PayrollAttendanceLog[]; paidLeaves: PayrollPaidLeave[]; overtime: PayrollOvertime[] }): AttendancePayrollSummary {
   const paidLeaveByDate = new Map(input.paidLeaves.map((leave) => [leave.date, leave]));
   let workedMinutes = 0;
+  let cappedWorkedMinutes = 0;
   let shortageMinutes = 0;
   const paidLeaveMinutesByRate: { minutes: number; payRate: number }[] = [];
   for (const log of input.logs) {
@@ -37,8 +38,9 @@ export function summarizeAttendanceForPayroll(input: { standardDailyMinutes: num
       : 0;
     const worked = Math.max(0, rawWorked - breakMinutes);
     workedMinutes += worked;
+    cappedWorkedMinutes += Math.min(input.standardDailyMinutes, worked);
     shortageMinutes += Math.max(0, input.standardDailyMinutes - worked);
   }
   const roundDays = (minutes: number) => Math.round((minutes / input.standardDailyMinutes) * 100) / 100;
-  return { workedMinutes, shortageMinutes, workedDays: roundDays(workedMinutes), shortageDays: roundDays(shortageMinutes), paidLeaveMinutesByRate, overtime: input.overtime };
+  return { workedMinutes, shortageMinutes, workedDays: roundDays(cappedWorkedMinutes), shortageDays: roundDays(shortageMinutes), paidLeaveMinutesByRate, overtime: input.overtime };
 }

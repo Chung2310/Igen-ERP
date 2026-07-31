@@ -1,6 +1,6 @@
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "ĐƠN TỪ" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG" | "TUYỂN DỤNG";
 
-/** File/du?ng d?n d�nh k�m v�o task: ghi �m, h�nh ?nh, video, t�i li?u, link� */
+/** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
 export interface TaskAttachment {
   id: string;
   name: string;
@@ -26,7 +26,7 @@ export interface WorkflowStep {
   assignee?: string;
   /** Multiple assignees */
   assigneeUids?: string[];
-  /** Related persons (ngu?i li�n quan) */
+  /** Related persons (người liên quan) */
   relatedUids?: string[];
   /** Domain / project tag */
   domain?: string;
@@ -38,19 +38,19 @@ export interface WorkflowStep {
   deadlineDays?: number;
   /** Specific time HH:mm when deadlineType = custom_time */
   deadlineTime?: string;
-  /** @deprecated Kh�ng c�n ph�n lo?i � � gi? l?i d? tuong th�ch d? li?u cu */
+  /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
   type?: "start" | "task" | "approval" | "end";
   estDays?: number;
-  /** K?t qu? / d?u ra mong d?i c?a bu?c */
+  /** Kết quả / đầu ra mong đợi của bước */
   deliverable?: string;
-  /** Luu � / di?u ki?n th?c hi?n */
+  /** Lưu ý / điều kiện thực hiện */
   note?: string;
-  /** Sub-tasks (c�ng vi?c con) */
+  /** Sub-tasks (công việc con) */
   subTasks?: WorkflowSubTask[];
   docLinks?: string[];
-  /** T?p v� li�n k?t g?n v?i ri�ng bu?c quy tr�nh. */
+  /** Tệp và liên kết gắn với riêng bước quy trình. */
   attachments?: TaskAttachment[];
-  /** @deprecated Kh�ng c�n d�ng canvas � gi? l?i d? tuong th�ch d? li?u cu */
+  /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
   position?: { x: number; y: number };
 }
 
@@ -68,7 +68,7 @@ export interface Workflow {
   category?: string;
   steps: WorkflowStep[];
   edges?: WorkflowEdge[];
-  /** T? chuy?n case sang bu?c k? khi m?i task Kanban c?a bu?c hi?n t?i ho�n th�nh */
+  /** Tự chuyển case sang bước kế khi mọi task Kanban của bước hiện tại hoàn thành */
   autoAdvance?: boolean;
   companyCode: string;
   creatorUid: string;

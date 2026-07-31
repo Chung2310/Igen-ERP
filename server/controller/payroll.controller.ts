@@ -16,6 +16,11 @@ import { PayrollExportJobModel } from "../model/payroll-export-job.model";
 import { readPayrollLine } from "../service/payroll-line-read.service";
 import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
+import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
+import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { PayrollPolicyModel } from "../model/payroll-policy.model";
+import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
+import { countDependents, resolveTaxMethod, selectProfileForPeriod } from "../service/payroll-employee-input.service";
 import { evaluateWorkingDate } from "../service/company-work-calendar.service";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { getEffectivePermissions } from "../middleware/auth";
@@ -319,11 +324,12 @@ export const payrollController = {
         }));
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
-    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end } }).lean();
-    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, date: { $gte: start, $lte: end }, isApplied: true }).lean();
+    const logBranchFilter = periodScope.branchId ? { $in: [periodScope.branchId, null, undefined] } : { $in: [null, undefined, ""] };
+    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end } }).lean();
+    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end }, isApplied: true }).lean();
     const calendarRules = new Map<string, any[]>();
     for (const rule of calendarDays) calendarRules.set(rule.date, [...(calendarRules.get(rule.date) || []), rule]);
-    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
+    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), branchId: logBranchFilter, status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
     const today = formatInPayrollTimeZone(new Date(), "date");
     const results = [];
     for (const employee of employees) {
@@ -386,22 +392,84 @@ export const payrollController = {
     if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
     const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
-    const lines = rows.map((row) => ({
-      employeeId: row.employeeId,
-      calculation: { ...calculatePayroll({
+    // Bảo hiểm và thuế TNCN cần chính sách lương + hồ sơ payroll của từng nhân viên.
+    // Thiếu bước này thì mọi khoản khấu trừ ra 0 đ dù lương bao nhiêu.
+    const periodKey = req.params.periodKey;
+    const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
+    const employeeIds = rows.map((row) => row.employeeId);
+    const [policies, profiles, dependents, adjustmentsData] = await Promise.all([
+      PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean(),
+      PayrollProfileModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
+      PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
+      PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean(),
+    ]);
+    const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+    const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
+      const key = String(item.employeeId);
+      map.set(key, [...(map.get(key) ?? []), item]);
+      return map;
+    }, new Map<string, T[]>());
+    const profilesByEmployee = byEmployee(profiles as any[]);
+    const dependentsByEmployee = byEmployee(dependents as any[]);
+
+    const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+    for (const adj of adjustmentsData) {
+      const empId = String(adj.employeeId);
+      const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
+      else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
+      else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+      else cur.adjustments += Number(adj.amount || 0);
+      adjustmentsMap.set(empId, cur);
+    }
+
+    const lines = rows.map((row) => {
+      const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
+      const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      const calculation = calculatePayroll({
         monthlySalary: row.monthlySalary,
         standardDays: row.standardDays,
         standardHours: row.standardHours,
-        workedMinutes: row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays,
+        workedMinutes,
         shortageMinutes: row.shortageMinutes,
         paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
         overtime: row.overtime,
-        allowances: 0,
-        bonuses: 0,
-        deductions: 0,
-        adjustments: 0,
-      }), workedMinutes: row.workedMinutes, workedDays: row.workedDays || 0, standardHours: row.standardHours, standardDays: row.standardDays },
-    }));
+        allowances: empAdjustments.allowances,
+        bonuses: empAdjustments.bonuses,
+        deductions: empAdjustments.deductions,
+        adjustments: empAdjustments.adjustments,
+      });
+      const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+      const vietnam = calculateVietnamPayroll(policy, {
+        workPay: calculation.adjustedBase,
+        hourlyRate: calculation.hourlyRate,
+        overtime: (row.overtime ?? []) as any,
+        // Chưa khai báo mức đóng riêng thì lấy lương tháng; trần đóng vẫn được áp.
+        insuranceSalary: row.monthlySalary,
+        participatesInsurance: profile?.participatesInsurance ?? true,
+        taxMethod: resolveTaxMethod(profile),
+        dependentCount: countDependents(dependentsByEmployee.get(String(row.employeeId)) ?? [], period),
+        hasWithholdingCommitment: Boolean(profile?.hasWithholdingCommitment),
+      });
+      return {
+        employeeId: row.employeeId,
+        employeeName: row.employeeName,
+        calculation: {
+          ...calculation,
+          gross: vietnam.income.totalIncome,
+          deductions: vietnam.deductions.total,
+          net: vietnam.netPay,
+          monthlySalary: row.monthlySalary,
+          workedMinutes,
+          workedDays: row.workedDays || 0,
+          standardHours: row.standardHours,
+          standardDays: row.standardDays,
+        },
+        vietnam,
+        formulaVersion: vietnam.formulaVersion,
+        warnings: vietnam.warnings.map((warning) => warning.code),
+      };
+    });
     const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "calculated", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
     return res.status(201).json({ status: "success", data: run });
@@ -433,11 +501,13 @@ export const payrollController = {
   async publishPayslips(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
-    if (!run || !run.activeRevisionId || !["closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
-    const revision = await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean();
-    if (!revision?.checksum || revision.checksum !== run.activeRevisionChecksum) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const employeeIds = Array.isArray(req.body?.employeeIds) ? req.body.employeeIds : revision.lines.map((line) => line.employeeId);
-    const docs = await Promise.all(employeeIds.map((employeeId: string) => PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: String(run._id), employeeId }, { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum: revision.checksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } }, { upsert: true, new: true, setDefaultsOnInsert: true })));
+    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
+    const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
+    if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
+    const lines = revision ? revision.lines : (run.lines || []);
+    const employeeIds = Array.isArray(req.body?.employeeIds) ? req.body.employeeIds : lines.map((line) => line.employeeId);
+    const docs = await Promise.all(employeeIds.map((employeeId: string) => PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: String(run._id), employeeId }, { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } }, { upsert: true, new: true, setDefaultsOnInsert: true })));
     return res.json({ status: "success", data: docs });
   },
   async withdrawPayslip(req: AuthenticatedRequest, res: Response) {
@@ -448,27 +518,46 @@ export const payrollController = {
   async listEmployeePayslips(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const publications = await PayslipPublicationModel.find({ ...scope, employeeId: req.user!.id, status: "published" }).lean();
-    const data = await Promise.all(publications.map(async (publication) => { const run = await PayrollRunModel.findOne({ _id: publication.runId, ...scope }).lean(); const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null; const line = revision?.lines.find((item) => item.employeeId === req.user!.id); return run && line ? buildPayslip(run, line, await PayrollPaymentModel.find({ ...scope, runId: publication.runId }).lean() as any) : null; }));
+    const data = await Promise.all(publications.map(async (publication) => {
+      const run = await PayrollRunModel.findOne({ _id: publication.runId, ...scope }).lean();
+      const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
+      const line = revision ? revision.lines.find((item) => item.employeeId === req.user!.id) : run?.lines?.find((item: any) => item.employeeId === req.user!.id);
+      return run && line ? buildPayslip(run, line as any, await PayrollPaymentModel.find({ ...scope, runId: publication.runId }).lean() as any) : null;
+    }));
     return res.json({ status: "success", data: data.filter(Boolean) });
   },
   async printPayslip(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    
+    // Check permission: must have payroll:read/manage, OR be printing their own payslip
+    const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req));
+    const canReadAny = permissions.has("*") || permissions.has("payroll:read") || permissions.has("payroll:manage");
+    if (!canReadAny && req.user!.id !== req.params.employeeId) {
+      return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bạn chỉ có thể xem phiếu lương của chính mình." });
+    }
+
     const publication = await PayslipPublicationModel.findOne({ ...scope, runId: req.params.id, employeeId: req.params.employeeId, status: "published" }).lean();
     if (!publication) return res.status(404).json({ status: "error", code: "PAYSLIP_NOT_PUBLISHED" });
-    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean(); const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null; const line = revision?.lines.find((item) => item.employeeId === req.params.employeeId);
-    if (!run || !revision || !line || revision.checksum !== publication.revisionChecksum || revision.checksum !== run.activeRevisionChecksum) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const payslip = buildPayslip(run, line, await PayrollPaymentModel.find({ ...scope, runId: req.params.id }).lean() as any);
+    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean(); 
+    const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null; 
+    const line = revision ? revision.lines.find((item) => item.employeeId === req.params.employeeId) : run?.lines?.find((item: any) => item.employeeId === req.params.employeeId);
+    if (!run || !line) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND" });
+    if (revision && (revision.checksum !== publication.revisionChecksum || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
+    const payslip = buildPayslip(run, line as any, await PayrollPaymentModel.find({ ...scope, runId: req.params.id }).lean() as any);
     const esc = (value: unknown) => String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char] || char));
     res.type("html").set("Content-Disposition", `inline; filename=payslip-${run.periodKey}-${payslip.employeeId}.html`); return res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Payslip ${esc(run.periodKey)}</title><style>body{font:14px Arial;max-width:760px;margin:40px auto;color:#172033}h1{font-size:24px;border-bottom:2px solid #172033;padding-bottom:12px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ddd}.total{font-size:18px;font-weight:bold}@media print{body{margin:0}}</style></head><body><h1>Payslip ${esc(run.periodKey)}</h1><div class="row"><b>Nhân viên</b><span>${esc(payslip.employeeName || payslip.employeeId)}</span></div><div class="row"><b>Tổng thu nhập</b><span>${payslip.calculation.gross ?? 0}</span></div><div class="row"><b>Các khoản khấu trừ</b><span>${payslip.calculation.deductions ?? 0}</span></div><div class="row total"><b>Thực nhận</b><span>${payslip.netPay}</span></div><div class="row"><b>Đã thanh toán</b><span>${payslip.paidAmount}</span></div><div class="row"><b>Còn lại</b><span>${payslip.balance}</span></div><p>Mã kiểm tra: ${esc(payslip.checksum)}</p><script>window.print()</script></body></html>`);
   },  async exportPayroll(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const type = req.body?.type; if (!["detailed", "insurance", "pit", "bank_transfer"].includes(type)) return validationFailure(res, "Invalid export type");
     if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll:pay")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll:pay" }); }
-    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean(); const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
-    if (!run || !revision || !["closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
-    if (revision.checksum !== run.activeRevisionChecksum) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const buffer = workbookBuffer(buildPayrollWorkbook(type, revision.lines)); const checksum = calculatePayrollChecksum(buffer.toString("base64"));
-    const job = await PayrollExportJobModel.create({ ...scope, runId: String(run._id), type, revisionChecksum: revision.checksum, status: "completed", createdBy: req.user!.id, output: { contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: buffer.length, checksum }, completedAt: new Date() });
+    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
+    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
+    const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
+    if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
+    const lines = revision ? revision.lines : (run.lines || []);
+    const buffer = workbookBuffer(buildPayrollWorkbook(type, lines as any)); const checksum = calculatePayrollChecksum(buffer.toString("base64"));
+    const job = await PayrollExportJobModel.create({ ...scope, runId: String(run._id), type, revisionChecksum, status: "completed", createdBy: req.user!.id, output: { contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: buffer.length, checksum }, completedAt: new Date() });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename=payroll-${run.periodKey}-${type}.xlsx`); return res.send(buffer);
   },  async listAdjustments(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollAdjustmentModel.find(legacyPeriodScope(req)).sort({ createdAt: -1 }).lean();
@@ -486,6 +575,95 @@ export const payrollController = {
       { new: true },
     );
     if (!adjustment) return res.status(409).json({ status: "error", message: "Dieu chinh khong ton tai hoac da duoc xu ly." });
+    
+    // Automatically recalculate the legacy run if it exists in calculated status
+    const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
+    if (run && run.status === "calculated") {
+      try {
+        const periodKey = run.periodKey;
+        const branchId = run.branchId;
+        const companyCode = run.companyCode;
+        const rows = await AttendancePeriodResultModel.find({ companyCode, branchId, periodKey, status: "locked" }).lean();
+        if (rows.length > 0) {
+          const employeeIds = rows.map((row) => row.employeeId);
+          const [policies, profiles, dependents, adjustmentsData] = await Promise.all([
+            PayrollPolicyModel.find({ companyCode, status: "active" }).lean(),
+            PayrollProfileModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
+            PayrollDependentModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
+            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean()
+          ]);
+          const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
+          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
+            const key = String(item.employeeId);
+            map.set(key, [...(map.get(key) ?? []), item]);
+            return map;
+          }, new Map<string, T[]>());
+          const profilesByEmployee = byEmployee(profiles as any[]);
+          const dependentsByEmployee = byEmployee(dependents as any[]);
+          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+          for (const adj of adjustmentsData) {
+            const empId = String(adj.employeeId);
+            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
+            else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
+            else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+            else cur.adjustments += Number(adj.amount || 0);
+            adjustmentsMap.set(empId, cur);
+          }
+          const lines = rows.map((row) => {
+            const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
+            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const calculation = calculatePayroll({
+              monthlySalary: row.monthlySalary,
+              standardDays: row.standardDays,
+              standardHours: row.standardHours,
+              workedMinutes,
+              shortageMinutes: row.shortageMinutes,
+              paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
+              overtime: row.overtime,
+              allowances: empAdjustments.allowances,
+              bonuses: empAdjustments.bonuses,
+              deductions: empAdjustments.deductions,
+              adjustments: empAdjustments.adjustments,
+            });
+            const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+            const vietnam = calculateVietnamPayroll(policy, {
+              workPay: calculation.adjustedBase,
+              hourlyRate: calculation.hourlyRate,
+              overtime: (row.overtime ?? []) as any,
+              insuranceSalary: row.monthlySalary,
+              participatesInsurance: profile?.participatesInsurance ?? true,
+              taxMethod: resolveTaxMethod(profile),
+              dependentCount: countDependents(dependentsByEmployee.get(String(row.employeeId)) ?? [], period),
+              hasWithholdingCommitment: Boolean(profile?.hasWithholdingCommitment),
+            });
+            return {
+              employeeId: row.employeeId,
+              employeeName: row.employeeName,
+              calculation: {
+                ...calculation,
+                gross: vietnam.income.totalIncome,
+                deductions: vietnam.deductions.total,
+                net: vietnam.netPay,
+                monthlySalary: row.monthlySalary,
+                workedMinutes,
+                workedDays: row.workedDays || 0,
+                standardHours: row.standardHours,
+                standardDays: row.standardDays,
+              },
+              vietnam,
+              formulaVersion: vietnam.formulaVersion,
+              warnings: vietnam.warnings.map((warning) => warning.code),
+            };
+          });
+          await PayrollRunModel.updateOne({ _id: run._id }, { $set: { lines } });
+        }
+      } catch (err) {
+        console.error("Recalculation error on approveAdjustment:", err);
+      }
+    }
+
     await audit(req, req.params.periodKey, "adjustment", { adjustmentId: String(adjustment._id) });
     return res.json({ status: "success", data: adjustment });
   },
@@ -496,6 +674,95 @@ export const payrollController = {
       { new: true },
     );
     if (!adjustment) return res.status(409).json({ status: "error", message: "Dieu chinh khong ton tai hoac da duoc xu ly." });
+    
+    // Automatically recalculate the legacy run if it exists in calculated status
+    const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
+    if (run && run.status === "calculated") {
+      try {
+        const periodKey = run.periodKey;
+        const branchId = run.branchId;
+        const companyCode = run.companyCode;
+        const rows = await AttendancePeriodResultModel.find({ companyCode, branchId, periodKey, status: "locked" }).lean();
+        if (rows.length > 0) {
+          const employeeIds = rows.map((row) => row.employeeId);
+          const [policies, profiles, dependents, adjustmentsData] = await Promise.all([
+            PayrollPolicyModel.find({ companyCode, status: "active" }).lean(),
+            PayrollProfileModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
+            PayrollDependentModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
+            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean()
+          ]);
+          const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
+          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
+            const key = String(item.employeeId);
+            map.set(key, [...(map.get(key) ?? []), item]);
+            return map;
+          }, new Map<string, T[]>());
+          const profilesByEmployee = byEmployee(profiles as any[]);
+          const dependentsByEmployee = byEmployee(dependents as any[]);
+          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+          for (const adj of adjustmentsData) {
+            const empId = String(adj.employeeId);
+            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
+            else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
+            else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+            else cur.adjustments += Number(adj.amount || 0);
+            adjustmentsMap.set(empId, cur);
+          }
+          const lines = rows.map((row) => {
+            const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
+            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const calculation = calculatePayroll({
+              monthlySalary: row.monthlySalary,
+              standardDays: row.standardDays,
+              standardHours: row.standardHours,
+              workedMinutes,
+              shortageMinutes: row.shortageMinutes,
+              paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
+              overtime: row.overtime,
+              allowances: empAdjustments.allowances,
+              bonuses: empAdjustments.bonuses,
+              deductions: empAdjustments.deductions,
+              adjustments: empAdjustments.adjustments,
+            });
+            const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+            const vietnam = calculateVietnamPayroll(policy, {
+              workPay: calculation.adjustedBase,
+              hourlyRate: calculation.hourlyRate,
+              overtime: (row.overtime ?? []) as any,
+              insuranceSalary: row.monthlySalary,
+              participatesInsurance: profile?.participatesInsurance ?? true,
+              taxMethod: resolveTaxMethod(profile),
+              dependentCount: countDependents(dependentsByEmployee.get(String(row.employeeId)) ?? [], period),
+              hasWithholdingCommitment: Boolean(profile?.hasWithholdingCommitment),
+            });
+            return {
+              employeeId: row.employeeId,
+              employeeName: row.employeeName,
+              calculation: {
+                ...calculation,
+                gross: vietnam.income.totalIncome,
+                deductions: vietnam.deductions.total,
+                net: vietnam.netPay,
+                monthlySalary: row.monthlySalary,
+                workedMinutes,
+                workedDays: row.workedDays || 0,
+                standardHours: row.standardHours,
+                standardDays: row.standardDays,
+              },
+              vietnam,
+              formulaVersion: vietnam.formulaVersion,
+              warnings: vietnam.warnings.map((warning) => warning.code),
+            };
+          });
+          await PayrollRunModel.updateOne({ _id: run._id }, { $set: { lines } });
+        }
+      } catch (err) {
+        console.error("Recalculation error on rejectAdjustment:", err);
+      }
+    }
+
     await audit(req, req.params.periodKey, "adjustment_rejected", { adjustmentId: String(adjustment._id) });
     return res.json({ status: "success", data: adjustment });
   },  async approveRun(req: AuthenticatedRequest, res: Response) {
@@ -506,6 +773,23 @@ export const payrollController = {
       { new: true, sort: LEGACY_RUN_ORDER },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
+
+    // Automatically publish all payslips
+    const scope = operationalScope(req);
+    if (scope) {
+      const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
+      const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
+      const lines = revision ? revision.lines : (run.lines || []);
+      const employeeIds = lines.map((line) => line.employeeId);
+      await Promise.all(employeeIds.map((employeeId: string) =>
+        PayslipPublicationModel.findOneAndUpdate(
+          { ...scope, runId: String(run._id), employeeId },
+          { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+      ));
+    }
+
     return res.json({ status: "success", data: run });
   },
   async closeRun(req: AuthenticatedRequest, res: Response) {
@@ -547,6 +831,12 @@ export const payrollController = {
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
+    const publications = await PayslipPublicationModel.find({
+      companyCode: tenant(req),
+      runId: String(data._id),
+      status: "published"
+    }).select("employeeId").lean();
+    (data as any).publishedEmployeeIds = publications.map((p) => p.employeeId);
     return res.json({ status: "success", data });
   },
 };

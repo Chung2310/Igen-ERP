@@ -34,7 +34,16 @@ const schema = new Schema<PayrollRunDocument>({
   activeRevisionChecksum: String,
   supplementalReason: String,
   status: { type: String, enum: ["draft", "attendance_locked", "calculated", "reviewed", "approved", "closed", "partially_paid", "paid"], default: "draft", index: true },
-  lines: [{ employeeId: { type: String, required: true }, calculation: { type: Schema.Types.Mixed, required: true } }],
+  // vietnam giữ nguyên khối bảo hiểm/thuế; thiếu khai báo ở đây Mongoose sẽ cắt bỏ
+  // và bảng lương mất toàn bộ chi tiết khấu trừ.
+  lines: [{
+    employeeId: { type: String, required: true },
+    employeeName: { type: String },
+    calculation: { type: Schema.Types.Mixed, required: true },
+    vietnam: { type: Schema.Types.Mixed },
+    formulaVersion: { type: String },
+    warnings: { type: [String], default: [] },
+  }],
   issues: [{
     code: { type: String, required: true },
     message: { type: String, required: true },

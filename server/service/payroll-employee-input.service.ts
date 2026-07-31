@@ -75,9 +75,20 @@ export function resolveEmployeeSalaryTerms(
   return { terms, insuranceSalaryByTerm, issues };
 }
 
-/** The insurance base for a period is the highest declared base among the paid segments. */
-export function resolveInsuranceSalary(terms: PayrollSalaryTerm[], insuranceSalaryByTerm: Map<string, number>): number {
-  return terms.reduce((highest, term) => Math.max(highest, insuranceSalaryByTerm.get(term.id) ?? 0), 0);
+/**
+ * The insurance base for a period is the highest declared base among the paid segments.
+ * Khi chưa hợp đồng nào khai báo mức đóng, lấy lương tháng làm mức đóng — nếu không
+ * mọi quỹ bảo hiểm sẽ tính trên 0 và ra 0 đ. Trần đóng vẫn do insuranceBaseFor áp.
+ */
+export function resolveInsuranceSalary(
+  terms: PayrollSalaryTerm[],
+  insuranceSalaryByTerm: Map<string, number>,
+  fallbackMonthlySalary = 0,
+): number {
+  const declared = terms.reduce((highest, term) => Math.max(highest, insuranceSalaryByTerm.get(term.id) ?? 0), 0);
+  if (declared > 0) return declared;
+  const fromTerms = terms.reduce((highest, term) => Math.max(highest, term.monthlySalary ?? 0), 0);
+  return Math.max(fromTerms, Math.max(0, fallbackMonthlySalary));
 }
 
 export type DependentLike = { status: string; deductionFrom: Date | string; deductionTo?: Date | string };

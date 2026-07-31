@@ -19,7 +19,7 @@ payrollRouter.post("/runs/:id/calculate", requirePermission("payroll:manage") as
 payrollRouter.post("/runs/:id/recalculate", requirePermission("payroll:manage") as any, payrollController.calculateRun as any);
 payrollRouter.get("/runs/:id/issues", requirePermission("payroll:read") as any, payrollController.listRunIssues as any);
 payrollRouter.get("/runs/:id/lines/:employeeId", requirePermission("payroll:read") as any, payrollController.getLineDetail as any);payrollRouter.post("/runs/:id/payslips/publish", requirePermission("payroll:manage") as any, payrollController.publishPayslips as any);
-payrollRouter.get("/runs/:id/payslips/:employeeId/print", requirePermission("payroll:read") as any, payrollController.printPayslip as any);
+payrollRouter.get("/runs/:id/payslips/:employeeId/print", payrollController.printPayslip as any);
 payrollRouter.post("/runs/:id/payslips/:employeeId/withdraw", requirePermission("payroll:manage") as any, payrollController.withdrawPayslip as any);
 payrollRouter.get("/employee/me/payslips", payrollController.listEmployeePayslips as any);
 payrollRouter.post("/runs/:id/exports", requirePermission("payroll:read") as any, payrollController.exportPayroll as any);

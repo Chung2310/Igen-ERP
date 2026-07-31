@@ -12,10 +12,11 @@ type AttendanceDetails = {
 
 type CalculationDetails = Record<string, any>;
 
-export function buildPayrollDetails(attendance: AttendanceDetails = {}, calculation: CalculationDetails = {}) {
+export function buildPayrollDetails(attendance: AttendanceDetails = {}, calculation: CalculationDetails = {}, vietnamInput?: any) {
   const standardDays = Number(calculation.standardDays ?? attendance.standardDays ?? 0);
   const standardHours = Number(calculation.standardHours ?? attendance.standardHours ?? 0);
   const shortageMinutes = Number(calculation.shortageMinutes ?? attendance.shortageMinutes ?? 0);
+  const vietnam = vietnamInput || calculation.vietnam || {};
   return {
     monthlySalary: Number(calculation.monthlySalary ?? attendance.monthlySalary ?? 0),
     standardHours,
@@ -36,8 +37,9 @@ export function buildPayrollDetails(attendance: AttendanceDetails = {}, calculat
     deductions: Number(calculation.deductions ?? 0),
     adjustments: Number(calculation.adjustments ?? 0),
     gross: Number(calculation.gross ?? 0),
-    net: Number(calculation.net ?? 0),    deductionBreakdown: (() => {
-      const vietnam = calculation.vietnam || {};
+    net: Number(calculation.net ?? 0),
+    vietnam,
+    deductionBreakdown: (() => {
       const funds = Array.isArray(vietnam.insurance?.funds) ? vietnam.insurance.funds : [];
       const fundAmount = (code: string) => Number(funds.find((fund: any) => fund.code === code)?.employeeAmount ?? 0);
       const otherDeductions = Number(vietnam.deductions?.other ?? 0);

@@ -10,7 +10,7 @@ import {
   resolveTaxMethod,
   selectProfileForPeriod,
 } from "./payroll-employee-input.service";
-import { selectPolicyForDate } from "./payroll-policy.service";
+import { resolvePayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
@@ -79,7 +79,7 @@ export async function buildRunCalculationInputs(
   const contractsByEmployee = groupByEmployee(contracts as any[]);
   const profilesByEmployee = groupByEmployee(profiles as any[]);
   const dependentsByEmployee = groupByEmployee(dependents as any[]);
-  const policy = selectPolicyForDate(policies as any[], period.start);
+  const { policy, isDefault: usesDefaultPolicy } = resolvePayrollPolicy(policies as any[], period.start);
 
   return Promise.all(snapshot.employees.map(async (employee: any) => {
     const employeeId = String(employee.employeeId);
@@ -107,17 +107,17 @@ export async function buildRunCalculationInputs(
       paidLeaveMinutesByRate: employee.paidLeaveMinutesByRate ?? [],
       overtime: employee.overtime ?? [],
       ...employeeAdjustments,
-      ...(policy ? {
-        policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0) },
+      ...(usesDefaultPolicy ? {} : { policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0) } }),
+      ...({
         vietnam: {
           policy,
-          insuranceSalary: resolveInsuranceSalary(salaryTerms, contractTerms.insuranceSalaryByTerm),
+          insuranceSalary: resolveInsuranceSalary(salaryTerms, contractTerms.insuranceSalaryByTerm, salaryById.get(employeeId) ?? 0),
           participatesInsurance: profile?.participatesInsurance ?? true,
           taxMethod: resolveTaxMethod(profile),
           dependentCount: countDependents(dependentsByEmployee.get(employeeId) ?? [], period),
           hasWithholdingCommitment: Boolean(profile?.hasWithholdingCommitment),
         },
-      } : {}),
+      }),
     } satisfies DetailedCalculationInput;
   }));
 }

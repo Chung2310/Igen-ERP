@@ -32,6 +32,14 @@ export const rolePermissionController = {
         });
       }
 
+      // Ngăn chặn admin chỉnh sửa vai trò superadmin hoặc vai trò admin khác
+      if (user.role !== "superadmin" && (req.body.role === "superadmin" || req.body.role === "admin")) {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không thể tạo hoặc chỉnh sửa vai trò admin hoặc superadmin.",
+        });
+      }
+
       // Kiểm tra phân cấp cấp bậc (Hierarchy Level Check)
       let callerLevel = 1;
       if (user.role !== "superadmin") {
@@ -43,7 +51,7 @@ export const rolePermissionController = {
       }
 
       const targetLevel = req.body.level;
-      if (user.role !== "superadmin") {
+      if (user.role !== "superadmin" && user.role !== "admin") {
         if (typeof targetLevel === "number" && targetLevel <= callerLevel) {
           return res.status(403).json({
             status: "error",
@@ -58,7 +66,7 @@ export const rolePermissionController = {
         role: req.body.role,
       });
 
-      if (user.role !== "superadmin" && existingRole && existingRole.level <= callerLevel) {
+      if (user.role !== "superadmin" && user.role !== "admin" && existingRole && existingRole.level <= callerLevel) {
         return res.status(403).json({
           status: "error",
           message: `Bạn không có quyền chỉnh sửa vai trò [${req.body.role}] vì vai trò này có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.`,
@@ -208,6 +216,14 @@ export const rolePermissionController = {
         });
       }
 
+      // Ngăn chặn xóa vai trò admin hoặc superadmin
+      if (user.role !== "superadmin" && (role === "admin" || role === "superadmin")) {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không thể xóa vai trò admin hoặc superadmin.",
+        });
+      }
+
       // Kiểm tra phân cấp cấp bậc (Hierarchy Level Check)
       let callerLevel = 1;
       if (user.role !== "superadmin") {
@@ -230,7 +246,7 @@ export const rolePermissionController = {
         });
       }
 
-      if (user.role !== "superadmin" && existingRole.level <= callerLevel) {
+      if (user.role !== "superadmin" && user.role !== "admin" && existingRole.level <= callerLevel) {
         return res.status(403).json({
           status: "error",
           message: `Bạn không có quyền xóa vai trò [${role}] vì vai trò này có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.`,
