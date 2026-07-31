@@ -3,7 +3,7 @@ import { superAdminTenantService, type Tenant, type TenantSummary, type TenantUs
 import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
 import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
-import { ENTITY_PRESET_OPTIONS, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+import { getEntityPresetOptions, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
 
 function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => void }) {
   const [preset, setPreset] = React.useState<EntityPreset>("student");
@@ -44,7 +44,7 @@ function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => vo
         onChange={(e) => setPreset(e.target.value as EntityPreset)}
         className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
       >
-        {ENTITY_PRESET_OPTIONS.map((opt) => (
+        {getEntityPresetOptions(preset).map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>

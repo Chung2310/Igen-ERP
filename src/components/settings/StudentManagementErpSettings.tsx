@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
-import { Building2, RefreshCw } from "lucide-react";
+import { Building2, Lock, RefreshCw } from "lucide-react";
 import { toast } from "../../pages/Toast";
-import { getModuleSettings, updateModuleSettings } from "../../modules/student-management/api/moduleSettings.api";
+import { getModuleSettings } from "../../modules/student-management/api/moduleSettings.api";
 import {
   DEFAULT_ENTITY_PRESET,
-  ENTITY_PRESET_OPTIONS,
+  getEntityPresetOptions,
   type EntityPreset,
 } from "../../modules/student-management/config/entityLabels";
 
+/**
+ * Chỉ-đọc: loại hình doanh nghiệp (entityPreset) là đặc quyền SuperAdmin.
+ * Doanh nghiệp xem được mình đang ở loại hình nào nhưng không tự sửa.
+ */
 export default function StudentManagementErpSettings() {
   const [entityPreset, setEntityPreset] = useState<EntityPreset>(DEFAULT_ENTITY_PRESET);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -31,33 +34,17 @@ export default function StudentManagementErpSettings() {
     };
   }, []);
 
-  const selectPreset = async (nextPreset: EntityPreset) => {
-    if (saving || nextPreset === entityPreset) return;
-    setSaving(true);
-    try {
-      const updated = await updateModuleSettings(nextPreset);
-      setEntityPreset(updated.entityPreset);
-      window.dispatchEvent(new CustomEvent("entity-label:changed", {
-        detail: { entityPreset: updated.entityPreset },
-      }));
-      toast.success("Đã cập nhật cấu hình học viên/lao động.");
-    } catch (error) {
-      console.error("Không thể lưu cấu hình học viên/lao động:", error);
-      toast.error("Không thể lưu cấu hình học viên/lao động.");
-    } finally {
-      setSaving(false);
-    }
-  };
+  const options = getEntityPresetOptions(entityPreset);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
           <Building2 className="h-4 w-4 text-cyan-600" />
-          Cấu hình học viên / lao động
+          Loại hình doanh nghiệp
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          Chọn loại đối tượng để hệ thống đồng bộ tên gọi và quy trình nghiệp vụ.
+          Loại đối tượng quyết định tên gọi và quy trình nghiệp vụ của hệ thống.
         </p>
       </div>
       {loading ? (
@@ -65,19 +52,54 @@ export default function StudentManagementErpSettings() {
           <RefreshCw className="h-4 w-4 animate-spin" /> Đang tải cấu hình...
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {ENTITY_PRESET_OPTIONS.map((option) => {
-            const selected = option.value === entityPreset;
+        <div className="grid gap-2 sm:grid-cols-3">
+          {options.map((option) => {
+            const active = option.value === entityPreset;
             return (
-              <button key={option.value} type="button" disabled={saving}
-                onClick={() => selectPreset(option.value)}
-                className={`rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${selected ? "border-cyan-500 bg-cyan-50 text-cyan-800" : "border-slate-200 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50/40"}`}>
-                {option.label}{selected && <span className="ml-2 text-[10px] uppercase text-cyan-600">Đang dùng</span>}
-              </button>
+              <div
+                key={option.value}
+                aria-disabled
+                aria-current={active ? "true" : undefined}
+                title={
+                  active
+                    ? "Loại hình doanh nghiệp đang áp dụng"
+                    : "Chỉ SuperAdmin đổi được loại hình doanh nghiệp"
+                }
+                className={
+                  active
+                    ? "cursor-not-allowed rounded-xl border-2 border-cyan-500 bg-cyan-50 px-4 py-3 shadow-sm ring-2 ring-cyan-200"
+                    : "cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 opacity-60"
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={
+                      active ? "text-sm font-bold text-cyan-800" : "text-sm font-semibold text-slate-500"
+                    }
+                  >
+                    {option.label}
+                  </div>
+                  {active ? null : <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />}
+                </div>
+                <div
+                  className={
+                    active
+                      ? "mt-1 text-[10px] font-bold uppercase tracking-wide text-cyan-600"
+                      : "mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                  }
+                >
+                  {active ? "Đang dùng" : "Đã khoá"}
+                  {option.legacy ? " • Loại hình cũ" : ""}
+                </div>
+              </div>
             );
           })}
         </div>
       )}
+      <p className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+        <Lock className="h-3 w-3" />
+        Chỉ SuperAdmin thay đổi được loại hình doanh nghiệp. Cần đổi, vui lòng liên hệ quản trị hệ thống.
+      </p>
     </section>
   );
 }

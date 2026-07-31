@@ -16,8 +16,12 @@ const initialSnapshot: EntityPresetSnapshot = {
   loading: true,
 };
 
+/** Chờ giữa hai lần thử lại để một API lỗi không bị gọi dồn. */
+const RETRY_COOLDOWN_MS = 5000;
+
 let snapshot = initialSnapshot;
 let loadPromise: Promise<void> | null = null;
+let lastFailureAt = 0;
 let removeSocketListener: (() => void) | null = null;
 const subscribers = new Set<() => void>();
 
@@ -73,15 +77,24 @@ export function setEntityPreset(value: unknown): boolean {
   return true;
 }
 
+/**
+ * Không chốt loại hình mặc định khi gọi API lỗi: một lần lỗi tạm thời (401 lúc
+ * mới khởi động, mất mạng, module chưa bật xong) từng khiến toàn hệ thống đứng
+ * ở "Học viên" vĩnh viễn dù công ty đang là "Lao động", trong khi trang Cài đặt
+ * tự gọi lại API nên vẫn hiện đúng. Nay giữ trạng thái loading để lần mount sau
+ * thử lại, và loại hình chỉ được đặt từ dữ liệu thật của server.
+ */
 export function ensureEntityPresetLoaded(): Promise<void> {
-  if (!snapshot.loading || loadPromise) return loadPromise ?? Promise.resolve();
+  if (!snapshot.loading) return Promise.resolve();
+  if (loadPromise) return loadPromise;
+  if (lastFailureAt > 0 && Date.now() - lastFailureAt < RETRY_COOLDOWN_MS) return Promise.resolve();
 
   loadPromise = getModuleSettings()
     .then((settings) => {
-      setEntityPreset(settings.entityPreset);
+      lastFailureAt = setEntityPreset(settings.entityPreset) ? 0 : Date.now();
     })
     .catch(() => {
-      setEntityPreset(DEFAULT_ENTITY_PRESET);
+      lastFailureAt = Date.now();
     })
     .finally(() => {
       loadPromise = null;
@@ -94,5 +107,6 @@ export function resetEntityPresetStoreForTests(): void {
   removeExternalListeners();
   subscribers.clear();
   loadPromise = null;
+  lastFailureAt = 0;
   snapshot = initialSnapshot;
 }
