@@ -112,7 +112,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     archiveField: archiveStdField,
     restoreField: restoreStdField,
     deleteField: deleteStdField
-  } = useStandardFields("batches");
+  } = useStandardFields("batches", entityLabel.preset);
 
   const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -592,7 +592,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                         <ErpInput
                           type="text"
                           required={isFieldRequired('code', true)}
-                          placeholder={getFieldPlaceholder('code', 'Ví dụ: K32')}
+                          placeholder={getFieldPlaceholder('code', entityLabel.preset === 'worker' ? 'Ví dụ: DA-001' : 'Ví dụ: K32')}
                           value={form.code}
                           onChange={(e) => setForm({ ...form, code: e.target.value })}
                           className="pl-10"
@@ -658,7 +658,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </h4>
                 </div>
 
-                <ErpField label="Ngày học trong tuần">
+                <ErpField label={entityLabel.preset === 'worker' ? 'Ngày hoạt động trong tuần' : 'Ngày học trong tuần'}>
                   <div className="grid grid-cols-7 gap-1 mt-1">
                     {DAY_OPTIONS.map((d) => (
                       <button
@@ -768,7 +768,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       <ErpInput
                         type="text"
                         required={isFieldRequired('room', false)}
-                        placeholder={getFieldPlaceholder('room', 'Ví dụ: Phòng 201 / Sân tập số 2')}
+                        placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
                         value={form.location}
                         onChange={(e) => setForm({ ...form, location: e.target.value })}
                         className="pl-10"
