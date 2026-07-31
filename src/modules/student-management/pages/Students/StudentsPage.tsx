@@ -12,7 +12,7 @@ import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
 import { useCourseCategories, CourseCategoryItem } from '../../hooks/useCourseCategories';
 import { toast } from '../../../../pages/Toast';
-import { Student } from '../../types';
+import { Student, Batch } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { AssignStudentBranchModal } from '../../components/Student/AssignStudentBranchModal';
@@ -119,6 +119,22 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     }
     return map;
   }, [batches, courses]);
+
+  // Lớp / dự án mà từng học viên đang tham gia
+  const studentBatches = useMemo(() => {
+    const map = new Map<string, Batch[]>();
+    for (const b of batches) {
+      for (const sid of b.learnerIds) {
+        const list = map.get(sid) || [];
+        list.push(b);
+        map.set(sid, list);
+      }
+    }
+    return map;
+  }, [batches]);
+
+  const getBatchLabels = (studentId: string) =>
+    (studentBatches.get(studentId) || []).map((b) => b.code || b.courseTitle).filter(Boolean);
 
   // Hạng bằng là dữ liệu riêng ngành lái xe — chỉ hiện filter/cột khi còn học viên có hạng
   const hasRankData = useMemo(() => students.some(s => s.rank), [students]);
@@ -272,6 +288,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     const commonHeadersAfter = [
       ...(usesEducationBilling ? ['Học phí', 'Đã đóng', 'Còn nợ'] : []),
       'Ngày đăng ký', ...(usesEducationBilling ? ['Trạng thái học phí'] : []), 'Trạng thái',
+      'Lớp / Dự án', 'Người phụ trách',
       'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ',
       entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học',
       'Ảnh CCCD mặt trước', 'Ảnh CCCD mặt sau', 'Ảnh chân dung'
@@ -300,6 +317,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         (Array.isArray(student.status) ? student.status : [student.status])
           .map((status) => getOperationalStatusLabel(entityLabel.preset, status))
           .join(', '),
+        getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp',
+        student.createdByName || 'Chưa xác định',
         student.birthday || '',
         student.idCard || '',
         student.email || '',
@@ -323,6 +342,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     const cols = [
       { wch: 20 }, { wch: 15 },
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
+      { wch: 25 }, { wch: 20 },
       { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 },
       { wch: 30 }, { wch: 30 }, { wch: 30 }
     ];
@@ -366,6 +386,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${cats.length > 0 ? cats.join(', ') : (student.rank || '')}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.registrationDate}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${(Array.isArray(student.status) ? student.status : [student.status]).map((status) => getOperationalStatusLabel(entityLabel.preset, status)).join(', ')}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp'}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.createdByName || 'Chưa xác định'}</td>
       </tr>
     `;
     }).join('');
@@ -395,6 +417,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                 <th>Ngành / Hạng</th>
                 <th>Ngày đăng ký</th>
                 <th>Trạng thái</th>
+                <th>Lớp / Dự án</th>
+                <th>Người phụ trách</th>
               </tr>
             </thead>
             <tbody>
@@ -594,7 +618,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {/* Main Table Card */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-left min-w-[900px]">
+          <table className="w-full text-left min-w-[1100px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-3 py-2 w-8 no-print">
@@ -617,6 +641,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                 </th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
+                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Lớp / Dự án</th>
+                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Người phụ trách</th>
                 {usesEducationBilling && <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Học phí</th>}
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right no-print">Thao tác</th>
@@ -624,9 +650,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={usesEducationBilling ? 6 : 5} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={usesEducationBilling ? 6 : 5} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
@@ -672,6 +698,38 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                   </td>
                   <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
                     {formatDisplayDate(student.registrationDate)}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    {(() => {
+                      const joined = studentBatches.get(student.id) || [];
+                      if (joined.length === 0) {
+                        return <span className="text-[10px] font-medium text-slate-300">Chưa xếp lớp</span>;
+                      }
+                      return (
+                        <div className="flex flex-wrap items-center gap-1 max-w-[180px]">
+                          {joined.slice(0, 2).map((b) => (
+                            <span
+                              key={b.id}
+                              title={b.courseTitle}
+                              className="bg-indigo-50 px-1.5 py-0.5 rounded text-[9px] text-indigo-700 font-semibold whitespace-nowrap"
+                            >
+                              {b.code || b.courseTitle}
+                            </span>
+                          ))}
+                          {joined.length > 2 && (
+                            <span
+                              title={joined.slice(2).map((b) => b.code || b.courseTitle).join(', ')}
+                              className="text-[9px] font-bold text-slate-400"
+                            >
+                              +{joined.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-3 py-1.5 text-[11px] font-medium text-slate-500 whitespace-nowrap">
+                    {student.createdByName || <span className="text-slate-300">Chưa xác định</span>}
                   </td>
 
                   {usesEducationBilling && <td className="px-3 py-1.5">

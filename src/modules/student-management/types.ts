@@ -34,6 +34,9 @@ export interface DrivingStudent {
   address: string;
   status: StudentStatus[];
   ownerId: string;
+  /** Người thêm bản ghi — rỗng với dữ liệu tạo trước khi có trường này */
+  createdBy?: string;
+  createdByName?: string;
   centerId?: string;
   partnerId?: string;
   branchId?: string;

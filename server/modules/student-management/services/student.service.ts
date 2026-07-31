@@ -147,6 +147,7 @@ export class StudentService {
     ownerScope: string | string[],
     data: StudentCreateData,
     context?: CustomFieldWriteContext,
+    creator?: { uid: string; name?: string },
   ): Promise<IStudent> {
     logger.info(`[Student] Creating student for ownerId=${ownerId}, phone=${data.phone}`);
 
@@ -169,6 +170,9 @@ export class StudentService {
     const student = new Student({
       ...normalizedPayload,
       ownerId,
+      // Gán sau payload để client không giả mạo được người thêm qua body
+      createdBy: creator?.uid || "",
+      createdByName: creator?.name || "",
     });
     const savedStudent = await student.save();
     logger.info(`[Student] Student created successfully: id=${savedStudent._id}, phone=${savedStudent.phone}`);
@@ -400,7 +404,7 @@ export class StudentService {
     return result.deletedCount || 0;
   }
 
-  static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string) {
+  static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string, creatorName?: string) {
     logger.info(`[Student] Bulk importing ${studentsData.length} students: creatorId=${creatorId}, ownerId=${ownerId}, targetOwnerId=${targetOwnerId}`);
 
     if (branchId && !targetOwnerId) {
@@ -510,6 +514,8 @@ export class StudentService {
         address,
         status: [status as StudentStatus],
         ownerId: targetOwnerId || creatorId,
+        createdBy: creatorId,
+        createdByName: creatorName || "",
         branchId,
       });
 
