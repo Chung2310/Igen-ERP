@@ -135,6 +135,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     if (!run) return [];
     return run.lines.map((line: any) => {
       const originalResult = results.find((r: any) => r.employeeId === line.employeeId);
+      const details = buildPayrollDetails({}, line.calculation || {});
       return {
         employeeId: line.employeeId,
         employeeName: line.employeeName || originalResult?.employeeName || "",
@@ -142,6 +143,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         adjustedBase: line.calculation?.adjustedBase || 0,
         overtime: line.calculation?.overtime || 0,
         net: line.calculation?.net || 0,
+        socialInsurance: details.deductionBreakdown.socialInsurance,
+        healthInsurance: details.deductionBreakdown.healthInsurance,
+        unemploymentInsurance: details.deductionBreakdown.unemploymentInsurance,
+        personalIncomeTax: details.deductionBreakdown.personalIncomeTax,
+        otherDeductions: details.deductionBreakdown.otherDeductions,
+        advances: details.deductionBreakdown.advances,
+        deductionTotal: details.deductionBreakdown.total || 0,
         calculation: line.calculation || {},
       };
     });
@@ -216,7 +224,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
-    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Payslip và export</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Thanh toán bảng lương</div><PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} /></div>}
     {canManage && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Điều chỉnh chờ duyệt</div><PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} /></div>}
     {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
@@ -337,7 +345,16 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
-                    <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
+                    <td className="p-3 text-right font-bold text-slate-900">
+                      <div>{Number(line.net).toLocaleString()} đ</div>
+                      <div className="mt-1 text-[11px] font-normal leading-4 text-slate-500">
+                        BHXH {Number(line.socialInsurance).toLocaleString()} đ · BHYT {Number(line.healthInsurance).toLocaleString()} đ · BHTN {Number(line.unemploymentInsurance).toLocaleString()} đ
+                      </div>
+                      <div className="text-[11px] font-normal leading-4 text-slate-500">
+                        Thuế {Number(line.personalIncomeTax).toLocaleString()} đ · Khấu trừ khác {Number(line.otherDeductions).toLocaleString()} đ · Tạm ứng {Number(line.advances).toLocaleString()} đ
+                      </div>
+                      <div className="text-[11px] font-normal leading-4 text-slate-500">Tổng khấu trừ {Number(line.deductionTotal).toLocaleString()} đ</div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -436,7 +453,3 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     )}
   </section>;
 }
-
-
-
-
