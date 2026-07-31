@@ -8,14 +8,14 @@ const vietnam = (line: PayrollLineSnapshot, key: string) => line.vietnam?.[key] 
 
 export function buildPayrollWorkbook(type: PayrollExportType, lines: PayrollLineSnapshot[]): XLSX.WorkBook {
   const rows = type === "detailed"
-    ? lines.map((line) => ({ "Employee ID": line.employeeId, "Employee Name": line.employeeName ?? "", "Gross Pay": number(line, "gross"), "Deductions": number(line, "deductions"), "Net Pay": number(line, "net") || number(line, "netPay") }))
+    ? lines.map((line) => ({ "Mã nhân viên": line.employeeId, "Tên nhân viên": line.employeeName ?? "", "Tổng thu nhập": number(line, "gross"), "Các khoản khấu trừ": number(line, "deductions"), "Thực nhận": number(line, "net") || number(line, "netPay") }))
     : type === "insurance"
-      ? lines.map((line) => ({ "Employee ID": line.employeeId, "Social Insurance": vietnam(line, "socialInsurance"), "Health Insurance": vietnam(line, "healthInsurance"), "Unemployment Insurance": vietnam(line, "unemploymentInsurance") }))
+      ? lines.map((line) => ({ "Mã nhân viên": line.employeeId, "BHXH": vietnam(line, "socialInsurance"), "BHYT": vietnam(line, "healthInsurance"), "BHTN": vietnam(line, "unemploymentInsurance") }))
       : type === "pit"
-        ? lines.map((line) => ({ "Employee ID": line.employeeId, "Taxable Income": vietnam(line, "taxableIncome"), "Personal Income Tax": vietnam(line, "personalIncomeTax") }))
-        : lines.map((line) => ({ "Employee ID": line.employeeId, "Bank Account": vietnam(line, "bankAccount"), Amount: number(line, "net") || number(line, "netPay") }));
+        ? lines.map((line) => ({ "Mã nhân viên": line.employeeId, "Thu nhập chịu thuế": vietnam(line, "taxableIncome"), "Thuế TNCN": vietnam(line, "personalIncomeTax") }))
+        : lines.map((line) => ({ "Mã nhân viên": line.employeeId, "Tài khoản ngân hàng": vietnam(line, "bankAccount"), "Số tiền": number(line, "net") || number(line, "netPay") }));
   const workbook = XLSX.utils.book_new();
-  const sheetName = { detailed: "Payroll", insurance: "Insurance", pit: "PIT", bank_transfer: "Bank Transfer" }[type];
+  const sheetName = { detailed: "Bảng lương", insurance: "Bảo hiểm", pit: "Thuế TNCN", bank_transfer: "Chuyển khoản ngân hàng" }[type];
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), sheetName);
   return workbook;
 }
