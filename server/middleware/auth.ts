@@ -52,7 +52,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "stock:read", "stock:manage",
     "hr:read", "student:read", "student:manage", "partner:read", "partner:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:prepare", "payroll:manage", "payroll:pay",
     "chat:read", "resource:read", "resource:manage", "company-email:manage", "recruitment:manage",
-    // student-settings:manage kh�ng n?m ? d�y: lo?i h�nh doanh nghi?p ch? SuperAdmin s?a
+    // student-settings:manage không nằm ở đây: loại hình doanh nghiệp chỉ SuperAdmin sửa
     "custom-field:manage", "company-smtp:manage"
   ],
   branch_owner: [
