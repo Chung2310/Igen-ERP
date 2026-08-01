@@ -607,6 +607,9 @@ export default function UserAdminTab() {
 
   const openCreateUserModal = () => {
     resetUserForm();
+    if (activeBranchId) {
+      setUserBranchId(activeBranchId);
+    }
     setIsUserModalOpen(true);
   };
 
@@ -786,7 +789,6 @@ export default function UserAdminTab() {
                     "project:read", "project:manage",
                     "stock:read", "stock:manage",
                     "student:read", "student:manage",
-                    "course:read",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
                     "wallet:read"
@@ -798,7 +800,6 @@ export default function UserAdminTab() {
                     "project:read",
                     "stock:read",
                     "student:read",
-                    "course:read",
                     "resource:read",
                     "chat:read",
                     "wallet:read"

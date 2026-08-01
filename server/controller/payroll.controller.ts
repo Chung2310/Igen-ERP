@@ -401,7 +401,7 @@ export const payrollController = {
       PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean(),
       PayrollProfileModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
-      PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean(),
+      PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
     ]);
     const { policy } = resolvePayrollPolicy(policies as any[], period.start);
     const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
@@ -444,6 +444,9 @@ export const payrollController = {
         workPay: calculation.adjustedBase,
         hourlyRate: calculation.hourlyRate,
         overtime: (row.overtime ?? []) as any,
+        taxableAllowances: empAdjustments.allowances,
+        bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
+        otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
         // Chưa khai báo mức đóng riêng thì lấy lương tháng; trần đóng vẫn được áp.
         insuranceSalary: row.monthlySalary,
         participatesInsurance: profile?.participatesInsurance ?? true,
@@ -561,7 +564,14 @@ export const payrollController = {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename=payroll-${run.periodKey}-${type}.xlsx`); return res.send(buffer);
   },  async listAdjustments(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollAdjustmentModel.find(legacyPeriodScope(req)).sort({ createdAt: -1 }).lean();
-    return res.json({ status: "success", data });
+    const employeeIds = Array.from(new Set(data.map((item) => item.employeeId)));
+    const users = await UserModel.find({ _id: { $in: employeeIds } }).select("displayName email").lean();
+    const userMap = new Map(users.map((u) => [String(u._id), u.displayName || u.email]));
+    const enriched = data.map((item) => ({
+      ...item,
+      employeeName: userMap.get(item.employeeId) || item.employeeId,
+    }));
+    return res.json({ status: "success", data: enriched });
   },  async createAdjustment(req: AuthenticatedRequest, res: Response) {
     const { employeeId, kind, amount, reason } = req.body;
     if (!employeeId || !kind || !Number.isFinite(amount) || amount < 0 || !String(reason || "").trim()) return res.status(400).json({ status: "error", message: "Du lieu dieu chinh khong hop le." });
@@ -590,7 +600,7 @@ export const payrollController = {
             PayrollPolicyModel.find({ companyCode, status: "active" }).lean(),
             PayrollProfileModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
             PayrollDependentModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
-            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean()
+            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
           const { policy } = resolvePayrollPolicy(policies as any[], period.start);
@@ -632,6 +642,9 @@ export const payrollController = {
               workPay: calculation.adjustedBase,
               hourlyRate: calculation.hourlyRate,
               overtime: (row.overtime ?? []) as any,
+              taxableAllowances: empAdjustments.allowances,
+              bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
+              otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
               insuranceSalary: row.monthlySalary,
               participatesInsurance: profile?.participatesInsurance ?? true,
               taxMethod: resolveTaxMethod(profile),
@@ -689,7 +702,7 @@ export const payrollController = {
             PayrollPolicyModel.find({ companyCode, status: "active" }).lean(),
             PayrollProfileModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
             PayrollDependentModel.find({ companyCode, employeeId: { $in: employeeIds } }).lean(),
-            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["approved", "snapshotted"] } }).lean()
+            PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
           const { policy } = resolvePayrollPolicy(policies as any[], period.start);
@@ -731,6 +744,9 @@ export const payrollController = {
               workPay: calculation.adjustedBase,
               hourlyRate: calculation.hourlyRate,
               overtime: (row.overtime ?? []) as any,
+              taxableAllowances: empAdjustments.allowances,
+              bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
+              otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
               insuranceSalary: row.monthlySalary,
               participatesInsurance: profile?.participatesInsurance ?? true,
               taxMethod: resolveTaxMethod(profile),

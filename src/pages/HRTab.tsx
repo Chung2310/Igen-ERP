@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, FileText, Mail, UserSearch } from "lucide-react";
+import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -15,7 +15,6 @@ const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
-const LeaveRequestsTab = lazy(() => import("../components/hr/LeaveRequestsTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 const CelebrationEmailTab = lazy(() => import("../components/hr/CelebrationEmailTab"));
@@ -175,7 +174,6 @@ export default function HRTab() {
             { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
             { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
             { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
-            { id: "ĐƠN TỪ", label: "Quản lý đơn từ", icon: FileText },
             { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
             { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
             ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
@@ -237,6 +235,7 @@ export default function HRTab() {
             courses={courses}
             fetchCourses={fetchCourses}
             loading={loading}
+            activeBranchId={activeBranchId || undefined}
           />
         )}
 
@@ -247,6 +246,7 @@ export default function HRTab() {
             employees={employees}
             isManager={canManageKanban}
             usersList={usersList}
+            activeBranchId={activeBranchId || undefined}
           />
         )}
 
@@ -267,6 +267,7 @@ export default function HRTab() {
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             isManager={isManager}
+            activeBranchId={activeBranchId || undefined}
           />
         )}
 
@@ -279,7 +280,7 @@ export default function HRTab() {
         )}
         {subTab === CELEBRATION_TAB && canManageCelebration && <CelebrationEmailTab />}
         {subTab === RECRUITMENT_TAB && canManageRecruitment && <RecruitmentTab key={activeBranchId} />}
-        {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} />}
+        {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} branchId={activeBranchId || undefined} />}
         {subTab === "LỊCH" && (
           <CalendarTab
             userProfile={userProfile}
@@ -289,15 +290,7 @@ export default function HRTab() {
             canEditAttendance={canEditAttendance}
             usersList={usersList}
             employees={employees}
-          />
-        )}
-        {subTab === "ĐƠN TỪ" && (
-          <LeaveRequestsTab
-            userProfile={userProfile}
-            selectedCompanyCode={selectedCompanyCode}
-            canApprove={canManageAttendance}
-            usersList={usersList}
-            employees={employees}
+            canApproveLeave={canManageAttendance}
           />
         )}
       </Suspense>

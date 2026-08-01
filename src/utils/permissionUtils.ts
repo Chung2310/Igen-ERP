@@ -59,19 +59,27 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Cấu hình dữ liệu và nhận diện khuôn mặt chấm công AI",
   },
-  // Quản lý đào tạo & Học viên
+  "company-email:manage": {
+    label: "Quản lý email chúc mừng",
+    group: "Quản lý nhân sự",
+    description: "Cấu hình gửi email chúc mừng sinh nhật, kỷ niệm ngày làm việc của nhân viên",
+  },
+  "recruitment:manage": {
+    label: "Quản lý tuyển dụng",
+    group: "Quản lý nhân sự",
+    description: "Xem, tạo mới, chỉnh sửa tin tuyển dụng, danh sách ứng viên và lịch phỏng vấn",
+  },
+  // Module học viên/lao động — chỉ hai mã quyền tổng, không chia nhỏ theo khu vực.
   "student:read": {
-    label: "Xem danh sách học viên",
-    group: "Quản lý đào tạo",
-    description: "Xem danh sách học viên, lớp học và kết quả đào tạo",
+    label: "Xem học viên/lao động",
+    group: "Học viên & Lao động",
+    description: "Xem hồ sơ, khóa học, lớp/dự án, lịch thi, học phí, bài tập, tài nguyên và thông báo",
   },
   "student:manage": {
-    label: "Quản lý học viên & xếp lớp",
-    group: "Quản lý đào tạo",
-    description: "Thêm mới học viên, xếp lớp, điểm danh và cấp chứng chỉ",
+    label: "Quản lý học viên/lao động",
+    group: "Học viên & Lao động",
+    description: "Thêm, sửa, xóa và nhập dữ liệu trên toàn bộ module học viên/lao động",
   },
-  "student-profile:read": { label: "Xem hồ sơ học viên/lao động", group: "Học viên & Lao động", description: "Xem danh sách và thông tin hồ sơ trong phạm vi chi nhánh" },
-  "student-profile:manage": { label: "Quản lý hồ sơ học viên/lao động", group: "Học viên & Lao động", description: "Thêm, sửa, xóa, nhập dữ liệu và gán chi nhánh cho hồ sơ" },
   "partner:read": {
     label: "Xem đối tác & cộng tác viên",
     group: "Quản lý đối tác",
@@ -82,30 +90,8 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý đối tác",
     description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng",
   },
-  "course:read": {
-    label: "Xem danh sách khóa học",
-    group: "Quản lý đào tạo",
-    description: "Xem thông tin khóa học, lộ trình và giáo trình đào tạo",
-  },
-  "course:manage": {
-    label: "Quản lý khóa học & chương trình",
-    group: "Quản lý đào tạo",
-    description: "Tạo khóa học mới, thiết lập học phần và phân công giảng viên",
-  },
-  "batch:read": { label: "Xem lớp học/dự án", group: "Đào tạo", description: "Xem lớp học, dự án và thành viên được phân công" },
-  "batch:manage": { label: "Quản lý lớp học/dự án", group: "Đào tạo", description: "Mở lớp, phân công giáo viên và quản lý thành viên" },
-  "exam:read": { label: "Xem lịch thi", group: "Đào tạo", description: "Xem đợt thi, lịch thi và kết quả" },
-  "exam:manage": { label: "Quản lý lịch thi", group: "Đào tạo", description: "Tạo, cập nhật, xóa đợt thi và nhập kết quả" },
-  "payment:read": { label: "Xem học phí và thanh toán", group: "Tài chính học viên", description: "Xem công nợ, học phí và lịch sử thanh toán" },
-  "payment:manage": { label: "Quản lý học phí và thanh toán", group: "Tài chính học viên", description: "Ghi nhận và xử lý các khoản thanh toán học viên" },
-  "student-notification:read": { label: "Xem thông báo học viên", group: "Nội dung & Liên lạc", description: "Xem nội dung và lịch sử thông báo học viên" },
-  "student-notification:manage": { label: "Quản lý thông báo học viên", group: "Nội dung & Liên lạc", description: "Soạn, gửi, cập nhật và xóa thông báo học viên" },
-  "student-resource:read": { label: "Xem tài nguyên học tập", group: "Nội dung & Liên lạc", description: "Xem và tải tài nguyên trong module học viên" },
-  "student-resource:manage": { label: "Quản lý tài nguyên học tập", group: "Nội dung & Liên lạc", description: "Tạo, tải lên, cập nhật và xóa tài nguyên học tập" },
-  "assignment:read": { label: "Xem bài tập và điểm danh", group: "Đào tạo", description: "Xem bài tập, bài nộp và dữ liệu điểm danh" },
-  "assignment:manage": { label: "Quản lý bài tập và điểm danh", group: "Đào tạo", description: "Tạo bài tập, chấm bài và quản lý điểm danh" },
   "custom-field:manage": { label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Cấu hình trường dữ liệu tùy chỉnh của module học viên" },
-  "student-settings:manage": { label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập loại đối tượng và cách vận hành module học viên" },
+  "student-settings:manage": { label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module học viên" },
   "company-smtp:manage": { label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử SMTP doanh nghiệp" },
   // Kho & Sản phẩm
   "stock:read": {

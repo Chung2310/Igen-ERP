@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -44,6 +44,8 @@ interface CalendarTabProps {
   canEditAttendance?: boolean;
   usersList: UserProfile[];
   employees: EmployeeNode[];
+  /** True when the user can approve leave applications and manage request templates. */
+  canApproveLeave?: boolean;
 }
 
 interface CalendarItem {
@@ -73,6 +75,8 @@ interface EffectiveWorkHours {
 
 const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
+const LeaveRequestsTab = lazy(() => import("./LeaveRequestsTab"));
+
 export default function CalendarTab({
   userProfile,
   selectedCompanyCode,
@@ -80,7 +84,8 @@ export default function CalendarTab({
   canManage,
   canEditAttendance = false,
   employees,
-  usersList = []
+  usersList = [],
+  canApproveLeave
 }: CalendarTabProps) {
   // Fall back to role-string checks only when the caller doesn't pass canManage,
   // so other embedders of this component keep working unchanged.
@@ -90,7 +95,7 @@ export default function CalendarTab({
   const isLeaveAdmin = canManageAttendance;
   const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
   // Sub-tab Navigation
-  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance">("schedule");
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">("schedule");
 
   // Đơn nghỉ đã duyệt được dùng để tính công trong tab Lịch sử chấm công.
   const [applications, setApplications] = useState<any[]>([]);
@@ -1129,6 +1134,9 @@ export default function CalendarTab({
   // Filtering Logic
   const getFilteredItems = () => {
     return items.filter((item) => {
+      // Đơn chưa được duyệt không xuất hiện trên lịch trình — chỉ hiển thị ở sub-tab Đơn từ.
+      if (item.status === "pending") return false;
+
       // Type Filter
       if (filterType !== "all" && item.type !== filterType) return false;
 
@@ -1212,10 +1220,40 @@ export default function CalendarTab({
           >
             Lịch sử chấm công
           </button>
+          <button
+            onClick={() => setCurrentSubTab("requests")}
+            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
+                : "text-gray-500 hover:text-gray-800"
+              }`}
+          >
+            Đơn từ
+          </button>
         </div>
       </div>
 
-      {currentSubTab === "attendance" ? (
+      {currentSubTab === "requests" ? (
+        <Suspense
+          fallback={
+            <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-gray-500 font-semibold">Đang tải đơn từ...</span>
+            </div>
+          }
+        >
+          <LeaveRequestsTab
+            userProfile={userProfile}
+            selectedCompanyCode={selectedCompanyCode}
+            canApprove={canApproveLeave ?? canManageAttendance}
+            usersList={usersList}
+            employees={employees}
+            onApproved={() => {
+              fetchCalendarItems();
+              fetchApplications();
+            }}
+          />
+        </Suspense>
+      ) : currentSubTab === "attendance" ? (
         renderAttendanceTab()
       ) : (
         <>

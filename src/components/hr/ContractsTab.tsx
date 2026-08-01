@@ -153,9 +153,11 @@ const statusStyle: Record<ContractStatus, string> = {
 export default function ContractsTab({
   canManage,
   companyCode,
+  branchId,
 }: {
   canManage: boolean;
   companyCode: string;
+  branchId?: string;
 }) {
   const [tab, setTab] = useState<"contracts" | "extensions">("contracts");
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -172,7 +174,7 @@ export default function ContractsTab({
     "contract" | "signed" | "extension" | "extensionSigned" | null
   >(null);
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
-  const suffix = `?companyCode=${encodeURIComponent(companyCode)}`;
+  const suffix = `?companyCode=${encodeURIComponent(companyCode)}${branchId ? `&branchId=${encodeURIComponent(branchId)}` : ""}`;
   const load = async () => {
     setLoading(true);
     try {
@@ -196,7 +198,7 @@ export default function ContractsTab({
   };
   useEffect(() => {
     load();
-  }, [companyCode]);
+  }, [companyCode, branchId]);
   const contractsByEmployee = useMemo(
     () =>
       new Map(

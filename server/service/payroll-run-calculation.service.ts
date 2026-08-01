@@ -1,4 +1,4 @@
-﻿import { calculatePayroll } from "./payroll-calculation.service";
+import { calculatePayroll } from "./payroll-calculation.service";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 import { calculateVietnamPayroll, type PayrollTaxMethod } from "./payroll-vietnam.service";
 import type { IPayrollPolicy } from "../interface/payroll-policy.interface";
@@ -63,8 +63,8 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       hourlyRate: Math.round(segment.monthlySalary * ratio) / Math.max(1, input.standardHours * ratio),
       overtime: input.overtime.map((item) => ({ ...item, minutes: item.minutes * ratio })),
       taxableAllowances: input.allowances * ratio,
-      bonuses: input.bonuses * ratio,
-      otherDeductions: input.deductions * ratio,
+      bonuses: (input.bonuses + (input.adjustments > 0 ? input.adjustments : 0)) * ratio,
+      otherDeductions: (input.deductions + (input.adjustments < 0 ? -input.adjustments : 0)) * ratio,
       insuranceSalary: Math.round(input.vietnam.insuranceSalary * ratio),
       participatesInsurance: input.vietnam.participatesInsurance,
       taxMethod: input.vietnam.taxMethod,

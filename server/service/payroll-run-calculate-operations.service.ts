@@ -37,7 +37,7 @@ async function loadAdjustmentTotals(scope: PayrollOperationScope, periodKey: str
   const rows: any[] = await PayrollAdjustmentModel.find({
     ...scope,
     periodKey,
-    status: { $in: ["approved", "snapshotted"] },
+    status: { $in: ["pending", "approved", "snapshotted"] },
   }).select("employeeId kind amount").lean();
   const totals = new Map<string, AdjustmentTotals>();
   for (const row of rows) {

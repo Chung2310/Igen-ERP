@@ -38,6 +38,7 @@ interface WorkflowTabProps {
   userProfile: UserProfile | null;
   selectedCompanyCode: string;
   isManager: boolean;
+  activeBranchId?: string;
 }
 
 const ACCENT = "#4f46e5";
@@ -57,6 +58,7 @@ export default function WorkflowTab({
   userProfile,
   selectedCompanyCode,
   isManager,
+  activeBranchId,
 }: WorkflowTabProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,7 +132,10 @@ export default function WorkflowTab({
     if (!selectedCompanyCode) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/crud/workflows", {
+      const url = activeBranchId
+        ? `/api/v1/crud/workflows?branchId=${activeBranchId}`
+        : "/api/v1/crud/workflows";
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể tải danh sách quy trình.");
@@ -146,7 +151,7 @@ export default function WorkflowTab({
     } finally {
       setLoading(false);
     }
-  }, [selectedCompanyCode]);
+  }, [selectedCompanyCode, activeBranchId]);
 
   useEffect(() => {
     fetchWorkflows();
@@ -202,7 +207,7 @@ export default function WorkflowTab({
           category: data.category.trim(),
           description: data.description.trim(),
           steps: data.steps,
-          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "" }),
+          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "", branchId: activeBranchId }),
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể lưu quy trình.");
@@ -235,6 +240,7 @@ export default function WorkflowTab({
         description: wfDescription.trim(),
         steps: override?.steps ?? steps,
         creatorUid: userProfile?.uid || "",
+        ...(activeId ? {} : { branchId: activeBranchId }),
       };
       const url = activeId
         ? `/api/v1/crud/workflows/${activeId}`
@@ -256,7 +262,7 @@ export default function WorkflowTab({
         toast.success(activeId ? "Đã cập nhật quy trình." : "Đã tạo quy trình mới.");
       return savedId;
     },
-    [wfName, wfCategory, wfDescription, steps, activeId, userProfile]
+    [wfName, wfCategory, wfDescription, steps, activeId, userProfile, activeBranchId]
   );
 
   // Tự lưu ngầm khi di chuyển bước (chỉ khi đã có bản ghi)

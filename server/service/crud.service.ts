@@ -184,6 +184,20 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "timekeeping-logs": TimekeepingLogModel,
 };
 
+/**
+ * Các model được cô lập theo chi nhánh: bản ghi luôn được đóng dấu branchId khi tạo
+ * và mọi truy cập theo _id đều bị giới hạn trong chi nhánh của người dùng.
+ */
+const BRANCH_SCOPED_MODELS = new Set<string>([
+  "workflows",
+  "training-courses",
+  "training-enrollments",
+  "projects",
+  "hr-calendar-events",
+  "hr-leave-templates",
+  "hr-leave-applications",
+]);
+
 export const crudService = {
   /**
    * Lấy danh sách tài nguyên kèm phân trang, lọc và cô lập companyCode
@@ -268,6 +282,7 @@ export const crudService = {
     }
     const inventoryBranch = requireInventoryBranch(modelName, branchId);
     if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     const item = await model.findOne(query).lean();
     if (!item) {
@@ -298,6 +313,10 @@ export const crudService = {
       companyCode,
       ...(inventoryBranch ? { branchId: inventoryBranch } : {}),
     };
+
+    if (BRANCH_SCOPED_MODELS.has(modelName) && (branchId || data.branchId)) {
+      payload.branchId = branchId || data.branchId;
+    }
 
     const newItem = new model(payload);
     await newItem.save();
@@ -358,11 +377,12 @@ export const crudService = {
     }
     const inventoryBranch = requireInventoryBranch(modelName, branchId);
     if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
-    if (modelName === "timekeeping-logs" && data.branchId) {
+    if ((modelName === "timekeeping-logs" || BRANCH_SCOPED_MODELS.has(modelName)) && data.branchId) {
       updatePayload.branchId = data.branchId;
     }
 
@@ -418,6 +438,7 @@ export const crudService = {
     }
     const inventoryBranch = requireInventoryBranch(modelName, branchId);
     if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     const deletedItem = await model.findOneAndDelete(query);
     if (!deletedItem) {

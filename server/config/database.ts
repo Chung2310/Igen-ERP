@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
-import { PERMISSION_CATALOG } from "./permission-catalog";
+import { PERMISSION_CATALOG, RETIRED_STUDENT_PERMISSIONS } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
 import {
   dropLegacyAttendancePeriodResultUniqueIndex,
@@ -136,6 +136,30 @@ async function seedPermissions() {
       { role: "manager" },
       { $addToSet: { permissions: "custom-field:manage" } },
     );
+
+    // Gộp quyền chi tiết của module học viên/lao động về đúng hai mã student:read /
+    // student:manage. Nâng cấp trước rồi mới gỡ mã cũ để không vai trò nào mất quyền.
+    const retiredManage = RETIRED_STUDENT_PERMISSIONS.filter((code) => code.endsWith(":manage"));
+    const retiredRead = RETIRED_STUDENT_PERMISSIONS.filter((code) => code.endsWith(":read"));
+    // `any` ở đây là chủ ý: hai model có generic khác nhau nên union của chúng khiến
+    // overload updateMany của mongoose không còn callable.
+    const collapseStudentPermissions = async (model: any) => {
+      await model.updateMany(
+        { permissions: { $in: retiredManage } },
+        { $addToSet: { permissions: { $each: ["student:read", "student:manage"] } } },
+      );
+      await model.updateMany(
+        { permissions: { $in: retiredRead } },
+        { $addToSet: { permissions: "student:read" } },
+      );
+      await model.updateMany(
+        { permissions: { $in: RETIRED_STUDENT_PERMISSIONS } },
+        { $pullAll: { permissions: RETIRED_STUDENT_PERMISSIONS } },
+      );
+    };
+    await collapseStudentPermissions(RolePermissionModel);
+    await collapseStudentPermissions(UserModel);
+    await PermissionModel.deleteMany({ code: { $in: RETIRED_STUDENT_PERMISSIONS } });
   } catch (error) {
     console.error("[Backend Database] Lỗi khi tự động khởi tạo mã quyền:", error);
   }

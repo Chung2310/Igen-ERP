@@ -8,10 +8,20 @@ test("umbrella read keeps all operational tabs visible", () => {
   assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen", "thong-bao"]);
 });
 
-test("granular permissions expose only matching tabs", () => {
-  assert.deepEqual(getAllowedStudentTabSlugs(["course:read"], "student"), ["khoa-hoc"]);
-  assert.deepEqual(getAllowedStudentTabSlugs(["batch:manage"], "worker"), ["khoa-hoc"]);
-  assert.deepEqual(getAllowedStudentTabSlugs(["payment:read", "exam:manage"], "student"), ["hoc-phi", "lich-thi"]);
+test("umbrella manage keeps all operational tabs visible", () => {
+  const tabs = getAllowedStudentTabSlugs(["student:manage"], "student");
+  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen", "thong-bao"]);
+});
+
+test("worker preset hides student-only tabs", () => {
+  assert.deepEqual(getAllowedStudentTabSlugs(["student:read"], "worker"), ["tong-quan", "khoa-hoc", "hoc-vien", "thong-bao"]);
+});
+
+// Mã quyền chi tiết theo khu vực đã bị gộp vào student:read/student:manage — giữ lại
+// một mã cũ cũng không còn mở được tab nào.
+test("retired granular permissions no longer grant access", () => {
+  assert.deepEqual(getAllowedStudentTabSlugs(["course:read"], "student"), []);
+  assert.deepEqual(getAllowedStudentTabSlugs(["payment:read", "exam:manage"], "student"), []);
 });
 
 test("SMTP settings do not hard-code admin role", () => {
