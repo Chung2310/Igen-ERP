@@ -31,7 +31,8 @@ describe("WorkflowReader", () => {
     expect(screen.queryByText(/Dự kiến|ngày/)).toBeNull();
     expect(document.querySelectorAll("svg[aria-hidden='true']").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByText("Receive documents"));
+    const firstStepCard = screen.getByText("Receive documents").closest("li")!;
+    fireEvent.click(within(firstStepCard).getByRole("button", { name: /sửa/i }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeTruthy();
     expect(within(dialog).getByText("Keep the original files")).toBeTruthy();
