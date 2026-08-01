@@ -715,6 +715,7 @@ export default function InventoryTab() {
   const handleCreateTransaction = async (payload: {
     type: "nhập" | "xuất";
     purpose?: import("../types").StockLogPurpose;
+    customerName?: string;
     title: string;
     operatorName: string;
     notes: string;
@@ -757,6 +758,7 @@ export default function InventoryTab() {
     await inventoryStockLogService.createLog({
       type: payload.type,
       purpose: payload.purpose,
+      customerName: payload.customerName,
       title: payload.title,
       items: logItems,
       sku: resolvedItems[0].product.sku,
@@ -774,6 +776,7 @@ export default function InventoryTab() {
     id?: string;
     type: "nhập" | "xuất";
     purpose?: import("../types").StockLogPurpose;
+    customerName?: string;
     title: string;
     operatorName: string;
     notes: string;
@@ -853,6 +856,7 @@ export default function InventoryTab() {
     await inventoryStockLogService.updateLog(payload.id, {
       type: payload.type,
       purpose: payload.purpose,
+      customerName: payload.customerName,
       title: payload.title,
       items: logItems,
       sku: normalizedNewItems[0].product.sku,

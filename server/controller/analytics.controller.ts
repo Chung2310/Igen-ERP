@@ -1,6 +1,8 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { analyticsService, RevenueGranularity } from "../service/analytics.service";
+import { OperatingExpenseModel } from "../model/operating-expense.model";
+import { invalidateAnalyticsCache, withAnalyticsCache } from "../service/analytics-cache.service";
 import {
   analyticsWorkbookBuffer,
   buildAnalyticsCsv,
@@ -25,7 +27,52 @@ function resolveRange(from: string, to: string, granularity: RevenueGranularity)
   return { from: start, to: end, granularity };
 }
 
+function resolveScope(req: AuthenticatedRequest) {
+  return {
+    companyCode: req.user?.companyCode,
+    branchId: req.query.branchId ? String(req.query.branchId) : undefined,
+    courseId: req.query.courseId ? String(req.query.courseId) : undefined,
+  };
+}
+
 export const analyticsController = {
+  async listOperatingExpenses(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+    const range = resolveRange(String(req.query.from), String(req.query.to), "day");
+    if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
+    const query: Record<string, unknown> = { companyCode: req.user.companyCode, incurredOn: { $gte: range.from, $lte: range.to } };
+    if (req.query.branchId) query.branchId = String(req.query.branchId);
+    const data = await OperatingExpenseModel.find(query).sort({ incurredOn: -1, createdAt: -1 }).lean();
+    return res.status(200).json({ status: "success", data });
+  },
+
+  async createOperatingExpense(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+    const data = await OperatingExpenseModel.create({
+      companyCode: req.user.companyCode,
+      branchId: req.body.branchId || undefined,
+      category: req.body.category,
+      description: req.body.description,
+      amount: req.body.amount,
+      incurredOn: new Date(`${req.body.incurredOn}T12:00:00.000Z`),
+      status: "confirmed",
+      createdBy: req.user.id,
+    });
+    await invalidateAnalyticsCache(req.user.companyCode);
+    return res.status(201).json({ status: "success", data });
+  },
+
+  async voidOperatingExpense(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+    const data = await OperatingExpenseModel.findOneAndUpdate(
+      { _id: req.params.id, companyCode: req.user.companyCode },
+      { $set: { status: "void" } },
+      { new: true }
+    );
+    if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy khoản chi." });
+    await invalidateAnalyticsCache(req.user.companyCode);
+    return res.status(200).json({ status: "success", data });
+  },
   /**
    * GET /api/v1/analytics/meta
    *
@@ -76,9 +123,8 @@ export const analyticsController = {
         });
       }
 
-      const data = await analyticsService.getCombinedRevenue(
-        { companyCode: req.user.companyCode },
-        range
+      const data = await withAnalyticsCache(req.user.companyCode, req.originalUrl, () =>
+        analyticsService.getCombinedRevenue(resolveScope(req), range)
       );
 
       return res.status(200).json({ status: "success", data });
@@ -97,7 +143,7 @@ export const analyticsController = {
       if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       const asOf = new Date(`${String(req.query.asOf)}T23:59:59.999Z`);
       if (isNaN(asOf.getTime())) return res.status(400).json({ status: "error", message: "asOf phải đúng định dạng YYYY-MM-DD." });
-      const data = await analyticsService.getReceivables({ companyCode: req.user.companyCode }, asOf);
+      const data = await withAnalyticsCache(req.user.companyCode, req.originalUrl, () => analyticsService.getReceivables(resolveScope(req), asOf));
       return res.status(200).json({ status: "success", data });
     } catch (error: any) {
       console.error("[analyticsController.getReceivables] Error:", error);
@@ -110,7 +156,7 @@ export const analyticsController = {
       if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       const range = resolveRange(String(req.query.from), String(req.query.to), "day");
       if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
-      const data = await analyticsService.getExpenses({ companyCode: req.user.companyCode }, range);
+      const data = await withAnalyticsCache(req.user.companyCode, req.originalUrl, () => analyticsService.getExpenses(resolveScope(req), range));
       return res.status(200).json({ status: "success", data });
     } catch (error: any) {
       console.error("[analyticsController.getExpenses] Error:", error);
@@ -123,7 +169,7 @@ export const analyticsController = {
       if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       const range = resolveRange(String(req.query.from), String(req.query.to), (req.query.granularity as RevenueGranularity) || "day");
       if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
-      const data = await analyticsService.getProfitAndLoss({ companyCode: req.user.companyCode }, range);
+      const data = await withAnalyticsCache(req.user.companyCode, req.originalUrl, () => analyticsService.getProfitAndLoss(resolveScope(req), range));
       return res.status(200).json({ status: "success", data });
     } catch (error: any) {
       console.error("[analyticsController.getProfitAndLoss] Error:", error);
@@ -138,7 +184,7 @@ export const analyticsController = {
       const format = req.query.format as AnalyticsExportFormat;
       const range = resolveRange(String(req.query.from), String(req.query.to), (req.query.granularity as RevenueGranularity) || "day");
       if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
-      const scope = { companyCode: req.user.companyCode };
+      const scope = resolveScope(req);
       const data: Record<string, any> = {};
 
       if (report === "overview") {

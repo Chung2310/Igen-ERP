@@ -5,9 +5,14 @@ import { Partner } from "../modules/student-management/models/partner.model";
 import { Student } from "../modules/student-management/models/student.model";
 import { User } from "../modules/student-management/models/user.model";
 import { buildCompanyUserFilter } from "../modules/student-management/utils/auth.util";
+import { OperatingExpenseModel } from "../model/operating-expense.model";
+import { BranchModel } from "../model/branch.model";
+import { Course } from "../modules/student-management/models/course.model";
 
 export interface AnalyticsScope {
   companyCode?: string;
+  branchId?: string;
+  courseId?: string;
 }
 
 export type RevenueGranularity = "day" | "week" | "month";
@@ -54,6 +59,13 @@ async function resolveCompanyOwnerIds(companyCode?: string): Promise<string[] | 
 
   // companyCode cũng có thể là ownerId trực tiếp với dữ liệu cũ.
   return [...new Set([...ids, companyCode])];
+}
+
+async function resolveCourseStudentIds(scope: AnalyticsScope): Promise<string[] | null> {
+  if (!scope.courseId) return null;
+  const query: Record<string, unknown> = { courseId: scope.courseId };
+  if (scope.branchId) query.branchId = scope.branchId;
+  return (await Student.find(query).select("_id").lean()).map((student: any) => String(student._id));
 }
 
 /** Định dạng nhóm thời gian. Dùng UTC vì paidOn lưu mốc 00:00 UTC của ngày nghiệp vụ. */
@@ -161,7 +173,9 @@ export const analyticsService = {
   async getCombinedRevenue(scope: AnalyticsScope, range: RevenueRange) {
     const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
     const ownerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
-    const stockScope = scope.companyCode ? { companyCode: scope.companyCode } : {};
+    const studentIds = await resolveCourseStudentIds(scope);
+    const paymentScope = { ...ownerMatch, ...(scope.branchId ? { branchId: scope.branchId } : {}), ...(studentIds ? { studentId: { $in: studentIds } } : {}) };
+    const stockScope = { ...(scope.companyCode ? { companyCode: scope.companyCode } : {}), ...(scope.branchId ? { branchId: scope.branchId } : {}) };
     const spanMs = range.to.getTime() - range.from.getTime();
     const previousFrom = new Date(range.from.getTime() - spanMs);
     const bucketFormat = BUCKET_FORMAT[range.granularity];
@@ -169,15 +183,15 @@ export const analyticsService = {
 
     const [tuitionBuckets, previousTuition, excludedTuition, goodsBuckets, previousGoods, goodsQuality, categoryRows, unclassifiedStockOut] = await Promise.all([
       Payment.aggregate([
-        { $match: { ...ownerMatch, paidOn: { $gte: range.from, $lte: range.to } } },
+        { $match: { ...paymentScope, paidOn: { $gte: range.from, $lte: range.to } } },
         { $group: { _id: { $dateToString: { format: bucketFormat, date: "$paidOn", timezone: "UTC" } }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
       Payment.aggregate([
-        { $match: { ...ownerMatch, paidOn: { $gte: previousFrom, $lt: range.from } } },
+        { $match: { ...paymentScope, paidOn: { $gte: previousFrom, $lt: range.from } } },
         { $group: { _id: null, amount: { $sum: "$amount" } } },
       ]),
-      Payment.countDocuments({ ...ownerMatch, paidOn: { $in: [null, undefined] } }),
+      Payment.countDocuments({ ...paymentScope, paidOn: { $in: [null, undefined] } }),
       StockLogModel.aggregate([
         { $match: { ...saleMatch, createdAt: { $gte: range.from, $lte: range.to } } },
         { $unwind: "$items" },
@@ -209,12 +223,8 @@ export const analyticsService = {
         { $match: { ...saleMatch, createdAt: { $gte: range.from, $lte: range.to } } },
         { $unwind: "$items" },
         { $match: { "items.lineTotal": { $type: "number" } } },
-        { $lookup: { from: "products", let: { productId: "$items.productId", companyCode: "$companyCode" }, pipeline: [
-          { $match: { $expr: { $and: [{ $eq: [{ $toString: "$_id" }, "$$productId"] }, { $eq: ["$companyCode", "$$companyCode"] }] } } },
-          { $project: { category: 1 } },
-        ], as: "product" } },
         { $group: {
-          _id: { $ifNull: [{ $first: "$product.category" }, "Chưa phân loại"] },
+          _id: { $ifNull: ["$items.category", "Chưa phân loại"] },
           revenue: { $sum: "$items.lineTotal" },
           cost: { $sum: { $multiply: [{ $ifNull: ["$items.unitCost", 0] }, "$items.quantity"] } },
           quantity: { $sum: "$items.quantity" },
@@ -285,16 +295,17 @@ export const analyticsService = {
 
   async getReceivables(scope: AnalyticsScope, asOf: Date) {
     const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
-    const ownerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
+    const ownerMatch = { ...(ownerIds ? { ownerId: { $in: ownerIds } } : {}), ...(scope.branchId ? { branchId: scope.branchId } : {}), ...(scope.courseId ? { courseId: scope.courseId } : {}) };
     const rows = await Student.aggregate([
       { $match: ownerMatch },
       { $unwind: "$installmentStatus" },
       { $match: { "installmentStatus.status": { $ne: "Đã thu" }, "installmentStatus.amountDue": { $gt: 0 } } },
-      { $addFields: { sentOn: { $convert: { input: "$installmentStatus.sentAt", to: "date", onError: null, onNull: null } } } },
-      { $addFields: { ageDays: { $cond: [{ $ne: ["$sentOn", null] }, { $dateDiff: { startDate: "$sentOn", endDate: asOf, unit: "day" } }, null] } } },
+      { $addFields: { dueOn: { $convert: { input: "$installmentStatus.dueAt", to: "date", onError: null, onNull: null } } } },
+      { $addFields: { ageDays: { $cond: [{ $ne: ["$dueOn", null] }, { $dateDiff: { startDate: "$dueOn", endDate: asOf, unit: "day" } }, null] } } },
       { $group: {
         _id: { $switch: { branches: [
-          { case: { $eq: ["$sentOn", null] }, then: "notSent" },
+          { case: { $eq: ["$dueOn", null] }, then: "notScheduled" },
+          { case: { $lt: ["$ageDays", 0] }, then: "notDue" },
           { case: { $lte: ["$ageDays", 30] }, then: "0-30" },
           { case: { $lte: ["$ageDays", 60] }, then: "31-60" },
         ], default: "60+" } },
@@ -302,7 +313,7 @@ export const analyticsService = {
         count: { $sum: 1 },
       } },
     ]);
-    const order = ["notSent", "0-30", "31-60", "60+"];
+    const order = ["notScheduled", "notDue", "0-30", "31-60", "60+"];
     const byKey = new Map(rows.map((row: any) => [row._id, row]));
     const aging = order.map((bucket) => ({ bucket, amount: byKey.get(bucket)?.amount || 0, count: byKey.get(bucket)?.count || 0 }));
     return {
@@ -310,7 +321,7 @@ export const analyticsService = {
       total: aging.reduce((sum, row) => sum + row.amount, 0),
       count: aging.reduce((sum, row) => sum + row.count, 0),
       aging,
-      agingBasis: "sentAt",
+      agingBasis: "dueAt",
       currency: "VND",
     };
   },
@@ -318,8 +329,8 @@ export const analyticsService = {
   async getExpenses(scope: AnalyticsScope, range: RevenueRange) {
     const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
     const partnerOwnerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
-    const payrollScope = scope.companyCode ? { companyCode: scope.companyCode } : {};
-    const [payrollRows, commissionRows] = await Promise.all([
+    const payrollScope = { ...(scope.companyCode ? { companyCode: scope.companyCode } : {}), ...(scope.branchId ? { branchId: scope.branchId } : {}) };
+    const [payrollRows, commissionRows, operatingRows] = await Promise.all([
       PayrollPaymentModel.aggregate([
         { $match: { ...payrollScope, status: "confirmed", paymentDate: { $gte: range.from, $lte: range.to } } },
         { $group: { _id: null, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
@@ -339,17 +350,25 @@ export const analyticsService = {
           ],
         } },
       ]),
+      OperatingExpenseModel.aggregate([
+        { $match: { ...payrollScope, status: "confirmed", incurredOn: { $gte: range.from, $lte: range.to } } },
+        { $group: { _id: "$category", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+        { $sort: { amount: -1 } },
+      ]),
     ]);
     const payroll = payrollRows[0] || {};
     const commissionFacet = commissionRows[0] || {};
     const commission = commissionFacet.valid?.[0] || {};
     const payrollAmount = payroll.amount || 0;
     const commissionAmount = commission.amount || 0;
+    const operatingAmount = operatingRows.reduce((sum: number, row: any) => sum + (row.amount || 0), 0);
     return {
       range: { from: range.from.toISOString(), to: range.to.toISOString() },
-      total: payrollAmount + commissionAmount,
+      total: payrollAmount + commissionAmount + operatingAmount,
       payroll: { amount: payrollAmount, count: payroll.count || 0 },
       commission: { amount: commissionAmount, count: commission.count || 0 },
+      operating: { amount: operatingAmount, count: operatingRows.reduce((sum: number, row: any) => sum + (row.count || 0), 0) },
+      operatingByCategory: operatingRows.map((row: any) => ({ category: row._id, amount: row.amount || 0, count: row.count || 0 })),
       excludedCommissionRecords: commissionFacet.invalid?.[0]?.count || 0,
       currency: "VND",
     };
@@ -371,6 +390,7 @@ export const analyticsService = {
       goodsGrossProfit: revenue.goodsGrossProfit,
       payrollExpense: expenses.payroll.amount,
       commissionExpense: expenses.commission.amount,
+      generalOperatingExpense: expenses.operating?.amount || 0,
       totalOperatingExpenses: expenses.total,
       operatingResult: contributionBeforeExpenses === null ? null : contributionBeforeExpenses - expenses.total,
       excludedCostLines: revenue.excludedCostLines,
@@ -381,14 +401,17 @@ export const analyticsService = {
 
   async getMeta(scope: AnalyticsScope) {
     const stockQuery = scope.companyCode ? { companyCode: scope.companyCode } : {};
+    const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
 
-    const [stockOutTotal, stockOutPriced] = await Promise.all([
+    const [stockOutTotal, stockOutPriced, branches, courses] = await Promise.all([
       StockLogModel.countDocuments({ ...stockQuery, type: "xuất" }),
       StockLogModel.countDocuments({
         ...stockQuery,
         type: "xuất",
         "items.unitPrice": { $exists: true },
       }),
+      BranchModel.find({ ...(scope.companyCode ? { companyCode: scope.companyCode } : {}), isActive: true }).select("_id code name").sort({ name: 1 }).lean(),
+      Course.find(ownerIds ? { ownerId: { $in: ownerIds } } : {}).select("_id code title branchId").sort({ title: 1 }).lean(),
     ]);
 
     const sources: RevenueSourceStatus[] = [
@@ -409,6 +432,10 @@ export const analyticsService = {
       sources,
       grossProfitAvailable: true,
       currency: "VND",
+      filters: {
+        branches: branches.map((branch: any) => ({ id: String(branch._id), code: branch.code, name: branch.name })),
+        courses: courses.map((course: any) => ({ id: String(course._id), code: course.code, name: course.title, branchId: course.branchId })),
+      },
     };
   },
 };

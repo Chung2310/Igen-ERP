@@ -34,6 +34,7 @@ export interface StockLogItem {
   unitPrice?: number;
   lineTotal?: number;
   unitCost?: number;
+  category?: string;
 }
 
 export type StockLogPurpose = "bán" | "nội bộ" | "hủy" | "chuyển kho";
@@ -47,6 +48,8 @@ export interface StockLog {
   items?: StockLogItem[];
   /** Undefined only for legacy outbound records that have not been classified. */
   purpose?: StockLogPurpose;
+  customerId?: string;
+  customerName?: string;
   /** Legacy: SKU đại diện (dùng cho import/export Excel & backward compat) */
   sku: string;
   /** Legacy: tên sản phẩm đại diện */

@@ -34,6 +34,10 @@ function formatVnd(amount: number): string {
 
 export default function AnalyticsTab() {
   const [presetKey, setPresetKey] = useState("30d");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [branchId, setBranchId] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [meta, setMeta] = useState<AnalyticsMeta | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [receivables, setReceivables] = useState<ReceivablesReport | null>(null);
@@ -43,6 +47,8 @@ export default function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<AnalyticsExportFormat | null>(null);
   const [exportReport, setExportReport] = useState<AnalyticsExportReport>("overview");
+  const [expenseDraft, setExpenseDraft] = useState({ category: "Vận hành", description: "", amount: "", incurredOn: toIsoDate(new Date()) });
+  const [savingExpense, setSavingExpense] = useState(false);
 
   const preset = useMemo(
     () => RANGE_PRESETS.find((item) => item.key === presetKey) ?? RANGE_PRESETS[0],
@@ -50,10 +56,16 @@ export default function AnalyticsTab() {
   );
 
   const dateParams = useMemo(() => {
+    if (presetKey === "custom" && customFrom && customTo) return { from: customFrom, to: customTo };
     const to = new Date();
     const from = new Date(to.getTime() - preset.days * 24 * 60 * 60 * 1000);
     return { from: toIsoDate(from), to: toIsoDate(to) };
-  }, [preset.days]);
+  }, [customFrom, customTo, preset.days, presetKey]);
+
+  const scopeParams = useMemo(() => ({
+    ...(branchId ? { branchId } : {}),
+    ...(courseId ? { courseId } : {}),
+  }), [branchId, courseId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,10 +76,11 @@ export default function AnalyticsTab() {
         analyticsService.getMeta(),
         analyticsService.getRevenue({
           ...dateParams,
+          ...scopeParams,
           granularity: preset.granularity as RevenueGranularity,
         }),
-        analyticsService.getReceivables(dateParams.to),
-        analyticsService.getExpenses(dateParams),
+        analyticsService.getReceivables(dateParams.to, scopeParams),
+        analyticsService.getExpenses({ ...dateParams, ...scopeParams }),
       ]);
       setMeta(metaData);
       setRevenue(revenueData);
@@ -80,6 +93,7 @@ export default function AnalyticsTab() {
         goodsGrossProfit: revenueData.goodsGrossProfit,
         payrollExpense: expensesData.payroll.amount,
         commissionExpense: expensesData.commission.amount,
+        generalOperatingExpense: expensesData.operating.amount,
         totalOperatingExpenses: expensesData.total,
         operatingResult: revenueData.goodsGrossProfit === null ? null : revenueData.tuitionTotal + revenueData.goodsGrossProfit - expensesData.total,
         excludedCostLines: revenueData.excludedCostLines,
@@ -91,7 +105,7 @@ export default function AnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [dateParams, preset.granularity]);
+  }, [dateParams, preset.granularity, scopeParams]);
 
   useEffect(() => {
     load();
@@ -103,11 +117,26 @@ export default function AnalyticsTab() {
     setExporting(format);
     setError(null);
     try {
-      await analyticsService.downloadExport({ ...dateParams, granularity: preset.granularity, report: exportReport, format });
+      await analyticsService.downloadExport({ ...dateParams, ...scopeParams, granularity: preset.granularity, report: exportReport, format });
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleAddExpense = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingExpense(true);
+    setError(null);
+    try {
+      await analyticsService.createOperatingExpense({ ...expenseDraft, amount: Number(expenseDraft.amount), ...(branchId ? { branchId } : {}) });
+      setExpenseDraft((current) => ({ ...current, description: "", amount: "" }));
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingExpense(false);
     }
   };
 
@@ -138,6 +167,10 @@ export default function AnalyticsTab() {
                 >{item.label}</button>
               ))}
             </div>
+            <button type="button" onClick={() => setPresetKey("custom")} className={`rounded-xl px-3 py-1.5 text-xs font-bold ${presetKey === "custom" ? "bg-blue-50 text-blue-700" : "border border-slate-200 text-slate-600"}`}>Tùy chọn</button>
+            {presetKey === "custom" && <><input aria-label="Từ ngày" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs"/><input aria-label="Đến ngày" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs"/></>}
+            <select aria-label="Chi nhánh" value={branchId} onChange={(e) => { setBranchId(e.target.value); setCourseId(""); }} className="rounded-xl border border-slate-200 px-3 py-2 text-xs"><option value="">Tất cả chi nhánh</option>{meta?.filters.branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <select aria-label="Khóa học" value={courseId} onChange={(e) => setCourseId(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs"><option value="">Tất cả khóa học</option>{meta?.filters.courses.filter((item) => !branchId || item.branchId === branchId).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <select value={exportReport} onChange={(event) => setExportReport(event.target.value as AnalyticsExportReport)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
               <option value="overview">Toàn bộ báo cáo</option>
               <option value="revenue">Doanh thu</option>
@@ -202,6 +235,15 @@ export default function AnalyticsTab() {
             <ExpenseBreakdown report={expenses} />
           </section>
 
+          <form onSubmit={handleAddExpense} className="grid gap-3 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-5">
+            <div className="md:col-span-5"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Ghi nhận chi phí vận hành</h2><p className="mt-1 text-xs text-slate-400">Khoản xác nhận sẽ được đưa ngay vào tổng chi phí và P&amp;L.</p></div>
+            <input required value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} placeholder="Nhóm chi phí" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <input required value={expenseDraft.description} onChange={(e) => setExpenseDraft({ ...expenseDraft, description: e.target.value })} placeholder="Nội dung chi" className="rounded-xl border border-slate-200 px-3 py-2 text-sm md:col-span-2" />
+            <input required min="1" type="number" value={expenseDraft.amount} onChange={(e) => setExpenseDraft({ ...expenseDraft, amount: e.target.value })} placeholder="Số tiền" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <input required type="date" value={expenseDraft.incurredOn} onChange={(e) => setExpenseDraft({ ...expenseDraft, incurredOn: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <button disabled={savingExpense} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 md:col-start-5">{savingExpense ? "Đang lưu..." : "Thêm khoản chi"}</button>
+          </form>
+
           <PnlBridge report={pnl} />
 
           {/* Nói rõ phần dữ liệu không được tính, thay vì lặng lẽ báo thiếu */}
@@ -251,7 +293,8 @@ export default function AnalyticsTab() {
 }
 
 const AGING_LABELS: Record<ReceivablesReport["aging"][number]["bucket"], string> = {
-  notSent: "Chưa gửi thông báo",
+  notScheduled: "Chưa đặt hạn",
+  notDue: "Chưa đến hạn",
   "0-30": "0–30 ngày",
   "31-60": "31–60 ngày",
   "60+": "Trên 60 ngày",
@@ -279,12 +322,13 @@ function ExpenseBreakdown({ report }: { report: ExpensesReport }) {
   const rows = [
     { label: "Lương đã thanh toán", ...report.payroll },
     { label: "Hoa hồng đã chi", ...report.commission },
+    { label: "Chi phí vận hành chung", ...report.operating },
   ];
   const maxAmount = Math.max(...rows.map((row) => row.amount), 1);
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Chi phí theo dòng tiền</h2>
-      <p className="mt-1 text-xs text-slate-400">Chỉ gồm khoản lương xác nhận và hoa hồng đã chi trong kỳ</p>
+      <p className="mt-1 text-xs text-slate-400">Gồm lương, hoa hồng và các khoản vận hành đã xác nhận trong kỳ</p>
       <div className="mt-5 space-y-5">
         {rows.map((row) => (
           <div key={row.label}>
@@ -303,11 +347,12 @@ function PnlBridge({ report }: { report: ProfitAndLossReport }) {
     { label: "Lãi gộp hàng hóa", value: report.goodsGrossProfit, sign: "+" },
     { label: "Lương đã thanh toán", value: report.payrollExpense, sign: "−" },
     { label: "Hoa hồng đã chi", value: report.commissionExpense, sign: "−" },
+    { label: "Chi phí vận hành chung", value: report.generalOperatingExpense, sign: "−" },
   ];
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Đối chiếu kết quả vận hành</h2>
-      <p className="mt-1 text-xs text-slate-400">Học phí + lãi gộp hàng hóa − lương đã thanh toán − hoa hồng đã chi; chưa gồm các chi phí khác</p>
+      <p className="mt-1 text-xs text-slate-400">Học phí + lãi gộp hàng hóa − lương − hoa hồng − chi phí vận hành chung</p>
       <div className="mt-5 divide-y divide-slate-100">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-4 py-3 text-sm">

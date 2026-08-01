@@ -7,9 +7,14 @@ import { analyticsController } from "../controller/analytics.controller";
 export const analyticsRouter = Router();
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const scopeFilters = {
+  branchId: Joi.string().optional(),
+  courseId: Joi.string().optional(),
+};
 
 const revenueSchema = {
   query: Joi.object({
+    ...scopeFilters,
     from: Joi.string().regex(DATE_PATTERN).required().messages({
       "string.pattern.base": "from phải đúng định dạng YYYY-MM-DD.",
       "any.required": "Cần chỉ định khoảng thời gian (from).",
@@ -26,6 +31,7 @@ const revenueSchema = {
 
 const dateRangeSchema = {
   query: Joi.object({
+    ...scopeFilters,
     from: Joi.string().regex(DATE_PATTERN).required(),
     to: Joi.string().regex(DATE_PATTERN).required(),
     granularity: Joi.string().valid("day", "week", "month").optional(),
@@ -33,17 +39,28 @@ const dateRangeSchema = {
 };
 
 const receivablesSchema = {
-  query: Joi.object({ asOf: Joi.string().regex(DATE_PATTERN).required() }),
+  query: Joi.object({ ...scopeFilters, asOf: Joi.string().regex(DATE_PATTERN).required() }),
 };
 
 const exportSchema = {
   query: Joi.object({
+    ...scopeFilters,
     from: Joi.string().regex(DATE_PATTERN).required(),
     to: Joi.string().regex(DATE_PATTERN).required(),
     granularity: Joi.string().valid("day", "week", "month").optional(),
     format: Joi.string().valid("xlsx", "csv").required(),
     report: Joi.string().valid("overview", "revenue", "receivables", "expenses", "pnl").required()
       .when("format", { is: "csv", then: Joi.invalid("overview").messages({ "any.invalid": "CSV chỉ hỗ trợ từng báo cáo; dùng XLSX để xuất toàn bộ." }) }),
+  }),
+};
+
+const operatingExpenseSchema = {
+  body: Joi.object({
+    branchId: Joi.string().allow("").optional(),
+    category: Joi.string().trim().max(120).required(),
+    description: Joi.string().trim().max(500).required(),
+    amount: Joi.number().positive().required(),
+    incurredOn: Joi.string().regex(DATE_PATTERN).required(),
   }),
 };
 
@@ -72,5 +89,8 @@ analyticsRouter.get(
 
 analyticsRouter.get("/receivables", validateRequest(receivablesSchema), analyticsController.getReceivables as any);
 analyticsRouter.get("/expenses", validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
+analyticsRouter.get("/operating-expenses", validateRequest(dateRangeSchema), analyticsController.listOperatingExpenses as any);
+analyticsRouter.post("/operating-expenses", validateRequest(operatingExpenseSchema), analyticsController.createOperatingExpense as any);
+analyticsRouter.delete("/operating-expenses/:id", analyticsController.voidOperatingExpense as any);
 analyticsRouter.get("/pnl", validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);
 analyticsRouter.get("/export", validateRequest(exportSchema), analyticsController.exportReport as any);

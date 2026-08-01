@@ -13,6 +13,7 @@ type DraftPayload = {
   id?: string;
   type: "nhập" | "xuất";
   purpose?: StockLogPurpose;
+  customerName?: string;
   title: string;
   operatorName: string;
   notes: string;
@@ -104,6 +105,7 @@ export function StockLogPanel({
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [draftType, setDraftType] = useState<"nhập" | "xuất">("nhập");
   const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
+  const [draftCustomerName, setDraftCustomerName] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftOperator, setDraftOperator] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
@@ -139,6 +141,7 @@ export function StockLogPanel({
     setEditingLogId(null);
     setDraftType("nhập");
     setDraftPurpose("bán");
+    setDraftCustomerName("");
     setDraftTitle("");
     setDraftOperator("");
     setDraftNotes("");
@@ -156,6 +159,7 @@ export function StockLogPanel({
     setEditingLogId(log.id);
     setDraftType(log.type as "nhập" | "xuất");
     setDraftPurpose(log.purpose || "bán");
+    setDraftCustomerName(log.customerName || "");
     setDraftTitle(getLogTitle(log));
     setDraftOperator(log.operatorName);
     setDraftNotes(log.notes);
@@ -204,6 +208,7 @@ export function StockLogPanel({
       id: editingLogId || undefined,
       type: draftType,
       purpose: draftType === "xuất" ? draftPurpose : undefined,
+      customerName: draftType === "xuất" && draftPurpose === "bán" ? draftCustomerName.trim() : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
       notes: draftNotes.trim(),
@@ -488,6 +493,18 @@ export function StockLogPanel({
                       <option value="hủy">Hủy / hàng hỏng</option>
                       <option value="chuyển kho">Chuyển kho</option>
                     </select>
+                  </label>
+                )}
+                {draftType === "xuất" && draftPurpose === "bán" && (
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Khách hàng</span>
+                    <input
+                      type="text"
+                      value={draftCustomerName}
+                      onChange={(event) => setDraftCustomerName(event.target.value)}
+                      placeholder="Tên khách hàng hoặc đơn vị mua"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    />
                   </label>
                 )}
                 <label className="space-y-1.5">

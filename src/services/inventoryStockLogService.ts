@@ -6,6 +6,8 @@ const COLLECTION_NAME = "inventoryStockLogs";
 export type StockLogCreateInput = {
   type: "nhập" | "xuất";
   purpose?: StockLogPurpose;
+  customerId?: string;
+  customerName?: string;
   title: string;
   operatorName: string;
   notes: string;
@@ -86,6 +88,8 @@ export const inventoryStockLogService = {
         body: JSON.stringify({
           type: input.type,
           purpose: input.type === "xuất" ? input.purpose : undefined,
+          customerId: input.type === "xuất" && input.purpose === "bán" ? input.customerId : undefined,
+          customerName: input.type === "xuất" && input.purpose === "bán" ? input.customerName : undefined,
           title: input.title,
           items: input.items,
           sku: input.sku,
@@ -122,6 +126,8 @@ export const inventoryStockLogService = {
         body: JSON.stringify({
           type: input.type,
           purpose: input.type === "xuất" ? input.purpose : undefined,
+          customerId: input.type === "xuất" && input.purpose === "bán" ? input.customerId : undefined,
+          customerName: input.type === "xuất" && input.purpose === "bán" ? input.customerName : undefined,
           title: input.title,
           items: input.items,
           sku: input.sku,

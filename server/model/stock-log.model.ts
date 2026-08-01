@@ -10,6 +10,7 @@ const StockLogItemSchema = new Schema(
     unitPrice: { type: Number, min: 0 },
     lineTotal: { type: Number, min: 0 },
     unitCost: { type: Number, min: 0 },
+    category: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -20,6 +21,8 @@ const StockLogSchema = new Schema<IStockLog>({
   items: { type: [StockLogItemSchema], default: [] },
   // No default: legacy outbound records stay explicitly unclassified.
   purpose: { type: String, enum: ["bán", "nội bộ", "hủy", "chuyển kho"], index: true },
+  customerId: { type: String, trim: true, index: true },
+  customerName: { type: String, trim: true },
   sku: { type: String },
   productName: { type: String },
   quantity: { type: Number, default: 0 },

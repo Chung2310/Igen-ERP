@@ -12,6 +12,10 @@ export interface AnalyticsMeta {
   sources: RevenueSourceStatus[];
   grossProfitAvailable: boolean;
   currency: string;
+  filters: {
+    branches: Array<{ id: string; code: string; name: string }>;
+    courses: Array<{ id: string; code: string; name: string; branchId?: string }>;
+  };
 }
 
 export type RevenueGranularity = "day" | "week" | "month";
@@ -53,8 +57,8 @@ export interface ReceivablesReport {
   asOf: string;
   total: number;
   count: number;
-  aging: Array<{ bucket: "notSent" | "0-30" | "31-60" | "60+"; amount: number; count: number }>;
-  agingBasis: "sentAt";
+  aging: Array<{ bucket: "notScheduled" | "notDue" | "0-30" | "31-60" | "60+"; amount: number; count: number }>;
+  agingBasis: "dueAt";
   currency: string;
 }
 
@@ -63,6 +67,8 @@ export interface ExpensesReport {
   total: number;
   payroll: { amount: number; count: number };
   commission: { amount: number; count: number };
+  operating: { amount: number; count: number };
+  operatingByCategory: Array<{ category: string; amount: number; count: number }>;
   excludedCommissionRecords: number;
   currency: string;
 }
@@ -74,6 +80,7 @@ export interface ProfitAndLossReport {
   goodsGrossProfit: number | null;
   payrollExpense: number;
   commissionExpense: number;
+  generalOperatingExpense: number;
   totalOperatingExpenses: number;
   operatingResult: number | null;
   excludedCostLines: number;
@@ -83,6 +90,7 @@ export interface ProfitAndLossReport {
 
 export type AnalyticsExportReport = "overview" | "revenue" | "receivables" | "expenses" | "pnl";
 export type AnalyticsExportFormat = "xlsx" | "csv";
+export interface OperatingExpenseInput { category: string; description: string; amount: number; incurredOn: string; branchId?: string }
 
 async function getAnalyticsJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
@@ -92,11 +100,17 @@ async function getAnalyticsJson<T>(path: string): Promise<T> {
 }
 
 export const analyticsService = {
+  async createOperatingExpense(input: OperatingExpenseInput): Promise<void> {
+    const res = await fetch("/api/v1/analytics/operating-expenses", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(input) });
+    if (!res.ok) throw new Error("Không thể ghi nhận chi phí vận hành.");
+  },
   /** Doanh thu học phí theo thời gian, kèm tổng kỳ liền trước để so sánh. */
   async getRevenue(params: {
     from: string;
     to: string;
     granularity: RevenueGranularity;
+    branchId?: string;
+    courseId?: string;
   }): Promise<RevenueReport> {
     const qs = new URLSearchParams(params);
 
@@ -133,11 +147,11 @@ export const analyticsService = {
     return json.data as AnalyticsMeta;
   },
 
-  getReceivables(asOf: string): Promise<ReceivablesReport> {
-    return getAnalyticsJson(`/api/v1/analytics/receivables?${new URLSearchParams({ asOf })}`);
+  getReceivables(asOf: string, scope: { branchId?: string; courseId?: string } = {}): Promise<ReceivablesReport> {
+    return getAnalyticsJson(`/api/v1/analytics/receivables?${new URLSearchParams({ asOf, ...scope })}`);
   },
 
-  getExpenses(params: { from: string; to: string }): Promise<ExpensesReport> {
+  getExpenses(params: { from: string; to: string; branchId?: string; courseId?: string }): Promise<ExpensesReport> {
     return getAnalyticsJson(`/api/v1/analytics/expenses?${new URLSearchParams(params)}`);
   },
 
@@ -151,6 +165,8 @@ export const analyticsService = {
     granularity: RevenueGranularity;
     report: AnalyticsExportReport;
     format: AnalyticsExportFormat;
+    branchId?: string;
+    courseId?: string;
   }): Promise<void> {
     const res = await fetch(`/api/v1/analytics/export?${new URLSearchParams(params)}`, {
       headers: { Authorization: `Bearer ${getAccessToken()}` },

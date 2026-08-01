@@ -84,7 +84,7 @@ async function prepareStockLogPayload(
     _id: { $in: productIds },
     companyCode,
     branchId,
-  }).select("sku name price costPrice").lean();
+  }).select("sku name price costPrice category").lean();
   const productsById = new Map(products.map((product: any) => [String(product._id), product]));
 
   const items = rawItems.map((item: any) => {
@@ -113,6 +113,7 @@ async function prepareStockLogPayload(
       productId: String(product._id),
       sku: product.sku,
       productName: product.name,
+      category: product.category || "Chưa phân loại",
       quantity,
       unitPrice,
       lineTotal: unitPrice * quantity,

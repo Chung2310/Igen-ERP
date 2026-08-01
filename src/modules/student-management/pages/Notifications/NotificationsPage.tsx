@@ -25,6 +25,7 @@ interface InstallmentPlanItem {
   installmentNo: number;
   percent: number;
   label: string;
+  dueDate: string;
 }
 
 interface SendResult {
@@ -167,7 +168,7 @@ function InstallmentPlanEditor({
     const remaining = Math.max(0, 100 - totalPercent);
     onChange([
       ...plan,
-      { installmentNo: nextNo, percent: remaining > 0 ? remaining : 10, label: `Đợt ${nextNo}` },
+      { installmentNo: nextNo, percent: remaining > 0 ? remaining : 10, label: `Đợt ${nextNo}`, dueDate: '' },
     ]);
     onSelectInstallmentNo(nextNo);
   };
@@ -190,6 +191,10 @@ function InstallmentPlanEditor({
   const updateLabel = (idx: number, value: string) => {
     const updated = plan.map((p, i) => i === idx ? { ...p, label: value } : p);
     onChange(updated);
+  };
+
+  const updateDueDate = (idx: number, value: string) => {
+    onChange(plan.map((p, i) => i === idx ? { ...p, dueDate: value } : p));
   };
 
   return (
@@ -259,6 +264,14 @@ function InstallmentPlanEditor({
                 className="w-5 h-5 rounded-md bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-300 transition-colors text-xs font-black"
               >+</button>
             </div>
+            <input
+              type="date"
+              value={item.dueDate}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => updateDueDate(idx, e.target.value)}
+              aria-label={`Hạn thanh toán đợt ${item.installmentNo}`}
+              className="w-32 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 outline-none focus:border-violet-300"
+            />
           </motion.div>
         ))}
       </div>
@@ -325,8 +338,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   // Installment state
   const [useInstallment, setUseInstallment] = useState(false);
   const [installmentPlan, setInstallmentPlan] = useState<InstallmentPlanItem[]>([
-    { installmentNo: 1, percent: 50, label: 'Đợt 1' },
-    { installmentNo: 2, percent: 50, label: 'Đợt 2' },
+    { installmentNo: 1, percent: 50, label: 'Đợt 1', dueDate: '' },
+    { installmentNo: 2, percent: 50, label: 'Đợt 2', dueDate: '' },
   ]);
   const [selectedInstallmentNo, setSelectedInstallmentNo] = useState(1);
 
@@ -749,6 +762,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               installmentNo: currentInstallment.installmentNo,
               percent: currentInstallment.percent,
               label: currentInstallment.label,
+              dueDate: currentInstallment.dueDate || undefined,
             },
             studentIds: successStudentIds,
           } : {}),

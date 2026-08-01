@@ -7,6 +7,7 @@ const fixture = {
   studentPipeline: [] as any[],
   payrollPipeline: [] as any[],
   partnerPipeline: [] as any[],
+  operatingRows: [] as any[],
 };
 
 vi.mock("../modules/student-management/models/user.model", () => ({
@@ -27,6 +28,9 @@ vi.mock("../modules/student-management/models/payment.model", () => ({
 vi.mock("../model/stock-log.model", () => ({
   StockLogModel: { aggregate: async () => [], countDocuments: async () => 0 },
 }));
+vi.mock("../model/operating-expense.model", () => ({
+  OperatingExpenseModel: { aggregate: async () => fixture.operatingRows },
+}));
 
 const { analyticsService } = await import("./analytics.service");
 const RANGE = { from: new Date("2026-07-01T00:00:00.000Z"), to: new Date("2026-07-31T23:59:59.999Z"), granularity: "day" as const };
@@ -39,19 +43,21 @@ describe("công nợ, chi phí và P&L", () => {
     fixture.studentPipeline = [];
     fixture.payrollPipeline = [];
     fixture.partnerPipeline = [];
+    fixture.operatingRows = [];
     vi.restoreAllMocks();
   });
 
   it("tổng hợp đủ các bucket công nợ và giới hạn theo owner công ty", async () => {
     fixture.receivableRows = [
-      { _id: "notSent", amount: 500, count: 1 },
+      { _id: "notScheduled", amount: 500, count: 1 },
       { _id: "31-60", amount: 1_000, count: 2 },
     ];
     const result = await analyticsService.getReceivables({ companyCode: "C1" }, RANGE.to);
 
     expect(result.total).toBe(1_500);
     expect(result.count).toBe(3);
-    expect(result.aging).toHaveLength(4);
+    expect(result.aging).toHaveLength(5);
+    expect(result.agingBasis).toBe("dueAt");
     expect(result.aging.find((row) => row.bucket === "0-30")?.amount).toBe(0);
     expect(fixture.studentPipeline[0].$match.ownerId.$in).toContain("C1");
     expect(fixture.studentPipeline[2].$match["installmentStatus.amountDue"].$gt).toBe(0);

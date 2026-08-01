@@ -66,6 +66,7 @@ const installmentStatusSchema = new Schema({
     required: true,
   },
   sentAt: { type: String, default: "" },
+  dueAt: { type: Date, default: null },
   paidAt: { type: String, default: "" },
   notificationId: { type: String, default: "" },
 });

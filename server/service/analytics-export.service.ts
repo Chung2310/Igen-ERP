@@ -24,15 +24,16 @@ function revenueRows(report: any) {
 }
 
 function receivableRows(report: any) {
-  const labels: Record<string, string> = { notSent: "Chưa gửi thông báo", "0-30": "0-30 ngày", "31-60": "31-60 ngày", "60+": "Trên 60 ngày" };
-  return report.aging.map((row: any) => ({ "Nhóm tuổi": labels[row.bucket] || row.bucket, "Số tiền": row.amount, "Số đợt": row.count, "Cơ sở tính tuổi": "Ngày gửi thông báo thu" }));
+  const labels: Record<string, string> = { notScheduled: "Chưa đặt hạn", notDue: "Chưa đến hạn", "0-30": "0-30 ngày", "31-60": "31-60 ngày", "60+": "Trên 60 ngày" };
+  return report.aging.map((row: any) => ({ "Nhóm tuổi": labels[row.bucket] || row.bucket, "Số tiền": row.amount, "Số đợt": row.count, "Cơ sở tính tuổi": "Ngày đến hạn" }));
 }
 
 function expenseRows(report: any) {
   return [
     { "Loại chi phí": "Lương đã thanh toán", "Số tiền": report.payroll.amount, "Số khoản": report.payroll.count },
     { "Loại chi phí": "Hoa hồng đã chi", "Số tiền": report.commission.amount, "Số khoản": report.commission.count },
-    { "Loại chi phí": "Tổng chi phí", "Số tiền": report.total, "Số khoản": report.payroll.count + report.commission.count },
+    { "Loại chi phí": "Chi phí vận hành chung", "Số tiền": report.operating?.amount || 0, "Số khoản": report.operating?.count || 0 },
+    { "Loại chi phí": "Tổng chi phí", "Số tiền": report.total, "Số khoản": report.payroll.count + report.commission.count + (report.operating?.count || 0) },
   ];
 }
 
@@ -43,6 +44,7 @@ function pnlRows(report: any) {
     { "Chỉ tiêu": "Lãi gộp hàng hóa", "Số tiền": money(report.goodsGrossProfit) },
     { "Chỉ tiêu": "Lương đã thanh toán", "Số tiền": -report.payrollExpense },
     { "Chỉ tiêu": "Hoa hồng đã chi", "Số tiền": -report.commissionExpense },
+    { "Chỉ tiêu": "Chi phí vận hành chung", "Số tiền": -(report.generalOperatingExpense || 0) },
     { "Chỉ tiêu": "Kết quả vận hành", "Số tiền": money(report.operatingResult) },
   ];
 }
