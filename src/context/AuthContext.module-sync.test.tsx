@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authService } from "../services/authService";
 import { socketService } from "../services/socketService";
 import { toast } from "../pages/Toast";
+import { ensureEntityPresetLoaded } from "../modules/student-management/hooks/entityPresetStore";
 import { AuthProvider, useAuth } from "./AuthContext";
 
 vi.mock("../services/authService", () => ({
@@ -17,6 +18,10 @@ vi.mock("../services/socketService", () => ({
 
 vi.mock("../pages/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("../modules/student-management/hooks/entityPresetStore", () => ({
+  ensureEntityPresetLoaded: vi.fn(() => Promise.resolve()),
 }));
 
 const profile = {
@@ -48,6 +53,13 @@ beforeEach(() => {
 });
 
 describe("AuthContext company module sync", () => {
+  it("preloads the student entity preset after restoring the signed-in profile", async () => {
+    render(<AuthProvider><ProfileProbe /></AuthProvider>);
+
+    await waitFor(() => expect(screen.getByLabelText("modules").textContent).toBe("hr,chat"));
+
+    expect(ensureEntityPresetLoaded).toHaveBeenCalledTimes(1);
+  });
   it("applies a valid event for the signed-in company immediately", async () => {
     render(<AuthProvider><ProfileProbe /></AuthProvider>);
     await waitFor(() => expect(screen.getByLabelText("modules").textContent).toBe("hr,chat"));

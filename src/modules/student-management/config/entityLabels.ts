@@ -44,7 +44,14 @@ export const ENTITY_LABEL_PRESETS: Record<EntityPreset, EntityLabelSet> = {
     editTitle: "Chỉnh sửa thông tin lao động",
   },
 };
-
+export const LOADING_ENTITY_LABELS: EntityLabelSet = {
+  tabLabel: "Học viên/Lao động",
+  singular: "học viên/lao động",
+  titleCase: "Học viên/Lao động",
+  listTitle: "Danh sách học viên/lao động",
+  addTitle: "Thêm học viên/lao động mới",
+  editTitle: "Chỉnh sửa thông tin học viên/lao động",
+};
 /** Tên ngành nghề của từng loại hình. Nhãn thực thể luôn lấy từ
  * ENTITY_LABEL_PRESETS để phần cài đặt và phần module không bao giờ lệch nhau. */
 const ENTITY_PRESET_SECTORS: Record<EntityPreset, string> = {
