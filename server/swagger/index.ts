@@ -8,6 +8,7 @@ import { crudSwagger } from "./crud.swagger";
 import { chatSwagger } from "./chat.swagger";
 import { notificationSwagger } from "./notification.swagger";
 import { superAdminSwagger } from "./super-admin.swagger";
+import { analyticsSwagger } from "./analytics.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -31,6 +32,7 @@ const swaggerDocument = {
     ...chatSwagger.paths,
     ...notificationSwagger.paths,
     ...superAdminSwagger.paths,
+    ...analyticsSwagger.paths,
   },
   components: {
     securitySchemes: {

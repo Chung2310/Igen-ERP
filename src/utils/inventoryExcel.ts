@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { ProductItem, StockLog, StockLogItem } from "../types";
+import { ProductItem, StockLog, StockLogItem, StockLogPurpose } from "../types";
 
 type SheetColumn<T> = {
   header: string;
@@ -14,6 +14,7 @@ type ExtendedStockLog = StockLog & {
 type StockLogHeaderRow = {
   receiptKey: string;
   type: "nhập" | "xuất";
+  purpose: StockLogPurpose | "";
   title: string;
   operatorName: string;
   createdAt: string;
@@ -114,6 +115,7 @@ export function exportStockLogsToExcel(stockLogs: StockLog[]) {
   const headerRows: StockLogHeaderRow[] = normalizedLogs.map((log, index) => ({
     receiptKey: `PHIEU-${index + 1}`,
     type: log.type,
+    purpose: log.purpose || "",
     title: log.title || "",
     operatorName: log.operatorName,
     createdAt: log.createdAt,
@@ -140,6 +142,7 @@ export function exportStockLogsToExcel(stockLogs: StockLog[]) {
     createWorksheet(headerRows, [
       { header: "Mã phiếu", value: (item) => item.receiptKey },
       { header: "Loại phiếu", value: (item) => item.type },
+      { header: "Mục đích xuất", value: (item) => item.purpose },
       { header: "Tiêu đề phiếu", value: (item) => item.title },
       { header: "Người phụ trách", value: (item) => item.operatorName },
       { header: "Ngày tạo", value: (item) => item.createdAt },
@@ -222,6 +225,15 @@ function normalizeImportedStatus(rawStatus: string): StockLog["status"] {
   return "Đang chờ";
 }
 
+function normalizeStockLogPurpose(rawPurpose: unknown): StockLogPurpose | undefined {
+  const purpose = String(rawPurpose ?? "").trim().toLowerCase();
+  if (purpose === "bán" || purpose === "ban" || purpose === "bán hàng") return "bán";
+  if (purpose === "nội bộ" || purpose === "noi bo" || purpose === "sử dụng nội bộ") return "nội bộ";
+  if (purpose === "hủy" || purpose === "huy" || purpose === "hàng hỏng") return "hủy";
+  if (purpose === "chuyển kho" || purpose === "chuyen kho") return "chuyển kho";
+  return undefined;
+}
+
 export async function importStockLogsFromExcel(file: File): Promise<StockLog[]> {
   const workbook = await readWorkbook(file);
   
@@ -253,10 +265,15 @@ export async function importStockLogsFromExcel(file: File): Promise<StockLog[]> 
     const receiptKey = String(mapped["ma phieu"] ?? mapped["receipt key"] ?? mapped["receiptkey"] ?? "").trim() || `PHIEU-${index + 1}`;
     const rawType = String(mapped["loai phieu"] ?? mapped["loai"] ?? "").trim().toLowerCase();
     const type: "nhập" | "xuất" = (rawType.includes("xuat") || rawType.includes("xuất")) ? "xuất" : "nhập";
+    const purpose = normalizeStockLogPurpose(mapped["muc dich xuat"] ?? mapped["muc dich"] ?? mapped["purpose"]);
+    if (type === "xuất" && !purpose) {
+      throw new Error(`Phiếu ${receiptKey} là phiếu xuất nhưng chưa có mục đích xuất hợp lệ.`);
+    }
 
     headerMap.set(receiptKey, {
       id: `LOG-${Date.now()}-${index}`,
       type,
+      purpose,
       title: String(mapped["tieu de phieu"] ?? "").trim() || `${type === "xuất" ? "Phiếu xuất" : "Phiếu nhập"} Excel ${index + 1}`,
       items: [],
       sku: "",

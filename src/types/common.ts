@@ -8,6 +8,7 @@ export type TabType =
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"
   | "QUẢN LÝ HỌC VIÊN"
+  | "PHÂN TÍCH & BÁO CÁO"
   | "QUẢN TRỊ USER"
   | "CÀI ĐẶT"
   | "HƯỚNG DẪN";

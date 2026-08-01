@@ -51,6 +51,11 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../modules/student-management/StudentManagementTab")),
   },
   {
+    tab: "PHÂN TÍCH & BÁO CÁO",
+    component: lazy(() => import("../pages/AnalyticsTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin",
+  },
+  {
     tab: "QUẢN TRỊ USER",
     component: lazy(() => import("../pages/UserAdminTab")),
     canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin",

@@ -9,6 +9,7 @@ export interface IInstallmentStatus {
   amountDue: number;         // Số tiền phải đóng (tính tại lúc gửi TB)
   status: 'Đã gửi' | 'Đã thu' | 'Chưa gửi';
   sentAt?: string;           // ISO date string khi gửi TB
+  dueAt?: Date | string;     // Ngày đến hạn thực tế
   paidAt?: string;           // ISO date string khi xác nhận thu
   notificationId?: string;   // Ref đến Notification._id
 }
