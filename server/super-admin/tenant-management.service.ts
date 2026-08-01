@@ -3,6 +3,7 @@ import { UserModel } from "../model/user.model";
 import { ModuleKey } from "../config/module-keys";
 import { filterModulesForBusinessType, resolveBusinessType, type BusinessType } from "../config/business-types";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
 export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; businessType?:BusinessType; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }
@@ -43,7 +44,10 @@ export class TenantManagementService {
   async updateModules(v:string, input:{ enabledModules?:unknown; businessType?:unknown }){
     const c=code(v);
     const tenant=needed(await this.tenants.get(c),c);
-    const businessType = resolveBusinessType(input.businessType ?? tenant.businessType);
+    const legacyEntityPreset = tenant.businessType
+      ? undefined
+      : (await ModuleSettings.findOne({ tenantId: c }).select("entityPreset").lean())?.entityPreset;
+    const businessType = resolveBusinessType(input.businessType ?? tenant.businessType, legacyEntityPreset);
     const enabledModules = filterModulesForBusinessType(input.enabledModules, businessType);
     return needed(await this.tenants.update(c,{businessType,enabledModules}),c);
   }

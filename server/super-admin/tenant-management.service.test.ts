@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 import { TenantManagementService, type TenantRecord, type TenantRepository } from "./tenant-management.service";
 
 function repository(seed: TenantRecord[] = []): TenantRepository {
@@ -56,4 +57,16 @@ test("only schedules archived tenants when preview and backup evidence are recor
   await assert.rejects(() => service.scheduleDeletion("ACME", "contract ended", new Date(), undefined as any, "backup-1"), /impact preview/);
   const scheduled: any = await service.scheduleDeletion("ACME", "contract ended", new Date(), { affectedUsers: 1 }, "backup-1");
   assert.equal(scheduled.deletionJob.status, "queued"); assert.equal(scheduled.deletionJob.backupEvidenceId, "backup-1");
+});
+test("legacy worker tenants persist labor modules on update", async () => {
+  const originalFindOne = ModuleSettings.findOne;
+  (ModuleSettings as any).findOne = () => ({ select: () => ({ lean: async () => ({ entityPreset: "worker" }) }) });
+  try {
+    const service = new TenantManagementService(repository([{ code: "LEGACY", name: "Legacy", ownerEmail: "owner@legacy.test", lifecycleStatus: "active", createdAt: new Date(), enabledModules: ["student"] }]));
+    const updated = await service.updateModules("LEGACY", { enabledModules: ["student", "hr"] });
+    assert.equal(updated.businessType, "labor");
+    assert.deepEqual(updated.enabledModules, ["worker", "hr"]);
+  } finally {
+    (ModuleSettings as any).findOne = originalFindOne;
+  }
 });

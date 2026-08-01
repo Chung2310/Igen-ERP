@@ -14,9 +14,15 @@ test("a tenant user cannot access a disabled module", () => {
   assert.equal(resolveModuleAccess({ role: "admin", companyCode: "ACME" }, "inventory", ["hr"]), false);
 });
 
+test("requireModule denies Student and allows Worker for labor tenants with stale student modules", () => {
+  const laborModules = ["student", "worker", "hr"];
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "student", laborModules, true, "labor"), false);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "worker", laborModules, true, "labor"), true);
+});
+
 test("missing or empty module data remains backward compatible", () => {
-  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", [], true), true);
-  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", undefined, true), true);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "hr", [], true), true);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "hr", undefined, true), true);
 });
 
 test("tenant module access fails closed without a company code", () => {
