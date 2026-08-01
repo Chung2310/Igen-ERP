@@ -34,8 +34,12 @@ export interface DrivingStudent {
   address: string;
   status: StudentStatus[];
   ownerId: string;
+  /** Người thêm bản ghi — rỗng với dữ liệu tạo trước khi có trường này */
+  createdBy?: string;
+  createdByName?: string;
   centerId?: string;
   partnerId?: string;
+  branchId?: string;
   healthCheckDate?: string;
   healthCheckNotes?: string;
   healthCheckFiles?: UploadedFile[];
@@ -218,6 +222,8 @@ export interface Batch {
   code: string;
   courseId: string;
   instructorId?: string;
+  /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */
+  instructorText?: string;
   learnerIds: string[];
   daysOfWeek: number[]; // 0 = Chủ nhật ... 6 = Thứ 7
   startTime: string;    // HH:mm

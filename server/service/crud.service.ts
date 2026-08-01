@@ -130,6 +130,17 @@ function sanitizeInventoryResult(modelName: string, item: any) {
  * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
  */
 const WRITE_PROTECTED_MODELS = new Set<string>(["users", "kanban-tasks", "projects"]);
+const INVENTORY_MODELS = new Set<SupportedModelName>(["products", "categories", "stock-logs"]);
+
+export function requireInventoryBranch(modelName: SupportedModelName, branchId?: string): string | undefined {
+  if (!INVENTORY_MODELS.has(modelName)) return undefined;
+  if (!branchId) {
+    const error: Error & { statusCode?: number } = new Error("Vui lòng chọn chi nhánh trước khi thao tác.");
+    error.statusCode = 400;
+    throw error;
+  }
+  return branchId;
+}
 
 /** Loại bỏ trường nhạy cảm khỏi kết quả trả về của model users */
 function sanitizeUserResult(modelName: string, item: any) {
@@ -173,6 +184,20 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "timekeeping-logs": TimekeepingLogModel,
 };
 
+/**
+ * Các model được cô lập theo chi nhánh: bản ghi luôn được đóng dấu branchId khi tạo
+ * và mọi truy cập theo _id đều bị giới hạn trong chi nhánh của người dùng.
+ */
+const BRANCH_SCOPED_MODELS = new Set<string>([
+  "workflows",
+  "training-courses",
+  "training-enrollments",
+  "projects",
+  "hr-calendar-events",
+  "hr-leave-templates",
+  "hr-leave-applications",
+]);
+
 export const crudService = {
   /**
    * Lấy danh sách tài nguyên kèm phân trang, lọc và cô lập companyCode
@@ -189,6 +214,10 @@ export const crudService = {
     }
 
     const query: any = {};
+    const inventoryBranch = requireInventoryBranch(
+      modelName,
+      typeof options.filters?.branchId === "string" ? options.filters.branchId : undefined,
+    );
 
     // Áp dụng các bộ lọc động truyền từ client (loại bỏ key nguy hiểm trước khi merge)
     if (options.filters) {
@@ -204,6 +233,8 @@ export const crudService = {
     }
 
     // Áp dụng tìm kiếm tương đối (Search)
+    if (inventoryBranch) query.branchId = inventoryBranch;
+
     if (options.search) {
       const searchRegex = new RegExp(options.search, "i");
       query.$or = [
@@ -237,7 +268,8 @@ export const crudService = {
     modelName: SupportedModelName,
     id: string,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -248,6 +280,9 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     const item = await model.findOne(query).lean();
     if (!item) {
@@ -262,7 +297,8 @@ export const crudService = {
   async create(
     modelName: SupportedModelName,
     data: any,
-    companyCode: string
+    companyCode: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -271,10 +307,16 @@ export const crudService = {
     assertWritable(modelName);
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
     const payload = {
       ...sanitizeInventoryPayload(modelName, data),
       companyCode,
+      ...(inventoryBranch ? { branchId: inventoryBranch } : {}),
     };
+
+    if (BRANCH_SCOPED_MODELS.has(modelName) && (branchId || data.branchId)) {
+      payload.branchId = branchId || data.branchId;
+    }
 
     const newItem = new model(payload);
     await newItem.save();
@@ -319,7 +361,8 @@ export const crudService = {
     id: string,
     data: any,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -332,10 +375,16 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
-    const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
+    const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
+    if ((modelName === "timekeeping-logs" || BRANCH_SCOPED_MODELS.has(modelName)) && data.branchId) {
+      updatePayload.branchId = data.branchId;
+    }
 
     // Enforce the planned start time for every task update entry point, not only
     // the dedicated Kanban router.
@@ -374,7 +423,8 @@ export const crudService = {
     modelName: SupportedModelName,
     id: string,
     companyCode: string,
-    userRole: string
+    userRole: string,
+    branchId?: string,
   ) {
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -386,6 +436,9 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
+    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    if (inventoryBranch) query.branchId = inventoryBranch;
+    if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
     const deletedItem = await model.findOneAndDelete(query);
     if (!deletedItem) {

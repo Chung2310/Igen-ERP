@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useBranch } from '../../../context/BranchContext';
 import { ResourceItem, ResourceBooking } from '../types';
 
 export function useResources() {
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +32,7 @@ export function useResources() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, activeBranchId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

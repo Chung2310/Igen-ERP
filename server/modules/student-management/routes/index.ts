@@ -2,7 +2,7 @@ import { Router, RequestHandler } from "express";
 import fs from "fs";
 import path from "path";
 import authRoutes from "./auth.routes";
-import studentRoutes from "./student.routes";
+import studentRoutes, { publicStudentRouter } from "./student.routes";
 import examRoutes from "./exam.routes";
 import paymentRoutes from "./payment.routes";
 import notificationRoutes from "./notification.routes";
@@ -20,6 +20,7 @@ import { logger } from "../config/logger";
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/students", publicStudentRouter);
 router.use("/students", studentRoutes);
 router.use("/exams", examRoutes);
 router.use("/payments", paymentRoutes);
@@ -37,42 +38,15 @@ router.use("/partners", partnerRoutes);
 import { authMiddleware, AuthRequest } from "../middlewares/auth.middleware";
 import { EmailService } from "../services/email.service";
 import { AuthService } from "../services/auth.service";
+import { companyEmailService } from "../../../service/company-email.service";
 
 router.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
   try {
-    const { to, subject, html, check, smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass, smtpFrom, smtpSandboxEmail } = req.body;
+    const { to, subject, html, check } = req.body;
 
-    let smtpSettings: any = undefined;
-
-    // Use SMTP settings from body if provided (for connection testing before saving)
-    if (smtpHost && smtpUser && smtpPass) {
-      smtpSettings = {
-        smtpHost: smtpHost.trim(),
-        smtpPort: smtpPort !== undefined && smtpPort !== "" ? parseInt(smtpPort, 10) : undefined,
-        smtpSecure: smtpSecure === true || smtpSecure === "true",
-        smtpUser: smtpUser.trim(),
-        smtpPass: smtpPass.trim(),
-        smtpFrom: smtpFrom?.trim(),
-        smtpSandboxEmail: smtpSandboxEmail?.trim(),
-      };
-    } else {
-      const user = await AuthService.getUserProfile(req.user.uid);
-      const smtpOwner = user && user.role === "user" && user.centerId
-        ? await AuthService.getUserProfile(user.centerId)
-        : user;
-      const hasCustomSmtp = !!(smtpOwner && smtpOwner.smtpHost && smtpOwner.smtpUser && smtpOwner.smtpPass);
-      if (hasCustomSmtp) {
-        smtpSettings = {
-          smtpHost: smtpOwner.smtpHost,
-          smtpPort: smtpOwner.smtpPort,
-          smtpSecure: smtpOwner.smtpSecure,
-          smtpUser: smtpOwner.smtpUser,
-          smtpPass: smtpOwner.smtpPass,
-          smtpFrom: smtpOwner.smtpFrom,
-          smtpSandboxEmail: smtpOwner.smtpSandboxEmail,
-        };
-      }
-    }
+    const user = await AuthService.getUserProfile(req.user.uid);
+    const smtpSettings = user?.companyCode
+      ? await companyEmailService.resolveLegacySettings(user.companyCode) : undefined;
 
     if (check) {
       const checkResult = await EmailService.verifyConnection(smtpSettings);

@@ -1,12 +1,27 @@
 import { Schema, model } from "mongoose";
 import {
   IHRContract,
+  IHRSalaryTerm,
   IHRContractExtension,
 } from "../interface/hr-contract.interface";
+
+const HRSalaryTermSchema = new Schema<IHRSalaryTerm>({
+  salaryEffectiveFrom: { type: Date, required: true },
+  salaryEffectiveTo: Date,
+  contractSalary: { type: Number, required: true, min: 0 },
+  insuranceSalary: { type: Number, required: true, min: 0 },
+  payrollSalary: { type: Number, required: true, min: 0 },
+  salaryType: { type: String, enum: ["monthly", "daily", "hourly"], required: true, default: "monthly" },
+  probation: { type: Boolean, default: false },
+  probationSalary: { type: Number, min: 0 },
+  probationRate: { type: Number, min: 0, max: 1 },
+  currency: { type: String, required: true, default: "VND", trim: true },
+}, { _id: false });
 
 const HRContractSchema = new Schema<IHRContract>(
   {
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     contractType: { type: String, required: true, trim: true, index: true },
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true, trim: true },
@@ -18,6 +33,7 @@ const HRContractSchema = new Schema<IHRContract>(
       default: "active",
       index: true,
     },
+    salaryTerms: { type: [HRSalaryTermSchema], default: undefined },
     contractFileUrl: { type: String, trim: true },
     contractFileName: { type: String, trim: true },
     contractFileMimeType: { type: String, trim: true },
@@ -40,6 +56,7 @@ HRContractSchema.index({ companyCode: 1, employeeId: 1, endDate: -1 });
 const HRContractExtensionSchema = new Schema<IHRContractExtension>(
   {
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     contractId: { type: String, required: true, index: true },
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true },

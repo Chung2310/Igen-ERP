@@ -3,6 +3,7 @@ import { Shield, X, RefreshCw } from "lucide-react";
 import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
 import { getPermissionLabel, getPermissionDescription, PERMISSION_TRANSLATIONS } from "../../utils/permissionUtils";
+import { sortPermissionsForRoleEditor } from "./rolePresentation";
 
 export interface RoleModalProps {
   open: boolean;
@@ -44,7 +45,7 @@ export function RoleModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-5xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2.5">
@@ -144,10 +145,10 @@ export function RoleModal({
                   Vai trò Superadmin tự động có tất cả quyền trong hệ thống và không thể thay đổi.
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[380px] overflow-y-auto p-1 pr-2">
+                <div className="space-y-4 max-h-[58vh] min-h-[280px] overflow-y-auto p-1 pr-2">
                   {(() => {
                     const groupsMap = new Map<string, Permission[]>();
-                    systemPermissions.forEach((perm) => {
+                    sortPermissionsForRoleEditor(systemPermissions).forEach((perm) => {
                       const groupName = perm.group || PERMISSION_TRANSLATIONS[perm.code]?.group || "Khác";
                       const list = groupsMap.get(groupName) || [];
                       list.push(perm);
@@ -159,7 +160,7 @@ export function RoleModal({
                         <h6 className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50/80 px-3 py-1 rounded-lg border border-indigo-100/80">
                           {groupName}
                         </h6>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
                           {perms.map((perm) => {
                             const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
                             const labelText = getPermissionLabel(perm.code, perm.name);
@@ -173,7 +174,9 @@ export function RoleModal({
                                     if (prev.includes(perm.code)) {
                                       return prev.filter((p) => p !== perm.code);
                                     } else {
-                                      return [...prev, perm.code];
+                                      const readCode = perm.code.endsWith(":manage") ? perm.code.replace(/:manage$/, ":read") : "";
+                                      const hasReadPair = systemPermissions.some((item) => item.code === readCode);
+                                      return [...new Set([...prev, perm.code, ...(hasReadPair ? [readCode] : [])])];
                                     }
                                   });
                                 }}
@@ -190,9 +193,13 @@ export function RoleModal({
                                   className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <span className="text-xs font-bold block leading-tight truncate">{labelText}</span>
+                                  <span className="text-xs font-bold block leading-tight">{labelText}</span>
+                                  <span className="text-[9px] font-mono text-slate-400 mt-0.5 block">{perm.code}</span>
                                   {descText && (
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
+                                  )}
+                                  {(perm.code === "student:read" || perm.code === "student:manage") && (
+                                    <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>
                                   )}
                                 </div>
                               </div>

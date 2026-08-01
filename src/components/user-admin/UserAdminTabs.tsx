@@ -1,4 +1,4 @@
-import { Users, ShieldCheck, Wallet } from "lucide-react";
+import { Users, ShieldCheck } from "lucide-react";
 import { UserProfile } from "../../types";
 import { UserAdminTabKey } from "./types";
 
@@ -15,9 +15,6 @@ export function UserAdminTabs({ activeTab, onChange, userProfile }: Props) {
         {[
           { id: "users", label: "Danh sách tài khoản", icon: Users },
           { id: "roles", label: "Vai trò & Phân quyền", icon: ShieldCheck },
-          ...(userProfile?.role === "superadmin"
-            ? [{ id: "balance", label: "Số dư người dùng", icon: Wallet }]
-            : []),
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;

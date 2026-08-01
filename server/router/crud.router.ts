@@ -16,6 +16,8 @@ export const CRUD_MODEL_MODULE_MAP: Record<string, ModuleKey> = {
   workflows: "hr",
   projects: "hr",
   "hr-calendar-events": "hr",
+  "hr-leave-templates": "hr",
+  "hr-leave-applications": "hr",
   "timekeeping-logs": "hr",
   "training-courses": "hr",
   "training-enrollments": "hr",
@@ -26,6 +28,13 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
   return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
 };
 
+/**
+ * Quyền đọc tối thiểu theo model. Cố ý KHÔNG liệt kê `hr-leave-templates` và
+ * `hr-leave-applications`: nộp đơn từ là quyền mặc định của mọi nhân viên đã đăng nhập —
+ * ai cũng phải tải được biểu mẫu và xem đơn của chính mình. Việc thu hẹp phạm vi do
+ * crudController đảm nhiệm (người không có `leave:approve` bị ép `filters.employeeId`
+ * về chính mình), còn duyệt đơn và đăng biểu mẫu bị `canApproveLeave` chặn riêng.
+ */
 const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
   products: "stock:read",
   categories: "stock:read",
@@ -37,8 +46,6 @@ const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
   workflows: "hr:read",
   "training-courses": "hr:read",
   "training-enrollments": "hr:read",
-  "hr-leave-templates": "hr:read",
-  "hr-leave-applications": "hr:read",
   users: "user:read",
 };
 

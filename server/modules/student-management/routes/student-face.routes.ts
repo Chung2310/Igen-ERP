@@ -1,10 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
 import { StudentFaceController } from "../controllers/student-face.controller";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
-const requireManage = requirePermission("student:manage") as any;
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student-profile"].manage]) as any;
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),

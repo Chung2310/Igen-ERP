@@ -10,6 +10,7 @@ import {
 import { cn, parseVND, getVietQRBankCode } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
+import { useBranch } from '../../../../context/BranchContext';
 import { apiFetch, getAccessToken } from '../../lib/api';
 import { BroadcastNotification, Student } from '../../types';
 import { toast } from '../../../../pages/Toast';
@@ -39,7 +40,7 @@ interface SendResult {
 interface HistoryCardProps {
   key?: string | number;
   notification: BroadcastNotification;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 // ─── HistoryCard ─────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!notification.id || isDeleting) {
+    if (!notification.id || isDeleting || !onDelete) {
       console.error("Missing notification ID:", notification);
       return;
     }
@@ -108,7 +109,7 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
           )}>
             {notification.status}
           </div>
-          <button 
+          {onDelete && <button
             onClick={handleDelete}
             disabled={isDeleting}
             className={cn(
@@ -118,7 +119,7 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
             title="Xóa lịch sử"
           >
             {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-          </button>
+          </button>}
         </div>
       </div>
       
@@ -306,9 +307,10 @@ function InstallmentPlanEditor({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export function NotificationsPage() {
+export function NotificationsPage({ canManage = true }: { canManage?: boolean }) {
   const { students } = useStudents();
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   
@@ -437,7 +439,7 @@ export function NotificationsPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  }, [activeBranchId]);
 
   useEffect(() => {
     if (!user) return;
@@ -1048,7 +1050,7 @@ export function NotificationsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
         {/* Composer */}
-        <motion.div 
+        {canManage && <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden"
@@ -1343,7 +1345,7 @@ export function NotificationsPage() {
               </div>
             </div>
           </form>
-        </motion.div>
+        </motion.div>}
 
         {/* History */}
         <motion.div 
@@ -1374,7 +1376,7 @@ export function NotificationsPage() {
             ) : (
               <div className="space-y-2">
                 {history.map((item) => (
-                  <HistoryCard key={item.id} notification={item} onDelete={handleDeleteNotification} />
+                  <HistoryCard key={item.id} notification={item} onDelete={canManage ? handleDeleteNotification : undefined} />
                 ))}
               </div>
             )}

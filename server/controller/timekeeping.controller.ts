@@ -213,6 +213,7 @@ export const timekeepingController = {
         log = new TimekeepingLogModel({
           uid,
           companyCode,
+          branchId: req.user?.branchId || undefined,
           date: todayStr,
           checkIn: checkInDetail,
           status,
@@ -229,6 +230,9 @@ export const timekeepingController = {
       } else {
         log.checkIn = checkInDetail;
         log.status = status as any;
+        if (!log.branchId && req.user?.branchId) {
+          log.branchId = req.user.branchId;
+        }
       }
 
       await log.save();
@@ -321,6 +325,10 @@ export const timekeepingController = {
           lunchBreakStart: custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00",
           lunchBreakEnd: custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00",
         }) as any;
+      }
+
+      if (!log.branchId && req.user?.branchId) {
+        log.branchId = req.user.branchId;
       }
 
       await log.save();

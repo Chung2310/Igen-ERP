@@ -1,7 +1,8 @@
+import { NotFoundError, ValidationError } from "../../../errors/app-error";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
-import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class PartnerController {
@@ -12,12 +13,14 @@ export class PartnerController {
       if (req.user!.role === "superadmin") {
         const companyCode = req.body.companyCode || req.body.centerId || req.query.companyCode || req.query.centerId;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui long chon cong ty quan ly." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
+      } else if (req.user!.role === "admin" || req.user!.role === "manager") {
+        ownerId = await resolveCreateOwnerId(req.user!);
       }
 
-      const partner = await PartnerService.createPartner(ownerId, req.body, {
+      const partner = await PartnerService.createPartner(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "partners",
         actorRole: req.user!.role,
@@ -37,17 +40,17 @@ export class PartnerController {
       if (req.user!.role === "superadmin") {
         const companyCode = req.query.centerId || req.body.centerId || req.query.companyCode || req.body.companyCode;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui lòng chọn công ty quản lý." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
       const partners = req.body.partners;
       if (!Array.isArray(partners)) {
-        return res.status(400).json({ success: false, error: "Dữ liệu đối tác không hợp lệ (phải là danh sách)." });
+        throw new ValidationError("PARTNER_LIST_REQUIRED", "Dữ liệu đối tác phải là một danh sách.", { field: "partners" });
       }
 
-      const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId);
+      const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId, req.user!.branchId);
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -57,7 +60,7 @@ export class PartnerController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await PartnerService.getPartners(ownerId, req.query);
+      const result = await PartnerService.getPartners(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -67,9 +70,9 @@ export class PartnerController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.getPartnerById(ownerId, req.params.id);
+      const partner = await PartnerService.getPartnerById(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -86,7 +89,7 @@ export class PartnerController {
         actorRole: req.user!.role,
       });
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac de cap nhat." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để cập nhật.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -97,9 +100,9 @@ export class PartnerController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.deletePartner(ownerId, req.params.id);
+      const partner = await PartnerService.deletePartner(ownerId, req.params.id, req.user!.branchId);
       if (!partner) {
-        return res.status(404).json({ success: false, error: "Khong tim thay doi tac de xoa." });
+        throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để xóa.");
       }
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -110,7 +113,7 @@ export class PartnerController {
   static async addPayout(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const partner = await PartnerService.addPayout(ownerId, req.params.id, req.body);
+      const partner = await PartnerService.addPayout(ownerId, req.params.id, req.body, req.user!.branchId);
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
       next(error);
@@ -126,7 +129,7 @@ export class PartnerController {
             ? "ALL"
             : req.user!.uid;
 
-      const levels = await PartnerService.getCommissionLevels(ownerId);
+      const levels = await PartnerService.getCommissionLevels(ownerId, req.user!.branchId);
       res.json({ success: true, data: levels });
     } catch (error: unknown) {
       next(error);
@@ -135,17 +138,22 @@ export class PartnerController {
 
   static async createCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       let ownerId = req.user!.uid;
 
       if (req.user!.role === "superadmin") {
         const companyCode = req.body.companyCode || req.body.centerId || req.query.companyCode || req.query.centerId;
         if (!companyCode || typeof companyCode !== "string") {
-          return res.status(400).json({ success: false, error: "Vui long chon cong ty quan ly." });
+          throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
+      } else if (req.user!.role === "admin" || req.user!.role === "manager") {
+        ownerId = await resolveCreateOwnerId(req.user!);
       }
 
-      const level = await PartnerService.createCommissionLevel(ownerId, req.body);
+      const level = await PartnerService.createCommissionLevel(ownerId, { ...req.body, branchId: req.user!.branchId });
       res.status(201).json({ success: true, data: level });
     } catch (error: unknown) {
       next(error);
@@ -155,9 +163,9 @@ export class PartnerController {
   static async deleteCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id);
+      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id, req.user!.branchId);
       if (!level) {
-        return res.status(404).json({ success: false, error: "Khong tim thay cap bac hoa hong de xoa." });
+        throw new NotFoundError("COMMISSION_LEVEL_NOT_FOUND", "Không tìm thấy cấp bậc hoa hồng để xóa.");
       }
       res.json({ success: true, data: level });
     } catch (error: unknown) {

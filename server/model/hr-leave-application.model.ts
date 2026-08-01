@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { IHRLeaveApplication } from "../interface/hr-leave.interface";
+import { IHRLeaveApplication, LEAVE_REQUEST_KINDS } from "../interface/hr-leave.interface";
 
 const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
   {
@@ -8,6 +8,7 @@ const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true },
     type: { type: String, required: true, index: true },
+    requestKind: { type: String, enum: LEAVE_REQUEST_KINDS, default: "leave", index: true },
     startDate: { type: Date, required: true, index: true },
     endDate: { type: Date, required: true },
     reason: { type: String, required: true },

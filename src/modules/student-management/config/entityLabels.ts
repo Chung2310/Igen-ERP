@@ -45,12 +45,57 @@ export const ENTITY_LABEL_PRESETS: Record<EntityPreset, EntityLabelSet> = {
   },
 };
 
-export const ENTITY_PRESET_OPTIONS: { value: EntityPreset; label: string }[] = [
-  { value: "student", label: "Giáo dục — Học viên" },
-  { value: "customer", label: "Dịch vụ — Khách hàng" },
-  { value: "worker", label: "Tuyển dụng — Lao động" },
-];
+/** Tên ngành nghề của từng loại hình. Nhãn thực thể luôn lấy từ
+ * ENTITY_LABEL_PRESETS để phần cài đặt và phần module không bao giờ lệch nhau. */
+const ENTITY_PRESET_SECTORS: Record<EntityPreset, string> = {
+  student: "Giáo dục",
+  candidate: "Tuyển dụng",
+  customer: "Dịch vụ",
+  worker: "Tuyển dụng",
+};
 
+/** Loại hình còn được chọn khi tạo/đổi tenant. "candidate" là loại hình cũ:
+ * không cấp mới nữa nhưng tenant đang dùng vẫn phải hiển thị đúng. */
+const SELECTABLE_ENTITY_PRESETS: EntityPreset[] = ["student", "customer", "worker"];
+
+export type EntityPresetOption = {
+  value: EntityPreset;
+  /** "Giáo dục — Học viên" */
+  label: string;
+  /** Nhãn thực thể module đang dùng: "Học viên" */
+  entityLabel: string;
+  sector: string;
+  /** Loại hình cũ, chỉ hiện khi tenant đang dùng. */
+  legacy?: boolean;
+};
+
+function buildEntityPresetOption(value: EntityPreset): EntityPresetOption {
+  const entityLabel = ENTITY_LABEL_PRESETS[value].tabLabel;
+  const sector = ENTITY_PRESET_SECTORS[value];
+  return {
+    value,
+    label: `${sector} — ${entityLabel}`,
+    entityLabel,
+    sector,
+    legacy: SELECTABLE_ENTITY_PRESETS.includes(value) ? undefined : true,
+  };
+}
+
+export const ENTITY_PRESET_OPTIONS: EntityPresetOption[] = SELECTABLE_ENTITY_PRESETS.map(buildEntityPresetOption);
+
+/**
+ * Danh sách loại hình để hiển thị, luôn chứa loại hình đang dùng.
+ * Nhờ vậy tenant ở loại hình cũ ("candidate") vẫn thấy đúng nhãn như trong module
+ * thay vì lọt ra giá trị thô.
+ */
+export function getEntityPresetOptions(current?: EntityPreset | null): EntityPresetOption[] {
+  if (!current || ENTITY_PRESET_OPTIONS.some((option) => option.value === current)) {
+    return ENTITY_PRESET_OPTIONS;
+  }
+  return [buildEntityPresetOption(current), ...ENTITY_PRESET_OPTIONS];
+}
+
+/** Loại hình doanh nghiệp là đặc quyền SuperAdmin — doanh nghiệp không tự sửa. */
 export function canChangeEntityPreset(role: string | null | undefined): boolean {
   return role === "superadmin";
 }

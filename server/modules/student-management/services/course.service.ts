@@ -38,13 +38,17 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 export class CourseService {
   static customFieldWrites = customFieldWriteService;
 
   static async createCourse(ownerId: string, data: CourseData, context: CustomFieldWriteContext): Promise<ICourse> {
     logger.info(`[Course] Creating course for ownerId=${ownerId}, code=${data.code}`);
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
-    const existing = await Course.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
+    const existing = await Course.findOne({ ownerId, branchId: writeData.branchId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã khóa học "${data.code}" đã tồn tại.`);
     }
@@ -54,14 +58,14 @@ export class CourseService {
     return saved;
   }
 
-  static async getCourses(ownerId: string | string[], filters: CourseFilters) {
+  static async getCourses(ownerId: string | string[], filters: CourseFilters, branchId?: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
-    const query: Record<string, unknown> = buildOwnerQuery(resolvedOwnerId);
+    const query: Record<string, unknown> = { ...buildOwnerQuery(resolvedOwnerId), ...buildBranchScopeQuery(branchId) };
     if (filters.category) query.category = filters.category;
     if (filters.status) query.status = filters.status;
     if (filters.search) {
@@ -87,8 +91,8 @@ export class CourseService {
     return { courses: withBatches, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  static async getCourseById(ownerId: string | string[], id: string) {
-    const course = await Course.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async getCourseById(ownerId: string | string[], id: string, branchId?: string) {
+    const course = await Course.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!course) return null;
     const activeCounts = await BatchService.countActiveByCourse([String(course._id)]);
     return { ...course.toObject(), activeBatches: activeCounts.get(String(course._id)) || 0 };
@@ -99,9 +103,10 @@ export class CourseService {
     id: string,
     data: CourseData,
     context: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<ICourse | null> {
     logger.info(`[Course] Updating course: id=${id}`);
-    const query = { _id: id, ...buildOwnerQuery(ownerId) };
+    const query = { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) };
     const existing = await Course.findOne(query);
     if (!existing) return null;
     const expectedVersion = expectedVersionOf(data);
@@ -120,12 +125,12 @@ export class CourseService {
     return updated;
   }
 
-  static async deleteCourse(ownerId: string | string[], id: string): Promise<ICourse | null> {
+  static async deleteCourse(ownerId: string | string[], id: string, branchId?: string): Promise<ICourse | null> {
     logger.info(`[Course] Deleting course: id=${id}`);
     const activeCounts = await BatchService.countActiveByCourse([id]);
     if ((activeCounts.get(id) || 0) > 0) {
       throw new Error("Không thể xóa: khóa học đang có lớp hoạt động. Hãy kết thúc hoặc xóa các lớp trước.");
     }
-    return await Course.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await Course.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 }

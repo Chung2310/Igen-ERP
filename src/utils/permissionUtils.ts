@@ -43,6 +43,12 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Xem phiếu lương, phụ cấp và bảng tính lương nhân viên",
   },
+  "payroll:prepare": {
+    label: "Chuẩn bị dữ liệu lương nhân sự",
+    group: "Quản lý nhân sự",
+    description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương",
+  },
+  "payroll:pay": { label: "Thanh toán bảng lương", description: "Xác nhận và hoàn tất thanh toán payroll" },
   "payroll:manage": {
     label: "Quản lý & tính lương nhân sự",
     group: "Quản lý nhân sự",
@@ -53,27 +59,40 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý nhân sự",
     description: "Cấu hình dữ liệu và nhận diện khuôn mặt chấm công AI",
   },
-  // Quản lý đào tạo & Học viên
+  "company-email:manage": {
+    label: "Quản lý email chúc mừng",
+    group: "Quản lý nhân sự",
+    description: "Cấu hình gửi email chúc mừng sinh nhật, kỷ niệm ngày làm việc của nhân viên",
+  },
+  "recruitment:manage": {
+    label: "Quản lý tuyển dụng",
+    group: "Quản lý nhân sự",
+    description: "Xem, tạo mới, chỉnh sửa tin tuyển dụng, danh sách ứng viên và lịch phỏng vấn",
+  },
+  // Module học viên/lao động — chỉ hai mã quyền tổng, không chia nhỏ theo khu vực.
   "student:read": {
-    label: "Xem danh sách học viên",
-    group: "Quản lý đào tạo",
-    description: "Xem danh sách học viên, lớp học và kết quả đào tạo",
+    label: "Xem học viên/lao động",
+    group: "Học viên & Lao động",
+    description: "Xem hồ sơ, khóa học, lớp/dự án, lịch thi, học phí, bài tập, tài nguyên và thông báo",
   },
   "student:manage": {
-    label: "Quản lý học viên & xếp lớp",
-    group: "Quản lý đào tạo",
-    description: "Thêm mới học viên, xếp lớp, điểm danh và cấp chứng chỉ",
+    label: "Quản lý học viên/lao động",
+    group: "Học viên & Lao động",
+    description: "Thêm, sửa, xóa và nhập dữ liệu trên toàn bộ module học viên/lao động",
   },
-  "course:read": {
-    label: "Xem danh sách khóa học",
-    group: "Quản lý đào tạo",
-    description: "Xem thông tin khóa học, lộ trình và giáo trình đào tạo",
+  "partner:read": {
+    label: "Xem đối tác & cộng tác viên",
+    group: "Quản lý đối tác",
+    description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác",
   },
-  "course:manage": {
-    label: "Quản lý khóa học & chương trình",
-    group: "Quản lý đào tạo",
-    description: "Tạo khóa học mới, thiết lập học phần và phân công giảng viên",
+  "partner:manage": {
+    label: "Quản lý đối tác & hoa hồng",
+    group: "Quản lý đối tác",
+    description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng",
   },
+  "custom-field:manage": { label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Cấu hình trường dữ liệu tùy chỉnh của module học viên" },
+  "student-settings:manage": { label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module học viên" },
+  "company-smtp:manage": { label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử SMTP doanh nghiệp" },
   // Kho & Sản phẩm
   "stock:read": {
     label: "Xem tồn kho & sản phẩm",
@@ -207,10 +226,14 @@ export function getRoleDisplayName(role: string, customDisplayName?: string): st
     return customDisplayName;
   }
   const roleMap: Record<string, string> = {
-    superadmin: "Quản trị viên tối cao (Super Admin)",
-    admin: "Chủ doanh nghiệp (Admin)",
-    manager: "Quản lý (Manager)",
-    user: "Nhân viên (User)",
+    superadmin: "Quản trị viên cấp cao",
+    admin: "Quản trị viên doanh nghiệp",
+    branch_owner: "Chủ chi nhánh",
+    manager: "Quản lý chi nhánh",
+    user: "Nhân viên",
+    staff: "Nhân viên",
+    teacher: "Giáo viên",
+    accountant: "Kế toán",
   };
   return roleMap[role?.toLowerCase()] || role || "Nhân viên";
 }

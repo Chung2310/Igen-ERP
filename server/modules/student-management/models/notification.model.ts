@@ -14,6 +14,7 @@ const notificationSchema = new Schema<INotification>(
       required: true,
     },
     ownerId: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     // Thông tin đợt thu học phí (optional — chỉ có khi gửi theo đợt)
     installmentPlan: {
       installmentNo: { type: Number },

@@ -27,11 +27,18 @@ interface PaymentHistoryEntry {
   recipient: string;
 }
 
+function buildBranchScopeQuery(branchId?: string) {
+  return branchId ? { branchId } : {};
+}
+
 export class PaymentService {
-  static async createPayment(ownerId: string | string[], data: PaymentCreateData): Promise<IPayment> {
+  static async createPayment(ownerId: string | string[], data: PaymentCreateData, branchId?: string): Promise<IPayment> {
     logger.info(`[Payment] Creating payment: studentId=${data.studentId}, ownerId=${ownerId}, amount=${data.amount}`);
     
-    const studentQuery: Record<string, unknown> = { _id: data.studentId };
+    const studentQuery: Record<string, unknown> = {
+      _id: data.studentId,
+      ...buildBranchScopeQuery(branchId),
+    };
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
@@ -56,6 +63,7 @@ export class PaymentService {
       ...data,
       studentName: student.fullName,
       ownerId: student.ownerId,
+      branchId: student.branchId,
     });
     const savedPayment = await payment.save();
     logger.info(`[Payment] Giao dịch thanh toán đã tạo: id=${savedPayment._id}, studentId=${savedPayment.studentId}`);
@@ -111,19 +119,31 @@ export class PaymentService {
       student.markModified('installmentStatus');
     }
 
-    await student.save();
+    await Student.updateOne(
+      studentQuery,
+      {
+        $set: {
+          paidAmount: student.paidAmount,
+          paymentHistory: student.paymentHistory,
+          installmentStatus: student.installmentStatus,
+        },
+      },
+      { runValidators: true },
+    );
     logger.info(`[Payment] Cập nhật thông tin học phí thành công cho học viên: id=${student._id}, đã đóng=${student.paidAmount}`);
 
     return savedPayment;
   }
 
-  static async getPayments(ownerId: string | string[], filters: PaymentFilters) {
+  static async getPayments(ownerId: string | string[], filters: PaymentFilters, branchId?: string) {
     logger.info(`[Payment] Fetching payments for ownerId=${ownerId} with filters: ${JSON.stringify(filters)}`);
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
-    const query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {
+      ...buildBranchScopeQuery(branchId),
+    };
     if (ownerId !== "ALL") {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
@@ -145,9 +165,12 @@ export class PaymentService {
     };
   }
 
-  static async deletePayment(ownerId: string | string[], id: string): Promise<IPayment | null> {
+  static async deletePayment(ownerId: string | string[], id: string, branchId?: string): Promise<IPayment | null> {
     logger.info(`[Payment] Deleting payment: id=${id}, ownerId=${ownerId}`);
-    const paymentQuery: Record<string, unknown> = { _id: id };
+    const paymentQuery: Record<string, unknown> = {
+      _id: id,
+      ...buildBranchScopeQuery(branchId),
+    };
     if (ownerId !== "ALL") {
       paymentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
@@ -157,7 +180,10 @@ export class PaymentService {
       throw new Error("Không tìm thấy giao dịch thanh toán.");
     }
 
-    const studentQuery: Record<string, unknown> = { _id: payment.studentId };
+    const studentQuery: Record<string, unknown> = {
+      _id: payment.studentId,
+      ...buildBranchScopeQuery(branchId),
+    };
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
@@ -169,7 +195,16 @@ export class PaymentService {
           (p) => p.id !== payment._id.toString()
         );
       }
-      await student.save();
+      await Student.updateOne(
+        studentQuery,
+        {
+          $set: {
+            paidAmount: student.paidAmount,
+            paymentHistory: student.paymentHistory,
+          },
+        },
+        { runValidators: true },
+      );
       logger.info(`[Payment] Cập nhật hoàn tiền học phí thành công cho học viên: id=${student._id}`);
     }
 

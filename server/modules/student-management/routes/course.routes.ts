@@ -6,10 +6,11 @@ import { validate } from "../middlewares/validate.middleware";
 import { createCourseSchema, updateCourseSchema } from "../validations/course.validation";
 import { createCourseCategorySchema } from "../validations/course-category.validation";
 import { idParamSchema } from "../validations/student.validation";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
-const requireManage = requirePermission("student:manage") as any;
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.course.manage]) as any;
 
 router.use(authMiddleware);
 

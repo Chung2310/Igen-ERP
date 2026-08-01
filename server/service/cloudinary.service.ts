@@ -20,6 +20,9 @@ export interface PrivateImageAsset {
   bytes: number;
 }
 
+export type PrivateRawAsset = PrivateImageAsset;
+export type PublicRawAsset = { publicId: string; secureUrl: string; bytes: number };
+
 export const cloudinaryService = {
   /**
    * Tải tệp tin (Base64 hoặc URL công khai) lên Cloudinary
@@ -135,6 +138,47 @@ export const cloudinaryService = {
     });
   },
 
+  async uploadPrivateRaw(buffer: Buffer, folder: string, filename: string): Promise<PrivateRawAsset> {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      throw new Error("Cloudinary configuration is incomplete");
+    }
+    ensureConfigured();
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder, public_id: filename, resource_type: "raw", type: "authenticated", use_filename: false },
+        (error, result) => {
+          if (error) return reject(new Error(`Private Cloudinary upload failed: ${error.message || error}`));
+          if (!result?.public_id || !result.resource_type || !result.type || typeof result.bytes !== "number") {
+            return reject(new Error("Cloudinary returned incomplete private asset metadata"));
+          }
+          resolve({ publicId: result.public_id, resourceType: result.resource_type, type: result.type, format: result.format || "", bytes: result.bytes });
+        },
+      );
+      uploadStream.end(buffer);
+    });
+  },
+
+  async uploadPublicRaw(buffer: Buffer, folder: string, filename: string): Promise<PublicRawAsset> {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) throw new Error("Cloudinary configuration is incomplete");
+    ensureConfigured();
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, public_id: filename, resource_type: "raw", type: "upload", use_filename: false },
+        (error, result) => {
+          if (error) return reject(new Error(`Public Cloudinary upload failed: ${error.message || error}`));
+          if (!result?.public_id || !result.secure_url || typeof result.bytes !== "number") return reject(new Error("Cloudinary returned incomplete public asset metadata"));
+          resolve({ publicId: result.public_id, secureUrl: result.secure_url, bytes: result.bytes });
+        },
+      );
+      stream.end(buffer);
+    });
+  },
+
+  async deletePublicRaw(publicId: string): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, { resource_type: "raw", type: "upload", invalidate: true });
+  },
+
   createSignedImageUrl(publicId: string, expiresAt: Date): string {
     return cloudinary.url(publicId, {
       resource_type: "image",
@@ -143,6 +187,19 @@ export const cloudinaryService = {
       sign_url: true,
       expires_at: Math.floor(expiresAt.getTime() / 1000),
     });
+  },
+
+  createSignedRawUrl(publicId: string, expiresAt: Date): string {
+    ensureConfigured();
+    return cloudinary.url(publicId, {
+      resource_type: "raw", type: "authenticated", secure: true, sign_url: true,
+      expires_at: Math.floor(expiresAt.getTime() / 1000),
+    });
+  },
+
+  async deleteRawAsset(publicId: string): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, { resource_type: "raw", type: "authenticated", invalidate: true });
   },
 
   async deleteAsset(publicId: string): Promise<void> {

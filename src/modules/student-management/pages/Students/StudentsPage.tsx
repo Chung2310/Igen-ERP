@@ -4,7 +4,7 @@ import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
   X, Calendar as CalendarIcon, ChevronDown,
-  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX
+  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, GitBranch
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -12,12 +12,15 @@ import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
 import { useCourseCategories, CourseCategoryItem } from '../../hooks/useCourseCategories';
 import { toast } from '../../../../pages/Toast';
-import { Student } from '../../types';
+import { Student, Batch } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
+import { AssignStudentBranchModal } from '../../components/Student/AssignStudentBranchModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useBranch } from '../../../../context/BranchContext';
+import { useAuth } from '../../../../context/AuthContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import * as XLSX from 'xlsx';
 
@@ -25,6 +28,7 @@ interface StudentsPageProps {
   onSelectStudent: (student: Student) => void;
   onAddStudent: () => void;
   selectedCenter?: string;
+  canManage?: boolean;
 }
 
 type StatusFilter = 'Tất cả' | 'KSK' | 'Đã KSK' | 'Nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học';
@@ -42,9 +46,14 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
   return BookOpen;
 }
 
-export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
+export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, canManage = true }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { students, loading } = useStudents(resolvedCenter);
+  const { userProfile } = useAuth();
+  const [listScope, setListScope] = useState<'branch' | 'unassigned'>('branch');
+  const isUnassignedScope = listScope === 'unassigned';
+  const { students, loading } = useStudents(resolvedCenter, listScope);
+  const { branches } = useBranch();
+  const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
   const { batches } = useBatches();
   const { courses } = useCourses(resolvedCenter);
   const { categories } = useCourseCategories(resolvedCenter);
@@ -64,6 +73,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -109,6 +119,22 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     }
     return map;
   }, [batches, courses]);
+
+  // Lớp / dự án mà từng học viên đang tham gia
+  const studentBatches = useMemo(() => {
+    const map = new Map<string, Batch[]>();
+    for (const b of batches) {
+      for (const sid of b.learnerIds) {
+        const list = map.get(sid) || [];
+        list.push(b);
+        map.set(sid, list);
+      }
+    }
+    return map;
+  }, [batches]);
+
+  const getBatchLabels = (studentId: string) =>
+    (studentBatches.get(studentId) || []).map((b) => b.code || b.courseTitle).filter(Boolean);
 
   // Hạng bằng là dữ liệu riêng ngành lái xe — chỉ hiện filter/cột khi còn học viên có hạng
   const hasRankData = useMemo(() => students.some(s => s.rank), [students]);
@@ -262,6 +288,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     const commonHeadersAfter = [
       ...(usesEducationBilling ? ['Học phí', 'Đã đóng', 'Còn nợ'] : []),
       'Ngày đăng ký', ...(usesEducationBilling ? ['Trạng thái học phí'] : []), 'Trạng thái',
+      'Lớp / Dự án', 'Người phụ trách',
       'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ',
       entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học',
       'Ảnh CCCD mặt trước', 'Ảnh CCCD mặt sau', 'Ảnh chân dung'
@@ -290,6 +317,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         (Array.isArray(student.status) ? student.status : [student.status])
           .map((status) => getOperationalStatusLabel(entityLabel.preset, status))
           .join(', '),
+        getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp',
+        student.createdByName || 'Chưa xác định',
         student.birthday || '',
         student.idCard || '',
         student.email || '',
@@ -313,6 +342,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     const cols = [
       { wch: 20 }, { wch: 15 },
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
+      { wch: 25 }, { wch: 20 },
       { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 },
       { wch: 30 }, { wch: 30 }, { wch: 30 }
     ];
@@ -356,6 +386,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${cats.length > 0 ? cats.join(', ') : (student.rank || '')}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.registrationDate}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${(Array.isArray(student.status) ? student.status : [student.status]).map((status) => getOperationalStatusLabel(entityLabel.preset, status)).join(', ')}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp'}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.createdByName || 'Chưa xác định'}</td>
       </tr>
     `;
     }).join('');
@@ -385,6 +417,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                 <th>Ngành / Hạng</th>
                 <th>Ngày đăng ký</th>
                 <th>Trạng thái</th>
+                <th>Lớp / Dự án</th>
+                <th>Người phụ trách</th>
               </tr>
             </thead>
             <tbody>
@@ -417,7 +451,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          {selectedStudentIds.length > 0 && (
+          {userProfile?.role === 'admin' && (
+            <button onClick={() => { setListScope(isUnassignedScope ? 'branch' : 'unassigned'); setSelectedStudentIds([]); }} className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm", isUnassignedScope ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-white text-slate-600 border border-slate-200")}>
+              <GitBranch className="w-3.5 h-3.5" /> {isUnassignedScope ? 'Quay lại chi nhánh đang chọn' : 'Chưa gán chi nhánh'}
+            </button>
+          )}
+          {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
@@ -438,18 +477,18 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
-          {usesEducationBilling && <button
+          {canManage && usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
-          <button
+          {canManage && <button
             onClick={onAddStudent}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Thêm
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -579,7 +618,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       {/* Main Table Card */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-left min-w-[900px]">
+          <table className="w-full text-left min-w-[1100px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-3 py-2 w-8 no-print">
@@ -602,6 +641,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                 </th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
+                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Lớp / Dự án</th>
+                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Người phụ trách</th>
                 {usesEducationBilling && <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Học phí</th>}
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right no-print">Thao tác</th>
@@ -609,15 +650,16 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
                     <input
                       type="checkbox"
                       checked={selectedStudentIds.includes(student.id)}
+                      disabled={isUnassignedScope}
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedStudentIds([...selectedStudentIds, student.id]);
@@ -628,7 +670,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                       className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
                     />
                   </td>
-                  {usesEducationBilling && <td className="px-3 py-1.5">
+                  <td className="px-3 py-1.5">
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-800 capitalize">{student.fullName}</span>
                       <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-medium text-slate-400">
@@ -639,6 +681,12 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                             <span className="bg-slate-100 px-1 py-0.5 rounded text-[9px] text-slate-600 font-semibold">CCCD: {student.idCard}</span>
                           </>
                         )}
+                        <span className="text-slate-200">•</span>
+                        {getBranchLabel(student.branchId) ? (
+                          <span className="bg-cyan-50 px-1 py-0.5 rounded text-[9px] text-cyan-700 font-semibold">{getBranchLabel(student.branchId)}</span>
+                        ) : (
+                          <span className="bg-amber-50 px-1 py-0.5 rounded text-[9px] text-amber-700 font-semibold">Chưa gán chi nhánh</span>
+                        )}
                         {student.birthday && (
                           <>
                             <span className="text-slate-200">•</span>
@@ -647,12 +695,44 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                         )}
                       </div>
                     </div>
-                  </td>}
+                  </td>
                   <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
                     {formatDisplayDate(student.registrationDate)}
                   </td>
-
                   <td className="px-3 py-1.5">
+                    {(() => {
+                      const joined = studentBatches.get(student.id) || [];
+                      if (joined.length === 0) {
+                        return <span className="text-[10px] font-medium text-slate-300">Chưa xếp lớp</span>;
+                      }
+                      return (
+                        <div className="flex flex-wrap items-center gap-1 max-w-[180px]">
+                          {joined.slice(0, 2).map((b) => (
+                            <span
+                              key={b.id}
+                              title={b.courseTitle}
+                              className="bg-indigo-50 px-1.5 py-0.5 rounded text-[9px] text-indigo-700 font-semibold whitespace-nowrap"
+                            >
+                              {b.code || b.courseTitle}
+                            </span>
+                          ))}
+                          {joined.length > 2 && (
+                            <span
+                              title={joined.slice(2).map((b) => b.code || b.courseTitle).join(', ')}
+                              className="text-[9px] font-bold text-slate-400"
+                            >
+                              +{joined.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-3 py-1.5 text-[11px] font-medium text-slate-500 whitespace-nowrap">
+                    {student.createdByName || <span className="text-slate-300">Chưa xác định</span>}
+                  </td>
+
+                  {usesEducationBilling && <td className="px-3 py-1.5">
                     <div className="flex flex-col gap-0.5 w-24">
                       <div className="flex items-center text-[10px] font-bold">
                         {(() => {
@@ -686,7 +766,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                         })()}
                       </div>
                     </div>
-                  </td>
+                  </td>}
                   <td className="px-3 py-1.5 text-center">
                     <div className="flex flex-wrap justify-center gap-1">
                       {(Array.isArray(student.status) ? student.status : [student.status]).map((st) => (
@@ -704,25 +784,28 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
                   </td>
                   <td className="px-3 py-1.5 no-print">
                     <div className="flex items-center justify-end gap-1">
+                      {isUnassignedScope && (
+                        <button onClick={() => setAssigningStudent(student)} className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100">Gán chi nhánh</button>
+                      )}
                       <button
                         onClick={() => setEditingStudent(student)}
                         title="Sửa thông tin"
-                        className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer"
+                        className={cn("p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer", isUnassignedScope && "hidden")}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onSelectStudent(student)}
                         title="Xem chi tiết"
-                        className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer"
+                        className={cn("p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer", isUnassignedScope && "hidden")}
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
 
-                       <div className="relative">
+                       <div className={cn("relative", isUnassignedScope && "hidden")}>
                         <button
                           onClick={() => setConfirmDeleteId(confirmDeleteId === student.id ? null : student.id)}
-                          disabled={isDeleting === student.id}
+                          disabled={isDeleting === student.id || isUnassignedScope}
                           title="Xóa"
                           className={cn(
                             "p-1 rounded-lg transition-colors disabled:opacity-50 cursor-pointer",
@@ -782,6 +865,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       </div>
 
 
+
+      <AssignStudentBranchModal
+        student={assigningStudent}
+        branches={branches}
+        onClose={() => setAssigningStudent(null)}
+        onSuccess={() => setAssigningStudent(null)}
+      />
 
       {/* Edit Student Modal */}
       <EditStudentModal

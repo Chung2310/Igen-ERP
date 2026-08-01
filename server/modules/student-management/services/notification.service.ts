@@ -22,12 +22,13 @@ interface NotificationCreateData {
 }
 
 export class NotificationService {
-  static async createNotification(ownerId: string, data: NotificationCreateData): Promise<INotification> {
+  static async createNotification(ownerId: string, branchId: string, data: NotificationCreateData): Promise<INotification> {
     const { studentIds, ...notificationData } = data;
 
     const notification = new Notification({
       ...notificationData,
       ownerId,
+      branchId,
     });
     const savedNotification = await notification.save();
 
@@ -41,7 +42,7 @@ export class NotificationService {
       // Xử lý tuần tự để tránh race condition
       for (const studentId of studentIds) {
         try {
-          const student = await Student.findById(studentId);
+          const student = await Student.findOne({ _id: studentId, ownerId, branchId });
           if (!student) continue;
 
           // Tính số tiền đợt này = % × tổng học phí gốc
@@ -91,13 +92,14 @@ export class NotificationService {
     return savedNotification;
   }
 
-  static async getNotifications(ownerId: string | string[], filters: NotificationFilters) {
+  static async getNotifications(ownerId: string | string[], filters: NotificationFilters, branchId: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
     const query = {
       ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId,
+      branchId,
     };
 
     const total = await Notification.countDocuments(query);
@@ -115,9 +117,10 @@ export class NotificationService {
     };
   }
 
-  static async deleteNotification(ownerId: string | string[], id: string): Promise<INotification | null> {
+  static async deleteNotification(ownerId: string | string[], id: string, branchId: string): Promise<INotification | null> {
     const query = {
       _id: id,
+      branchId,
       ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId,
     };
     return await Notification.findOneAndDelete(query);

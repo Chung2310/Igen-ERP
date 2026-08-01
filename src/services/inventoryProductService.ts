@@ -60,13 +60,16 @@ async function uploadProductImage(file: File, sku: string): Promise<{ url: strin
 }
 
 export const inventoryProductService = {
-  subscribe(callback: (products: ProductItem[]) => void, onError?: (error: unknown) => void) {
+  subscribe(branchId: string, callback: (products: ProductItem[]) => void, onError?: (error: unknown) => void) {
+    const controller = new AbortController();
     const fetchProducts = async () => {
       try {
         const res = await fetch("/api/v1/crud/products?sort=-_id", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
+            "x-branch-id": branchId,
           },
+          signal: controller.signal,
         });
         if (!res.ok) {
           throw new Error("Không thể tải danh sách sản phẩm.");
@@ -78,8 +81,10 @@ export const inventoryProductService = {
           brand: typeof item.brand === "string" ? item.brand : "",
           description: typeof item.description === "string" ? item.description : "",
         }));
+        if (controller.signal.aborted) return;
         callback(products);
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (onError) {
           onError(err);
         } else {
@@ -90,7 +95,10 @@ export const inventoryProductService = {
 
     fetchProducts();
     const interval = setInterval(fetchProducts, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   },
 
   async ensureSkuAvailable(sku: string, ignoreId?: string) {

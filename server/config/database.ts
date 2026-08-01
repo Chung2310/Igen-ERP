@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
+import { RolePermissionModel } from "../model/role-permission.model";
+import { PERMISSION_CATALOG, RETIRED_STUDENT_PERMISSIONS } from "./permission-catalog";
+import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
+import {
+  dropLegacyAttendancePeriodResultUniqueIndex,
+  dropLegacyPayrollOperationJobIdempotencyIndex,
+} from "../model/payroll-branch-index-migration";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -85,9 +92,15 @@ async function seedPermissions() {
       { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
       { code: "timekeeping:manage", name: "Quản lý & duyệt chấm công", module: "hr", description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình vị trí/ca làm việc" },
       { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
+      { code: "payroll:prepare", name: "Chuẩn bị dữ liệu lương", module: "hr", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
       { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
+      { code: "payroll:pay", name: "Payroll payment", module: "hr", description: "Confirm payroll payments" },
+      { code: "company-email:manage", name: "Quản lý email chúc mừng", module: "hr", description: "Cấu hình mẫu và theo dõi email sinh nhật, lễ Tết của công ty" },
+      { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
       { code: "student:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
       { code: "student:manage", name: "Quản lý học viên/khách hàng", module: "student", description: "Thêm, sửa, xóa học viên, khóa học, lớp, đối tác..." },
+      { code: "partner:read", name: "Xem đối tác & cộng tác viên", module: "partner", description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác" },
+      { code: "partner:manage", name: "Quản lý đối tác & hoa hồng", module: "partner", description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng" },
       { code: "chat:read", name: "Xem trò chuyện (Tổng quan)", module: "chat", description: "Xem thẻ trò chuyện trên trang Tổng quan" },
       { code: "resource:read", name: "Xem tài nguyên (Tổng quan)", module: "resource", description: "Xem thẻ tài nguyên trên trang Tổng quan" },
       { code: "resource:manage", name: "Quản lý tài nguyên & kết nối Drive", module: "resource", description: "Kết nối/ngắt kết nối Google Drive doanh nghiệp và quản lý thư viện tài nguyên" }
@@ -98,13 +111,55 @@ async function seedPermissions() {
       code: { $in: ["crm:read", "crm:manage", "marketing:post"] }
     });
 
-    for (const perm of defaultPermissions) {
-      const existing = await PermissionModel.findOne({ code: perm.code });
-      if (!existing) {
-        await new PermissionModel(perm).save();
-        console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
-      }
+    const catalogPermissions = PERMISSION_CATALOG.map((entry) => ({
+      code: entry.code,
+      name: entry.label,
+      module: entry.code.split(":")[0],
+      description: entry.description,
+    }));
+    const permissionsByCode = new Map([...defaultPermissions, ...catalogPermissions].map((permission) => [permission.code, permission]));
+
+    for (const perm of permissionsByCode.values()) {
+      const result = await PermissionModel.updateOne({ code: perm.code }, { $setOnInsert: perm }, { upsert: true });
+      if (result.upsertedCount) console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
     }
+
+    await RolePermissionModel.updateMany(
+      { role: "admin" },
+      { $addToSet: { permissions: { $each: ["custom-field:manage", "company-smtp:manage", "payroll:prepare", "payroll:pay"] } } },
+    );
+    await RolePermissionModel.updateMany(
+      { role: { $in: ["admin", "manager", "branch_owner", "user"] } },
+      { $pull: { permissions: "student-settings:manage" } },
+    );
+    await RolePermissionModel.updateMany(
+      { role: "manager" },
+      { $addToSet: { permissions: "custom-field:manage" } },
+    );
+
+    // Gộp quyền chi tiết của module học viên/lao động về đúng hai mã student:read /
+    // student:manage. Nâng cấp trước rồi mới gỡ mã cũ để không vai trò nào mất quyền.
+    const retiredManage = RETIRED_STUDENT_PERMISSIONS.filter((code) => code.endsWith(":manage"));
+    const retiredRead = RETIRED_STUDENT_PERMISSIONS.filter((code) => code.endsWith(":read"));
+    // `any` ở đây là chủ ý: hai model có generic khác nhau nên union của chúng khiến
+    // overload updateMany của mongoose không còn callable.
+    const collapseStudentPermissions = async (model: any) => {
+      await model.updateMany(
+        { permissions: { $in: retiredManage } },
+        { $addToSet: { permissions: { $each: ["student:read", "student:manage"] } } },
+      );
+      await model.updateMany(
+        { permissions: { $in: retiredRead } },
+        { $addToSet: { permissions: "student:read" } },
+      );
+      await model.updateMany(
+        { permissions: { $in: RETIRED_STUDENT_PERMISSIONS } },
+        { $pullAll: { permissions: RETIRED_STUDENT_PERMISSIONS } },
+      );
+    };
+    await collapseStudentPermissions(RolePermissionModel);
+    await collapseStudentPermissions(UserModel);
+    await PermissionModel.deleteMany({ code: { $in: RETIRED_STUDENT_PERMISSIONS } });
   } catch (error) {
     console.error("[Backend Database] Lỗi khi tự động khởi tạo mã quyền:", error);
   }
@@ -143,6 +198,9 @@ export async function connectDB() {
     console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
+    await dropLegacyPayrollRunPeriodKeyUniqueIndex();
+    await dropLegacyPayrollOperationJobIdempotencyIndex();
+    await dropLegacyAttendancePeriodResultUniqueIndex();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {

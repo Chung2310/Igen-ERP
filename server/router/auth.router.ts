@@ -13,6 +13,17 @@ export const authRouter = Router();
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
 
+const branchFields = {
+  code: Joi.string().trim().min(1).max(32).pattern(/^[A-Za-z0-9_-]+$/).required(),
+  name: Joi.string().trim().min(1).max(120).required(),
+  address: Joi.string().trim().max(255).allow("").optional(),
+  phone: Joi.string().trim().max(32).allow("").optional(),
+  managerId: Joi.string().trim().max(64).allow("").optional(),
+  locationConfig: Joi.object().unknown(true).optional(),
+  isActive: Joi.boolean().optional(),
+};
+const createBranchSchema = { body: Joi.object(branchFields).unknown(false) };
+const updateBranchSchema = { body: Joi.object({ ...branchFields, code: branchFields.code.optional(), name: branchFields.name.optional() }).min(1).unknown(false) };
 const registerSchema = {
   body: Joi.object({
     email: Joi.string().pattern(emailRegex).required().messages({
@@ -36,6 +47,7 @@ const registerSchema = {
     // endpoint đăng ký công khai này — các trường đó chỉ được gán qua
     // register-company/register-user (đã kiểm tra xác thực + phân quyền).
     companyName: Joi.string().optional().allow(""),
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
@@ -213,9 +225,11 @@ const registerUserSchema = {
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
+    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
   }),
 };
 
@@ -225,6 +239,7 @@ authRouter.post("/register-user", requireAuth as any, requirePermission("user:ma
 const getUsersSchema = {
   query: Joi.object({
     companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
   }),
 };
 
@@ -239,8 +254,8 @@ authRouter.get("/users", requireAuth as any, requirePermission(["user:read", "hr
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
 authRouter.get("/branches", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, branchController.list as any);
-authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, branchController.create as any);
-authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, branchController.update as any);
+authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchSchema), branchController.create as any);
+authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, validateRequest(updateBranchSchema), branchController.update as any);
 
 const updateCompanySchema = {
   params: Joi.object({
@@ -361,6 +376,7 @@ const updateUserSchema = {
     displayName: Joi.string().optional().allow(""),
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
     heygenAccess: Joi.object({
       avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),
@@ -368,6 +384,7 @@ const updateUserSchema = {
       apiKey: Joi.string().optional().allow(""),
     }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
+    birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),

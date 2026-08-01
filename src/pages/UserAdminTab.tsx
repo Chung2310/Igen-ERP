@@ -4,14 +4,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
+import { resolveUserAdminBranchId } from "../components/user-admin/userBranchScope";
 import { authService } from "../services/authService";
+import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
 import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
-import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
 import { CompanyModal } from "../components/user-admin/CompanyModal";
 import { UserAdminHeader } from "../components/user-admin/UserAdminHeader";
 import { UserAdminTabs } from "../components/user-admin/UserAdminTabs";
@@ -19,7 +21,6 @@ import { UserFiltersBar } from "../components/user-admin/UserFiltersBar";
 import { UserListTable } from "../components/user-admin/UserListTable";
 import { CompanyEditFormState, CompanyFormState } from "../components/user-admin/types";
 import { UserFormModal } from "../components/user-admin/UserFormModal";
-import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { MODULE_KEYS } from "../config/modules";
@@ -27,6 +28,7 @@ import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } fr
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmState, setConfirmState] = useState<{
@@ -60,6 +62,7 @@ export default function UserAdminTab() {
   
   // SaaS States
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+  const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [selectedCompanyCode, setSelectedCompanyCode] = useState<string>("all");
 
   // Advanced Filter States
@@ -86,9 +89,12 @@ export default function UserAdminTab() {
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [userDisplayName, setUserDisplayName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userPhone, setUserPhone] = useState("");
+  const [userBirthDate, setUserBirthDate] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<string>("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
+  const [userBranchId, setUserBranchId] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
@@ -99,8 +105,11 @@ export default function UserAdminTab() {
     setEditingUser(null);
     setUserDisplayName("");
     setUserEmail("");
+    setUserPhone("");
+    setUserBirthDate("");
     setUserPassword("");
     setUserRole("user");
+    setUserBranchId("");
     setUserParentId("");
     setUserDepartment("");
     setUserJobDescriptionLink("");
@@ -116,19 +125,9 @@ export default function UserAdminTab() {
   };
 
   // Sub-tabs State
-  const [activeTab, setActiveTab] = useState<"users" | "roles" | "balance">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
-  const [balanceUsers, setBalanceUsers] = useState<AdminUserBalance[]>([]);
-  const [balanceLoading, setBalanceLoading] = useState(false);
-  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
-  const [editingBalanceUser, setEditingBalanceUser] = useState<AdminUserBalance | null>(null);
-  const [balanceAction, setBalanceAction] = useState<"add" | "subtract">("add");
-  const [newBalanceValue, setNewBalanceValue] = useState("");
-  const [balanceNote, setBalanceNote] = useState("");
-  const [submittingBalance, setSubmittingBalance] = useState(false);
-  const [selectedBalanceUserId, setSelectedBalanceUserId] = useState<string>("");
-  const [balanceTransactions, setBalanceTransactions] = useState<AdminTransactionInfo[]>([]);
-  const [transactionsLoading, setTransactionsLoading] = useState(false);
+
 
   // Role Permission States
   const [rolePermissionsList, setRolePermissionsList] = useState<RolePermission[]>([]);
@@ -156,6 +155,11 @@ export default function UserAdminTab() {
       }
     }
   }, [editingUser, isUserModalOpen, userProfile, selectedCompanyCode]);
+
+  useEffect(() => {
+    if (!isUserModalOpen || !userCompanyCode || userCompanyCode === "SYSTEM") { setBranches([]); return; }
+    branchService.list().then(setBranches).catch(() => setBranches([]));
+  }, [isUserModalOpen, userCompanyCode]);
 
   // Handle parentId based on userRole and userCompanyCode automatically
   useEffect(() => {
@@ -205,7 +209,8 @@ export default function UserAdminTab() {
       if (userProfile?.role === "superadmin") {
         data = await authService.getAllUsers();
       } else if (userProfile?.companyCode && userProfile?.companyCode !== "SYSTEM") {
-        data = await authService.getUsersByCompany(userProfile.companyCode);
+        const branchId = resolveUserAdminBranchId(userProfile.role, activeBranchId, userProfile.branchId);
+        data = await authService.getUsersByCompany(userProfile.companyCode, branchId);
       }
       setUsersList(data);
     } catch (error) {
@@ -259,57 +264,13 @@ export default function UserAdminTab() {
     }
   };
 
-  const fetchAdminBalances = async () => {
-    if (userProfile?.role !== "superadmin") return;
-
-    setBalanceLoading(true);
-    try {
-      const companyFilter = selectedCompanyCode === "all" ? undefined : selectedCompanyCode;
-      const data = await walletService.getAdminBalances(companyFilter);
-      setBalanceUsers(data);
-      setSelectedBalanceUserId((prev) => {
-        if (!data.length) return "";
-        return data.some((item) => item.userId === prev) ? prev : data[0].userId;
-      });
-    } catch (error) {
-      console.error("Lấy danh sách số dư thất bại:", error);
-      toast.error(getApiErrorMessage(error, "Không thể tải danh sách số dư người dùng."));
-    } finally {
-      setBalanceLoading(false);
-    }
-  };
-
-  const fetchAdminTransactions = async (targetUserId: string) => {
-    if (!targetUserId) {
-      setBalanceTransactions([]);
-      return;
-    }
-
-    setTransactionsLoading(true);
-    try {
-      const data = await walletService.getAdminUserTransactions(targetUserId, 20);
-      setBalanceTransactions(data);
-    } catch (error) {
-      console.error("Lấy lịch sử giao dịch thất bại:", error);
-      toast.error(getApiErrorMessage(error, "Không thể tải lịch sử giao dịch của người dùng."));
-    } finally {
-      setTransactionsLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
     fetchCompanies();
     fetchRolePermissions();
     fetchSystemPermissions();
-    fetchAdminBalances();
-  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, selectedCompanyCode]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, userProfile?.branchId, selectedCompanyCode, activeBranchId]);
 
-  useEffect(() => {
-    if (activeTab === "balance" && selectedBalanceUserId) {
-      fetchAdminTransactions(selectedBalanceUserId);
-    }
-  }, [activeTab, selectedBalanceUserId]);
 
   // Close action menu when clicking outside
   useEffect(() => {
@@ -333,17 +294,18 @@ export default function UserAdminTab() {
   const getAvailableRoles = () => {
     const defaultRoles = [
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
-      { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 }
+      { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 },
+      { role: "branch_owner", displayName: "BRANCH OWNER", level: 2 }
     ];
     
     if (userProfile?.role === "superadmin") {
       defaultRoles.push(
-        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 },
-        { role: "superadmin", displayName: "SUPERADMIN (Toàn quyền)", level: 1 }
+        { role: "admin", displayName: getRoleDisplayName("admin"), level: 2 },
+        { role: "superadmin", displayName: getRoleDisplayName("superadmin"), level: 1 }
       );
     } else if (userProfile?.role === "admin") {
       defaultRoles.push(
-        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 }
+        { role: "admin", displayName: getRoleDisplayName("admin"), level: 2 }
       );
     }
 
@@ -352,7 +314,7 @@ export default function UserAdminTab() {
       .filter(rp => !["user", "manager", "admin", "superadmin"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
-        displayName: `${rp.role.toUpperCase()} (${rp.displayName || rp.role})`,
+        displayName: getRoleDisplayName(rp.role, rp.displayName),
         level: rp.level
       }));
 
@@ -408,10 +370,6 @@ export default function UserAdminTab() {
     return true;
   });
 
-  const balanceByUserId = balanceUsers.reduce<Record<string, AdminUserBalance>>((acc, item) => {
-    acc[item.userId] = item;
-    return acc;
-  }, {});
 
   const totalUserPages = Math.max(1, Math.ceil(visibleUsers.length / USERS_PER_PAGE));
   const safeUserPage = Math.min(userPage, totalUserPages);
@@ -602,9 +560,11 @@ export default function UserAdminTab() {
           level: userRole === "user" && managerProfile?.level ? managerProfile.level + 1 : undefined,
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
-          phone: editingUser.phone || "",
+          phone: userPhone.trim(),
+          birthDate: userBirthDate || null,
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
+          branchId: userBranchId || null,
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -623,6 +583,8 @@ export default function UserAdminTab() {
           undefined,
           undefined,
           userJobDescriptionLink.trim() || undefined,
+          userBranchId || undefined,
+          userBirthDate || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -645,6 +607,9 @@ export default function UserAdminTab() {
 
   const openCreateUserModal = () => {
     resetUserForm();
+    if (activeBranchId) {
+      setUserBranchId(activeBranchId);
+    }
     setIsUserModalOpen(true);
   };
 
@@ -653,9 +618,12 @@ export default function UserAdminTab() {
     setEditingUser(user);
     setUserDisplayName(user.displayName || "");
     setUserEmail(user.email || "");
+    setUserPhone(user.phone && user.phone !== "Chưa cập nhật" ? user.phone : "");
+    setUserBirthDate(user.birthDate ? String(user.birthDate).slice(0, 10) : "");
     setUserPassword("");
     setUserRole(user.role || "user");
     setUserCompanyCode(user.companyCode || "");
+    setUserBranchId(user.branchId || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
@@ -717,77 +685,6 @@ export default function UserAdminTab() {
     );
   };
 
-  const openBalanceEditor = (targetUser: AdminUserBalance, action: "add" | "subtract" = "add") => {
-    setEditingBalanceUser(targetUser);
-    setBalanceAction(action);
-    setNewBalanceValue("");
-    setBalanceNote("");
-    setIsBalanceModalOpen(true);
-  };
-
-  const handleSaveBalance = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingBalanceUser) return;
-
-    const parsedAmount = Number(newBalanceValue);
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast.warning("Số tiền điều chỉnh phải lớn hơn 0.");
-      return;
-    }
-
-    const currentBalance = Number(editingBalanceUser.balance ?? 0);
-    const nextBalance =
-      balanceAction === "add"
-        ? currentBalance + parsedAmount
-        : currentBalance - parsedAmount;
-
-    if (nextBalance < 0) {
-      toast.warning("Không thể trừ vượt quá số dư hiện tại.");
-      return;
-    }
-
-    setSubmittingBalance(true);
-    try {
-      const updated = await walletService.updateUserBalance(
-        editingBalanceUser.userId,
-        Number(nextBalance.toFixed(2)),
-        balanceNote.trim() ||
-          `${balanceAction === "add" ? "Cộng" : "Trừ"} ${parsedAmount.toFixed(2)} Credit từ màn hình quản lý user`
-      );
-
-      setBalanceUsers((prev) =>
-        prev.map((item) =>
-          item.userId === updated.userId
-            ? { ...item, ...updated }
-            : item
-        )
-      );
-      if (selectedBalanceUserId === updated.userId) {
-        await fetchAdminTransactions(updated.userId);
-      }
-
-      toast.success(
-        `${balanceAction === "add" ? "Đã cộng" : "Đã trừ"} ${parsedAmount.toFixed(2)} Credit cho "${updated.displayName}".`
-      );
-      setIsBalanceModalOpen(false);
-      setEditingBalanceUser(null);
-      setBalanceNote("");
-      setNewBalanceValue("");
-    } catch (error: any) {
-      console.error("Lỗi cập nhật số dư:", error);
-      toast.error(error.message || "Không thể cập nhật số dư người dùng.");
-    } finally {
-      setSubmittingBalance(false);
-    }
-  };
-
-  const closeBalanceModal = () => {
-    setIsBalanceModalOpen(false);
-    setEditingBalanceUser(null);
-    setBalanceAction("add");
-    setNewBalanceValue("");
-    setBalanceNote("");
-  };
 
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="user_admin_tab_wrapper">
@@ -838,7 +735,6 @@ export default function UserAdminTab() {
                 users={paginatedVisibleUsers}
                 currentUser={userProfile}
                 rolePermissionsList={rolePermissionsList}
-                balanceByUserId={balanceByUserId}
                 userPage={safeUserPage}
                 totalUserPages={totalUserPages}
                 onPageChange={setUserPage}
@@ -848,228 +744,10 @@ export default function UserAdminTab() {
                 onToggleActionMenu={(uid) => setOpenActionMenuId(openActionMenuId === uid ? null : uid)}
                 onEditUser={openEditUserModal}
                 onDeleteUser={handleDeleteUser}
-                onOpenBalance={(usr) => {
-                  setSelectedBalanceUserId(usr.uid);
-                  openBalanceEditor(
-                    balanceByUserId[usr.uid] || {
-                      userId: usr.uid,
-                      displayName: usr.displayName,
-                      email: usr.email,
-                      role: usr.role,
-                      companyCode: usr.companyCode || "",
-                      companyName: usr.companyName || "",
-                      balance: 0,
-                      currency: "Credit",
-                    },
-                    "add"
-                  );
-                }}
-                setActiveTab={setActiveTab}
               />
             )}
           </div>
-        </>      ) : activeTab === "balance" ? (
-        <div className="flex-1 p-6 overflow-y-auto space-y-6" id="user_balance_tab_content">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
-            <div>
-              <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư người dùng</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Chỉ quản trị viên cấp cao mới được chỉnh sửa số dư của người dùng.</p>
-            </div>
-            <button
-              type="button"
-              onClick={fetchAdminBalances}
-              disabled={balanceLoading}
-              className="p-2 px-3.5 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${balanceLoading ? "animate-spin" : ""}`} />
-              Tải lại số dư
-            </button>
-          </div>
-
-          {balanceLoading ? (
-            <div className="h-48 flex flex-col items-center justify-center text-center">
-              <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
-              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải dữ liệu số dư...</span>
-            </div>
-          ) : balanceUsers.length === 0 ? (
-            <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
-              Chưa có người dùng nào để điều chỉnh số dư.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-6">
-              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs max-w-full" style={{ overflow: 'clip' }}>
-                <div className="max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1280px] text-left border-collapse text-xs font-sans">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
-                      <th className="p-4 pl-6">Người dùng</th>
-                      <th className="p-4">Doanh nghiệp</th>
-                      <th className="p-4">Vai trò</th>
-                      <th className="p-4">Số dư</th>
-                      <th className="p-4">Cập nhật</th>
-                      <th className="p-4 pr-6 text-center">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-slate-700">
-                    {balanceUsers.map((item) => {
-                      const isSelected = item.userId === selectedBalanceUserId;
-                      return (
-                        <tr
-                          key={item.userId}
-                          className={`transition-colors ${isSelected ? "bg-emerald-50/60" : "hover:bg-slate-50/40"}`}
-                        >
-                          <td className="p-4 pl-6 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
-                            <div>
-                              <div className="font-semibold text-slate-800">{item.displayName}</div>
-                              <div className="text-[11px] text-gray-500 font-mono">{item.email}</div>
-                            </div>
-                          </td>
-                          <td className="p-4 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
-                            <div className="font-semibold text-slate-700">{item.companyName || "Hệ thống"}</div>
-                            <div className="text-[10px] text-gray-400 font-mono">{item.companyCode || "SYSTEM"}</div>
-                          </td>
-                          <td className="p-4">
-                            <span className="px-2.5 py-0.75 rounded-full font-bold font-mono text-[9px] uppercase tracking-wider inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700">
-                              <Shield className="h-3 w-3" />
-                              {item.role}
-                            </span>
-                          </td>
-                          <td className="p-4 min-w-[170px]">
-                            <div className="font-bold text-emerald-700">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(item.balance || 0)} Credit</div>
-                            <div className="mt-1 text-[10px] text-gray-400 font-mono">{item.currency}</div>
-                          </td>
-                          <td className="p-4 text-gray-500 font-mono">
-                            {item.updatedAt ? new Date(item.updatedAt).toLocaleString("vi-VN") : "-"}
-                          </td>
-                          <td className="p-4 pr-6">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedBalanceUserId(item.userId);
-                                  setActiveTab("balance");
-                                }}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
-                              >
-                                Xem chi tiết
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openBalanceEditor(item, "add")}
-                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100"
-                              >
-                                Điều chỉnh
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-[11px] font-mono text-slate-500">
-                    Trang {safeUserPage} / {totalUserPages}  ‹ {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản hiển thị
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setUserPage((prev) => Math.max(1, prev - 1))}
-                      disabled={safeUserPage === 1}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Trang trước 
-                    </button>
-                    {Array.from({ length: totalUserPages }, (_, index) => index + 1)
-                      .slice(Math.max(0, safeUserPage - 3), Math.min(totalUserPages, safeUserPage + 2))
-                      .map((page) => (
-                        <button
-                          key={page}
-                          type="button"
-                          onClick={() => setUserPage(page)}
-                          className={`h-9 min-w-9 rounded-xl px-3 text-[11px] font-bold transition ${
-                            page === safeUserPage
-                              ? "bg-slate-900 text-white"
-                              : "border border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                    <button
-                      type="button"
-                      onClick={() => setUserPage((prev) => Math.min(totalUserPages, prev + 1))}
-                      disabled={safeUserPage === totalUserPages}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Trang sau
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs p-5 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h6 className="font-bold text-slate-800 text-sm">Lịch sử giao dịch</h6>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chọn người dùng"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fetchAdminTransactions(selectedBalanceUserId)}
-                    disabled={!selectedBalanceUserId || transactionsLoading}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${transactionsLoading ? "animate-spin" : ""}`} />
-                    Tải lại
-                  </button>
-                </div>
-
-                {transactionsLoading ? (
-                  <div className="h-48 flex items-center justify-center text-center">
-                    <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
-                  </div>
-                ) : balanceTransactions.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-xs text-gray-500">
-                    Chưa có giao dịch nào cho tài khoản này.
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[540px] overflow-y-auto pr-1">
-                    {balanceTransactions.map((transaction) => (
-                      <div key={transaction._id} className="rounded-2xl border border-gray-150 p-3.5 bg-gray-50/60">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
-                            transaction.type === "deposit"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : transaction.type === "withdraw"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-slate-200 text-slate-700"
-                          }`}>
-                            {transaction.type}
-                          </span>
-                          <span className="font-bold text-slate-800">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(transaction.amount || 0)} Credit</span>
-                        </div>
-                        <div className="mt-2 text-[11px] text-gray-500 font-mono">
-                          {new Date(transaction.createdAt).toLocaleString("vi-VN")}
-                        </div>
-                        <div className="mt-2 text-xs text-slate-600 leading-5">
-                          {transaction.description || "Không có mô tả giao dịch."}
-                        </div>
-                        <div className="mt-2 text-[10px] text-gray-400 font-mono">
-                          Order: {transaction.orderCode} · Status: {transaction.status}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
+        </>      ) : (
         <div className="flex-1 p-6 overflow-y-auto space-y-6" id="roles_permissions_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
@@ -1102,6 +780,7 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
+                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],
                   manager: [
                     "user:read", "user:manage",
                     "timekeeping:read", "timekeeping:manage",
@@ -1110,7 +789,6 @@ export default function UserAdminTab() {
                     "project:read", "project:manage",
                     "stock:read", "stock:manage",
                     "student:read", "student:manage",
-                    "course:read",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
                     "wallet:read"
@@ -1122,7 +800,6 @@ export default function UserAdminTab() {
                     "project:read",
                     "stock:read",
                     "student:read",
-                    "course:read",
                     "resource:read",
                     "chat:read",
                     "wallet:read"
@@ -1130,12 +807,13 @@ export default function UserAdminTab() {
                 };
 
                 const defaultRolesList = [
-                  { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
-                  { role: "manager", displayName: "MANAGER (Quản lý)", level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
-                  { role: "user", displayName: "USER (Nhân viên)", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
+                  { role: "admin", displayName: getRoleDisplayName("admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
+                  { role: "manager", displayName: getRoleDisplayName("manager"), level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
+                  { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
+                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "user"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "user"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {
@@ -1150,7 +828,7 @@ export default function UserAdminTab() {
                   }),
                   ...customRolesList.map(cr => ({
                     role: cr.role,
-                    displayName: cr.displayName || cr.role.toUpperCase(),
+                    displayName: getRoleDisplayName(cr.role, cr.displayName),
                     level: cr.level,
                     permissions: cr.permissions,
                     isDefault: false,
@@ -1270,6 +948,10 @@ export default function UserAdminTab() {
         userDisplayName={userDisplayName}
         setUserDisplayName={setUserDisplayName}
         userEmail={userEmail}
+        userPhone={userPhone}
+        setUserPhone={setUserPhone}
+        userBirthDate={userBirthDate}
+        setUserBirthDate={setUserBirthDate}
         setUserEmail={setUserEmail}
         userPassword={userPassword}
         setUserPassword={setUserPassword}
@@ -1277,6 +959,8 @@ export default function UserAdminTab() {
         setUserRole={setUserRole}
         userCompanyCode={userCompanyCode}
         setUserCompanyCode={setUserCompanyCode}
+        userBranchId={userBranchId}
+        setUserBranchId={setUserBranchId}
         userParentId={userParentId}
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
@@ -1288,24 +972,12 @@ export default function UserAdminTab() {
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}
+        branches={branches}
         usersList={usersList}
         onSubmit={handleRegisterUser}
         submittingUser={submittingUser}
       />
 
-      <BalanceModal
-        open={isBalanceModalOpen}
-        onClose={closeBalanceModal}
-        editingBalanceUser={editingBalanceUser}
-        balanceAction={balanceAction}
-        setBalanceAction={setBalanceAction}
-        newBalanceValue={newBalanceValue}
-        setNewBalanceValue={setNewBalanceValue}
-        balanceNote={balanceNote}
-        setBalanceNote={setBalanceNote}
-        submittingBalance={submittingBalance}
-        onSubmit={handleSaveBalance}
-      />
 
       <RoleModal
         open={isRoleModalOpen}

@@ -6,6 +6,7 @@ export interface ITrainingEnrollment extends Document {
   uid: string;
   userName: string;
   companyCode: string;
+  branchId?: string;
   progress: number;
   status: "not_started" | "in_progress" | "completed";
   startedAt?: Date;

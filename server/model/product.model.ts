@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 import { IProduct } from "../interface/product.interface";
 
 const ProductSchema = new Schema<IProduct>({
-  sku: { type: String, required: true, unique: true, index: true },
+  sku: { type: String, required: true, index: true },
   name: { type: String, required: true, index: true },
   category: { type: String, required: true, index: true },
   brand: { type: String, default: "" },
@@ -17,5 +17,7 @@ const ProductSchema = new Schema<IProduct>({
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
 });
+
+ProductSchema.index({ companyCode: 1, branchId: 1, sku: 1 }, { unique: true });
 
 export const ProductModel = model<IProduct>("Product", ProductSchema);

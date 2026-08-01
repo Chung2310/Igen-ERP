@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ModuleKey, FieldDefinition, DynamicFieldType } from "../custom-fields/types";
+import type { EntityPreset } from "../config/entityLabels";
 
 export interface StandardFieldConfig {
   key: string;
@@ -64,6 +65,36 @@ const DEFAULT_STANDARD_FIELDS: Record<ModuleKey, StandardFieldConfig[]> = {
   ],
 };
 
+/**
+ * Nhãn mặc định theo loại hình. Loại hình "worker" quản lý dự án tuyển dụng
+ * chứ không phải lớp học, nên nhãn gốc của module batches phải đổi theo —
+ * nếu không, popup thêm dự án vẫn hiện chữ của ngành giáo dục.
+ * Nhãn người dùng đã tự sửa (lưu trong localStorage) luôn được giữ nguyên.
+ */
+const PRESET_STANDARD_FIELD_OVERRIDES: Partial<
+  Record<EntityPreset, Partial<Record<ModuleKey, Record<string, Partial<StandardFieldConfig>>>>>
+> = {
+  worker: {
+    batches: {
+      code: { label: "Mã dự án", placeholder: "Ví dụ: DA-001" },
+      courseId: { label: "Danh mục tuyển dụng" },
+      startDate: { label: "Ngày bắt đầu" },
+      endDate: { label: "Ngày kết thúc" },
+      schedule: { label: "Lịch hoạt động", placeholder: "Ví dụ: T2-T4-T6 (08:00-17:00)" },
+      room: { label: "Địa điểm làm việc" },
+      teacherId: { label: "Người phụ trách" },
+      maxLearners: { label: "Chỉ tiêu tối đa" },
+    },
+  },
+};
+
+function getDefaultStandardFields(moduleKey: ModuleKey, preset?: EntityPreset): StandardFieldConfig[] {
+  const base = DEFAULT_STANDARD_FIELDS[moduleKey] || [];
+  const overrides = preset ? PRESET_STANDARD_FIELD_OVERRIDES[preset]?.[moduleKey] : undefined;
+  if (!overrides) return base;
+  return base.map((field) => (overrides[field.key] ? { ...field, ...overrides[field.key] } : field));
+}
+
 export function getAdaptedFieldDefinition(config: StandardFieldConfig, moduleKey: ModuleKey): FieldDefinition {
   return {
     id: config.key,
@@ -82,20 +113,28 @@ export function getAdaptedFieldDefinition(config: StandardFieldConfig, moduleKey
   };
 }
 
-export function useStandardFields(moduleKey: ModuleKey) {
+export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
   const localStorageKey = `standardFieldsConfig:${moduleKey}`;
   const [fields, setFields] = useState<StandardFieldConfig[]>([]);
 
   const loadFromStorage = useCallback(() => {
-    const defaults = DEFAULT_STANDARD_FIELDS[moduleKey] || [];
+    const defaults = getDefaultStandardFields(moduleKey, preset);
     const stored = localStorage.getItem(localStorageKey);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as StandardFieldConfig[];
         // Merge stored fields with defaults to handle schema changes gracefully
+        const baseDefaults = DEFAULT_STANDARD_FIELDS[moduleKey] || [];
         const merged = defaults.map(def => {
           const matched = parsed.find(p => p.key === def.key);
-          return matched ? { ...def, ...matched } : def;
+          if (!matched) return def;
+          // saveConfig ghi lại toàn bộ field kèm nhãn, kể cả khi người dùng chỉ
+          // ẩn/hiện một field khác. Nhãn trùng mặc định gốc nghĩa là chưa ai đổi
+          // tên thật sự — ưu tiên nhãn mặc định theo loại hình để không kẹt chữ cũ.
+          const base = baseDefaults.find(b => b.key === def.key);
+          const keptLabel = base && matched.label === base.label ? def.label : matched.label;
+          const keptPlaceholder = base && matched.placeholder === base.placeholder ? def.placeholder : matched.placeholder;
+          return { ...def, ...matched, label: keptLabel, placeholder: keptPlaceholder };
         });
         return merged;
       } catch (e) {
@@ -103,7 +142,7 @@ export function useStandardFields(moduleKey: ModuleKey) {
       }
     }
     return defaults;
-  }, [moduleKey, localStorageKey]);
+  }, [moduleKey, localStorageKey, preset]);
 
   useEffect(() => {
     setFields(loadFromStorage());

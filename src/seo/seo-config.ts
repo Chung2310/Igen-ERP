@@ -107,6 +107,16 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "ĐỐI TÁC": {
+    title: "Quản lý đối tác & cộng tác viên - Hoa hồng và giới thiệu",
+    description:
+      "Quản lý tập trung hồ sơ đối tác, cộng tác viên, lượt giới thiệu, cấp bậc hoa hồng và lịch sử chi trả trên iGen ERP.",
+    keywords:
+      "quản lý đối tác, cộng tác viên, hoa hồng, giới thiệu khách hàng, đối tác tuyển dụng, iGen ERP",
+    path: "/doi-tac",
+    priority: "0.7",
+    changeFrequency: "weekly",
+  },
   "KHO & SẢN PHẨM": {
     title: "Quản lý kho & Sản phẩm - Quản lý tồn kho theo mã sản phẩm, xuất nhập kho",
     description:
@@ -168,17 +178,6 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     robots: "noindex, nofollow",
     priority: "0.2",
     changeFrequency: "monthly",
-  },
-  "VÍ & NẠP TIỀN": {
-    title: "Ví & Nạp tiền - Nạp tiền trực tuyến",
-    description:
-      "Quản lý ví tài khoản cá nhân, xem số dư và nạp tiền nhanh chóng bằng mã QR qua cổng thanh toán trực tuyến.",
-    keywords:
-      "ví tài khoản, nạp tiền erp, vietqr, nạp tiền ngân hàng, số dư ví erp",
-    path: "/vi-nap-tien",
-    robots: "noindex, nofollow",
-    priority: "0.5",
-    changeFrequency: "weekly",
   },
   "TÀI NGUYÊN": {
     title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",

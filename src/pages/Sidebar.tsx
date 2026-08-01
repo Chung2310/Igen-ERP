@@ -10,9 +10,9 @@ import {
   Shield,
   GraduationCap,
   Users,
-  Wallet,
   BookOpen,
   Lock,
+  Handshake,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -56,6 +56,12 @@ const baseMenuItems: MenuItem[] = [
     label: "NHÂN SỰ",
     title: "Nhân sự",
     icon: Users,
+    group: "operations",
+  },
+  {
+    label: "ĐỐI TÁC",
+    title: "Đối tác",
+    icon: Handshake,
     group: "operations",
   },
   {
@@ -104,7 +110,12 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item))
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
-      const locked = requiredPerms ? !requiredPerms.some((code) => hasPermission(code)) : false;
+      const isPartnerAdmin =
+        item.label === "ĐỐI TÁC" &&
+        (userProfile?.role === "admin" || userProfile?.role === "superadmin");
+      const locked = requiredPerms
+        ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
+        : false;
       return { ...item, locked };
     });
 
@@ -113,15 +124,6 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       label: "QUẢN TRỊ USER",
       title: "Quản lý người dùng",
       icon: Shield,
-      group: "system",
-    });
-  }
-
-  if (userProfile) {
-    menuItems.push({
-      label: "VÍ & NẠP TIỀN",
-      title: "Ví & Nạp tiền",
-      icon: Wallet,
       group: "system",
     });
   }

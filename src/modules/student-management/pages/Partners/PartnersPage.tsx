@@ -17,14 +17,20 @@ import { Partner } from '../../types';
 import * as XLSX from 'xlsx';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
+import { getPartnerActionVisibility } from './partnerAccess';
+import { useBranch } from '../../../../context/BranchContext';
+import { buildPartnerBranchHeaders } from './partnerBranchScope';
 
 interface PartnersPageProps {
   selectedCenter?: string;
+  canManagePartners: boolean;
 }
 
-export function PartnersPage({ selectedCenter }: PartnersPageProps) {
+export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPageProps) {
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
+  const actions = getPartnerActionVisibility(canManagePartners);
+  const { activeBranchId } = useBranch();
   
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +60,9 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
         params.append('ownerFilter', selectedCenter);
       }
 
-      const res = await apiFetch(`/partners?${params.toString()}`);
+      const res = await apiFetch(`/partners?${params.toString()}`, {
+        headers: buildPartnerBranchHeaders(activeBranchId),
+      });
       if (res.success && res.partners) {
         setPartners(res.partners);
       }
@@ -64,7 +72,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter, selectedCenter, toast]);
+  }, [searchTerm, statusFilter, selectedCenter, activeBranchId, toast]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -86,6 +94,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
     try {
       const res = await apiFetch(`/partners/${deletingPartner._id}`, {
         method: 'DELETE',
+        headers: buildPartnerBranchHeaders(activeBranchId),
       });
       if (res.success) {
         toast.success(`Đã xóa đối tác "${deletingPartner.name}" thành công!`);
@@ -169,30 +178,38 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
         title="Quản lý Đối tác & Cộng tác viên"
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowLevelModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
-            >
-              <Landmark className="w-3.5 h-3.5 text-sky-600" />
-              Cấu hình Level Hoa hồng
-            </button>
-            <button
-              onClick={handleExportExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
-            >
-              <Download className="w-3.5 h-3.5 text-emerald-600" />
-              Xuất Excel
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
-            >
-              <Upload className="w-3.5 h-3.5 text-indigo-600" />
-              Nhập Excel
-            </button>
-            <ErpPrimaryButton onClick={() => { setEditingPartner(null); setShowAddModal(true); }}>
-              Khai báo đối tác mới
-            </ErpPrimaryButton>
+            {actions.configureCommission && (
+              <button
+                onClick={() => setShowLevelModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+              >
+                <Landmark className="w-3.5 h-3.5 text-sky-600" />
+                Cấu hình Level Hoa hồng
+              </button>
+            )}
+            {actions.exportPartners && (
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                Xuất Excel
+              </button>
+            )}
+            {actions.importPartners && (
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+              >
+                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                Nhập Excel
+              </button>
+            )}
+            {actions.createPartner && (
+              <ErpPrimaryButton onClick={() => { setEditingPartner(null); setShowAddModal(true); }}>
+                Khai báo đối tác mới
+              </ErpPrimaryButton>
+            )}
           </div>
         }
       />
@@ -330,14 +347,16 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
                         >
                           <Eye className="w-3 h-3" />
                         </button>
-                        <button
-                          onClick={() => { setEditingPartner(partner); setShowAddModal(true); }}
-                          className="p-1 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
-                          title="Chỉnh sửa thông tin đối tác"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </button>
-                        {partner.unpaidBalance > 0 && (
+                        {actions.editPartner && (
+                          <button
+                            onClick={() => { setEditingPartner(partner); setShowAddModal(true); }}
+                            className="p-1 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
+                            title="Chỉnh sửa thông tin đối tác"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                        )}
+                        {actions.payCommission && partner.unpaidBalance > 0 && (
                           <button
                             onClick={() => setPayingPartner(partner)}
                             className="p-1 rounded-md text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer"
@@ -346,13 +365,15 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
                             <Landmark className="w-3 h-3" />
                           </button>
                         )}
-                        <button
-                          onClick={() => setDeletingPartner(partner)}
-                          className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                          title="Xóa đối tác"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        {actions.deletePartner && (
+                          <button
+                            onClick={() => setDeletingPartner(partner)}
+                            className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                            title="Xóa đối tác"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -364,7 +385,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
       </ErpCard>
 
       {/* Add / Edit Partner Modal */}
-      {showAddModal && (
+      {actions.createPartner && showAddModal && (
         <AddPartnerModal
           isOpen={showAddModal}
           onClose={() => { setShowAddModal(false); setEditingPartner(null); }}
@@ -385,7 +406,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
       )}
 
       {/* Payout Modal */}
-      {payingPartner && (
+      {actions.payCommission && payingPartner && (
         <AddPayoutModal
           isOpen={!!payingPartner}
           onClose={() => setPayingPartner(null)}
@@ -397,7 +418,7 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingPartner && (
+      {actions.deletePartner && deletingPartner && (
         <ErpConfirmModal
           isOpen={!!deletingPartner}
           title="Xác nhận xóa đối tác"
@@ -408,14 +429,16 @@ export function PartnersPage({ selectedCenter }: PartnersPageProps) {
       )}
 
       {/* Commission Level Modal */}
-      <CommissionLevelModal
-        isOpen={showLevelModal}
-        onClose={() => setShowLevelModal(false)}
-        selectedCenter={selectedCenter}
-      />
+      {actions.configureCommission && (
+        <CommissionLevelModal
+          isOpen={showLevelModal}
+          onClose={() => setShowLevelModal(false)}
+          selectedCenter={selectedCenter}
+        />
+      )}
 
       {/* Import Partner Modal */}
-      {showImportModal && (
+      {actions.importPartners && showImportModal && (
         <ImportPartnerModal
           isOpen={showImportModal}
           onClose={() => setShowImportModal(false)}

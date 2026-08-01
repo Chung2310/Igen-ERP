@@ -4,7 +4,6 @@ import { authRouter } from "./auth.router";
 import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
-import { walletRouter } from "./wallet.router";
 import { googleDriveRouter } from "./google-drive.router";
 import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
@@ -24,6 +23,8 @@ import { faceManagementRouter } from "./face-management.router";
 import { payrollRouter } from "./payroll.router";
 import { leaveRouter } from "./leave.router";
 import { hrContractRouter } from "./hr-contract.router";
+import { companyEmailRouter } from "./company-email.router";
+import { recruitmentRouter } from "./recruitment.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -58,8 +59,6 @@ apiRouter.use("/permissions", permissionRouter);
 apiRouter.use("/role-permissions", rolePermissionRouter);
 apiRouter.use("/face-management", faceManagementRouter);
 
-// Gắn kết router ví của người dùng & nạp tiền PayOS
-apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
@@ -69,6 +68,8 @@ apiRouter.use("/timekeeping", requireAuth as any, requireModule("hr"), timekeepi
 apiRouter.use("/payroll", payrollRouter);
 apiRouter.use("/leave", leaveRouter);
 apiRouter.use("/hr-contracts", hrContractRouter);
+apiRouter.use("/company-email", companyEmailRouter);
+apiRouter.use("/recruitment", recruitmentRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);

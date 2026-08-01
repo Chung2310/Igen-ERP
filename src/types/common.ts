@@ -2,13 +2,13 @@
 export type TabType =
   | "TỔNG QUAN"
   | "NHÂN SỰ"
+  | "ĐỐI TÁC"
   | "KHO & SẢN PHẨM"
   | "QUẢN LÝ TÀI NGUYÊN"
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"
   | "QUẢN LÝ HỌC VIÊN"
   | "QUẢN TRỊ USER"
-  | "VÍ & NẠP TIỀN"
   | "CÀI ĐẶT"
   | "HƯỚNG DẪN";
 
@@ -23,9 +23,10 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "manager" | "admin" | "superadmin";
+  role: "user" | "manager" | "branch_owner" | "admin" | "superadmin";
   permissions?: string[];
   createdAt: any;
+  birthDate?: string;
   jobTitle?: string;
   department?: string;
   jobDescriptionLink?: string;

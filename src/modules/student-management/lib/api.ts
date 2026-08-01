@@ -1,3 +1,4 @@
+import { ApiClientError, parseApiErrorResponse } from "../../../services/apiClientError";
 export function setAccessToken(token: string | null) {
   if (token) {
     localStorage.setItem("accessToken", token);
@@ -12,11 +13,6 @@ export function getAccessToken() {
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean | null | undefined>;
-}
-
-interface ApiErrorResponse {
-  error?: string;
-  message?: string;
 }
 
 interface RefreshTokenResponse {
@@ -67,8 +63,7 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
           headers.set("Authorization", `Bearer ${getAccessToken()}`);
           const retryRes = await fetch(url.toString(), { ...options, headers });
           if (!retryRes.ok) {
-            const errData = await retryRes.json() as ApiErrorResponse;
-            throw new Error(errData.error || errData.message || "Yêu cầu thử lại thất bại.");
+            throw await parseApiErrorResponse(retryRes);
           }
           return await retryRes.json() as T;
         }
@@ -79,14 +74,12 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
 
     setAccessToken(null);
     window.dispatchEvent(new Event("unauthorized"));
-    throw new Error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+    throw new ApiClientError({ status: 401, code: "AUTH_SESSION_EXPIRED", message: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại." });
   }
 
-  const data = await response.json() as T | ApiErrorResponse;
   if (!response.ok) {
-    const errorPayload = typeof data === 'object' && data !== null ? data as ApiErrorResponse : undefined;
-    throw new Error(errorPayload?.error || errorPayload?.message || "Yêu cầu thất bại.");
+    throw await parseApiErrorResponse(response);
   }
 
-  return data as T;
+  return await response.json() as T;
 }

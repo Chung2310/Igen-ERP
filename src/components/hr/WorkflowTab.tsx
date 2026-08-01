@@ -38,6 +38,7 @@ interface WorkflowTabProps {
   userProfile: UserProfile | null;
   selectedCompanyCode: string;
   isManager: boolean;
+  activeBranchId?: string;
 }
 
 const ACCENT = "#4f46e5";
@@ -57,6 +58,7 @@ export default function WorkflowTab({
   userProfile,
   selectedCompanyCode,
   isManager,
+  activeBranchId,
 }: WorkflowTabProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,7 +132,10 @@ export default function WorkflowTab({
     if (!selectedCompanyCode) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/crud/workflows", {
+      const url = activeBranchId
+        ? `/api/v1/crud/workflows?branchId=${activeBranchId}`
+        : "/api/v1/crud/workflows";
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể tải danh sách quy trình.");
@@ -146,7 +151,7 @@ export default function WorkflowTab({
     } finally {
       setLoading(false);
     }
-  }, [selectedCompanyCode]);
+  }, [selectedCompanyCode, activeBranchId]);
 
   useEffect(() => {
     fetchWorkflows();
@@ -202,7 +207,7 @@ export default function WorkflowTab({
           category: data.category.trim(),
           description: data.description.trim(),
           steps: data.steps,
-          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "" }),
+          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "", branchId: activeBranchId }),
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể lưu quy trình.");
@@ -235,6 +240,7 @@ export default function WorkflowTab({
         description: wfDescription.trim(),
         steps: override?.steps ?? steps,
         creatorUid: userProfile?.uid || "",
+        ...(activeId ? {} : { branchId: activeBranchId }),
       };
       const url = activeId
         ? `/api/v1/crud/workflows/${activeId}`
@@ -256,7 +262,7 @@ export default function WorkflowTab({
         toast.success(activeId ? "Đã cập nhật quy trình." : "Đã tạo quy trình mới.");
       return savedId;
     },
-    [wfName, wfCategory, wfDescription, steps, activeId, userProfile]
+    [wfName, wfCategory, wfDescription, steps, activeId, userProfile, activeBranchId]
   );
 
   // Tự lưu ngầm khi di chuyển bước (chỉ khi đã có bản ghi)
@@ -896,13 +902,20 @@ export function WorkflowReader({
             ) : (
               <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {workflow.steps.map((step, index) => (
-                  <li key={step.id} onClick={() => setSelectedStep(step)} className="relative h-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md sm:p-6">
+                  <li key={step.id} className="relative h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                     {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-indigo-500 sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
                     <div className="flex items-start gap-4">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <h2 className="text-base font-extrabold text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
+                        <div className="flex items-center justify-between gap-2">
+                          <h2 className="text-base font-extrabold text-slate-800 truncate">{step.title || `Bước ${index + 1}`}</h2>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStep(step)}
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-650 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all cursor-pointer shadow-3xs shrink-0"
+                          >
+                            <Pencil className="h-3 w-3" /> Sửa
+                          </button>
                         </div>
                       </div>
                     </div>

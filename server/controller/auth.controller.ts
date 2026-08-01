@@ -55,6 +55,12 @@ async function resolveProfilePermissions(
   return Array.from(effective);
 }
 
+export function buildUserRosterFilter(companyCode?: string, branchId?: string): Record<string, unknown> {
+  return {
+    ...(companyCode ? { companyCode } : {}),
+    ...(companyCode && branchId ? { branchId } : {}),
+  };
+}
 export const authController = {
   /**
    * POST /api/v1/auth/register
@@ -427,12 +433,13 @@ export const authController = {
       }
 
       const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId : "";
-      const filter: Record<string, unknown> = companyCode ? { companyCode } : {};
-      if (requestedBranchId && companyCode) {
+      const scopedBranchId = requestedBranchId || (req.user?.role !== "superadmin" ? req.user?.branchId || "" : "");
+      const filter = buildUserRosterFilter(companyCode, scopedBranchId);
+      if (scopedBranchId && companyCode) {
         const { BranchModel } = await import("../model/branch.model");
-        const branch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id").lean();
+        const branch = await BranchModel.findOne({ _id: scopedBranchId, companyCode }).select("_id").lean();
         if (!branch) return res.status(403).json({ status: "error", message: "Chi nh?nh kh?ng thu?c c?ng ty." });
-        filter.branchId = requestedBranchId;
+        filter.branchId = scopedBranchId;
       }
       const users = await authService.getUsers(filter);
 

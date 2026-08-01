@@ -1,16 +1,21 @@
 import { Router } from "express";
 import { StudentController } from "../controllers/student.controller";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { adminUnassignedAuthMiddleware, authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { createStudentSchema, updateStudentSchema, idParamSchema, publicRegisterStudentSchema } from "../validations/student.validation";
+import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, publicRegisterStudentSchema, assignStudentBranchSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
-import { requirePermission } from "../../../middleware/auth";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
 const router = Router();
-const requireManage = requirePermission("student:manage") as any;
+export const publicStudentRouter = Router();
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student-profile"].manage]) as any;
 
-router.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
-router.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
+publicStudentRouter.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
+publicStudentRouter.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
+
+router.get("/unassigned", adminUnassignedAuthMiddleware, requireManage, StudentController.getUnassignedList);
+router.patch("/:id/assign-branch", adminUnassignedAuthMiddleware, requireManage, validate(idParamSchema, "params"), validate(assignStudentBranchSchema), StudentController.assignBranch);
 
 router.use(authMiddleware);
 
@@ -22,7 +27,7 @@ router.get("/:id", validate(idParamSchema, "params"), StudentController.getDetai
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateStudentSchema), StudentController.update);
 router.delete("/:id", requireManage, validate(idParamSchema, "params"), StudentController.delete);
 // Đánh dấu đã thu tiền đợt :no cho học viên :id
-router.patch("/:id/installment/:no/mark-paid", requireManage, validate(idParamSchema, "params"), StudentController.markInstallmentPaid);
+router.patch("/:id/installment/:no/mark-paid", requireManage, validate(installmentParamsSchema, "params"), StudentController.markInstallmentPaid);
 
 export default router;
 

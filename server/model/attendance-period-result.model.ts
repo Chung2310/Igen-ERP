@@ -9,5 +9,5 @@ const schema = new Schema<IAttendancePeriodResult>({
   overtime: [{ minutes: { type: Number, min: 0 }, category: { type: String, enum: ["weekday", "restDay", "holiday"] } }],
   status: { type: String, enum: ["draft", "locked"], default: "draft", index: true }, lockedAt: Date, lockedBy: String, needsRecalculation: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
-schema.index({ companyCode: 1, periodKey: 1, employeeId: 1 }, { unique: true });
+schema.index({ companyCode: 1, branchId: 1, periodKey: 1, employeeId: 1 }, { unique: true });
 export const AttendancePeriodResultModel = model<IAttendancePeriodResult>("AttendancePeriodResult", schema);

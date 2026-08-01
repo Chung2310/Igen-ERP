@@ -28,5 +28,6 @@ test("normal ERP login redirects superadmin accounts to the dedicated super-admi
   const authPageSource = readFileSync(new URL("./AuthPage.tsx", import.meta.url), "utf8");
   assert.match(authPageSource, /const\s+\{\s*loginWithEmail\s*\}\s*=\s*useAuth\(\)/);
   assert.match(authPageSource, /const result = await loginWithEmail\(/);
-  assert.match(authPageSource, /if\s*\(result\.status\s*===\s*["']challenge_required["']\)\s*\{\s*window\.location\.href\s*=\s*["']\/super-admin["']/);
+  assert.match(authPageSource, /savePendingSuperAdminChallenge\(sessionStorage,\s*result\)/);
+  assert.match(authPageSource, /if\s*\(result\.status\s*===\s*["']challenge_required["']\)\s*\{\s*savePendingSuperAdminChallenge\(sessionStorage,\s*result\);\s*window\.location\.href\s*=\s*["']\/super-admin["']/);
 });

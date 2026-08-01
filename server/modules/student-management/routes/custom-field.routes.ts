@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { CustomFieldController } from "../controllers/custom-field.controller";
-import { authMiddleware, requireRoles } from "../middlewares/auth.middleware";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import { requireAnyPermission } from "../../../middleware/auth";
+import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 import { errorMiddleware } from "../middlewares/error.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createFieldSchema, fieldParamsSchema, listQuerySchema, moduleParamSchema, updateFieldSchema } from "../validations/custom-field.validation";
@@ -9,6 +11,7 @@ import type { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
+const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["custom-field"].manage]) as any;
 const customFieldUploadRateLimiter = rateLimit({
   windowMs: 60_000,
   limit: 20,
@@ -20,11 +23,11 @@ const customFieldUploadRateLimiter = rateLimit({
 router.use(authMiddleware);
 
 router.get("/:moduleKey", validate(moduleParamSchema, "params"), validate(listQuerySchema, "query"), CustomFieldController.list);
-router.post("/:moduleKey", requireRoles("superadmin", "admin", "manager"), validate(moduleParamSchema, "params"), validate(createFieldSchema), CustomFieldController.create);
-router.patch("/:moduleKey/:id", requireRoles("superadmin", "admin", "manager"), validate(fieldParamsSchema, "params"), validate(updateFieldSchema), CustomFieldController.update);
-router.post("/:moduleKey/:id/delete", requireRoles("superadmin", "admin", "manager"), validate(fieldParamsSchema, "params"), CustomFieldController.delete);
-router.post("/:moduleKey/:id/archive", requireRoles("superadmin", "admin", "manager"), validate(fieldParamsSchema, "params"), CustomFieldController.archive);
-router.post("/:moduleKey/:id/restore", requireRoles("superadmin", "admin", "manager"), validate(fieldParamsSchema, "params"), CustomFieldController.restore);
+router.post("/:moduleKey", requireManage, validate(moduleParamSchema, "params"), validate(createFieldSchema), CustomFieldController.create);
+router.patch("/:moduleKey/:id", requireManage, validate(fieldParamsSchema, "params"), validate(updateFieldSchema), CustomFieldController.update);
+router.post("/:moduleKey/:id/delete", requireManage, validate(fieldParamsSchema, "params"), CustomFieldController.delete);
+router.post("/:moduleKey/:id/archive", requireManage, validate(fieldParamsSchema, "params"), CustomFieldController.archive);
+router.post("/:moduleKey/:id/restore", requireManage, validate(fieldParamsSchema, "params"), CustomFieldController.restore);
 router.post(
   "/:moduleKey/:id/upload",
   customFieldUploadRateLimiter,

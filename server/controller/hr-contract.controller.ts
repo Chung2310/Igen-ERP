@@ -72,12 +72,14 @@ export const hrContractController = {
         { companyCode, status: "active", endDate: { $lt: new Date() } },
         { $set: { status: "expired" } },
       );
+      const branchId = req.query.branchId ? String(req.query.branchId) : req.user?.branchId;
       const query: any = { companyCode };
+      if (branchId) query.branchId = branchId;
       if (employeeFilter) query.employeeId = employeeFilter;
       const [contracts, employees] = await Promise.all([
         HRContractModel.find(query).sort({ endDate: -1 }).lean(),
         canViewAll(req)
-          ? UserModel.find({ companyCode, isActive: { $ne: false } })
+          ? UserModel.find({ companyCode, isActive: { $ne: false }, ...(branchId ? { branchId } : {}) })
               .select("_id displayName email department")
               .sort({ displayName: 1 })
               .lean()
@@ -102,7 +104,7 @@ export const hrContractController = {
         _id: req.body.employeeId,
         companyCode,
       })
-        .select("displayName email")
+        .select("displayName email branchId")
         .lean();
       if (!employee)
         return res.status(404).json({
@@ -112,6 +114,7 @@ export const hrContractController = {
       const data = await HRContractModel.create({
         ...req.body,
         companyCode,
+        branchId: employee.branchId || undefined,
         employeeName: employee.displayName || employee.email,
         createdBy: req.user!.id,
       });
@@ -142,7 +145,7 @@ export const hrContractController = {
           _id: patch.employeeId,
           companyCode,
         })
-          .select("displayName email")
+          .select("displayName email branchId")
           .lean();
         if (!employee)
           return res.status(404).json({
@@ -150,6 +153,7 @@ export const hrContractController = {
             message: "Không tìm thấy nhân viên trong công ty.",
           });
         patch.employeeName = employee.displayName || employee.email;
+        patch.branchId = employee.branchId || null;
       }
       const startDate = patch.startDate
         ? new Date(patch.startDate)
@@ -180,7 +184,9 @@ export const hrContractController = {
   async listExtensions(req: AuthenticatedRequest, res: Response) {
     try {
       const companyCode = tenant(req);
+      const branchId = req.query.branchId ? String(req.query.branchId) : req.user?.branchId;
       const query: any = { companyCode };
+      if (branchId) query.branchId = branchId;
       if (!canViewAll(req)) query.employeeId = req.user!.id;
       if (req.query.contractId) query.contractId = String(req.query.contractId);
       const data = await HRContractExtensionModel.find(query)
@@ -217,6 +223,7 @@ export const hrContractController = {
       const extension = await HRContractExtensionModel.create({
         ...req.body,
         companyCode,
+        branchId: contract.branchId || undefined,
         contractId: String(contract._id),
         employeeId: contract.employeeId,
         employeeName: contract.employeeName,

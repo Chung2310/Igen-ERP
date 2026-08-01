@@ -7,12 +7,31 @@ import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
+import { LEAVE_REQUEST_KINDS, LeaveRequestKind } from "../interface/hr-leave.interface";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
 import { getEmployeeAnnualLeaveBalance } from "../service/annual-leave.service";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
+
+/**
+ * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
+ * xuống 500 mặc định. Ví dụ message gốc:
+ * "E11000 duplicate key error collection: igen-erp.categories index: companyCode_1_code_1 dup key: { companyCode: \"ABC\", code: \"ASA\" }"
+ */
+function toClientError(error: any): { statusCode: number; message: string } {
+  if (error?.statusCode) return { statusCode: error.statusCode, message: error.message };
+  if (error?.code === 11000) {
+    const dupFields = Object.keys(error.keyValue || {}).filter((key) => key !== "companyCode" && key !== "branchId");
+    const dupValues = dupFields.map((key) => `${key}="${error.keyValue[key]}"`).join(", ");
+    return {
+      statusCode: 409,
+      message: dupValues ? `Dữ liệu đã tồn tại (${dupValues}). Vui lòng dùng giá trị khác.` : "Dữ liệu đã tồn tại. Vui lòng dùng giá trị khác.",
+    };
+  }
+  return { statusCode: 500, message: error?.message || "Đã xảy ra lỗi không xác định." };
+}
 
 export function shouldSnapshotChargeableDays(leave: { status: string; type: string } | null | undefined): boolean {
   return !!leave && leave.status !== "approved" && leave.type === "leave";
@@ -72,7 +91,13 @@ export const crudController = {
         ...otherParams,
       };
 
-      if (req.user?.branchId) filters.branchId = req.user.branchId;
+      if (req.user?.branchId) {
+        if (modelName === "timekeeping-logs") {
+          filters.branchId = { $in: [req.user.branchId, null, undefined] };
+        } else {
+          filters.branchId = req.user.branchId;
+        }
+      }
 
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
@@ -123,7 +148,7 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.getList] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: "Lỗi khi tải danh sách tài nguyên",
         details: error.message,
@@ -140,14 +165,14 @@ export const crudController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
 
-      const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole);
+      const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
         data: item,
       });
     } catch (error: any) {
       console.error("[crudController.getById] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: "Lỗi khi tải thông tin tài nguyên",
         details: error.message,
@@ -167,12 +192,20 @@ export const crudController = {
 
       if (modelName === "hr-leave-applications") {
         if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
-        const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
-        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+        const requestKind: LeaveRequestKind = LEAVE_REQUEST_KINDS.includes(req.body.requestKind) ? req.body.requestKind : "leave";
         const year = new Date(req.body.startDate).getUTCFullYear();
-        const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
-        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số phép còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
-        req.body = { ...req.body, status: "pending", year, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+        const base = { ...req.body, requestKind, status: "pending", year, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+
+        // Chỉ đơn nghỉ phép mới trừ vào hạn mức phép năm; sự kiện / WFH / ngoại lệ không tính công.
+        if (requestKind === "leave") {
+          const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
+          if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+          const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
+          if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số pháp còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
+          req.body = { ...base, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays };
+        } else {
+          req.body = { ...base, chargeableDates: undefined, chargeableDays: 0 };
+        }
       }
 
       const LEAVE_TYPES = ["leave", "wfh", "exception"];
@@ -200,16 +233,24 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.create(modelName, req.body, companyCode);
+      // Nhân viên thường chỉ được nộp đơn đứng tên chính mình và luôn ở trạng thái
+      // chờ duyệt — không cho gửi hộ người khác hay tự duyệt qua body.
+      if (modelName === "hr-leave-applications" && !(await canApproveLeave(req))) {
+        req.body.employeeId = req.user!.id;
+        req.body.status = "pending";
+      }
+
+      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
       return res.status(201).json({
         status: "success",
         data: item,
       });
     } catch (error: any) {
       console.error("[crudController.create] Error:", error);
-      return res.status(error.statusCode || 500).json({
+      const { statusCode, message } = toClientError(error);
+      return res.status(statusCode).json({
         status: "error",
-        message: error.statusCode ? error.message : "Lỗi khi tạo mới tài nguyên",
+        message,
         details: error.message,
       });
     }
@@ -222,6 +263,7 @@ export const crudController = {
     try {
       const { modelName, id } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
+      const branchId = req.user?.branchId || "";
       const userRole = req.user?.role || "user";
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
@@ -231,19 +273,26 @@ export const crudController = {
       if (modelName === "timekeeping-logs") {
         attendanceReason = String(req.body.editReason || "").trim();
         if (attendanceReason.length < 3) return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
-        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode }).lean();
+        const logBranchFilter = branchId ? { $in: [branchId, null, undefined] } : { $in: [null, undefined, ""] };
+        attendanceBefore = await TimekeepingLogModel.findOne({ _id: id, companyCode, branchId: logBranchFilter }).lean();
         if (!attendanceBefore) return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
         const periodKey = attendanceBefore.date.slice(0, 7);
+        const queryBranchId = attendanceBefore.branchId || branchId;
         const [lockedResult, payrollRun] = await Promise.all([
-          AttendancePeriodResultModel.findOne({ companyCode, periodKey, status: "locked" }).lean(),
-          PayrollRunModel.findOne({ companyCode, periodKey }).lean(),
+          AttendancePeriodResultModel.findOne({ companyCode, branchId: queryBranchId, periodKey, status: "locked" }).lean(),
+          PayrollRunModel.findOne({ companyCode, branchId: queryBranchId, periodKey, type: "regular" })
+            .sort({ createdAt: 1, _id: 1 })
+            .lean(),
         ]);
-        if (lockedResult || payrollRun) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+        if (lockedResult || payrollRun?.status === "closed") return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
         delete req.body.editReason;
         req.body.manuallyAdjusted = true;
         req.body.adjustedAt = new Date();
         req.body.adjustedBy = req.user?.id;
         req.body.adjustmentReason = attendanceReason;
+        if (!attendanceBefore.branchId && branchId) {
+          req.body.branchId = branchId;
+        }
       }
 
       if (modelName === "training-courses") {
@@ -251,7 +300,7 @@ export const crudController = {
         if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
           return res.status(403).json({
             status: "error",
-            message: "Bạn không có quyền sửa đổi khóa học này vì không phải là người tạo.",
+            message: "Bạn không có quyền sửa đổi khóa học này và không phải là người tạo.",
           });
         }
       }
@@ -323,36 +372,41 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
+      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId);
 
       if (modelName === "timekeeping-logs" && attendanceBefore && item) {
         const periodKey = attendanceBefore.date.slice(0, 7);
         await Promise.all([
           TimekeepingAdjustmentAuditModel.create({ companyCode, logId: attendanceBefore._id, employeeId: attendanceBefore.uid, date: attendanceBefore.date, actorId: req.user!.id, reason: attendanceReason, before: attendanceBefore, after: item }),
-          AttendancePeriodResultModel.updateMany({ companyCode, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+          AttendancePeriodResultModel.updateMany({ companyCode, branchId, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
         ]);
       }
 
-      // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
+      // Tự động đồng bộ sang hr-calendar-events khi đơn được duyệt — mỗi loại yêu cầu
+      // sinh ra một sự kiện đúng loại trên tab Lịch trình.
       if (modelName === "hr-leave-applications" && item && item.status === "approved") {
+        const requestKind: LeaveRequestKind = LEAVE_REQUEST_KINDS.includes(item.requestKind) ? item.requestKind : "leave";
         const existingEvent = await HRCalendarEventModel.findOne({
           employeeId: item.employeeId,
           startDate: item.startDate,
           endDate: item.endDate,
-          type: "leave",
+          type: requestKind,
           companyCode: item.companyCode
         });
 
         if (!existingEvent) {
-          let title = `${item.employeeName} - ${item.type}`;
-          if (item.type === "leave") title = `${item.employeeName} xin nghỉ phép`;
-          if (item.type === "late") title = `${item.employeeName} xin đi trễ`;
-          if (item.type === "early") title = `${item.employeeName} xin về sớm`;
-          if (item.type === "other") title = `${item.employeeName} xin phép khác`;
+          const KIND_TITLES: Record<LeaveRequestKind, string> = {
+            event: "đăng ký sự kiện",
+            leave: "xin nghỉ phép",
+            wfh: "xin làm tại nhà",
+            exception: "xin ngoại lệ",
+          };
+          const title = `${item.employeeName} ${KIND_TITLES[requestKind]}${item.type ? ` (${item.type})` : ""}`;
 
           await HRCalendarEventModel.create({
             companyCode: item.companyCode,
-            type: "leave",
+            branchId: item.branchId,
+            type: requestKind,
             title,
             description: `Đơn đã duyệt. Lý do: ${item.reason}. Đơn đính kèm: ${item.uploadedFileName}${item.note ? `. Phản hồi: ${item.note}` : ""}`,
             startDate: item.startDate,
@@ -371,9 +425,10 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.update] Error:", error);
-      return res.status(error.statusCode || 500).json({
+      const { statusCode, message } = toClientError(error);
+      return res.status(statusCode).json({
         status: "error",
-        message: error.statusCode ? error.message : "Lỗi khi cập nhật tài nguyên",
+        message,
         details: error.message,
       });
     }
@@ -433,7 +488,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole);
+      const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
         message: "Xóa tài nguyên thành công",

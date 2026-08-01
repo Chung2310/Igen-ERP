@@ -21,6 +21,7 @@ const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
 const GoogleDriveTab = lazy(() => import("../components/settings/GoogleDriveTab"));
 const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
+const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -39,7 +40,8 @@ export default function SettingsTab() {
     if (activeSubTab === "face-recognition" && !faceManagementAllowed) {
       setActiveSubTab("profile");
     }
-  }, [activeSubTab, faceManagementAllowed, setActiveSubTab]);
+    if (activeSubTab === "branches" && userProfile?.role !== "admin") setActiveSubTab("profile");
+  }, [activeSubTab, faceManagementAllowed, userProfile?.role, setActiveSubTab]);
 
 
   // Synchronize display name and photo url from context if it updates
@@ -131,6 +133,7 @@ export default function SettingsTab() {
             ...(faceManagementAllowed
               ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
               : []),
+            ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
           ].map((tab) => {
             const isActive = activeSubTab === tab.id;
             const Icon = tab.icon;
@@ -221,6 +224,7 @@ export default function SettingsTab() {
             {activeSubTab === "erp" && <ErpConfigTab />}
             {activeSubTab === "google-drive" && <GoogleDriveTab />}
             {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
+            {activeSubTab === "branches" && userProfile?.role === "admin" && <BranchManagementTab />}
           </Suspense>
         </div>
 

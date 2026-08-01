@@ -9,6 +9,7 @@ import { verifyStudentAttendanceFace } from "./student-face-gate.service";
 import { cloudinaryService } from "../../../service/cloudinary.service";
 import { InsightFaceClient } from "../../../service/insightface.service";
 import type { FaceReasonCode } from "../../../service/insightface.service";
+import { companyEmailService } from "../../../service/company-email.service";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 
@@ -44,19 +45,10 @@ const insightFaceClient = {
 async function resolveSmtpSettings(actorUid: string) {
   const user = await AuthService.getUserProfile(actorUid);
   if (!user) return undefined;
-  const smtpOwner = user.role === "user" && user.centerId
-    ? await AuthService.getUserProfile(user.centerId)
-    : user;
-  if (!smtpOwner?.smtpHost || !smtpOwner?.smtpUser || !smtpOwner?.smtpPass) return undefined;
-  return {
-    smtpHost: smtpOwner.smtpHost,
-    smtpPort: smtpOwner.smtpPort,
-    smtpSecure: smtpOwner.smtpSecure,
-    smtpUser: smtpOwner.smtpUser,
-    smtpPass: smtpOwner.smtpPass,
-    smtpFrom: smtpOwner.smtpFrom,
-    smtpSandboxEmail: smtpOwner.smtpSandboxEmail,
-  };
+  if (user.companyCode) {
+    return companyEmailService.resolveLegacySettings(user.companyCode);
+  }
+  return undefined;
 }
 
 export class StudentOnlineAttendanceService {

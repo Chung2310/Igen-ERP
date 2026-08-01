@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: string;
   centerId?: string;
   companyCode?: string;
+  branchId?: string;
   createdBy?: string;
   bankAccountNo?: string;
   bankId?: string;

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
 
@@ -49,15 +50,20 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read", "stock:manage",
-    "hr:read", "student:read", "student:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:manage",
-    "chat:read", "resource:read", "resource:manage"
+    "hr:read", "student:read", "student:manage", "partner:read", "partner:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:prepare", "payroll:manage", "payroll:pay",
+    "chat:read", "resource:read", "resource:manage", "company-email:manage", "recruitment:manage",
+    // student-settings:manage không nằm ở đây: loại hình doanh nghiệp chỉ SuperAdmin sửa
+    "custom-field:manage", "company-smtp:manage"
+  ],
+  branch_owner: [
+    "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"
   ],
   manager: [
     "user:read", "user:manage",
     "kanban:read", "kanban:manage",
     "project:read", "project:manage",
     "stock:read",
-    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
+    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read", "custom-field:manage"
   ],
   user: [
     "user:read",
@@ -74,6 +80,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   superadmin: 1,
   admin: 2,
+  branch_owner: 2,
   manager: 3,
   user: 4
 };
@@ -81,7 +88,7 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
 /**
  * Middleware yêu cầu đăng nhập bằng Access Token
  */
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   let token = "";
   const authHeader = req.headers.authorization;
 
@@ -102,11 +109,20 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
+    const userDoc = await UserModel.findById(decoded.id).select("branchId").lean();
+    let branchId = userDoc?.branchId ? String(userDoc.branchId) : undefined;
+    const requestedBranchId = typeof req.headers["x-branch-id"] === "string" ? req.headers["x-branch-id"] : "";
+    if (decoded.role === "admin" && requestedBranchId && decoded.companyCode) {
+      const selectedBranch = await BranchModel.findOne({ _id: requestedBranchId, companyCode: String(decoded.companyCode).toUpperCase(), isActive: true }).select("_id").lean();
+      if (!selectedBranch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty hoặc đã ngừng hoạt động." });
+      branchId = String(selectedBranch._id);
+    }
     req.user = {
       id: decoded.id,
       email: decoded.email,
       role: decoded.role,
       companyCode: decoded.companyCode,
+      branchId,
       sessionId: decoded.sid,
       authLevel: decoded.authLevel,
     };
@@ -181,6 +197,12 @@ export async function getEffectivePermissions(
   return new Set([...customPermissions, ...rolePermissions]);
 }
 
+export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPermissions: readonly string[]) {
+  return allPermissions.has("*") || requiredPermissions.some((permission) => allPermissions.has(permission));
+}
+
+export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);
+
 /**
  * Middleware yêu cầu mã quyền động (PBAC)
  * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
@@ -203,7 +225,7 @@ export function requirePermission(requiredPermission: string | string[]) {
       const { id: userId, role, companyCode } = req.user;
       const allPermissions = await getEffectivePermissions(userId, role, companyCode);
 
-      if (allPermissions.has("*") || requiredPermissions.some((p) => allPermissions.has(p))) {
+      if (hasAnyPermission(allPermissions, requiredPermissions)) {
         return next();
       }
 
@@ -370,3 +392,4 @@ export function requireHierarchyAccess(idParamName: string = "id") {
     }
   };
 }
+

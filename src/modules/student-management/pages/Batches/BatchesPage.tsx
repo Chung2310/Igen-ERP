@@ -21,6 +21,8 @@ import {
 import { Pagination } from '../../components/ui/Pagination';
 import { TimeInput24 } from '../../../../components/common/TimeInput24';
 import { useAuth } from '../../../../context/AuthContext';
+import { useBranch } from '../../../../context/BranchContext';
+import { buildInstructorOptions } from './instructorRoster';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -28,6 +30,7 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy, getBatchStatusLabel } from '../../config/workerRecruitmentCopy';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
+import { InstructorCombobox } from '../../components/Batches/InstructorCombobox';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
@@ -61,6 +64,7 @@ interface BatchForm {
   code: string;
   courseId: string;
   instructorId: string;
+  instructorText: string;
   daysOfWeek: number[];
   startTime: string;
   endTime: string;
@@ -75,6 +79,7 @@ const EMPTY_FORM: BatchForm = {
   code: '',
   courseId: '',
   instructorId: '',
+  instructorText: '',
   daysOfWeek: [],
   startTime: '18:00',
   endTime: '20:00',
@@ -92,12 +97,13 @@ const notifyBatchMutation = () => {
   window.dispatchEvent(new Event('user-mutation'));
 };
 
-export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
+export function BatchesPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const darkMode = false;
   const entityLabel = useEntityLabel();
   const copy = getBatchPageCopy(entityLabel.preset);
   const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
+  const { activeBranchId } = useBranch();
   const {
     fields: stdFields,
     activeFields: activeStdFields,
@@ -106,9 +112,9 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     archiveField: archiveStdField,
     restoreField: restoreStdField,
     deleteField: deleteStdField
-  } = useStandardFields("batches");
+  } = useStandardFields("batches", entityLabel.preset);
 
-  const manageable = canManageCustomFields(user?.role);
+  const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
   const [isEditingFields, setIsEditingFields] = useState(false);
@@ -179,21 +185,22 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const [users, setUsers] = useState<any[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
+      const companyCode = selectedCenter && selectedCenter !== 'all' ? selectedCenter : user?.companyCode;
+      if (!companyCode || !activeBranchId) {
+        setUsers([]);
+        return;
+      }
       try {
-        let data;
-        if (selectedCenter && selectedCenter !== 'all') {
-          data = await authService.getUsersByCompany(selectedCenter);
-        } else {
-          data = await authService.getAllUsers();
-        }
+        const data = await authService.getUsersByCompany(companyCode, activeBranchId);
         setUsers(data || []);
       } catch (err) {
         console.error("Failed to fetch users:", err);
+        setUsers([]);
       }
     };
-    fetchUsers();
-  }, [selectedCenter]);
-  const instructors = users.filter(u => u.role === 'user');
+    void fetchUsers();
+  }, [selectedCenter, user?.companyCode, activeBranchId]);
+  const instructorOptions = buildInstructorOptions(users);
   const { students } = useStudents(resolvedCenter);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -230,6 +237,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       code: batch.code,
       courseId: batch.courseId,
       instructorId: batch.instructorId || '',
+      instructorText: batch.instructorText || '',
       daysOfWeek: batch.daysOfWeek || [],
       startTime: batch.startTime,
       endTime: batch.endTime,
@@ -266,7 +274,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
           }
         }
         if (f.key === 'room' && !form.location) missingFields.push(f.label);
-        if (f.key === 'teacherId' && !form.instructorId) missingFields.push(f.label);
+        if (f.key === 'teacherId' && !form.instructorId && !form.instructorText.trim()) missingFields.push(f.label);
       }
     });
 
@@ -285,6 +293,8 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       const payload = {
         ...form,
         code: form.code.toUpperCase(),
+        // Chỉ một trong hai: gán tài khoản hoặc tên nhập tay
+        instructorText: form.instructorId ? '' : form.instructorText.trim(),
         ...(editingId ? { expectedVersion: batches.find((batch) => batch.id === editingId)?.__v } : {}),
         ...(!editingId && resolvedCenter ? { companyCode: resolvedCenter } : {}),
       };
@@ -392,11 +402,11 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     <div className="space-y-4 text-left">
       <ErpPageHeader
         title={copy.pageTitle}
-        action={
+        action={canManage ? (
           <ErpPrimaryButton onClick={openCreateModal}>
             {copy.createButton}
           </ErpPrimaryButton>
-        }
+        ) : undefined}
       />
 
       {/* Controls */}
@@ -582,7 +592,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         <ErpInput
                           type="text"
                           required={isFieldRequired('code', true)}
-                          placeholder={getFieldPlaceholder('code', 'Ví dụ: K32')}
+                          placeholder={getFieldPlaceholder('code', entityLabel.preset === 'worker' ? 'Ví dụ: DA-001' : 'Ví dụ: K32')}
                           value={form.code}
                           onChange={(e) => setForm({ ...form, code: e.target.value })}
                           className="pl-10"
@@ -623,22 +633,14 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 <div className="relative group/std">
                   {renderFieldActions('teacherId')}
                   <ErpField label={getFieldLabel('teacherId', copy.instructorLabel)}>
-                    <div className="relative">
-                      <ErpSelect
-                        value={form.instructorId}
-                        required={isFieldRequired('teacherId', false)}
-                        onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
-                        className="pl-10"
-                      >
-                        <option value="">{`— Chưa gán ${copy.instructorLabel.toLocaleLowerCase('vi')} —`}</option>
-                        {instructors.map((i) => (
-                          <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
-                        ))}
-                      </ErpSelect>
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                        <GraduationCap className="w-4 h-4" />
-                      </div>
-                    </div>
+                    <InstructorCombobox
+                      instructorId={form.instructorId}
+                      instructorText={form.instructorText}
+                      options={instructorOptions}
+                      required={isFieldRequired('teacherId', false)}
+                      placeholder={`Nhập tên ${copy.instructorLabel.toLocaleLowerCase('vi')} hoặc chọn tài khoản...`}
+                      onChange={(next) => setForm({ ...form, ...next })}
+                    />
                   </ErpField>
                 </div>
               )}
@@ -656,7 +658,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                   </h4>
                 </div>
 
-                <ErpField label="Ngày học trong tuần">
+                <ErpField label={entityLabel.preset === 'worker' ? 'Ngày hoạt động trong tuần' : 'Ngày học trong tuần'}>
                   <div className="grid grid-cols-7 gap-1 mt-1">
                     {DAY_OPTIONS.map((d) => (
                       <button
@@ -766,7 +768,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                       <ErpInput
                         type="text"
                         required={isFieldRequired('room', false)}
-                        placeholder={getFieldPlaceholder('room', 'Ví dụ: Phòng 201 / Sân tập số 2')}
+                        placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
                         value={form.location}
                         onChange={(e) => setForm({ ...form, location: e.target.value })}
                         className="pl-10"

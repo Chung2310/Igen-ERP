@@ -85,6 +85,10 @@ export interface IStudent extends Document {
   address: string;
   status: StudentStatus[];
   ownerId: string;
+  /** UID người thực sự tạo bản ghi — rỗng với dữ liệu tạo trước khi có trường này */
+  createdBy?: string;
+  createdByName?: string;
+  branchId?: string;
   centerId?: string;
   healthCheckDate?: string;
   healthCheckNotes?: string;

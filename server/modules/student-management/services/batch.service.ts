@@ -13,6 +13,7 @@ import {
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
 import { EmailService, SmtpSettings } from "./email.service";
+import { companyEmailService } from "../../../service/company-email.service";
 
 interface BatchFilters {
   page?: number | string;
@@ -33,6 +34,7 @@ interface BatchActor {
   role: string;
   centerId?: string;
   companyCode?: string;
+  branchId?: string;
 }
 
 export interface EnrichedBatch {
@@ -50,27 +52,43 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 function hasLockedStudentFee(fee: string | undefined): boolean {
   const feeNum = parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
   return feeNum > 0;
 }
 
+export function buildInstructorAssignmentQuery(actor: BatchActor, instructorId: unknown): Record<string, unknown> {
+  const companyCode = actor.companyCode || actor.centerId;
+  if (!companyCode) throw new Error("Không xác định được công ty khi gán người phụ trách.");
+  if (!actor.branchId) throw new Error("Vui lòng chọn chi nhánh trước khi gán người phụ trách.");
+  return { _id: instructorId, companyCode, branchId: actor.branchId, isActive: true };
+}
+
 async function assertInstructorAssignable(actor: BatchActor, instructorId: unknown) {
   if (!instructorId) return;
-
-  const query: Record<string, unknown> = {
-    _id: instructorId,
-    role: "user",
-  };
-
-    if (actor.role !== "superadmin") {
-      query.companyCode = actor.companyCode || actor.centerId;
-    }
-
-  const instructor = await User.findOne(query);
+  const instructor = await User.findOne(buildInstructorAssignmentQuery(actor, instructorId));
   if (!instructor) {
-    throw new Error("Không tìm thấy giảng viên được gán.");
+    throw new Error("Không tìm thấy tài khoản đang hoạt động trong chi nhánh được chọn.");
   }
+}
+
+/**
+ * Người phụ trách có thể là tài khoản trong công ty (instructorId) hoặc tên nhập
+ * tay (instructorText) — không bao giờ cả hai. Gán tài khoản luôn thắng.
+ */
+function normalizeInstructorFields(data: BatchData): BatchData {
+  const hasId = "instructorId" in data;
+  const hasText = "instructorText" in data;
+  if (!hasId && !hasText) return data;
+
+  const id = String(data.instructorId ?? "").trim();
+  if (id) return { ...data, instructorId: id, instructorText: "" };
+  if (hasText) return { ...data, instructorId: "", instructorText: String(data.instructorText ?? "").trim() };
+  return { ...data, instructorId: "" };
 }
 
 function assertScheduleValid(data: BatchData) {
@@ -102,7 +120,8 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
       courseCode: course?.code || "",
       courseTitle: course?.title || "(Khóa học đã xóa)",
       maxLearners: course?.maxLearners ?? 0,
-      instructorName: instructor?.displayName || "",
+      // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
+      instructorName: instructor?.displayName || b.instructorText || "",
     };
   });
 }
@@ -122,21 +141,11 @@ function formatDaysOfWeek(days: unknown): string {
  * EmailService dùng cấu hình SMTP mặc định từ biến môi trường.
  */
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
-  const owner = await User.findById(ownerId).select(
-    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail"
-  );
-  if (!owner || !owner.smtpHost || !owner.smtpUser || !owner.smtpPass) {
-    return undefined;
+  const owner = await User.findById(ownerId).select("companyCode");
+  if (owner?.companyCode) {
+    return companyEmailService.resolveLegacySettings(owner.companyCode);
   }
-  return {
-    smtpHost: owner.smtpHost,
-    smtpPort: owner.smtpPort,
-    smtpSecure: owner.smtpSecure,
-    smtpUser: owner.smtpUser,
-    smtpPass: owner.smtpPass,
-    smtpFrom: owner.smtpFrom,
-    smtpSandboxEmail: owner.smtpSandboxEmail,
-  };
+  return undefined;
 }
 
 function buildInstructorAssignmentHtml(instructorName: string, batch: EnrichedBatch): string {
@@ -212,20 +221,20 @@ export class BatchService {
   ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
     const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
-    const existing = await Batch.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
+    const existing = await Batch.findOne({ ownerId, branchId: actor.branchId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
     assertScheduleValid(writeData);
 
-    const course = await Course.findOne({ _id: writeData.courseId, ownerId });
+    const course = await Course.findOne({ _id: writeData.courseId, ownerId, branchId: actor.branchId });
     if (!course) {
       throw new Error("Không tìm thấy khóa học của lớp.");
     }
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
-    const batch = new Batch({ ...writeData, ownerId });
+    const batch = new Batch({ ...normalizeInstructorFields(writeData), ownerId, branchId: actor.branchId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
     const enriched = (await enrichBatches([saved]))[0];
@@ -238,14 +247,14 @@ export class BatchService {
     return enriched;
   }
 
-  static async getBatches(ownerId: string | string[], filters: BatchFilters) {
+  static async getBatches(ownerId: string | string[], filters: BatchFilters, branchId?: string) {
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
-    const query: Record<string, unknown> = buildOwnerQuery(resolvedOwnerId);
+    const query: Record<string, unknown> = { ...buildOwnerQuery(resolvedOwnerId), ...buildBranchScopeQuery(branchId) };
     if (filters.courseId) query.courseId = filters.courseId;
     if (filters.instructorId) query.instructorId = filters.instructorId;
     if (filters.status) query.status = filters.status;
@@ -253,6 +262,7 @@ export class BatchService {
       query.$or = [
         { code: { $regex: filters.search, $options: "i" } },
         { location: { $regex: filters.search, $options: "i" } },
+        { instructorText: { $regex: filters.search, $options: "i" } },
       ];
     }
 
@@ -265,8 +275,8 @@ export class BatchService {
     return { batches: await enrichBatches(batches), total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  static async getBatchById(ownerId: string | string[], id: string): Promise<EnrichedBatch | null> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async getBatchById(ownerId: string | string[], id: string, branchId?: string): Promise<EnrichedBatch | null> {
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) return null;
     return (await enrichBatches([batch]))[0];
   }
@@ -277,16 +287,17 @@ export class BatchService {
     id: string,
     data: BatchData,
     context?: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<EnrichedBatch | null> {
     logger.info(`[Batch] Updating batch: id=${id}`);
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) return null;
     const expectedVersion = expectedVersionOf(data);
     const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
     const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
 
     if (writeData.code && String(writeData.code).toUpperCase() !== batch.code) {
-      const dup = await Batch.findOne({ ownerId: batch.ownerId, code: String(writeData.code).toUpperCase() });
+      const dup = await Batch.findOne({ ownerId: batch.ownerId, branchId: batch.branchId, code: String(writeData.code).toUpperCase() });
       if (dup) {
         throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
       }
@@ -300,7 +311,7 @@ export class BatchService {
     });
 
     if (writeData.courseId && writeData.courseId !== batch.courseId) {
-      const course = await Course.findOne({ _id: writeData.courseId, ownerId: batch.ownerId });
+      const course = await Course.findOne({ _id: writeData.courseId, ownerId: batch.ownerId, branchId: batch.branchId });
       if (!course) {
         throw new Error("Không tìm thấy khóa học của lớp.");
       }
@@ -311,17 +322,18 @@ export class BatchService {
     }
 
     const previousInstructorId = batch.instructorId;
+    const persistData = normalizeInstructorFields(writeData);
     let saved: IBatch;
     if (context) {
       const updated = await Batch.findOneAndUpdate(
-        { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
-        { $set: writeData, $inc: { __v: 1 } },
+        { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+        { $set: persistData, $inc: { __v: 1 } },
         { new: true, runValidators: true },
       );
       if (!updated) throw new CustomFieldWriteConflictError();
       saved = updated;
     } else {
-      batch.set(writeData);
+      batch.set(persistData);
       saved = await batch.save();
     }
     const enriched = (await enrichBatches([saved]))[0];
@@ -334,25 +346,26 @@ export class BatchService {
     return enriched;
   }
 
-  static async deleteBatch(ownerId: string | string[], id: string): Promise<IBatch | null> {
+  static async deleteBatch(ownerId: string | string[], id: string, branchId?: string): Promise<IBatch | null> {
     logger.info(`[Batch] Deleting batch: id=${id}`);
-    return await Batch.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId) });
+    return await Batch.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   }
 
   static async addLearner(
     ownerId: string | string[],
     id: string,
     studentId: string,
-    businessType: "driving" | "language" | "general" = "general"
+    businessType: "driving" | "language" | "general" = "general",
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
     if (batch.learnerIds.includes(studentId)) {
       throw new Error("Học viên đã có trong lớp này.");
     }
-    const student = await Student.findOne({ _id: studentId, ...buildOwnerQuery(ownerId) });
+    const student = await Student.findOne({ _id: studentId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!student) {
       throw new Error("Không tìm thấy học viên.");
     }
@@ -385,8 +398,8 @@ export class BatchService {
     return (await enrichBatches([saved]))[0];
   }
 
-  static async removeLearner(ownerId: string | string[], id: string, studentId: string): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
+  static async removeLearner(ownerId: string | string[], id: string, studentId: string, branchId?: string): Promise<EnrichedBatch> {
+    const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
@@ -418,8 +431,8 @@ export class BatchService {
     return new Map(rows.map((r: { _id: string; count: number }) => [r._id, r.count]));
   }
 
-  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string) {
-    const batches = await Batch.find(buildOwnerQuery(ownerId));
+  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
+    const batches = await Batch.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     const enriched = await enrichBatches(batches);
     const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
 
@@ -460,9 +473,10 @@ export class BatchService {
     batchId: string,
     date: string,
     records: { studentId: string; status: "present" | "absent" | "excused" }[],
-    note?: string
+    note?: string,
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }
@@ -497,9 +511,10 @@ export class BatchService {
   static async deleteAttendanceSessionByDate(
     ownerId: string | string[],
     batchId: string,
-    date: string
+    date: string,
+    branchId?: string
   ): Promise<EnrichedBatch> {
-    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
     }

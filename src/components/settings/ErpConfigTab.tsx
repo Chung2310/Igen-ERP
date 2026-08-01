@@ -5,11 +5,13 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
 import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
+import StudentManagementErpSettings from "./StudentManagementErpSettings";
+import CompanySmtpSettingsTab from "./CompanySmtpSettingsTab";
 import WorkShiftsTab from "./WorkShiftsTab";
 
 export default function ErpConfigTab() {
   const { userProfile, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts" | "companyModules">("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -32,6 +34,11 @@ export default function ErpConfigTab() {
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     hasPermission("timekeeping:manage");
+  // Loại hình doanh nghiệp chỉ SuperAdmin sửa được; doanh nghiệp chỉ xem (chỉ-đọc)
+  const canViewStudentSettings =
+    userProfile?.role === "superadmin" || userProfile?.role === "admin";
+  const canManageSmtp = hasPermission("company-smtp:manage");
+  const canManageCompanyModules = canViewStudentSettings || canManageSmtp;
 
 
   useEffect(() => {
@@ -134,7 +141,7 @@ export default function ErpConfigTab() {
   return (
     <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
       {/* Tab bar nội bộ của Cấu hình ERP */}
-      {canManageLocation && (
+      {(canManageLocation || canManageCompanyModules) && (
         <div className="flex gap-2 border-b border-gray-100 pb-3">
           <button
             type="button"
@@ -168,6 +175,12 @@ export default function ErpConfigTab() {
           >
             Giờ làm việc nhân viên
           </button>
+          {canManageCompanyModules && (
+            <button type="button" onClick={() => setActiveTab("companyModules")}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              Học viên & Email
+            </button>
+          )}
         </div>
       )}
 
@@ -176,6 +189,12 @@ export default function ErpConfigTab() {
       {activeTab === "workShifts" && canManageLocation && <WorkShiftsTab />}
 
       {/* Preferences Section */}
+      {activeTab === "companyModules" && canManageCompanyModules && (
+        <div className="space-y-5">
+          {canViewStudentSettings && <StudentManagementErpSettings />}
+          {canManageSmtp && <CompanySmtpSettingsTab />}
+        </div>
+      )}
       {activeTab === "general" && (
       <>
       <div>

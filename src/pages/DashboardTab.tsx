@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useBranch } from "../context/BranchContext";
 import { isModuleEnabled } from "../config/modules";
 import { authService } from "../services/authService";
 import { inventoryProductService } from "../services/inventoryProductService";
@@ -59,6 +60,7 @@ const getDescendantEmployees = (rootId: string, users: UserProfile[]): UserProfi
 
 export default function DashboardTab() {
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
   const canSeeHr = isModuleEnabled(userProfile?.enabledModules, "hr");
   const canSeeInventory = isModuleEnabled(userProfile?.enabledModules, "inventory");
   const canSeeResource = isModuleEnabled(userProfile?.enabledModules, "resource");
@@ -167,7 +169,7 @@ export default function DashboardTab() {
 
   // Subscribe to inventory products to compute total products
   useEffect(() => {
-    if (!canSeeInventory) {
+    if (!canSeeInventory || !activeBranchId) {
       setRawProducts([]);
       setTotalProducts("0");
       setLowStockCount("0");
@@ -178,7 +180,7 @@ export default function DashboardTab() {
     }
     let unsubProducts: any = null;
     try {
-      unsubProducts = inventoryProductService.subscribe((products) => {
+      unsubProducts = inventoryProductService.subscribe(activeBranchId, (products) => {
         setRawProducts(products);
         setTotalProducts(String(products.length));
         const lowItems = products.filter((p: any) => typeof p.stock === "number" && typeof p.minStockAlert === "number" ? p.stock <= p.minStockAlert : false);
@@ -209,17 +211,17 @@ export default function DashboardTab() {
     return () => {
       if (unsubProducts && typeof unsubProducts === "function") unsubProducts();
     };
-  }, [canSeeInventory]);
+  }, [canSeeInventory, activeBranchId]);
 
   // Subscribe to stock logs to compute pending outbound shipments
   useEffect(() => {
-    if (!canSeeInventory) {
+    if (!canSeeInventory || !activeBranchId) {
       setRawStockLogs([]);
       return;
     }
     let unsubLogs: any = null;
     try {
-      unsubLogs = inventoryStockLogService.subscribe((logs) => {
+      unsubLogs = inventoryStockLogService.subscribe(activeBranchId, (logs) => {
         setRawStockLogs(logs);
       });
     } catch (err) {
@@ -230,7 +232,7 @@ export default function DashboardTab() {
     return () => {
       if (unsubLogs && typeof unsubLogs === "function") unsubLogs();
     };
-  }, [canSeeInventory]);
+  }, [canSeeInventory, activeBranchId]);
 
   const getAccessToken = () => localStorage.getItem("accessToken") || "";
 

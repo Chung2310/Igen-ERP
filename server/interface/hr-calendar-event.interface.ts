@@ -2,6 +2,7 @@ import { Document } from "mongoose";
 
 export interface IHRCalendarEvent extends Document {
   companyCode: string;
+  branchId?: string;
   type: "event" | "leave" | "wfh" | "exception" | "reminder";
   title: string;
   description?: string;

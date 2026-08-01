@@ -1,17 +1,20 @@
 import { Response, NextFunction } from "express";
 import { ResourceService } from "../services/resource.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class ResourceController {
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       const ownerId = await resolveCreateOwnerId(
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const resource = await ResourceService.createResource(ownerId, req.body, {
+      const resource = await ResourceService.createResource(ownerId, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "resources",
         actorRole: req.user!.role,
@@ -26,7 +29,7 @@ export class ResourceController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await ResourceService.getResources(ownerId, req.query);
+      const result = await ResourceService.getResources(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -36,7 +39,7 @@ export class ResourceController {
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const resource = await ResourceService.getResourceById(ownerId, req.params.id);
+      const resource = await ResourceService.getResourceById(ownerId, req.params.id, req.user!.branchId);
       if (!resource) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài nguyên." });
       }
@@ -53,7 +56,7 @@ export class ResourceController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "resources",
         actorRole: req.user!.role,
-      });
+      }, req.user!.branchId);
       if (!resource) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài nguyên để cập nhật." });
       }
@@ -70,7 +73,7 @@ export class ResourceController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const resource = await ResourceService.deleteResource(ownerId, req.params.id);
+      const resource = await ResourceService.deleteResource(ownerId, req.params.id, req.user!.branchId);
       if (!resource) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài nguyên để xóa." });
       }
@@ -83,7 +86,7 @@ export class ResourceController {
   static async book(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const resource = await ResourceService.bookResource(ownerId, req.params.id, req.body);
+      const resource = await ResourceService.bookResource(ownerId, req.params.id, req.body, req.user!.branchId);
       res.json({ success: true, data: resource });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -94,7 +97,7 @@ export class ResourceController {
   static async cancelBooking(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const resource = await ResourceService.cancelBooking(ownerId, req.params.id, req.params.bookingId);
+      const resource = await ResourceService.cancelBooking(ownerId, req.params.id, req.params.bookingId, req.user!.branchId);
       res.json({ success: true, data: resource });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";

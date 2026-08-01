@@ -105,7 +105,7 @@ export class ExamService {
     return savedExam;
   }
 
-  static async getExams(ownerId: string | string[], filters: ExamFilters) {
+  static async getExams(ownerId: string | string[], filters: ExamFilters, branchId?: string) {
     logger.info(`[Exam] Fetching exams for ownerId=${ownerId} with filters: ${JSON.stringify(filters)}`);
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
@@ -118,6 +118,7 @@ export class ExamService {
     if (resolvedOwnerId !== "ALL") {
       query.ownerId = Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId;
     }
+    if (branchId) query.branchId = branchId;
     if (filters.status) query.status = filters.status;
     if (filters.rank) query.rank = filters.rank;
 
@@ -137,12 +138,13 @@ export class ExamService {
     };
   }
 
-  static async getExamById(ownerId: string | string[], id: string): Promise<IExam | null> {
+  static async getExamById(ownerId: string | string[], id: string, branchId?: string): Promise<IExam | null> {
     logger.info(`[Exam] Fetching exam detail: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = { _id: id };
     if (ownerId !== "ALL") {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) query.branchId = branchId;
     return await Exam.findOne(query);
   }
 
@@ -151,12 +153,14 @@ export class ExamService {
     id: string,
     data: ExamUpdateData,
     context: CustomFieldWriteContext,
+    branchId?: string,
   ): Promise<IExam | null> {
     logger.info(`[Exam] Updating exam: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = { _id: id };
     if (ownerId !== "ALL") {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) query.branchId = branchId;
     const existingExam = await Exam.findOne(query);
     if (!existingExam) return null;
     const expectedVersion = expectedVersionOf(data);
@@ -173,12 +177,13 @@ export class ExamService {
     return updatedExam;
   }
 
-  static async deleteExam(ownerId: string | string[], id: string): Promise<IExam | null> {
+  static async deleteExam(ownerId: string | string[], id: string, branchId?: string): Promise<IExam | null> {
     logger.info(`[Exam] Deleting exam: id=${id}, ownerId=${ownerId}`);
     const query: Record<string, unknown> = { _id: id };
     if (ownerId !== "ALL") {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) query.branchId = branchId;
     const deletedExam = await Exam.findOneAndDelete(query);
     if (deletedExam) {
       logger.info(`[Exam] Exam deleted successfully: id=${id}`);
@@ -188,12 +193,13 @@ export class ExamService {
     return deletedExam;
   }
 
-  static async assignStudents(ownerId: string | string[], examId: string, studentIds: string[]): Promise<{ success: boolean }> {
+  static async assignStudents(ownerId: string | string[], examId: string, studentIds: string[], branchId?: string): Promise<{ success: boolean }> {
     logger.info(`[Exam] Assigning ${studentIds.length} students to examId=${examId}, ownerId=${ownerId}`);
     const examQuery: Record<string, unknown> = { _id: examId };
     if (ownerId !== "ALL") {
       examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) examQuery.branchId = branchId;
     const exam = await Exam.findOne(examQuery);
     if (!exam) {
       logger.warn(`[Exam] Assign students failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
@@ -204,6 +210,7 @@ export class ExamService {
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) studentQuery.branchId = branchId;
 
     // Update students (assign to exam and add to history)
     const updateResult = await Student.updateMany(
@@ -240,15 +247,17 @@ export class ExamService {
   static async unassignStudent(
     ownerId: string | string[],
     examId: string,
-    studentId: string
+    studentId: string,
+    branchId?: string
   ): Promise<{ success: boolean }> {
     logger.info(`[Exam] Unassigning studentId=${studentId} from examId=${examId}, ownerId=${ownerId}`);
-    
+
     // Check if the exam exists
     const examQuery: Record<string, unknown> = { _id: examId };
     if (ownerId !== "ALL") {
       examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) examQuery.branchId = branchId;
     const exam = await Exam.findOne(examQuery);
     if (!exam) {
       logger.warn(`[Exam] Unassign student failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
@@ -260,6 +269,7 @@ export class ExamService {
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) studentQuery.branchId = branchId;
     const student = await Student.findOne(studentQuery);
     if (!student) {
       logger.warn(`[Exam] Unassign student failed - Student not found or not assigned: studentId=${studentId}, examId=${examId}`);
@@ -316,7 +326,8 @@ export class ExamService {
     ownerId: string | string[],
     examId: string,
     studentId: string,
-    overallResult: "Đậu" | "Trượt" | "Chưa có"
+    overallResult: "Đậu" | "Trượt" | "Chưa có",
+    branchId?: string
   ): Promise<{ success: boolean }> {
     logger.info(`[Exam] Updating student result: studentId=${studentId}, examId=${examId}, overallResult=${overallResult}`);
 
@@ -325,6 +336,7 @@ export class ExamService {
     if (ownerId !== "ALL") {
       examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) examQuery.branchId = branchId;
     const exam = await Exam.findOne(examQuery);
     if (!exam) {
       logger.warn(`[Exam] Update student result failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
@@ -336,6 +348,7 @@ export class ExamService {
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) studentQuery.branchId = branchId;
     const student = await Student.findOne(studentQuery);
     if (!student) {
       logger.warn(`[Exam] Update student result failed - Student not found or not assigned: studentId=${studentId}, examId=${examId}`);
@@ -401,7 +414,8 @@ export class ExamService {
     ownerId: string | string[],
     examId: string,
     results: ImportResultItem[],
-    preview: boolean = false
+    preview: boolean = false,
+    branchId?: string
   ): Promise<{
     success: boolean;
     successCount?: number;
@@ -417,6 +431,7 @@ export class ExamService {
     if (ownerId !== "ALL") {
       examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
+    if (branchId) examQuery.branchId = branchId;
     const exam = await Exam.findOne(examQuery);
     if (!exam) {
       logger.warn(`[Exam] Import results failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
@@ -460,6 +475,7 @@ export class ExamService {
         if (ownerId !== "ALL") {
           studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
         }
+        if (branchId) studentQuery.branchId = branchId;
 
         const student = await Student.findOne(studentQuery);
         if (!student) {

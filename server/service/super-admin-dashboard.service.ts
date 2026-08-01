@@ -3,8 +3,6 @@ import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { AuditEventModel } from "../model/audit-event.model";
-import { TransactionModel } from "../model/transaction.model";
-import { WalletModel } from "../model/wallet.model";
 import { isSocketIoHealthy } from "../socket";
 import * as redisModule from "../infrastructure/rate-limit-redis";
 
@@ -79,148 +77,6 @@ export const superAdminDashboardService = {
       lockedAccounts,
     };
 
-    // 3. Financial summaries
-    const walletAgg = await WalletModel.aggregate([
-      { $group: { _id: null, total: { $sum: "$balance" } } },
-    ]);
-    const totalWalletBalance = walletAgg[0]?.total || 0;
-
-    const txMatch: Record<string, any> = { status: "success" };
-    if (startDate || endDate) {
-      txMatch.createdAt = {};
-      if (startDate) txMatch.createdAt.$gte = new Date(startDate);
-      if (endDate) txMatch.createdAt.$lte = new Date(endDate);
-    }
-
-    const [revAgg, useAgg] = await Promise.all([
-      TransactionModel.aggregate([
-        { $match: { ...txMatch, type: "deposit" } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
-      ]),
-      TransactionModel.aggregate([
-        { $match: { ...txMatch, type: "payment" } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
-      ]),
-    ]);
-    const totalRevenue = revAgg[0]?.total || 0;
-    const totalUsage = useAgg[0]?.total || 0;
-
-    // Financial breakdown by tenant (companyCode)
-    const walletTenantAgg = await WalletModel.aggregate([
-      {
-        $lookup: {
-          from: "users",
-          let: { walletUserId: "$userId" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: [{ $toString: "$_id" }, "$$walletUserId"],
-                },
-              },
-            },
-            { $project: { companyCode: 1, companyName: 1 } },
-          ],
-          as: "user",
-        },
-      },
-      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: { $ifNull: ["$user.companyCode", "UNKNOWN"] },
-          companyName: { $first: { $ifNull: ["$user.companyName", "Mặc định"] } },
-          totalBalance: { $sum: "$balance" },
-        },
-      },
-    ]);
-
-    const txTenantAgg = await TransactionModel.aggregate([
-      { $match: txMatch },
-      {
-        $lookup: {
-          from: "users",
-          let: { txUserId: "$userId" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: [{ $toString: "$_id" }, "$$txUserId"],
-                },
-              },
-            },
-            { $project: { companyCode: 1, companyName: 1 } },
-          ],
-          as: "user",
-        },
-      },
-      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: { $ifNull: ["$user.companyCode", "UNKNOWN"] },
-          companyName: { $first: { $ifNull: ["$user.companyName", "Mặc định"] } },
-          revenue: {
-            $sum: {
-              $cond: [
-                { $eq: ["$type", "deposit"] },
-                "$amount",
-                0,
-              ],
-            },
-          },
-          usage: {
-            $sum: {
-              $cond: [
-                { $eq: ["$type", "payment"] },
-                "$amount",
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]);
-
-    // Merge financial aggregations in memory
-    const tenantFinanceMap = new Map<string, { companyCode: string; companyName: string; revenue: number; usage: number; balance: number }>();
-    
-    // Seed with wallet aggregates
-    for (const w of walletTenantAgg) {
-      tenantFinanceMap.set(w._id, {
-        companyCode: w._id,
-        companyName: w.companyName,
-        revenue: 0,
-        usage: 0,
-        balance: w.totalBalance,
-      });
-    }
-
-    // Merge transaction aggregates
-    for (const tx of txTenantAgg) {
-      const existing = tenantFinanceMap.get(tx._id);
-      if (existing) {
-        existing.revenue = tx.revenue;
-        existing.usage = tx.usage;
-      } else {
-        tenantFinanceMap.set(tx._id, {
-          companyCode: tx._id,
-          companyName: tx.companyName,
-          revenue: tx.revenue,
-          usage: tx.usage,
-          balance: 0,
-        });
-      }
-    }
-
-    const revenueByTenant = Array.from(tenantFinanceMap.values());
-
-    const finance = {
-      totalWalletBalance,
-      totalRevenue,
-      totalUsage,
-      revenueByTenant,
-    };
-
-    // 4. Security Alerts (Failed logins or lockout events in the last 24 hours)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60_000);
     const rawAlerts = await AuditEventModel.find({
       occurredAt: { $gte: oneDayAgo },
@@ -262,7 +118,6 @@ export const superAdminDashboardService = {
 
     return {
       counts,
-      finance,
       health,
       securityAlerts,
       recentActivity,

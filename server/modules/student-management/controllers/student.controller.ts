@@ -2,12 +2,25 @@ import { Request, Response, NextFunction } from "express";
 import { StudentService } from "../services/student.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
-import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+
+/** Tên hiển thị của người đang thao tác, để lưu làm "người thêm" trên bản ghi học viên. */
+async function resolveActorName(uid: string, fallbackEmail?: string): Promise<string> {
+  try {
+    const profile = await AuthService.getUserProfile(uid);
+    return profile?.displayName || profile?.email || fallbackEmail || "";
+  } catch {
+    return fallbackEmail || "";
+  }
+}
 
 export class StudentController {
   static async create(req: AuthRequest, res: Response) {
     try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
+        requireStudentBranch(req.user!);
+      }
       let ownerId = req.user!.uid;
       let centerOwnerIds: string | string[] = "ALL";
 
@@ -19,13 +32,17 @@ export class StudentController {
         ownerId = await resolveCreateOwnerId(req.user!, companyCode);
         centerOwnerIds = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        ownerId = await resolveCreateOwnerId(req.user!);
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
-      const student = await StudentService.createStudent(ownerId, centerOwnerIds, req.body, {
+      const student = await StudentService.createStudent(ownerId, centerOwnerIds, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "students",
         actorRole: req.user!.role,
+      }, {
+        uid: req.user!.uid,
+        name: await resolveActorName(req.user!.uid, req.user!.email),
       });
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
@@ -37,17 +54,45 @@ export class StudentController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await StudentService.getStudents(ownerId, req.query);
+      const result = await StudentService.getStudents(ownerId, req.query, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
     }
   }
 
+  static async getUnassignedList(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds({ ...req.user!, branchId: undefined });
+      const result = await StudentService.getUnassignedStudents(ownerId, req.query);
+      res.json({ success: true, ...result });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
+  static async assignBranch(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const companyCode = req.user!.companyCode || req.user!.centerId;
+      const ownerId = await getAllowedOwnerIds({ ...req.user!, branchId: undefined });
+      const student = await StudentService.assignUnassignedStudentBranch(
+        ownerId,
+        req.params.id,
+        req.body.branchId,
+        companyCode,
+      );
+      if (!student) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy dữ liệu chưa gán hoặc chi nhánh hợp lệ." });
+      }
+      res.json({ success: true, data: student });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const student = await StudentService.getStudentById(ownerId, req.params.id);
+      const student = await StudentService.getStudentById(ownerId, req.params.id, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien." });
       }
@@ -65,7 +110,7 @@ export class StudentController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "students",
         actorRole: req.user!.role,
-      });
+      }, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de cap nhat." });
       }
@@ -82,7 +127,7 @@ export class StudentController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const student = await StudentService.deleteStudent(ownerId, req.params.id);
+      const student = await StudentService.deleteStudent(ownerId, req.params.id, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de xoa." });
       }
@@ -99,7 +144,7 @@ export class StudentController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
       }
-      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids);
+      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
       res.json({ success: true, message: `Da xoa thanh cong ${deletedCount} hoc vien.`, deletedCount });
     } catch (error: unknown) {
       next(error);
@@ -122,6 +167,7 @@ export class StudentController {
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
         ownerId = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
+        targetOwnerId = await resolveCreateOwnerId(req.user!);
         ownerId = await getCenterOwnerIds(req.user!);
       }
 
@@ -130,7 +176,8 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Du lieu hoc vien khong hop le." });
       }
 
-      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId);
+      const creatorName = await resolveActorName(creatorId, req.user!.email);
+      const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId, req.user!.branchId, creatorName);
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -165,7 +212,13 @@ export class StudentController {
 
       // Public registration has no dynamic-field UI and is intentionally exempt
       // from admin-form custom-field requirements.
-      const student = await StudentService.createStudent(teacherId, teacherScope, payload);
+      const student = await StudentService.createStudent(
+        teacherId,
+        teacherScope,
+        { ...payload, branchId: teacher.branchId },
+        undefined,
+        { uid: teacherId, name: teacher.displayName || teacher.email || "" },
+      );
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";
@@ -183,7 +236,7 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "So dot khong hop le." });
       }
 
-      const result = await StudentService.markInstallmentPaid(ownerId, id, installmentNo);
+      const result = await StudentService.markInstallmentPaid(ownerId, id, installmentNo, req.user!.branchId);
       if (!result.success) {
         return res.status(400).json({ success: false, error: result.error });
       }

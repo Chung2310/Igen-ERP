@@ -96,6 +96,10 @@ const studentSchema = new Schema<IStudent>(
       index: true,
     },
     ownerId: { type: String, required: true, index: true },
+    // Người thực sự tạo bản ghi (khác ownerId — ownerId là chủ sở hữu công ty)
+    createdBy: { type: String, default: "", index: true },
+    createdByName: { type: String, default: "" },
+    branchId: { type: String, index: true },
     centerId: { type: String, default: "", trim: true, index: true },
     healthCheckDate: { type: String, default: "" },
     healthCheckNotes: { type: String, default: "" },
