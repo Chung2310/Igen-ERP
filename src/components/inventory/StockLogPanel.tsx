@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Eye, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
-import { ProductItem, StockLog } from "../../types";
+import { ProductItem, StockLog, StockLogPurpose } from "../../types";
 
 type DraftLine = {
   productId: string;
@@ -12,6 +12,7 @@ type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
 type DraftPayload = {
   id?: string;
   type: "nhập" | "xuất";
+  purpose?: StockLogPurpose;
   title: string;
   operatorName: string;
   notes: string;
@@ -102,6 +103,7 @@ export function StockLogPanel({
   const [selectedLog, setSelectedLog] = useState<StockLog | null>(null);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [draftType, setDraftType] = useState<"nhập" | "xuất">("nhập");
+  const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftOperator, setDraftOperator] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
@@ -136,6 +138,7 @@ export function StockLogPanel({
   const resetDraft = () => {
     setEditingLogId(null);
     setDraftType("nhập");
+    setDraftPurpose("bán");
     setDraftTitle("");
     setDraftOperator("");
     setDraftNotes("");
@@ -152,6 +155,7 @@ export function StockLogPanel({
     const items = getLogItems(log);
     setEditingLogId(log.id);
     setDraftType(log.type as "nhập" | "xuất");
+    setDraftPurpose(log.purpose || "bán");
     setDraftTitle(getLogTitle(log));
     setDraftOperator(log.operatorName);
     setDraftNotes(log.notes);
@@ -199,6 +203,7 @@ export function StockLogPanel({
     const payload: DraftPayload = {
       id: editingLogId || undefined,
       type: draftType,
+      purpose: draftType === "xuất" ? draftPurpose : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
       notes: draftNotes.trim(),
@@ -469,6 +474,22 @@ export function StockLogPanel({
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {draftType === "xuất" && (
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Mục đích xuất kho</span>
+                    <select
+                      value={draftPurpose}
+                      onChange={(event) => setDraftPurpose(event.target.value as StockLogPurpose)}
+                      required
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    >
+                      <option value="bán">Bán hàng</option>
+                      <option value="nội bộ">Sử dụng nội bộ</option>
+                      <option value="hủy">Hủy / hàng hỏng</option>
+                      <option value="chuyển kho">Chuyển kho</option>
+                    </select>
+                  </label>
+                )}
                 <label className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Tên phiếu</span>
                   <input

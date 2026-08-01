@@ -32,6 +32,7 @@ type ProductCatalogSectionProps = {
   newProdCategory: string;
   newProdName: string;
   newProdPrice: string;
+  newProdCostPrice: string;
   newProdSKU: string;
   newProdStock: string;
   newProdBrand: string;
@@ -45,6 +46,7 @@ type ProductCatalogSectionProps = {
   setNewProdCategory: (value: string) => void;
   setNewProdName: (value: string) => void;
   setNewProdPrice: (value: string) => void;
+  setNewProdCostPrice: (value: string) => void;
   setNewProdSKU: (value: string) => void;
   setNewProdStock: (value: string) => void;
   setNewProdBrand: (value: string) => void;
@@ -80,6 +82,7 @@ export function ProductCatalogSection({
   newProdCategory,
   newProdName,
   newProdPrice,
+  newProdCostPrice,
   newProdSKU,
   newProdStock,
   newProdBrand,
@@ -93,6 +96,7 @@ export function ProductCatalogSection({
   setNewProdCategory,
   setNewProdName,
   setNewProdPrice,
+  setNewProdCostPrice,
   setNewProdSKU,
   setNewProdStock,
   setNewProdBrand,
@@ -197,6 +201,7 @@ export function ProductCatalogSection({
           newProdCategory={newProdCategory}
           newProdName={newProdName}
           newProdPrice={newProdPrice}
+          newProdCostPrice={newProdCostPrice}
           newProdSKU={newProdSKU}
           newProdStock={newProdStock}
           newProdBrand={newProdBrand}
@@ -210,6 +215,7 @@ export function ProductCatalogSection({
           setNewProdCategory={setNewProdCategory}
           setNewProdName={setNewProdName}
           setNewProdPrice={setNewProdPrice}
+          setNewProdCostPrice={setNewProdCostPrice}
           setNewProdSKU={setNewProdSKU}
           setNewProdStock={setNewProdStock}
           setNewProdBrand={setNewProdBrand}

@@ -7,6 +7,9 @@ const StockLogItemSchema = new Schema(
     sku: { type: String, required: true },
     productName: { type: String, required: true },
     quantity: { type: Number, required: true },
+    unitPrice: { type: Number, min: 0 },
+    lineTotal: { type: Number, min: 0 },
+    unitCost: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -15,6 +18,8 @@ const StockLogSchema = new Schema<IStockLog>({
   type: { type: String, enum: ["nhập", "xuất"], required: true, index: true },
   title: { type: String },
   items: { type: [StockLogItemSchema], default: [] },
+  // No default: legacy outbound records stay explicitly unclassified.
+  purpose: { type: String, enum: ["bán", "nội bộ", "hủy", "chuyển kho"], index: true },
   sku: { type: String },
   productName: { type: String },
   quantity: { type: Number, default: 0 },
@@ -25,5 +30,7 @@ const StockLogSchema = new Schema<IStockLog>({
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
 });
+
+StockLogSchema.index({ companyCode: 1, type: 1, createdAt: 1 });
 
 export const StockLogModel = model<IStockLog>("StockLog", StockLogSchema);

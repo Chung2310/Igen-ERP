@@ -11,6 +11,7 @@ type ProductModalProps = {
   newProdCategory: string;
   newProdName: string;
   newProdPrice: string;
+  newProdCostPrice: string;
   newProdSKU: string;
   newProdStock: string;
   newProdBrand: string;
@@ -24,6 +25,7 @@ type ProductModalProps = {
   setNewProdCategory: (value: string) => void;
   setNewProdName: (value: string) => void;
   setNewProdPrice: (value: string) => void;
+  setNewProdCostPrice: (value: string) => void;
   setNewProdSKU: (value: string) => void;
   setNewProdStock: (value: string) => void;
   setNewProdBrand: (value: string) => void;
@@ -40,6 +42,7 @@ export function ProductModal({
   newProdCategory,
   newProdName,
   newProdPrice,
+  newProdCostPrice,
   newProdSKU,
   newProdStock,
   newProdBrand,
@@ -53,6 +56,7 @@ export function ProductModal({
   setNewProdCategory,
   setNewProdName,
   setNewProdPrice,
+  setNewProdCostPrice,
   setNewProdSKU,
   setNewProdStock,
   setNewProdBrand,
@@ -172,6 +176,16 @@ export function ProductModal({
                     className={inputClassName}
                     value={newProdPrice}
                     onChange={(event) => setNewProdPrice(event.target.value)}
+                  />
+                </Field>
+                <Field label="Giá vốn (VNĐ)">
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Chưa khai báo"
+                    className={inputClassName}
+                    value={newProdCostPrice}
+                    onChange={(event) => setNewProdCostPrice(event.target.value)}
                   />
                 </Field>
                 <Field label="Tồn kho hiện tại">

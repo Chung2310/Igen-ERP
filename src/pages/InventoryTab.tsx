@@ -91,6 +91,7 @@ export default function InventoryTab() {
   const [newProdCategory, setNewProdCategory] = useState("");
   const [newProdStock, setNewProdStock] = useState("");
   const [newProdPrice, setNewProdPrice] = useState("");
+  const [newProdCostPrice, setNewProdCostPrice] = useState("");
   const [newProdSKU, setNewProdSKU] = useState("");
   const [newProdBrand, setNewProdBrand] = useState("");
   const [newProdUnit, setNewProdUnit] = useState("Cái");
@@ -222,6 +223,7 @@ export default function InventoryTab() {
     setNewProdName("");
     setNewProdStock("");
     setNewProdPrice("");
+    setNewProdCostPrice("");
     setNewProdSKU("");
     setNewProdBrand("");
     setNewProdUnit("Cái");
@@ -244,6 +246,7 @@ export default function InventoryTab() {
     setNewProdCategory(product.category);
     setNewProdStock(String(product.stock));
     setNewProdPrice(String(product.price));
+    setNewProdCostPrice(product.costPrice === undefined ? "" : String(product.costPrice));
     setNewProdSKU(product.sku);
     setNewProdBrand(product.brand || "");
     setNewProdUnit(product.unit || "Cái");
@@ -273,6 +276,7 @@ export default function InventoryTab() {
     const name = newProdName.trim();
     const stock = parseInt(newProdStock, 10) || 0;
     const price = parseInt(newProdPrice, 10) || 0;
+    const costPrice = newProdCostPrice === "" ? undefined : Math.max(0, Number(newProdCostPrice));
     const category = newProdCategory || "Chưa phân loại";
     const brand = newProdBrand.trim();
     const unit = newProdUnit.trim() || "Cái";
@@ -299,6 +303,7 @@ export default function InventoryTab() {
           unit,
           stock,
           price,
+          costPrice,
           description,
           status,
           imageFile: newProdImageFile,
@@ -320,6 +325,7 @@ export default function InventoryTab() {
           unit,
           stock,
           price,
+          costPrice,
           description,
           status,
           imageFile: newProdImageFile,
@@ -678,6 +684,7 @@ export default function InventoryTab() {
 
         await inventoryStockLogService.saveImportedLog(log.id, {
           type: log.type as "nhập" | "xuất",
+          purpose: log.purpose,
           title: (log as StockLog & { title?: string }).title || `${log.type === "nhập" ? "Phiếu nhập" : "Phiếu xuất"} import`,
           items: resolvedItems.map((item) => ({
             productId: item.product.id,
@@ -707,6 +714,7 @@ export default function InventoryTab() {
 
   const handleCreateTransaction = async (payload: {
     type: "nhập" | "xuất";
+    purpose?: import("../types").StockLogPurpose;
     title: string;
     operatorName: string;
     notes: string;
@@ -748,6 +756,7 @@ export default function InventoryTab() {
     // Lưu phiếu vào Firebase
     await inventoryStockLogService.createLog({
       type: payload.type,
+      purpose: payload.purpose,
       title: payload.title,
       items: logItems,
       sku: resolvedItems[0].product.sku,
@@ -764,6 +773,7 @@ export default function InventoryTab() {
   const handleUpdateTransaction = async (payload: {
     id?: string;
     type: "nhập" | "xuất";
+    purpose?: import("../types").StockLogPurpose;
     title: string;
     operatorName: string;
     notes: string;
@@ -842,6 +852,7 @@ export default function InventoryTab() {
     // Cập nhật phiếu trong Firebase
     await inventoryStockLogService.updateLog(payload.id, {
       type: payload.type,
+      purpose: payload.purpose,
       title: payload.title,
       items: logItems,
       sku: normalizedNewItems[0].product.sku,
@@ -872,6 +883,7 @@ export default function InventoryTab() {
     await handleUpdateTransaction({
       id: existingLog.id,
       type: existingLog.type as "nhập" | "xuất",
+      purpose: existingLog.purpose,
       title: (existingLog as StockLog & { title?: string }).title || `${existingLog.type === "nhập" ? "Phiếu nhập" : "Phiếu xuất"}: ${existingLog.productName}`,
       operatorName: existingLog.operatorName,
       notes: existingLog.notes,
@@ -1179,6 +1191,7 @@ export default function InventoryTab() {
                 newProdCategory={newProdCategory}
                 newProdName={newProdName}
                 newProdPrice={newProdPrice}
+                newProdCostPrice={newProdCostPrice}
                 newProdSKU={newProdSKU}
                 newProdStock={newProdStock}
                 newProdBrand={newProdBrand}
@@ -1192,6 +1205,7 @@ export default function InventoryTab() {
                 setNewProdCategory={setNewProdCategory}
                 setNewProdName={setNewProdName}
                 setNewProdPrice={setNewProdPrice}
+                setNewProdCostPrice={setNewProdCostPrice}
                 setNewProdSKU={setNewProdSKU}
                 setNewProdStock={setNewProdStock}
                 setNewProdBrand={setNewProdBrand}

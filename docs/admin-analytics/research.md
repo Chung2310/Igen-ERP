@@ -11,7 +11,7 @@
 | GĐ 1 — Khung trang + gate bảo mật | ✅ Xong | `fe3ea5d7` |
 | Mục 8.5 — Chuẩn hóa ngày thanh toán (`paidOn`) | ✅ Xong | `cc6995f7` |
 | GĐ 2 — Doanh thu học phí theo thời gian | ✅ Xong | `42026a58` |
-| GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ⬜ Chưa làm | |
+| GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ✅ Xong | working tree |
 | GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ⬜ Chưa làm | |
 | GĐ 5 — Công nợ & chi phí | ⬜ Chưa làm | |
 | GĐ 6 — Xuất báo cáo Excel/CSV | ⬜ Chưa làm | |
@@ -226,13 +226,18 @@ Gate `requireRole` được gắn ở **cấp router** (`.use()`) thay vì từn
 
 Aggregation trên `Payment.paidOn`, KPI + biểu đồ cột, so sánh kỳ trước. Biểu đồ một chuỗi nên bỏ legend; màu lấy từ slot categorical 1 và đã **chạy validator** (đạt lightness, chroma, contrast trên cả nền sáng lẫn nền tối) thay vì ước lượng bằng mắt.
 
-**Giai đoạn 3 — Schema kho — ⬜ việc tiếp theo:**
+**Giai đoạn 3 — Schema kho — ✅ xong:**
 - `StockLogItemSchema`: thêm `unitPrice`, `lineTotal`, `unitCost`
 - `StockLogSchema`: thêm `purpose`
 - `ProductSchema`: thêm `costPrice`
 - Cập nhật luồng tạo phiếu xuất để ghi snapshot
 - Index `{ companyCode: 1, type: 1, createdAt: 1 }`
 - Chốt mốc "doanh thu kho tính từ ngày X"
+
+Server tự tra Product theo `companyCode` + `branchId` và ghi snapshot, không tin
+giá do client gửi lên. Phiếu xuất mới, kể cả import Excel, bắt buộc có
+`purpose`; phiếu lịch sử vẫn để trống. Mốc doanh thu kho bắt đầu từ
+phiếu có snapshot; không backfill giá cho dữ liệu cũ.
 
 **Giai đoạn 4 — Gộp doanh thu:** biểu đồ cột chồng 2 nguồn, breakdown theo nhóm sản phẩm, lãi gộp hàng hóa.
 
@@ -287,7 +292,7 @@ Ba thứ dưới đây là **nợ kỹ thuật đang âm thầm sinh dữ liệu
 
 1. ✅ Siết `payment.validation.ts` — regex format ngày thay vì `Joi.string()`.
 2. ✅ Thêm `paidOn: Date` (có index) vào `Payment`, ghi khi tạo + script backfill.
-3. ⬜ Thêm `purpose` (required) + `unitPrice`/`lineTotal` snapshot vào luồng tạo `StockLog` — thuộc GĐ 3.
+3. ✅ Thêm `purpose` (required) + `unitPrice`/`lineTotal` snapshot vào luồng tạo `StockLog` — GĐ 3.
 
 Kể cả khi trang phân tích bị hoãn, ba việc này vẫn đáng làm.
 

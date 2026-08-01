@@ -10,6 +10,7 @@ export interface ProductItem {
   stock: number;
   minStockAlert: number;
   price: number;
+  costPrice?: number;
   description?: string;
   status: "Active" | "Inactive";
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";
@@ -30,7 +31,12 @@ export interface StockLogItem {
   sku: string;
   productName: string;
   quantity: number;
+  unitPrice?: number;
+  lineTotal?: number;
+  unitCost?: number;
 }
+
+export type StockLogPurpose = "bán" | "nội bộ" | "hủy" | "chuyển kho";
 
 export interface StockLog {
   id: string;
@@ -39,6 +45,8 @@ export interface StockLog {
   title?: string;
   /** Danh sách sản phẩm trong phiếu (multi-item) */
   items?: StockLogItem[];
+  /** Undefined only for legacy outbound records that have not been classified. */
+  purpose?: StockLogPurpose;
   /** Legacy: SKU đại diện (dùng cho import/export Excel & backward compat) */
   sku: string;
   /** Legacy: tên sản phẩm đại diện */

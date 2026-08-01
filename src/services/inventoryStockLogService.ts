@@ -1,10 +1,11 @@
 import { getAccessToken } from "./authService";
-import { StockLog, StockLogItem } from "../types";
+import { StockLog, StockLogItem, StockLogPurpose } from "../types";
 
 const COLLECTION_NAME = "inventoryStockLogs";
 
 export type StockLogCreateInput = {
   type: "nhập" | "xuất";
+  purpose?: StockLogPurpose;
   title: string;
   operatorName: string;
   notes: string;
@@ -84,6 +85,7 @@ export const inventoryStockLogService = {
         },
         body: JSON.stringify({
           type: input.type,
+          purpose: input.type === "xuất" ? input.purpose : undefined,
           title: input.title,
           items: input.items,
           sku: input.sku,
@@ -119,6 +121,7 @@ export const inventoryStockLogService = {
         },
         body: JSON.stringify({
           type: input.type,
+          purpose: input.type === "xuất" ? input.purpose : undefined,
           title: input.title,
           items: input.items,
           sku: input.sku,
@@ -151,6 +154,7 @@ export const inventoryStockLogService = {
 
       const bodyData = {
         type: input.type,
+        purpose: input.type === "xuất" ? input.purpose : undefined,
         title: input.title,
         items: input.items,
         sku: input.sku,
