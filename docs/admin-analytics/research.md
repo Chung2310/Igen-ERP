@@ -1,6 +1,45 @@
 # Nghiên cứu: Trang Tổng quan riêng cho Admin (Phân tích & Báo cáo doanh thu)
 
-> Tài liệu khảo sát + thiết kế đề xuất. Chưa có code nào được thay đổi.
+> Tài liệu khảo sát, thiết kế và nhật ký triển khai.
+> Nhánh: `feat/admin-analytics-dashboard`.
+
+## 0. Tình trạng triển khai
+
+| Giai đoạn | Trạng thái | Commit |
+|---|---|---|
+| Khảo sát & thiết kế | ✅ Xong | `d42df1c7` |
+| GĐ 1 — Khung trang + gate bảo mật | ✅ Xong | `fe3ea5d7` |
+| Mục 8.5 — Chuẩn hóa ngày thanh toán (`paidOn`) | ✅ Xong | `cc6995f7` |
+| GĐ 2 — Doanh thu học phí theo thời gian | ✅ Xong | `42026a58` |
+| GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ⬜ Chưa làm | |
+| GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ⬜ Chưa làm | |
+| GĐ 5 — Công nợ & chi phí | ⬜ Chưa làm | |
+| GĐ 6 — Xuất báo cáo Excel/CSV | ⬜ Chưa làm | |
+
+### Đã tạo
+
+| File | Vai trò |
+|---|---|
+| `server/router/analytics.router.ts` | Gate `requireRole` ở **cấp router** + validation query |
+| `server/controller/analytics.controller.ts` | `/meta`, `/revenue` |
+| `server/service/analytics.service.ts` | `getMeta`, `getTuitionRevenue` |
+| `server/modules/student-management/utils/payment-date.util.ts` | Parser ngày `DD/MM/YYYY` + `YYYY-MM-DD` |
+| `server/scripts/backfill-payment-paid-on.ts` | Backfill `paidOn` (`yarn backfill:payment-paid-on`) |
+| `src/pages/AnalyticsTab.tsx` | Trang báo cáo |
+| `src/components/analytics/RevenueChart.tsx` | Biểu đồ cột doanh thu |
+| `src/services/analyticsService.ts` | Client API |
+
+Test: 23 test (4 gate API, 4 gate route, 8 parser ngày, 2 validation, 7 aggregation… một số file gộp nhiều nhóm). Aggregation mock Mongo nên chạy không cần DB.
+
+### Phát hiện quan trọng trong lúc làm (không có trong khảo sát ban đầu)
+
+**`getAllowedOwnerIds` thu hẹp theo `branchId` của chính người đăng nhập** (`auth.util.ts:79-83`). Nếu dùng lại hàm này cho báo cáo, **admin có gán chi nhánh sẽ chỉ thấy doanh thu chi nhánh mình** — trái với yêu cầu báo cáo toàn công ty. Vì vậy `analytics.service.ts` có `resolveCompanyOwnerIds` riêng, luôn ở phạm vi công ty. Đây là chỗ dễ bị "sửa lại cho thống nhất" nên đã ghi chú ngay trong code.
+
+### Việc còn treo
+
+- **Chưa xem biểu đồ chạy thật.** Cần MongoDB + dữ liệu `Payment` + tài khoản admin. Geometry và nhãn trục mới chỉ kiểm qua đọc code, `tsc` và `vite build`. Nên nhìn tận mắt trước khi merge.
+- **`docs/` và `server/scripts/` đều nằm trong `.gitignore`** (dòng 46 và 21) nhưng vẫn có file được track — phải dùng `git add -f`. Hệ quả đã lộ ra: `server/scripts/reset-superadmin-totp.ts` được khai báo trong `package.json` mà **không có trong repo**, ai clone mới chạy sẽ lỗi.
+- **Repo trộn 2 test runner trong cùng thư mục** — `services/payment-branch-isolation.test.ts` là vitest, `utils/*.test.ts` là `node:test`. Không có cách nào biết trước ngoài mở file ra xem.
 
 ## 1. Hiện trạng
 
@@ -96,13 +135,18 @@ Nếu sau này kế toán cần xem báo cáo, nâng cấp lên permission-based
 ## 4. Thiết kế API
 
 ```
-GET /api/v1/analytics/revenue?from=&to=&granularity=day|week|month&branchId=
-GET /api/v1/analytics/receivables?asOf=
-GET /api/v1/analytics/expenses?from=&to=
-GET /api/v1/analytics/pnl?from=&to=            # gộp revenue - expenses
-GET /api/v1/analytics/breakdown?dimension=branch|course|partner|status&from=&to=
-GET /api/v1/analytics/export?format=xlsx|csv&report=...
+GET /api/v1/analytics/meta                     # ✅ đã có — tình trạng sẵn sàng từng nguồn
+GET /api/v1/analytics/revenue?from=&to=&granularity=day|week|month   # ✅ đã có
+GET /api/v1/analytics/receivables?asOf=        # GĐ 5
+GET /api/v1/analytics/expenses?from=&to=       # GĐ 5
+GET /api/v1/analytics/pnl?from=&to=            # GĐ 5 — gộp revenue - expenses
+GET /api/v1/analytics/breakdown?dimension=branch|course|partner|status&from=&to=   # GĐ 4
+GET /api/v1/analytics/export?format=xlsx|csv&report=...             # GĐ 6
 ```
+
+`/meta` không nằm trong thiết kế ban đầu, thêm vào khi làm GĐ 1: UI cần biết nguồn
+nào chưa đủ dữ liệu để **ẩn khối đó kèm lý do**, thay vì vẽ số 0 — số 0 trong báo
+cáo tài chính bị đọc là "không có doanh thu", khác hẳn "chưa có dữ liệu".
 
 Tất cả đi qua `requireAuth` → `requireRole(["admin","superadmin"])`, và **luôn** ép `companyCode` từ `req.user` vào query — không bao giờ nhận `companyCode` từ client. `branchId` trên query string chỉ là bộ lọc hiển thị, không phải ranh giới bảo mật (xem 3.3).
 
@@ -116,13 +160,25 @@ Thêm tham số `source=tuition|goods|all` để tách/gộp hai dòng doanh thu
   data: {
     range: { from, to, granularity },
     total: number,
-    previousTotal: number,      // kỳ liền trước, để tính % tăng trưởng
-    growthPct: number,
+    previousTotal: number,          // kỳ liền trước, cùng độ dài
+    growthPct: number | null,       // null khi chưa có kỳ trước — KHÔNG phải 0
     series: [{ bucket: "2026-07-01", amount: number, count: number }],
+    excludedRecords: number,        // giao dịch thiếu paidOn, không xếp được vào kỳ nào
     currency: "VND"
   }
 }
 ```
+
+Hai điểm khác thiết kế ban đầu, đều để tránh đọc sai số liệu:
+
+- **`growthPct` có thể là `null`.** Ban đầu định để `number`. Nhưng khi kỳ trước
+  bằng 0 thì trả `0` sẽ bị đọc là "không tăng trưởng", trong khi sự thật là "chưa
+  có gì để so". UI hiển thị chữ thay vì con số trong trường hợp này.
+- **Thêm `excludedRecords`.** Giao dịch thiếu `paidOn` bị loại khỏi mọi kỳ. Không
+  báo ra thì báo cáo thiếu tiền mà không ai biết tại sao.
+
+Chi tiết cài đặt: kỳ so sánh dùng `$lt` (không phải `$lte`) tại biên dưới, nếu
+không thì thời điểm giao nhau giữa hai kỳ bị đếm hai lần.
 
 ## 5. Nội dung trang
 
@@ -155,7 +211,10 @@ Thêm tham số `source=tuition|goods|all` để tách/gộp hai dòng doanh thu
 
 ## 7. Kế hoạch triển khai
 
-**Giai đoạn 1 — Khung + bảo mật (nền tảng, không có nó thì mọi thứ sau đều rò rỉ)**
+**Giai đoạn 1 — Khung + bảo mật — ✅ xong (`fe3ea5d7`)**
+
+Gate `requireRole` được gắn ở **cấp router** (`.use()`) thay vì từng route, để endpoint thêm về sau được bảo vệ mặc định — không phụ thuộc người viết có nhớ gắn middleware hay không. Test khẳng định đúng tính chất đó, không chỉ test endpoint hiện có.
+
 - `src/types/common.ts`: thêm `"PHÂN TÍCH & BÁO CÁO"` vào `TabType`
 - `src/seo/seo-config.ts`: thêm entry `path: "/phan-tich"`
 - `src/router/route-config.tsx`: route + `canAccess`
@@ -163,9 +222,11 @@ Thêm tham số `source=tuition|goods|all` để tách/gộp hai dòng doanh thu
 - `server/router/analytics.router.ts` (`requireAuth` + `requireRole`) + đăng ký ở `server/router/index.ts`
 - **Test:** user thường / `branch_owner` gọi API → 403; gõ thẳng `/phan-tich` → chặn ở router (theo mẫu `superAdminRoute.test.ts`, `module-route-guards.test.ts`)
 
-**Giai đoạn 2 — Doanh thu học phí:** `analytics.service.ts` aggregation trên `Payment`, KPI + biểu đồ thời gian, so sánh kỳ trước. Phần này chạy được ngay, không chờ schema kho.
+**Giai đoạn 2 — Doanh thu học phí — ✅ xong (`42026a58`)**
 
-**Giai đoạn 3 — Schema kho (song song với GĐ 2):**
+Aggregation trên `Payment.paidOn`, KPI + biểu đồ cột, so sánh kỳ trước. Biểu đồ một chuỗi nên bỏ legend; màu lấy từ slot categorical 1 và đã **chạy validator** (đạt lightness, chroma, contrast trên cả nền sáng lẫn nền tối) thay vì ước lượng bằng mắt.
+
+**Giai đoạn 3 — Schema kho — ⬜ việc tiếp theo:**
 - `StockLogItemSchema`: thêm `unitPrice`, `lineTotal`, `unitCost`
 - `StockLogSchema`: thêm `purpose`
 - `ProductSchema`: thêm `costPrice`
@@ -183,7 +244,14 @@ Thêm tham số `source=tuition|goods|all` để tách/gộp hai dòng doanh thu
 
 Nguyên tắc xuyên suốt: **báo cáo tài chính thà thiếu còn hơn sai theo hướng lạc quan.** Doanh thu bị thổi phồng dẫn tới quyết định kinh doanh sai và gần như không ai phát hiện ra; doanh thu thiếu thì thấy ngay và sửa được.
 
-### 8.1 Trục thời gian: dùng `createdAt`, **không** dùng `Payment.date` — đã xác minh
+### 8.1 Trục thời gian — đã triển khai bằng `paidOn` (tốt hơn `createdAt`)
+
+> **Cập nhật so với đề xuất ban đầu.** Ban đầu định gom nhóm theo `createdAt`.
+> Khi triển khai đã làm thẳng phương án đúng hơn: thêm hẳn `paidOn: Date` và
+> backfill từ `date`. Lý do: `createdAt` là lúc *nhập liệu*, nên phiếu nhập lùi
+> ngày (thu tiền cuối tháng, nhập đầu tháng sau) sẽ rơi sai kỳ. `paidOn` giữ đúng
+> *ngày thu tiền*. Phần phân tích bên dưới vẫn giữ nguyên vì nó giải thích vì sao
+> không được dùng `Payment.date`.
 
 `Payment.date` được ghi qua `toDisplayDate()` (`src/modules/student-management/lib/utils.ts:68-75`) từ `AddPaymentModal.tsx:141`, tức lưu dạng **`DD/MM/YYYY`**. Validation phía server chỉ là `Joi.string().required()` (`payment.validation.ts:15`) — không ràng buộc format, nên DB nhiều khả năng lẫn cả `YYYY-MM-DD` (dữ liệu import/cũ) lẫn `DD/MM/YYYY`.
 
@@ -213,12 +281,18 @@ Lãi gộp là chỉ số admin thực sự cần. Nhưng nó phụ thuộc `cos
 
 **Quyết định:** GĐ 1–3 **ẩn hẳn** thẻ Lợi nhuận gộp (không hiện số 0, không hiện "—" gây hiểu nhầm là lãi bằng 0). Bật lên ở GĐ 4.
 
-### 8.5 Việc nên làm ngay, độc lập với dashboard
+### 8.5 Việc nên làm ngay, độc lập với dashboard — ✅ phần `Payment` đã xong (`cc6995f7`)
 
 Ba thứ dưới đây là **nợ kỹ thuật đang âm thầm sinh dữ liệu bẩn** mỗi ngày. Sửa sớm thì lượng dữ liệu phải vá về sau càng ít:
 
-1. Siết `payment.validation.ts` — regex format ngày thay vì `Joi.string()`.
-2. Thêm `paidOn: Date` vào `Payment`, ghi song song.
-3. Thêm `purpose` (required) + `unitPrice`/`lineTotal` snapshot vào luồng tạo `StockLog`.
+1. ✅ Siết `payment.validation.ts` — regex format ngày thay vì `Joi.string()`.
+2. ✅ Thêm `paidOn: Date` (có index) vào `Payment`, ghi khi tạo + script backfill.
+3. ⬜ Thêm `purpose` (required) + `unitPrice`/`lineTotal` snapshot vào luồng tạo `StockLog` — thuộc GĐ 3.
 
 Kể cả khi trang phân tích bị hoãn, ba việc này vẫn đáng làm.
+
+**Ghi chú khi làm mục 1–2:** chỉ có đúng **một** luồng tạo giao dịch
+(`AddPaymentModal.tsx:135`) và nó gửi `DD/MM/YYYY`, nên siết validation không phá
+vỡ gì. Cũng **không có luồng update** nào sửa `date`, nên `paidOn` không thể lệch
+khỏi `date` về sau. Parser dùng UTC để ngày không trôi theo múi giờ máy chủ, và
+từ chối ngày tràn (`31/02` → `null`) thay vì để `Date` âm thầm quy đổi sang tháng sau.
