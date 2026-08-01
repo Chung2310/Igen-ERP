@@ -1170,7 +1170,9 @@ export default function CalendarTab({
 
   return (
     <div
-      className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-5 overflow-y-auto duration-500"
+      className={`flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-5 duration-500 ${
+        currentSubTab === "attendance" ? "overflow-hidden" : "overflow-y-auto"
+      }`}
       id="calendar_tab_wrapper"
     >
       {/* Subtab Switcher */}
