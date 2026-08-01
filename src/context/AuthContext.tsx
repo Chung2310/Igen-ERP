@@ -8,6 +8,7 @@ import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
 import { socketService } from "../services/socketService";
 import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
+import { ensureEntityPresetLoaded } from "../modules/student-management/hooks/entityPresetStore";
 
 export interface ErpLoginChallenge {
   status: "challenge_required";
@@ -78,6 +79,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(refreshInterval);
   }, []);
 
+  useEffect(() => {
+    if (!userProfile) return;
+    void ensureEntityPresetLoaded();
+  }, [userProfile?.uid, userProfile?.companyCode]);
   useEffect(() => {
     if (!userProfile?.companyCode) return;
     const companyCode = userProfile.companyCode.trim().toUpperCase();
