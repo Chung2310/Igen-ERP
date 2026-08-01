@@ -1,8 +1,28 @@
 import { Router } from "express";
+import Joi from "joi";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { validateRequest } from "../middleware/validation";
 import { analyticsController } from "../controller/analytics.controller";
 
 export const analyticsRouter = Router();
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const revenueSchema = {
+  query: Joi.object({
+    from: Joi.string().regex(DATE_PATTERN).required().messages({
+      "string.pattern.base": "from phải đúng định dạng YYYY-MM-DD.",
+      "any.required": "Cần chỉ định khoảng thời gian (from).",
+    }),
+    to: Joi.string().regex(DATE_PATTERN).required().messages({
+      "string.pattern.base": "to phải đúng định dạng YYYY-MM-DD.",
+      "any.required": "Cần chỉ định khoảng thời gian (to).",
+    }),
+    granularity: Joi.string().valid("day", "week", "month").optional().messages({
+      "any.only": "granularity phải là day, week hoặc month.",
+    }),
+  }),
+};
 
 /**
  * Khu vực Phân tích & Báo cáo — chỉ dành cho admin/superadmin.
@@ -19,3 +39,10 @@ analyticsRouter.use(requireAuth as any, requireRole(["admin", "superadmin"]) as 
 
 // Metadata: báo cáo nào đang dùng được, nguồn dữ liệu nào còn thiếu điều kiện
 analyticsRouter.get("/meta", analyticsController.getMeta as any);
+
+// Doanh thu học phí theo thời gian, kèm so sánh kỳ trước
+analyticsRouter.get(
+  "/revenue",
+  validateRequest(revenueSchema),
+  analyticsController.getRevenue as any
+);
