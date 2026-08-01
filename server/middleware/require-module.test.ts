@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveModuleAccess } from "./require-module";
+import { CompanyModel } from "../model/company.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
+import { clearModuleCache, getModuleStateForCompany, resolveModuleAccess } from "./require-module";
 
 test("superadmin always bypasses tenant module restrictions", () => {
   assert.equal(resolveModuleAccess({ role: "superadmin", companyCode: "SYSTEM" }, "hr", []), true);
@@ -18,6 +20,25 @@ test("requireModule denies Student and allows Worker for labor tenants with stal
   const laborModules = ["student", "worker", "hr"];
   assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "student", laborModules, true, "labor"), false);
   assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "worker", laborModules, true, "labor"), true);
+});
+
+test("legacy worker tenant route access uses the read-only entity preset fallback", async () => {
+  const originalCompanyFindOne = CompanyModel.findOne;
+  const originalSettingsFindOne = ModuleSettings.findOne;
+  clearModuleCache("LEGACY");
+  (CompanyModel as any).findOne = () => ({ select: () => ({ lean: async () => ({ enabledModules: ["student"] }) }) });
+  (ModuleSettings as any).findOne = () => ({ select: () => ({ lean: async () => ({ entityPreset: "worker" }) }) });
+
+  try {
+    const state = await getModuleStateForCompany("LEGACY");
+    assert.equal(state.businessType, "labor");
+    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "worker", state.modules, state.exists, state.businessType), true);
+    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "student", state.modules, state.exists, state.businessType), false);
+  } finally {
+    CompanyModel.findOne = originalCompanyFindOne;
+    ModuleSettings.findOne = originalSettingsFindOne;
+    clearModuleCache("LEGACY");
+  }
 });
 
 test("missing or empty module data remains backward compatible", () => {

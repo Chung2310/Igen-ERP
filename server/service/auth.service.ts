@@ -15,7 +15,7 @@ import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
 import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
-import { sanitizeModuleKeys } from "../config/module-keys";
+import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
@@ -250,7 +250,7 @@ export const authService = {
    * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
    */
   async registerCompanyAndAdmin(data: any): Promise<any> {
-    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules } = data;
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules, businessType: businessTypeInput, entityPreset } = data;
     const normalizedCode = companyCode.toUpperCase().trim();
     const emailLower = ownerEmail.toLowerCase().trim();
 
@@ -267,11 +267,13 @@ export const authService = {
     }
 
     // 3. Tạo doanh nghiệp
+    const businessType = resolveBusinessType(businessTypeInput, entityPreset);
     const newCompany = new CompanyModel({
       code: normalizedCode,
       name: companyName.trim(),
       ownerEmail: emailLower,
-      enabledModules: sanitizeModuleKeys(enabledModules),
+      businessType,
+      enabledModules: filterModulesForBusinessType(enabledModules, businessType),
       createdAt: new Date(),
     });
     await newCompany.save();

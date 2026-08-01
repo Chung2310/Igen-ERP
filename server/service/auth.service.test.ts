@@ -32,3 +32,38 @@ test("login allows a legacy company without lifecycleStatus", async () => {
     CompanyModel.findOne = originalFindCompany;
   }
 });
+
+test("register-company persists labor business type and filters stale student modules", async () => {
+  const originalCompanyFindOne = CompanyModel.findOne;
+  const originalCompanySave = CompanyModel.prototype.save;
+  const originalUserFindOne = UserModel.findOne;
+  const originalUserSave = UserModel.prototype.save;
+  let savedCompany: any;
+
+  (CompanyModel as any).findOne = async () => null;
+  (CompanyModel.prototype as any).save = async function () {
+    savedCompany = this;
+    return this;
+  };
+  (UserModel as any).findOne = async () => null;
+  (UserModel.prototype as any).save = async function () { return this; };
+
+  try {
+    await authService.registerCompanyAndAdmin({
+      companyName: "Labor Co",
+      companyCode: "labor",
+      ownerName: "Owner",
+      ownerEmail: "owner@labor.test",
+      ownerPassword: "password",
+      businessType: "labor",
+      enabledModules: ["student"],
+    });
+    assert.equal(savedCompany.businessType, "labor");
+    assert.deepEqual(savedCompany.enabledModules, ["worker"]);
+  } finally {
+    CompanyModel.findOne = originalCompanyFindOne;
+    CompanyModel.prototype.save = originalCompanySave;
+    UserModel.findOne = originalUserFindOne;
+    UserModel.prototype.save = originalUserSave;
+  }
+});

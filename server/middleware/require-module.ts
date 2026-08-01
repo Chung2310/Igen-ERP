@@ -2,6 +2,7 @@ import type { NextFunction, Response } from "express";
 import type { ModuleKey } from "../config/module-keys";
 import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 import { CompanyModel } from "../model/company.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 
 const CACHE_TTL_MS = 60_000;
 type CompanyModuleState = { exists: boolean; modules: string[] | undefined; businessType: unknown };
@@ -33,7 +34,10 @@ export async function getModuleStateForCompany(companyCode: string): Promise<Com
   }
 
   const company = await CompanyModel.findOne({ code }).select("enabledModules businessType").lean();
-  const state = { exists: Boolean(company), modules: company?.enabledModules, businessType: company?.businessType };
+  const legacyEntityPreset = company && !company.businessType
+    ? (await ModuleSettings.findOne({ tenantId: code }).select("entityPreset").lean())?.entityPreset
+    : undefined;
+  const state = { exists: Boolean(company), modules: company?.enabledModules, businessType: resolveBusinessType(company?.businessType, legacyEntityPreset) };
   moduleCache.set(code, { ...state, expiresAt: Date.now() + CACHE_TTL_MS });
   return state;
 }
