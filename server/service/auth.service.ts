@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { normalizeBirthDate } from "./birth-date";
 import { BranchModel } from "../model/branch.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 import { CompanyModel } from "../model/company.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
@@ -440,7 +441,15 @@ export const authService = {
     const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
     const newName = updateData.name ? updateData.name.trim() : undefined;
     const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
-    const newEnabledModules = resolveCompanyModuleUpdate({ ...updateData, businessType: company.businessType });
+    const legacyEntityPreset = updateData.enabledModules !== undefined && !company.businessType
+      ? (await ModuleSettings.findOne({ tenantId: company.code }).select("entityPreset").lean())?.entityPreset
+      : undefined;
+    const businessType = resolveBusinessType(company.businessType, legacyEntityPreset);
+    const newEnabledModules = resolveCompanyModuleUpdate({
+      ...updateData,
+      businessType: company.businessType,
+      legacyEntityPreset,
+    });
 
     // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
     if (newCode && newCode !== oldCode) {
@@ -489,7 +498,10 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
-    if (newEnabledModules !== undefined) company.enabledModules = newEnabledModules;
+    if (newEnabledModules !== undefined) {
+      company.enabledModules = newEnabledModules;
+      company.businessType = businessType;
+    }
 
     const savedCompany = await company.save();
     clearModuleCache(oldCode);

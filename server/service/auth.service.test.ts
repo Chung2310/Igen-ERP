@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 import { authService } from "./auth.service";
 
 test("login allows a legacy company without lifecycleStatus", async () => {
@@ -65,5 +66,30 @@ test("register-company persists labor business type and filters stale student mo
     CompanyModel.prototype.save = originalCompanySave;
     UserModel.findOne = originalUserFindOne;
     UserModel.prototype.save = originalUserSave;
+  }
+});
+
+test("update-company applies a legacy worker preset when filtering modules", async () => {
+  const originalCompanyFindById = CompanyModel.findById;
+  const originalSettingsFindOne = ModuleSettings.findOne;
+  const company: any = {
+    code: "LEGACY",
+    name: "Legacy Labor Co",
+    enabledModules: ["student"],
+    save: async function () { return this; },
+  };
+
+  (CompanyModel as any).findById = async () => company;
+  (ModuleSettings as any).findOne = () => ({
+    select: () => ({ lean: async () => ({ entityPreset: "worker" }) }),
+  });
+
+  try {
+    const updated = await authService.updateCompany("legacy-company-id", { enabledModules: ["student"] });
+    assert.equal(updated.businessType, "labor");
+    assert.deepEqual(updated.enabledModules, ["worker"]);
+  } finally {
+    CompanyModel.findById = originalCompanyFindById;
+    ModuleSettings.findOne = originalSettingsFindOne;
   }
 });
