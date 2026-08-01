@@ -280,7 +280,7 @@ export default function CalendarTab({
 
       if (!isManager) {
         url += `&uid=${userProfile?.uid}`;
-      } else if (logFilterEmployee !== "all") {
+      } else if (attendanceViewMode === "week" && logFilterEmployee !== "all") {
         url += `&uid=${logFilterEmployee}`;
       }
 
@@ -336,11 +336,12 @@ export default function CalendarTab({
 
   useEffect(() => {
     if (!selectedCompanyCode) return;
+    const activeYear = currentSubTab === "attendance" ? selectedYear : year;
     companyWorkCalendarService
-      .list(year, true)
+      .list(activeYear, true)
       .then(setAppliedHolidays)
       .catch(() => setAppliedHolidays([]));
-  }, [selectedCompanyCode, year]);
+  }, [selectedCompanyCode, year, selectedYear, currentSubTab]);
 
   const holidayByDate = new Map(appliedHolidays.map((h) => [h.date, h]));
 

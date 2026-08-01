@@ -172,9 +172,9 @@ export function WorkerOverviewDashboard({
       case 'Đã nộp HS':
         return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-cyan-50 text-cyan-700 border border-cyan-200">Đã nộp HS</span>;
       case 'Đang học':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">Đang tuyển / Đào tạo</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">{entityLabel.preset === 'student' ? 'Đang học' : 'Đang tuyển / Đào tạo'}</span>;
       case 'Đã đậu':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">Đã tiếp nhận</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">{entityLabel.preset === 'student' ? 'Đã tốt nghiệp' : 'Đã tiếp nhận'}</span>;
       default:
         return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-700 border border-slate-200">{main}</span>;
     }
@@ -203,7 +203,7 @@ export function WorkerOverviewDashboard({
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                  Biểu đồ Cột - Đăng ký Lao động theo Tháng năm {currentYear}
+                  Biểu đồ Cột - Đăng ký {entityLabel.titleCase} theo Tháng năm {currentYear}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                   Số lượng ứng viên ghi nhận theo từng tháng trong năm
@@ -231,7 +231,7 @@ export function WorkerOverviewDashboard({
                   <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
                     {/* Tooltip on hover */}
                     <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute -top-8 bg-slate-900 text-white text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-20">
-                      {m.fullLabel}: <strong>{m.count}</strong> lao động
+                      {m.fullLabel}: <strong>{m.count}</strong> {entityLabel.singular}
                     </div>
 
                     {/* Value Badge above column */}
@@ -293,7 +293,7 @@ export function WorkerOverviewDashboard({
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between text-xs font-bold">
                     <span className="text-slate-700 truncate max-w-[180px] font-black">{item.rank}</span>
-                    <span className="text-slate-500 font-extrabold">{item.count} lao động ({item.percent}%)</span>
+                    <span className="text-slate-500 font-extrabold">{item.count} {entityLabel.singular} ({item.percent}%)</span>
                   </div>
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                     <div
@@ -356,10 +356,10 @@ export function WorkerOverviewDashboard({
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                Danh sách Chi tiết Lao động ({tableWorkers.length})
+                Danh sách Chi tiết {entityLabel.titleCase} ({tableWorkers.length})
               </h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Hiển thị dữ liệu chuẩn theo đúng các trường thông tin lao động trong hệ thống
+                Hiển thị dữ liệu chuẩn theo đúng các trường thông tin {entityLabel.singular} trong hệ thống
               </p>
             </div>
           </div>
@@ -401,7 +401,7 @@ export function WorkerOverviewDashboard({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <th className="px-4 py-3">Họ và tên lao động</th>
+                <th className="px-4 py-3">Họ và tên {entityLabel.singular}</th>
                 <th className="px-4 py-3">Số điện thoại</th>
                 <th className="px-4 py-3">CCCD / CMND</th>
                 <th className="px-4 py-3 text-center">Vị trí tuyển chọn (Rank)</th>
@@ -415,13 +415,13 @@ export function WorkerOverviewDashboard({
               {studentsLoading ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400 text-xs italic">
-                    Đang tải dữ liệu lao động...
+                    Đang tải dữ liệu {entityLabel.singular}...
                   </td>
                 </tr>
               ) : tableWorkers.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400 text-xs italic">
-                    Không tìm thấy thông tin lao động nào khớp với bộ lọc.
+                    Không tìm thấy thông tin {entityLabel.singular} nào khớp với bộ lọc.
                   </td>
                 </tr>
               ) : (
