@@ -19,6 +19,17 @@ export interface RevenueBucket {
   bucket: string;
   amount: number;
   count: number;
+  tuitionAmount: number;
+  tuitionCount: number;
+  goodsAmount: number;
+  goodsCount: number;
+}
+
+export interface GoodsCategoryBreakdown {
+  category: string;
+  revenue: number;
+  grossProfit: number | null;
+  quantity: number;
 }
 
 /**
@@ -107,6 +118,10 @@ export const analyticsService = {
       bucket: row._id,
       amount: row.amount || 0,
       count: row.count || 0,
+      tuitionAmount: row.amount || 0,
+      tuitionCount: row.count || 0,
+      goodsAmount: 0,
+      goodsCount: 0,
     }));
 
     const total = series.reduce((sum, row) => sum + row.amount, 0);
@@ -140,6 +155,131 @@ export const analyticsService = {
    * `Product.price` hiện tại, vì làm vậy khiến doanh thu quá khứ thay đổi mỗi lần
    * ai đó sửa giá bán.
    */
+  async getCombinedRevenue(scope: AnalyticsScope, range: RevenueRange) {
+    const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
+    const ownerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
+    const stockScope = scope.companyCode ? { companyCode: scope.companyCode } : {};
+    const spanMs = range.to.getTime() - range.from.getTime();
+    const previousFrom = new Date(range.from.getTime() - spanMs);
+    const bucketFormat = BUCKET_FORMAT[range.granularity];
+    const saleMatch = { ...stockScope, type: "xuất", purpose: "bán" };
+
+    const [tuitionBuckets, previousTuition, excludedTuition, goodsBuckets, previousGoods, goodsQuality, categoryRows, unclassifiedStockOut] = await Promise.all([
+      Payment.aggregate([
+        { $match: { ...ownerMatch, paidOn: { $gte: range.from, $lte: range.to } } },
+        { $group: { _id: { $dateToString: { format: bucketFormat, date: "$paidOn", timezone: "UTC" } }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Payment.aggregate([
+        { $match: { ...ownerMatch, paidOn: { $gte: previousFrom, $lt: range.from } } },
+        { $group: { _id: null, amount: { $sum: "$amount" } } },
+      ]),
+      Payment.countDocuments({ ...ownerMatch, paidOn: { $in: [null, undefined] } }),
+      StockLogModel.aggregate([
+        { $match: { ...saleMatch, createdAt: { $gte: range.from, $lte: range.to } } },
+        { $unwind: "$items" },
+        { $match: { "items.unitPrice": { $type: "number" }, "items.lineTotal": { $type: "number" } } },
+        { $group: {
+          _id: { $dateToString: { format: bucketFormat, date: "$createdAt", timezone: "UTC" } },
+          amount: { $sum: "$items.lineTotal" },
+          count: { $sum: 1 },
+          cost: { $sum: { $multiply: [{ $ifNull: ["$items.unitCost", 0] }, "$items.quantity"] } },
+        } },
+        { $sort: { _id: 1 } },
+      ]),
+      StockLogModel.aggregate([
+        { $match: { ...saleMatch, createdAt: { $gte: previousFrom, $lt: range.from } } },
+        { $unwind: "$items" },
+        { $match: { "items.lineTotal": { $type: "number" } } },
+        { $group: { _id: null, amount: { $sum: "$items.lineTotal" } } },
+      ]),
+      StockLogModel.aggregate([
+        { $match: { ...saleMatch, createdAt: { $gte: range.from, $lte: range.to } } },
+        { $unwind: "$items" },
+        { $group: {
+          _id: null,
+          missingPriceLines: { $sum: { $cond: [{ $isNumber: "$items.lineTotal" }, 0, 1] } },
+          missingCostLines: { $sum: { $cond: [{ $isNumber: "$items.unitCost" }, 0, 1] } },
+        } },
+      ]),
+      StockLogModel.aggregate([
+        { $match: { ...saleMatch, createdAt: { $gte: range.from, $lte: range.to } } },
+        { $unwind: "$items" },
+        { $match: { "items.lineTotal": { $type: "number" } } },
+        { $lookup: { from: "products", let: { productId: "$items.productId", companyCode: "$companyCode" }, pipeline: [
+          { $match: { $expr: { $and: [{ $eq: [{ $toString: "$_id" }, "$$productId"] }, { $eq: ["$companyCode", "$$companyCode"] }] } } },
+          { $project: { category: 1 } },
+        ], as: "product" } },
+        { $group: {
+          _id: { $ifNull: [{ $first: "$product.category" }, "Chưa phân loại"] },
+          revenue: { $sum: "$items.lineTotal" },
+          cost: { $sum: { $multiply: [{ $ifNull: ["$items.unitCost", 0] }, "$items.quantity"] } },
+          quantity: { $sum: "$items.quantity" },
+          missingCostLines: { $sum: { $cond: [{ $isNumber: "$items.unitCost" }, 0, 1] } },
+        } },
+        { $sort: { revenue: -1 } },
+      ]),
+      StockLogModel.countDocuments({
+        ...stockScope,
+        type: "xuất",
+        createdAt: { $gte: range.from, $lte: range.to },
+        purpose: { $exists: false },
+      }),
+    ]);
+
+    const byBucket = new Map<string, RevenueBucket>();
+    const ensureBucket = (bucket: string) => {
+      if (!byBucket.has(bucket)) {
+        byBucket.set(bucket, { bucket, amount: 0, count: 0, tuitionAmount: 0, tuitionCount: 0, goodsAmount: 0, goodsCount: 0 });
+      }
+      return byBucket.get(bucket)!;
+    };
+    for (const row of tuitionBuckets) {
+      const bucket = ensureBucket(row._id);
+      bucket.tuitionAmount = row.amount || 0;
+      bucket.tuitionCount = row.count || 0;
+    }
+    for (const row of goodsBuckets) {
+      const bucket = ensureBucket(row._id);
+      bucket.goodsAmount = row.amount || 0;
+      bucket.goodsCount = row.count || 0;
+    }
+    const series = [...byBucket.values()].sort((a, b) => a.bucket.localeCompare(b.bucket)).map((row) => ({
+      ...row,
+      amount: row.tuitionAmount + row.goodsAmount,
+      count: row.tuitionCount + row.goodsCount,
+    }));
+    const tuitionTotal = series.reduce((sum, row) => sum + row.tuitionAmount, 0);
+    const goodsTotal = series.reduce((sum, row) => sum + row.goodsAmount, 0);
+    const total = tuitionTotal + goodsTotal;
+    const previousTotal = (previousTuition[0]?.amount || 0) + (previousGoods[0]?.amount || 0);
+    const missingPriceLines = goodsQuality[0]?.missingPriceLines || 0;
+    const missingCostLines = goodsQuality[0]?.missingCostLines || 0;
+    const goodsCost = goodsBuckets.reduce((sum, row) => sum + (row.cost || 0), 0);
+
+    return {
+      range: { from: range.from.toISOString(), to: range.to.toISOString(), granularity: range.granularity },
+      total,
+      tuitionTotal,
+      goodsTotal,
+      previousTotal,
+      growthPct: previousTotal > 0 ? Number((((total - previousTotal) / previousTotal) * 100).toFixed(1)) : null,
+      series,
+      goodsGrossProfit: missingCostLines === 0 ? goodsTotal - goodsCost : null,
+      goodsBreakdown: categoryRows.map((row: any): GoodsCategoryBreakdown => ({
+        category: row._id,
+        revenue: row.revenue || 0,
+        grossProfit: row.missingCostLines > 0 ? null : (row.revenue || 0) - (row.cost || 0),
+        quantity: row.quantity || 0,
+      })),
+      excludedRecords: excludedTuition,
+      excludedGoodsLines: missingPriceLines,
+      excludedCostLines: missingCostLines,
+      excludedUnclassifiedStockOut: unclassifiedStockOut,
+      currency: "VND",
+    };
+  },
+
   async getMeta(scope: AnalyticsScope) {
     const stockQuery = scope.companyCode ? { companyCode: scope.companyCode } : {};
 
@@ -152,8 +292,6 @@ export const analyticsService = {
       }),
     ]);
 
-    const goodsReady = stockOutTotal > 0 && stockOutPriced === stockOutTotal;
-
     const sources: RevenueSourceStatus[] = [
       {
         key: "tuition",
@@ -163,18 +301,14 @@ export const analyticsService = {
       {
         key: "goods",
         label: "Bán hàng từ kho",
-        available: goodsReady,
-        blockedReason: goodsReady
-          ? undefined
-          : "Phiếu xuất kho chưa lưu đơn giá tại thời điểm xuất và chưa phân loại mục đích xuất (bán / nội bộ / hủy / chuyển kho).",
+        available: true,
         excludedRecords: stockOutTotal - stockOutPriced,
       },
     ];
 
     return {
       sources,
-      /** Lãi gộp cần giá vốn (`Product.costPrice`) — chưa có trong schema */
-      grossProfitAvailable: false,
+      grossProfitAvailable: true,
       currency: "VND",
     };
   },

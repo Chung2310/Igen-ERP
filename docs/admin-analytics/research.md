@@ -12,7 +12,7 @@
 | Mục 8.5 — Chuẩn hóa ngày thanh toán (`paidOn`) | ✅ Xong | `cc6995f7` |
 | GĐ 2 — Doanh thu học phí theo thời gian | ✅ Xong | `42026a58` |
 | GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ✅ Xong | working tree |
-| GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ⬜ Chưa làm | |
+| GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ✅ Xong | working tree |
 | GĐ 5 — Công nợ & chi phí | ⬜ Chưa làm | |
 | GĐ 6 — Xuất báo cáo Excel/CSV | ⬜ Chưa làm | |
 
@@ -239,7 +239,7 @@ giá do client gửi lên. Phiếu xuất mới, kể cả import Excel, bắt b
 `purpose`; phiếu lịch sử vẫn để trống. Mốc doanh thu kho bắt đầu từ
 phiếu có snapshot; không backfill giá cho dữ liệu cũ.
 
-**Giai đoạn 4 — Gộp doanh thu:** biểu đồ cột chồng 2 nguồn, breakdown theo nhóm sản phẩm, lãi gộp hàng hóa.
+**Giai đoạn 4 — Gộp doanh thu — ✅ xong:** biểu đồ cột chồng 2 nguồn, breakdown theo nhóm sản phẩm, lãi gộp hàng hóa. Chỉ phiếu `xuất` có `purpose = bán` được tính; doanh thu và giá vốn lấy từ snapshot trên từng dòng. Dòng thiếu giá bán bị loại và được cảnh báo; nếu bất kỳ dòng bán nào thiếu giá vốn thì KPI lãi gộp bị ẩn thay vì báo số thấp sai lệch.
 
 **Giai đoạn 5 — Công nợ & chi phí:** aging từ `installmentStatus`, lương từ payroll, hoa hồng từ `partner.payoutHistory`, P&L đầy đủ.
 

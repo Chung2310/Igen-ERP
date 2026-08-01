@@ -9,7 +9,8 @@ import type { RevenueBucket, RevenueGranularity } from "../../services/analytics
  * lẫn nền tối). Khi thêm nguồn doanh thu thứ hai (bán hàng từ kho) thì chuyển
  * thành cột chồng và bổ sung legend.
  */
-const SERIES_COLOR = "#2a78d6";
+const TUITION_COLOR = "#2a78d6";
+const GOODS_COLOR = "#d97706";
 
 const CHART_HEIGHT = 220;
 const BAR_GAP = 2; // khe 2px giữa các cột để không dính vào nhau
@@ -55,6 +56,10 @@ export function RevenueChart({
 
   return (
     <div className="relative">
+      <div className="mb-4 flex flex-wrap gap-4 text-xs font-semibold text-slate-600" aria-label="Chú giải biểu đồ">
+        <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-[#2a78d6]" />Học phí</span>
+        <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border border-amber-700 bg-[#d97706]" />Bán hàng</span>
+      </div>
       <div className="flex">
         {/* Trục giá trị — chữ nhạt để lùi ra sau dữ liệu */}
         <div
@@ -73,7 +78,7 @@ export function RevenueChart({
             style={{ height: CHART_HEIGHT }}
             className="w-full overflow-visible"
             role="img"
-            aria-label="Biểu đồ doanh thu học phí theo thời gian"
+            aria-label="Biểu đồ cột chồng doanh thu học phí và bán hàng theo thời gian"
           >
             {/* Lưới nhạt, nằm dưới dữ liệu */}
             {[0, 0.5, 1].map((ratio) => (
@@ -90,7 +95,8 @@ export function RevenueChart({
             ))}
 
             {series.map((row, index) => {
-              const height = maxAmount > 0 ? (row.amount / maxAmount) * CHART_HEIGHT : 0;
+              const tuitionHeight = maxAmount > 0 ? (row.tuitionAmount / maxAmount) * CHART_HEIGHT : 0;
+              const goodsHeight = maxAmount > 0 ? (row.goodsAmount / maxAmount) * CHART_HEIGHT : 0;
               const x = index * barWidth;
               const isActive = hovered === index;
 
@@ -108,11 +114,23 @@ export function RevenueChart({
                   />
                   <rect
                     x={x}
-                    y={CHART_HEIGHT - height}
+                    y={CHART_HEIGHT - goodsHeight}
                     width={Math.max(barWidth - BAR_GAP, 0.5)}
-                    height={height}
+                    height={goodsHeight}
                     rx="1"
-                    fill={SERIES_COLOR}
+                    fill={GOODS_COLOR}
+                    stroke="#92400e"
+                    strokeWidth="0.35"
+                    opacity={hovered === null || isActive ? 1 : 0.45}
+                    pointerEvents="none"
+                  />
+                  <rect
+                    x={x}
+                    y={CHART_HEIGHT - goodsHeight - tuitionHeight}
+                    width={Math.max(barWidth - BAR_GAP, 0.5)}
+                    height={tuitionHeight}
+                    rx="1"
+                    fill={TUITION_COLOR}
                     opacity={hovered === null || isActive ? 1 : 0.45}
                     pointerEvents="none"
                   />
@@ -156,7 +174,11 @@ export function RevenueChart({
           </span>
           {" — "}
           {formatVnd(series[hovered].amount)} ₫
-          <span className="text-slate-400"> · {series[hovered].count} giao dịch</span>
+          <span className="text-slate-400">
+            {" · Học phí "}{formatVnd(series[hovered].tuitionAmount)} ₫
+            {" · Bán hàng "}{formatVnd(series[hovered].goodsAmount)} ₫
+            {" · "}{series[hovered].count} giao dịch
+          </span>
         </p>
       )}
     </div>

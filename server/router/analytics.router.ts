@@ -40,7 +40,7 @@ analyticsRouter.use(requireAuth as any, requireRole(["admin", "superadmin"]) as 
 // Metadata: báo cáo nào đang dùng được, nguồn dữ liệu nào còn thiếu điều kiện
 analyticsRouter.get("/meta", analyticsController.getMeta as any);
 
-// Doanh thu học phí theo thời gian, kèm so sánh kỳ trước
+// Doanh thu học phí + bán hàng theo thời gian, kèm so sánh kỳ trước
 analyticsRouter.get(
   "/revenue",
   validateRequest(revenueSchema),

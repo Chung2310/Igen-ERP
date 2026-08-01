@@ -69,7 +69,7 @@ export const analyticsController = {
         });
       }
 
-      const data = await analyticsService.getTuitionRevenue(
+      const data = await analyticsService.getCombinedRevenue(
         { companyCode: req.user.companyCode },
         range
       );

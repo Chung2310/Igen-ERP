@@ -11,8 +11,7 @@ import { RevenueChart } from "../components/analytics/RevenueChart";
 /**
  * Trang Phân tích & Báo cáo — chỉ admin/superadmin (gate ở route-config + API).
  *
- * Giai đoạn 2: doanh thu học phí theo thời gian. Doanh thu bán hàng từ kho được
- * bổ sung sau khi StockLog lưu snapshot đơn giá — xem docs/admin-analytics/research.md.
+ * Giai đoạn 4: doanh thu học phí + bán hàng, lãi gộp hàng hóa và breakdown sản phẩm.
  */
 const RANGE_PRESETS = [
   { key: "30d", label: "30 ngày", days: 30, granularity: "day" as const },
@@ -122,22 +121,21 @@ export default function AnalyticsTab() {
 
       {!loading && !error && revenue && (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatTile
-              label="Doanh thu học phí"
+              label="Tổng doanh thu"
               value={`${formatVnd(revenue.total)} ₫`}
               growthPct={revenue.growthPct}
             />
+            <StatTile label="Doanh thu học phí" value={`${formatVnd(revenue.tuitionTotal)} ₫`} />
+            <StatTile label="Doanh thu bán hàng" value={`${formatVnd(revenue.goodsTotal)} ₫`} />
             <StatTile label="Kỳ trước" value={`${formatVnd(revenue.previousTotal)} ₫`} />
-            <StatTile
-              label="Số giao dịch"
-              value={String(revenue.series.reduce((sum, row) => sum + row.count, 0))}
-            />
+            <StatTile label="Lãi gộp hàng hóa" value={revenue.goodsGrossProfit === null ? "Chưa đủ dữ liệu" : `${formatVnd(revenue.goodsGrossProfit)} ₫`} />
           </section>
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-sm font-bold uppercase tracking-wide text-slate-500">
-              Doanh thu học phí theo thời gian
+              Cơ cấu doanh thu theo thời gian
             </h2>
             <RevenueChart
               series={revenue.series}
@@ -145,8 +143,12 @@ export default function AnalyticsTab() {
             />
           </section>
 
+          {revenue.goodsBreakdown.length > 0 && (
+            <GoodsBreakdown rows={revenue.goodsBreakdown} />
+          )}
+
           {/* Nói rõ phần dữ liệu không được tính, thay vì lặng lẽ báo thiếu */}
-          {(revenue.excludedRecords > 0 || blockedSources.length > 0) && (
+          {(revenue.excludedRecords > 0 || revenue.excludedGoodsLines > 0 || revenue.excludedCostLines > 0 || revenue.excludedUnclassifiedStockOut > 0 || blockedSources.length > 0) && (
             <section className="rounded-[28px] border border-amber-200 bg-amber-50 p-6">
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
@@ -158,6 +160,18 @@ export default function AnalyticsTab() {
                       {revenue.excludedRecords} giao dịch chưa xác định được ngày thu tiền nên không
                       xếp được vào kỳ nào. Chạy <code>yarn backfill:payment-paid-on</code> để bổ sung.
                     </p>
+                  )}
+
+                  {revenue.excludedGoodsLines > 0 && (
+                    <p className="text-amber-800">{revenue.excludedGoodsLines} dòng bán hàng thiếu snapshot giá bán nên không được tính vào doanh thu kho.</p>
+                  )}
+
+                  {revenue.excludedCostLines > 0 && (
+                    <p className="text-amber-800">{revenue.excludedCostLines} dòng bán hàng thiếu giá vốn; KPI lãi gộp được ẩn để tránh báo số sai.</p>
+                  )}
+
+                  {revenue.excludedUnclassifiedStockOut > 0 && (
+                    <p className="text-amber-800">{revenue.excludedUnclassifiedStockOut} phiếu xuất lịch sử chưa phân loại mục đích nên không được suy đoán là doanh thu bán hàng.</p>
                   )}
 
                   {blockedSources.map((source) => (
@@ -172,6 +186,28 @@ export default function AnalyticsTab() {
         </>
       )}
     </div>
+  );
+}
+
+function GoodsBreakdown({ rows }: { rows: RevenueReport["goodsBreakdown"] }) {
+  const maxRevenue = Math.max(...rows.map((row) => row.revenue), 1);
+
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Doanh thu bán hàng theo nhóm sản phẩm</h2>
+      <p className="mt-1 text-xs text-slate-400">Doanh thu và số lượng xuất bán trong kỳ đang chọn</p>
+      <div className="mt-5 space-y-4">
+        {rows.map((row) => (
+          <div key={row.category} className="grid gap-2 sm:grid-cols-[minmax(120px,220px)_1fr_auto] sm:items-center">
+            <span className="truncate text-sm font-semibold text-slate-700" title={row.category}>{row.category}</span>
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-amber-600" style={{ width: `${(row.revenue / maxRevenue) * 100}%` }} />
+            </div>
+            <span className="text-right text-sm font-bold tabular-nums text-slate-700">{formatVnd(row.revenue)} ₫ <span className="font-normal text-slate-400">· {row.quantity}</span></span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

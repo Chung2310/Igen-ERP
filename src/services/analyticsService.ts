@@ -20,16 +20,32 @@ export interface RevenueBucket {
   bucket: string;
   amount: number;
   count: number;
+  tuitionAmount: number;
+  tuitionCount: number;
+  goodsAmount: number;
+  goodsCount: number;
 }
 
 export interface RevenueReport {
   range: { from: string; to: string; granularity: RevenueGranularity };
   total: number;
+  tuitionTotal: number;
+  goodsTotal: number;
   previousTotal: number;
   /** null khi không có kỳ trước để so — khác với 0% (không tăng trưởng) */
   growthPct: number | null;
   series: RevenueBucket[];
   excludedRecords: number;
+  excludedGoodsLines: number;
+  excludedCostLines: number;
+  excludedUnclassifiedStockOut: number;
+  goodsGrossProfit: number | null;
+  goodsBreakdown: Array<{
+    category: string;
+    revenue: number;
+    grossProfit: number | null;
+    quantity: number;
+  }>;
   currency: string;
 }
 
