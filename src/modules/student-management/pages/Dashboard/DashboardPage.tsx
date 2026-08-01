@@ -26,14 +26,7 @@ export function DashboardPage({ formattedDate, onSelectStudent, onNavigate, sele
         </div>
       </section>
       <section><StatsGrid selectedCenter={selectedCenter} /></section>
-      {isEducation ? (
-        <>
-          <section><ScheduleCalendar selectedCenter={selectedCenter} /></section>
-          <section><DrivingDashboardTables onSelectStudent={onSelectStudent} onNavigate={onNavigate} selectedCenter={selectedCenter} /></section>
-        </>
-      ) : (
-        <section><WorkerOverviewDashboard onSelectStudent={onSelectStudent} onNavigate={onNavigate} selectedCenter={selectedCenter} /></section>
-      )}
+      <section><WorkerOverviewDashboard onSelectStudent={onSelectStudent} onNavigate={onNavigate} selectedCenter={selectedCenter} /></section>
     </div>
   );
 }
