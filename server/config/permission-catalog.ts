@@ -30,11 +30,16 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "payroll:prepare", label: "Chuẩn bị dữ liệu lương", group: "Nhân sự", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
   { code: "payroll:manage", label: "Quản lý & tính lương", group: "Nhân sự" },
   { code: "payroll:pay", label: "Thanh toán bảng lương", group: "Nhân sự" },
-  // Module học viên/lao động chỉ phơi ra đúng hai mã quyền. Các mã chi tiết theo từng
-  // khu vực (course/batch/exam/payment/student-profile/...) đã được gộp vào đây — xem
-  // RETIRED_PERMISSION_CODES bên dưới.
-  { code: "student:read", label: "Xem học viên/lao động", group: "Học viên & Lao động", description: "Xem toàn bộ module: hồ sơ học viên/lao động, khóa học, lớp/dự án, lịch thi, học phí, bài tập, tài nguyên và thông báo." },
-  { code: "student:manage", label: "Quản lý học viên/lao động", group: "Học viên & Lao động", description: "Thêm, sửa, xóa và nhập dữ liệu trên toàn bộ module học viên/lao động." },
+  // Each business module exposes its own umbrella permissions. Student area permissions are
+  // grouped here - see RETIRED_PERMISSION_CODES below.
+  { code: "student:read", label: "Xem học viên", group: "Học viên" },
+  { code: "student:manage", label: "Quản lý học viên", group: "Học viên" },
+  { code: "worker:read", label: "Xem lao động", group: "Lao động" },
+  { code: "worker:manage", label: "Quản lý lao động", group: "Lao động" },
+  { code: "customer:read", label: "Xem khách hàng", group: "Khách hàng" },
+  { code: "customer:manage", label: "Quản lý khách hàng", group: "Khách hàng" },
+  { code: "candidate:read", label: "Xem ứng viên", group: "Ứng viên" },
+  { code: "candidate:manage", label: "Quản lý ứng viên", group: "Ứng viên" },
   { code: "custom-field:manage", label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Tạo, sửa, lưu trữ và xóa trường dữ liệu tùy chỉnh của module học viên." },
   { code: "student-settings:manage", label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module quản lý học viên." },
   { code: "company-smtp:manage", label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử bằng máy chủ SMTP doanh nghiệp." },

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { canManageStudentArea, canReadStudentArea } from "./studentPermissionPolicy";
 
-test("umbrella permissions preserve operational access", () => {
+test("student umbrella permissions preserve operational access", () => {
   assert.equal(canReadStudentArea(["student:read"], "course"), true);
   assert.equal(canReadStudentArea(["student:manage"], "payment"), true);
   assert.equal(canManageStudentArea(["student:manage"], "student-resource"), true);
