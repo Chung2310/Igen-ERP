@@ -13,9 +13,9 @@ async function serve(options: { failModuleUpdate?: boolean; failEmit?: boolean }
     list: async () => [tenant], get: async (code: string) => code === "ACME" ? tenant : null,
     create: async (input: any) => ({ ...tenant, ...input, code: input.code.toUpperCase() }),
     update: async () => tenant, transitionLifecycle: async () => ({ ...tenant, lifecycleStatus: "suspended" }),
-    updateModules: async (_code: string, enabledModules: string[]) => {
+    updateModules: async (_code: string, update: { enabledModules?: string[]; businessType?: string }) => {
       if (options.failModuleUpdate) throw new Error("module update failed");
-      return { ...tenant, enabledModules };
+      return { ...tenant, ...update };
     },
     scheduleDeletion: async () => ({ ...tenant, lifecycleStatus: "scheduled-deletion" }), cancelDeletion: async () => tenant,
   };

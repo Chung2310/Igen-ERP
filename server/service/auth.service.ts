@@ -438,7 +438,7 @@ export const authService = {
     const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
     const newName = updateData.name ? updateData.name.trim() : undefined;
     const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
-    const newEnabledModules = resolveCompanyModuleUpdate(updateData);
+    const newEnabledModules = resolveCompanyModuleUpdate({ ...updateData, businessType: company.businessType });
 
     // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
     if (newCode && newCode !== oldCode) {
