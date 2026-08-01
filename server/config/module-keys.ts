@@ -1,5 +1,5 @@
 /** Các nghiệp vụ có thể bật/tắt theo doanh nghiệp. Đồng bộ với src/config/modules.ts. */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export function isModuleKey(v: string): v is ModuleKey {

@@ -1,0 +1,45 @@
+import { sanitizeModuleKeys, type ModuleKey } from "./module-keys";
+
+export const BUSINESS_TYPES = ["education", "labor", "service", "recruitment", "general"] as const;
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
+export const DEFAULT_BUSINESS_TYPE: BusinessType = "general";
+
+const LEGACY_PRESET_BUSINESS_TYPE: Record<string, BusinessType> = {
+  student: "education",
+  worker: "labor",
+  customer: "service",
+  candidate: "recruitment",
+};
+
+const REQUIRED_BUSINESS_MODULE: Record<BusinessType, ModuleKey | null> = {
+  education: "student",
+  labor: "worker",
+  service: "customer",
+  recruitment: "candidate",
+  general: null,
+};
+
+const BUSINESS_MODULES = new Set<ModuleKey>(["student", "worker", "customer", "candidate"]);
+
+export function isBusinessType(value: unknown): value is BusinessType {
+  return typeof value === "string" && (BUSINESS_TYPES as readonly string[]).includes(value);
+}
+
+export function resolveBusinessType(input: unknown, legacyPreset?: unknown): BusinessType {
+  if (isBusinessType(input)) return input;
+  if (typeof legacyPreset === "string" && LEGACY_PRESET_BUSINESS_TYPE[legacyPreset]) {
+    return LEGACY_PRESET_BUSINESS_TYPE[legacyPreset];
+  }
+  return DEFAULT_BUSINESS_TYPE;
+}
+
+export function getRequiredBusinessModule(businessType: BusinessType): ModuleKey | null {
+  return REQUIRED_BUSINESS_MODULE[businessType];
+}
+
+export function filterModulesForBusinessType(input: unknown, businessType: BusinessType): ModuleKey[] {
+  const sanitized = sanitizeModuleKeys(input);
+  const required = getRequiredBusinessModule(businessType);
+  const filtered = sanitized.filter((key) => !BUSINESS_MODULES.has(key) || key === required);
+  return required && !filtered.includes(required) ? [required, ...filtered] : filtered;
+}
