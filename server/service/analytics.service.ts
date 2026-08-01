@@ -300,21 +300,21 @@ export const analyticsService = {
       { $match: ownerMatch },
       { $unwind: "$installmentStatus" },
       { $match: { "installmentStatus.status": { $ne: "Đã thu" }, "installmentStatus.amountDue": { $gt: 0 } } },
-      { $addFields: { dueOn: { $convert: { input: "$installmentStatus.dueAt", to: "date", onError: null, onNull: null } } } },
-      { $addFields: { ageDays: { $cond: [{ $ne: ["$dueOn", null] }, { $dateDiff: { startDate: "$dueOn", endDate: asOf, unit: "day" } }, null] } } },
-      { $group: {
-        _id: { $switch: { branches: [
-          { case: { $eq: ["$dueOn", null] }, then: "notScheduled" },
-          { case: { $lt: ["$ageDays", 0] }, then: "notDue" },
-          { case: { $lte: ["$ageDays", 30] }, then: "0-30" },
-          { case: { $lte: ["$ageDays", 60] }, then: "31-60" },
-        ], default: "60+" } },
-        amount: { $sum: "$installmentStatus.amountDue" },
-        count: { $sum: 1 },
-      } },
+      { $project: { _id: 0, amountDue: "$installmentStatus.amountDue", dueAt: "$installmentStatus.dueAt" } },
     ]);
     const order = ["notScheduled", "notDue", "0-30", "31-60", "60+"];
-    const byKey = new Map(rows.map((row: any) => [row._id, row]));
+    const byKey = new Map(order.map((bucket) => [bucket, { amount: 0, count: 0 }]));
+    for (const row of rows as Array<{ amountDue?: number; dueAt?: Date | string }>) {
+      const dueOn = row.dueAt ? new Date(row.dueAt) : null;
+      let bucket = "notScheduled";
+      if (dueOn && Number.isFinite(dueOn.getTime())) {
+        const ageDays = Math.floor((asOf.getTime() - dueOn.getTime()) / 86_400_000);
+        bucket = ageDays < 0 ? "notDue" : ageDays <= 30 ? "0-30" : ageDays <= 60 ? "31-60" : "60+";
+      }
+      const current = byKey.get(bucket)!;
+      current.amount += Number(row.amountDue) || 0;
+      current.count += 1;
+    }
     const aging = order.map((bucket) => ({ bucket, amount: byKey.get(bucket)?.amount || 0, count: byKey.get(bucket)?.count || 0 }));
     return {
       asOf: asOf.toISOString(),

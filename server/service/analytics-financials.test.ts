@@ -49,8 +49,9 @@ describe("công nợ, chi phí và P&L", () => {
 
   it("tổng hợp đủ các bucket công nợ và giới hạn theo owner công ty", async () => {
     fixture.receivableRows = [
-      { _id: "notScheduled", amount: 500, count: 1 },
-      { _id: "31-60", amount: 1_000, count: 2 },
+      { amountDue: 500, dueAt: null },
+      { amountDue: 400, dueAt: "2026-06-15T23:59:59.999Z" },
+      { amountDue: 600, dueAt: "2026-06-10T23:59:59.999Z" },
     ];
     const result = await analyticsService.getReceivables({ companyCode: "C1" }, RANGE.to);
 
@@ -61,6 +62,7 @@ describe("công nợ, chi phí và P&L", () => {
     expect(result.aging.find((row) => row.bucket === "0-30")?.amount).toBe(0);
     expect(fixture.studentPipeline[0].$match.ownerId.$in).toContain("C1");
     expect(fixture.studentPipeline[2].$match["installmentStatus.amountDue"].$gt).toBe(0);
+    expect(fixture.studentPipeline[3].$project.dueAt).toBe("$installmentStatus.dueAt");
   });
 
   it("chỉ tính lương đã xác nhận và cộng hoa hồng có ngày hợp lệ", async () => {
