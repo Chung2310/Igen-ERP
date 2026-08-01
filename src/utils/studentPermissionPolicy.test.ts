@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { canManageStudentArea, canReadStudentArea } from "./studentPermissionPolicy";
 
 test("student umbrella permissions preserve operational access", () => {
@@ -8,9 +8,9 @@ test("student umbrella permissions preserve operational access", () => {
   assert.equal(canManageStudentArea(["student:manage"], "student-resource"), true);
 });
 
-test("granular manage implies read only for the same area", () => {
-  assert.equal(canReadStudentArea(["course:manage"], "course"), true);
-  assert.equal(canManageStudentArea(["course:manage"], "course"), true);
+test("retired granular permissions do not grant operational student access", () => {
+  assert.equal(canReadStudentArea(["course:manage"], "course"), false);
+  assert.equal(canManageStudentArea(["course:manage"], "course"), false);
   assert.equal(canReadStudentArea(["course:manage"], "batch"), false);
 });
 
