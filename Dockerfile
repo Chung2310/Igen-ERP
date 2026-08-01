@@ -28,8 +28,8 @@ RUN yarn build
 # Step 2: Production runner stage (keeps the final image lightweight)
 FROM node:22-alpine AS runner
 
-# Cài ca-certificates (Alpine)
-RUN apk add --no-cache ca-certificates
+# Cài ca-certificates và tzdata (Alpine)
+RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
