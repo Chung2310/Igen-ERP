@@ -84,10 +84,10 @@ describe("legacy payroll period branch scope", () => {
     await payrollController.createSnapshot(branchRequest(), res);
 
     expect(mocks.timekeepingFind).toHaveBeenCalledWith(expect.objectContaining({
-      companyCode: "ACME", branchId: "branch-a",
+      companyCode: "ACME", branchId: { $in: ["branch-a", null, undefined] },
     }));
     expect(mocks.leaveFind).toHaveBeenCalledWith(expect.objectContaining({
-      companyCode: "ACME", branchId: "branch-a", status: "approved",
+      companyCode: "ACME", branchId: { $in: ["branch-a", null, undefined] }, status: "approved",
     }));
     expect(mocks.attendanceFindOneAndUpdate).toHaveBeenCalledWith(
       { companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07", employeeId: "employee-a" },
@@ -111,6 +111,35 @@ describe("legacy payroll period branch scope", () => {
     expect(mocks.attendanceFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
+  it("normalizes timekeeping log dates before evaluating payroll working days", async () => {
+    mocks.companyFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue(lean({ locationConfig: { workingDays: [1, 2, 3, 4, 5, 6] } })),
+    });
+    mocks.timekeepingFind.mockReturnValue(lean([
+      {
+        uid: "employee-a",
+        date: new Date("2026-07-04T00:00:00.000Z"),
+        status: "Present",
+        checkIn: { time: new Date("2026-07-04T01:00:00.000Z") },
+        checkOut: { time: new Date("2026-07-04T10:00:00.000Z") },
+      },
+    ]));
+    const res = response();
+
+    await expect(payrollController.createSnapshot(branchRequest(), res)).resolves.not.toThrow();
+
+    expect(mocks.attendanceFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          workedDays: 1,
+          workedMinutes: 540,
+        }),
+      }),
+      expect.any(Object),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
   it("scopes audit and attendance result reads to the authenticated branch", async () => {
     await payrollController.listAudit(branchRequest(), response());
     await payrollController.listResults(branchRequest(), response());
