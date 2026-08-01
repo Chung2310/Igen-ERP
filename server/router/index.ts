@@ -11,6 +11,7 @@ import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { timekeepingRouter } from "./timekeeping.router";
 import { dashboardRouter } from "./dashboard.router";
+import { analyticsRouter } from "./analytics.router";
 import { pushRouter } from "./push.router";
 import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
@@ -73,6 +74,9 @@ apiRouter.use("/recruitment", recruitmentRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);
+
+// Phân tích & báo cáo doanh thu — chỉ admin/superadmin (gate nằm trong analyticsRouter)
+apiRouter.use("/analytics", analyticsRouter);
 
 // Upload/download file qua Cloudinary — dùng chung cho chat, tài nguyên, kho, avatar
 apiRouter.use("/media", expensiveApiRateLimiter, mediaRouter);
