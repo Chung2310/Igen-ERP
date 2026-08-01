@@ -775,34 +775,7 @@ export default function CalendarTab({
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={fetchTimekeepingLogs}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer border-0"
-                title="Tải lại dữ liệu"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isLogsLoading ? "animate-spin" : ""}`} />
-                Tải lại
-              </button>
-               <button
-                type="button"
-                onClick={() => setIsScheduleMode(!isScheduleMode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer border-0 ${
-                  isScheduleMode
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 bg-slate-100 hover:bg-slate-200"
-                }`}
-              >
-                <CalendarIcon className="h-3.5 w-3.5" />
-                Chế độ lịch
-              </button>
-              <AttendanceUtilityMenu
-                disabled={isLogsLoading}
-                onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
-              />
-            </div>
+
           </div>
 
           {/* Bảng Grid Chấm Công */}
