@@ -1,6 +1,13 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { analyticsService, RevenueGranularity } from "../service/analytics.service";
+import {
+  analyticsWorkbookBuffer,
+  buildAnalyticsCsv,
+  buildAnalyticsWorkbook,
+  type AnalyticsExportFormat,
+  type AnalyticsExportReport,
+} from "../service/analytics-export.service";
 
 /**
  * Khoảng thời gian báo cáo. Dùng UTC để khớp với cách `paidOn` được lưu
@@ -121,6 +128,52 @@ export const analyticsController = {
     } catch (error: any) {
       console.error("[analyticsController.getProfitAndLoss] Error:", error);
       return res.status(500).json({ status: "error", message: "Lỗi hệ thống khi tổng hợp P&L.", details: error.message });
+    }
+  },
+
+  async exportReport(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      const report = req.query.report as AnalyticsExportReport;
+      const format = req.query.format as AnalyticsExportFormat;
+      const range = resolveRange(String(req.query.from), String(req.query.to), (req.query.granularity as RevenueGranularity) || "day");
+      if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
+      const scope = { companyCode: req.user.companyCode };
+      const data: Record<string, any> = {};
+
+      if (report === "overview") {
+        [data.revenue, data.receivables, data.expenses] = await Promise.all([
+          analyticsService.getCombinedRevenue(scope, range),
+          analyticsService.getReceivables(scope, range.to),
+          analyticsService.getExpenses(scope, range),
+        ]);
+        data.pnl = {
+          tuitionRevenue: data.revenue.tuitionTotal,
+          goodsRevenue: data.revenue.goodsTotal,
+          goodsGrossProfit: data.revenue.goodsGrossProfit,
+          payrollExpense: data.expenses.payroll.amount,
+          commissionExpense: data.expenses.commission.amount,
+          operatingResult: data.revenue.goodsGrossProfit === null ? null : data.revenue.tuitionTotal + data.revenue.goodsGrossProfit - data.expenses.total,
+        };
+      } else if (report === "revenue") data.revenue = await analyticsService.getCombinedRevenue(scope, range);
+      else if (report === "receivables") data.receivables = await analyticsService.getReceivables(scope, range.to);
+      else if (report === "expenses") data.expenses = await analyticsService.getExpenses(scope, range);
+      else data.pnl = await analyticsService.getProfitAndLoss(scope, range);
+
+      const baseName = `analytics-${report}-${String(req.query.from)}-${String(req.query.to)}`;
+      if (format === "csv") {
+        const csv = buildAnalyticsCsv(report as Exclude<AnalyticsExportReport, "overview">, data);
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=${baseName}.csv`);
+        return res.send(csv);
+      }
+      const buffer = analyticsWorkbookBuffer(buildAnalyticsWorkbook(report, data));
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename=${baseName}.xlsx`);
+      return res.send(buffer);
+    } catch (error: any) {
+      console.error("[analyticsController.exportReport] Error:", error);
+      return res.status(500).json({ status: "error", message: "Lỗi hệ thống khi xuất báo cáo.", details: error.message });
     }
   },
 };

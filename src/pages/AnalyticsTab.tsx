@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, BarChart3, Download, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import {
   analyticsService,
+  type AnalyticsExportFormat,
+  type AnalyticsExportReport,
   type AnalyticsMeta,
   type ExpensesReport,
   type ProfitAndLossReport,
@@ -14,7 +16,7 @@ import { RevenueChart } from "../components/analytics/RevenueChart";
 /**
  * Trang Phân tích & Báo cáo — chỉ admin/superadmin (gate ở route-config + API).
  *
- * Giai đoạn 4: doanh thu học phí + bán hàng, lãi gộp hàng hóa và breakdown sản phẩm.
+ * Giai đoạn 6: dashboard tài chính hoàn chỉnh và xuất Excel/CSV theo bộ lọc hiện tại.
  */
 const RANGE_PRESETS = [
   { key: "30d", label: "30 ngày", days: 30, granularity: "day" as const },
@@ -39,21 +41,25 @@ export default function AnalyticsTab() {
   const [pnl, setPnl] = useState<ProfitAndLossReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<AnalyticsExportFormat | null>(null);
+  const [exportReport, setExportReport] = useState<AnalyticsExportReport>("overview");
 
   const preset = useMemo(
     () => RANGE_PRESETS.find((item) => item.key === presetKey) ?? RANGE_PRESETS[0],
     [presetKey]
   );
 
+  const dateParams = useMemo(() => {
+    const to = new Date();
+    const from = new Date(to.getTime() - preset.days * 24 * 60 * 60 * 1000);
+    return { from: toIsoDate(from), to: toIsoDate(to) };
+  }, [preset.days]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const to = new Date();
-    const from = new Date(to.getTime() - preset.days * 24 * 60 * 60 * 1000);
-
     try {
-      const dateParams = { from: toIsoDate(from), to: toIsoDate(to) };
       const [metaData, revenueData, receivablesData, expensesData] = await Promise.all([
         analyticsService.getMeta(),
         analyticsService.getRevenue({
@@ -85,13 +91,25 @@ export default function AnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [preset]);
+  }, [dateParams, preset.granularity]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const blockedSources = meta?.sources.filter((source) => !source.available) ?? [];
+
+  const handleExport = async (format: AnalyticsExportFormat) => {
+    setExporting(format);
+    setError(null);
+    try {
+      await analyticsService.downloadExport({ ...dateParams, granularity: preset.granularity, report: exportReport, format });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -109,22 +127,30 @@ export default function AnalyticsTab() {
             </div>
           </div>
 
-          {/* Bộ lọc nằm trên một hàng, phía trên biểu đồ */}
-          <div className="flex gap-1 rounded-2xl bg-slate-100 p-1">
-            {RANGE_PRESETS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setPresetKey(item.key)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                  item.key === presetKey
-                    ? "bg-white text-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex gap-1 rounded-2xl bg-slate-100 p-1">
+              {RANGE_PRESETS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setPresetKey(item.key)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${item.key === presetKey ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >{item.label}</button>
+              ))}
+            </div>
+            <select value={exportReport} onChange={(event) => setExportReport(event.target.value as AnalyticsExportReport)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+              <option value="overview">Toàn bộ báo cáo</option>
+              <option value="revenue">Doanh thu</option>
+              <option value="receivables">Công nợ</option>
+              <option value="expenses">Chi phí</option>
+              <option value="pnl">Kết quả vận hành</option>
+            </select>
+            <button type="button" onClick={() => handleExport("xlsx")} disabled={exporting !== null} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+              {exporting === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Excel
+            </button>
+            <button type="button" onClick={() => handleExport("csv")} disabled={exporting !== null || exportReport === "overview"} title={exportReport === "overview" ? "CSV không hỗ trợ nhiều sheet; hãy chọn từng báo cáo" : undefined} className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-50">
+              {exporting === "csv" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} CSV
+            </button>
           </div>
         </div>
       </header>

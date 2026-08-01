@@ -81,6 +81,9 @@ export interface ProfitAndLossReport {
   currency: string;
 }
 
+export type AnalyticsExportReport = "overview" | "revenue" | "receivables" | "expenses" | "pnl";
+export type AnalyticsExportFormat = "xlsx" | "csv";
+
 async function getAnalyticsJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
   if (!res.ok) throw new Error("Không thể tải dữ liệu phân tích.");
@@ -140,5 +143,32 @@ export const analyticsService = {
 
   getProfitAndLoss(params: { from: string; to: string; granularity: RevenueGranularity }): Promise<ProfitAndLossReport> {
     return getAnalyticsJson(`/api/v1/analytics/pnl?${new URLSearchParams(params)}`);
+  },
+
+  async downloadExport(params: {
+    from: string;
+    to: string;
+    granularity: RevenueGranularity;
+    report: AnalyticsExportReport;
+    format: AnalyticsExportFormat;
+  }): Promise<void> {
+    const res = await fetch(`/api/v1/analytics/export?${new URLSearchParams(params)}`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      throw new Error(json?.message || "Không thể xuất báo cáo.");
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const filename = disposition.match(/filename=([^;]+)/i)?.[1]?.replace(/["']/g, "") || `analytics.${params.format}`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   },
 };

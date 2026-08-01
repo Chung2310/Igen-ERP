@@ -14,7 +14,7 @@
 | GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ✅ Xong | working tree |
 | GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ✅ Xong | working tree |
 | GĐ 5 — Công nợ & chi phí | ✅ Xong | working tree |
-| GĐ 6 — Xuất báo cáo Excel/CSV | ⬜ Chưa làm | |
+| GĐ 6 — Xuất báo cáo Excel/CSV | ✅ Xong | working tree |
 
 ### Đã tạo
 
@@ -243,7 +243,7 @@ phiếu có snapshot; không backfill giá cho dữ liệu cũ.
 
 **Giai đoạn 5 — Công nợ & chi phí — ✅ xong:** aging từ `installmentStatus.amountDue` theo tuổi kể từ `sentAt`; lương chỉ lấy `PayrollPayment` đã `confirmed`; hoa hồng lấy từ `partner.payoutHistory` và parse ngày `DD/MM/YYYY` nghiêm ngặt. Kết quả vận hành hiện tại = học phí + lãi gộp hàng hóa − lương đã thanh toán − hoa hồng đã chi, và ghi rõ chưa gồm các chi phí khác.
 
-**Giai đoạn 6 — Xuất báo cáo:** Excel/CSV (tham khảo `payroll-export.service.ts`).
+**Giai đoạn 6 — Xuất báo cáo — ✅ xong:** Excel nhiều sheet cho toàn bộ báo cáo hoặc từng phần; CSV UTF-8 cho từng báo cáo doanh thu, công nợ, chi phí hoặc kết quả vận hành. File luôn dùng đúng khoảng ngày và độ chi tiết đang chọn trên dashboard; endpoint export dùng chung gate admin và scope công ty.
 
 ## 8. Quyết định đề xuất
 

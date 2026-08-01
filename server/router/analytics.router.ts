@@ -36,6 +36,17 @@ const receivablesSchema = {
   query: Joi.object({ asOf: Joi.string().regex(DATE_PATTERN).required() }),
 };
 
+const exportSchema = {
+  query: Joi.object({
+    from: Joi.string().regex(DATE_PATTERN).required(),
+    to: Joi.string().regex(DATE_PATTERN).required(),
+    granularity: Joi.string().valid("day", "week", "month").optional(),
+    format: Joi.string().valid("xlsx", "csv").required(),
+    report: Joi.string().valid("overview", "revenue", "receivables", "expenses", "pnl").required()
+      .when("format", { is: "csv", then: Joi.invalid("overview").messages({ "any.invalid": "CSV chỉ hỗ trợ từng báo cáo; dùng XLSX để xuất toàn bộ." }) }),
+  }),
+};
+
 /**
  * Khu vực Phân tích & Báo cáo — chỉ dành cho admin/superadmin.
  *
@@ -62,3 +73,4 @@ analyticsRouter.get(
 analyticsRouter.get("/receivables", validateRequest(receivablesSchema), analyticsController.getReceivables as any);
 analyticsRouter.get("/expenses", validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
 analyticsRouter.get("/pnl", validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);
+analyticsRouter.get("/export", validateRequest(exportSchema), analyticsController.exportReport as any);

@@ -52,7 +52,7 @@ test("đăng ký đủ endpoint doanh thu, công nợ, chi phí và P&L", () => 
   const paths = analyticsRouter.stack
     .filter((layer: any) => layer.route)
     .map((layer: any) => layer.route.path);
-  for (const path of ["/meta", "/revenue", "/receivables", "/expenses", "/pnl"]) {
+  for (const path of ["/meta", "/revenue", "/receivables", "/expenses", "/pnl", "/export"]) {
     assert.ok(paths.includes(path), `thiếu endpoint analytics ${path}`);
   }
 });
