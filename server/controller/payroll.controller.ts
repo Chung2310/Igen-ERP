@@ -70,6 +70,13 @@ const formatInPayrollTimeZone = (value: Date | string, kind: "date" | "time") =>
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
   return kind === "date" ? `${part("year")}-${part("month")}-${part("day")}` : `${part("hour")}:${part("minute")}`;
 };
+const normalizePayrollLogDate = (value: unknown): string | null => {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (!(value instanceof Date) && typeof value !== "string") return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return formatInPayrollTimeZone(parsed, "date");
+};
 const computeStandardDailyMinutes = (checkInLimit?: string, checkOutLimit?: string, lunchBreakStart?: string, lunchBreakEnd?: string) => {
   if (!checkInLimit || !checkOutLimit) return 480;
   const gross = timeToMinutes(checkOutLimit) - timeToMinutes(checkInLimit);
@@ -336,8 +343,9 @@ export const payrollController = {
       const standardDays = countStandardDays(period, employee.workingDays, calendarRules);
       const standardHours = (employee.standardDailyMinutes * standardDays) / 60;
       const employeeLogs = logs
-        .filter((log) => log.uid === employee.employeeId && evaluateWorkingDate(log.date, calendarRules.get(log.date) || [], employee.workingDays))
-        .map((log) => ({ date: log.date, status: log.status, checkIn: log.checkIn?.time ? formatInPayrollTimeZone(log.checkIn.time, "time") : undefined, checkOut: log.checkOut?.time ? formatInPayrollTimeZone(log.checkOut.time, "time") : undefined }));
+        .map((log) => ({ ...log, payrollDate: normalizePayrollLogDate(log.date) }))
+        .filter((log) => log.uid === employee.employeeId && log.payrollDate && evaluateWorkingDate(log.payrollDate, calendarRules.get(log.payrollDate) || [], employee.workingDays))
+        .map((log) => ({ date: log.payrollDate!, status: log.status, checkIn: log.checkIn?.time ? formatInPayrollTimeZone(log.checkIn.time, "time") : undefined, checkOut: log.checkOut?.time ? formatInPayrollTimeZone(log.checkOut.time, "time") : undefined }));
       const loggedDates = new Set(employeeLogs.map((log) => log.date));
       const leaveDates = new Set<string>();
       for (const leave of leaves) {
