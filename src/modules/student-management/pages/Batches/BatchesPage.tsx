@@ -162,9 +162,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     );
   };
 
-  const isFieldVisible = (fieldKey: string) => {
+  const isFieldVisible = (fieldKey: string, defaultVisible = true) => {
+    if (fieldKey === 'courseId' && entityLabel.preset === 'worker') {
+      return false;
+    }
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
-    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+    return fieldConfig ? fieldConfig.isVisible : defaultVisible;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
@@ -175,6 +178,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
   const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    if (fieldKey === 'courseId' && entityLabel.preset === 'worker') {
+      return false;
+    }
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
@@ -265,7 +271,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     stdFields.forEach((f) => {
       if (f.isVisible && !f.isArchived && f.isRequired) {
         if (f.key === 'code' && !form.code) missingFields.push(f.label);
-        if (f.key === 'courseId' && !form.courseId) missingFields.push(f.label);
+        if (f.key === 'courseId' && entityLabel.preset !== 'worker' && !form.courseId) missingFields.push(f.label);
         if (f.key === 'startDate' && !form.startDate) missingFields.push(f.label);
         if (f.key === 'endDate' && !form.endDate) missingFields.push(f.label);
         if (f.key === 'schedule') {
@@ -290,8 +296,35 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
     setIsSubmitting(true);
     try {
+      let resolvedCourseId = form.courseId;
+      if (entityLabel.preset === 'worker' && !resolvedCourseId) {
+        if (courses.length > 0) {
+          resolvedCourseId = courses[0].id;
+        } else {
+          // Tự động tạo danh mục tuyển dụng mặc định nếu chưa có
+          const newCourseRes = await apiFetch<any>('/courses', {
+            method: 'POST',
+            body: JSON.stringify({
+              code: 'MAC_DINH',
+              title: 'Danh mục mặc định',
+              duration: '12 tháng',
+              fee: '0',
+              category: 'Tuyển dụng',
+              maxLearners: 1000,
+              ...(resolvedCenter ? { companyCode: resolvedCenter } : {}),
+            }),
+          });
+          if (newCourseRes?.success && (newCourseRes?.data?.id || newCourseRes?.data?._id)) {
+            resolvedCourseId = newCourseRes.data.id || newCourseRes.data._id;
+          } else {
+            throw new Error("Không thể tự động tạo danh mục tuyển dụng mặc định.");
+          }
+        }
+      }
+
       const payload = {
         ...form,
+        courseId: resolvedCourseId,
         code: form.code.toUpperCase(),
         // Chỉ một trong hai: gán tài khoản hoặc tên nhập tay
         instructorText: form.instructorId ? '' : form.instructorText.trim(),
