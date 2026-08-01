@@ -24,6 +24,7 @@ export interface ITrainingCourse extends Document {
   duration: string;
   instructor: string;
   companyCode: string;
+  branchId?: string;
   creatorUid: string;
   createdAt: Date;
   enrolledCount: number;

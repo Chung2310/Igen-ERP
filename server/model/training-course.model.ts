@@ -31,6 +31,7 @@ const TrainingCourseSchema = new Schema<ITrainingCourse>({
   duration: { type: String, required: true },
   instructor: { type: String, required: true },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
   enrolledCount: { type: Number, default: 0 },

@@ -21,6 +21,7 @@ const HRSalaryTermSchema = new Schema<IHRSalaryTerm>({
 const HRContractSchema = new Schema<IHRContract>(
   {
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     contractType: { type: String, required: true, trim: true, index: true },
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true, trim: true },
@@ -55,6 +56,7 @@ HRContractSchema.index({ companyCode: 1, employeeId: 1, endDate: -1 });
 const HRContractExtensionSchema = new Schema<IHRContractExtension>(
   {
     companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
     contractId: { type: String, required: true, index: true },
     employeeId: { type: String, required: true, index: true },
     employeeName: { type: String, required: true },

@@ -7,6 +7,7 @@ import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
+import { LEAVE_REQUEST_KINDS, LeaveRequestKind } from "../interface/hr-leave.interface";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
 import { getEmployeeAnnualLeaveBalance } from "../service/annual-leave.service";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
@@ -191,12 +192,20 @@ export const crudController = {
 
       if (modelName === "hr-leave-applications") {
         if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
-        const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
-        if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+        const requestKind: LeaveRequestKind = LEAVE_REQUEST_KINDS.includes(req.body.requestKind) ? req.body.requestKind : "leave";
         const year = new Date(req.body.startDate).getUTCFullYear();
-        const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
-        if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số pháp còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
-        req.body = { ...req.body, status: "pending", year, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+        const base = { ...req.body, requestKind, status: "pending", year, approvalType: undefined, approvedBy: undefined, approvedAt: undefined };
+
+        // Chỉ đơn nghỉ phép mới trừ vào hạn mức phép năm; sự kiện / WFH / ngoại lệ không tính công.
+        if (requestKind === "leave") {
+          const snapshot = await computeChargeableSnapshot(companyCode, req.body as { startDate: Date; endDate: Date });
+          if (snapshot.chargeableDays < 1) throw Object.assign(new Error("Khoảng ngày không có ngày làm việc để tính nghỉ."), { statusCode: 400 });
+          const balance = await getEmployeeAnnualLeaveBalance(req.body.employeeId, companyCode, year);
+          if (balance.remaining < snapshot.chargeableDays) throw Object.assign(new Error(`Số ngày nghỉ vượt số pháp còn lại (${balance.remaining} ngày).`), { statusCode: 400 });
+          req.body = { ...base, chargeableDates: snapshot.chargeableDates, chargeableDays: snapshot.chargeableDays };
+        } else {
+          req.body = { ...base, chargeableDates: undefined, chargeableDays: 0 };
+        }
       }
 
       const LEAVE_TYPES = ["leave", "wfh", "exception"];
@@ -373,26 +382,31 @@ export const crudController = {
         ]);
       }
 
-      // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
+      // Tự động đồng bộ sang hr-calendar-events khi đơn được duyệt — mỗi loại yêu cầu
+      // sinh ra một sự kiện đúng loại trên tab Lịch trình.
       if (modelName === "hr-leave-applications" && item && item.status === "approved") {
+        const requestKind: LeaveRequestKind = LEAVE_REQUEST_KINDS.includes(item.requestKind) ? item.requestKind : "leave";
         const existingEvent = await HRCalendarEventModel.findOne({
           employeeId: item.employeeId,
           startDate: item.startDate,
           endDate: item.endDate,
-          type: "leave",
+          type: requestKind,
           companyCode: item.companyCode
         });
 
         if (!existingEvent) {
-          let title = `${item.employeeName} - ${item.type}`;
-          if (item.type === "leave") title = `${item.employeeName} xin nghỉ phép`;
-          if (item.type === "late") title = `${item.employeeName} xin đi trễ`;
-          if (item.type === "early") title = `${item.employeeName} xin về sớm`;
-          if (item.type === "other") title = `${item.employeeName} xin phép khác`;
+          const KIND_TITLES: Record<LeaveRequestKind, string> = {
+            event: "đăng ký sự kiện",
+            leave: "xin nghỉ phép",
+            wfh: "xin làm tại nhà",
+            exception: "xin ngoại lệ",
+          };
+          const title = `${item.employeeName} ${KIND_TITLES[requestKind]}${item.type ? ` (${item.type})` : ""}`;
 
           await HRCalendarEventModel.create({
             companyCode: item.companyCode,
-            type: "leave",
+            branchId: item.branchId,
+            type: requestKind,
             title,
             description: `Đơn đã duyệt. Lý do: ${item.reason}. Đơn đính kèm: ${item.uploadedFileName}${item.note ? `. Phản hồi: ${item.note}` : ""}`,
             startDate: item.startDate,

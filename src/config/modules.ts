@@ -37,17 +37,7 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "NHÂN SỰ": ["hr:read", "user:read", "kanban:read", "project:read", "timekeeping:read"],
   "ĐỐI TÁC": ["partner:read"],
   "KHO & SẢN PHẨM": ["stock:read"],
-  "QUẢN LÝ HỌC VIÊN": [
-    "student:read", "student:manage",
-    "student-profile:read", "student-profile:manage",
-    "course:read", "course:manage",
-    "batch:read", "batch:manage",
-    "exam:read", "exam:manage",
-    "payment:read", "payment:manage",
-    "student-notification:read", "student-notification:manage",
-    "student-resource:read", "student-resource:manage",
-    "assignment:read", "assignment:manage",
-  ],
+  "QUẢN LÝ HỌC VIÊN": ["student:read", "student:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
   "TRÒ CHUYỆN": ["chat:read"],
 };

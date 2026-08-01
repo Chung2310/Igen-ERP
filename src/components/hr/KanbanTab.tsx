@@ -46,6 +46,7 @@ interface KanbanTabProps {
   employees: EmployeeNode[];
   isManager: boolean;
   usersList: UserProfile[];
+  activeBranchId?: string;
 }
 
 const isUrl = (str?: string): boolean => {
@@ -611,6 +612,7 @@ export default function KanbanTab({
   employees,
   isManager,
   usersList,
+  activeBranchId,
 }: KanbanTabProps) {
   const [tasks, setTasks] = useState<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -663,7 +665,10 @@ export default function KanbanTab({
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/kanban/tasks", {
+      const url = activeBranchId
+        ? `/api/v1/kanban/tasks?branchId=${activeBranchId}`
+        : "/api/v1/kanban/tasks";
+      const res = await fetch(url, {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -685,7 +690,10 @@ export default function KanbanTab({
   const fetchProjects = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/kanban/projects", {
+      const url = activeBranchId
+        ? `/api/v1/kanban/projects?branchId=${activeBranchId}`
+        : "/api/v1/kanban/projects";
+      const res = await fetch(url, {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -716,7 +724,7 @@ export default function KanbanTab({
       fetchTasks();
       fetchProjects();
     }
-  }, [selectedCompanyCode]);
+  }, [selectedCompanyCode, activeBranchId]);
 
   // Realtime: quy trình vừa sinh task mới cho chính mình → tải lại và báo
   useEffect(() => {
@@ -905,6 +913,7 @@ export default function KanbanTab({
           createdAt: new Date().toISOString(),
 
           projectId: editProjectId,
+          branchId: activeBranchId || undefined,
           startTime: editStartTime,
           endTime: finalEndTime,
           estTime: estNum,
@@ -1047,6 +1056,7 @@ export default function KanbanTab({
       const newProj = {
         name: newProjectName.trim(),
         companyCode: compCode,
+        branchId: activeBranchId || undefined,
         creatorUid: userProfile?.uid || "",
         createdAt: new Date().toISOString()
       };

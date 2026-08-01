@@ -147,6 +147,11 @@ kanbanRouter.use(requireAuth as any);
 kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
+    if (req.user?.branchId) {
+      filter.branchId = req.user.branchId;
+    } else if (req.query.branchId) {
+      filter.branchId = req.query.branchId;
+    }
     if (!isManager(req.user?.role)) {
       filter.$or = [{ assigneeUid: req.user?.id }, { creatorUid: req.user?.id }];
     }
@@ -200,6 +205,7 @@ kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (re
       status: status as any,
       category: req.body.category || "Onboarding",
       companyCode,
+      branchId: req.user?.branchId || req.body.branchId || "",
       creatorUid: req.user?.id,
       createdAt: now,
       projectId: req.body.projectId || "",
@@ -333,7 +339,13 @@ kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, asy
 
 kanbanRouter.get("/projects", requirePermission("project:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const projects = await ProjectModel.find(companyFilter(req)).sort("-createdAt").lean();
+    const filter: any = companyFilter(req);
+    if (req.user?.branchId) {
+      filter.branchId = req.user.branchId;
+    } else if (req.query.branchId) {
+      filter.branchId = req.query.branchId;
+    }
+    const projects = await ProjectModel.find(filter).sort("-createdAt").lean();
     return res.json({ status: "success", data: projects });
   } catch (error) {
     return handleError(res, error);
@@ -345,7 +357,13 @@ kanbanRouter.post("/projects", requirePermission("project:manage") as any, async
     const companyCode = req.user?.companyCode || "SYSTEM";
     const name = String(req.body.name || "").trim();
     if (!name) throw httpError(400, "Tên dự án là bắt buộc.");
-    const project = await ProjectModel.create({ name, companyCode, creatorUid: req.user?.id, createdAt: new Date() });
+    const project = await ProjectModel.create({
+      name,
+      companyCode,
+      branchId: req.user?.branchId || req.body.branchId || "",
+      creatorUid: req.user?.id,
+      createdAt: new Date()
+    });
     await kanbanAuditService.recordProjectMutation({
       action: "created",
       actorId: req.user?.id || "",

@@ -16,6 +16,26 @@ import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
+/** Bốn loại yêu cầu nhân sự có thể xin qua đơn từ. Khớp với enum requestKind ở server. */
+export type RequestKind = "event" | "leave" | "wfh" | "exception";
+
+export const REQUEST_KIND_OPTIONS: { value: RequestKind; label: string }[] = [
+  { value: "event", label: "Tạo sự kiện" },
+  { value: "leave", label: "Nghỉ phép" },
+  { value: "wfh", label: "Làm tại nhà" },
+  { value: "exception", label: "Ngoại lệ" },
+];
+
+const REQUEST_KIND_BADGE: Record<RequestKind, string> = {
+  event: "bg-sky-50 text-sky-700 border-sky-100",
+  leave: "bg-violet-50 text-violet-700 border-violet-100",
+  wfh: "bg-amber-50 text-amber-700 border-amber-100",
+  exception: "bg-slate-100 text-slate-700 border-slate-200",
+};
+
+const getRequestKindLabel = (kind?: string) =>
+  REQUEST_KIND_OPTIONS.find((o) => o.value === kind)?.label || "Nghỉ phép";
+
 interface LeaveRequestsTabProps {
   userProfile: UserProfile | null;
   selectedCompanyCode: string;
@@ -23,6 +43,8 @@ interface LeaveRequestsTabProps {
   canApprove?: boolean;
   usersList: UserProfile[];
   employees?: EmployeeNode[];
+  /** Gọi sau khi một đơn được duyệt/từ chối để tab Lịch trình tải lại dữ liệu. */
+  onApproved?: () => void;
 }
 
 export default function LeaveRequestsTab({
@@ -30,6 +52,7 @@ export default function LeaveRequestsTab({
   selectedCompanyCode,
   canApprove = false,
   usersList = [],
+  onApproved,
 }: LeaveRequestsTabProps) {
   const isLeaveAdmin = canApprove;
 
@@ -47,6 +70,9 @@ export default function LeaveRequestsTab({
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [rejectReasonText, setRejectReasonText] = useState("");
   const [appType, setAppType] = useState("leave");
+  const [appRequestKind, setAppRequestKind] = useState<RequestKind>("leave");
+  const [filterRequestKind, setFilterRequestKind] = useState("");
+  const [tplRequestKind, setTplRequestKind] = useState<RequestKind>("leave");
   const [appStartDate, setAppStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [appEndDate, setAppEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [appFile, setAppFile] = useState<File | null>(null);
@@ -202,6 +228,7 @@ export default function LeaveRequestsTab({
         },
         body: JSON.stringify({
           name: tplName,
+          requestKind: tplRequestKind,
           fileUrl,
           fileName: tplFile.name,
           uploadedBy: userProfile?.uid || "unknown",
@@ -222,6 +249,7 @@ export default function LeaveRequestsTab({
       toast.success("Tải lên biểu mẫu mẫu thành công!");
       setIsTemplateFormOpen(false);
       setTplName("");
+      setTplRequestKind("leave");
       setTplFile(null);
       fetchTemplates();
     } catch (err: any) {
@@ -234,6 +262,7 @@ export default function LeaveRequestsTab({
 
   const openAppForm = () => {
     setAppType(templates.length > 0 ? templates[0].name : "other");
+    setAppRequestKind((templates[0]?.requestKind as RequestKind) || "leave");
     // Nhân viên thường luôn nộp đơn cho chính mình; cấp duyệt có thể đổi ở form.
     const defaultEmployeeId = userProfile?.uid || "";
     setAppEmployeeId(defaultEmployeeId);
@@ -282,9 +311,10 @@ export default function LeaveRequestsTab({
           employeeId: appEmployeeId,
           employeeName: targetEmp?.displayName || userProfile?.displayName || "Nhân viên",
           type: appType,
+          requestKind: appRequestKind,
           startDate: startDateTime.toISOString(),
           endDate: endDateTime.toISOString(),
-          reason: "Đăng ký nghỉ phép",
+          reason: `Đăng ký ${getRequestKindLabel(appRequestKind).toLowerCase()}`,
           uploadedFileUrl: fileUrl,
           uploadedFileName: appFile ? appFile.name : "",
           attachments,
@@ -303,7 +333,7 @@ export default function LeaveRequestsTab({
         throw new Error((errorData.message || "Lỗi lưu đơn xin nghỉ.") + (details ? ` [${details}]` : ""));
       }
 
-      toast.success("Gửi đơn xin nghỉ phép thành công!");
+      toast.success(`Gửi đơn "${getRequestKindLabel(appRequestKind)}" thành công!`);
       setIsAppFormOpen(false);
       setAppFile(null);
       setAppFiles([]);
@@ -335,6 +365,7 @@ export default function LeaveRequestsTab({
       if (!res.ok) throw new Error("Lỗi phê duyệt đơn.");
       toast.success("Đã duyệt đơn thành công!");
       fetchApplications();
+      onApproved?.();
     } catch (err: any) {
       console.error(err);
       toast.error("Phê duyệt đơn thất bại.");
@@ -366,6 +397,7 @@ export default function LeaveRequestsTab({
       setSelectedAppId(null);
       setRejectReasonText("");
       fetchApplications();
+      onApproved?.();
     } catch (err: any) {
       console.error(err);
       toast.error("Từ chối đơn thất bại.");
@@ -446,17 +478,19 @@ export default function LeaveRequestsTab({
 
   const filteredApplications = applications.filter((app) => {
     const matchType = !filterAppType || app.type === filterAppType;
-    if (!filterSearchQuery.trim()) return matchType;
+    const matchKind = !filterRequestKind || (app.requestKind || "leave") === filterRequestKind;
+    if (!filterSearchQuery.trim()) return matchType && matchKind;
 
     const query = filterSearchQuery.toLowerCase();
     const matchSearch =
       (app.employeeName || "").toLowerCase().includes(query) ||
       getAppTypeLabel(app.type).toLowerCase().includes(query) ||
+      getRequestKindLabel(app.requestKind).toLowerCase().includes(query) ||
       (app.reason || "").toLowerCase().includes(query) ||
       (app.note || "").toLowerCase().includes(query) ||
       (app.rejectReason || "").toLowerCase().includes(query);
 
-    return matchType && matchSearch;
+    return matchType && matchKind && matchSearch;
   });
 
   const selectedTemplate = templates.find((t) => t.name === appType);
@@ -534,6 +568,21 @@ export default function LeaveRequestsTab({
                   <option value="other">Đơn khác</option>
                 </select>
               </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                  Yêu cầu:
+                </span>
+                <select
+                  value={filterRequestKind}
+                  onChange={(e) => setFilterRequestKind(e.target.value)}
+                  className="px-2.5 py-1 border border-slate-200 bg-white rounded-xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+                >
+                  <option value="">Tất cả</option>
+                  {REQUEST_KIND_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </div>
@@ -543,6 +592,7 @@ export default function LeaveRequestsTab({
             <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
               <tr>
                 {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
+                <th className="px-5 py-4 min-w-[110px]">Yêu cầu</th>
                 <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
                 <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
                 <th className="px-5 py-4 min-w-[220px]">Lý do</th>
@@ -564,7 +614,7 @@ export default function LeaveRequestsTab({
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
               {isAppLoading ? (
                 <tr>
-                  <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400">
                     <div className="flex justify-center items-center gap-2">
                       <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                       Đang tải danh sách đơn từ...
@@ -573,7 +623,7 @@ export default function LeaveRequestsTab({
                 </tr>
               ) : filteredApplications.length === 0 ? (
                 <tr>
-                  <td colSpan={isLeaveAdmin ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400 font-medium">
                     {applications.length === 0
                       ? "Chưa có đơn từ nào được đăng ký."
                       : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
@@ -589,6 +639,15 @@ export default function LeaveRequestsTab({
                           <div className="font-bold text-slate-800">{app.employeeName}</div>
                         </td>
                       )}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${
+                            REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
+                          }`}
+                        >
+                          {getRequestKindLabel(app.requestKind)}
+                        </span>
+                      </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className="font-bold text-slate-850">{getAppTypeLabel(app.type)}</span>
                       </td>
@@ -721,10 +780,30 @@ export default function LeaveRequestsTab({
                 )}
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Loại đơn</label>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Loại yêu cầu</label>
+                  <select
+                    value={appRequestKind}
+                    onChange={(e) => setAppRequestKind(e.target.value as RequestKind)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+                  >
+                    {REQUEST_KIND_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[10px] text-slate-400 font-semibold">
+                    Chỉ đơn &quot;Nghỉ phép&quot; mới trừ vào số ngày phép năm.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Biểu mẫu</label>
                   <select
                     value={appType}
-                    onChange={(e) => setAppType(e.target.value)}
+                    onChange={(e) => {
+                      setAppType(e.target.value);
+                      const tpl = templates.find((t) => t.name === e.target.value);
+                      if (tpl?.requestKind) setAppRequestKind(tpl.requestKind as RequestKind);
+                    }}
                     className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
                   >
                     {templates.map((tpl) => (
@@ -938,6 +1017,22 @@ export default function LeaveRequestsTab({
                     onChange={(e) => setTplName(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">Dùng cho loại yêu cầu</label>
+                  <select
+                    value={tplRequestKind}
+                    onChange={(e) => setTplRequestKind(e.target.value as RequestKind)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-2xl text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+                  >
+                    {REQUEST_KIND_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[10px] text-slate-400 font-semibold">
+                    Nhân viên chọn biểu mẫu này khi nộp đơn sẽ tự được gán loại yêu cầu tương ứng.
+                  </p>
                 </div>
 
                 <div>

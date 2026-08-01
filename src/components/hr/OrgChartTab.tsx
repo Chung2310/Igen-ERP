@@ -42,6 +42,7 @@ interface OrgChartTabProps {
   courses: TrainingCourse[];
   fetchCourses: (compCode: string) => Promise<void>;
   loading: boolean;
+  activeBranchId?: string;
 }
 
 const isUrl = (str?: string): boolean => {
@@ -164,7 +165,6 @@ const getCategoryByDivision = (division: string) => {
 };
 
 export default function OrgChartTab({
-
   userProfile,
   selectedCompanyCode,
   usersList,
@@ -174,7 +174,8 @@ export default function OrgChartTab({
   companies,
   courses,
   fetchCourses,
-  loading
+  loading,
+  activeBranchId,
 }: OrgChartTabProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isFitted, setIsFitted] = useState<boolean>(false);
@@ -771,7 +772,8 @@ export default function OrgChartTab({
         deptName,
         addPhone.trim(),
         undefined,
-        addJobDescriptionLink.trim() || undefined
+        addJobDescriptionLink.trim() || undefined,
+        activeBranchId || undefined
       );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);

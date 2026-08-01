@@ -22,11 +22,11 @@ const hasPermission = (permissions: readonly string[], code: string) =>
 
 export function canReadStudentArea(permissions: readonly string[], area: StudentPermissionArea) {
   if (CONFIGURATION_AREAS.has(area)) return hasPermission(permissions, `${area}:manage`);
-  return ["student:read", "student:manage", `${area}:read`, `${area}:manage`]
-    .some((code) => hasPermission(permissions, code));
+  // Module học viên/lao động chỉ còn hai mã quyền tổng, không còn mã theo từng khu vực.
+  return ["student:read", "student:manage"].some((code) => hasPermission(permissions, code));
 }
 
 export function canManageStudentArea(permissions: readonly string[], area: StudentPermissionArea) {
   if (CONFIGURATION_AREAS.has(area)) return hasPermission(permissions, `${area}:manage`);
-  return ["student:manage", `${area}:manage`].some((code) => hasPermission(permissions, code));
+  return hasPermission(permissions, "student:manage");
 }

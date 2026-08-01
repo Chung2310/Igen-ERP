@@ -7,6 +7,7 @@ const TrainingEnrollmentSchema = new Schema<ITrainingEnrollment>({
   uid: { type: String, required: true, index: true },
   userName: { type: String, required: true },
   companyCode: { type: String, required: true, index: true },
+  branchId: { type: String, index: true },
   progress: { type: Number, default: 0 },
   status: { type: String, enum: ["not_started", "in_progress", "completed"], default: "not_started", index: true },
   startedAt: { type: Date },

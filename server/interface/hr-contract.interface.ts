@@ -20,6 +20,7 @@ export interface IHRSalaryTerm {
 
 export interface IHRContract extends Document {
   companyCode: string;
+  branchId?: string;
   contractType: string;
   employeeId: string;
   employeeName: string;
@@ -44,6 +45,7 @@ export interface IHRContract extends Document {
 
 export interface IHRContractExtension extends Document {
   companyCode: string;
+  branchId?: string;
   contractId: string;
   employeeId: string;
   employeeName: string;
