@@ -48,6 +48,15 @@ test("analytics router gắn gate ở cấp router nên mọi endpoint đều đ
   assert.ok(routes.length > 0, "phải có ít nhất một endpoint được đăng ký");
 });
 
+test("đăng ký đủ endpoint doanh thu, công nợ, chi phí và P&L", () => {
+  const paths = analyticsRouter.stack
+    .filter((layer: any) => layer.route)
+    .map((layer: any) => layer.route.path);
+  for (const path of ["/meta", "/revenue", "/receivables", "/expenses", "/pnl"]) {
+    assert.ok(paths.includes(path), `thiếu endpoint analytics ${path}`);
+  }
+});
+
 test("chỉ admin và superadmin đi qua được gate của khu vực phân tích", () => {
   const roleGate = routerLevelMiddleware(analyticsRouter)[1];
 

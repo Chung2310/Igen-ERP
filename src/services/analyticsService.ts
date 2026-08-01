@@ -49,6 +49,45 @@ export interface RevenueReport {
   currency: string;
 }
 
+export interface ReceivablesReport {
+  asOf: string;
+  total: number;
+  count: number;
+  aging: Array<{ bucket: "notSent" | "0-30" | "31-60" | "60+"; amount: number; count: number }>;
+  agingBasis: "sentAt";
+  currency: string;
+}
+
+export interface ExpensesReport {
+  range: { from: string; to: string };
+  total: number;
+  payroll: { amount: number; count: number };
+  commission: { amount: number; count: number };
+  excludedCommissionRecords: number;
+  currency: string;
+}
+
+export interface ProfitAndLossReport {
+  revenue: number;
+  tuitionRevenue: number;
+  goodsRevenue: number;
+  goodsGrossProfit: number | null;
+  payrollExpense: number;
+  commissionExpense: number;
+  totalOperatingExpenses: number;
+  operatingResult: number | null;
+  excludedCostLines: number;
+  excludedCommissionRecords: number;
+  currency: string;
+}
+
+async function getAnalyticsJson<T>(path: string): Promise<T> {
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+  if (!res.ok) throw new Error("Không thể tải dữ liệu phân tích.");
+  const json = await res.json();
+  return json.data as T;
+}
+
 export const analyticsService = {
   /** Doanh thu học phí theo thời gian, kèm tổng kỳ liền trước để so sánh. */
   async getRevenue(params: {
@@ -89,5 +128,17 @@ export const analyticsService = {
 
     const json = await res.json();
     return json.data as AnalyticsMeta;
+  },
+
+  getReceivables(asOf: string): Promise<ReceivablesReport> {
+    return getAnalyticsJson(`/api/v1/analytics/receivables?${new URLSearchParams({ asOf })}`);
+  },
+
+  getExpenses(params: { from: string; to: string }): Promise<ExpensesReport> {
+    return getAnalyticsJson(`/api/v1/analytics/expenses?${new URLSearchParams(params)}`);
+  },
+
+  getProfitAndLoss(params: { from: string; to: string; granularity: RevenueGranularity }): Promise<ProfitAndLossReport> {
+    return getAnalyticsJson(`/api/v1/analytics/pnl?${new URLSearchParams(params)}`);
   },
 };

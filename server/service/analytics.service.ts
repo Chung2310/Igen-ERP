@@ -1,5 +1,8 @@
 import { StockLogModel } from "../model/stock-log.model";
+import { PayrollPaymentModel } from "../model/payroll-payment.model";
 import { Payment } from "../modules/student-management/models/payment.model";
+import { Partner } from "../modules/student-management/models/partner.model";
+import { Student } from "../modules/student-management/models/student.model";
 import { User } from "../modules/student-management/models/user.model";
 import { buildCompanyUserFilter } from "../modules/student-management/utils/auth.util";
 
@@ -276,6 +279,102 @@ export const analyticsService = {
       excludedGoodsLines: missingPriceLines,
       excludedCostLines: missingCostLines,
       excludedUnclassifiedStockOut: unclassifiedStockOut,
+      currency: "VND",
+    };
+  },
+
+  async getReceivables(scope: AnalyticsScope, asOf: Date) {
+    const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
+    const ownerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
+    const rows = await Student.aggregate([
+      { $match: ownerMatch },
+      { $unwind: "$installmentStatus" },
+      { $match: { "installmentStatus.status": { $ne: "Đã thu" }, "installmentStatus.amountDue": { $gt: 0 } } },
+      { $addFields: { sentOn: { $convert: { input: "$installmentStatus.sentAt", to: "date", onError: null, onNull: null } } } },
+      { $addFields: { ageDays: { $cond: [{ $ne: ["$sentOn", null] }, { $dateDiff: { startDate: "$sentOn", endDate: asOf, unit: "day" } }, null] } } },
+      { $group: {
+        _id: { $switch: { branches: [
+          { case: { $eq: ["$sentOn", null] }, then: "notSent" },
+          { case: { $lte: ["$ageDays", 30] }, then: "0-30" },
+          { case: { $lte: ["$ageDays", 60] }, then: "31-60" },
+        ], default: "60+" } },
+        amount: { $sum: "$installmentStatus.amountDue" },
+        count: { $sum: 1 },
+      } },
+    ]);
+    const order = ["notSent", "0-30", "31-60", "60+"];
+    const byKey = new Map(rows.map((row: any) => [row._id, row]));
+    const aging = order.map((bucket) => ({ bucket, amount: byKey.get(bucket)?.amount || 0, count: byKey.get(bucket)?.count || 0 }));
+    return {
+      asOf: asOf.toISOString(),
+      total: aging.reduce((sum, row) => sum + row.amount, 0),
+      count: aging.reduce((sum, row) => sum + row.count, 0),
+      aging,
+      agingBasis: "sentAt",
+      currency: "VND",
+    };
+  },
+
+  async getExpenses(scope: AnalyticsScope, range: RevenueRange) {
+    const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
+    const partnerOwnerMatch = ownerIds ? { ownerId: { $in: ownerIds } } : {};
+    const payrollScope = scope.companyCode ? { companyCode: scope.companyCode } : {};
+    const [payrollRows, commissionRows] = await Promise.all([
+      PayrollPaymentModel.aggregate([
+        { $match: { ...payrollScope, status: "confirmed", paymentDate: { $gte: range.from, $lte: range.to } } },
+        { $group: { _id: null, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      ]),
+      Partner.aggregate([
+        { $match: partnerOwnerMatch },
+        { $unwind: "$payoutHistory" },
+        { $addFields: { payoutOn: { $dateFromString: { dateString: "$payoutHistory.date", format: "%d/%m/%Y", onError: null, onNull: null } } } },
+        { $facet: {
+          valid: [
+            { $match: { payoutOn: { $gte: range.from, $lte: range.to } } },
+            { $group: { _id: null, amount: { $sum: "$payoutHistory.amount" }, count: { $sum: 1 } } },
+          ],
+          invalid: [
+            { $match: { payoutOn: null } },
+            { $count: "count" },
+          ],
+        } },
+      ]),
+    ]);
+    const payroll = payrollRows[0] || {};
+    const commissionFacet = commissionRows[0] || {};
+    const commission = commissionFacet.valid?.[0] || {};
+    const payrollAmount = payroll.amount || 0;
+    const commissionAmount = commission.amount || 0;
+    return {
+      range: { from: range.from.toISOString(), to: range.to.toISOString() },
+      total: payrollAmount + commissionAmount,
+      payroll: { amount: payrollAmount, count: payroll.count || 0 },
+      commission: { amount: commissionAmount, count: commission.count || 0 },
+      excludedCommissionRecords: commissionFacet.invalid?.[0]?.count || 0,
+      currency: "VND",
+    };
+  },
+
+  async getProfitAndLoss(scope: AnalyticsScope, range: RevenueRange) {
+    const [revenue, expenses] = await Promise.all([
+      this.getCombinedRevenue(scope, range),
+      this.getExpenses(scope, range),
+    ]);
+    const contributionBeforeExpenses = revenue.goodsGrossProfit === null
+      ? null
+      : revenue.tuitionTotal + revenue.goodsGrossProfit;
+    return {
+      range: revenue.range,
+      revenue: revenue.total,
+      tuitionRevenue: revenue.tuitionTotal,
+      goodsRevenue: revenue.goodsTotal,
+      goodsGrossProfit: revenue.goodsGrossProfit,
+      payrollExpense: expenses.payroll.amount,
+      commissionExpense: expenses.commission.amount,
+      totalOperatingExpenses: expenses.total,
+      operatingResult: contributionBeforeExpenses === null ? null : contributionBeforeExpenses - expenses.total,
+      excludedCostLines: revenue.excludedCostLines,
+      excludedCommissionRecords: expenses.excludedCommissionRecords,
       currency: "VND",
     };
   },

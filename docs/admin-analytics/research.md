@@ -13,7 +13,7 @@
 | GĐ 2 — Doanh thu học phí theo thời gian | ✅ Xong | `42026a58` |
 | GĐ 3 — Schema kho (`unitPrice`, `purpose`, `costPrice`) | ✅ Xong | working tree |
 | GĐ 4 — Gộp 2 nguồn doanh thu + lãi gộp | ✅ Xong | working tree |
-| GĐ 5 — Công nợ & chi phí | ⬜ Chưa làm | |
+| GĐ 5 — Công nợ & chi phí | ✅ Xong | working tree |
 | GĐ 6 — Xuất báo cáo Excel/CSV | ⬜ Chưa làm | |
 
 ### Đã tạo
@@ -241,7 +241,7 @@ phiếu có snapshot; không backfill giá cho dữ liệu cũ.
 
 **Giai đoạn 4 — Gộp doanh thu — ✅ xong:** biểu đồ cột chồng 2 nguồn, breakdown theo nhóm sản phẩm, lãi gộp hàng hóa. Chỉ phiếu `xuất` có `purpose = bán` được tính; doanh thu và giá vốn lấy từ snapshot trên từng dòng. Dòng thiếu giá bán bị loại và được cảnh báo; nếu bất kỳ dòng bán nào thiếu giá vốn thì KPI lãi gộp bị ẩn thay vì báo số thấp sai lệch.
 
-**Giai đoạn 5 — Công nợ & chi phí:** aging từ `installmentStatus`, lương từ payroll, hoa hồng từ `partner.payoutHistory`, P&L đầy đủ.
+**Giai đoạn 5 — Công nợ & chi phí — ✅ xong:** aging từ `installmentStatus.amountDue` theo tuổi kể từ `sentAt`; lương chỉ lấy `PayrollPayment` đã `confirmed`; hoa hồng lấy từ `partner.payoutHistory` và parse ngày `DD/MM/YYYY` nghiêm ngặt. Kết quả vận hành hiện tại = học phí + lãi gộp hàng hóa − lương đã thanh toán − hoa hồng đã chi, và ghi rõ chưa gồm các chi phí khác.
 
 **Giai đoạn 6 — Xuất báo cáo:** Excel/CSV (tham khảo `payroll-export.service.ts`).
 

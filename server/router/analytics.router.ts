@@ -24,6 +24,18 @@ const revenueSchema = {
   }),
 };
 
+const dateRangeSchema = {
+  query: Joi.object({
+    from: Joi.string().regex(DATE_PATTERN).required(),
+    to: Joi.string().regex(DATE_PATTERN).required(),
+    granularity: Joi.string().valid("day", "week", "month").optional(),
+  }),
+};
+
+const receivablesSchema = {
+  query: Joi.object({ asOf: Joi.string().regex(DATE_PATTERN).required() }),
+};
+
 /**
  * Khu vực Phân tích & Báo cáo — chỉ dành cho admin/superadmin.
  *
@@ -46,3 +58,7 @@ analyticsRouter.get(
   validateRequest(revenueSchema),
   analyticsController.getRevenue as any
 );
+
+analyticsRouter.get("/receivables", validateRequest(receivablesSchema), analyticsController.getReceivables as any);
+analyticsRouter.get("/expenses", validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
+analyticsRouter.get("/pnl", validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);

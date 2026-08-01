@@ -3,6 +3,9 @@ import { AlertTriangle, BarChart3, Loader2, TrendingDown, TrendingUp } from "luc
 import {
   analyticsService,
   type AnalyticsMeta,
+  type ExpensesReport,
+  type ProfitAndLossReport,
+  type ReceivablesReport,
   type RevenueGranularity,
   type RevenueReport,
 } from "../services/analyticsService";
@@ -31,6 +34,9 @@ export default function AnalyticsTab() {
   const [presetKey, setPresetKey] = useState("30d");
   const [meta, setMeta] = useState<AnalyticsMeta | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
+  const [receivables, setReceivables] = useState<ReceivablesReport | null>(null);
+  const [expenses, setExpenses] = useState<ExpensesReport | null>(null);
+  const [pnl, setPnl] = useState<ProfitAndLossReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,16 +53,33 @@ export default function AnalyticsTab() {
     const from = new Date(to.getTime() - preset.days * 24 * 60 * 60 * 1000);
 
     try {
-      const [metaData, revenueData] = await Promise.all([
+      const dateParams = { from: toIsoDate(from), to: toIsoDate(to) };
+      const [metaData, revenueData, receivablesData, expensesData] = await Promise.all([
         analyticsService.getMeta(),
         analyticsService.getRevenue({
-          from: toIsoDate(from),
-          to: toIsoDate(to),
+          ...dateParams,
           granularity: preset.granularity as RevenueGranularity,
         }),
+        analyticsService.getReceivables(dateParams.to),
+        analyticsService.getExpenses(dateParams),
       ]);
       setMeta(metaData);
       setRevenue(revenueData);
+      setReceivables(receivablesData);
+      setExpenses(expensesData);
+      setPnl({
+        revenue: revenueData.total,
+        tuitionRevenue: revenueData.tuitionTotal,
+        goodsRevenue: revenueData.goodsTotal,
+        goodsGrossProfit: revenueData.goodsGrossProfit,
+        payrollExpense: expensesData.payroll.amount,
+        commissionExpense: expensesData.commission.amount,
+        totalOperatingExpenses: expensesData.total,
+        operatingResult: revenueData.goodsGrossProfit === null ? null : revenueData.tuitionTotal + revenueData.goodsGrossProfit - expensesData.total,
+        excludedCostLines: revenueData.excludedCostLines,
+        excludedCommissionRecords: expensesData.excludedCommissionRecords,
+        currency: "VND",
+      });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -119,9 +142,9 @@ export default function AnalyticsTab() {
         </div>
       )}
 
-      {!loading && !error && revenue && (
+      {!loading && !error && revenue && receivables && expenses && pnl && (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StatTile
               label="Tổng doanh thu"
               value={`${formatVnd(revenue.total)} ₫`}
@@ -129,8 +152,9 @@ export default function AnalyticsTab() {
             />
             <StatTile label="Doanh thu học phí" value={`${formatVnd(revenue.tuitionTotal)} ₫`} />
             <StatTile label="Doanh thu bán hàng" value={`${formatVnd(revenue.goodsTotal)} ₫`} />
-            <StatTile label="Kỳ trước" value={`${formatVnd(revenue.previousTotal)} ₫`} />
-            <StatTile label="Lãi gộp hàng hóa" value={revenue.goodsGrossProfit === null ? "Chưa đủ dữ liệu" : `${formatVnd(revenue.goodsGrossProfit)} ₫`} />
+            <StatTile label="Công nợ phải thu" value={`${formatVnd(receivables.total)} ₫`} />
+            <StatTile label="Chi phí đã chi" value={`${formatVnd(expenses.total)} ₫`} />
+            <StatTile label="Kết quả vận hành" value={pnl.operatingResult === null ? "Chưa đủ dữ liệu" : `${formatVnd(pnl.operatingResult)} ₫`} />
           </section>
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -147,8 +171,15 @@ export default function AnalyticsTab() {
             <GoodsBreakdown rows={revenue.goodsBreakdown} />
           )}
 
+          <section className="grid gap-4 lg:grid-cols-2">
+            <ReceivablesAging report={receivables} />
+            <ExpenseBreakdown report={expenses} />
+          </section>
+
+          <PnlBridge report={pnl} />
+
           {/* Nói rõ phần dữ liệu không được tính, thay vì lặng lẽ báo thiếu */}
-          {(revenue.excludedRecords > 0 || revenue.excludedGoodsLines > 0 || revenue.excludedCostLines > 0 || revenue.excludedUnclassifiedStockOut > 0 || blockedSources.length > 0) && (
+          {(revenue.excludedRecords > 0 || revenue.excludedGoodsLines > 0 || revenue.excludedCostLines > 0 || revenue.excludedUnclassifiedStockOut > 0 || expenses.excludedCommissionRecords > 0 || blockedSources.length > 0) && (
             <section className="rounded-[28px] border border-amber-200 bg-amber-50 p-6">
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
@@ -174,6 +205,10 @@ export default function AnalyticsTab() {
                     <p className="text-amber-800">{revenue.excludedUnclassifiedStockOut} phiếu xuất lịch sử chưa phân loại mục đích nên không được suy đoán là doanh thu bán hàng.</p>
                   )}
 
+                  {expenses.excludedCommissionRecords > 0 && (
+                    <p className="text-amber-800">{expenses.excludedCommissionRecords} khoản chi hoa hồng có ngày sai định dạng DD/MM/YYYY nên không thể xếp vào kỳ báo cáo.</p>
+                  )}
+
                   {blockedSources.map((source) => (
                     <p key={source.key} className="text-amber-800">
                       <span className="font-semibold">{source.label}:</span> {source.blockedReason}
@@ -186,6 +221,80 @@ export default function AnalyticsTab() {
         </>
       )}
     </div>
+  );
+}
+
+const AGING_LABELS: Record<ReceivablesReport["aging"][number]["bucket"], string> = {
+  notSent: "Chưa gửi thông báo",
+  "0-30": "0–30 ngày",
+  "31-60": "31–60 ngày",
+  "60+": "Trên 60 ngày",
+};
+
+function ReceivablesAging({ report }: { report: ReceivablesReport }) {
+  const maxAmount = Math.max(...report.aging.map((row) => row.amount), 1);
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Tuổi công nợ học phí</h2>
+      <p className="mt-1 text-xs text-slate-400">Tính từ ngày gửi thông báo thu; chưa phải số ngày quá hạn hợp đồng</p>
+      <div className="mt-5 space-y-4">
+        {report.aging.map((row) => (
+          <div key={row.bucket}>
+            <div className="mb-1 flex justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{AGING_LABELS[row.bucket]}</span><span className="tabular-nums text-slate-500">{formatVnd(row.amount)} ₫ · {row.count} đợt</span></div>
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(row.amount / maxAmount) * 100}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExpenseBreakdown({ report }: { report: ExpensesReport }) {
+  const rows = [
+    { label: "Lương đã thanh toán", ...report.payroll },
+    { label: "Hoa hồng đã chi", ...report.commission },
+  ];
+  const maxAmount = Math.max(...rows.map((row) => row.amount), 1);
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Chi phí theo dòng tiền</h2>
+      <p className="mt-1 text-xs text-slate-400">Chỉ gồm khoản lương xác nhận và hoa hồng đã chi trong kỳ</p>
+      <div className="mt-5 space-y-5">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <div className="mb-1 flex justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{row.label}</span><span className="tabular-nums text-slate-500">{formatVnd(row.amount)} ₫ · {row.count} khoản</span></div>
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-amber-600" style={{ width: `${(row.amount / maxAmount) * 100}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PnlBridge({ report }: { report: ProfitAndLossReport }) {
+  const rows = [
+    { label: "Doanh thu học phí", value: report.tuitionRevenue, sign: "+" },
+    { label: "Lãi gộp hàng hóa", value: report.goodsGrossProfit, sign: "+" },
+    { label: "Lương đã thanh toán", value: report.payrollExpense, sign: "−" },
+    { label: "Hoa hồng đã chi", value: report.commissionExpense, sign: "−" },
+  ];
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Đối chiếu kết quả vận hành</h2>
+      <p className="mt-1 text-xs text-slate-400">Học phí + lãi gộp hàng hóa − lương đã thanh toán − hoa hồng đã chi; chưa gồm các chi phí khác</p>
+      <div className="mt-5 divide-y divide-slate-100">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-4 py-3 text-sm">
+            <span className="font-semibold text-slate-600">{row.label}</span>
+            <span className="font-bold tabular-nums text-slate-700">{row.value === null ? "Chưa đủ dữ liệu" : `${row.sign} ${formatVnd(row.value)} ₫`}</span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-4 pt-4 text-base">
+          <span className="font-bold text-slate-800">Kết quả vận hành</span>
+          <span className="font-black tabular-nums text-slate-900">{report.operatingResult === null ? "Chưa đủ dữ liệu" : `${formatVnd(report.operatingResult)} ₫`}</span>
+        </div>
+      </div>
+    </section>
   );
 }
 

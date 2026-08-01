@@ -84,4 +84,43 @@ export const analyticsController = {
       });
     }
   },
+
+  async getReceivables(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      const asOf = new Date(`${String(req.query.asOf)}T23:59:59.999Z`);
+      if (isNaN(asOf.getTime())) return res.status(400).json({ status: "error", message: "asOf phải đúng định dạng YYYY-MM-DD." });
+      const data = await analyticsService.getReceivables({ companyCode: req.user.companyCode }, asOf);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[analyticsController.getReceivables] Error:", error);
+      return res.status(500).json({ status: "error", message: "Lỗi hệ thống khi tổng hợp công nợ.", details: error.message });
+    }
+  },
+
+  async getExpenses(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      const range = resolveRange(String(req.query.from), String(req.query.to), "day");
+      if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
+      const data = await analyticsService.getExpenses({ companyCode: req.user.companyCode }, range);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[analyticsController.getExpenses] Error:", error);
+      return res.status(500).json({ status: "error", message: "Lỗi hệ thống khi tổng hợp chi phí.", details: error.message });
+    }
+  },
+
+  async getProfitAndLoss(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      const range = resolveRange(String(req.query.from), String(req.query.to), (req.query.granularity as RevenueGranularity) || "day");
+      if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
+      const data = await analyticsService.getProfitAndLoss({ companyCode: req.user.companyCode }, range);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[analyticsController.getProfitAndLoss] Error:", error);
+      return res.status(500).json({ status: "error", message: "Lỗi hệ thống khi tổng hợp P&L.", details: error.message });
+    }
+  },
 };
