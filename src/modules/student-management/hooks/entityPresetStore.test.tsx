@@ -26,6 +26,18 @@ describe("shared entity preset state", () => {
 
   afterEach(cleanup);
 
+  it("does not expose the student label while the real preset is still loading", () => {
+    vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: "ACME", entityPreset: "worker" });
+
+    function LabelProbe() {
+      const entity = useEntityLabel();
+      return <output aria-label="label">{entity.tabLabel}</output>;
+    }
+
+    render(<LabelProbe />);
+
+    expect(screen.getByLabelText("label").textContent).toBe("Học viên/Lao động");
+  });
   it("shares one settings request across simultaneous consumers", async () => {
     vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: "ACME", entityPreset: "worker" });
 

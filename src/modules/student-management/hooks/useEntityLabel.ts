@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { ENTITY_LABEL_PRESETS, type EntityLabelSet, type EntityPreset } from "../config/entityLabels";
+import { ENTITY_LABEL_PRESETS, LOADING_ENTITY_LABELS, type EntityLabelSet, type EntityPreset } from "../config/entityLabels";
 import {
   ensureEntityPresetLoaded,
   getEntityPresetSnapshot,
@@ -23,7 +23,7 @@ export function useEntityLabel(): UseEntityLabelResult {
   }, []);
 
   return {
-    ...ENTITY_LABEL_PRESETS[snapshot.preset],
+    ...(snapshot.loading ? LOADING_ENTITY_LABELS : ENTITY_LABEL_PRESETS[snapshot.preset]),
     preset: snapshot.preset,
     loading: snapshot.loading,
   };
