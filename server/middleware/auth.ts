@@ -45,6 +45,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
   admin: [
+    "*",
     "user:read", "user:manage",
     "face:manage",
     "kanban:read", "kanban:manage",
@@ -168,7 +169,7 @@ export async function getEffectivePermissions(
   role: string,
   companyCode?: string
 ): Promise<Set<string>> {
-  if (role === "superadmin") {
+  if (role === "superadmin" || role === "admin") {
     return new Set(["*"]);
   }
 
