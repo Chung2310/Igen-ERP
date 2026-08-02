@@ -99,4 +99,4 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
-apiRouter.use("/worker-management", requireAuth as any, requireModule("worker"), workerManagementRouter);
+apiRouter.use("/", requireAuth as any, requireModule("worker"), workerManagementRouter);
