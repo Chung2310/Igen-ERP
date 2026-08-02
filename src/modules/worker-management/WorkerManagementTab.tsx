@@ -1,68 +1,388 @@
-import React from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import React, { Suspense, lazy } from "react";
+import { useSubTabRouter } from "../../hooks/useSubTabRouter";
+import type { Student } from "./types";
+import { AddStudentModal } from "./components/Student/AddStudentModal";
+import { StudentDetailModal } from "./components/Student/StudentDetailModal";
+import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
-import { canManageBusinessModule } from "../../utils/businessModulePermissionPolicy";
-import { workerApi } from "./api/workers.api";
-import type { Worker, WorkerInput, WorkerStatus } from "./types";
+import { useAdminCenters } from "./hooks/useAdminCenters";
+import { useEntityLabel } from "./hooks/useEntityLabel";
+import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
+import {
+  ChevronDown,
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  BriefcaseBusiness,
+  GraduationCap,
+  Calendar,
+  CreditCard,
+  Bell,
+  FolderOpen,
+} from "lucide-react";
+import {
+  canManageWorkerArea,
+  canReadWorkerArea,
+} from "./workerPermissionPolicy";
+import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
+import { setBusinessApiScope } from "./lib/api";
 
-const EMPTY_FORM: WorkerInput = { fullName: "", phone: "", email: "", status: "active", note: "", branchId: "" };
-const STATUS_LABELS: Record<WorkerStatus, string> = { active: "Đang làm việc", inactive: "Ngừng hoạt động", placed: "Đã bố trí" };
+type StudentSubTab =
+  | "TỔNG QUAN"
+  | "HỌC VIÊN"
+  | "KHÓA HỌC"
+  | "LỚP HỌC"
+  | "LỊCH THI"
+  | "HỌC PHÍ"
+  | "THÔNG BÁO"
+  | "TÀI NGUYÊN";
 
-export default function WorkerManagementTab() {
-  const { userProfile } = useAuth();
-  const canManage = canManageBusinessModule(userProfile?.permissions || [], "worker");
-  const [workers, setWorkers] = React.useState<Worker[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-  const [editing, setEditing] = React.useState<Worker | null>(null);
-  const [form, setForm] = React.useState<WorkerInput>(EMPTY_FORM);
-  const [showForm, setShowForm] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
+const DashboardPage = lazy(() =>
+  import("./pages/Dashboard/DashboardPage").then((m) => ({
+    default: m.DashboardPage,
+  })),
+);
+const StudentsPage = lazy(() =>
+  import("./pages/Students/StudentsPage").then((m) => ({
+    default: m.StudentsPage,
+  })),
+);
+const CoursesPage = lazy(() =>
+  import("./pages/Courses/CoursesPage").then((m) => ({
+    default: m.CoursesPage,
+  })),
+);
+const BatchesPage = lazy(() =>
+  import("./pages/Batches/BatchesPage").then((m) => ({
+    default: m.BatchesPage,
+  })),
+);
+const ExamsPage = lazy(() =>
+  import("./pages/Exams/ExamsPage").then((m) => ({ default: m.ExamsPage })),
+);
+const FeesPage = lazy(() =>
+  import("./pages/Fees/FeesPage").then((m) => ({ default: m.FeesPage })),
+);
+const NotificationsPage = lazy(() =>
+  import("./pages/Notifications/NotificationsPage").then((m) => ({
+    default: m.NotificationsPage,
+  })),
+);
+const ResourcesPage = lazy(() =>
+  import("./pages/Resources/ResourcesPage").then((m) => ({
+    default: m.ResourcesPage,
+  })),
+);
 
-  const load = React.useCallback(async () => {
-    setLoading(true); setError("");
-    try { setWorkers(await workerApi.list()); }
-    catch (cause: any) { setError(cause?.message || "Không thể tải danh sách lao động."); }
-    finally { setLoading(false); }
+const SUB_TAB_ROUTES = [
+  {
+    slug: "tong-quan",
+    value: "TỔNG QUAN" as const,
+    label: "Tổng quan",
+    icon: LayoutDashboard,
+  },
+  {
+    slug: "khoa-hoc",
+    value: "KHÓA HỌC" as const,
+    label: "Khóa học",
+    icon: BookOpen,
+  },
+  {
+    slug: "lop-hoc",
+    value: "LỚP HỌC" as const,
+    label: "Lớp học",
+    icon: GraduationCap,
+  },
+  {
+    slug: "hoc-vien",
+    value: "HỌC VIÊN" as const,
+    label: "Học viên",
+    icon: Users,
+  },
+  {
+    slug: "hoc-phi",
+    value: "HỌC PHÍ" as const,
+    label: "Học phí",
+    icon: CreditCard,
+  },
+  {
+    slug: "lich-thi",
+    value: "LỊCH THI" as const,
+    label: "Lịch thi",
+    icon: Calendar,
+  },
+  {
+    slug: "tai-nguyen",
+    value: "TÀI NGUYÊN" as const,
+    label: "Tài nguyên",
+    icon: FolderOpen,
+  },
+  {
+    slug: "thong-bao",
+    value: "THÔNG BÁO" as const,
+    label: "Thông báo",
+    icon: Bell,
+  },
+];
+
+function formatDateLabel() {
+  return new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date());
+}
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm">
+      Đang tải phân khu học viên...
+    </div>
+  );
+}
+
+export default function StudentManagementTab() {
+  React.useLayoutEffect(() => {
+    setBusinessApiScope("worker");
   }, []);
-  React.useEffect(() => { void load(); }, [load]);
+  const { userProfile } = useAuth();
+  const { centers } = useAdminCenters();
+  const entityLabel = useEntityLabel();
 
-  const openForm = (worker?: Worker) => {
-    setEditing(worker || null);
-    setForm(worker ? { fullName: worker.fullName, phone: worker.phone || "", email: worker.email || "", status: worker.status, note: worker.note || "", branchId: worker.branchId || "" } : EMPTY_FORM);
-    setShowForm(true);
-  };
+  const subTabRoutes = React.useMemo(() => {
+    const allowedSlugs = getAllowedStudentTabSlugs(
+      userProfile?.permissions || [],
+      entityLabel.preset,
+    );
+    let routes = SUB_TAB_ROUTES.map((item) => ({
+      ...item,
+      label:
+        item.slug === "hoc-vien"
+          ? entityLabel.tabLabel
+          : getStudentManagementSubTabLabel(
+              entityLabel.preset,
+              item.slug,
+              item.label,
+            ),
+      icon:
+        (entityLabel.preset === "worker" ||
+          entityLabel.preset === "customer") &&
+        item.slug === "khoa-hoc"
+          ? BriefcaseBusiness
+          : item.icon,
+    })).filter((item) => allowedSlugs.some((slug) => slug === item.slug));
 
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!form.fullName.trim()) return;
-    setSaving(true); setError("");
-    try {
-      if (editing) await workerApi.update(editing._id, form); else await workerApi.create(form);
-      setShowForm(false); setEditing(null); await load();
-    } catch (cause: any) { setError(cause?.message || "Không thể lưu lao động."); }
-    finally { setSaving(false); }
-  };
+    if (entityLabel.preset !== "student") {
+      const hiddenSlugs =
+        entityLabel.preset === "worker"
+          ? ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"]
+          : ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+      routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
+    }
 
-  const remove = async (worker: Worker) => {
-    setError("");
-    try { await workerApi.delete(worker._id); setWorkers((current) => current.filter((item) => item._id !== worker._id)); }
-    catch (cause: any) { setError(cause?.message || "Không thể xóa lao động."); }
+    return routes;
+  }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions]);
+  const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
+    return userProfile?.role === "superadmin"
+      ? "all"
+      : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
+  });
+
+  const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
+  const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(
+    subTabRoutes,
+    defaultSubTab,
+  );
+  const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(
+    null,
+  );
+  const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
+  const [initialStudentTab, setInitialStudentTab] = React.useState<
+    "Hồ sơ" | "Học phí" | "Lịch sử"
+  >("Hồ sơ");
+  const canReadStudents = canReadWorkerArea(
+    userProfile?.permissions || [],
+    "student-profile",
+  );
+  const canManage = (area: Parameters<typeof canManageWorkerArea>[1]) =>
+    canManageWorkerArea(userProfile?.permissions || [], area);
+  const { students } = useStudents(
+    selectedCenter === "all" ? undefined : selectedCenter,
+    "branch",
+    canReadStudents,
+  );
+
+  const handleOpenStudent = React.useCallback(
+    (student: Student, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => {
+      setSelectedStudent(student);
+      setInitialStudentTab(tab);
+    },
+    [],
+  );
+
+  if (entityLabel.loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-white p-6">
+        <PageLoader />
+      </div>
+    );
+  }
+
+  if (subTabRoutes.length === 0) {
+    return (
+      <div className="flex h-full min-h-[320px] items-center justify-center bg-white p-6">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5 text-sm font-semibold text-amber-800">
+          Bạn chưa được cấp quyền sử dụng chức năng này
+        </div>
+      </div>
+    );
+  }
+
+  const renderPage = () => {
+    switch (activeSubTab) {
+      case "TỔNG QUAN":
+        return (
+          <DashboardPage
+            formattedDate={formatDateLabel()}
+            onSelectStudent={handleOpenStudent}
+            onNavigate={() => {}}
+            selectedCenter={selectedCenter}
+          />
+        );
+      case "HỌC VIÊN":
+        return (
+          <StudentsPage
+            onSelectStudent={handleOpenStudent}
+            onAddStudent={() => setIsAddStudentOpen(true)}
+            selectedCenter={selectedCenter}
+            canManage={canManage("student-profile")}
+          />
+        );
+      case "KHÓA HỌC":
+        return entityLabel.preset === "worker" ? (
+          <BatchesPage
+            selectedCenter={selectedCenter}
+            canManage={canManage("batch")}
+          />
+        ) : (
+          <CoursesPage
+            selectedCenter={selectedCenter}
+            canManage={canManage("course")}
+          />
+        );
+      case "LỚP HỌC":
+        return (
+          <BatchesPage
+            selectedCenter={selectedCenter}
+            canManage={canManage("batch")}
+          />
+        );
+      case "LỊCH THI":
+        return (
+          <ExamsPage
+            selectedCenter={selectedCenter}
+            canManage={canManage("exam")}
+          />
+        );
+      case "HỌC PHÍ":
+        return (
+          <FeesPage
+            onSelectStudent={handleOpenStudent}
+            selectedCenter={selectedCenter}
+          />
+        );
+      case "THÔNG BÁO":
+        return (
+          <NotificationsPage canManage={canManage("student-notification")} />
+        );
+      case "TÀI NGUYÊN":
+        return <ResourcesPage canManage={canManage("student-resource")} />;
+      default:
+        return null;
+    }
   };
 
   return (
-    <section className="space-y-5 p-4 sm:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold text-slate-900">Quản lý lao động</h1><p className="mt-1 text-sm text-slate-500">Hồ sơ lao động độc lập theo doanh nghiệp và chi nhánh.</p></div>
-        {canManage && <button type="button" onClick={() => openForm()} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Thêm lao động</button>}
-      </header>
-      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {loading ? <p className="rounded-2xl border bg-white p-10 text-center text-sm text-slate-500">Đang tải dữ liệu…</p> : workers.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">Chưa có lao động nào.</div>
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr>{["Họ tên", "Số điện thoại", "Email", "Trạng thái"].map((label) => <th key={label} className="px-4 py-3 font-semibold">{label}</th>)}{canManage && <th className="px-4 py-3 text-right">Thao tác</th>}</tr></thead><tbody>{workers.map((worker) => <tr key={worker._id} className="border-t border-slate-100"><td className="px-4 py-3 font-medium text-slate-900">{worker.fullName}</td><td className="px-4 py-3">{worker.phone || "—"}</td><td className="px-4 py-3">{worker.email || "—"}</td><td className="px-4 py-3">{STATUS_LABELS[worker.status]}</td>{canManage && <td className="px-4 py-3"><div className="flex justify-end gap-2"><button aria-label={`Sửa ${worker.fullName}`} onClick={() => openForm(worker)}><Pencil className="h-4 w-4" /></button><button aria-label={`Xóa ${worker.fullName}`} onClick={() => void remove(worker)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></div></td>}</tr>)}</tbody></table></div>
-      )}
-      {showForm && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><form onSubmit={save} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-5 shadow-xl"><div className="flex justify-between"><h2 className="text-lg font-bold">{editing ? "Cập nhật lao động" : "Thêm lao động"}</h2><button type="button" aria-label="Đóng" onClick={() => setShowForm(false)}><X className="h-5 w-5" /></button></div><label className="block text-sm">Họ tên<input aria-label="Họ tên" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Số điện thoại<input aria-label="Số điện thoại" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm">Email<input aria-label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label></div><label className="block text-sm">Trạng thái<select aria-label="Trạng thái" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as WorkerStatus })} className="mt-1 w-full rounded-lg border px-3 py-2">{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="block text-sm">Ghi chú<textarea aria-label="Ghi chú" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><div className="flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-lg border px-4 py-2">Hủy</button><button disabled={saving || !form.fullName.trim()} className="rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{saving ? "Đang lưu…" : "Lưu"}</button></div></form></div>}
-    </section>
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      {/* Sub Tabs switcher navigation bar */}
+      <div
+        className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0"
+        id="student_sub_tabs_bar"
+      >
+        <div className="flex gap-1 overflow-x-auto select-none">
+          {subTabRoutes.map((item) => {
+            const isActive = activeSubTab === item.value;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setActiveSubTab(item.value)}
+                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                  isActive
+                    ? "bg-cyan-600 text-white font-bold shadow-sm"
+                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                }`}
+              >
+                <Icon
+                  className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`}
+                />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {userProfile?.role === "superadmin" && (
+          <div className="flex items-center gap-2 shrink-0 pb-2 sm:pb-0 pr-2">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Cơ sở:
+            </span>
+            <div className="relative min-w-[200px]">
+              <select
+                value={selectedCenter}
+                onChange={(e) => setSelectedCenter(e.target.value)}
+                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none appearance-none focus:border-cyan-600 transition-all cursor-pointer shadow-sm"
+              >
+                <option value="all">Tất cả cơ sở</option>
+                {centers.map((center) => (
+                  <option key={center.uid} value={center.uid}>
+                    {center.displayName}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 p-6 overflow-y-auto">
+        <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
+      </div>
+
+      {isAddStudentOpen ? (
+        <AddStudentModal
+          isOpen={isAddStudentOpen}
+          onClose={() => setIsAddStudentOpen(false)}
+          students={students}
+          selectedCenter={selectedCenter}
+          onSuccess={(student) => {
+            setIsAddStudentOpen(false);
+            handleOpenStudent(student);
+          }}
+        />
+      ) : null}
+
+      {selectedStudent ? (
+        <StudentDetailModal
+          student={selectedStudent}
+          selectedCenter={selectedCenter}
+          onClose={() => setSelectedStudent(null)}
+          initialTab={initialStudentTab}
+        />
+      ) : null}
+    </div>
   );
 }
