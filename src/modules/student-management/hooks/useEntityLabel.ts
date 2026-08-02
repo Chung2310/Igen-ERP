@@ -11,7 +11,7 @@ export type UseEntityLabelResult = EntityLabelSet & {
   loading: boolean;
 };
 
-export function useEntityLabel(): UseEntityLabelResult {
+export function useEntityLabel(loadSettings = true): UseEntityLabelResult {
   const snapshot = useSyncExternalStore(
     subscribeEntityPreset,
     getEntityPresetSnapshot,
@@ -19,8 +19,8 @@ export function useEntityLabel(): UseEntityLabelResult {
   );
 
   useEffect(() => {
-    void ensureEntityPresetLoaded();
-  }, []);
+    if (loadSettings) void ensureEntityPresetLoaded();
+  }, [loadSettings]);
 
   return {
     ...(snapshot.loading ? LOADING_ENTITY_LABELS : ENTITY_LABEL_PRESETS[snapshot.preset]),
