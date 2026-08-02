@@ -31,7 +31,12 @@ export class WorkerService {
     return WorkerModel.create({ ...data, companyCode: scope.companyCode, branchId: scope.branchId || data.branchId, deletedAt: null });
   }
   static update(scope: WorkerScope, id: string, input: WorkerInput) {
-    return WorkerModel.findOneAndUpdate({ _id: id, ...buildWorkerQuery(scope) }, { $set: normalizeWorkerInput(input) }, { new: true }).lean();
+    const data = normalizeWorkerInput(input);
+    return WorkerModel.findOneAndUpdate(
+      { _id: id, ...buildWorkerQuery(scope) },
+      { $set: { ...data, ...(scope.branchId ? { branchId: scope.branchId } : {}) } },
+      { new: true },
+    ).lean();
   }
   static delete(scope: WorkerScope, id: string) {
     return WorkerModel.findOneAndUpdate({ _id: id, ...buildWorkerQuery(scope) }, { $set: { deletedAt: new Date() } }, { new: true }).lean();
