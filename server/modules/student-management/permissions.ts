@@ -3,8 +3,10 @@
  * và `student:manage` để thao tác. Các khu vực vẫn được liệt kê riêng để route khai báo
  * đúng ngữ nghĩa read/manage, nhưng không còn mã quyền chi tiết theo từng khu vực.
  */
-const STUDENT_READ = ["student:read", "student:manage"];
-const STUDENT_MANAGE = ["student:manage"];
+// Shared workflow internals accept the permission of the active module. Module guards
+// still isolate student and worker tenants before these permissions are evaluated.
+const STUDENT_READ = ["student:read", "student:manage", "worker:read", "worker:manage"];
+const STUDENT_MANAGE = ["student:manage", "worker:manage"];
 
 export const STUDENT_AREA_PERMISSIONS = {
   "student-profile": { read: STUDENT_READ, manage: STUDENT_MANAGE },

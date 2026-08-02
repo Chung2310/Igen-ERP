@@ -25,7 +25,9 @@ router.post("/public/cancel", AssignmentController.cancelSubmission);
 
 // Private routes for Teachers & Admins
 router.use(authMiddleware);
-router.use(requireModule("student"));
+const studentModuleGuard = requireModule("student") as any;
+const workerModuleGuard = requireModule("worker") as any;
+router.use((req, res, next) => (req.originalUrl.includes("/worker-management/") ? workerModuleGuard : studentModuleGuard)(req, res, next));
 router.use(requireRead);
 router.post("/", requireManage, validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
