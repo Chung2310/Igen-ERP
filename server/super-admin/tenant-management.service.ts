@@ -1,17 +1,18 @@
 import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
-import { sanitizeModuleKeys, ModuleKey } from "../config/module-keys";
+import { ModuleKey } from "../config/module-keys";
+import { filterModulesForBusinessType, resolveBusinessType, type BusinessType } from "../config/business-types";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
-import { ModuleSettings, ENTITY_PRESETS } from "../modules/student-management/models/module-settings.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
-export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; enabledModules?:ModuleKey[]; }
+export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; businessType?:BusinessType; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }
 const normalize=(t:any)=>t?{...t,lifecycleStatus:t.lifecycleStatus||"active"}:t;
 const db: TenantRepository = { create: async t => (await CompanyModel.create(t)).toObject() as TenantRecord, list: async () => ((await CompanyModel.find({}).sort({createdAt:-1}).lean()) as any[]).map(normalize), get: async c => normalize(await CompanyModel.findOne({code:c}).lean()), update: async(c,u) => normalize(await CompanyModel.findOneAndUpdate({code:c},{$set:u},{new:true,runValidators:true}).lean()) };
 const next:Record<TenantLifecycleStatus,TenantLifecycleStatus[]>={active:["suspended","archived"],suspended:["active","archived"],archived:["active"],"scheduled-deletion":[]};
 const code=(v:string)=>{const c=String(v||"").trim().toUpperCase();if(!c)throw Error("Tenant code is required");return c}; const needed=(t:TenantRecord|null,c:string)=>{if(!t)throw Error(`Tenant ${c} not found`);return t};
 
-export interface TenantCreateInput { code:string; name:string; ownerEmail:string; ownerName:string; ownerPassword:string; enabledModules?:unknown; entityPreset?:string; }
+export interface TenantCreateInput { code:string; name:string; ownerEmail:string; ownerName:string; ownerPassword:string; enabledModules?:unknown; businessType?:string; entityPreset?:string; }
 
 export class TenantManagementService {
   constructor(private readonly tenants:TenantRepository=db) {}
@@ -25,18 +26,11 @@ export class TenantManagementService {
     if(await this.tenants.get(c)) throw Error(`Tenant ${c} already exists`);
     if(await UserModel.findOne({ email: ownerEmail })) throw Error(`Owner email "${ownerEmail}" is already in use`);
 
-    const enabledModules = sanitizeModuleKeys(v.enabledModules);
+    const businessType = resolveBusinessType(v.businessType, v.entityPreset);
+    const enabledModules = filterModulesForBusinessType(v.enabledModules, businessType);
     const now=new Date();
-    const tenant = await this.tenants.create({code:c,name,ownerEmail,createdAt:now,lifecycleStatus:"active",lifecycleChangedAt:now,deletionScheduledAt:null,retentionEndsAt:null,deletionReason:"",enabledModules});
+    const tenant = await this.tenants.create({code:c,name,ownerEmail,createdAt:now,lifecycleStatus:"active",lifecycleChangedAt:now,deletionScheduledAt:null,retentionEndsAt:null,deletionReason:"",businessType,enabledModules});
     const admin = await createCompanyAdminUser({ companyCode:c, companyName:name, ownerName, ownerEmail, ownerPassword });
-
-    // Cố định loại hình doanh nghiệp (entity preset) cho tenant mới
-    const preset = ENTITY_PRESETS.includes(v.entityPreset as any) ? v.entityPreset : "student";
-    await ModuleSettings.findOneAndUpdate(
-      { tenantId: c },
-      { $set: { tenantId: c, entityPreset: preset, updatedBy: "SUPERADMIN_ONBOARDING" } },
-      { upsert: true }
-    );
 
     return { ...tenant, adminUserId: String(admin._id) };
   }
@@ -47,11 +41,15 @@ export class TenantManagementService {
 
   async update(v:string,input:Pick<Partial<TenantRecord>,"name"|"ownerEmail">){const u:Partial<TenantRecord>={};if(input.name!==undefined){if(!String(input.name).trim())throw Error("Tenant name is required");u.name=String(input.name).trim()}if(input.ownerEmail!==undefined){if(!String(input.ownerEmail).trim())throw Error("Owner email is required");u.ownerEmail=String(input.ownerEmail).trim()}if(!Object.keys(u).length)throw Error("No tenant fields to update");const c=code(v);return needed(await this.tenants.update(c,u),c)}
 
-  async updateModules(v:string, enabledModulesInput:unknown){
+  async updateModules(v:string, input:{ enabledModules?:unknown; businessType?:unknown }){
     const c=code(v);
-    await needed(await this.tenants.get(c),c);
-    const enabledModules = sanitizeModuleKeys(enabledModulesInput);
-    return needed(await this.tenants.update(c,{enabledModules}),c);
+    const tenant=needed(await this.tenants.get(c),c);
+    const legacyEntityPreset = tenant.businessType
+      ? undefined
+      : (await ModuleSettings.findOne({ tenantId: c }).select("entityPreset").lean())?.entityPreset;
+    const businessType = resolveBusinessType(input.businessType ?? tenant.businessType, legacyEntityPreset);
+    const enabledModules = filterModulesForBusinessType(input.enabledModules, businessType);
+    return needed(await this.tenants.update(c,{businessType,enabledModules}),c);
   }
 
   async transitionLifecycle(v:string,target:Exclude<TenantLifecycleStatus,"scheduled-deletion">){

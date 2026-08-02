@@ -1,7 +1,8 @@
 ﻿import type { TabType } from "../types";
+import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
@@ -10,6 +11,9 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   resource: "Quản lý tài nguyên",
   chat: "Trò chuyện",
   student: "Quản lý học viên",
+  worker: "Quản lý lao động",
+  customer: "Quản lý khách hàng",
+  candidate: "Quản lý ứng viên",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -18,6 +22,9 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   resource: "QUẢN LÝ TÀI NGUYÊN",
   chat: "TRÒ CHUYỆN",
   student: "QUẢN LÝ HỌC VIÊN",
+  worker: "QUẢN LÝ LAO ĐỘNG",
+  customer: "QUẢN LÝ KHÁCH HÀNG",
+  candidate: "QUẢN LÝ ỨNG VIÊN",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
@@ -26,6 +33,9 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "QUẢN LÝ TÀI NGUYÊN": "resource",
   "TRÒ CHUYỆN": "chat",
   "QUẢN LÝ HỌC VIÊN": "student",
+  "QUẢN LÝ LAO ĐỘNG": "worker",
+  "QUẢN LÝ KHÁCH HÀNG": "customer",
+  "QUẢN LÝ ỨNG VIÊN": "candidate",
 };
 
 /**
@@ -38,6 +48,9 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "ĐỐI TÁC": ["partner:read"],
   "KHO & SẢN PHẨM": ["stock:read"],
   "QUẢN LÝ HỌC VIÊN": ["student:read", "student:manage"],
+  "QUẢN LÝ LAO ĐỘNG": ["worker:read", "worker:manage"],
+  "QUẢN LÝ KHÁCH HÀNG": ["customer:read", "customer:manage"],
+  "QUẢN LÝ ỨNG VIÊN": ["candidate:read", "candidate:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
   "TRÒ CHUYỆN": ["chat:read"],
 };
@@ -80,15 +93,17 @@ export function isModuleEnabled(enabledModules: string[] | undefined, key: Modul
 }
 
 /** Keep permanent tabs and tenant modules that are enabled. */
-export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined): TabType[] {
+export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType[] {
+  const businessType = resolveBusinessType(businessTypeInput);
   return tabs.filter((tab) => {
     const moduleKey = TAB_MODULE_MAP[tab];
-    return !moduleKey || isModuleEnabled(enabledModules, moduleKey);
+    return !moduleKey || (isModuleEnabled(enabledModules, moduleKey) && isModuleAllowedForBusinessType(moduleKey, businessType));
   });
 }
 
 /** Resolve direct navigation to a disabled module without rendering restricted content. */
-export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined): TabType {
+export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType {
   const moduleKey = TAB_MODULE_MAP[tab];
-  return moduleKey && !isModuleEnabled(enabledModules, moduleKey) ? "TỔNG QUAN" : tab;
+  const businessType = resolveBusinessType(businessTypeInput);
+  return moduleKey && (!isModuleEnabled(enabledModules, moduleKey) || !isModuleAllowedForBusinessType(moduleKey, businessType)) ? "TỔNG QUAN" : tab;
 }

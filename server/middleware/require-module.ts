@@ -1,9 +1,11 @@
 import type { NextFunction, Response } from "express";
 import type { ModuleKey } from "../config/module-keys";
+import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 import { CompanyModel } from "../model/company.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 
 const CACHE_TTL_MS = 60_000;
-type CompanyModuleState = { exists: boolean; modules: string[] | undefined };
+type CompanyModuleState = { exists: boolean; modules: string[] | undefined; businessType: unknown };
 const moduleCache = new Map<string, CompanyModuleState & { expiresAt: number }>();
 
 export function clearModuleCache(companyCode?: string): void {
@@ -15,23 +17,27 @@ export function resolveModuleAccess(
   user: { role?: string; companyCode?: string } | undefined,
   key: ModuleKey,
   enabledModules: string[] | undefined,
-  companyExists = true
+  companyExists = true,
+  businessTypeInput?: unknown
 ): boolean {
   if (user?.role === "superadmin") return true;
   if (!user?.companyCode || !companyExists) return false;
-  if (!enabledModules || enabledModules.length === 0) return true;
-  return enabledModules.includes(key);
+  const enabledBusinessModules = filterModulesForBusinessType(enabledModules, resolveBusinessType(businessTypeInput));
+  return enabledBusinessModules.includes(key);
 }
 
 export async function getModuleStateForCompany(companyCode: string): Promise<CompanyModuleState> {
   const code = companyCode.toUpperCase();
   const cached = moduleCache.get(code);
   if (cached && cached.expiresAt > Date.now()) {
-    return { exists: cached.exists, modules: cached.modules };
+    return { exists: cached.exists, modules: cached.modules, businessType: cached.businessType };
   }
 
-  const company = await CompanyModel.findOne({ code }).select("enabledModules").lean();
-  const state = { exists: Boolean(company), modules: company?.enabledModules };
+  const company = await CompanyModel.findOne({ code }).select("enabledModules businessType").lean();
+  const legacyEntityPreset = company && !company.businessType
+    ? (await ModuleSettings.findOne({ tenantId: code }).select("entityPreset").lean())?.entityPreset
+    : undefined;
+  const state = { exists: Boolean(company), modules: company?.enabledModules, businessType: resolveBusinessType(company?.businessType, legacyEntityPreset) };
   moduleCache.set(code, { ...state, expiresAt: Date.now() + CACHE_TTL_MS });
   return state;
 }
@@ -53,7 +59,7 @@ export function requireModule(key: ModuleKey) {
       }
 
       const state = await getModuleStateForCompany(user.companyCode);
-      if (resolveModuleAccess(user, key, state.modules, state.exists)) return next();
+      if (resolveModuleAccess(user, key, state.modules, state.exists, state.businessType)) return next();
 
       return res.status(403).json({
         status: "error",

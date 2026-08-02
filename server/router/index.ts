@@ -9,6 +9,7 @@ import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
+import { workerManagementRouter } from "../modules/worker-management/router";
 import { timekeepingRouter } from "./timekeeping.router";
 import { dashboardRouter } from "./dashboard.router";
 import { analyticsRouter } from "./analytics.router";
@@ -98,3 +99,4 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
+apiRouter.use("/", requireAuth as any, requireModule("worker"), workerManagementRouter);

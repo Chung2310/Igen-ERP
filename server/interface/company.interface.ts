@@ -51,6 +51,7 @@ export interface ICompany extends Document {
   name: string;
   createdAt: Date;
   ownerEmail: string;
+  businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   /** Các module nghiệp vụ được bật cho doanh nghiệp. Rỗng/thiếu = bật tất cả. */
   enabledModules?: string[];
   heygenConfig?: ICompanyHeyGenConfig;

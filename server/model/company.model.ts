@@ -73,6 +73,7 @@ const CompanySchema = new Schema<ICompany>({
   name: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   ownerEmail: { type: String, required: true },
+  businessType: { type: String, enum: ["education", "labor", "service", "recruitment", "general"], default: "general", index: true },
   enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...MODULE_KEYS] },
   heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
   elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },

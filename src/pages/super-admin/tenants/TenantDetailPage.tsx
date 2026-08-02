@@ -4,6 +4,7 @@ import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
 import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
 import { getEntityPresetOptions, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+import { resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 
 function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => void }) {
   const [preset, setPreset] = React.useState<EntityPreset>("student");
@@ -58,7 +59,7 @@ function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => vo
   );
 }
 
-function ModulesEditor({ code, current, onSaved }: { code: string; current: string[]; onSaved: () => void }) {
+function ModulesEditor({ code, current, businessType, onSaved }: { code: string; current: string[]; businessType: BusinessType; onSaved: () => void }) {
   const [selected, setSelected] = React.useState<ModuleKey[]>((current as ModuleKey[]) || [...MODULE_KEYS]);
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState("");
@@ -71,7 +72,7 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
   const save = async () => {
     setError(""); setSaving(true);
     try {
-      await superAdminTenantService.updateModules(code, { enabledModules: selected, reason });
+      await superAdminTenantService.updateModules(code, { enabledModules: selected, businessType, reason });
       setReason("");
       onSaved();
     } catch (e: any) {
@@ -198,7 +199,7 @@ export function TenantDetailPage({ code, onBack }: { code: string; onBack?: () =
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
         <h3 className="text-sm font-bold text-slate-200">Module</h3>
-        <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} onSaved={load} /></div>
+        <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} businessType={resolveBusinessType(tenant.businessType)} onSaved={load} /></div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">

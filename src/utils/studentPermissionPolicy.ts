@@ -22,7 +22,7 @@ const hasPermission = (permissions: readonly string[], code: string) =>
 
 export function canReadStudentArea(permissions: readonly string[], area: StudentPermissionArea) {
   if (CONFIGURATION_AREAS.has(area)) return hasPermission(permissions, `${area}:manage`);
-  // Module học viên/lao động chỉ còn hai mã quyền tổng, không còn mã theo từng khu vực.
+  // The student module has two umbrella permissions rather than area-specific permissions.
   return ["student:read", "student:manage"].some((code) => hasPermission(permissions, code));
 }
 

@@ -157,6 +157,36 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "QUẢN LÝ LAO ĐỘNG": {
+    title: "Quản lý lao động - Hồ sơ, ca làm và theo dõi nhân công",
+    description:
+      "Phân khu quản lý lao động trong iGen ERP giúp doanh nghiệp theo dõi hồ sơ người lao động, phân công công việc, ca làm và hiệu suất nhân công tập trung.",
+    keywords:
+      "quản lý lao động, quản lý nhân công, hồ sơ người lao động, ca làm việc, phân công công việc, ERP lao động",
+    path: "/quan-ly-lao-dong",
+    priority: "0.8",
+    changeFrequency: "weekly",
+  },
+  "QUẢN LÝ KHÁCH HÀNG": {
+    title: "Quản lý khách hàng - Hồ sơ, chăm sóc và lịch sử tương tác",
+    description:
+      "Phân khu quản lý khách hàng trong iGen ERP giúp doanh nghiệp lưu trữ hồ sơ khách hàng, theo dõi lịch sử tương tác và tối ưu hoạt động chăm sóc khách hàng.",
+    keywords:
+      "quản lý khách hàng, CRM, chăm sóc khách hàng, hồ sơ khách hàng, lịch sử tương tác, ERP dịch vụ",
+    path: "/quan-ly-khach-hang",
+    priority: "0.8",
+    changeFrequency: "weekly",
+  },
+  "QUẢN LÝ ỨNG VIÊN": {
+    title: "Quản lý ứng viên - Tuyển dụng, hồ sơ và quy trình phỏng vấn",
+    description:
+      "Phân khu quản lý ứng viên trong iGen ERP giúp doanh nghiệp tập trung hồ sơ ứng viên, theo dõi các vòng tuyển dụng và quản lý lịch phỏng vấn hiệu quả.",
+    keywords:
+      "quản lý ứng viên, tuyển dụng, hồ sơ ứng viên, lịch phỏng vấn, quy trình tuyển dụng, ERP tuyển dụng",
+    path: "/quan-ly-ung-vien",
+    priority: "0.8",
+    changeFrequency: "weekly",
+  },
   "PHÂN TÍCH & BÁO CÁO": {
     title: "Phân tích & Báo cáo - Doanh thu và hiệu quả kinh doanh",
     description:
