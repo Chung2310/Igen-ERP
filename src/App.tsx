@@ -48,7 +48,7 @@ function AppContent() {
 
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
-  const resolvedActiveTab = resolveEnabledTab(activeTab, userProfile?.enabledModules);
+  const resolvedActiveTab = resolveEnabledTab(activeTab, userProfile?.enabledModules, userProfile?.businessType);
 
   React.useEffect(() => {
     if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);

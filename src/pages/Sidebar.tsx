@@ -14,6 +14,9 @@ import {
   BookOpen,
   Lock,
   Handshake,
+  BriefcaseBusiness,
+  ContactRound,
+  UserSearch,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -27,7 +30,6 @@ import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
-import { useEntityLabel } from "../modules/student-management/hooks/useEntityLabel";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -78,6 +80,24 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
+    label: "QUẢN LÝ LAO ĐỘNG",
+    title: "Lao động",
+    icon: BriefcaseBusiness,
+    group: "operations",
+  },
+  {
+    label: "QUẢN LÝ KHÁCH HÀNG",
+    title: "Khách hàng",
+    icon: ContactRound,
+    group: "operations",
+  },
+  {
+    label: "QUẢN LÝ ỨNG VIÊN",
+    title: "Ứng viên",
+    icon: UserSearch,
+    group: "operations",
+  },
+  {
     label: "QUẢN LÝ TÀI NGUYÊN",
     title: "Quản lý tài nguyên",
     icon: FolderOpen,
@@ -103,12 +123,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
-  const { tabLabel: studentTabLabel } = useEntityLabel();
-
-  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
+  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => enabledTabs.has(item.label))
-    .map((item) => (item.label === "QUẢN LÝ HỌC VIÊN" ? { ...item, title: studentTabLabel } : item))
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
       const isPartnerAdmin =
