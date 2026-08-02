@@ -10,14 +10,7 @@ import { socketService } from "../services/socketService";
 import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
 import { ensureEntityPresetLoaded } from "../modules/student-management/hooks/entityPresetStore";
 
-export interface ErpLoginChallenge {
-  status: "challenge_required";
-  challengeId: string;
-  enrollmentRequired: boolean;
-  expiresAt: string;
-}
-
-export type ErpLoginOutcome = { status: "authenticated" } | ErpLoginChallenge;
+export type ErpLoginOutcome = { status: "authenticated"; role?: string };
 
 interface AuthContextType {
   user: User | null;
@@ -127,14 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const result = await authService.loginWithEmail(email, password);
-      if (result.status === "challenge_required") {
-        return {
-          status: "challenge_required",
-          challengeId: result.challengeId,
-          enrollmentRequired: Boolean(result.enrollmentRequired),
-          expiresAt: result.expiresAt,
-        };
-      }
       const profile: UserProfile = {
         ...result.user,
         uid: result.user._id,
@@ -150,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       toast.success("Đăng nhập tài khoản thành công!");
-      return { status: "authenticated" };
+      return { status: "authenticated", role: meProfile?.role || profile.role };
     } catch (error: any) {
       console.error("[loginWithEmail] Error:", error);
       const friendlyMsg = parseFirebaseError(error, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");

@@ -41,6 +41,11 @@ export function createSuperAdminAuthService(deps: any) {
     return { sessionId, ...deps.signTokens(user, sessionId) };
   };
   return {
+    async completePasswordLogin(user: any, metadata: any) {
+      if (!metadata?.deviceId) throw new Error("Device verification failed");
+      await deps.audit({ actionType: "security.login.password.success", actorSuperAdminId: user._id, result: "success" });
+      return createSession(user, { deviceId: metadata.deviceId, sourceIp: metadata.sourceIp, userAgent: metadata.userAgent });
+    },
     async beginSuperAdminLogin(user: any, metadata: any) {
       if (!metadata?.deviceId) throw new Error("Device verification failed");
       const challengeId = deps.id(); const expiresAt = new Date(deps.now().getTime() + CHALLENGE_MS);
@@ -104,8 +109,10 @@ const mongoDeps = {
     replaceActive: async ({ userId, challenge, sessionId, now, expiresAt }: any) => {
       try {
         return await mongoose.connection.transaction(async (transactionSession) => {
-          challenge.consumedAt = now;
-          await challenge.save({ session: transactionSession });
+          if (challenge?.save) {
+            challenge.consumedAt = now;
+            await challenge.save({ session: transactionSession });
+          }
           const active = await SuperAdminSessionModel.find({
             userId,
             revokedAt: { $exists: false },
@@ -144,6 +151,6 @@ const mongoDeps = {
   },
   encrypt: encryptSecret, decrypt: decryptSecret, hash: hashOpaque, createSecret: createTotpSecret, verifyTotp, recoveryCodes: generateRecoveryCodes,
   qr: (uri: string) => QRCode.toDataURL(uri), comparePassword: (raw: string, hash: string) => bcrypt.compare(raw, hash), audit: (event: any) => auditService.record(event),
-  signTokens: (user: any, sid: string) => { const payload = { id: user._id, email: user.email, role: user.role, companyCode: user.companyCode, sid, authLevel: "totp" }; return { accessToken: jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" }), refreshToken: jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: "8h" }) }; },
+  signTokens: (user: any, sid: string) => { const payload = { id: user._id, email: user.email, role: user.role, companyCode: user.companyCode, sid, authLevel: "password" }; return { accessToken: jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" }), refreshToken: jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: "8h" }) }; },
 };
 export const superAdminAuthService = createSuperAdminAuthService(mongoDeps);

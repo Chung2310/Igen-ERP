@@ -12,15 +12,13 @@ import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
 import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
 import {
   clearPendingSuperAdminChallenge,
-  readPendingSuperAdminChallenge,
-  resolveSuperAdminChallengeStage,
   savePendingSuperAdminChallenge,
 } from "../../services/pendingSuperAdminChallenge";
 
 export default function SuperAdminShell() {
-  const [pendingChallenge] = React.useState(() => readPendingSuperAdminChallenge(sessionStorage));
+  const [pendingChallenge] = React.useState(() => null);
   const [stage, setStage] = React.useState<"password" | "enroll" | "totp" | "recovery" | "authenticated">(
-    localStorage.getItem("accessToken") ? "authenticated" : resolveSuperAdminChallengeStage(pendingChallenge)
+    localStorage.getItem("accessToken") ? "authenticated" : "password"
   );
   
   const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users" | "admins">("overview");
@@ -35,6 +33,10 @@ export default function SuperAdminShell() {
   const [error, setError] = React.useState("");
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const enrollmentHydrated = React.useRef(false);
+
+  React.useEffect(() => {
+    clearPendingSuperAdminChallenge(sessionStorage);
+  }, []);
 
   React.useEffect(() => {
     if (stage !== "enroll" || !pendingChallenge || enrollmentHydrated.current) return;
@@ -65,6 +67,11 @@ export default function SuperAdminShell() {
     setError("");
     try {
       const r = await superAdminAuthService.login(email, password);
+      if (r.accessToken) {
+        clearPendingSuperAdminChallenge(sessionStorage);
+        setStage("authenticated");
+        return;
+      }
       if (r.status !== "challenge_required") {
         throw new Error("Tài khoản không yêu cầu xác thực quản trị viên tối cao");
       }
