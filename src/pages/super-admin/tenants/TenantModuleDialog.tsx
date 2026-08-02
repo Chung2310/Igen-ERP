@@ -1,16 +1,8 @@
 import React from "react";
 import { X } from "lucide-react";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
-import { BUSINESS_TYPES, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
-
-const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
-  education: "Giáo dục",
-  labor: "Lao động",
-  service: "Dịch vụ khách hàng",
-  recruitment: "Tuyển dụng",
-  general: "Doanh nghiệp chung",
-};
 
 type Props = {
   code: string;

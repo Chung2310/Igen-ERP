@@ -5,6 +5,14 @@ export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
 export const DEFAULT_BUSINESS_TYPE: BusinessType = "general";
 
+export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
+  education: "Giáo dục",
+  labor: "Lao động",
+  service: "Dịch vụ khách hàng",
+  recruitment: "Tuyển dụng",
+  general: "Doanh nghiệp chung",
+};
+
 const REQUIRED_BUSINESS_MODULE: Record<BusinessType, ModuleKey | null> = {
   education: "student",
   labor: "worker",
