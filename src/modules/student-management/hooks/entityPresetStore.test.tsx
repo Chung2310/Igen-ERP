@@ -26,6 +26,17 @@ describe("shared entity preset state", () => {
 
   afterEach(cleanup);
 
+  it("does not request student settings when label loading is disabled", async () => {
+    function DisabledProbe() {
+      useEntityLabel(false);
+      return null;
+    }
+
+    render(<DisabledProbe />);
+    await Promise.resolve();
+    expect(getModuleSettings).not.toHaveBeenCalled();
+  });
+
   it("does not expose the student label while the real preset is still loading", () => {
     vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: "ACME", entityPreset: "worker" });
 

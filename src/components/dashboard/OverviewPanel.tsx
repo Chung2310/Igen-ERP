@@ -83,7 +83,7 @@ export function OverviewPanel({
   actionItems?: DashboardActionItems | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
-  const entityLabel = useEntityLabel();
+  const entityLabel = useEntityLabel(canSeeStudent);
   const { titleCase: studentEntityTitle, singular: studentEntitySingular, preset } = entityLabel;
   const isEducation = preset === "student";
   const showCard = (key: CardKey) => {
