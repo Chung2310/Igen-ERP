@@ -52,7 +52,7 @@ export const APP_ROUTES: AppRoute[] = [
   },
   {
     tab: "QUẢN LÝ LAO ĐỘNG",
-    component: lazy(() => import("../modules/worker-management/WorkerManagementTab")),
+    component: lazy(() => import("../modules/worker-management/WorkerWorkspace")),
   },
   {
     tab: "QUẢN LÝ KHÁCH HÀNG",

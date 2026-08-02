@@ -31,7 +31,12 @@ import { STUDENT_AREA_PERMISSIONS } from "./permissions";
 
 export const studentManagementRouter = Router();
 
-const requireStudentModule = requireModule("student") as RequestHandler;
+const studentModuleGuard = requireModule("student") as RequestHandler;
+const workerModuleGuard = requireModule("worker") as RequestHandler;
+const requireStudentModule: RequestHandler = (req, res, next) => {
+  const guard = req.originalUrl.includes("/worker-management/") ? workerModuleGuard : studentModuleGuard;
+  return guard(req, res, next);
+};
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
 
