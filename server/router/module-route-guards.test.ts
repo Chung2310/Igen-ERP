@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crudRouter } from "./crud.router";
 import { studentManagementRouter } from "../modules/student-management/router";
+import { workerRoutes } from "../modules/worker-management/routes/worker.routes";
+import { resolveModuleAccess } from "../middleware/require-module";
 
 function moduleKeysForRoute(router: any, path: string, method: string): string[] {
   const layer = router.stack.find((item: any) => item.route?.path === path && item.route.methods[method]);
@@ -11,4 +13,16 @@ function moduleKeysForRoute(router: any, path: string, method: string): string[]
 
 test("student send-email route requires the Student module", () => {
   assert.deepEqual(moduleKeysForRoute(studentManagementRouter, "/send-email", "post"), ["student"]);
+});
+
+test("labor tenants can access Worker but not Student", () => {
+  const user = { role: "admin", companyCode: "ACME" };
+  assert.equal(resolveModuleAccess(user, "student", ["student", "worker"], true, "labor"), false);
+  assert.equal(resolveModuleAccess(user, "worker", ["student", "worker"], true, "labor"), true);
+});
+
+test("worker CRUD routes are registered", () => {
+  for (const [path, method] of [["/", "get"], ["/", "post"], ["/:id", "patch"], ["/:id", "delete"]] as const) {
+    assert.ok(workerRoutes.stack.some((item: any) => item.route?.path === path && item.route.methods[method]), `${method.toUpperCase()} ${path} must be registered`);
+  }
 });
