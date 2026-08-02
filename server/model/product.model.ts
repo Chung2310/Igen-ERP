@@ -10,6 +10,7 @@ const ProductSchema = new Schema<IProduct>({
   stock: { type: Number, default: 0 },
   minStockAlert: { type: Number, default: 15 },
   price: { type: Number, required: true },
+  costPrice: { type: Number, min: 0 },
   description: { type: String, default: "" },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active", required: true },
   demandForecast: { type: String, enum: ["Tăng mạnh", "Ổn định", "Giảm nhẹ"], default: "Ổn định" },

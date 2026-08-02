@@ -187,6 +187,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "PHÂN TÍCH & BÁO CÁO": {
+    title: "Phân tích & Báo cáo - Doanh thu và hiệu quả kinh doanh",
+    description:
+      "Tổng hợp và phân tích doanh thu, công nợ, chi phí theo thời gian và chi nhánh. Khu vực dành riêng cho quản trị viên.",
+    keywords:
+      "báo cáo doanh thu, phân tích kinh doanh, dashboard admin, công nợ phải thu, lợi nhuận, báo cáo ERP",
+    path: "/phan-tich",
+    robots: "noindex, nofollow",
+    priority: "0.2",
+    changeFrequency: "daily",
+  },
   "QUẢN TRỊ USER": {
     title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
     description:

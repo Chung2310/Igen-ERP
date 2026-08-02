@@ -61,6 +61,69 @@ function sanitizeInventoryPayload(modelName: string, payload: any) {
   return payload;
 }
 
+const STOCK_LOG_PURPOSES = new Set(["bán", "nội bộ", "hủy", "chuyển kho"]);
+
+async function prepareStockLogPayload(
+  data: any,
+  companyCode: string,
+  branchId: string,
+  existingItems: any[] = [],
+) {
+  const type = data?.type;
+  if (type === "xuất" && !STOCK_LOG_PURPOSES.has(data?.purpose)) {
+    const error: Error & { statusCode?: number } = new Error("Phiếu xuất kho phải chọn mục đích xuất.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rawItems = Array.isArray(data?.items) ? data.items : [];
+  if (rawItems.length === 0) return { ...data, purpose: type === "xuất" ? data.purpose : undefined };
+
+  const productIds = rawItems.map((item: any) => item?.productId).filter(Boolean);
+  const products = await ProductModel.find({
+    _id: { $in: productIds },
+    companyCode,
+    branchId,
+  }).select("sku name price costPrice category").lean();
+  const productsById = new Map(products.map((product: any) => [String(product._id), product]));
+
+  const items = rawItems.map((item: any) => {
+    const product = productsById.get(String(item?.productId));
+    if (!product) {
+      const error: Error & { statusCode?: number } = new Error("Sản phẩm trong phiếu không thuộc chi nhánh hiện tại.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const quantity = Number(item.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      const error: Error & { statusCode?: number } = new Error("Số lượng sản phẩm phải lớn hơn 0.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const previous = existingItems.find((entry: any) =>
+      String(entry?.productId) === String(item.productId) && Number(entry?.quantity) === quantity
+    );
+    const unitPrice = Number.isFinite(previous?.unitPrice) ? previous.unitPrice : Number(product.price);
+    const unitCost = Number.isFinite(previous?.unitCost)
+      ? previous.unitCost
+      : Number.isFinite(product.costPrice) ? Number(product.costPrice) : undefined;
+
+    return {
+      productId: String(product._id),
+      sku: product.sku,
+      productName: product.name,
+      category: product.category || "Chưa phân loại",
+      quantity,
+      unitPrice,
+      lineTotal: unitPrice * quantity,
+      ...(unitCost === undefined ? {} : { unitCost }),
+    };
+  });
+
+  return { ...data, purpose: type === "xuất" ? data.purpose : undefined, items };
+}
+
 function sanitizeInventoryResult(modelName: string, item: any) {
   if (!item) {
     return item;
@@ -109,6 +172,9 @@ function sanitizeInventoryResult(modelName: string, item: any) {
             sku: typeof entry?.sku === "string" ? entry.sku.trim().toUpperCase() : "",
             productName: typeof entry?.productName === "string" ? entry.productName.trim() : "",
             quantity: typeof entry?.quantity === "number" ? entry.quantity : Number(entry?.quantity || 0),
+            unitPrice: typeof entry?.unitPrice === "number" ? entry.unitPrice : undefined,
+            lineTotal: typeof entry?.lineTotal === "number" ? entry.lineTotal : undefined,
+            unitCost: typeof entry?.unitCost === "number" ? entry.unitCost : undefined,
           }))
         : [],
       operatorName: typeof plainItem.operatorName === "string" ? plainItem.operatorName.trim() : "",
@@ -308,8 +374,11 @@ export const crudService = {
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
     const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    const preparedData = modelName === "stock-logs"
+      ? await prepareStockLogPayload(data, companyCode, inventoryBranch!)
+      : data;
     const payload = {
-      ...sanitizeInventoryPayload(modelName, data),
+      ...sanitizeInventoryPayload(modelName, preparedData),
       companyCode,
       ...(inventoryBranch ? { branchId: inventoryBranch } : {}),
     };
@@ -381,7 +450,17 @@ export const crudService = {
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
-    const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
+    let preparedUpdatePayload = rawUpdatePayload;
+    if (modelName === "stock-logs") {
+      const existingLog = await StockLogModel.findOne(query).select("items type purpose").lean();
+      preparedUpdatePayload = await prepareStockLogPayload(
+        { ...rawUpdatePayload, type: rawUpdatePayload.type ?? existingLog?.type, purpose: rawUpdatePayload.purpose ?? existingLog?.purpose },
+        companyCode,
+        inventoryBranch!,
+        existingLog?.items || [],
+      );
+    }
+    const updatePayload = sanitizeInventoryPayload(modelName, preparedUpdatePayload);
     if ((modelName === "timekeeping-logs" || BRANCH_SCOPED_MODELS.has(modelName)) && data.branchId) {
       updatePayload.branchId = data.branchId;
     }

@@ -2,6 +2,7 @@ import { Payment } from "../models/payment.model";
 import { Student } from "../models/student.model";
 import { IPayment } from "../interfaces/payment.interface";
 import { logger } from "../config/logger";
+import { parsePaymentDate } from "../utils/payment-date.util";
 
 interface PaymentFilters {
   page?: number | string;
@@ -59,8 +60,12 @@ export class PaymentService {
     }
 
     // Set ownerId of the payment record to the student's actual ownerId to maintain consistency
+    // paidOn là trục thời gian dùng cho báo cáo. Nếu không quy đổi được `date`
+    // (dữ liệu gọi từ nơi chưa qua validation) thì để trống thay vì lấy ngày hôm
+    // nay — giao dịch sẽ bị loại khỏi báo cáo, còn hơn rơi sai kỳ mà không ai biết.
     const payment = new Payment({
       ...data,
+      paidOn: parsePaymentDate(data.date) ?? undefined,
       studentName: student.fullName,
       ownerId: student.ownerId,
       branchId: student.branchId,

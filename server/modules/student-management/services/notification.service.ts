@@ -2,6 +2,7 @@ import { Notification } from "../models/notification.model";
 import { Student } from "../models/student.model";
 import { INotification } from "../interfaces/notification.interface";
 import { IInstallmentPlan } from "../interfaces/installment.interface";
+import { IInstallmentStatus } from "../interfaces/student.interface";
 
 interface NotificationFilters {
   page?: number | string;
@@ -37,6 +38,9 @@ export class NotificationService {
       const { installmentNo, percent } = data.installmentPlan;
       const label = data.installmentPlan.label || `Đợt ${installmentNo}`;
       const sentAt = new Date().toISOString();
+      const dueAt = data.installmentPlan.dueDate
+        ? new Date(`${data.installmentPlan.dueDate}T23:59:59.999Z`)
+        : undefined;
       const notificationId = savedNotification._id.toString();
 
       // Xử lý tuần tự để tránh race condition
@@ -54,26 +58,29 @@ export class NotificationService {
           }
 
           // Upsert: nếu đã có installmentNo này → cập nhật, chưa có → push mới
-          const existingIndex = (student.installmentStatus as Array<{ installmentNo: number; percent: number; amountDue: number; status: string; sentAt: string; paidAt: string; notificationId: string }>)
+          const statuses = student.installmentStatus as IInstallmentStatus[];
+          const existingIndex = statuses
             .findIndex((s) => s.installmentNo === installmentNo);
 
           if (existingIndex >= 0) {
-            (student.installmentStatus as Array<{ installmentNo: number; percent: number; amountDue: number; status: string; sentAt: string; paidAt: string; notificationId: string }>)[existingIndex] = {
+            statuses[existingIndex] = {
               installmentNo,
               percent,
               amountDue,
               status: 'Đã gửi',
               sentAt,
+              dueAt,
               paidAt: '',
               notificationId,
             };
           } else {
-            (student.installmentStatus as Array<{ installmentNo: number; percent: number; amountDue: number; status: string; sentAt: string; paidAt: string; notificationId: string }>).push({
+            statuses.push({
               installmentNo,
               percent,
               amountDue,
               status: 'Đã gửi',
               sentAt,
+              dueAt,
               paidAt: '',
               notificationId,
             });

@@ -9,6 +9,7 @@ export interface IProduct extends Document {
   stock: number;
   minStockAlert: number;
   price: number;
+  costPrice?: number;
   description?: string;
   status: "Active" | "Inactive";
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";

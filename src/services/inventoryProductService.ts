@@ -11,6 +11,7 @@ type ProductInput = {
   unit: string;
   stock: number;
   price: number;
+  costPrice?: number;
   description?: string;
   status: "Active" | "Inactive";
   imageFile?: File | null;
@@ -141,6 +142,7 @@ export const inventoryProductService = {
           stock: input.stock,
           minStockAlert: 15,
           price: input.price,
+          costPrice: input.costPrice,
           description: input.description || "",
           status: input.status || "Active",
           demandForecast: "Ổn định",
@@ -181,6 +183,7 @@ export const inventoryProductService = {
           unit: input.unit || "Cái",
           stock: input.stock,
           price: input.price,
+          costPrice: input.costPrice,
           description: input.description || "",
           status: input.status || "Active",
           imageUrl: uploadedImageUrl || input.imageUrl || "",
