@@ -2,7 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { superAdminTenantService } from "../../../services/superAdminTenantService";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
-import { ENTITY_PRESET_OPTIONS } from "../../../modules/student-management/config/entityLabels";
+import { BUSINESS_TYPES, type BusinessType } from "../../../config/businessTypes";
 
 export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
   const [code, setCode] = React.useState("");
@@ -11,7 +11,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
   const [ownerEmail, setOwnerEmail] = React.useState("");
   const [ownerPassword, setOwnerPassword] = React.useState("");
   const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>([...MODULE_KEYS]);
-  const [entityPreset, setEntityPreset] = React.useState("student");
+  const [businessType, setBusinessType] = React.useState<BusinessType>("education");
   const [error, setError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -30,7 +30,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
         ownerName: ownerName.trim(),
         ownerPassword,
         enabledModules,
-        entityPreset,
+        businessType,
       });
       onCreated(code.trim().toUpperCase());
     } catch (e: any) {
@@ -78,12 +78,12 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
             <label className="block text-xs font-semibold text-slate-400">
               Loại hình doanh nghiệp / Nhãn thực thể
               <select
-                value={entityPreset}
-                onChange={(e) => setEntityPreset(e.target.value)}
+                value={businessType}
+                onChange={(e) => setBusinessType(e.target.value as BusinessType)}
                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-cyan-400 text-slate-100 cursor-pointer"
               >
-                {ENTITY_PRESET_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                {BUSINESS_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
                 ))}
               </select>
             </label>

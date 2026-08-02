@@ -20,6 +20,7 @@ const detail = {
     ownerEmail: "owner@acme.test",
     lifecycleStatus: "active",
     enabledModules: ["hr", "chat"],
+    businessType: "general" as const,
   },
   summary: { userCount: 3, usersByRole: { admin: 1, user: 2 }, enabledModulesCount: 2 },
   audit: [],
@@ -71,10 +72,23 @@ describe("TenantModuleDialog", () => {
 
     await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledTimes(1));
     expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
-      enabledModules: ["inventory", "resource", "chat", "student"],
+      enabledModules: ["inventory", "resource", "chat"],
+      businessType: "general",
       reason: "Cập nhật cấu hình module",
     });
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-selects worker and hides student when business type is labor", async () => {
+    render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByText("Thông tin và module");
+
+    fireEvent.change(screen.getByLabelText("Loại hình doanh nghiệp"), { target: { value: "labor" } });
+
+    expect(screen.queryByText("Quản lý học viên")).toBeNull();
+    const worker = screen.getByRole("checkbox", { name: "Quản lý lao động" }) as HTMLInputElement;
+    expect(worker.checked).toBe(true);
+    expect(worker.disabled).toBe(true);
   });
 
   it("suspends the tenant with a written reason and no step-up fields", async () => {
