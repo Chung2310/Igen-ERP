@@ -272,7 +272,7 @@ export default function App() {
   }
 
   if (isSuperAdminPath(window.location.pathname)) {
-    return <SuperAdminShell />;
+    return <><SuperAdminShell /><ToastContainer /></>;
   }
 
   return (
