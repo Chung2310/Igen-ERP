@@ -1,9 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { ErpLoginChallenge } from "../../context/AuthContext";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
 
+type LegacyErpLoginChallenge = {
+  challengeId: string;
+  enrollmentRequired: boolean;
+  expiresAt: string;
+};
+
 interface ErpAuthenticatorDialogProps {
-  challenge: ErpLoginChallenge;
+  challenge: LegacyErpLoginChallenge;
   onAuthenticated(): Promise<void>;
   onCancel(): void;
 }

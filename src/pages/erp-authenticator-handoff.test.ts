@@ -4,14 +4,14 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../context/AuthContext.tsx", import.meta.url), "utf8");
 
-test("ERP password login returns a typed challenge without redirecting", () => {
-  assert.match(source, /export interface ErpLoginChallenge/);
+test("ERP password login returns the authenticated role without a TOTP challenge", () => {
+  assert.doesNotMatch(source, /export interface ErpLoginChallenge/);
   assert.match(source, /export type ErpLoginOutcome/);
   assert.match(source, /Promise<ErpLoginOutcome>/);
-  assert.match(source, /return\s+\{\s*status:\s*["']challenge_required["']/);
+  assert.doesNotMatch(source, /return\s+\{\s*status:\s*["']challenge_required["']/);
   assert.doesNotMatch(source, /savePendingSuperAdminChallenge/);
   assert.doesNotMatch(source, /window\.location\.pathname\s*=\s*["']\/super-admin["']/);
-  assert.match(source, /return\s+\{\s*status:\s*["']authenticated["']\s*\}/);
+  assert.match(source, /return\s+\{\s*status:\s*["']authenticated["'],\s*role:/);
 });
 
 test("completing an ERP challenge hydrates the profile or clears the invalid token", () => {
@@ -24,10 +24,10 @@ test("completing an ERP challenge hydrates the profile or clears the invalid tok
   assert.match(source, /setUserProfile\(profile\)/);
 });
 
-test("normal ERP login redirects superadmin accounts to the dedicated super-admin login page", () => {
+test("normal ERP login redirects authenticated superadmin accounts to the dedicated page", () => {
   const authPageSource = readFileSync(new URL("./AuthPage.tsx", import.meta.url), "utf8");
   assert.match(authPageSource, /const\s+\{\s*loginWithEmail\s*\}\s*=\s*useAuth\(\)/);
   assert.match(authPageSource, /const result = await loginWithEmail\(/);
-  assert.match(authPageSource, /savePendingSuperAdminChallenge\(sessionStorage,\s*result\)/);
-  assert.match(authPageSource, /if\s*\(result\.status\s*===\s*["']challenge_required["']\)\s*\{\s*savePendingSuperAdminChallenge\(sessionStorage,\s*result\);\s*window\.location\.href\s*=\s*["']\/super-admin["']/);
+  assert.doesNotMatch(authPageSource, /savePendingSuperAdminChallenge/);
+  assert.match(authPageSource, /if\s*\(result\.role\s*===\s*["']superadmin["']\)\s*\{\s*window\.location\.href\s*=\s*["']\/super-admin["']/);
 });

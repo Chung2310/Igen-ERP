@@ -15,7 +15,6 @@ import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
-import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
@@ -117,8 +116,9 @@ export const authService = {
 
     await assertAccountUsable(user);
 
-    if (requiresSuperAdminChallenge(user.role)) {
-      return superAdminAuthService.beginSuperAdminLogin(user, requestMetadata);
+    if (user.role === "superadmin") {
+      const privilegedSession = await superAdminAuthService.completePasswordLogin(user, requestMetadata);
+      return { kind: "authenticated" as const, user, ...privilegedSession };
     }
 
     const tokens = this.generateTokens(user);

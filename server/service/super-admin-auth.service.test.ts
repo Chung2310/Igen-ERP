@@ -47,6 +47,13 @@ test("password-first login creates a short-lived challenge instead of tokens", a
   assert.equal("accessToken" in result, false);
 });
 
+test("password login can create a privileged session without TOTP", async () => {
+  const { service, user, sessions } = fixture();
+  const result = await service.completePasswordLogin(user, device);
+  assert.match(result.accessToken, /^access:/);
+  assert.equal(sessions.size, 1);
+});
+
 test("enrollment confirms TOTP, returns recovery codes once, and creates a session", async () => {
   const { service, user } = fixture();
   const challenge = await service.beginSuperAdminLogin(user, device);
