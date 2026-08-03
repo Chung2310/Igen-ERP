@@ -11,6 +11,7 @@ import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorMod
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import { useAuth } from '../../../../context/AuthContext';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import type { Course } from '../../types';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -99,6 +100,9 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
   };
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesError, setCoursesError] = useState('');
   const [formData, setFormData] = useState<{
     name: string;
     rank: string;
@@ -115,6 +119,26 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const [localTentativeDate, setLocalTentativeDate] = useState('');
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setCoursesLoading(true);
+    setCoursesError('');
+    apiFetch<{ success: boolean; courses?: Array<Course & { _id?: string }> }>('/courses')
+      .then((res) => {
+        if (cancelled) return;
+        const fetchedCourses = (res.courses || []).map((course) => ({ ...course, id: course.id || course._id || '' }));
+        setCourses(fetchedCourses);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setCourses([]);
+          setCoursesError(error instanceof Error ? error.message : 'Không th? t?i danh sách khóa h?c.');
+        }
+      })
+      .finally(() => { if (!cancelled) setCoursesLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen]);
 
   useEffect(() => {
     if (document.activeElement !== dateInputRef.current) {
@@ -296,18 +320,25 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                   <div className="space-y-1 relative group/std">
                     {renderFieldActions('rank')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                      {getFieldLabel('rank', 'NhÃ³m thi')}{' '}
+                      Khóa h?c{' '}
                       {isFieldRequired('rank', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="rank"
                       value={formData.rank}
                       onChange={handleInputChange}
                       required={isFieldRequired('rank', false)}
-                      placeholder={getFieldPlaceholder('rank', 'Nháº­p nhÃ³m thi')}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
-                    />
+                      disabled={coursesLoading}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
+                    >
+                      <option value="">{coursesLoading ? 'Ðang t?i khóa h?c...' : 'Ch?n khóa h?c'}</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.title}>
+                          {course.code ? `${course.code} - ${course.title}` : course.title}
+                        </option>
+                      ))}
+                    </select>
+                    {coursesError && <p className="text-[10px] text-rose-500">{coursesError}</p>}
                   </div>
                 )}
 
