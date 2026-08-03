@@ -577,11 +577,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 )}
               </div>
 
-              {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && (
+              {/* Tạm thời ẩn tính năng chụp ảnh khuôn mặt */}
+              {/* {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && (
                 <div className="pt-2 border-t border-slate-50">
                   <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} entityName={entityLabel.singular} />
                 </div>
-              )}
+              )} */}
 
               <CustomFieldsSection
                 moduleKey="students"

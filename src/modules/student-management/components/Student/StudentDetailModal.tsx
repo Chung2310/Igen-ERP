@@ -84,7 +84,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const tabs: TabType[] = operationalCopy.isWorker || operationalCopy.isCustomer
     ? ['Hồ sơ', 'Lịch sử']
-    : ['Hồ sơ', 'Học phí', 'Khuôn mặt', 'Lịch sử'];
+    : ['Hồ sơ', 'Học phí', 'Lịch sử'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {

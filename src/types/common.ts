@@ -42,6 +42,7 @@ export interface UserProfile {
   companyCode?: string;
   companyName?: string;
   branchId?: string;
+  branchName?: string;
   /** Module nghiệp vụ được bật cho doanh nghiệp. Thiếu hoặc rỗng = bật tất cả. */
   enabledModules?: string[];
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
