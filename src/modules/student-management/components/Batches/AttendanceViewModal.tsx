@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Calendar, UserX, CheckCircle2, XCircle, MinusCircle, ChevronRight, ShieldCheck, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
@@ -151,8 +151,8 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                   const isToday = date === today;
                   const isPast = date < today;
                   const isSelected = selectedDate === date;
-                  const absentCount = session?.records ? session.records.filter(r => r.status !== 'present').length : 0;
-                  const presentCount = session?.records ? session.records.filter(r => r.status === 'present').length : 0;
+                  const absentCount = session?.records ? session.records.filter(r => r.status === 'absent' || r.status === 'excused').length : 0;
+                  const presentCount = session?.records ? session.records.filter(r => r.status === 'present' || r.status === 'late').length : 0;
 
                   return (
                     <button
@@ -224,11 +224,11 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                   </p>
                   <div className="flex gap-3 text-[10px] font-bold">
                     <span className="text-emerald-600">
-                      {selectedSession.records.filter(r => r.status === 'present').length} có mặt
+                      {selectedSession.records.filter(r => r.status === 'present' || r.status === 'late').length} có mặt
                     </span>
-                    {selectedSession.records.filter(r => r.status !== 'present').length > 0 && (
+                    {selectedSession.records.filter(r => r.status === 'absent' || r.status === 'excused').length > 0 && (
                       <span className="text-rose-600">
-                        {selectedSession.records.filter(r => r.status !== 'present').length} vắng
+                        {selectedSession.records.filter(r => r.status === 'absent' || r.status === 'excused').length} vắng
                       </span>
                     )}
                   </div>
@@ -252,6 +252,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
 
                       const cfg = {
                         present: { icon: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />, badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200', text: 'Có mặt', row: 'border-emerald-100 bg-emerald-50/20' },
+                        late: { icon: <Clock className="w-4 h-4 text-orange-500 flex-shrink-0" />, badge: 'text-orange-700 bg-orange-50 border border-orange-200', text: 'Đến muộn', row: 'border-orange-100 bg-orange-50/20' },
                         absent: { icon: <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />, badge: 'text-rose-700 bg-rose-50 border border-rose-200', text: 'Vắng mặt', row: 'border-rose-100 bg-rose-50/20' },
                         excused: { icon: <MinusCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />, badge: 'text-amber-700 bg-amber-50 border border-amber-200', text: 'Vắng có phép', row: 'border-amber-100 bg-amber-50/20' },
                         unmarked: { icon: <MinusCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />, badge: 'text-slate-600 bg-slate-100 border border-slate-200', text: 'Chưa điểm danh', row: 'border-slate-100 bg-slate-50/50' }

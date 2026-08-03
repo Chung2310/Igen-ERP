@@ -83,8 +83,8 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
   }, [initialStudent, fetchStudentDetail]);
 
   const tabs: TabType[] = operationalCopy.isWorker || operationalCopy.isCustomer
-    ? ['Hồ sơ', 'Lịch sử']
-    : ['Hồ sơ', 'Học phí', 'Lịch sử'];
+    ? ['\\u0048\\u1ed3 s\\u01a1', 'L\\u1ecbch s\\u1eed']
+    : faceAttendanceVisible ? ['\\u0048\\u1ed3 s\\u01a1', 'H\\u1ecdc ph\\u00ed', 'Khu\\u00f4n m\\u1eb7t', 'L\\u1ecbch s\\u1eed'] : ['\\u0048\\u1ed3 s\\u01a1', 'H\\u1ecdc ph\\u00ed', 'L\\u1ecbch s\\u1eed'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {

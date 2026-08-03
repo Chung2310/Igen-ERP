@@ -4,7 +4,7 @@ import { IBatch } from "../interfaces/batch.interface";
 const attendanceRecordSchema = new Schema(
   {
     studentId: { type: String, required: true },
-    status: { type: String, enum: ["present", "absent", "excused"], default: "present" },
+    status: { type: String, enum: ["present", "absent", "excused", "late"], default: "present" },
   },
   { _id: false }
 );

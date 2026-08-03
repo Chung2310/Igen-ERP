@@ -213,10 +213,18 @@ export class StudentOnlineAttendanceService {
     }
     if (session) {
       const existing = session.records.find((r) => r.studentId === studentId);
+      let isLate = false;
+      if (batch.startTime) {
+        const startDateTime = new Date(`${dateStr}T${batch.startTime.padStart(5, "0")}:00`);
+        if (!isNaN(startDateTime.getTime())) {
+          isLate = Date.now() > startDateTime.getTime();
+        }
+      }
+      const recordStatus = isLate ? "late" : "present";
       if (existing) {
-        existing.status = "present";
+        existing.status = recordStatus;
       } else {
-        session.records.push({ studentId, status: "present" } as any);
+        session.records.push({ studentId, status: recordStatus } as any);
       }
     }
     await batch.save();

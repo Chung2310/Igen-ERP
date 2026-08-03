@@ -481,12 +481,20 @@ export class QRAttendanceService {
     }
 
     // Build danh sách điểm danh
-    // Học viên nào checkin trong session -> present, còn lại -> absent
+    // Học viên nào checkin trong session -> present hoặc late, còn lại -> absent
     const records = batch.learnerIds.map(studentId => {
       const checkedIn = session.checkins.has(studentId);
+      let isLate = false;
+      if (checkedIn && batch.startTime) {
+        const checkinTime = session.checkins.get(studentId)?.checkinAt;
+        const startDateTime = new Date(`${session.date}T${batch.startTime.padStart(5, "0")}:00`);
+        if (checkinTime && !isNaN(startDateTime.getTime())) {
+          isLate = checkinTime > startDateTime.getTime();
+        }
+      }
       return {
         studentId,
-        status: (checkedIn ? "present" : "absent") as "present" | "absent" | "excused"
+        status: (checkedIn ? (isLate ? "late" : "present") : "absent") as "present" | "absent" | "excused" | "late"
       };
     });
 
