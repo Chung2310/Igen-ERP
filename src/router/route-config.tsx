@@ -14,6 +14,13 @@ export const APP_ROUTES: AppRoute[] = [
   {
     tab: "TỔNG QUAN",
     component: lazy(() => import("../pages/DashboardTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(
+        userProfile.permissions?.includes("*") ||
+        userProfile.permissions?.includes("dashboard:read")
+      ),
   },
   {
     tab: "NHÂN SỰ",

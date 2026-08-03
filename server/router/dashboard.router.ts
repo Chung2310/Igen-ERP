@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Joi from "joi";
 import { dashboardController } from "../controller/dashboard.controller";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 
 export const dashboardRouter = Router();
@@ -30,9 +30,15 @@ const summarySchema = {
 dashboardRouter.get(
   "/summary",
   requireAuth as any,
+  requirePermission("dashboard:read") as any,
   validateRequest(summarySchema),
   dashboardController.getSummary as any
 );
 
 // Việc cần xử lý hôm nay
-dashboardRouter.get("/action-items", requireAuth as any, dashboardController.getActionItems as any);
+dashboardRouter.get(
+  "/action-items",
+  requireAuth as any,
+  requirePermission("dashboard:read") as any,
+  dashboardController.getActionItems as any
+);

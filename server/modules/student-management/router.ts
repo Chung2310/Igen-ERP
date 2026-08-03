@@ -17,6 +17,7 @@ import scheduleRoutes from "./routes/schedule.routes";
 import partnerRoutes from "./routes/partner.routes";
 import customFieldRoutes from "./routes/custom-field.routes";
 import moduleSettingsRoutes from "./routes/module-settings.routes";
+import standardFieldRoutes from "./routes/standard-field.routes";
 import qrAttendanceRoutes from "./routes/qr-attendance.routes";
 import studentOnlineAttendanceRoutes from "./routes/student-online-attendance.routes";
 import studentAttendanceAttemptRoutes from "./routes/student-attendance-attempt.routes";
@@ -62,6 +63,9 @@ studentManagementRouter.use("/student-management/custom-fields", authMiddleware 
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
+// Cấu hình trường có sẵn: GET mở cho mọi tài khoản trong công ty (ai cũng cần để
+// dựng form), PUT đã gác quyền custom-field:manage bên trong route.
+studentManagementRouter.use("/student-management/standard-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, standardFieldRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);

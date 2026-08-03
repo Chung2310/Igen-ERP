@@ -4,6 +4,11 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { ModuleSettingsService } from "../services/module-settings.service";
+import {
+  findMissingPublicRegisterFields,
+  resolvePublicRegisterFields,
+} from "../utils/public-register-fields.util";
 
 /** Tên hiển thị của người đang thao tác, để lưu làm "người thêm" trên bản ghi học viên. */
 async function resolveActorName(uid: string, fallbackEmail?: string): Promise<string> {
@@ -184,12 +189,88 @@ export class StudentController {
     }
   }
 
+  /**
+   * Chặn cửa cho các endpoint đăng ký công khai: chỉ cho đi tiếp khi ?teacherId=
+   * trỏ tới một giáo viên đang hoạt động. Chạy TRƯỚC multer để request rác không
+   * kịp đẩy file lên Cloudinary.
+   */
+  static async assertPublicTeacher(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId : "";
+      if (!teacherId) {
+        return res.status(400).json({ success: false, error: "Thiếu mã giáo viên trong đường dẫn đăng ký." });
+      }
+      const teacher = await AuthService.getUserProfile(teacherId);
+      if (!teacher || teacher.isActive === false) {
+        return res.status(400).json({ success: false, error: "Giáo viên không hợp lệ hoặc đã bị khóa." });
+      }
+      next();
+    } catch {
+      res.status(400).json({ success: false, error: "Không xác thực được giáo viên." });
+    }
+  }
+
+  /**
+   * Upload ảnh CCCD/chân dung cho form đăng ký công khai. Không cần đăng nhập nên
+   * chỉ nhận đúng 1 ảnh mỗi lần, giới hạn dung lượng theo cấu hình multer.
+   */
+  static async publicUpload(req: Request, res: Response) {
+    const file = (req as Request & { file?: Express.Multer.File }).file;
+    if (!file) {
+      return res.status(400).json({ success: false, error: "Không tìm thấy tệp tin nào được gửi." });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        url: file.path,
+        name: Buffer.from(file.originalname, "latin1").toString("utf8"),
+        type: file.mimetype,
+      },
+    });
+  }
+
+  /**
+   * Cấu hình để trang đăng ký công khai dựng form giống hệt popup thêm học viên:
+   * nhãn/placeholder/bắt buộc/ẩn-hiện do công ty tự chỉnh, cộng với loại hình
+   * doanh nghiệp (học viên / lao động / khách hàng) để lấy đúng bộ chữ.
+   */
+  static async publicRegisterConfig(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = String(req.query.teacherId);
+      const teacher = await AuthService.getUserProfile(teacherId);
+      if (!teacher || teacher.isActive === false) {
+        return res.status(400).json({ success: false, error: "Giáo viên không hợp lệ hoặc đã bị khóa." });
+      }
+
+      const tenantId = await resolveCustomFieldTenantForOwner(teacher.companyCode || teacher.centerId || teacherId);
+      const [fields, settings] = await Promise.all([
+        resolvePublicRegisterFields(tenantId),
+        new ModuleSettingsService().get(tenantId),
+      ]);
+
+      res.json({ success: true, data: { fields, entityPreset: settings.entityPreset } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async publicRegister(req: Request, res: Response) {
     try {
       const { teacherId, ...studentData } = req.body;
       const teacher = await AuthService.getUserProfile(teacherId);
       if (!teacher || teacher.isActive === false) {
         return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
+      }
+
+      const tenantId = await resolveCustomFieldTenantForOwner(
+        teacher.companyCode || teacher.centerId || teacherId,
+      );
+      const missing = await findMissingPublicRegisterFields(tenantId, studentData);
+      if (missing.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Vui lòng điền: ${missing.join(", ")}.`,
+        });
       }
 
       const payload = {

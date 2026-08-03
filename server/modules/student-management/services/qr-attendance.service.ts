@@ -327,7 +327,8 @@ export class QRAttendanceService {
       }
     }
 
-    // G. Xác thực khuôn mặt
+    // G. Xác thực khuôn mặt (Tạm thời bỏ qua theo yêu cầu để chỉ điểm danh vị trí)
+    /*
     if (!student.faceEnrollment?.registered || !student.faceEnrollment.insightFaceUserId) {
       await StudentAttendanceAttemptModel.create({
         ...attemptBase, outcome: "rejected", reasonCode: "not_registered",
@@ -364,6 +365,7 @@ export class QRAttendanceService {
       });
       throw new QrCheckinError(gateResult.reasonCode, "Xác thực khuôn mặt không thành công. Vui lòng thử lại.");
     }
+    */
 
     // H. Ghi nhận checkin. Phiên lao động ghi vào bảng chấm công vào/ra (lần
     // quét đầu trong ngày là giờ vào, lần sau là giờ về) thay vì chỉ đánh dấu
@@ -385,12 +387,7 @@ export class QRAttendanceService {
     await StudentAttendanceAttemptModel.create({
       ...attemptBase,
       outcome: "accepted",
-      reasonCode: gateResult.reasonCode,
-      similarity: gateResult.verification.similarity ?? undefined,
-      live: gateResult.verification.live ?? undefined,
-      livenessScore: gateResult.verification.livenessScore ?? undefined,
       latitude, longitude, distanceMeters,
-      evidence: gateResult.evidence,
       attemptedAt: new Date(),
     });
 

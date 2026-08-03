@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { authService } from "../service/auth.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { googleOAuthService } from "../service/google-oauth.service";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import { CompanyModel } from "../model/company.model";
@@ -108,6 +109,19 @@ export const authController = {
 
       const userObj = user.toObject();
       delete userObj.password;
+
+      const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("driveOAuth driveFolderId").lean()
+        : null;
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
+
       void recordUserActivity({
         userId: String(user._id), companyCode: user.companyCode || "SYSTEM", actionType: "auth.login",
         category: "authentication", result: "success", method: "POST", route: "/api/v1/auth/login",
@@ -225,7 +239,7 @@ export const authController = {
       // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
       const userObj = user.toObject();
       const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
-        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType").lean()
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType driveOAuth driveFolderId").lean()
         : null;
       const legacyEntityPreset = company && !company.businessType
         ? (await ModuleSettings.findOne({ tenantId: userObj.companyCode }).select("entityPreset").lean())?.entityPreset
@@ -233,6 +247,15 @@ export const authController = {
       userObj.businessType = company?.businessType ?? "general";
       userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules, company?.businessType, legacyEntityPreset);
       userObj.permissions = await resolveProfilePermissions(userId, userObj.role, userObj.companyCode);
+
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
 
       return res.status(200).json({
         status: "success",
@@ -323,11 +346,24 @@ export const authController = {
         });
       }
 
+      const userObj = updatedUser.toObject();
+      const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("driveOAuth driveFolderId").lean()
+        : null;
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
+
       // console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
       return res.status(200).json({
         status: "success",
         message: "Cập nhật hồ sơ người dùng thành công",
-        user: updatedUser,
+        user: userObj,
       });
     } catch (error: any) {
       console.error("[Auth updateProfile] Error:", error);
@@ -663,10 +699,37 @@ export const authController = {
 
       const colleagues = await UserModel.find(
         { companyCode, isDeleted: { $ne: true } },
-        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1 }
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1, branchId: 1 }
       ).lean();
 
-      return res.status(200).json({ status: "success", data: colleagues });
+      const branchIds = colleagues
+        .map((colleague: any) => colleague.branchId)
+        .filter(Boolean)
+        .map((branchId: any) => branchId.toString());
+      const branches = branchIds.length
+        ? await BranchModel.find(
+            { companyCode, _id: { $in: Array.from(new Set(branchIds)) } },
+            { _id: 1, name: 1 },
+          ).lean()
+        : [];
+      const branchNames = new Map(branches.map((branch: any) => [branch._id.toString(), branch.name]));
+      const safeColleagues = colleagues.map((colleague: any) => ({
+        _id: colleague._id,
+        displayName: colleague.displayName,
+        email: colleague.email,
+        ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),
+        ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),
+        ...(colleague.department ? { department: colleague.department } : {}),
+        ...(colleague.role ? { role: colleague.role } : {}),
+        ...(colleague.branchId
+          ? {
+              branchId: colleague.branchId.toString(),
+              branchName: branchNames.get(colleague.branchId.toString()) || "",
+            }
+          : {}),
+      }));
+
+      return res.status(200).json({ status: "success", data: safeColleagues });
     } catch (error: any) {
       console.error("[authController.getColleagues] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy danh sách đồng nghiệp." });

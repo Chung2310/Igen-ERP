@@ -8,9 +8,105 @@ import { ChatRoomModel } from "../model/chat-room.model";
 import { canAccessPersonalDriveTarget } from "../utils/personal-drive-access";
 
 /**
+ * Helper lấy OAuth2 Client và rootFolderId dựa trên Google Drive của doanh nghiệp (hoặc cá nhân làm fallback).
+ */
+async function getDriveClientAndRoot(companyCode: string, userId: string) {
+  const { CompanyModel } = await import("../model/company.model");
+  const company = await CompanyModel.findOne({ code: companyCode.toUpperCase() });
+
+  if (company && company.driveOAuth?.refreshToken) {
+    const { googleOAuthService } = await import("../service/google-oauth.service");
+    const accessToken = await googleOAuthService.getAccessToken(company.driveOAuth.refreshToken);
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: company.driveOAuth.refreshToken
+    });
+
+    if (!company.driveFolderId) {
+      const { googleDriveService } = await import("../service/google-drive.service");
+      const folder = await googleDriveService.createFolder(
+        accessToken,
+        `iGen ERP - Tài liệu ${company.name || company.code}`
+      );
+      company.driveFolderId = folder.id;
+      company.driveFolderLink = folder.webViewLink || "";
+      await company.save();
+    }
+
+    return {
+      authClient: oauth2Client,
+      rootFolderId: company.driveFolderId,
+      isConnected: true,
+      email: company.driveOAuth.connectedEmail || "Company Google Drive",
+      isCompanyDrive: true
+    };
+  }
+
+  // Fallback sang Google Drive cá nhân
+  const user = await UserModel.findById(userId);
+  if (user && user.googleDriveIntegration?.isConnected) {
+    const authClient = await GoogleDriveService.getClientForUser(userId);
+    return {
+      authClient,
+      rootFolderId: user.googleDriveIntegration.rootFolderId,
+      isConnected: true,
+      email: user.googleDriveIntegration.driveEmail || "",
+      isCompanyDrive: false
+    };
+  }
+
+  return {
+    authClient: null,
+    rootFolderId: "",
+    isConnected: false,
+    email: "",
+    isCompanyDrive: false
+  };
+}
+
+/**
  * Helper lấy OAuth2 Client và rootFolderId của tài khoản Google Drive quản trị doanh nghiệp
  */
 async function getAdminDriveClient(companyCode: string, loggedInUserId?: string) {
+  const { CompanyModel } = await import("../model/company.model");
+  const company = await CompanyModel.findOne({ code: companyCode.toUpperCase() });
+
+  if (company && company.driveOAuth?.refreshToken) {
+    const { googleOAuthService } = await import("../service/google-oauth.service");
+    const accessToken = await googleOAuthService.getAccessToken(company.driveOAuth.refreshToken);
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: company.driveOAuth.refreshToken
+    });
+
+    if (!company.driveFolderId) {
+      const { googleDriveService } = await import("../service/google-drive.service");
+      const folder = await googleDriveService.createFolder(
+        accessToken,
+        `iGen ERP - Tài liệu ${company.name || company.code}`
+      );
+      company.driveFolderId = folder.id;
+      company.driveFolderLink = folder.webViewLink || "";
+      await company.save();
+    }
+
+    return {
+      authClient: oauth2Client,
+      rootFolderId: company.driveFolderId,
+      adminUser: { displayName: "Doanh nghiệp", email: company.ownerEmail || "" }
+    };
+  }
+
   let adminUser = null;
 
   // 1. Nếu có loggedInUserId, kiểm tra xem người này có phải là admin/superadmin và đã kết nối Drive không
@@ -224,13 +320,14 @@ export const googleDriveController = {
         userId = req.query.ownerId as string;
       }
 
-      const user = await UserModel.findById(userId);
-      if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.isConnected) {
+      const driveInfo = await getDriveClientAndRoot(companyCode, userId);
+      if (!driveInfo.isConnected) {
         return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
       }
 
+      const user = await UserModel.findById(userId);
       // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
-      if (!canAccessPersonalDriveTarget({
+      if (user && !canAccessPersonalDriveTarget({
         callerId: req.user?.id,
         callerRole: userRole,
         callerCompanyCode: companyCode,
@@ -240,12 +337,11 @@ export const googleDriveController = {
         return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập tài nguyên của người dùng này." });
       }
 
-      const authClient = await GoogleDriveService.getClientForUser(userId);
-      const drive = google.drive({ version: "v3", auth: authClient });
+      const drive = google.drive({ version: "v3", auth: driveInfo.authClient });
 
       let targetFolderId = folderId;
       if (!targetFolderId || targetFolderId === "root" || targetFolderId === "personal") {
-        targetFolderId = user.googleDriveIntegration.rootFolderId;
+        targetFolderId = driveInfo.rootFolderId;
       }
 
       const response = await drive.files.list({
@@ -307,16 +403,17 @@ export const googleDriveController = {
         });
       }
 
-      const user = await UserModel.findById(userId);
-      if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.rootFolderId) {
+      const driveInfo = await getDriveClientAndRoot(companyCode, userId);
+      if (!driveInfo.isConnected) {
         return res.status(400).json({
           status: "error",
-          message: "Tài khoản chưa liên kết Google Drive hoặc cấu hình thư mục lỗi.",
+          message: "Tài khoản chưa kết nối Google Drive.",
         });
       }
 
+      const user = await UserModel.findById(userId);
       // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
-      if (!canAccessPersonalDriveTarget({
+      if (user && !canAccessPersonalDriveTarget({
         callerId: req.user?.id,
         callerRole: userRole,
         callerCompanyCode: companyCode,
@@ -334,10 +431,10 @@ export const googleDriveController = {
       const fileBuffer = Buffer.from(base64Data, "base64");
 
       // Lấy oauth client được ủy quyền
-      const authClient = await GoogleDriveService.getClientForUser(userId);
+      const authClient = driveInfo.authClient;
 
       // Xác định thư mục cha để upload
-      const parentFolderId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : user.googleDriveIntegration.rootFolderId;
+      const parentFolderId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : driveInfo.rootFolderId;
 
       // Upload lên Google Drive
       const driveFile = await GoogleDriveService.uploadFile(
@@ -842,7 +939,12 @@ export const googleDriveController = {
           const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
           authClient = adminInfo.authClient;
         } else {
-          authClient = await GoogleDriveService.getClientForUser(uploadedByUserId);
+          const driveInfo = await getDriveClientAndRoot(companyCode, uploadedByUserId);
+          if (driveInfo.isConnected) {
+            authClient = driveInfo.authClient;
+          } else {
+            authClient = await GoogleDriveService.getClientForUser(uploadedByUserId);
+          }
         }
         await GoogleDriveService.deleteFile(authClient, driveFileIdToDelete);
       } catch (err: any) {
@@ -949,7 +1051,12 @@ export const googleDriveController = {
         const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
         authClient = adminInfo.authClient;
       } else {
-        authClient = await GoogleDriveService.getClientForUser(userId);
+        const driveInfo = await getDriveClientAndRoot(companyCode, userId);
+        if (driveInfo.isConnected) {
+          authClient = driveInfo.authClient;
+        } else {
+          authClient = await GoogleDriveService.getClientForUser(userId);
+        }
       }
 
       const drive = google.drive({ version: "v3", auth: authClient });
@@ -1076,11 +1183,15 @@ export const googleDriveController = {
           targetUserId = req.body.ownerId;
         }
         const user = await UserModel.findById(targetUserId);
-        if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.isConnected) {
+        if (!user) {
+          return res.status(400).json({ status: "error", message: "Không tìm thấy người dùng." });
+        }
+        const driveInfo = await getDriveClientAndRoot(user.companyCode || companyCode, targetUserId);
+        if (!driveInfo.isConnected) {
           return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
         }
         // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
-        if (!canAccessPersonalDriveTarget({
+        if (user && !canAccessPersonalDriveTarget({
           callerId: req.user?.id,
           callerRole: req.user?.role,
           callerCompanyCode: companyCode,
@@ -1089,8 +1200,8 @@ export const googleDriveController = {
         })) {
           return res.status(403).json({ status: "error", message: "Bạn không có quyền thao tác trên tài nguyên của người dùng này." });
         }
-        parentId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : user.googleDriveIntegration.rootFolderId;
-        authClient = await GoogleDriveService.getClientForUser(targetUserId);
+        parentId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : driveInfo.rootFolderId;
+        authClient = driveInfo.authClient;
       }
 
       // 2. Xử lý tạo tệp theo loại
@@ -1325,7 +1436,12 @@ export const googleDriveController = {
         const adminInfo = await getAdminDriveClient(companyCode);
         authClient = adminInfo.authClient;
       } else {
-        authClient = await GoogleDriveService.getClientForUser(userId);
+        const driveInfo = await getDriveClientAndRoot(companyCode, userId);
+        if (driveInfo.isConnected) {
+          authClient = driveInfo.authClient;
+        } else {
+          authClient = await GoogleDriveService.getClientForUser(userId);
+        }
       }
 
       const drive = google.drive({ version: "v3", auth: authClient });

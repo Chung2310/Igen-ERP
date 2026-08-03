@@ -1,4 +1,5 @@
 import { EntityPreset, ModuleSettings } from "../models/module-settings.model";
+import mongoose from "mongoose";
 
 export type ModuleSettingsContext = { tenantId: string; actorId: string };
 export type ModuleSettingsView = { tenantId: string; entityPreset: EntityPreset };
@@ -6,7 +7,20 @@ export type ModuleSettingsView = { tenantId: string; entityPreset: EntityPreset 
 export class ModuleSettingsService {
   async get(tenantId: string): Promise<ModuleSettingsView> {
     const existing = await ModuleSettings.findOne({ tenantId });
-    return { tenantId, entityPreset: existing?.entityPreset ?? "student" };
+    
+    const company = await mongoose.connection.db.collection("companies").findOne({ code: tenantId.toUpperCase() });
+    const businessType = company?.businessType || "education";
+    
+    let entityPreset = existing?.entityPreset;
+    if (businessType === "education" && entityPreset !== "student") {
+      entityPreset = "student";
+    } else if (businessType === "labor" && entityPreset !== "worker") {
+      entityPreset = "worker";
+    } else if (!entityPreset) {
+      entityPreset = "student";
+    }
+    
+    return { tenantId, entityPreset: entityPreset as EntityPreset };
   }
 
   async update(context: ModuleSettingsContext, entityPreset: EntityPreset): Promise<ModuleSettingsView> {
