@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2, LayoutGrid, Rows3
+  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -273,6 +273,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
   const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [viewingBatch, setViewingBatch] = useState<Batch | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; code: string }>({
@@ -542,6 +543,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   const renderRowActions = (b: Batch) => (
     <div className="flex items-center gap-1.5">
+      <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
+        <Eye className="w-3 h-3" />
+      </button>
       <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
         <Pencil className="w-3 h-3" />
       </button>
@@ -1221,6 +1225,75 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
           />
         );
       })()}
+
+      {viewingBatch && (
+        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} onClose={() => setViewingBatch(null)}>
+          <div className="space-y-4 text-slate-700 text-left">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã lớp</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingBatch.code}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">
+                  {courses.find(c => c.id === viewingBatch.courseId)?.title || viewingBatch.courseTitle || 'N/A'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || 'Chưa gán'}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
+                <p className="text-sm font-bold text-slate-700 mt-0.5">{statusLabel(viewingBatch.status)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời gian học</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {formatDays(viewingBatch.daysOfWeek)} • {viewingBatch.startTime} - {viewingBatch.endTime}
+                </p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời hạn lớp học</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {formatDate(viewingBatch.startDate)} → {formatDate(viewingBatch.endDate)}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.location || 'Chưa cập nhật'}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sức chứa</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {viewingBatch.learnerIds.length} / {viewingBatch.maxLearners || 'Không giới hạn'} {entityLabel.singular}
+                </p>
+              </div>
+            </div>
+
+            {viewingBatch.customFields && Object.keys(viewingBatch.customFields).length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(viewingBatch.customFields).map(([key, val]) => (
+                    <div key={key}>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ErpModal>
+      )}
 
       {viewAttendanceBatchId && (() => {
         const targetBatch = batches.find(b => b.id === viewAttendanceBatchId);

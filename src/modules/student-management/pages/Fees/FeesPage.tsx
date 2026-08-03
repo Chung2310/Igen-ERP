@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { 
+import {
   Download, Search,
   ChevronDown, CreditCard, Clock, Users as UsersIcon,
   Banknote, History
@@ -21,10 +21,10 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { students, loading } = useStudents(resolvedCenter);
   const hasRankData = React.useMemo(() => students.some(s => s.rank && s.rank.trim() !== ''), [students]);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [debtFilter, setDebtFilter] = useState('Tất cả');
-  
+
   // Modal state
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -52,14 +52,14 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
     // Define CSV headers
     const headers = ['Họ và tên', 'Số điện thoại', 'Hạng', 'Tổng học phí', 'Đã đóng', 'Còn nợ', 'Tiến độ (%)'];
-    
+
     // Map data to CSV rows
     const rows = filteredStudents.map(student => {
       const total = parseCurrency(student.fee || '0');
       const paid = student.paidAmount || 0;
       const debt = total - paid;
       const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
-      
+
       return [
         student.fullName,
         student.phone,
@@ -110,7 +110,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     if (debtFilter === 'Còn nợ' && debt <= 0) return false;
     if (debtFilter === 'Đã hoàn thành' && debt > 0) return false;
     if (searchQuery && !student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) && !student.phone.includes(searchQuery)) return false;
-    
+
     return true;
   });
 
@@ -133,7 +133,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
           <h1 className="text-lg font-bold text-cyan-700 tracking-tight">Học phí</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={handleExport}
             className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
           >
@@ -144,33 +144,33 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <FeeStatCard 
-          label="Tổng học phí" 
-          value={formatCurrency(stats.totalFee)} 
-          icon={Banknote} 
-          color="text-cyan-600" 
-          bgColor="bg-cyan-50" 
+        <FeeStatCard
+          label="Tổng học phí"
+          value={formatCurrency(stats.totalFee)}
+          icon={Banknote}
+          color="text-cyan-600"
+          bgColor="bg-cyan-50"
         />
-        <FeeStatCard 
-          label="Đã thu" 
-          value={formatCurrency(stats.totalPaid)} 
-          icon={CheckCircle2Icon} 
-          color="text-emerald-600" 
-          bgColor="bg-emerald-50" 
+        <FeeStatCard
+          label="Đã thu"
+          value={formatCurrency(stats.totalPaid)}
+          icon={CheckCircle2Icon}
+          color="text-emerald-600"
+          bgColor="bg-emerald-50"
         />
-        <FeeStatCard 
-          label="Còn nợ" 
-          value={formatCurrency(stats.totalDebt)} 
-          icon={Clock} 
-          color="text-orange-500" 
-          bgColor="bg-orange-50" 
+        <FeeStatCard
+          label="Còn nợ"
+          value={formatCurrency(stats.totalDebt)}
+          icon={Clock}
+          color="text-orange-500"
+          bgColor="bg-orange-50"
         />
-        <FeeStatCard 
-          label="HV còn nợ" 
-          value={stats.studentsWithDebt} 
-          icon={UsersIcon} 
-          color="text-teal-500" 
-          bgColor="bg-teal-50" 
+        <FeeStatCard
+          label="HV còn nợ"
+          value={stats.studentsWithDebt}
+          icon={UsersIcon}
+          color="text-teal-500"
+          bgColor="bg-teal-50"
           isText={false}
         />
       </div>
@@ -180,7 +180,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
         <div className="space-y-0.5">
           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trạng thái nợ</label>
           <div className="relative">
-            <select 
+            <select
               value={debtFilter}
               onChange={(e) => setDebtFilter(e.target.value)}
               className="w-full h-7 bg-slate-50 px-2.5 pr-8 rounded-md border border-slate-200 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 transition-all"
@@ -192,13 +192,13 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           </div>
         </div>
-        
+
         <div className="sm:col-span-2 space-y-0.5">
           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tìm học viên</label>
           <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Tên / SĐT..." 
+            <input
+              type="text"
+              placeholder="Tên / SĐT..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-7 bg-slate-50 pl-7 pr-3 rounded-md border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all"
@@ -289,7 +289,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                     <td className="px-3 py-1.5 border-b border-slate-50 min-w-[100px]">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-                          <motion.div 
+                          <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${progress}%` }}
                             className={cn(
@@ -308,7 +308,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button 
+                        <button
                           onClick={() => {
                             setSelectedStudentForPayment(student);
                             setIsPaymentModalOpen(true);
@@ -318,7 +318,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => onSelectStudent?.(student, 'Học phí')}
                           title="Nhật ký & Sửa học phí"
                           className="p-1.5 rounded-lg bg-white border border-slate-100 text-slate-300 hover:text-cyan-600 hover:border-cyan-100 transition-all active:scale-95"
@@ -333,7 +333,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination Controls */}
         <Pagination
           currentPage={currentPage}
@@ -346,14 +346,14 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
         />
       </div>
 
-      <AddPaymentModal 
+      <AddPaymentModal
         student={selectedStudentForPayment}
         isOpen={isPaymentModalOpen}
         onClose={() => {
           setIsPaymentModalOpen(false);
           setSelectedStudentForPayment(null);
         }}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
       />
     </div>
   );
@@ -386,14 +386,14 @@ function FeeStatCard({ label, value, icon: Icon, color, bgColor }: FeeStatCardPr
 
 function CheckCircle2Icon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg 
-      {...props} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" height="24" viewBox="0 0 24 24" 
-      fill="none" stroke="currentColor" strokeWidth="2" 
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24" height="24" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2"
       strokeLinecap="round" strokeLinejoin="round"
     >
-      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/>
+      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" />
     </svg>
   );
 }

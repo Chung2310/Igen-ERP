@@ -107,40 +107,48 @@ const mongoDeps = {
   sessions: {
     create: (v: any) => SuperAdminSessionModel.create(v),
     replaceActive: async ({ userId, challenge, sessionId, now, expiresAt }: any) => {
+      const executeOperations = async (session?: any) => {
+        if (challenge?.save) {
+          challenge.consumedAt = now;
+          await challenge.save(session ? { session } : {});
+        }
+        const active = await SuperAdminSessionModel.find({
+          userId,
+          revokedAt: { $exists: false },
+          expiresAt: { $gt: now },
+        }).session(session || null).lean();
+        await SuperAdminSessionModel.updateMany(
+          { userId, revokedAt: { $exists: false }, expiresAt: { $gt: now } },
+          { $set: { revokedAt: now, revokeReason: "replaced_by_new_login" } },
+          session ? { session } : {},
+        );
+        const [created] = await SuperAdminSessionModel.create([{
+          sessionId, userId, deviceId: challenge.deviceId, loginIp: challenge.sourceIp, lastIp: challenge.sourceIp, userAgent: challenge.userAgent, createdAt: now, lastSeenAt: now, expiresAt,
+        }], session ? { session } : {});
+        for (const displaced of active) {
+          await auditService.record({
+            actionType: "security.session.replaced",
+            actorSuperAdminId: userId,
+            result: "success",
+            riskClass: "sensitive",
+            correlationId: sessionId,
+            metadata: { displacedSessionId: displaced.sessionId, replacementSessionId: sessionId },
+          }, session ? { session } : {});
+        }
+        return created;
+      };
+
       try {
         return await mongoose.connection.transaction(async (transactionSession) => {
-          if (challenge?.save) {
-            challenge.consumedAt = now;
-            await challenge.save({ session: transactionSession });
-          }
-          const active = await SuperAdminSessionModel.find({
-            userId,
-            revokedAt: { $exists: false },
-            expiresAt: { $gt: now },
-          }).session(transactionSession).lean();
-          await SuperAdminSessionModel.updateMany(
-            { userId, revokedAt: { $exists: false }, expiresAt: { $gt: now } },
-            { $set: { revokedAt: now, revokeReason: "replaced_by_new_login" } },
-            { session: transactionSession },
-          );
-          const [created] = await SuperAdminSessionModel.create([{
-            sessionId, userId, deviceId: challenge.deviceId, loginIp: challenge.sourceIp, lastIp: challenge.sourceIp, userAgent: challenge.userAgent, createdAt: now, lastSeenAt: now, expiresAt,
-          }], { session: transactionSession });
-          for (const displaced of active) {
-            await auditService.record({
-              actionType: "security.session.replaced",
-              actorSuperAdminId: userId,
-              result: "success",
-              riskClass: "sensitive",
-              correlationId: sessionId,
-              metadata: { displacedSessionId: displaced.sessionId, replacementSessionId: sessionId },
-            }, { session: transactionSession });
-          }
-          return created;
+          return await executeOperations(transactionSession);
         });
       } catch (error: any) {
-        if (/transaction|replica set|mongos/i.test(String(error?.message || ""))) {
-          throw new Error("Privileged session issuance requires MongoDB transaction support");
+        if (/transaction|replica set|mongos|session/i.test(String(error?.message || ""))) {
+          console.warn(
+            "[superAdminAuthService] MongoDB transaction/session support not available, falling back to non-transactional execution. Error:",
+            error.message
+          );
+          return await executeOperations();
         }
         throw error;
       }

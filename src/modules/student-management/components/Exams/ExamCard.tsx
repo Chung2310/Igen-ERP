@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronDown, UserPlus, Edit3, Trash2,
   CheckCircle2, Map, UserMinus, RefreshCw,
-  Download, Upload, Calendar as CalendarIcon
+  Download, Upload, Calendar as CalendarIcon, Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
@@ -93,6 +93,7 @@ export interface ExamCardProps {
   onAssignClick: () => void | Promise<unknown>;
   onUnassignStudent?: (studentId: string) => void | Promise<unknown>;
   onUpdateStudentResult?: (studentId: string, result: 'Đậu' | 'Trượt' | 'Chưa có') => void | Promise<unknown>;
+  onViewDetail?: () => void;
 }
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
@@ -104,7 +105,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   onStatusClick, 
   onAssignClick, 
   onUnassignStudent, 
-  onUpdateStudentResult 
+  onUpdateStudentResult,
+  onViewDetail
 }) => {
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
@@ -355,6 +357,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onViewDetail?.(); }}
+              title="Xem chi tiết đợt thi"
+              className="p-1 rounded-md text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
               title={`Xếp ${entityLabel.singular}`}
