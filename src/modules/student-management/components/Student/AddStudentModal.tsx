@@ -110,7 +110,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
   
-  const { batches } = useBatches();
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -119,6 +118,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return selectedCenter && selectedCenter !== 'all' ? selectedCenter : '';
   });
   const [prevSelectedCenter, setPrevSelectedCenter] = useState(selectedCenter);
+  const batchesOwnerFilter = selectedCenterId || (selectedCenter && selectedCenter !== 'all' ? selectedCenter : undefined);
+  const { batches } = useBatches(batchesOwnerFilter);
+  const isWorkerPreset = entityLabel.preset === 'worker';
+  const showBatchDropdown = entityLabel.preset !== 'customer' && isFieldVisible('batchId');
 
   if (selectedCenter !== prevSelectedCenter) {
     setPrevSelectedCenter(selectedCenter);
@@ -253,8 +256,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
             });
             window.dispatchEvent(new Event('batch-mutation'));
           } catch (batchError: unknown) {
-            const msg = batchError instanceof Error ? batchError.message : 'Không thể xếp lớp.';
-            toast.warning(`Đã tạo ${entityLabel.singular} nhưng chưa xếp được vào lớp: ${msg}`);
+            const msg = batchError instanceof Error ? batchError.message : (isWorkerPreset ? 'Không thể thêm vào dự án.' : 'Không thể xếp lớp.');
+            toast.warning(isWorkerPreset
+              ? `Đã tạo ${entityLabel.singular} nhưng chưa thêm được vào dự án: ${msg}`
+              : `Đã tạo ${entityLabel.singular} nhưng chưa xếp được vào lớp: ${msg}`);
           }
         }
 
@@ -491,22 +496,23 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   </div>
                 )}
                 
-                {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('batchId') && (
+                {showBatchDropdown && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('batchId')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
-                      {getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
+                      {isWorkerPreset ? 'Thêm vào dự án (tùy chọn)' : getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
                       {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
                     </label>
                     <div className="relative">
                       <select
+                        name="batchId"
                         value={batchId}
                         onChange={(e) => setBatchId(e.target.value)}
                         className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
                       >
-                        <option value="">-- Chưa xếp lớp --</option>
+                        <option value="">{isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'}</option>
                         {batches
-                          .filter(b => b.status !== 'Đã kết thúc')
+                          .filter(b => String(b.status) !== 'Đã kết thúc')
                           .map(b => (
                             <option key={b.id} value={b.id}>
                               {b.code} — {b.courseTitle}
