@@ -30,6 +30,7 @@ const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const QRCheckinPage = lazy(() => import("./modules/student-management/pages/QRCheckin/QRCheckinPage"));
 const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
+const PublicRegisterPage = lazy(() => import("./pages/PublicRegisterPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -41,8 +42,9 @@ function AppContent() {
   const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
   const isDeletionPage = currentPath === "/user-data-deletion" || currentPath === "/user-data-deletion.html";
   const isSubmitProofPage = currentPath.startsWith("/public/submit-proof");
+  const isPublicRegisterPage = currentPath.startsWith("/public/dang-ky");
   const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
-  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage;
+  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage;
 
   const { activeTab, setActiveTab } = useTabRouter({
 
@@ -141,6 +143,14 @@ function AppContent() {
     return (
       <Suspense fallback={<AuthLoader />}>
         <SubmitProofPage />
+      </Suspense>
+    );
+  }
+
+  if (isPublicRegisterPage) {
+    return (
+      <Suspense fallback={<AuthLoader />}>
+        <PublicRegisterPage />
       </Suspense>
     );
   }
