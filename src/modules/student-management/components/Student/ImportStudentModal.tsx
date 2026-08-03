@@ -9,6 +9,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useBatches } from '../../hooks/useBatches';
 
 interface ImportStudentModalProps {
   isOpen: boolean;
@@ -61,6 +62,8 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const businessType = 'general';
+  
+  const { batches } = useBatches(selectedCenter === 'all' ? undefined : selectedCenter);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -218,6 +221,13 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
           if (studentData.enrollmentDate && !DATE_PATTERN.test(studentData.enrollmentDate)) {
             errors.push('Ngày nhập học không đúng định dạng DD/MM/YYYY');
+          }
+
+          if (studentData.batchCode) {
+            const exists = batches.some(b => b.code.trim().toLowerCase() === studentData.batchCode!.trim().toLowerCase());
+            if (!exists) {
+              errors.push(`Mã lớp "${studentData.batchCode}" không tồn tại trong hệ thống`);
+            }
           }
 
           validationResults.push({ rowNum: i + 1, data: studentData, isValid: errors.length === 0, errors });
