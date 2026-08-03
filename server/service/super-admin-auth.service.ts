@@ -140,7 +140,34 @@ const mongoDeps = {
         });
       } catch (error: any) {
         if (/transaction|replica set|mongos/i.test(String(error?.message || ""))) {
-          throw new Error("Privileged session issuance requires MongoDB transaction support");
+          // Fallback for local database standalone mode (no replica sets / transaction support)
+          if (challenge?.save) {
+            challenge.consumedAt = now;
+            await challenge.save();
+          }
+          const active = await SuperAdminSessionModel.find({
+            userId,
+            revokedAt: { $exists: false },
+            expiresAt: { $gt: now },
+          }).lean();
+          await SuperAdminSessionModel.updateMany(
+            { userId, revokedAt: { $exists: false }, expiresAt: { $gt: now } },
+            { $set: { revokedAt: now, revokeReason: "replaced_by_new_login" } }
+          );
+          const [created] = await SuperAdminSessionModel.create([{
+            sessionId, userId, deviceId: challenge.deviceId, loginIp: challenge.sourceIp, lastIp: challenge.sourceIp, userAgent: challenge.userAgent, createdAt: now, lastSeenAt: now, expiresAt,
+          }]);
+          for (const displaced of active) {
+            await auditService.record({
+              actionType: "security.session.replaced",
+              actorSuperAdminId: userId,
+              result: "success",
+              riskClass: "sensitive",
+              correlationId: sessionId,
+              metadata: { displacedSessionId: displaced.sessionId, replacementSessionId: sessionId },
+            });
+          }
+          return created;
         }
         throw error;
       }
