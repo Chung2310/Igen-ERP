@@ -15,6 +15,7 @@ export interface AnalyticsMeta {
   filters: {
     branches: Array<{ id: string; code: string; name: string }>;
     courses: Array<{ id: string; code: string; name: string; branchId?: string }>;
+    projects?: Array<{ id: string; code: string; name: string; branchId?: string }>;
   };
 }
 
@@ -90,7 +91,21 @@ export interface ProfitAndLossReport {
 
 export type AnalyticsExportReport = "overview" | "revenue" | "receivables" | "expenses" | "pnl";
 export type AnalyticsExportFormat = "xlsx" | "csv";
-export interface OperatingExpenseInput { category: string; description: string; amount: number; incurredOn: string; branchId?: string }
+export interface OperatingExpenseInput { category: string; description: string; amount: number; incurredOn: string; branchId?: string; projectId?: string }
+
+/** Bản ghi chi phí vận hành đã lưu — dùng cho danh sách và form sửa. */
+export interface OperatingExpense {
+  _id: string;
+  category: string;
+  description: string;
+  amount: number;
+  incurredOn: string;
+  branchId?: string;
+  projectId?: string;
+  status: string;
+}
+
+export type OperatingExpenseUpdate = Partial<Omit<OperatingExpenseInput, "branchId">>;
 
 async function getAnalyticsJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
@@ -103,6 +118,19 @@ export const analyticsService = {
   async createOperatingExpense(input: OperatingExpenseInput): Promise<void> {
     const res = await fetch("/api/v1/analytics/operating-expenses", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(input) });
     if (!res.ok) throw new Error("Không thể ghi nhận chi phí vận hành.");
+  },
+  /** Danh sách khoản chi vận hành trong khoảng thời gian, để xem và sửa. */
+  async listOperatingExpenses(params: { from: string; to: string; branchId?: string; projectId?: string }): Promise<OperatingExpense[]> {
+    const qs = new URLSearchParams(params as Record<string, string>);
+    return getAnalyticsJson<OperatingExpense[]>(`/api/v1/analytics/operating-expenses?${qs.toString()}`);
+  },
+  async updateOperatingExpense(id: string, input: OperatingExpenseUpdate): Promise<void> {
+    const res = await fetch(`/api/v1/analytics/operating-expenses/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify(input) });
+    if (!res.ok) throw new Error("Không thể cập nhật khoản chi.");
+  },
+  async voidOperatingExpense(id: string): Promise<void> {
+    const res = await fetch(`/api/v1/analytics/operating-expenses/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    if (!res.ok) throw new Error("Không thể hủy khoản chi.");
   },
   /** Doanh thu học phí theo thời gian, kèm tổng kỳ liền trước để so sánh. */
   async getRevenue(params: {

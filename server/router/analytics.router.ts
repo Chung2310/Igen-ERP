@@ -58,10 +58,25 @@ const operatingExpenseSchema = {
   body: Joi.object({
     branchId: Joi.string().allow("").optional(),
     category: Joi.string().trim().max(120).required(),
+    projectId: Joi.string().trim().allow("").optional(),
     description: Joi.string().trim().max(500).required(),
     amount: Joi.number().positive().required(),
     incurredOn: Joi.string().regex(DATE_PATTERN).required(),
   }),
+};
+
+/**
+ * Sửa khoản chi đã ghi: mọi trường đều tùy chọn nhưng phải gửi ít nhất một
+ * trường, tránh PATCH rỗng vẫn trả 200 khiến UI tưởng đã lưu.
+ */
+const updateOperatingExpenseSchema = {
+  body: Joi.object({
+    category: Joi.string().trim().max(120).optional(),
+    projectId: Joi.string().trim().allow("").optional(),
+    description: Joi.string().trim().max(500).optional(),
+    amount: Joi.number().positive().optional(),
+    incurredOn: Joi.string().regex(DATE_PATTERN).optional(),
+  }).min(1),
 };
 
 /**
@@ -91,6 +106,7 @@ analyticsRouter.get("/receivables", validateRequest(receivablesSchema), analytic
 analyticsRouter.get("/expenses", validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
 analyticsRouter.get("/operating-expenses", validateRequest(dateRangeSchema), analyticsController.listOperatingExpenses as any);
 analyticsRouter.post("/operating-expenses", validateRequest(operatingExpenseSchema), analyticsController.createOperatingExpense as any);
+analyticsRouter.patch("/operating-expenses/:id", validateRequest(updateOperatingExpenseSchema), analyticsController.updateOperatingExpense as any);
 analyticsRouter.delete("/operating-expenses/:id", analyticsController.voidOperatingExpense as any);
 analyticsRouter.get("/pnl", validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);
 analyticsRouter.get("/export", validateRequest(exportSchema), analyticsController.exportReport as any);

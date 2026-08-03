@@ -42,6 +42,7 @@ export const analyticsController = {
     if (!range) return res.status(400).json({ status: "error", message: "Khoảng thời gian không hợp lệ." });
     const query: Record<string, unknown> = { companyCode: req.user.companyCode, incurredOn: { $gte: range.from, $lte: range.to } };
     if (req.query.branchId) query.branchId = String(req.query.branchId);
+    if (req.query.projectId) query.projectId = String(req.query.projectId);
     const data = await OperatingExpenseModel.find(query).sort({ incurredOn: -1, createdAt: -1 }).lean();
     return res.status(200).json({ status: "success", data });
   },
@@ -52,6 +53,7 @@ export const analyticsController = {
       companyCode: req.user.companyCode,
       branchId: req.body.branchId || undefined,
       category: req.body.category,
+      projectId: req.body.projectId || "",
       description: req.body.description,
       amount: req.body.amount,
       incurredOn: new Date(`${req.body.incurredOn}T12:00:00.000Z`),
@@ -60,6 +62,32 @@ export const analyticsController = {
     });
     await invalidateAnalyticsCache(req.user.companyCode);
     return res.status(201).json({ status: "success", data });
+  },
+
+  /**
+   * PATCH /api/v1/analytics/operating-expenses/:id
+   *
+   * Cho phép sửa nhóm/nội dung/số tiền/ngày/dự án của khoản chi đã ghi. Khoản
+   * đã hủy (void) không sửa được — hủy là trạng thái cuối, muốn ghi lại thì tạo
+   * khoản mới, nếu không số liệu P&L đã chốt sẽ đổi ngược sau lưng người dùng.
+   */
+  async updateOperatingExpense(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+    const update: Record<string, unknown> = {};
+    if (req.body.category !== undefined) update.category = req.body.category;
+    if (req.body.projectId !== undefined) update.projectId = req.body.projectId || "";
+    if (req.body.description !== undefined) update.description = req.body.description;
+    if (req.body.amount !== undefined) update.amount = req.body.amount;
+    if (req.body.incurredOn !== undefined) update.incurredOn = new Date(`${req.body.incurredOn}T12:00:00.000Z`);
+
+    const data = await OperatingExpenseModel.findOneAndUpdate(
+      { _id: req.params.id, companyCode: req.user.companyCode, status: "confirmed" },
+      { $set: update },
+      { new: true }
+    );
+    if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy khoản chi còn hiệu lực." });
+    await invalidateAnalyticsCache(req.user.companyCode);
+    return res.status(200).json({ status: "success", data });
   },
 
   async voidOperatingExpense(req: AuthenticatedRequest, res: Response) {

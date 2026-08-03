@@ -4,6 +4,8 @@ export interface IOperatingExpense {
   companyCode: string;
   branchId?: string;
   category: string;
+  /** Dự án (batch) khoản chi thuộc về. Rỗng = chi phí vận hành chung. */
+  projectId?: string;
   description: string;
   amount: number;
   incurredOn: Date;
@@ -17,6 +19,7 @@ const OperatingExpenseSchema = new Schema<IOperatingExpense>({
   companyCode: { type: String, required: true, trim: true, index: true },
   branchId: { type: String, trim: true, index: true },
   category: { type: String, required: true, trim: true },
+  projectId: { type: String, trim: true, default: "", index: true },
   description: { type: String, required: true, trim: true },
   amount: { type: Number, required: true, min: 0 },
   incurredOn: { type: Date, required: true, index: true },

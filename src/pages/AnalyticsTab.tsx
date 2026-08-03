@@ -6,6 +6,7 @@ import {
   type AnalyticsExportReport,
   type AnalyticsMeta,
   type ExpensesReport,
+  type OperatingExpense,
   type ProfitAndLossReport,
   type ReceivablesReport,
   type RevenueGranularity,
@@ -47,8 +48,12 @@ export default function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<AnalyticsExportFormat | null>(null);
   const [exportReport, setExportReport] = useState<AnalyticsExportReport>("overview");
-  const [expenseDraft, setExpenseDraft] = useState({ category: "Vận hành", description: "", amount: "", incurredOn: toIsoDate(new Date()) });
+  const [expenseDraft, setExpenseDraft] = useState({ category: "Vận hành", projectId: "", description: "", amount: "", incurredOn: toIsoDate(new Date()) });
   const [savingExpense, setSavingExpense] = useState(false);
+  const [expenseList, setExpenseList] = useState<OperatingExpense[]>([]);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [expenseEdit, setExpenseEdit] = useState({ category: "", projectId: "", description: "", amount: "", incurredOn: "" });
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const preset = useMemo(
     () => RANGE_PRESETS.find((item) => item.key === presetKey) ?? RANGE_PRESETS[0],
@@ -72,7 +77,7 @@ export default function AnalyticsTab() {
     setError(null);
 
     try {
-      const [metaData, revenueData, receivablesData, expensesData] = await Promise.all([
+      const [metaData, revenueData, receivablesData, expensesData, expenseRows] = await Promise.all([
         analyticsService.getMeta(),
         analyticsService.getRevenue({
           ...dateParams,
@@ -81,7 +86,9 @@ export default function AnalyticsTab() {
         }),
         analyticsService.getReceivables(dateParams.to, scopeParams),
         analyticsService.getExpenses({ ...dateParams, ...scopeParams }),
+        analyticsService.listOperatingExpenses({ ...dateParams, ...(branchId ? { branchId } : {}) }),
       ]);
+      setExpenseList(expenseRows);
       setMeta(metaData);
       setRevenue(revenueData);
       setReceivables(receivablesData);
@@ -105,7 +112,7 @@ export default function AnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [dateParams, preset.granularity, scopeParams]);
+  }, [branchId, dateParams, preset.granularity, scopeParams]);
 
   useEffect(() => {
     load();
@@ -137,6 +144,57 @@ export default function AnalyticsTab() {
       setError((err as Error).message);
     } finally {
       setSavingExpense(false);
+    }
+  };
+
+  const projectOptions = meta?.filters.projects ?? [];
+  const projectName = (id?: string) => {
+    if (!id) return "Chi phí chung";
+    const found = projectOptions.find((item) => item.id === id);
+    return found ? found.name : "(Dự án đã xóa)";
+  };
+
+  const startEditExpense = (row: OperatingExpense) => {
+    setEditingExpenseId(row._id);
+    setExpenseEdit({
+      category: row.category,
+      projectId: row.projectId ?? "",
+      description: row.description,
+      amount: String(row.amount),
+      incurredOn: String(row.incurredOn).slice(0, 10),
+    });
+  };
+
+  const handleSaveExpenseEdit = async (id: string) => {
+    const amount = Number(expenseEdit.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Số tiền chi phải lớn hơn 0.");
+      return;
+    }
+    setRowBusy(id);
+    setError(null);
+    try {
+      await analyticsService.updateOperatingExpense(id, { ...expenseEdit, amount });
+      setEditingExpenseId(null);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const handleVoidExpense = async (id: string) => {
+    setRowBusy(id);
+    setError(null);
+    try {
+      await analyticsService.voidOperatingExpense(id);
+      if (editingExpenseId === id) setEditingExpenseId(null);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRowBusy(null);
     }
   };
 
@@ -238,11 +296,80 @@ export default function AnalyticsTab() {
           <form onSubmit={handleAddExpense} className="grid gap-3 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-5">
             <div className="md:col-span-5"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Ghi nhận chi phí vận hành</h2><p className="mt-1 text-xs text-slate-400">Khoản xác nhận sẽ được đưa ngay vào tổng chi phí và P&amp;L.</p></div>
             <input required value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} placeholder="Nhóm chi phí" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            <input required value={expenseDraft.description} onChange={(e) => setExpenseDraft({ ...expenseDraft, description: e.target.value })} placeholder="Nội dung chi" className="rounded-xl border border-slate-200 px-3 py-2 text-sm md:col-span-2" />
+            <select aria-label="Dự án" value={expenseDraft.projectId} onChange={(e) => setExpenseDraft({ ...expenseDraft, projectId: e.target.value })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+              <option value="">Chi phí chung (không gắn dự án)</option>
+              {projectOptions.filter((item) => !branchId || item.branchId === branchId).map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+            <input required value={expenseDraft.description} onChange={(e) => setExpenseDraft({ ...expenseDraft, description: e.target.value })} placeholder="Nội dung chi" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             <input required min="1" type="number" value={expenseDraft.amount} onChange={(e) => setExpenseDraft({ ...expenseDraft, amount: e.target.value })} placeholder="Số tiền" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             <input required type="date" value={expenseDraft.incurredOn} onChange={(e) => setExpenseDraft({ ...expenseDraft, incurredOn: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             <button disabled={savingExpense} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 md:col-start-5">{savingExpense ? "Đang lưu..." : "Thêm khoản chi"}</button>
           </form>
+
+          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Khoản chi đã ghi nhận</h2>
+            <p className="mt-1 text-xs text-slate-400">Sửa được nhóm, dự án, nội dung, số tiền và ngày chi. Khoản đã hủy không còn hiển thị.</p>
+            {expenseList.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-400">Chưa có khoản chi nào trong khoảng thời gian này.</p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-slate-400">
+                      <th className="py-2 pr-3 font-bold">Ngày</th>
+                      <th className="py-2 pr-3 font-bold">Nhóm</th>
+                      <th className="py-2 pr-3 font-bold">Dự án</th>
+                      <th className="py-2 pr-3 font-bold">Nội dung</th>
+                      <th className="py-2 pr-3 font-bold">Số tiền</th>
+                      <th className="py-2 font-bold">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {expenseList.map((row) => (
+                      <tr key={row._id} className="align-middle text-slate-600">
+                        {editingExpenseId === row._id ? (
+                          <>
+                            <td className="py-2 pr-3"><input aria-label="Ngày chi" type="date" value={expenseEdit.incurredOn} onChange={(e) => setExpenseEdit({ ...expenseEdit, incurredOn: e.target.value })} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /></td>
+                            <td className="py-2 pr-3"><input aria-label="Nhóm chi phí" value={expenseEdit.category} onChange={(e) => setExpenseEdit({ ...expenseEdit, category: e.target.value })} className="w-28 rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /></td>
+                            <td className="py-2 pr-3">
+                              <select aria-label="Dự án của khoản chi" value={expenseEdit.projectId} onChange={(e) => setExpenseEdit({ ...expenseEdit, projectId: e.target.value })} className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs">
+                                <option value="">Chi phí chung</option>
+                                {projectOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-2 pr-3"><input aria-label="Nội dung chi" value={expenseEdit.description} onChange={(e) => setExpenseEdit({ ...expenseEdit, description: e.target.value })} className="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /></td>
+                            <td className="py-2 pr-3"><input aria-label="Số tiền" type="number" min="1" value={expenseEdit.amount} onChange={(e) => setExpenseEdit({ ...expenseEdit, amount: e.target.value })} className="w-28 rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /></td>
+                            <td className="py-2">
+                              <div className="flex items-center gap-2">
+                                <button type="button" disabled={rowBusy === row._id} onClick={() => handleSaveExpenseEdit(row._id)} className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{rowBusy === row._id ? "Đang lưu..." : "Lưu"}</button>
+                                <button type="button" onClick={() => setEditingExpenseId(null)} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600">Hủy</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="py-2 pr-3 whitespace-nowrap">{String(row.incurredOn).slice(0, 10)}</td>
+                            <td className="py-2 pr-3">{row.category}</td>
+                            <td className="py-2 pr-3">{projectName(row.projectId)}</td>
+                            <td className="py-2 pr-3">{row.description}</td>
+                            <td className="py-2 pr-3 font-bold whitespace-nowrap">{formatVnd(row.amount)} ₫</td>
+                            <td className="py-2">
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => startEditExpense(row)} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600">Sửa</button>
+                                <button type="button" disabled={rowBusy === row._id} onClick={() => handleVoidExpense(row._id)} className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 disabled:opacity-50">Hủy khoản</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <PnlBridge report={pnl} />
 

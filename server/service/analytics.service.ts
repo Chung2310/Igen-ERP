@@ -8,6 +8,7 @@ import { buildCompanyUserFilter } from "../modules/student-management/utils/auth
 import { OperatingExpenseModel } from "../model/operating-expense.model";
 import { BranchModel } from "../model/branch.model";
 import { Course } from "../modules/student-management/models/course.model";
+import { Batch } from "../modules/student-management/models/batch.model";
 
 export interface AnalyticsScope {
   companyCode?: string;
@@ -403,7 +404,7 @@ export const analyticsService = {
     const stockQuery = scope.companyCode ? { companyCode: scope.companyCode } : {};
     const ownerIds = await resolveCompanyOwnerIds(scope.companyCode);
 
-    const [stockOutTotal, stockOutPriced, branches, courses] = await Promise.all([
+    const [stockOutTotal, stockOutPriced, branches, courses, projects] = await Promise.all([
       StockLogModel.countDocuments({ ...stockQuery, type: "xuất" }),
       StockLogModel.countDocuments({
         ...stockQuery,
@@ -412,6 +413,7 @@ export const analyticsService = {
       }),
       BranchModel.find({ ...(scope.companyCode ? { companyCode: scope.companyCode } : {}), isActive: true }).select("_id code name").sort({ name: 1 }).lean(),
       Course.find(ownerIds ? { ownerId: { $in: ownerIds } } : {}).select("_id code title branchId").sort({ title: 1 }).lean(),
+      Batch.find(ownerIds ? { ownerId: { $in: ownerIds } } : {}).select("_id code name branchId").sort({ createdAt: -1 }).lean(),
     ]);
 
     const sources: RevenueSourceStatus[] = [
@@ -435,6 +437,8 @@ export const analyticsService = {
       filters: {
         branches: branches.map((branch: any) => ({ id: String(branch._id), code: branch.code, name: branch.name })),
         courses: courses.map((course: any) => ({ id: String(course._id), code: course.code, name: course.title, branchId: course.branchId })),
+        // Dự án (batch) để gắn khoản chi vận hành; tên rỗng thì hiển thị theo mã
+        projects: projects.map((project: any) => ({ id: String(project._id), code: project.code, name: project.name || project.code, branchId: project.branchId })),
       },
     };
   },
