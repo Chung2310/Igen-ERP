@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School } from "lucide-react";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
@@ -21,6 +21,7 @@ type StudentSubTab =
   | "LỊCH THI"
   | "HỌC PHÍ"
   | "THÔNG BÁO"
+  | "PHÒNG HỌC"
   | "TÀI NGUYÊN";
 
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
@@ -39,7 +40,8 @@ const SUB_TAB_ROUTES = [
   { slug: "hoc-vien", value: "HỌC VIÊN" as const, label: "Học viên", icon: Users },
   { slug: "hoc-phi", value: "HỌC PHÍ" as const, label: "Học phí", icon: CreditCard },
   { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi", icon: Calendar },
-  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Tài nguyên", icon: FolderOpen },
+  { slug: "phong-hoc", value: "PHÒNG HỌC" as const, label: "Phòng học", icon: School },
+  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Thiết bị", icon: FolderOpen },
   { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo", icon: Bell },
 ];
 
@@ -155,8 +157,10 @@ export default function StudentManagementTab() {
         return <FeesPage onSelectStudent={handleOpenStudent} selectedCenter={selectedCenter} />;
       case "THÔNG BÁO":
         return <NotificationsPage canManage={canManage("student-notification")} />;
+      case "PHÒNG HỌC":
+        return <ResourcesPage canManage={canManage("student-resource")} forceType="Phòng học" />;
       case "TÀI NGUYÊN":
-        return <ResourcesPage canManage={canManage("student-resource")} />;
+        return <ResourcesPage canManage={canManage("student-resource")} excludeType="Phòng học" />;
       default:
         return null;
     }

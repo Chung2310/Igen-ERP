@@ -11,6 +11,7 @@ import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
+import { useResources } from '../../hooks/useResources';
 import { Batch, BatchStatus } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
@@ -241,6 +242,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading } = useBatches(resolvedCenter);
   const { courses } = useCourses(resolvedCenter);
+  const { resources } = useResources();
+  const classrooms = React.useMemo(() => resources.filter(r => r.type === 'Phòng học'), [resources]);
   const [users, setUsers] = useState<any[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
@@ -983,19 +986,40 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
               {isFieldVisible('room') && (
                 <div className="relative group/std">
                   {renderFieldActions('room')}
-                  <ErpField label={getFieldLabel('room', 'Địa điểm (tùy chọn)')}>
+                  <ErpField label={getFieldLabel('room', 'Địa điểm / Phòng học (tùy chọn)')}>
                     <div className="relative">
-                      <ErpInput
-                        type="text"
-                        required={isFieldRequired('room', false)}
-                        placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
-                        value={form.location}
-                        onChange={(e) => setForm({ ...form, location: e.target.value })}
-                        className="pl-10"
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-405">
-                        <MapPin className="w-4 h-4" />
-                      </div>
+                      {classrooms.length > 0 ? (
+                        <>
+                          <select
+                            required={isFieldRequired('room', false)}
+                            value={form.location}
+                            onChange={(e) => setForm({ ...form, location: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all appearance-none pr-10 cursor-pointer text-slate-800"
+                          >
+                            <option value="">-- Chọn phòng học --</option>
+                            {classrooms.map(room => (
+                              <option key={room.id} value={room.name}>
+                                {room.name} ({room.identifier})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </>
+                      ) : (
+                        <>
+                          <ErpInput
+                            type="text"
+                            required={isFieldRequired('room', false)}
+                            placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
+                            value={form.location}
+                            onChange={(e) => setForm({ ...form, location: e.target.value })}
+                            className="pl-10"
+                          />
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-405">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </ErpField>
                 </div>

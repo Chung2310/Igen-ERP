@@ -18,7 +18,7 @@ import { ManageCategoriesModal } from './components/ManageCategoriesModal';
 import { ResourceCard } from './components/ResourceCard';
 import { ResourceTable } from './components/ResourceTable';
 
-export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
+export function ResourcesPage({ canManage = true, forceType, excludeType }: { canManage?: boolean; forceType?: string; excludeType?: string }) {
   const darkMode = false;
 
   const { resources, loading } = useResources();
@@ -39,12 +39,15 @@ export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
 
   // Tab lọc = phân loại đang quản lý + các phân loại cũ còn xuất hiện trong dữ liệu
   const typeOptions = useMemo(() => {
-    const options = categories.map(c => c.name);
+    let options = categories.map(c => c.name);
     for (const r of resources) {
       if (!options.includes(r.type)) options.push(r.type);
     }
+    if (excludeType) {
+      options = options.filter(o => o !== excludeType);
+    }
     return options;
-  }, [categories, resources]);
+  }, [categories, resources, excludeType]);
 
   const handleCancelBooking = async (resource: ResourceItem, bookingId?: string) => {
     if (!bookingId) return;
@@ -89,7 +92,13 @@ export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
   const filteredResources = resources.filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.identifier.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'all' || r.type === typeFilter;
+    
+    let matchesType = typeFilter === 'all' || r.type === typeFilter;
+    if (forceType) {
+      matchesType = r.type === forceType;
+    } else if (excludeType) {
+      matchesType = (typeFilter === 'all' ? r.type !== excludeType : r.type === typeFilter) && r.type !== excludeType;
+    }
     return matchesSearch && matchesType;
   });
   const totalPages = Math.ceil(filteredResources.length / pageSize);
@@ -113,22 +122,25 @@ export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
   return (
     <div className="space-y-6 text-left">
       <ErpPageHeader
-        title="Quản lý Thiết bị & Tài nguyên"
+        title={forceType === 'Phòng học' ? "Quản lý Phòng học" : "Quản lý Thiết bị & Tài nguyên"}
+        subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : "Bấm 'Khai báo tài nguyên mới' để thêm phòng học, thiết bị hoặc công cụ giảng dạy."}
         action={canManage ? (
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0",
-                darkMode
-                  ? "bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-              )}
-            >
-              Quản lý phân loại
-            </button>
+            {!forceType && (
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0",
+                  darkMode
+                    ? "bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700"
+                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                )}
+              >
+                Quản lý phân loại
+              </button>
+            )}
             <ErpPrimaryButton onClick={() => { setEditingResource(null); setShowAddModal(true); }}>
-              Khai báo tài nguyên mới
+              {forceType === 'Phòng học' ? 'Khai báo phòng học mới' : 'Khai báo tài nguyên mới'}
             </ErpPrimaryButton>
           </div>
         ) : undefined}
@@ -138,16 +150,18 @@ export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tìm tài nguyên bằng tên hoặc số nhận diện..." />
         <div className="flex flex-wrap items-center gap-4">
-          <ErpFilterRail>
-            <ErpFilterTab active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
-              Tất cả
-            </ErpFilterTab>
-            {typeOptions.map((type) => (
-              <ErpFilterTab key={type} active={typeFilter === type} onClick={() => setTypeFilter(type)}>
-                {type}
+          {!forceType && (
+            <ErpFilterRail>
+              <ErpFilterTab active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+                Tất cả
               </ErpFilterTab>
-            ))}
-          </ErpFilterRail>
+              {typeOptions.map((type) => (
+                <ErpFilterTab key={type} active={typeFilter === type} onClick={() => setTypeFilter(type)}>
+                  {type}
+                </ErpFilterTab>
+              ))}
+            </ErpFilterRail>
+          )}
 
           <div className={cn("flex items-center border p-1 rounded-xl gap-0.5 shrink-0", darkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50")}>
             <button
@@ -246,6 +260,7 @@ export function ResourcesPage({ canManage = true }: { canManage?: boolean }) {
         categories={categories}
         onSuccess={refreshResources}
         resource={editingResource || undefined}
+        forceType={forceType}
       />}
 
       {/* Booking Modal */}
