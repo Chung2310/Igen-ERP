@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { UserModel } from "../model/user.model";
 import { normalizeBirthDate } from "./birth-date";
 import { BranchModel } from "../model/branch.model";
@@ -22,6 +23,20 @@ import { createCompanyAdminUser } from "../utils/company-admin-user";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
+export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
+export const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
+
+function isSuperAdminRole(role?: string) {
+  return role === "superadmin";
+}
+
+function assertRegularSessionCurrent(user: IUser, sessionId?: string) {
+  if (!isSuperAdminRole(user.role) && (!sessionId || user.activeSessionId !== sessionId)) {
+    const error = new Error(REGULAR_SESSION_REPLACED_MESSAGE);
+    (error as Error & { code?: string }).code = REGULAR_SESSION_REPLACED_CODE;
+    throw error;
+  }
+}
 
 function generateTelegramLinkCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -46,12 +61,13 @@ export const authService = {
   /**
    * Tạo bộ đôi Access Token và Refresh Token
    */
-  generateTokens(user: IUser) {
+  generateTokens(user: IUser, sessionId?: string) {
     const payload = {
       id: user._id,
       email: user.email,
       role: user.role,
       companyCode: user.companyCode,
+      ...(sessionId ? { sid: sessionId } : {}),
     };
 
     const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
@@ -121,7 +137,16 @@ export const authService = {
       return { kind: "authenticated" as const, user, ...privilegedSession };
     }
 
-    const tokens = this.generateTokens(user);
+    const sessionId = crypto.randomUUID();
+    const now = new Date();
+    user.activeSessionId = sessionId;
+    user.activeSessionIssuedAt = now;
+    user.activeSessionLastSeenAt = now;
+    user.activeSessionUserAgent = requestMetadata?.userAgent || "";
+    user.activeSessionIp = requestMetadata?.sourceIp || "";
+    await user.save();
+
+    const tokens = this.generateTokens(user, sessionId);
     return { kind: "authenticated" as const, user, ...tokens };
   },
 
@@ -139,13 +164,15 @@ export const authService = {
 
       await assertAccountUsable(user);
 
-      if (decoded.sid) {
+      if (isSuperAdminRole(user.role) && decoded.sid) {
         const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
         const now = Date.now();
         const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
         if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
           throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
         }
+      } else {
+        assertRegularSessionCurrent(user, decoded.sid);
       }
 
       const payload = {
