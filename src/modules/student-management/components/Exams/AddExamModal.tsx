@@ -331,7 +331,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       disabled={coursesLoading}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
                     >
-                      <option value="">{coursesLoading ? 'Ðang t?i khóa h?c...' : 'Ch?n khóa h?c'}</option>
+                      <option value="">{coursesLoading ? "?ang t&#7843;i kh&#243;a h&#7885;c..." : "Ch&#7885;n kh&#243;a h&#7885;c"}</option>
                       {courses.map((course) => (
                         <option key={course.id} value={course.title}>
                           {course.code ? `${course.code} - ${course.title}` : course.title}

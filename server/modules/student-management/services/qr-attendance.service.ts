@@ -30,6 +30,8 @@ export type QrCheckinReasonCode =
   | "batch_not_found"
   | FaceReasonCode;
 
+export const QR_ATTENDANCE_ACCEPTED_REASON = 'verified';
+
 export class QrCheckinError extends Error {
   constructor(public readonly reasonCode: QrCheckinReasonCode, message: string) {
     super(message);
@@ -387,6 +389,7 @@ export class QRAttendanceService {
     await StudentAttendanceAttemptModel.create({
       ...attemptBase,
       outcome: "accepted",
+      reasonCode: QR_ATTENDANCE_ACCEPTED_REASON,
       latitude, longitude, distanceMeters,
       attemptedAt: new Date(),
     });
