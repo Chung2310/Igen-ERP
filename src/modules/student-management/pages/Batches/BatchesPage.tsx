@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2
+  CalendarCheck, BarChart2, LayoutGrid, Rows3
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -62,6 +62,8 @@ const statusStyle = (status: BatchStatus) => {
 
 interface BatchForm {
   code: string;
+  /** Tên dự án — dùng thay danh mục tuyển dụng ở preset lao động */
+  name: string;
   courseId: string;
   instructorId: string;
   instructorText: string;
@@ -75,8 +77,11 @@ interface BatchForm {
   customFields?: CustomFieldValues;
 }
 
+const BATCH_VIEW_MODE_KEY = 'batches:viewMode';
+
 const EMPTY_FORM: BatchForm = {
   code: '',
+  name: '',
   courseId: '',
   instructorId: '',
   instructorText: '',
@@ -118,6 +123,15 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
   const [isEditingFields, setIsEditingFields] = useState(false);
+  // Kiểu hiển thị danh sách: bảng hoặc thẻ (ghi nhớ lựa chọn của người dùng)
+  const [viewMode, setViewMode] = useState<'table' | 'card'>(() => {
+    if (typeof window === 'undefined') return 'table';
+    return window.localStorage.getItem(BATCH_VIEW_MODE_KEY) === 'card' ? 'card' : 'table';
+  });
+  const changeViewMode = (mode: 'table' | 'card') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') window.localStorage.setItem(BATCH_VIEW_MODE_KEY, mode);
+  };
 
   const openEditStdField = (field: StandardFieldConfig) => {
     setEditingStdField(getAdaptedFieldDefinition(field, "batches"));
@@ -163,9 +177,6 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   };
 
   const isFieldVisible = (fieldKey: string, defaultVisible = true) => {
-    if (fieldKey === 'courseId' && entityLabel.preset === 'worker') {
-      return false;
-    }
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isVisible : defaultVisible;
   };
@@ -241,6 +252,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     setEditingId(batch.id);
     setForm({
       code: batch.code,
+      name: batch.name || '',
       courseId: batch.courseId,
       instructorId: batch.instructorId || '',
       instructorText: batch.instructorText || '',
@@ -271,7 +283,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     stdFields.forEach((f) => {
       if (f.isVisible && !f.isArchived && f.isRequired) {
         if (f.key === 'code' && !form.code) missingFields.push(f.label);
-        if (f.key === 'courseId' && entityLabel.preset !== 'worker' && !form.courseId) missingFields.push(f.label);
+        if (f.key === 'courseId') {
+          // Preset lao động dùng ô "Tên dự án" thay cho danh mục tuyển dụng
+          if (entityLabel.preset === 'worker') {
+            if (!form.name.trim()) missingFields.push(f.label);
+          } else if (!form.courseId) {
+            missingFields.push(f.label);
+          }
+        }
         if (f.key === 'startDate' && !form.startDate) missingFields.push(f.label);
         if (f.key === 'endDate' && !form.endDate) missingFields.push(f.label);
         if (f.key === 'schedule') {
@@ -326,6 +345,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         ...form,
         courseId: resolvedCourseId,
         code: form.code.toUpperCase(),
+        name: form.name.trim(),
         // Chỉ một trong hai: gán tài khoản hoặc tên nhập tay
         instructorText: form.instructorId ? '' : form.instructorText.trim(),
         ...(editingId ? { expectedVersion: batches.find((batch) => batch.id === editingId)?.__v } : {}),
@@ -407,6 +427,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const filteredBatches = batches.filter(b => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = (b.code || '').toLowerCase().includes(term) ||
+      (b.name || '').toLowerCase().includes(term) ||
       (b.courseTitle || '').toLowerCase().includes(term) ||
       (b.instructorName || '').toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
@@ -430,6 +451,76 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       .map(id => students.find(s => s.id === id))
       .filter((s): s is NonNullable<typeof s> => !!s)
     : [];
+
+  // Tiêu đề hiển thị: preset lao động dùng tên dự án, các preset khác dùng khóa học
+  const displayTitle = (b: Batch) =>
+    entityLabel.preset === 'worker' ? (b.name || b.code) : b.courseTitle;
+  const displaySubtitle = (b: Batch) =>
+    entityLabel.preset === 'worker' ? '' : b.courseCode;
+
+  const renderStatusSelect = (b: Batch) => (
+    <select
+      value={b.status}
+      onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
+      className={cn(
+        "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border outline-none cursor-pointer",
+        statusStyle(b.status),
+        darkMode ? "bg-slate-900" : "bg-white"
+      )}
+    >
+      {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
+    </select>
+  );
+
+  const actionButtonClass = (tone: 'neutral' | 'danger' | 'brand' | 'emerald' | 'sky') => cn(
+    "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+    tone === 'danger'
+      ? (darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60")
+      : tone === 'brand'
+        ? (darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60")
+        : tone === 'emerald'
+          ? (darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60")
+          : tone === 'sky'
+            ? (darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60")
+            : (darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60")
+  );
+
+  const renderRowActions = (b: Batch) => (
+    <div className="flex items-center gap-1.5">
+      <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
+        <Pencil className="w-3 h-3" />
+      </button>
+      <button onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })} title={`Xóa ${copy.entityNameLower}`} className={actionButtonClass('danger')}>
+        <Trash2 className="w-3 h-3" />
+      </button>
+      <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
+        <Users className="w-3 h-3" />
+      </button>
+      <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
+        <ClipboardList className="w-3 h-3" />
+      </button>
+      <button onClick={() => setAttendanceBatchId(b.id)} title="Điểm danh thủ công & QR" className={actionButtonClass('emerald')}>
+        <CalendarCheck className="w-3 h-3" />
+      </button>
+      <button onClick={() => setViewAttendanceBatchId(b.id)} title="Lịch sử & Thống kê điểm danh" className={actionButtonClass('sky')}>
+        <BarChart2 className="w-3 h-3" />
+      </button>
+    </div>
+  );
+
+  const renderLearnerCountButton = (b: Batch) => (
+    <button
+      onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
+      title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
+      className={cn(
+        "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
+        darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
+      )}
+    >
+      <Users className="w-3 h-3 text-brand-primary" />
+      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} HV
+    </button>
+  );
 
   return (
     <div className="space-y-4 text-left">
@@ -455,6 +546,33 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             </ErpFilterTab>
           ))}
         </ErpFilterRail>
+        <div className={cn(
+          "flex items-center gap-1 p-1 rounded-xl border self-start",
+          darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200/60"
+        )}>
+          <button
+            type="button"
+            onClick={() => changeViewMode('table')}
+            title="Dạng bảng"
+            className={cn(
+              "p-1.5 rounded-lg transition-all cursor-pointer",
+              viewMode === 'table' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
+            )}
+          >
+            <Rows3 className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => changeViewMode('card')}
+            title="Dạng thẻ"
+            className={cn(
+              "p-1.5 rounded-lg transition-all cursor-pointer",
+              viewMode === 'card' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Batch table */}
@@ -468,6 +586,59 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             subtitle={copy.emptySubtitle}
           />
         </ErpCard>
+      ) : viewMode === 'card' ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {paginatedBatches.map((b) => (
+              <ErpCard key={b.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
+                    <p className="font-bold text-sm truncate" title={displayTitle(b)}>{displayTitle(b)}</p>
+                    {displaySubtitle(b) && (
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{displaySubtitle(b)}</p>
+                    )}
+                  </div>
+                  {renderStatusSelect(b)}
+                </div>
+
+                <div className="space-y-1.5 text-xs text-slate-600">
+                  <p className="flex items-center gap-1.5 font-bold">
+                    <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
+                    {b.instructorName || <span className="text-slate-400 italic">Chưa gán</span>}
+                  </p>
+                  <p className="flex items-center gap-1.5 font-bold">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {formatDays(b.daysOfWeek)} • {b.startTime} - {b.endTime}
+                  </p>
+                  <p className="flex items-center gap-1.5 font-bold whitespace-nowrap">
+                    <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
+                    {formatDate(b.startDate)} → {formatDate(b.endDate)}
+                  </p>
+                  {b.location && (
+                    <p className="flex items-center gap-1.5 font-bold truncate" title={b.location}>
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      {b.location}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                  {renderLearnerCountButton(b)}
+                  {renderRowActions(b)}
+                </div>
+              </ErpCard>
+            ))}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredBatches.length}
+            pageSize={pageSize}
+            itemName={copy.entityNameLower}
+          />
+        </div>
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -478,8 +649,10 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
                     <td className="py-2 px-4 font-black text-sm">{b.code}</td>
                     <td className="py-2 px-4">
-                      <p className="font-bold">{b.courseTitle}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.courseCode}</p>
+                      <p className="font-bold">{displayTitle(b)}</p>
+                      {displaySubtitle(b) && (
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{displaySubtitle(b)}</p>
+                      )}
                     </td>
                     <td className="py-2 px-4 font-bold">
                       {b.instructorName ? (
@@ -498,94 +671,13 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       {formatDate(b.startDate)} → {formatDate(b.endDate)}
                     </td>
                     <td className="py-2 px-4">
-                      <button
-                        onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
-                        title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
-                          darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
-                        )}
-                      >
-                        <Users className="w-3 h-3 text-brand-primary" />
-                        {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} HV
-                      </button>
+                      {renderLearnerCountButton(b)}
                     </td>
                     <td className="py-2 px-4">
-                      <select
-                        value={b.status}
-                        onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
-                        className={cn(
-                          "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border outline-none cursor-pointer",
-                          statusStyle(b.status),
-                          darkMode ? "bg-slate-900" : "bg-white"
-                        )}
-                      >
-                        {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
-                      </select>
+                      {renderStatusSelect(b)}
                     </td>
                     <td className="py-2 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(b)}
-                          title={`Chỉnh sửa ${copy.entityNameLower}`}
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60"
-                          )}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })}
-                          title={`Xóa ${copy.entityNameLower}`}
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60"
-                          )}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setManageLearnersId(b.id)}
-                          title={`Quản lý ${entityLabel.singular}`}
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
-                          )}
-                        >
-                          <Users className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setAssignmentBatchId(b.id)}
-                          title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'}
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60"
-                          )}
-                        >
-                          <ClipboardList className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setAttendanceBatchId(b.id)}
-                          title="Điểm danh thủ công & QR"
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60"
-                          )}
-                        >
-                          <CalendarCheck className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setViewAttendanceBatchId(b.id)}
-                          title="Lịch sử & Thống kê điểm danh"
-                          className={cn(
-                            "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                            darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60"
-                          )}
-                        >
-                          <BarChart2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                      {renderRowActions(b)}
                     </td>
                   </tr>
                 ))}
@@ -642,6 +734,16 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     {renderFieldActions('courseId')}
                     <ErpField label={getFieldLabel('courseId', copy.courseLabel)}>
                       <div className="relative">
+                        {entityLabel.preset === 'worker' ? (
+                          <ErpInput
+                            type="text"
+                            required
+                            placeholder={getFieldPlaceholder('courseId', 'Ví dụ: Tuyển 100 công nhân nhà máy Samsung')}
+                            value={form.name}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            className="pl-10"
+                          />
+                        ) : (
                         <ErpSelect
                           required={isFieldRequired('courseId', true)}
                           value={form.courseId}
@@ -653,6 +755,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                             <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
                           ))}
                         </ErpSelect>
+                        )}
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
                           <BookOpen className="w-4 h-4" />
                         </div>

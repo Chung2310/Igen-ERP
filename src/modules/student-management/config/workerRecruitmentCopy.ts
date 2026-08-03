@@ -258,7 +258,7 @@ export function getBatchPageCopy(preset: EntityPreset): BatchPageCopy {
       emptyTitle: "Chưa có dự án nào",
       emptySubtitle: "Bấm 'Thêm dự án' để khởi tạo dự án tuyển dụng đầu tiên.",
       codeLabel: "Mã dự án",
-      courseLabel: "Danh mục tuyển dụng",
+      courseLabel: "Tên dự án",
       instructorLabel: "Người phụ trách",
       capacityLabel: "Chỉ tiêu",
       createTitle: "Thêm dự án",

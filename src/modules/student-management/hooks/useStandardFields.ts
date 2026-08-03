@@ -77,7 +77,7 @@ const PRESET_STANDARD_FIELD_OVERRIDES: Partial<
   worker: {
     batches: {
       code: { label: "Mã dự án", placeholder: "Ví dụ: DA-001" },
-      courseId: { label: "Danh mục tuyển dụng" },
+      courseId: { label: "Tên dự án", placeholder: "Ví dụ: Tuyển 100 công nhân nhà máy Samsung" },
       startDate: { label: "Ngày bắt đầu" },
       endDate: { label: "Ngày kết thúc" },
       schedule: { label: "Lịch hoạt động", placeholder: "Ví dụ: T2-T4-T6 (08:00-17:00)" },
