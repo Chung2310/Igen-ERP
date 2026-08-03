@@ -17,6 +17,7 @@ test("login allows a legacy company without lifecycleStatus", async () => {
     email: "legacy@example.com",
     role: "user",
     companyCode: "LEGACY",
+    save: async function () { return this; },
   })) as typeof UserModel.findOne;
 
   CompanyModel.findOne = (() => ({

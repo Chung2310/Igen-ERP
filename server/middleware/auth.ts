@@ -6,6 +6,9 @@ import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
 
+const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
+const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
+
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
@@ -110,7 +113,19 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
-    const userDoc = await UserModel.findById(decoded.id).select("branchId").lean();
+    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId").lean();
+    if (!userDoc) {
+      return res.status(401).json({ status: "error", message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại." });
+    }
+
+    if (decoded.role !== "superadmin" && (!decoded.sid || userDoc.activeSessionId !== decoded.sid)) {
+      return res.status(401).json({
+        status: "error",
+        code: REGULAR_SESSION_REPLACED_CODE,
+        message: REGULAR_SESSION_REPLACED_MESSAGE,
+      });
+    }
+
     let branchId = userDoc?.branchId ? String(userDoc.branchId) : undefined;
     const requestedBranchId = typeof req.headers["x-branch-id"] === "string" ? req.headers["x-branch-id"] : "";
     if (decoded.role === "admin" && requestedBranchId && decoded.companyCode) {

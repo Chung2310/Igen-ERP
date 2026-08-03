@@ -173,7 +173,10 @@ export const authController = {
     try {
       const userId = req.user?.id;
       if (userId) {
-        await UserModel.findByIdAndUpdate(userId, { status: "offline" });
+        const activeSessionClear = req.user?.sessionId
+          ? { $set: { status: "offline" }, $unset: { activeSessionId: "", activeSessionIssuedAt: "", activeSessionLastSeenAt: "", activeSessionUserAgent: "", activeSessionIp: "" } }
+          : { $set: { status: "offline" } };
+        await UserModel.updateOne({ _id: userId, ...(req.user?.sessionId ? { activeSessionId: req.user.sessionId } : {}) }, activeSessionClear);
       }
 
       res.clearCookie("refreshToken", {
