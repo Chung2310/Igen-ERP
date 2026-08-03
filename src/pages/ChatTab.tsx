@@ -750,7 +750,7 @@ export default function ChatTab() {
   const fetchCompanyUsers = async () => {
     try {
       if (companyCode) {
-        const users = await authService.getUsersByCompany(companyCode);
+        const users = await authService.getColleagues();
         // Exclude current user from list for general member selection
         setCompanyUsers(users);
       }
@@ -1649,7 +1649,8 @@ export default function ChatTab() {
     const name = user.displayName.toLowerCase();
     const email = user.email.toLowerCase();
     const query = searchQuery.toLowerCase();
-    return name.includes(query) || email.includes(query);
+    const branch = (user.branchName || "").toLowerCase();
+    return name.includes(query) || email.includes(query) || branch.includes(query);
   });
 
   // Check if I am admin or deputy of the current group
@@ -1887,6 +1888,7 @@ export default function ChatTab() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-semibold text-slate-800">{user.displayName}</p>
                         <p className="truncate text-[10px] text-slate-400">{user.email}</p>
+                        {user.branchName && <p className="truncate text-[10px] text-indigo-500">{user.branchName}</p>}
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-300" />
                     </button>
@@ -3463,6 +3465,7 @@ export default function ChatTab() {
                             <div>
                               <p>{user.displayName}</p>
                               <p className="text-[9px] text-gray-400 font-normal">{user.email}</p>
+                              {user.branchName && <p className="text-[9px] text-indigo-500 font-normal">{user.branchName}</p>}
                             </div>
                           </div>
                           <div className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-gray-300"
@@ -3541,6 +3544,7 @@ export default function ChatTab() {
                           <div>
                             <p>{user.displayName}</p>
                             <p className="text-[9px] text-gray-400 font-normal">{user.email}</p>
+                              {user.branchName && <p className="text-[9px] text-indigo-500 font-normal">{user.branchName}</p>}
                           </div>
                         </div>
                         <div className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-gray-300"

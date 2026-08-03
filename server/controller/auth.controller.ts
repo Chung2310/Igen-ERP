@@ -717,7 +717,10 @@ export const authController = {
         _id: colleague._id,
         displayName: colleague.displayName,
         email: colleague.email,
-        ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),\r\n        ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),\r\n        ...(colleague.department ? { department: colleague.department } : {}),\r\n        ...(colleague.role ? { role: colleague.role } : {}),
+        ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),
+        ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),
+        ...(colleague.department ? { department: colleague.department } : {}),
+        ...(colleague.role ? { role: colleague.role } : {}),
         ...(colleague.branchId
           ? {
               branchId: colleague.branchId.toString(),
