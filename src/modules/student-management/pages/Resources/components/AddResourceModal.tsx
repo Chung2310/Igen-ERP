@@ -22,9 +22,10 @@ interface AddResourceModalProps {
   categories: Category[];
   onSuccess: () => void;
   resource?: ResourceItem;
+  forceType?: string;
 }
 
-export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resource }: AddResourceModalProps) {
+export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resource, forceType }: AddResourceModalProps) {
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
@@ -122,12 +123,12 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
       customFields: resource.customFields || {},
     } : {
       name: '',
-      type: '',
+      type: forceType || '',
       identifier: '',
       capacity: '',
       customFields: {},
     });
-  }, [isOpen, resource]);
+  }, [isOpen, resource, forceType]);
 
   const selectedType = newResource.type || categories[0]?.name || '';
 
@@ -156,7 +157,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
         body: JSON.stringify({
           ...newResource,
           ...(resource ? { expectedVersion: resource.__v } : {}),
-          type: isFieldVisible('type') ? selectedType : 'Khác',
+          type: forceType || (isFieldVisible('type') ? selectedType : 'Khác'),
           identifier: newResource.identifier.toUpperCase(),
         }),
       });
@@ -201,7 +202,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          {isFieldVisible('type') && (
+          {!forceType && isFieldVisible('type') && (
             <div className="relative group/std">
               {renderFieldActions('type')}
               <ErpField label={getFieldLabel('type', 'Phân loại')}>

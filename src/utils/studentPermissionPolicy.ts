@@ -6,6 +6,7 @@ export type StudentPermissionArea =
   | "payment"
   | "student-notification"
   | "student-resource"
+  | "classroom"
   | "assignment"
   | "custom-field"
   | "student-settings"

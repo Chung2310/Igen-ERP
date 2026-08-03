@@ -14,6 +14,7 @@ import {
   Trash2,
   Users,
   Pencil,
+  Eye,
 } from 'lucide-react';
 import { cn, formatVND } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -236,6 +237,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const [newCourse, setNewCourse] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editForm, setEditForm] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
+  const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
 
   const pageSize = viewMode === 'grid' ? 6 : 8;
 
@@ -605,6 +607,18 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                         : <><Play className="w-3 h-3 text-brand-primary" /> Kích hoạt</>}
                     </button>
                     <button
+                      onClick={() => setViewingCourse(course)}
+                      title="Xem chi tiết"
+                      className={cn(
+                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        darkMode
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border-slate-200/60'
+                      )}
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
+                    <button
                       onClick={() => setEditingCourse(course)}
                       title={copy.editTitle}
                       className={cn(
@@ -680,6 +694,16 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           )}
                         >
                           {course.status === ACTIVE_COURSE_STATUS ? <Pause className="w-3 h-3 text-amber-500" /> : <Play className="w-3 h-3 text-brand-primary" />}
+                        </button>
+                        <button
+                          onClick={() => setViewingCourse(course)}
+                          className={cn(
+                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border-slate-200/60'
+                          )}
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-3 h-3" />
                         </button>
                         <button
                           onClick={() => setEditingCourse(course)}
@@ -1095,6 +1119,59 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         onSubmit={handleStdFieldSubmit}
         isStandard={true}
       />
+
+      {viewingCourse && (
+        <ErpModal title={`Chi tiết khóa học: ${viewingCourse.title}`} onClose={() => setViewingCourse(null)}>
+          <div className="space-y-4 text-slate-700 text-left">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã khóa học</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingCourse.code}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Danh mục</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingCourse.category}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời lượng</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.duration}</p>
+              </div>
+              {usesCourseFeePolicy && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Học phí</label>
+                  <p className="text-sm font-bold text-brand-primary mt-0.5">{viewingCourse.fee}</p>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số học viên tối đa</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.maxLearners}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
+                <p className="text-sm font-bold text-slate-700 mt-0.5">{viewingCourse.status}</p>
+              </div>
+            </div>
+
+            {viewingCourse.customFields && Object.keys(viewingCourse.customFields).length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(viewingCourse.customFields).map(([key, val]) => (
+                    <div key={key}>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ErpModal>
+      )}
     </div>
   );
 }

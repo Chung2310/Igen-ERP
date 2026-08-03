@@ -11,7 +11,7 @@ import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorMod
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import { useAuth } from '../../../../context/AuthContext';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
-import type { Course } from '../../types';
+import { useCourses } from '../../hooks/useCourses';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -32,6 +32,20 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     restoreField: restoreStdField,
     deleteField: deleteStdField
   } = useStandardFields("exams");
+
+  const { courses } = useCourses(tenantId);
+  const [isOpenCourses, setIsOpenCourses] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpenCourses(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -100,9 +114,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
   };
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [coursesLoading, setCoursesLoading] = useState(false);
-  const [coursesError, setCoursesError] = useState('');
   const [formData, setFormData] = useState<{
     name: string;
     rank: string;
@@ -119,26 +130,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const [localTentativeDate, setLocalTentativeDate] = useState('');
-  useEffect(() => {
-    if (!isOpen) return;
-    let cancelled = false;
-    setCoursesLoading(true);
-    setCoursesError('');
-    apiFetch<{ success: boolean; courses?: Array<Course & { _id?: string }> }>('/courses')
-      .then((res) => {
-        if (cancelled) return;
-        const fetchedCourses = (res.courses || []).map((course) => ({ ...course, id: course.id || course._id || '' }));
-        setCourses(fetchedCourses);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setCourses([]);
-          setCoursesError(error instanceof Error ? error.message : 'KhÙng th? t?i danh s·ch khÛa h?c.');
-        }
-      })
-      .finally(() => { if (!cancelled) setCoursesLoading(false); });
-    return () => { cancelled = true; };
-  }, [isOpen]);
 
   useEffect(() => {
     if (document.activeElement !== dateInputRef.current) {
@@ -320,25 +311,48 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                   <div className="space-y-1 relative group/std">
                     {renderFieldActions('rank')}
                     <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                      KhÛa h?c{' '}
+                      {getFieldLabel('rank', 'Nh√≥m thi')}{' '}
                       {isFieldRequired('rank', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <select
-                      name="rank"
-                      value={formData.rank}
-                      onChange={handleInputChange}
-                      required={isFieldRequired('rank', false)}
-                      disabled={coursesLoading}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
-                    >
-                      <option value="">{coursesLoading ? "?ang t&#7843;i kh&#243;a h&#7885;c..." : "Ch&#7885;n kh&#243;a h&#7885;c"}</option>
-                      {courses.map((course) => (
-                        <option key={course.id} value={course.title}>
-                          {course.code ? `${course.code} - ${course.title}` : course.title}
-                        </option>
-                      ))}
-                    </select>
-                    {coursesError && <p className="text-[10px] text-rose-500">{coursesError}</p>}
+                    <div ref={dropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsOpenCourses(!isOpenCourses)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all text-slate-800 text-left select-none cursor-pointer"
+                      >
+                        <span className={formData.rank ? "text-slate-850 font-bold" : "text-slate-350 font-medium"}>
+                          {formData.rank || "-- Ch·ªçn kh√≥a h·ªçc --"}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpenCourses ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {isOpenCourses && (
+                        <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 max-h-[250px] overflow-y-auto no-scrollbar">
+                          <div 
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, rank: '' }));
+                              setIsOpenCourses(false);
+                            }}
+                            className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 ${!formData.rank ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-500"}`}
+                          >
+                            -- Ch·ªçn kh√≥a h·ªçc --
+                          </div>
+                          {courses.map(course => (
+                            <div
+                              key={course.id}
+                              onClick={() => {
+                                setFormData(prev => ({ ...prev, rank: course.title }));
+                                setIsOpenCourses(false);
+                              }}
+                              className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 flex items-center justify-between ${formData.rank === course.title ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-700"}`}
+                            >
+                              <span>{course.title}</span>
+                              {formData.rank === course.title && <span className="w-1.5 h-1.5 rounded-full bg-brand-primary" />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -362,7 +376,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                         required={isFieldRequired('tentativeDate', true)}
                         className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
                       />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 )}

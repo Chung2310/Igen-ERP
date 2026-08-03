@@ -16,6 +16,7 @@ export const STUDENT_AREA_PERMISSIONS = {
   payment: { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "student-notification": { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "student-resource": { read: STUDENT_READ, manage: STUDENT_MANAGE },
+  "classroom": { read: STUDENT_READ, manage: STUDENT_MANAGE },
   assignment: { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "custom-field": { read: ["custom-field:manage"], manage: ["custom-field:manage"] },
   "student-settings": { read: ["student-settings:manage"], manage: ["student-settings:manage"] },
