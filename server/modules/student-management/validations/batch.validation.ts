@@ -10,6 +10,7 @@ export const createBatchSchema = Joi.object({
     "string.empty": "Mã lớp không được để trống.",
   }),
   name: Joi.string().trim().max(200).allow("", null).optional(),
+  quota: Joi.number().integer().min(0).optional(),
   courseId: Joi.string().required().messages({
     "any.required": "Khóa học là bắt buộc.",
     "string.empty": "Khóa học không được để trống.",
@@ -45,6 +46,7 @@ export const updateBatchSchema = Joi.object({
   expectedVersion: Joi.number().integer().min(0).optional(),
   code: Joi.string().optional(),
   name: Joi.string().trim().max(200).allow("", null).optional(),
+  quota: Joi.number().integer().min(0).optional(),
   courseId: Joi.string().optional(),
   instructorId: Joi.string().allow("", null).optional(),
   instructorText: Joi.string().trim().max(120).allow("", null).optional(),

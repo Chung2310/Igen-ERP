@@ -56,6 +56,15 @@ function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
   return branchId ? { branchId } : {};
 }
 
+/**
+ * Chỉ tiêu hiệu lực của một dự án/lớp: ưu tiên số đặt riêng trên batch, chỉ khi
+ * chưa đặt (0/undefined) mới rơi về chỉ tiêu của khóa học/danh mục.
+ */
+export function resolveQuota(batchQuota?: number, courseMaxLearners?: number): number {
+  if (typeof batchQuota === "number" && batchQuota > 0) return batchQuota;
+  return courseMaxLearners ?? 0;
+}
+
 function hasLockedStudentFee(fee: string | undefined): boolean {
   const feeNum = parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
   return feeNum > 0;
@@ -119,7 +128,8 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
       ...b.toObject(),
       courseCode: course?.code || "",
       courseTitle: course?.title || "(Khóa học đã xóa)",
-      maxLearners: course?.maxLearners ?? 0,
+      // Chỉ tiêu riêng của dự án (nếu có) thắng chỉ tiêu của khóa học/danh mục
+      maxLearners: resolveQuota(b.quota, course?.maxLearners),
       // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
       instructorName: instructor?.displayName || b.instructorText || "",
     };
@@ -370,8 +380,9 @@ export class BatchService {
       throw new Error("Không tìm thấy học viên.");
     }
     const course = await Course.findOne({ _id: batch.courseId });
-    if (course && course.maxLearners > 0 && batch.learnerIds.length >= course.maxLearners) {
-      throw new Error(`Lớp đã đạt sĩ số tối đa (${course.maxLearners} học viên).`);
+    const quota = resolveQuota(batch.quota, course?.maxLearners);
+    if (quota > 0 && batch.learnerIds.length >= quota) {
+      throw new Error(`Lớp đã đạt sĩ số tối đa (${quota} học viên).`);
     }
 
     if (businessType !== "driving" && course) {
