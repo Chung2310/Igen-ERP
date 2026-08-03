@@ -12,6 +12,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 
+
 import { ProfileTab } from './DetailTabs/ProfileTab';
 import { TuitionTab } from './DetailTabs/TuitionTab';
 import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
@@ -30,6 +31,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
+
   const [student, setStudent] = React.useState<Student | null>(initialStudent);
   const [activeTab, setActiveTab] = React.useState<TabType>(initialTab);
 
@@ -83,8 +85,8 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
   }, [initialStudent, fetchStudentDetail]);
 
   const tabs: TabType[] = operationalCopy.isWorker || operationalCopy.isCustomer
-    ? ['\\u0048\\u1ed3 s\\u01a1', 'L\\u1ecbch s\\u1eed']
-    : faceAttendanceVisible ? ['\\u0048\\u1ed3 s\\u01a1', 'H\\u1ecdc ph\\u00ed', 'Khu\\u00f4n m\\u1eb7t', 'L\\u1ecbch s\\u1eed'] : ['\\u0048\\u1ed3 s\\u01a1', 'H\\u1ecdc ph\\u00ed', 'L\\u1ecbch s\\u1eed'];
+    ? ['Hồ sơ', 'Lịch sử']
+    : ['Hồ sơ', 'Học phí', 'Lịch sử'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {

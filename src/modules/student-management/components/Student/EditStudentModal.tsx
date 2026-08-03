@@ -14,6 +14,7 @@ import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getOperationalStatusLabel } from '../../config/workerRecruitmentCopy';
+import { isFaceAttendanceVisible } from '../../config/faceAttendanceVisibility';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
@@ -38,6 +39,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     deleteField: deleteStdField
   } = useStandardFields("students");
   const entityLabel = useEntityLabel();
+  const faceAttendanceVisible = isFaceAttendanceVisible(user, 'student');
 
   const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -496,7 +498,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                 </div>
               </div>
 
-              {student && (
+              {faceAttendanceVisible && student && (
                 <div className="pt-2">
                   <FaceEnrollmentTab student={student} />
                 </div>
