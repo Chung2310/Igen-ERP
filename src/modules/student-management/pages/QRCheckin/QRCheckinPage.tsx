@@ -238,22 +238,16 @@ export default function QRCheckinPage() {
     return dateStr.split("-").reverse().join("/");
   };
 
-  // 3. Sau khi nhập SĐT, chuyển sang bước chụp ảnh khuôn mặt
+  // 3. Sau khi nhập SĐT, thực hiện điểm danh bằng vị trí trực tiếp
   const handleContinueToCapture = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 8) return;
-    if (isWorker) {
-      handleCheckin(true);
-    } else {
-      setCameraError(null);
-      setStep("capture");
-    }
+    handleCheckin(isWorker);
   };
 
-  // 4. Thực hiện checkin: ảnh khuôn mặt (bắt buộc) + GPS
+  // 4. Thực hiện checkin: vị trí GPS
   const handleCheckin = async (forceWorker?: boolean | React.MouseEvent) => {
     const isWorkerMode = isWorker || forceWorker === true;
-    if (!isWorkerMode && !capturedPhoto) return;
 
     try {
       setSubmitting(true);
@@ -289,17 +283,16 @@ export default function QRCheckinPage() {
           })
         });
       } else {
-        const formData = new FormData();
-        formData.append("token", token);
-        formData.append("phone", phone.replace(/\D/g, ""));
-        formData.append("fingerprint", fingerprint);
-        formData.append("latitude", String(latitude));
-        formData.append("longitude", String(longitude));
-        formData.append("file", capturedPhoto!, "checkin.jpg");
-
         res = await fetch("/api/v1/qr-attendance/checkin", {
           method: "POST",
-          body: formData
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            phone: phone.replace(/\D/g, ""),
+            fingerprint,
+            latitude,
+            longitude
+          })
         });
       }
 

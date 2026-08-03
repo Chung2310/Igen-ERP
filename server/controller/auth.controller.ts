@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { authService } from "../service/auth.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { googleOAuthService } from "../service/google-oauth.service";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import { CompanyModel } from "../model/company.model";
@@ -698,10 +699,34 @@ export const authController = {
 
       const colleagues = await UserModel.find(
         { companyCode, isDeleted: { $ne: true } },
-        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1 }
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1, branchId: 1 }
       ).lean();
 
-      return res.status(200).json({ status: "success", data: colleagues });
+      const branchIds = colleagues
+        .map((colleague: any) => colleague.branchId)
+        .filter(Boolean)
+        .map((branchId: any) => branchId.toString());
+      const branches = branchIds.length
+        ? await BranchModel.find(
+            { companyCode, _id: { $in: Array.from(new Set(branchIds)) } },
+            { _id: 1, name: 1 },
+          ).lean()
+        : [];
+      const branchNames = new Map(branches.map((branch: any) => [branch._id.toString(), branch.name]));
+      const safeColleagues = colleagues.map((colleague: any) => ({
+        _id: colleague._id,
+        displayName: colleague.displayName,
+        email: colleague.email,
+        ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),\r\n        ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),\r\n        ...(colleague.department ? { department: colleague.department } : {}),\r\n        ...(colleague.role ? { role: colleague.role } : {}),
+        ...(colleague.branchId
+          ? {
+              branchId: colleague.branchId.toString(),
+              branchName: branchNames.get(colleague.branchId.toString()) || "",
+            }
+          : {}),
+      }));
+
+      return res.status(200).json({ status: "success", data: safeColleagues });
     } catch (error: any) {
       console.error("[authController.getColleagues] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy danh sách đồng nghiệp." });
