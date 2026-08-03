@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye
+  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';

@@ -7,7 +7,7 @@ const ORDERED_TABS = [
   ["hoc-vien", "student-profile"],
   ["hoc-phi", "payment"],
   ["lich-thi", "exam"],
-  ["phong-hoc", "student-resource"],
+  ["phong-hoc", "classroom"],
   ["tai-nguyen", "student-resource"],
   ["thong-bao", "student-notification"],
 ] as const;

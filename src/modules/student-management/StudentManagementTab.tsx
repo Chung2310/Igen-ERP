@@ -32,6 +32,7 @@ const ExamsPage = lazy(() => import("./pages/Exams/ExamsPage").then((m) => ({ de
 const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ default: m.FeesPage })));
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
+const ClassroomsPage = lazy(() => import("./pages/Classrooms/ClassroomsPage").then((m) => ({ default: m.ClassroomsPage })));
 
 const SUB_TAB_ROUTES = [
   { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: LayoutDashboard },
@@ -158,7 +159,7 @@ export default function StudentManagementTab() {
       case "THÔNG BÁO":
         return <NotificationsPage canManage={canManage("student-notification")} />;
       case "PHÒNG HỌC":
-        return <ResourcesPage canManage={canManage("student-resource")} forceType="Phòng học" />;
+        return <ClassroomsPage canManage={canManage("classroom")} />;
       case "TÀI NGUYÊN":
         return <ResourcesPage canManage={canManage("student-resource")} excludeType="Phòng học" />;
       default:
