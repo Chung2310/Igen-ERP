@@ -387,8 +387,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         }
       }
 
+      const { geoLat, geoLng, geoRadius, ...restForm } = form;
       const payload = {
-        ...form,
+        ...restForm,
         courseId: resolvedCourseId,
         code: form.code.toUpperCase(),
         name: form.name.trim(),
