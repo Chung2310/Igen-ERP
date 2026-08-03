@@ -12,6 +12,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 
+
 import { ProfileTab } from './DetailTabs/ProfileTab';
 import { TuitionTab } from './DetailTabs/TuitionTab';
 import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
@@ -30,6 +31,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
+
   const [student, setStudent] = React.useState<Student | null>(initialStudent);
   const [activeTab, setActiveTab] = React.useState<TabType>(initialTab);
 
@@ -64,7 +66,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
       }, 0);
       return () => clearTimeout(timer);
     }
-    
+
     // Set initially so it doesn't flicker
     const timer = setTimeout(() => {
       setStudent(initialStudent);
@@ -107,7 +109,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const handleSavePaymentEdit = async () => {
     if (!student || !student.paymentHistory || !editingPayment) return;
-    
+
     const parsedAmount = parseInt(editingPayment.amount.replace(/\D/g, ''), 10) || 0;
     if (parsedAmount <= 0) {
       toast.warning('Vui lòng nhập số tiền hợp lệ');
@@ -136,7 +138,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
       // Dispatch events to refresh lists
       window.dispatchEvent(new Event("payment-mutation"));
       window.dispatchEvent(new Event('student-mutation'));
-      
+
       // Reload student details
       fetchStudentDetail();
     } catch (error) {
@@ -152,18 +154,18 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
     try {
       const updatedHistory = student.paymentHistory.filter((_, i) => i !== idx);
-      
+
       await apiFetch(`/students/${student.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ paymentHistory: updatedHistory })
       });
 
       toast.success('Đã xóa giao dịch đóng phí thành công!');
-      
+
       // Dispatch events to refresh lists
       window.dispatchEvent(new Event("payment-mutation"));
       window.dispatchEvent(new Event('student-mutation'));
-      
+
       // Reload student details
       fetchStudentDetail();
     } catch (error) {
@@ -194,7 +196,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
             onClick={onClose}
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -232,13 +234,13 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       title="In thông tin"
                       className="p-2 sm:p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all active:scale-95"
                     >
                       <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
-                    <button 
+                    <button
                       onClick={onClose}
                       title="Đóng"
                       className="p-2 sm:p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-95"
@@ -258,8 +260,8 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                       onClick={() => setActiveTab(tab)}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200",
-                        activeTab === tab 
-                          ? "bg-slate-900 text-white shadow-md shadow-slate-200" 
+                        activeTab === tab
+                          ? "bg-slate-900 text-white shadow-md shadow-slate-200"
                           : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                       )}
                     >
@@ -297,17 +299,17 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                 )}
 
                 {activeTab !== 'Hồ sơ' &&
-                 activeTab !== 'Học phí' &&
-                 activeTab !== 'Khuôn mặt' &&
-                 activeTab !== 'Lịch sử' && (
-                  <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
-                      <TabIcon tab={activeTab} size={32} />
+                  activeTab !== 'Học phí' &&
+                  activeTab !== 'Khuôn mặt' &&
+                  activeTab !== 'Lịch sử' && (
+                    <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
+                        <TabIcon tab={activeTab} size={32} />
+                      </div>
+                      <h3 className="text-slate-800 font-bold mb-2">Tính năng đang phát triển</h3>
+                      <p className="text-slate-400 text-sm text-center">Chúng tôi đang cập nhật phân hệ {activeTab} sớm nhất có thể.</p>
                     </div>
-                    <h3 className="text-slate-800 font-bold mb-2">Tính năng đang phát triển</h3>
-                    <p className="text-slate-400 text-sm text-center">Chúng tôi đang cập nhật phân hệ {activeTab} sớm nhất có thể.</p>
-                  </div>
-                )}
+                  )}
               </motion.div>
             </div>
           </motion.div>

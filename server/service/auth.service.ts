@@ -371,7 +371,7 @@ export const authService = {
 
         // Tạo COO & CMO
         const createdUsers: Record<string, string> = {};
-        
+
         const coo = new UserModel({
           ...mockEmployees[0],
           companyCode,
@@ -634,14 +634,18 @@ export const authService = {
 
     // 2. Kiểm tra phân cấp cấp bậc (Hierarchy Level Check) của người gán
     if (callerRole && callerRole !== "superadmin") {
+      if (callerRole !== "admin") {
+        throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");
+      }
+
       const callerRolePerm = await RolePermissionModel.findOne({
         companyCode: callerCompanyCode,
         role: callerRole,
       });
       const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
 
-      if (targetRoleLevel < callerLevel) {
-        throw new Error(`Bạn không thể gán vai trò có cấp bậc (${targetRoleLevel}) cao hơn cấp bậc của bạn (${callerLevel}).`);
+      if (targetRoleLevel <= callerLevel) {
+        throw new Error("Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.");
       }
     }
 
@@ -693,6 +697,19 @@ export const authService = {
       if (user.role === "superadmin") {
         throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
       }
+
+      const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+      let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+      if (currentTargetLevel === undefined) {
+        const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+        currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+      }
+
+      if (currentTargetLevel <= callerLevel) {
+        throw new Error("Bạn không có quyền chỉnh sửa tài khoản có cấp bậc tương đương hoặc cao hơn.");
+      }
     }
 
     if (updateData.branchId !== undefined) {
@@ -704,8 +721,9 @@ export const authService = {
     }
 
     if (updateData.role && callerRole !== "superadmin") {
-      const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
-      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+      if (callerRole !== "admin") {
+        throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");
+      }
 
       let targetLevel = DEFAULT_ROLE_LEVELS[updateData.role];
       if (targetLevel === undefined) {
@@ -716,18 +734,11 @@ export const authService = {
         targetLevel = targetRolePerm.level;
       }
 
-      if (targetLevel < callerLevel) {
-        throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
-      }
+      const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
 
-      let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
-      if (currentTargetLevel === undefined) {
-        const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
-        currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
-      }
-
-      if (currentTargetLevel < callerLevel) {
-        throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
+      if (targetLevel <= callerLevel) {
+        throw new Error("Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.");
       }
     }
 
@@ -753,9 +764,26 @@ export const authService = {
         if (user.role === "superadmin") {
           throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
         }
+
+        const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+        const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+        let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+        if (currentTargetLevel === undefined) {
+          const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+          currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+        }
+
+        if (currentTargetLevel <= callerLevel) {
+          throw new Error("Bạn không có quyền chỉnh sửa tài khoản có cấp bậc tương đương hoặc cao hơn.");
+        }
       }
 
       if (data.role && callerRole !== "superadmin") {
+        if (callerRole !== "admin") {
+          throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");
+        }
+
         const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
         const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
 
@@ -768,18 +796,8 @@ export const authService = {
           targetLevel = targetRolePerm.level;
         }
 
-        if (targetLevel < callerLevel) {
-          throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
-        }
-
-        let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
-        if (currentTargetLevel === undefined) {
-          const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
-          currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
-        }
-
-        if (currentTargetLevel < callerLevel) {
-          throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
+        if (targetLevel <= callerLevel) {
+          throw new Error("Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.");
         }
       }
 

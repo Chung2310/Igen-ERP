@@ -497,31 +497,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         </div>
       </div>
 
-      {/* Primary Tabs — sinh động từ phân loại khóa học */}
-      <div className="flex items-center gap-2 sm:gap-5 border-b border-slate-200 overflow-x-auto no-scrollbar">
-        {[
-          { id: TAB_ALL, icon: Users },
-          // dedup by name — superadmin thấy categories từ nhiều trung tâm, tránh tab trùng
-          ...Array.from(new Map(categories.map((cat) => [cat.name, cat])).values())
-            .map((cat: CourseCategoryItem) => ({ id: cat.name, icon: categoryIcon(cat.name) })),
-          { id: TAB_UNASSIGNED, icon: UserX },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setCategory(item.id)}
-            className={cn(
-              "flex items-center gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer",
-              category === item.id ? "text-cyan-600" : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            <item.icon className={cn("w-4 h-4", category === item.id ? "text-cyan-600" : "text-slate-400")} />
-            {item.id === TAB_UNASSIGNED ? operationalCopy.unassignedGroupLabel : item.id}
-            {category === item.id && (
-              <motion.div layoutId="catLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Primary Tabs removed — replaced by Category Dropdown in Filters Bar */}
 
       {/* Sub-Tabs (Status Workflow) */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1.5 status-tabs">
@@ -554,6 +530,23 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
       {/* Filters Bar */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 bg-white p-2 rounded-xl border border-slate-100 shadow-sm filters-bar">
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
+          <div className="relative">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full h-7 px-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] appearance-none focus:outline-none focus:border-cyan-600 truncate pr-7"
+            >
+              <option value={TAB_ALL}>Tất cả khóa học</option>
+              {Array.from(new Map(categories.map((cat) => [cat.name, cat])).values()).map((cat: CourseCategoryItem) => (
+                <option key={cat.name} value={cat.name}>{cat.name}</option>
+              ))}
+              <option value={TAB_UNASSIGNED}>{operationalCopy.unassignedGroupLabel}</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
         <div className="space-y-0.5">
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Từ ngày</label>
           <div className="relative">

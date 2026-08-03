@@ -11,6 +11,7 @@ import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorMod
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import { useAuth } from '../../../../context/AuthContext';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import { useCourses } from '../../hooks/useCourses';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -31,6 +32,20 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     restoreField: restoreStdField,
     deleteField: deleteStdField
   } = useStandardFields("exams");
+
+  const { courses } = useCourses(tenantId);
+  const [isOpenCourses, setIsOpenCourses] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpenCourses(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
@@ -299,15 +314,45 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       {getFieldLabel('rank', 'Nhóm thi')}{' '}
                       {isFieldRequired('rank', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <input
-                      type="text"
-                      name="rank"
-                      value={formData.rank}
-                      onChange={handleInputChange}
-                      required={isFieldRequired('rank', false)}
-                      placeholder={getFieldPlaceholder('rank', 'Nhập nhóm thi')}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
-                    />
+                    <div ref={dropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsOpenCourses(!isOpenCourses)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all text-slate-800 text-left select-none cursor-pointer"
+                      >
+                        <span className={formData.rank ? "text-slate-850 font-bold" : "text-slate-350 font-medium"}>
+                          {formData.rank || "-- Chọn khóa học --"}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpenCourses ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {isOpenCourses && (
+                        <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 max-h-[250px] overflow-y-auto no-scrollbar">
+                          <div 
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, rank: '' }));
+                              setIsOpenCourses(false);
+                            }}
+                            className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 ${!formData.rank ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-500"}`}
+                          >
+                            -- Chọn khóa học --
+                          </div>
+                          {courses.map(course => (
+                            <div
+                              key={course.id}
+                              onClick={() => {
+                                setFormData(prev => ({ ...prev, rank: course.title }));
+                                setIsOpenCourses(false);
+                              }}
+                              className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 flex items-center justify-between ${formData.rank === course.title ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-700"}`}
+                            >
+                              <span>{course.title}</span>
+                              {formData.rank === course.title && <span className="w-1.5 h-1.5 rounded-full bg-brand-primary" />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -331,7 +376,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                         required={isFieldRequired('tentativeDate', true)}
                         className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
                       />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 )}

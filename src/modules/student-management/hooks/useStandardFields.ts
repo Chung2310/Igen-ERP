@@ -59,7 +59,7 @@ const DEFAULT_STANDARD_FIELDS: Record<ModuleKey, StandardFieldConfig[]> = {
   ],
   exams: [
     { key: "name", label: "Tên đợt thi", placeholder: "Ví dụ: Đợt thi Ô tô - Tháng 3/2026", type: "text", isRequired: true, isVisible: true, isArchived: false },
-    { key: "rank", label: "Nhóm thi", placeholder: "Ví dụ: B2", type: "text", isRequired: false, isVisible: true, isArchived: false },
+    { key: "rank", label: "Khóa học", placeholder: "Chọn khóa học", type: "select", isRequired: false, isVisible: true, isArchived: false },
     { key: "tentativeDate", label: "Ngày thi dự kiến", type: "dateTime", isRequired: true, isVisible: true, isArchived: false },
     { key: "location", label: "Địa điểm thi", placeholder: "Ví dụ: Trung tâm sát hạch quận 1", type: "text", isRequired: true, isVisible: true, isArchived: false },
   ],

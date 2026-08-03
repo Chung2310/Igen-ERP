@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2, LayoutGrid, Rows3
+  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -11,6 +11,7 @@ import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
+import { useResources } from '../../hooks/useResources';
 import { Batch, BatchStatus } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
@@ -33,6 +34,7 @@ import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { InstructorCombobox } from '../../components/Batches/InstructorCombobox';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
+import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
@@ -241,6 +243,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading } = useBatches(resolvedCenter);
   const { courses } = useCourses(resolvedCenter);
+  const { resources } = useResources();
+  const classrooms = React.useMemo(() => resources.filter(r => r.type === 'Phòng học'), [resources]);
   const [users, setUsers] = useState<any[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
@@ -273,6 +277,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
   const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [viewingBatch, setViewingBatch] = useState<Batch | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; code: string }>({
@@ -542,6 +547,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   const renderRowActions = (b: Batch) => (
     <div className="flex items-center gap-1.5">
+      <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
+        <Eye className="w-3 h-3" />
+      </button>
       <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
         <Pencil className="w-3 h-3" />
       </button>
@@ -896,30 +904,20 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
                 <div className="grid grid-cols-2 gap-4">
                   <ErpField label="Giờ bắt đầu">
-                    <div className="relative">
-                      <TimeInput24
-                        required={isFieldRequired('schedule', true)}
-                        value={form.startTime}
-                        onChange={(v) => setForm({ ...form, startTime: v })}
-                        className={cn(erpInputClass(darkMode), "pl-10")}
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                    </div>
+                    <TimeInput24
+                      required={isFieldRequired('schedule', true)}
+                      value={form.startTime}
+                      onChange={(v) => setForm({ ...form, startTime: v })}
+                      className="w-full"
+                    />
                   </ErpField>
                   <ErpField label="Giờ kết thúc">
-                    <div className="relative">
-                      <TimeInput24
-                        required={isFieldRequired('schedule', true)}
-                        value={form.endTime}
-                        onChange={(v) => setForm({ ...form, endTime: v })}
-                        className={cn(erpInputClass(darkMode), "pl-10")}
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                    </div>
+                    <TimeInput24
+                      required={isFieldRequired('schedule', true)}
+                      value={form.endTime}
+                      onChange={(v) => setForm({ ...form, endTime: v })}
+                      className="w-full"
+                    />
                   </ErpField>
                 </div>
               </div>
@@ -979,69 +977,105 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
               {isFieldVisible('room') && (
                 <div className="relative group/std">
                   {renderFieldActions('room')}
-                  <ErpField label={getFieldLabel('room', 'Địa điểm (tùy chọn)')}>
+                  <ErpField label={getFieldLabel('room', 'Địa điểm / Phòng học (tùy chọn)')}>
                     <div className="relative">
-                      <ErpInput
-                        type="text"
-                        required={isFieldRequired('room', false)}
-                        placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
-                        value={form.location}
-                        onChange={(e) => setForm({ ...form, location: e.target.value })}
-                        className="pl-10"
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-405">
-                        <MapPin className="w-4 h-4" />
-                      </div>
+                      {classrooms.length > 0 ? (
+                        <>
+                          <select
+                            required={isFieldRequired('room', false)}
+                            value={form.location}
+                            onChange={(e) => setForm({ ...form, location: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all appearance-none pr-10 cursor-pointer text-slate-800"
+                          >
+                            <option value="">-- Chọn phòng học --</option>
+                            {classrooms.map(room => (
+                              <option key={room.id} value={room.name}>
+                                {room.name} ({room.identifier})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </>
+                      ) : (
+                        <>
+                          <ErpInput
+                            type="text"
+                            required={isFieldRequired('room', false)}
+                            placeholder={getFieldPlaceholder('room', entityLabel.preset === 'worker' ? 'Ví dụ: Công trường số 2 / Nhà máy A' : 'Ví dụ: Phòng 201 / Sân tập số 2')}
+                            value={form.location}
+                            onChange={(e) => setForm({ ...form, location: e.target.value })}
+                            className="pl-10"
+                          />
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-405">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </ErpField>
                 </div>
               )}
 
               <div className="relative group/std md:col-span-2">
-                <ErpField label="Vị trí chấm công (tùy chọn)">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <ErpInput
-                      type="number"
-                      step="any"
-                      placeholder="Vĩ độ"
-                      value={form.geoLat}
-                      onChange={(e) => setForm({ ...form, geoLat: e.target.value === '' ? '' : Number(e.target.value) })}
-                    />
-                    <ErpInput
-                      type="number"
-                      step="any"
-                      placeholder="Kinh độ"
-                      value={form.geoLng}
-                      onChange={(e) => setForm({ ...form, geoLng: e.target.value === '' ? '' : Number(e.target.value) })}
-                    />
-                    <ErpInput
-                      type="number"
-                      min={10}
-                      placeholder={`Bán kính (m), mặc định ${DEFAULT_PROJECT_RADIUS_METERS}`}
-                      value={form.geoRadius}
-                      onChange={(e) => setForm({ ...form, geoRadius: e.target.value === '' ? '' : Number(e.target.value) })}
-                    />
+                <ErpField label="Giới hạn chấm công bằng GPS (tùy chọn)">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <div className="relative flex-1 w-full">
+                      <div
+                        className={cn(
+                          erpInputClass(darkMode),
+                          "flex items-center gap-2 pr-28 select-none border-dashed",
+                          (form.geoLat !== '' && form.geoLng !== '')
+                            ? "text-brand-primary bg-brand-primary/5 border-brand-primary/30"
+                            : "text-slate-400 bg-slate-50/50"
+                        )}
+                      >
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        <span className="truncate text-xs font-semibold">
+                          {(form.geoLat !== '' && form.geoLng !== '')
+                            ? `Đã lưu tọa độ GPS`
+                            : `Chưa thiết lập tọa độ`}
+                        </span>
+                      </div>
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {(form.geoLat !== '' && form.geoLng !== '') && (
+                          <button
+                            type="button"
+                            title="Xóa tọa độ"
+                            onClick={() => setForm({ ...form, geoLat: '', geoLng: '', geoRadius: '' })}
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-rose-500 hover:bg-rose-100 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={useCurrentLocation}
+                          disabled={locating}
+                          className="h-7 px-2.5 rounded-md text-[10px] font-black uppercase tracking-wide bg-slate-800 text-white hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {locating ? 'Đang lấy...' : 'Lấy vị trí'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {(form.geoLat !== '' && form.geoLng !== '') && (
+                      <div className="w-full sm:w-48 shrink-0 relative group">
+                        <ErpInput
+                          type="number"
+                          min={10}
+                          placeholder={`Bán kính (m), mặc định ${DEFAULT_PROJECT_RADIUS_METERS}`}
+                          value={form.geoRadius}
+                          onChange={(e) => setForm({ ...form, geoRadius: e.target.value === '' ? '' : Number(e.target.value) })}
+                          className="pl-2 pr-8"
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                          m
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </ErpField>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={useCurrentLocation}
-                    disabled={locating}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border border-slate-200/60 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-                  >
-                    <MapPin className="w-3 h-3" />
-                    {locating ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
-                  </button>
-                  {(form.geoLat !== '' || form.geoLng !== '') && (
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, geoLat: '', geoLng: '', geoRadius: '' })}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border border-slate-200/60 text-slate-500 hover:text-rose-600 cursor-pointer"
-                    >
-                      Xóa vị trí
-                    </button>
-                  )}
                   <p className="text-[10px] text-slate-400">
                     Để trống thì {copy.entityNameLower} không giới hạn nơi chấm công.
                   </p>
@@ -1101,75 +1135,13 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
       {/* Manage Learners Modal */}
       {manageBatch && (
-        <ErpModal
-          title={`${entityLabel.tabLabel} ${copy.entityNameLower} ${manageBatch.code}`}
+        <ManageLearnersModal
+          isOpen={true}
+          batch={manageBatch}
           onClose={() => setManageLearnersId(null)}
-          maxWidth="max-w-lg"
-        >
-          <div className="space-y-6">
-            <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
-              {manageBatch.courseTitle} • {copy.capacityLabel}: {manageBatch.learnerIds.length}
-              {manageBatch.maxLearners ? `/${manageBatch.maxLearners}` : ''} {entityLabel.singular}
-            </p>
-
-            {/* Add learner */}
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <ErpSelect
-                  value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                >
-                  <option value="">{`-- Chọn ${entityLabel.singular} để thêm vào ${copy.entityNameLower} --`}</option>
-                  {availableStudents.map((s) => (
-                    <option key={s.id} value={s.id}>{s.fullName} ({s.phone})</option>
-                  ))}
-                </ErpSelect>
-              </div>
-              <button
-                type="button"
-                onClick={handleAddLearner}
-                disabled={!selectedStudentId}
-                className="px-3.5 py-2 bg-brand-primary text-white rounded-lg text-xs font-bold transition-all hover:bg-brand-primary/95 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
-              >
-                <UserPlus className="w-3.5 h-3.5" /> Thêm
-              </button>
-            </div>
-
-            {/* Enrolled learners */}
-            <div className="space-y-2">
-              <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
-                Danh sách {entityLabel.singular} trong {copy.entityNameLower}
-              </h5>
-              {enrolledStudents.length === 0 ? (
-                <p className="text-xs text-slate-400">{copy.entityName} chưa có {entityLabel.singular} nào.</p>
-              ) : (
-                <div className={cn("border rounded-xl p-1 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
-                  {enrolledStudents.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between py-1.5 px-2">
-                      <div>
-                        <p className={cn("text-xs font-bold", darkMode ? "text-slate-200" : "text-slate-700")}>{s.fullName}</p>
-                        <p className="text-[9px] text-slate-400">{s.phone}{s.rank ? ` • Hạng ${s.rank}` : ''}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLearner(s.id)}
-                        title={`Bỏ khỏi ${copy.entityNameLower}`}
-                        className={cn(
-                          "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
-                          darkMode
-                            ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-400 border-transparent"
-                            : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border-slate-200/60"
-                        )}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </ErpModal>
+          students={students}
+          onSuccess={() => notifyBatchMutation()}
+        />
       )}
 
       {/* Confirm Delete Modal */}
@@ -1221,6 +1193,75 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
           />
         );
       })()}
+
+      {viewingBatch && (
+        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} onClose={() => setViewingBatch(null)}>
+          <div className="space-y-4 text-slate-700 text-left">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã lớp</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingBatch.code}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">
+                  {courses.find(c => c.id === viewingBatch.courseId)?.title || viewingBatch.courseTitle || 'N/A'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || 'Chưa gán'}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
+                <p className="text-sm font-bold text-slate-700 mt-0.5">{statusLabel(viewingBatch.status)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời gian học</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {formatDays(viewingBatch.daysOfWeek)} • {viewingBatch.startTime} - {viewingBatch.endTime}
+                </p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời hạn lớp học</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {formatDate(viewingBatch.startDate)} → {formatDate(viewingBatch.endDate)}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.location || 'Chưa cập nhật'}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sức chứa</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                  {viewingBatch.learnerIds.length} / {viewingBatch.maxLearners || 'Không giới hạn'} {entityLabel.singular}
+                </p>
+              </div>
+            </div>
+
+            {viewingBatch.customFields && Object.keys(viewingBatch.customFields).length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(viewingBatch.customFields).map(([key, val]) => (
+                    <div key={key}>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ErpModal>
+      )}
 
       {viewAttendanceBatchId && (() => {
         const targetBatch = batches.find(b => b.id === viewAttendanceBatchId);
