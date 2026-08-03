@@ -1,4 +1,4 @@
-﻿import type { TabType } from "../types";
+import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
@@ -44,6 +44,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
  * công ty nhưng user cá nhân không được cấp quyền nào liên quan.
  */
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
+  "TỔNG QUAN": ["dashboard:read"],
   "NHÂN SỰ": ["hr:read", "user:read", "kanban:read", "project:read", "timekeeping:read"],
   "ĐỐI TÁC": ["partner:read"],
   "KHO & SẢN PHẨM": ["stock:read"],

@@ -45,7 +45,7 @@ export function AttendanceModal({
   const [selectedSessionDate, setSelectedSessionDate] = useState<string | null>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionDate, setNewSessionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, 'present' | 'absent' | 'excused'>>({});
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, 'present' | 'absent' | 'excused' | 'late'>>({});
   const [sessionNote, setSessionNote] = useState('');
   const [bulkSelectStudents, setBulkSelectStudents] = useState<string[]>([]);
   const [showQrModal, setShowQrModal] = useState(false);
@@ -82,7 +82,7 @@ export function AttendanceModal({
     setSelectedSessionDate(date);
     const session = batch.attendanceSessions?.find(s => s.date === date);
     setSessionNote(session?.note || '');
-    const recs: Record<string, 'present' | 'absent' | 'excused'> = {};
+    const recs: Record<string, 'present' | 'absent' | 'excused' | 'late'> = {};
     (batch.learnerIds || []).forEach((studentId) => {
       const rec = session?.records?.find(r => r.studentId === studentId);
       recs[studentId] = rec ? rec.status : 'present';
@@ -131,7 +131,7 @@ export function AttendanceModal({
     }
   };
 
-  const handleBulkChangeStatus = (status: 'present' | 'absent' | 'excused') => {
+  const handleBulkChangeStatus = (status: 'present' | 'absent' | 'excused' | 'late') => {
     setAttendanceRecords(prev => {
       const updated = { ...prev };
       bulkSelectStudents.forEach(studentId => {
@@ -397,6 +397,13 @@ export function AttendanceModal({
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleBulkChangeStatus('late')}
+                  className="px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/50 rounded-lg text-[10px] font-black cursor-pointer"
+                >
+                  Muộn
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleBulkChangeStatus('absent')}
                   className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/50 rounded-lg text-[10px] font-black cursor-pointer"
                 >
@@ -457,6 +464,18 @@ export function AttendanceModal({
                         )}
                       >
                         Có mặt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAttendanceRecords(prev => ({ ...prev, [studentId]: 'late' }))}
+                        className={cn(
+                          "px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer",
+                          status === 'late'
+                            ? "bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/20"
+                            : "bg-white hover:bg-slate-50 text-slate-400 border-slate-200/60"
+                        )}
+                      >
+                        Muộn
                       </button>
                       <button
                         type="button"

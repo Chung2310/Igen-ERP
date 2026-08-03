@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ModuleKey, FieldDefinition, DynamicFieldType } from "../custom-fields/types";
 import type { EntityPreset } from "../config/entityLabels";
+import { apiFetch } from "../lib/api";
+import { toast } from "../../../pages/Toast";
+
+/** Phần công ty ghi đè lên một trường có sẵn, lưu trên server theo tenant. */
+export interface StandardFieldOverride {
+  key: string;
+  label: string;
+  placeholder?: string;
+  isRequired: boolean;
+  isVisible: boolean;
+  isArchived: boolean;
+}
 
 export interface StandardFieldConfig {
   key: string;
@@ -113,63 +125,115 @@ export function getAdaptedFieldDefinition(config: StandardFieldConfig, moduleKey
   };
 }
 
-export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
-  const localStorageKey = `standardFieldsConfig:${moduleKey}`;
-  const [fields, setFields] = useState<StandardFieldConfig[]>([]);
+/**
+ * Ghép phần ghi đè của công ty lên bộ trường mặc định.
+ *
+ * Chỉ nhãn/placeholder khác mặc định gốc mới được coi là người dùng thật sự đã
+ * đổi tên; trùng mặc định gốc thì trả về nhãn mặc định theo loại hình, để đổi
+ * loại hình doanh nghiệp không bị kẹt lại chữ của ngành cũ.
+ */
+export function mergeStandardFieldOverrides(
+  moduleKey: ModuleKey,
+  overrides: StandardFieldOverride[],
+  preset?: EntityPreset,
+): StandardFieldConfig[] {
+  const defaults = getDefaultStandardFields(moduleKey, preset);
+  const baseDefaults = DEFAULT_STANDARD_FIELDS[moduleKey] || [];
+  return defaults.map((def) => {
+    const matched = overrides.find((o) => o.key === def.key);
+    if (!matched) return def;
+    const base = baseDefaults.find((b) => b.key === def.key);
+    const keptLabel = base && matched.label === base.label ? def.label : matched.label;
+    const keptPlaceholder =
+      base && matched.placeholder === base.placeholder ? def.placeholder : matched.placeholder;
+    return { ...def, ...matched, label: keptLabel, placeholder: keptPlaceholder };
+  });
+}
 
-  const loadFromStorage = useCallback(() => {
-    const defaults = getDefaultStandardFields(moduleKey, preset);
-    const stored = localStorage.getItem(localStorageKey);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as StandardFieldConfig[];
-        // Merge stored fields with defaults to handle schema changes gracefully
-        const baseDefaults = DEFAULT_STANDARD_FIELDS[moduleKey] || [];
-        const merged = defaults.map(def => {
-          const matched = parsed.find(p => p.key === def.key);
-          if (!matched) return def;
-          // saveConfig ghi lại toàn bộ field kèm nhãn, kể cả khi người dùng chỉ
-          // ẩn/hiện một field khác. Nhãn trùng mặc định gốc nghĩa là chưa ai đổi
-          // tên thật sự — ưu tiên nhãn mặc định theo loại hình để không kẹt chữ cũ.
-          const base = baseDefaults.find(b => b.key === def.key);
-          const keptLabel = base && matched.label === base.label ? def.label : matched.label;
-          const keptPlaceholder = base && matched.placeholder === base.placeholder ? def.placeholder : matched.placeholder;
-          return { ...def, ...matched, label: keptLabel, placeholder: keptPlaceholder };
-        });
-        return merged;
-      } catch (e) {
-        console.error("Failed to parse standard fields config", e);
+export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
+  const legacyStorageKey = `standardFieldsConfig:${moduleKey}`;
+  const [fields, setFields] = useState<StandardFieldConfig[]>(() =>
+    getDefaultStandardFields(moduleKey, preset),
+  );
+
+  const load = useCallback(async () => {
+    try {
+      const response = await apiFetch<{ data: StandardFieldOverride[] }>(
+        `/student-management/standard-fields/${moduleKey}`,
+      );
+      let overrides = response.data || [];
+
+      // Di trú một lần: cấu hình cũ nằm trong localStorage của từng máy. Nếu server
+      // chưa có gì mà máy này còn bản cũ thì đẩy lên rồi xóa bản local.
+      if (overrides.length === 0) {
+        const legacy = localStorage.getItem(legacyStorageKey);
+        if (legacy) {
+          try {
+            const parsed = JSON.parse(legacy) as StandardFieldConfig[];
+            const migrated = parsed.map((f) => ({
+              key: f.key,
+              label: f.label,
+              placeholder: f.placeholder ?? "",
+              isRequired: f.isRequired,
+              isVisible: f.isVisible,
+              isArchived: f.isArchived,
+            }));
+            const saved = await apiFetch<{ data: StandardFieldOverride[] }>(
+              `/student-management/standard-fields/${moduleKey}`,
+              { method: "PUT", body: JSON.stringify({ fields: migrated }) },
+            );
+            overrides = saved.data || migrated;
+          } catch (error) {
+            console.error("Failed to migrate standard fields config", error);
+          }
+          localStorage.removeItem(legacyStorageKey);
+        }
       }
+
+      setFields(mergeStandardFieldOverrides(moduleKey, overrides, preset));
+    } catch (error) {
+      // Không chặn form: thiếu quyền hoặc mất mạng thì dùng bộ trường mặc định.
+      console.error("Failed to load standard fields config", error);
+      setFields(getDefaultStandardFields(moduleKey, preset));
     }
-    return defaults;
-  }, [moduleKey, localStorageKey, preset]);
+  }, [moduleKey, preset, legacyStorageKey]);
 
   useEffect(() => {
-    setFields(loadFromStorage());
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === localStorageKey) {
-        setFields(loadFromStorage());
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [loadFromStorage, localStorageKey]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
 
   const saveConfig = (newFields: StandardFieldConfig[]) => {
-    localStorage.setItem(localStorageKey, JSON.stringify(newFields));
+    const previous = fields;
     setFields(newFields);
-    // Dispatch local event for other components in same tab
-    window.dispatchEvent(new Event(`standard-fields-changed:${moduleKey}`));
+    void apiFetch(`/student-management/standard-fields/${moduleKey}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        fields: newFields.map((f) => ({
+          key: f.key,
+          label: f.label,
+          placeholder: f.placeholder ?? "",
+          isRequired: f.isRequired,
+          isVisible: f.isVisible,
+          isArchived: f.isArchived,
+        })),
+      }),
+    })
+      .then(() => {
+        window.dispatchEvent(new Event(`standard-fields-changed:${moduleKey}`));
+      })
+      .catch((error) => {
+        console.error("Failed to save standard fields config", error);
+        toast.error("Không lưu được cấu hình trường. Vui lòng thử lại.");
+        setFields(previous);
+      });
   };
 
   useEffect(() => {
-    const handleLocalChange = () => {
-      setFields(loadFromStorage());
-    };
+    const handleLocalChange = () => { void load(); };
     window.addEventListener(`standard-fields-changed:${moduleKey}`, handleLocalChange);
     return () => window.removeEventListener(`standard-fields-changed:${moduleKey}`, handleLocalChange);
-  }, [moduleKey, loadFromStorage]);
+  }, [moduleKey, load]);
 
   const updateField = (key: string, input: Partial<StandardFieldConfig>) => {
     const updated = fields.map(f => {

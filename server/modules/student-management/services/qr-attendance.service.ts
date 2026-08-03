@@ -327,7 +327,8 @@ export class QRAttendanceService {
       }
     }
 
-    // G. Xác thực khuôn mặt
+    // G. Xác thực khuôn mặt (Tạm thời bỏ qua theo yêu cầu để chỉ điểm danh vị trí)
+    /*
     if (!student.faceEnrollment?.registered || !student.faceEnrollment.insightFaceUserId) {
       await StudentAttendanceAttemptModel.create({
         ...attemptBase, outcome: "rejected", reasonCode: "not_registered",
@@ -364,6 +365,7 @@ export class QRAttendanceService {
       });
       throw new QrCheckinError(gateResult.reasonCode, "Xác thực khuôn mặt không thành công. Vui lòng thử lại.");
     }
+    */
 
     // H. Ghi nhận checkin. Phiên lao động ghi vào bảng chấm công vào/ra (lần
     // quét đầu trong ngày là giờ vào, lần sau là giờ về) thay vì chỉ đánh dấu
@@ -385,12 +387,7 @@ export class QRAttendanceService {
     await StudentAttendanceAttemptModel.create({
       ...attemptBase,
       outcome: "accepted",
-      reasonCode: gateResult.reasonCode,
-      similarity: gateResult.verification.similarity ?? undefined,
-      live: gateResult.verification.live ?? undefined,
-      livenessScore: gateResult.verification.livenessScore ?? undefined,
       latitude, longitude, distanceMeters,
-      evidence: gateResult.evidence,
       attemptedAt: new Date(),
     });
 
@@ -484,12 +481,20 @@ export class QRAttendanceService {
     }
 
     // Build danh sách điểm danh
-    // Học viên nào checkin trong session -> present, còn lại -> absent
+    // Học viên nào checkin trong session -> present hoặc late, còn lại -> absent
     const records = batch.learnerIds.map(studentId => {
       const checkedIn = session.checkins.has(studentId);
+      let isLate = false;
+      if (checkedIn && batch.startTime) {
+        const checkinTime = session.checkins.get(studentId)?.checkinAt;
+        const startDateTime = new Date(`${session.date}T${batch.startTime.padStart(5, "0")}:00`);
+        if (checkinTime && !isNaN(startDateTime.getTime())) {
+          isLate = checkinTime > startDateTime.getTime();
+        }
+      }
       return {
         studentId,
-        status: (checkedIn ? "present" : "absent") as "present" | "absent" | "excused"
+        status: (checkedIn ? (isLate ? "late" : "present") : "absent") as "present" | "absent" | "excused" | "late"
       };
     });
 

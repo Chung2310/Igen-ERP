@@ -5,7 +5,7 @@ export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết th�
 
 export interface IAttendanceRecord {
   studentId: string;
-  status: "present" | "absent" | "excused";
+  status: "present" | "absent" | "excused" | "late";
 }
 
 export interface IAttendanceSession {
