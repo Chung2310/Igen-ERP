@@ -56,6 +56,22 @@ export async function parseApiErrorResponse(response: Response): Promise<ApiClie
     });
   }
 
+  if (isRecord(payload) && typeof payload.error === 'string') {
+    return new ApiClientError({
+      status: response.status,
+      code: "API_ERROR",
+      message: payload.error,
+    });
+  }
+
+  if (isRecord(payload) && typeof payload.message === 'string') {
+    return new ApiClientError({
+      status: response.status,
+      code: "API_ERROR",
+      message: payload.message,
+    });
+  }
+
   return new ApiClientError({
     status: response.status,
     code: "UNKNOWN_API_ERROR",
