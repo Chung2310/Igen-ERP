@@ -82,6 +82,7 @@ export default function QRCheckinPage() {
     error?: string;
   } | null>(null);
 
+  const [isWorker, setIsWorker] = useState<boolean>(false);
   const [step, setStep] = useState<"phone" | "capture">("phone");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<Blob | null>(null);
@@ -190,10 +191,38 @@ export default function QRCheckinPage() {
         
         if (data.success && data.data) {
           setSessionInfo(data.data);
+          setIsWorker(false);
         } else {
-          setSessionError(data.error || "Mã QR đã hết hạn hoặc không hợp lệ.");
+          const workerRes = await fetch(`/api/v1/worker-management/qr-attendance/session-info?token=${token}`);
+          const workerData = await workerRes.json();
+          if (workerData.success && workerData.data) {
+            setSessionInfo({
+              batchId: workerData.data.projectId,
+              batchCode: workerData.data.projectCode,
+              courseTitle: workerData.data.projectName,
+              date: workerData.data.date
+            });
+            setIsWorker(true);
+          } else {
+            setSessionError(workerData.error || data.error || "Mã QR đã hết hạn hoặc không hợp lệ.");
+          }
         }
       } catch (err) {
+        try {
+          const workerRes = await fetch(`/api/v1/worker-management/qr-attendance/session-info?token=${token}`);
+          const workerData = await workerRes.json();
+          if (workerData.success && workerData.data) {
+            setSessionInfo({
+              batchId: workerData.data.projectId,
+              batchCode: workerData.data.projectCode,
+              courseTitle: workerData.data.projectName,
+              date: workerData.data.date
+            });
+            setIsWorker(true);
+            setLoadingSession(false);
+            return;
+          }
+        } catch (_) {}
         setSessionError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
       } finally {
         setLoadingSession(false);
@@ -213,13 +242,18 @@ export default function QRCheckinPage() {
   const handleContinueToCapture = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 8) return;
-    setCameraError(null);
-    setStep("capture");
+    if (isWorker) {
+      handleCheckin(true);
+    } else {
+      setCameraError(null);
+      setStep("capture");
+    }
   };
 
   // 4. Thực hiện checkin: ảnh khuôn mặt (bắt buộc) + GPS
-  const handleCheckin = async () => {
-    if (!capturedPhoto) return;
+  const handleCheckin = async (forceWorker?: boolean | React.MouseEvent) => {
+    const isWorkerMode = isWorker || forceWorker === true;
+    if (!isWorkerMode && !capturedPhoto) return;
 
     try {
       setSubmitting(true);
@@ -241,24 +275,39 @@ export default function QRCheckinPage() {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("token", token);
-      formData.append("phone", phone.replace(/\D/g, ""));
-      formData.append("fingerprint", fingerprint);
-      formData.append("latitude", String(latitude));
-      formData.append("longitude", String(longitude));
-      formData.append("file", capturedPhoto, "checkin.jpg");
+      let res;
+      if (isWorkerMode) {
+        res = await fetch("/api/v1/worker-management/qr-attendance/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            phone: phone.replace(/\D/g, ""),
+            fingerprint,
+            latitude,
+            longitude
+          })
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("token", token);
+        formData.append("phone", phone.replace(/\D/g, ""));
+        formData.append("fingerprint", fingerprint);
+        formData.append("latitude", String(latitude));
+        formData.append("longitude", String(longitude));
+        formData.append("file", capturedPhoto!, "checkin.jpg");
 
-      const res = await fetch("/api/v1/qr-attendance/checkin", {
-        method: "POST",
-        body: formData
-      });
+        res = await fetch("/api/v1/qr-attendance/checkin", {
+          method: "POST",
+          body: formData
+        });
+      }
 
       const data = await res.json();
       if (data.success) {
         setResult({
           success: true,
-          studentName: data.studentName
+          studentName: isWorkerMode ? (data.data?.workerName || data.workerName) : data.studentName
         });
       } else {
         setResult({
@@ -278,8 +327,12 @@ export default function QRCheckinPage() {
 
   const handleTryAgain = () => {
     setResult(null);
-    handleRetakePhoto();
-    setStep("capture");
+    if (isWorker) {
+      setStep("phone");
+    } else {
+      handleRetakePhoto();
+      setStep("capture");
+    }
   };
 
   if (loadingSession) {
@@ -330,22 +383,24 @@ export default function QRCheckinPage() {
                 <CheckCircle2 className="w-14 h-14 animate-bounce" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Thành Công!</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công thành công!" : "Thành Công!"}</h2>
                 <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl py-3 px-4 inline-block max-w-xs mx-auto">
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Học viên</p>
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">{isWorker ? "Lao động" : "Học viên"}</p>
                   <p className="text-base font-extrabold text-slate-800 mt-1">{result.studentName}</p>
                 </div>
                 <p className="text-slate-500 text-sm font-medium mt-3">
-                  Bạn đã điểm danh thành công vào buổi học ngày {formatDate(sessionInfo?.date)}.
+                  {isWorker
+                    ? `Bạn đã chấm công thành công cho ngày ${formatDate(sessionInfo?.date)}.`
+                    : `Bạn đã điểm danh thành công vào buổi học ngày ${formatDate(sessionInfo?.date)}.`}
                 </p>
               </div>
               <div className="border-t border-slate-100 pt-4 space-y-2 text-left">
                 <div className="flex justify-between text-xs font-semibold text-slate-400">
-                  <span>Lớp học:</span>
+                  <span>{isWorker ? "Dự án:" : "Lớp học:"}</span>
                   <span className="text-slate-700 font-bold">{sessionInfo?.batchCode}</span>
                 </div>
                 <div className="flex justify-between text-xs font-semibold text-slate-400">
-                  <span>Khóa học:</span>
+                  <span>{isWorker ? "Tên dự án:" : "Khóa học:"}</span>
                   <span className="text-slate-700 font-bold text-right max-w-[200px] truncate">{sessionInfo?.courseTitle}</span>
                 </div>
               </div>
@@ -357,7 +412,7 @@ export default function QRCheckinPage() {
                 <AlertCircle className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Điểm danh thất bại</h2>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công thất bại" : "Điểm danh thất bại"}</h2>
                 <p className="text-slate-500 text-sm mt-2 font-medium">{result.error}</p>
               </div>
               <button
@@ -372,10 +427,10 @@ export default function QRCheckinPage() {
           // Màn hình nhập SĐT để điểm danh
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Điểm danh Lớp học</h2>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công Dự án" : "Điểm danh Lớp học"}</h2>
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-left space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lớp</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isWorker ? "Mã dự án" : "Lớp"}</span>
                   <span className="text-xs font-extrabold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-md">{sessionInfo?.batchCode}</span>
                 </div>
                 <div className="text-xs font-bold text-slate-800 line-clamp-1">

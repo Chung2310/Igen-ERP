@@ -8,6 +8,8 @@ import {
   WorkerAttendanceError,
   DEFAULT_PROJECT_RADIUS_METERS,
 } from "./worker-attendance.service";
+import fs from "node:fs";
+import path from "node:path";
 
 /** Dựng mốc thời gian từ giờ Việt Nam (VN = UTC+7), độc lập với máy chạy test. */
 const vn = (isoDate: string, hhmm: string) => {
@@ -99,11 +101,19 @@ describe("trạng thái ngày công theo giờ của dự án", () => {
 describe("số phút làm việc", () => {
   const date = "2026-08-04";
 
-  it("tính theo khoảng cách hai mốc", () => {
+  it("tình theo khoảng cách hai mốc", () => {
     expect(calculateWorkedMinutes(vn(date, "08:00"), vn(date, "17:30"))).toBe(570);
   });
 
   it("không bao giờ âm", () => {
     expect(calculateWorkedMinutes(vn(date, "17:00"), vn(date, "08:00"))).toBe(0);
+  });
+});
+
+describe("import isolation", () => {
+  it("does not import student-management models for worker attendance", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "server/modules/worker-management/services/worker-attendance.service.ts"), "utf8");
+    expect(source).not.toContain("student-management");
+    expect(source).not.toContain("../models/batch.model");
   });
 });
