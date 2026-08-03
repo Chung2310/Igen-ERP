@@ -1,4 +1,4 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 /** Một mốc chấm công (vào hoặc ra) kèm bằng chứng vị trí tại thời điểm bấm. */
 export interface IWorkerAttendanceMark {
@@ -21,15 +21,13 @@ export type WorkerAttendanceStatus =
   | "missing-checkout";
 
 /**
- * Chấm công lao động theo từng dự án: mỗi lao động một bản ghi mỗi ngày mỗi dự
- * án. Tách khỏi TimekeepingLog (chấm công nhân sự) vì lao động là Student —
- * không có tài khoản đăng nhập, không gắn ca làm việc hay bảng lương nhân sự.
+ * Chấm công lao động theo từng dự án: mỗi lao động một bản ghi mỗi ngày mỗi dự án.
  */
 export interface IWorkerAttendanceLog extends Document {
-  studentId: string;
-  batchId: string;
-  ownerId: string;
-  branchId?: string;
+  workerId: Types.ObjectId;
+  projectId: Types.ObjectId;
+  companyCode: string;
+  branchId?: Types.ObjectId;
   /** YYYY-MM-DD theo giờ Việt Nam */
   date: string;
   checkIn?: IWorkerAttendanceMark | null;

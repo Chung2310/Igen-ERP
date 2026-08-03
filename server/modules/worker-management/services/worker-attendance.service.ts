@@ -1,11 +1,12 @@
-import { Batch } from "../models/batch.model";
+import { WorkerProjectModel } from "../models/worker-project.model";
 import { WorkerAttendanceLogModel } from "../models/worker-attendance-log.model";
 import type {
   IWorkerAttendanceMark,
   WorkerAttendanceStatus,
 } from "../interfaces/worker-attendance.interface";
 import { calculateHaversineDistanceMeters } from "../utils/geo.util";
-import { logger } from "../config/logger";
+import { logger } from "../../../config/logger";
+import { Types } from "mongoose";
 
 /** Bán kính mặc định quanh công trường khi dự án chưa đặt riêng, mét. */
 export const DEFAULT_PROJECT_RADIUS_METERS = 300;
@@ -57,9 +58,6 @@ export interface ProjectGeoLocation {
 
 /**
  * Kiểm tra vị trí bấm so với tâm dự án.
- *
- * Dự án chưa đặt vị trí thì không chặn — công trường mới lập chưa kịp cấu hình
- * vẫn phải chấm công được, chỉ là không có bằng chứng khoảng cách.
  */
 export function assertWithinProjectRadius(
   geo: ProjectGeoLocation | undefined | null,
@@ -89,9 +87,7 @@ export function assertWithinProjectRadius(
 }
 
 /**
- * Trạng thái ngày công dựa trên giờ bắt đầu/kết thúc của chính dự án — lao động
- * không có ca làm việc riêng như nhân sự, nên giờ dự án là chuẩn duy nhất.
- * Chưa bấm giờ về thì để "missing-checkout" chứ không tự suy ra giờ về.
+ * Trạng thái ngày công dựa trên giờ bắt đầu/kết thúc của chính dự án.
  */
 export function resolveAttendanceStatus(
   checkInAt: Date,
@@ -119,9 +115,9 @@ export function calculateWorkedMinutes(checkInAt: Date, checkOutAt: Date): numbe
 }
 
 export interface MarkAttendanceInput {
-  studentId: string;
-  batchId: string;
-  ownerId: string | string[];
+  workerId: string;
+  projectId: string;
+  companyCode: string | string[];
   branchId?: string;
   latitude?: number;
   longitude?: number;
@@ -141,29 +137,32 @@ export interface MarkAttendanceResult {
   distanceMeters?: number;
 }
 
-function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
-  if (ownerId === "ALL") return {};
-  return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+function buildCompanyQuery(companyCode: string | string[]): Record<string, unknown> {
+  if (companyCode === "ALL") return {};
+  return { companyCode: Array.isArray(companyCode) ? { $in: companyCode } : companyCode };
 }
 
 export class WorkerAttendanceService {
   /**
-   * Ghi một lần bấm. Lần đầu trong ngày là giờ vào, lần sau là giờ về — người
-   * dùng ở công trường chỉ có một nút, không phải chọn loại.
+   * Ghi một lần bấm. Lần đầu trong ngày là giờ vào, lần sau là giờ về.
    */
   static async mark(input: MarkAttendanceInput): Promise<MarkAttendanceResult> {
     const now = input.at ?? new Date();
     const date = vietnamWorkDate(now);
 
-    const batch = await Batch.findOne({ _id: input.batchId, ...buildOwnerQuery(input.ownerId) });
-    if (!batch) {
-      throw new WorkerAttendanceError("batch_not_found", "Không tìm thấy dự án.");
+    const project = await WorkerProjectModel.findOne({
+      _id: new Types.ObjectId(input.projectId),
+      ...buildCompanyQuery(input.companyCode),
+    });
+    if (!project) {
+      throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
     }
-    if (!batch.learnerIds.includes(input.studentId)) {
-      throw new WorkerAttendanceError("not_in_batch", "Lao động không thuộc dự án này.");
+    const workerObjectId = new Types.ObjectId(input.workerId);
+    if (!project.workerIds.some((id) => id.toString() === workerObjectId.toString())) {
+      throw new WorkerAttendanceError("not_in_project", "Lao động không thuộc dự án này.");
     }
 
-    const distanceMeters = assertWithinProjectRadius(batch.geoLocation, input.latitude, input.longitude);
+    const distanceMeters = assertWithinProjectRadius(project.geoLocation, input.latitude, input.longitude);
 
     const mark: IWorkerAttendanceMark = {
       time: now,
@@ -176,28 +175,28 @@ export class WorkerAttendanceService {
     };
 
     const existing = await WorkerAttendanceLogModel.findOne({
-      studentId: input.studentId,
-      batchId: input.batchId,
+      workerId: workerObjectId,
+      projectId: project._id,
       date,
     });
 
     if (!existing) {
       const created = await WorkerAttendanceLogModel.create({
-        studentId: input.studentId,
-        batchId: input.batchId,
-        ownerId: String(batch.ownerId),
-        branchId: input.branchId ?? (batch as unknown as { branchId?: string }).branchId,
+        workerId: workerObjectId,
+        projectId: project._id,
+        companyCode: String(project.companyCode),
+        branchId: input.branchId ? new Types.ObjectId(input.branchId) : project.branchId,
         date,
         checkIn: mark,
-        status: resolveAttendanceStatus(now, null, batch.startTime, batch.endTime),
+        status: resolveAttendanceStatus(now, null, project.startTime, project.endTime),
       });
-      logger.info(`[WorkerAttendance] check-in: student=${input.studentId} batch=${input.batchId} date=${date}`);
+      logger.info(`[WorkerAttendance] check-in: worker=${input.workerId} project=${input.projectId} date=${date}`);
       return { kind: "check-in", date, status: created.status, distanceMeters };
     }
 
     if (!existing.checkIn) {
       existing.checkIn = mark;
-      existing.status = resolveAttendanceStatus(now, existing.checkOut?.time ?? null, batch.startTime, batch.endTime);
+      existing.status = resolveAttendanceStatus(now, existing.checkOut?.time ?? null, project.startTime, project.endTime);
       await existing.save();
       return { kind: "check-in", date, status: existing.status, distanceMeters };
     }
@@ -219,10 +218,10 @@ export class WorkerAttendanceService {
 
     existing.checkOut = mark;
     existing.workedMinutes = calculateWorkedMinutes(new Date(existing.checkIn.time), now);
-    existing.status = resolveAttendanceStatus(new Date(existing.checkIn.time), now, batch.startTime, batch.endTime);
+    existing.status = resolveAttendanceStatus(new Date(existing.checkIn.time), now, project.startTime, project.endTime);
     await existing.save();
 
-    logger.info(`[WorkerAttendance] check-out: student=${input.studentId} batch=${input.batchId} date=${date}`);
+    logger.info(`[WorkerAttendance] check-out: worker=${input.workerId} project=${input.projectId} date=${date}`);
     return {
       kind: "check-out",
       date,
@@ -233,17 +232,21 @@ export class WorkerAttendanceService {
   }
 
   /** Bảng chấm công của một dự án trong một ngày. */
-  static async listByBatchDate(ownerId: string | string[], batchId: string, date: string) {
-    return WorkerAttendanceLogModel.find({ ...buildOwnerQuery(ownerId), batchId, date })
+  static async listByProjectDate(companyCode: string | string[], projectId: string, date: string) {
+    return WorkerAttendanceLogModel.find({
+      ...buildCompanyQuery(companyCode),
+      projectId: new Types.ObjectId(projectId),
+      date,
+    })
       .sort({ "checkIn.time": 1 })
       .lean();
   }
 
   /** Lịch sử chấm công của một dự án trong khoảng ngày, để tổng hợp công. */
-  static async listByBatchRange(ownerId: string | string[], batchId: string, from: string, to: string) {
+  static async listByProjectRange(companyCode: string | string[], projectId: string, from: string, to: string) {
     return WorkerAttendanceLogModel.find({
-      ...buildOwnerQuery(ownerId),
-      batchId,
+      ...buildCompanyQuery(companyCode),
+      projectId: new Types.ObjectId(projectId),
       date: { $gte: from, $lte: to },
     })
       .sort({ date: -1 })
@@ -251,20 +254,22 @@ export class WorkerAttendanceService {
   }
 
   /**
-   * Quản lý sửa tay một bản ghi (bù giờ về bị quên, chỉnh sai giờ). Chỉ đụng tới
-   * mốc thời gian và ghi chú — bằng chứng GPS của lần bấm gốc giữ nguyên.
+   * Quản lý sửa tay một bản ghi (bù giờ về bị quên, chỉnh sai giờ).
    */
   static async adjust(
-    ownerId: string | string[],
+    companyCode: string | string[],
     logId: string,
     changes: { checkInAt?: string | null; checkOutAt?: string | null; note?: string },
     actorId: string
   ) {
-    const log = await WorkerAttendanceLogModel.findOne({ _id: logId, ...buildOwnerQuery(ownerId) });
+    const log = await WorkerAttendanceLogModel.findOne({
+      _id: new Types.ObjectId(logId),
+      ...buildCompanyQuery(companyCode),
+    });
     if (!log) throw new WorkerAttendanceError("log_not_found", "Không tìm thấy bản ghi chấm công.");
 
-    const batch = await Batch.findById(log.batchId);
-    if (!batch) throw new WorkerAttendanceError("batch_not_found", "Không tìm thấy dự án.");
+    const project = await WorkerProjectModel.findById(log.projectId);
+    if (!project) throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
 
     if (changes.checkInAt !== undefined) {
       log.checkIn = changes.checkInAt
@@ -290,8 +295,8 @@ export class WorkerAttendanceService {
       ? resolveAttendanceStatus(
           new Date(log.checkIn.time),
           log.checkOut?.time ? new Date(log.checkOut.time) : null,
-          batch.startTime,
-          batch.endTime
+          project.startTime,
+          project.endTime
         )
       : "missing-checkout";
 

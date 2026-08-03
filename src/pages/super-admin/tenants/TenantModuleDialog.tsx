@@ -14,7 +14,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [selected, setSelected] = React.useState<ModuleKey[]>([]);
-  const [businessType, setBusinessType] = React.useState<BusinessType>("general");
+  const [businessType, setBusinessType] = React.useState<BusinessType>("education");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);

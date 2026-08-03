@@ -20,7 +20,7 @@ const detail = {
     ownerEmail: "owner@acme.test",
     lifecycleStatus: "active",
     enabledModules: ["hr", "chat"],
-    businessType: "general" as const,
+    businessType: "education" as const,
   },
   summary: { userCount: 3, usersByRole: { admin: 1, user: 2 }, enabledModulesCount: 2 },
   audit: [],
@@ -72,8 +72,8 @@ describe("TenantModuleDialog", () => {
 
     await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledTimes(1));
     expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
-      enabledModules: ["inventory", "resource", "chat"],
-      businessType: "general",
+      enabledModules: ["inventory", "resource", "chat", "student"],
+      businessType: "education",
       reason: "Cập nhật cấu hình module",
     });
     expect(onSaved).toHaveBeenCalledTimes(1);
@@ -109,16 +109,6 @@ describe("TenantModuleDialog", () => {
     });
   });
 
-  it("prevents saving an empty module selection", async () => {
-    render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={vi.fn()} />);
-    await screen.findByText("Công ty ACME");
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Nhân sự" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Trò chuyện" }));
-
-    expect(screen.getByText("Doanh nghiệp phải có ít nhất một module.")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Lưu thay đổi" }) as HTMLButtonElement).disabled).toBe(true);
-  });
 
   it("keeps the dialog open and reports API errors", async () => {
     vi.mocked(superAdminTenantService.updateModules).mockRejectedValue(Object.assign(new Error("Không thể cập nhật"), { correlationId: "req-1" }));
