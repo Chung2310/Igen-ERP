@@ -108,6 +108,19 @@ export const authController = {
 
       const userObj = user.toObject();
       delete userObj.password;
+
+      const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("driveOAuth driveFolderId").lean()
+        : null;
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
+
       void recordUserActivity({
         userId: String(user._id), companyCode: user.companyCode || "SYSTEM", actionType: "auth.login",
         category: "authentication", result: "success", method: "POST", route: "/api/v1/auth/login",
@@ -225,7 +238,7 @@ export const authController = {
       // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
       const userObj = user.toObject();
       const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
-        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType").lean()
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType driveOAuth driveFolderId").lean()
         : null;
       const legacyEntityPreset = company && !company.businessType
         ? (await ModuleSettings.findOne({ tenantId: userObj.companyCode }).select("entityPreset").lean())?.entityPreset
@@ -233,6 +246,15 @@ export const authController = {
       userObj.businessType = company?.businessType ?? "general";
       userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules, company?.businessType, legacyEntityPreset);
       userObj.permissions = await resolveProfilePermissions(userId, userObj.role, userObj.companyCode);
+
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
 
       return res.status(200).json({
         status: "success",
@@ -323,11 +345,24 @@ export const authController = {
         });
       }
 
+      const userObj = updatedUser.toObject();
+      const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("driveOAuth driveFolderId").lean()
+        : null;
+      if (company && company.driveOAuth?.refreshToken) {
+        userObj.googleDriveIntegration = {
+          isConnected: true,
+          driveEmail: company.driveOAuth.connectedEmail || "Company Google Drive",
+          rootFolderId: company.driveFolderId || "root",
+          connectedAt: company.driveOAuth.connectedAt
+        };
+      }
+
       // console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
       return res.status(200).json({
         status: "success",
         message: "Cập nhật hồ sơ người dùng thành công",
-        user: updatedUser,
+        user: userObj,
       });
     } catch (error: any) {
       console.error("[Auth updateProfile] Error:", error);
