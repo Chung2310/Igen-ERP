@@ -121,15 +121,16 @@ export class QRAttendanceController {
       if (!token || !phone) {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR và số điện thoại." });
       }
-      if (!req.file) {
-        return res.status(400).json({ success: false, error: "Vui lòng chụp ảnh khuôn mặt để điểm danh.", reasonCode: "missing_image" });
-      }
 
       const lat = latitude !== undefined && latitude !== "" ? Number(latitude) : undefined;
       const lng = longitude !== undefined && longitude !== "" ? Number(longitude) : undefined;
 
+      // Nhận diện khuôn mặt đã tạm ẩn, truyền buffer rỗng
+      const fileBuffer = req.file?.buffer ?? Buffer.alloc(0);
+      const fileMimeType = req.file?.mimetype ?? "image/jpeg";
+
       const result = await QRAttendanceService.checkin(
-        token, phone, fingerprint || "", req.file.buffer, req.file.mimetype, lat, lng
+        token, phone, fingerprint || "", fileBuffer, fileMimeType, lat, lng
       );
       res.json(result);
     } catch (error: any) {
