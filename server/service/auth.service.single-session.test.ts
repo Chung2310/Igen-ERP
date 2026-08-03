@@ -1,10 +1,11 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { authService } from "./auth.service";
 import { getJwtRefreshSecret } from "../config/env";
+import * as socketModule from "../socket";
 
 function makeUser(activeSessionId = "") {
   return {
@@ -40,6 +41,7 @@ describe("regular user single active session", () => {
     UserModel.findOne = originalUserFindOne;
     UserModel.findById = originalUserFindById;
     CompanyModel.findOne = originalCompanyFindOne;
+    socketModule.setEmitToUserSessionMockForTesting(null);
     vi.restoreAllMocks();
   });
 
@@ -64,5 +66,21 @@ describe("regular user single active session", () => {
 
     await assert.rejects(() => authService.refresh(firstRefreshToken), /thiết bị khác|SESSION_REPLACED|không hợp lệ/i);
   });
-});
+  it("emits a socket event to the displaced regular session", async () => {
+    const socketCalls: Array<{ sessionId: string; eventName: string; data: any }> = [];
+    socketModule.setEmitToUserSessionMockForTesting((sessionId, eventName, data) => {
+      socketCalls.push({ sessionId, eventName, data });
+    });
 
+    await authService.login("user@example.com");
+    const firstSessionId = user.activeSessionId;
+    assert.deepEqual(socketCalls, []);
+
+    await authService.login("user@example.com");
+
+    assert.equal(socketCalls.length, 1);
+    assert.equal(socketCalls[0].sessionId, firstSessionId);
+    assert.equal(socketCalls[0].eventName, "auth:session-replaced");
+    assert.equal(socketCalls[0].data.code, "SESSION_REPLACED");
+  });
+});

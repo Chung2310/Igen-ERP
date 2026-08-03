@@ -28,6 +28,9 @@ interface AuthContextType {
   hasPermission: (code: string) => boolean;
 }
 
+const SESSION_REPLACED_EVENT = "auth:session-replaced";
+const SESSION_REPLACED_CODE = "SESSION_REPLACED";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -104,6 +107,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
   }, [userProfile?.companyCode]);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    return socketService.on(SESSION_REPLACED_EVENT, (value: unknown) => {
+      const event = value as { code?: string; message?: string };
+      if (event.code && event.code !== SESSION_REPLACED_CODE) return;
+
+      localStorage.removeItem("accessToken");
+      socketService.disconnect();
+      setUser(null);
+      setUserProfile(null);
+      toast.error(event.message || "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.");
+    });
+  }, [userProfile?.uid]);
 
   useEffect(() => {
     if (!userProfile) return;

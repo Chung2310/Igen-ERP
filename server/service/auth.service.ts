@@ -24,6 +24,7 @@ import { createCompanyAdminUser } from "../utils/company-admin-user";
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
 export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
+export const REGULAR_SESSION_REPLACED_EVENT = "auth:session-replaced";
 export const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
 
 function isSuperAdminRole(role?: string) {
@@ -137,6 +138,7 @@ export const authService = {
       return { kind: "authenticated" as const, user, ...privilegedSession };
     }
 
+    const previousSessionId = user.activeSessionId;
     const sessionId = crypto.randomUUID();
     const now = new Date();
     user.activeSessionId = sessionId;
@@ -145,6 +147,14 @@ export const authService = {
     user.activeSessionUserAgent = requestMetadata?.userAgent || "";
     user.activeSessionIp = requestMetadata?.sourceIp || "";
     await user.save();
+
+    if (previousSessionId && previousSessionId !== sessionId) {
+      const { emitToUserSession } = await import("../socket");
+      emitToUserSession(previousSessionId, REGULAR_SESSION_REPLACED_EVENT, {
+        code: REGULAR_SESSION_REPLACED_CODE,
+        message: REGULAR_SESSION_REPLACED_MESSAGE,
+      });
+    }
 
     const tokens = this.generateTokens(user, sessionId);
     return { kind: "authenticated" as const, user, ...tokens };

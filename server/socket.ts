@@ -177,7 +177,12 @@ export async function initSocketServer(httpServer: HTTPServer) {
         return next(new Error("Authentication error: User not found"));
       }
 
+      if (user.role !== "superadmin" && (!decoded.sid || user.activeSessionId !== decoded.sid)) {
+        return next(new Error("Authentication error: Session replaced"));
+      }
+
       socket.data.user = user;
+      socket.data.sessionId = decoded.sid;
       next();
     } catch (err) {
       return next(new Error("Authentication error: Invalid token"));
@@ -229,6 +234,10 @@ export async function initSocketServer(httpServer: HTTPServer) {
       const userRoom = `user:${userId}`;
       socket.join(userRoom);
       console.log(`[Socket.IO] User ${user?.email} joined personal room: ${userRoom}`);
+
+      if (socket.data.sessionId) {
+        socket.join(`session:${socket.data.sessionId}`);
+      }
 
       // Xử lý cập nhật presence online bất đồng bộ
       void (async () => {
@@ -353,6 +362,26 @@ export function emitToUser(userId: string, eventName: string, data: any) {
   }
   if (io) {
     const room = `user:${userId}`;
+    console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
+    io.to(room).emit(eventName, data);
+  } else {
+    console.warn("[Socket.IO] Server instance (io) not initialized.");
+  }
+}
+
+export let emitToUserSessionMock: ((sessionId: string, eventName: string, data: any) => void) | null = null;
+
+export function setEmitToUserSessionMockForTesting(mock: typeof emitToUserSessionMock) {
+  emitToUserSessionMock = mock;
+}
+
+export function emitToUserSession(sessionId: string, eventName: string, data: any) {
+  if (emitToUserSessionMock) {
+    emitToUserSessionMock(sessionId, eventName, data);
+    return;
+  }
+  if (io) {
+    const room = `session:${sessionId}`;
     console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
     io.to(room).emit(eventName, data);
   } else {
