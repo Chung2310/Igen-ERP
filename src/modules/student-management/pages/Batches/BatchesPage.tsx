@@ -64,6 +64,8 @@ interface BatchForm {
   code: string;
   /** Tên dự án — dùng thay danh mục tuyển dụng ở preset lao động */
   name: string;
+  /** Chỉ tiêu riêng; '' = theo chỉ tiêu của khóa học/danh mục */
+  quota: number | '';
   courseId: string;
   instructorId: string;
   instructorText: string;
@@ -82,6 +84,7 @@ const BATCH_VIEW_MODE_KEY = 'batches:viewMode';
 const EMPTY_FORM: BatchForm = {
   code: '',
   name: '',
+  quota: '',
   courseId: '',
   instructorId: '',
   instructorText: '',
@@ -253,6 +256,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     setForm({
       code: batch.code,
       name: batch.name || '',
+      quota: batch.quota && batch.quota > 0 ? batch.quota : '',
       courseId: batch.courseId,
       instructorId: batch.instructorId || '',
       instructorText: batch.instructorText || '',
@@ -346,6 +350,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         courseId: resolvedCourseId,
         code: form.code.toUpperCase(),
         name: form.name.trim(),
+        quota: form.quota === '' ? 0 : Number(form.quota),
         // Chỉ một trong hai: gán tài khoản hoặc tên nhập tay
         instructorText: form.instructorId ? '' : form.instructorText.trim(),
         ...(editingId ? { expectedVersion: batches.find((batch) => batch.id === editingId)?.__v } : {}),
@@ -518,7 +523,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
     >
       <Users className="w-3 h-3 text-brand-primary" />
-      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} HV
+      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} {entityLabel.singular}
     </button>
   );
 
@@ -763,6 +768,31 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     </ErpField>
                   </div>
                 )}
+                <div className="relative group/std">
+                  <ErpField label={copy.capacityLabel}>
+                    <div className="relative">
+                      <ErpInput
+                        type="number"
+                        min={0}
+                        placeholder={entityLabel.preset === 'worker' ? 'Ví dụ: 30' : 'Để trống = theo khóa học'}
+                        value={form.quota}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') { setForm({ ...form, quota: '' }); return; }
+                          const parsed = parseInt(raw, 10);
+                          setForm({ ...form, quota: Number.isNaN(parsed) ? '' : Math.max(0, parsed) });
+                        }}
+                        className="pl-10"
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
+                        <Users className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </ErpField>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Để trống sẽ lấy theo {entityLabel.preset === 'worker' ? 'danh mục gốc' : 'sĩ số tối đa của khóa học'}.
+                  </p>
+                </div>
               </div>
 
               {isFieldVisible('teacherId') && (
