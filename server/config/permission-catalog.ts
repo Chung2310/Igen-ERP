@@ -13,6 +13,7 @@ export interface PermissionCatalogEntry {
 export const RECRUITMENT_PERMISSION = "recruitment:manage";
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
+  { code: "dashboard:read", label: "Xem tổng quan", group: "Tổng quan" },
   { code: "user:read", label: "Xem người dùng", group: "Người dùng" },
   { code: "user:manage", label: "Quản lý người dùng", group: "Người dùng" },
   { code: "face:manage", label: "Quản lý dữ liệu khuôn mặt", group: "Người dùng" },
