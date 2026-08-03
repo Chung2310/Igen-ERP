@@ -11,6 +11,11 @@ export const createBatchSchema = Joi.object({
   }),
   name: Joi.string().trim().max(200).allow("", null).optional(),
   quota: Joi.number().integer().min(0).optional(),
+  geoLocation: Joi.object({
+    latitude: Joi.number().min(-90).max(90).allow(null).optional(),
+    longitude: Joi.number().min(-180).max(180).allow(null).optional(),
+    radiusMeters: Joi.number().integer().min(10).max(20000).optional(),
+  }).allow(null).optional(),
   courseId: Joi.string().required().messages({
     "any.required": "Khóa học là bắt buộc.",
     "string.empty": "Khóa học không được để trống.",
@@ -47,6 +52,11 @@ export const updateBatchSchema = Joi.object({
   code: Joi.string().optional(),
   name: Joi.string().trim().max(200).allow("", null).optional(),
   quota: Joi.number().integer().min(0).optional(),
+  geoLocation: Joi.object({
+    latitude: Joi.number().min(-90).max(90).allow(null).optional(),
+    longitude: Joi.number().min(-180).max(180).allow(null).optional(),
+    radiusMeters: Joi.number().integer().min(10).max(20000).optional(),
+  }).allow(null).optional(),
   courseId: Joi.string().optional(),
   instructorId: Joi.string().allow("", null).optional(),
   instructorText: Joi.string().trim().max(120).allow("", null).optional(),

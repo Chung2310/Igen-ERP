@@ -66,6 +66,10 @@ interface BatchForm {
   name: string;
   /** Chỉ tiêu riêng; '' = theo chỉ tiêu của khóa học/danh mục */
   quota: number | '';
+  /** Vị trí công trường dùng để chặn chấm công từ xa; '' = không giới hạn */
+  geoLat: number | '';
+  geoLng: number | '';
+  geoRadius: number | '';
   courseId: string;
   instructorId: string;
   instructorText: string;
@@ -81,10 +85,16 @@ interface BatchForm {
 
 const BATCH_VIEW_MODE_KEY = 'batches:viewMode';
 
+/** Bán kính mặc định quanh công trường khi người dùng không nhập, mét. */
+const DEFAULT_PROJECT_RADIUS_METERS = 300;
+
 const EMPTY_FORM: BatchForm = {
   code: '',
   name: '',
   quota: '',
+  geoLat: '',
+  geoLng: '',
+  geoRadius: '',
   courseId: '',
   instructorId: '',
   instructorText: '',
@@ -134,6 +144,35 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const changeViewMode = (mode: 'table' | 'card') => {
     setViewMode(mode);
     if (typeof window !== 'undefined') window.localStorage.setItem(BATCH_VIEW_MODE_KEY, mode);
+  };
+
+  const [locating, setLocating] = useState(false);
+
+  /** Lấy toạ độ máy đang đứng để đặt tâm công trường — người đặt thường đứng tại chỗ. */
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt không hỗ trợ định vị.');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((previous) => ({
+          ...previous,
+          geoLat: Number(position.coords.latitude.toFixed(6)),
+          geoLng: Number(position.coords.longitude.toFixed(6)),
+          geoRadius: previous.geoRadius === '' ? DEFAULT_PROJECT_RADIUS_METERS : previous.geoRadius,
+        }));
+        setLocating(false);
+      },
+      (error) => {
+        setLocating(false);
+        toast.error(error.code === error.PERMISSION_DENIED
+          ? 'Bạn đã chặn quyền vị trí cho trang này.'
+          : 'Không lấy được vị trí hiện tại.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const openEditStdField = (field: StandardFieldConfig) => {
@@ -257,6 +296,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       code: batch.code,
       name: batch.name || '',
       quota: batch.quota && batch.quota > 0 ? batch.quota : '',
+      geoLat: batch.geoLocation?.latitude ?? '',
+      geoLng: batch.geoLocation?.longitude ?? '',
+      geoRadius: batch.geoLocation?.radiusMeters ?? '',
       courseId: batch.courseId,
       instructorId: batch.instructorId || '',
       instructorText: batch.instructorText || '',
@@ -351,6 +393,13 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         code: form.code.toUpperCase(),
         name: form.name.trim(),
         quota: form.quota === '' ? 0 : Number(form.quota),
+        geoLocation: form.geoLat === '' || form.geoLng === ''
+          ? null
+          : {
+              latitude: Number(form.geoLat),
+              longitude: Number(form.geoLng),
+              radiusMeters: form.geoRadius === '' ? DEFAULT_PROJECT_RADIUS_METERS : Number(form.geoRadius),
+            },
         // Chỉ một trong hai: gán tài khoản hoặc tên nhập tay
         instructorText: form.instructorId ? '' : form.instructorText.trim(),
         ...(editingId ? { expectedVersion: batches.find((batch) => batch.id === editingId)?.__v } : {}),
@@ -946,6 +995,57 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </ErpField>
                 </div>
               )}
+
+              <div className="relative group/std md:col-span-2">
+                <ErpField label="Vị trí chấm công (tùy chọn)">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <ErpInput
+                      type="number"
+                      step="any"
+                      placeholder="Vĩ độ"
+                      value={form.geoLat}
+                      onChange={(e) => setForm({ ...form, geoLat: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    <ErpInput
+                      type="number"
+                      step="any"
+                      placeholder="Kinh độ"
+                      value={form.geoLng}
+                      onChange={(e) => setForm({ ...form, geoLng: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    <ErpInput
+                      type="number"
+                      min={10}
+                      placeholder={`Bán kính (m), mặc định ${DEFAULT_PROJECT_RADIUS_METERS}`}
+                      value={form.geoRadius}
+                      onChange={(e) => setForm({ ...form, geoRadius: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                  </div>
+                </ErpField>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    disabled={locating}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border border-slate-200/60 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {locating ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
+                  </button>
+                  {(form.geoLat !== '' || form.geoLng !== '') && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, geoLat: '', geoLng: '', geoRadius: '' })}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border border-slate-200/60 text-slate-500 hover:text-rose-600 cursor-pointer"
+                    >
+                      Xóa vị trí
+                    </button>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    Để trống thì {copy.entityNameLower} không giới hạn nơi chấm công.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <CustomFieldsSection
