@@ -14,6 +14,7 @@ import { InsightFaceClient } from "../../../service/insightface.service";
 import type { FaceReasonCode } from "../../../service/insightface.service";
 
 import { Course } from "../models/course.model";
+import { WorkerAttendanceService, WorkerAttendanceError } from "./worker-attendance.service";
 
 export type QrCheckinReasonCode =
   | "session_invalid"
@@ -24,6 +25,10 @@ export type QrCheckinReasonCode =
   | "already_checked_in"
   | "missing_image"
   | "outside_radius"
+  | "too_soon"
+  | "already_completed"
+  | "missing_location"
+  | "batch_not_found"
   | FaceReasonCode;
 
 export class QrCheckinError extends Error {
@@ -56,6 +61,13 @@ export interface QRSession {
   usedNonces: Set<string>;
   deviceMap: Map<string, string>; // fingerprint -> phone
   closed: boolean;
+  /**
+   * QR dùng chung: ảnh mã được gửi vào nhóm chat cho nhiều người cùng quét, nên
+   * token không xoay và nonce không bị tiêu sau lần quét đầu.
+   */
+  shared: boolean;
+  /** "worker" ghi vào chấm công vào/ra; "class" giữ điểm danh theo buổi. */
+  mode: "class" | "worker";
 }
 
 const sessions = new Map<string, QRSession>();
@@ -66,13 +78,17 @@ const insightFaceClient = {
 };
 
 // Helper generate JWT token mới với nonce ngẫu nhiên
-function generateToken(sessionId: string, batchId: string): { token: string; expiresAt: number } {
+function generateToken(
+  sessionId: string,
+  batchId: string,
+  ttlSeconds = 30
+): { token: string; expiresAt: number } {
   const nonce = crypto.randomUUID();
-  const tokenExpiresAt = Date.now() + 30 * 1000; // 30s TTL
+  const tokenExpiresAt = Date.now() + ttlSeconds * 1000;
   const token = jwt.sign(
     { sid: sessionId, bid: batchId, nonce },
     getJwtAccessSecret(),
-    { expiresIn: "30s" }
+    { expiresIn: ttlSeconds }
   );
   return { token, expiresAt: tokenExpiresAt };
 }
@@ -83,8 +99,16 @@ export class QRAttendanceService {
     batchId: string,
     date: string,
     durationMinutes: number = 5,
-    ownerId: string
-  ): Promise<{ sessionId: string; token: string; expiresAt: number; tokenExpiresAt: number }> {
+    ownerId: string,
+    options: { shared?: boolean; mode?: "class" | "worker" } = {}
+  ): Promise<{
+    sessionId: string;
+    token: string;
+    expiresAt: number;
+    tokenExpiresAt: number;
+    shared: boolean;
+    mode: "class" | "worker";
+  }> {
     logger.info(`[QR-Attendance] Creating session for batchId=${batchId}, date=${date}, ownerId=${ownerId}`);
     
     // Tìm và đóng phiên cũ của lớp này trong ngày này nếu có
@@ -108,7 +132,12 @@ export class QRAttendanceService {
     const createdAt = Date.now();
     const expiresAt = createdAt + durationMinutes * 60 * 1000;
     
-    const { token, expiresAt: tokenExpiresAt } = generateToken(sessionId, batchId);
+    // QR dùng chung phải sống đúng bằng phiên: ảnh đã gửi vào nhóm chat không
+    // thể xoay token, nếu không người quét sau sẽ nhận mã hết hạn.
+    const shared = options.shared === true;
+    const mode = options.mode ?? "class";
+    const tokenTtlSeconds = shared ? Math.ceil((expiresAt - createdAt) / 1000) : 30;
+    const { token, expiresAt: tokenExpiresAt } = generateToken(sessionId, batchId, tokenTtlSeconds);
 
     const session: QRSession = {
       id: sessionId,
@@ -125,11 +154,13 @@ export class QRAttendanceService {
       checkins: new Map(),
       usedNonces: new Set(),
       deviceMap: new Map(),
-      closed: false
+      closed: false,
+      shared,
+      mode
     };
 
     sessions.set(sessionId, session);
-    return { sessionId, token, expiresAt, tokenExpiresAt };
+    return { sessionId, token, expiresAt, tokenExpiresAt, shared, mode };
   }
 
   // 1.1 Lấy thông tin lớp học công khai bằng token
@@ -172,8 +203,8 @@ export class QRAttendanceService {
       throw new Error("Phiên điểm danh không tồn tại hoặc đã kết thúc.");
     }
 
-    // Nếu token hiện tại đã hết hạn (hoặc gần hết hạn, buffer 5s)
-    if (Date.now() >= session.tokenExpiresAt - 5000) {
+    // Phiên dùng chung giữ nguyên token cho tới khi hết phiên
+    if (!session.shared && Date.now() >= session.tokenExpiresAt - 5000) {
       const { token, expiresAt } = generateToken(sessionId, session.batchId);
       session.currentToken = token;
       session.tokenExpiresAt = expiresAt;
@@ -196,7 +227,12 @@ export class QRAttendanceService {
     mimeType: string,
     latitude?: number,
     longitude?: number
-  ): Promise<{ success: boolean; studentName: string; distanceMeters?: number }> {
+  ): Promise<{
+    success: boolean;
+    studentName: string;
+    distanceMeters?: number;
+    kind?: "check-in" | "check-out";
+  }> {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
@@ -212,11 +248,15 @@ export class QRAttendanceService {
       throw new QrCheckinError("session_invalid", "Phiên điểm danh đã kết thúc hoặc không tồn tại.");
     }
 
-    // A. Chống replay bằng nonce
-    if (session.usedNonces.has(nonce)) {
-      throw new QrCheckinError("replay", "Mã QR này đã được quét và sử dụng rồi.");
+    // A. Chống replay bằng nonce — chỉ áp cho QR xoay 30s. Với QR dùng chung,
+    // mọi người quét cùng một mã nên tiêu nonce sẽ chặn tất cả trừ người đầu
+    // tiên; chống trùng ở đây dựa vào "mỗi người một lần trong ngày" bên dưới.
+    if (!session.shared) {
+      if (session.usedNonces.has(nonce)) {
+        throw new QrCheckinError("replay", "Mã QR này đã được quét và sử dụng rồi.");
+      }
+      session.usedNonces.add(nonce);
     }
-    session.usedNonces.add(nonce);
 
     // B. Chống gian lận bằng fingerprint: 1 thiết bị chỉ điểm danh cho 1 SĐT
     const cleanPhone = phone.replace(/\D/g, "");
@@ -247,8 +287,9 @@ export class QRAttendanceService {
       throw new QrCheckinError("not_in_batch", "Học viên không nằm trong danh sách lớp học này.");
     }
 
-    // E. Kiểm tra xem học viên đã điểm danh trong phiên này chưa
-    if (session.checkins.has(student._id.toString())) {
+    // E. Kiểm tra xem học viên đã điểm danh trong phiên này chưa. Phiên chấm
+    // công lao động bỏ qua bước này vì lần quét thứ hai chính là giờ về.
+    if (session.mode !== "worker" && session.checkins.has(student._id.toString())) {
       throw new QrCheckinError("already_checked_in", "Bạn đã điểm danh thành công trước đó rồi.");
     }
 
@@ -325,7 +366,31 @@ export class QRAttendanceService {
       throw new QrCheckinError(gateResult.reasonCode, "Xác thực khuôn mặt không thành công. Vui lòng thử lại.");
     }
 
-    // H. Ghi nhận checkin
+    // H. Ghi nhận checkin. Phiên lao động ghi vào bảng chấm công vào/ra (lần
+    // quét đầu trong ngày là giờ vào, lần sau là giờ về) thay vì chỉ đánh dấu
+    // có mặt như lớp học.
+    let markKind: "check-in" | "check-out" | undefined;
+    if (session.mode === "worker") {
+      try {
+        const marked = await WorkerAttendanceService.mark({
+          studentId,
+          batchId: session.batchId,
+          ownerId: session.ownerId,
+          latitude,
+          longitude,
+          deviceInfo: fingerprint,
+        });
+        markKind = marked.kind;
+      } catch (error) {
+        // Giữ nguyên thông điệp tiếng Việt của tầng chấm công (chấm quá sớm, đã
+        // đủ vào/ra...) để người quét ngoài công trường hiểu vì sao bị từ chối.
+        if (error instanceof WorkerAttendanceError) {
+          throw new QrCheckinError(error.reasonCode as QrCheckinReasonCode, error.message);
+        }
+        throw error;
+      }
+    }
+
     const checkinInfo: CheckedInStudent = {
       studentId,
       phone: cleanPhone,
@@ -364,7 +429,8 @@ export class QRAttendanceService {
     return {
       success: true,
       studentName: student.fullName,
-      distanceMeters
+      distanceMeters,
+      kind: markKind
     };
   }
 
@@ -430,6 +496,12 @@ export class QRAttendanceService {
 
     session.closed = true;
 
+    if (session.mode === "worker") {
+      sessions.delete(sessionId);
+      logger.info(`[QR-Attendance] Closed worker attendance session ${sessionId} for batchId=${session.batchId}`);
+      return;
+    }
+
     // Tìm lớp học để lấy toàn bộ học viên
     const batch = await Batch.findById(session.batchId);
     if (!batch) {
@@ -472,3 +544,5 @@ setInterval(() => {
     }
   }
 }, 60 * 1000);
+
+

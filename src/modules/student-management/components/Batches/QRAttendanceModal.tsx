@@ -46,6 +46,8 @@ export function QRAttendanceModal({
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number>(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 phút đếm ngược (giây)
   const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(30); // 30s xoay QR
+  /** Mã dùng chung (lao động): gửi được vào nhóm chat, sống hết phiên, không xoay */
+  const [shared, setShared] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [closing, setClosing] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
@@ -94,11 +96,14 @@ export function QRAttendanceModal({
         setLoading(true);
         const res = await apiFetch("/qr-attendance/session", {
           method: "POST",
-          body: JSON.stringify({ batchId: batch.id, date, durationMinutes: 5 }),
+          // Không ép thời lượng: server tự chọn theo loại hình (lao động 60
+          // phút cho mã dùng chung, lớp học 5 phút cho mã xoay).
+          body: JSON.stringify({ batchId: batch.id, date }),
         });
 
         if (res.sessionId) {
           setSessionId(res.sessionId);
+          setShared(res.shared === true);
           setQrToken(res.token);
           setExpiresAt(res.expiresAt);
           setTokenExpiresAt(res.tokenExpiresAt);
@@ -123,6 +128,26 @@ export function QRAttendanceModal({
 
     startSession();
   }, [isOpen, batch.id, date, onClose]);
+
+  /** Tải ảnh QR về máy để gửi vào nhóm chat của dự án. */
+  const handleDownloadQr = () => {
+    if (!qrDataUrl) return;
+    const link = document.createElement("a");
+    link.href = qrDataUrl;
+    link.download = `qr-cham-cong-${batch.code}-${date}.png`;
+    link.click();
+  };
+
+  /** Sao chép đường dẫn chấm công cho ai không quét được ảnh QR. */
+  const handleCopyLink = async () => {
+    if (!qrToken) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/attendance/checkin/${qrToken}`);
+      toast.success("Đã sao chép đường dẫn chấm công.");
+    } catch {
+      toast.error("Không sao chép được đường dẫn.");
+    }
+  };
 
   // 2. Tạo QR Code khi token thay đổi
   useEffect(() => {
@@ -249,8 +274,9 @@ export function QRAttendanceModal({
       const tokenRemainingSecs = Math.max(0, Math.floor((tokenExpiresAt - now) / 1000));
       setTokenTimeRemaining(tokenRemainingSecs);
 
-      // Khi đếm ngược token hết hạn (<= 1s), tự động kích hoạt xoay mã QR mới
-      if (tokenRemainingSecs <= 1) {
+      // Mã dùng chung sống hết phiên nên không xoay; xoay sẽ làm ảnh đã gửi
+      // vào nhóm chat hết hiệu lực.
+      if (!shared && tokenRemainingSecs <= 1) {
         rotateToken();
       }
     }, 1000);
@@ -260,7 +286,7 @@ export function QRAttendanceModal({
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken]);
+  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken, shared]);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);
@@ -340,20 +366,46 @@ export function QRAttendanceModal({
                       </div>
                     )}
 
-                    {/* Rotating Indicator */}
+                    {/* Trạng thái mã: dùng chung thì cố định, lớp học thì xoay 30s */}
                     <div className="absolute bottom-3 left-0 right-0 text-center">
-                      <button
-                        type="button"
-                        onClick={rotateToken}
-                        className="bg-slate-900/90 hover:bg-slate-950 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10 cursor-pointer transition-all active:scale-95"
-                        title="Bấm để xoay mã QR mới ngay"
-                      >
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                        Xoay sau {tokenTimeRemaining}s
-                      </button>
+                      {shared ? (
+                        <span className="bg-slate-900/90 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                          Còn hiệu lực {Math.floor(timeRemaining / 60)} phút
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={rotateToken}
+                          className="bg-slate-900/90 hover:bg-slate-950 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10 cursor-pointer transition-all active:scale-95"
+                          title="Bấm để xoay mã QR mới ngay"
+                        >
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                          Xoay sau {tokenTimeRemaining}s
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
+
+                {shared && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 max-w-[285px]">
+                    <button
+                      type="button"
+                      onClick={handleDownloadQr}
+                      className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wide text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Tải ảnh QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wide text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Sao chép link
+                    </button>
+                  </div>
+                )}
 
                 {/* Instructions */}
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-500 space-y-2.5 max-w-[285px] w-full shadow-inner">
@@ -363,11 +415,15 @@ export function QRAttendanceModal({
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">2</span>
-                    <p>Mở đường dẫn và nhập Số điện thoại để điểm danh.</p>
+                    <p>{shared
+                      ? "Mở đường dẫn, nhập số điện thoại và chụp ảnh để chấm công."
+                      : "Mở đường dẫn và nhập Số điện thoại để điểm danh."}</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">3</span>
-                    <p>Trạng thái sẽ tự động cập nhật bên phải.</p>
+                    <p>{shared
+                      ? "Quét lần đầu là giờ vào, quét lần sau là giờ về."
+                      : "Trạng thái sẽ tự động cập nhật bên phải."}</p>
                   </div>
                 </div>
               </div>

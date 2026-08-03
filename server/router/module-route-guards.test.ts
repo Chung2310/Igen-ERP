@@ -7,6 +7,7 @@ import { resolveModuleAccess } from "../middleware/require-module";
 test("shared workflow resolves an independent guard from its mount path", () => {
   assert.equal(resolveBusinessModuleKey("/api/v1/student-management/send-email"), "student");
   assert.equal(resolveBusinessModuleKey("/api/v1/worker-management/send-email"), "worker");
+  assert.equal(resolveBusinessModuleKey("/api/v1/worker-management/attendance/worker"), "worker");
 });
 
 test("labor tenants can access Worker but not Student", () => {
@@ -20,3 +21,5 @@ test("worker CRUD routes are registered", () => {
     assert.ok(workerRoutes.stack.some((item: any) => item.route?.path === path && item.route.methods[method]), `${method.toUpperCase()} ${path} must be registered`);
   }
 });
+
+
