@@ -461,7 +461,7 @@ export default function QRCheckinPage() {
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
-                Tiếp tục chụp ảnh khuôn mặt
+                Điểm danh ngay
               </button>
             </form>
           </div>
