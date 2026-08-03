@@ -4,7 +4,7 @@ import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
   X, Calendar as CalendarIcon, ChevronDown,
-  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, GitBranch
+  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, QrCode
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -17,6 +17,7 @@ import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { AssignStudentBranchModal } from '../../components/Student/AssignStudentBranchModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
+import { RegisterQRModal } from '../../components/Student/RegisterQRModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
@@ -49,7 +50,9 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, canManage = true }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { userProfile } = useAuth();
-  const [listScope, setListScope] = useState<'branch' | 'unassigned'>('branch');
+  // Phạm vi danh sách luôn theo chi nhánh đang chọn — lối vào "Chưa gán chi nhánh" đã được gỡ khỏi thanh công cụ.
+  const [listScope] = useState<'branch' | 'unassigned'>('branch');
+  const [isRegisterQROpen, setIsRegisterQROpen] = useState(false);
   const isUnassignedScope = listScope === 'unassigned';
   const { students, loading } = useStudents(resolvedCenter, listScope);
   const { branches } = useBranch();
@@ -451,11 +454,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          {userProfile?.role === 'admin' && (
-            <button onClick={() => { setListScope(isUnassignedScope ? 'branch' : 'unassigned'); setSelectedStudentIds([]); }} className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm", isUnassignedScope ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-white text-slate-600 border border-slate-200")}>
-              <GitBranch className="w-3.5 h-3.5" /> {isUnassignedScope ? 'Quay lại chi nhánh đang chọn' : 'Chưa gán chi nhánh'}
-            </button>
-          )}
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
@@ -482,6 +480,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
+          </button>}
+          {canManage && userProfile?.uid && <button
+            onClick={() => setIsRegisterQROpen(true)}
+            title="QR để học viên tự đăng ký"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+          >
+            <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
           {canManage && <button
             onClick={onAddStudent}
@@ -890,6 +895,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         onSuccess={() => setIsImportOpen(false)}
         selectedCenter={selectedCenter}
       />}
+
+      {/* QR để học viên tự đăng ký */}
+      <RegisterQRModal
+        isOpen={isRegisterQROpen}
+        teacherId={userProfile?.uid || ''}
+        onClose={() => setIsRegisterQROpen(false)}
+      />
     </div>
   );
 }
