@@ -1,20 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterModulesForBusinessType, getRequiredBusinessModule, resolveBusinessType } from "./business-types";
+import { filterModulesForBusinessType, getRequiredBusinessModule, resolveBusinessType, BUSINESS_TYPES } from "./business-types";
 
-test("legacy entity presets resolve to business types", () => {
-  assert.equal(resolveBusinessType(undefined, "student"), "education");
-  assert.equal(resolveBusinessType(undefined, "worker"), "labor");
-  assert.equal(resolveBusinessType(undefined, "customer"), "service");
-  assert.equal(resolveBusinessType(undefined, "candidate"), "recruitment");
+test("only exposes education and labor as selectable business types", () => {
+  assert.deepEqual(BUSINESS_TYPES, ["education", "labor"]);
 });
 
-test("business type filters incompatible business modules", () => {
+test("falls compatibility-only business types and legacy presets back to education", () => {
+  assert.equal(resolveBusinessType("service"), "education");
+  assert.equal(resolveBusinessType("recruitment"), "education");
+  assert.equal(resolveBusinessType("general"), "education");
+  assert.equal(resolveBusinessType(undefined, "customer"), "education");
+  assert.equal(resolveBusinessType(undefined, "candidate"), "education");
+  assert.equal(resolveBusinessType(undefined, "student"), "education");
+  assert.equal(resolveBusinessType(undefined, "worker"), "labor");
+});
+
+test("allows only student for education and worker for labor", () => {
+  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "education"), ["student", "hr", "chat"]);
   assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "labor"), ["worker", "hr", "chat"]);
-  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "resource"], "education"), ["student", "resource"]);
 });
 
 test("required business module is forced into filtered module list", () => {
   assert.deepEqual(filterModulesForBusinessType(["hr"], "labor"), ["worker", "hr"]);
-  assert.equal(getRequiredBusinessModule("general"), null);
+  assert.deepEqual(filterModulesForBusinessType(["hr"], "education"), ["student", "hr"]);
 });
+

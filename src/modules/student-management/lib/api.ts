@@ -9,7 +9,13 @@ export function setBusinessApiScope(scope: BusinessApiScope) {
 
 function resolveBusinessEndpoint(endpoint: string) {
   if (businessApiScope !== "worker" || endpoint.startsWith("/auth/")) return endpoint;
-  return `/worker-management${endpoint}`;
+  let mapped = endpoint;
+  if (endpoint.startsWith("/batches")) {
+    mapped = endpoint.replace("/batches", "/projects");
+  } else if (endpoint.startsWith("/attendance/worker")) {
+    mapped = endpoint.replace("/attendance/worker", "/attendance");
+  }
+  return `/worker-management${mapped}`;
 }
 export function setAccessToken(token: string | null) {
   if (token) {

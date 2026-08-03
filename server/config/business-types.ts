@@ -1,22 +1,19 @@
 import { sanitizeModuleKeys, type ModuleKey } from "./module-keys";
 
-export const BUSINESS_TYPES = ["education", "labor", "service", "recruitment", "general"] as const;
+export const BUSINESS_TYPES = ["education", "labor"] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
-export const DEFAULT_BUSINESS_TYPE: BusinessType = "general";
+export const DEFAULT_BUSINESS_TYPE: BusinessType = "education";
 
 const LEGACY_PRESET_BUSINESS_TYPE: Record<string, BusinessType> = {
   student: "education",
   worker: "labor",
-  customer: "service",
-  candidate: "recruitment",
+  customer: "education",
+  candidate: "education",
 };
 
 const REQUIRED_BUSINESS_MODULE: Record<BusinessType, ModuleKey | null> = {
   education: "student",
   labor: "worker",
-  service: "customer",
-  recruitment: "candidate",
-  general: null,
 };
 
 const BUSINESS_MODULES = new Set<ModuleKey>(["student", "worker", "customer", "candidate"]);

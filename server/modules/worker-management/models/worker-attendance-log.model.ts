@@ -16,10 +16,10 @@ const markSchema = new Schema(
 
 const workerAttendanceLogSchema = new Schema<IWorkerAttendanceLog>(
   {
-    studentId: { type: String, required: true, index: true },
-    batchId: { type: String, required: true, index: true },
-    ownerId: { type: String, required: true, index: true },
-    branchId: { type: String, index: true },
+    workerId: { type: Schema.Types.ObjectId, required: true, index: true },
+    projectId: { type: Schema.Types.ObjectId, required: true, index: true },
+    companyCode: { type: String, required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, index: true },
     date: { type: String, required: true, index: true },
     checkIn: { type: markSchema, default: null },
     checkOut: { type: markSchema, default: null },
@@ -36,9 +36,9 @@ const workerAttendanceLogSchema = new Schema<IWorkerAttendanceLog>(
 );
 
 // Một lao động chỉ có một bản ghi mỗi ngày trong cùng một dự án. Khóa gồm cả
-// batchId để người làm nhiều dự án trong ngày vẫn chấm được cho từng dự án.
-workerAttendanceLogSchema.index({ studentId: 1, batchId: 1, date: 1 }, { unique: true });
-workerAttendanceLogSchema.index({ batchId: 1, date: -1 });
+// projectId để người làm nhiều dự án trong ngày vẫn chấm được cho từng dự án.
+workerAttendanceLogSchema.index({ workerId: 1, projectId: 1, date: 1 }, { unique: true });
+workerAttendanceLogSchema.index({ projectId: 1, date: -1 });
 
 export const WorkerAttendanceLogModel = model<IWorkerAttendanceLog>(
   "WorkerAttendanceLog",

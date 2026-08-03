@@ -14,7 +14,6 @@ import { InsightFaceClient } from "../../../service/insightface.service";
 import type { FaceReasonCode } from "../../../service/insightface.service";
 
 import { Course } from "../models/course.model";
-import { WorkerAttendanceService, WorkerAttendanceError } from "./worker-attendance.service";
 
 export type QrCheckinReasonCode =
   | "session_invalid"
@@ -369,27 +368,7 @@ export class QRAttendanceService {
     // H. Ghi nhận checkin. Phiên lao động ghi vào bảng chấm công vào/ra (lần
     // quét đầu trong ngày là giờ vào, lần sau là giờ về) thay vì chỉ đánh dấu
     // có mặt như lớp học.
-    let markKind: "check-in" | "check-out" | undefined;
-    if (session.mode === "worker") {
-      try {
-        const marked = await WorkerAttendanceService.mark({
-          studentId,
-          batchId: session.batchId,
-          ownerId: session.ownerId,
-          latitude,
-          longitude,
-          deviceInfo: fingerprint,
-        });
-        markKind = marked.kind;
-      } catch (error) {
-        // Giữ nguyên thông điệp tiếng Việt của tầng chấm công (chấm quá sớm, đã
-        // đủ vào/ra...) để người quét ngoài công trường hiểu vì sao bị từ chối.
-        if (error instanceof WorkerAttendanceError) {
-          throw new QrCheckinError(error.reasonCode as QrCheckinReasonCode, error.message);
-        }
-        throw error;
-      }
-    }
+    let markKind: undefined;
 
     const checkinInfo: CheckedInStudent = {
       studentId,
@@ -496,11 +475,6 @@ export class QRAttendanceService {
 
     session.closed = true;
 
-    if (session.mode === "worker") {
-      sessions.delete(sessionId);
-      logger.info(`[QR-Attendance] Closed worker attendance session ${sessionId} for batchId=${session.batchId}`);
-      return;
-    }
 
     // Tìm lớp học để lấy toàn bộ học viên
     const batch = await Batch.findById(session.batchId);
