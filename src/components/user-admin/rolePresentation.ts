@@ -2,7 +2,7 @@ const SYSTEM_ROLE_TITLES: Record<string, string> = {
   superadmin: "Quản trị viên cấp cao",
   admin: "Quản trị viên doanh nghiệp",
   branch_owner: "Chủ chi nhánh",
-  manager: "Quản lý chi nhánh",
+  manager: "Quản lý",
   user: "Nhân viên",
   staff: "Nhân viên",
   teacher: "Giáo viên",

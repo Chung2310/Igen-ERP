@@ -1,8 +1,9 @@
 import { Response } from "express";
-import { AuthenticatedRequest, getEffectivePermissions } from "../middleware/auth";
+import { AuthenticatedRequest, getEffectivePermissions, DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { crudService } from "../service/crud.service";
 import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
+import { RolePermissionModel } from "../model/role-permission.model";
 import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
@@ -190,6 +191,38 @@ export const crudController = {
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
+      if (modelName === "users") {
+        const actorRole = req.user?.role || "user";
+        if (actorRole !== "superadmin" && actorRole !== "admin") {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.",
+          });
+        }
+        
+        let targetRoleLevel = DEFAULT_ROLE_LEVELS[req.body.role];
+        if (targetRoleLevel === undefined) {
+          const rolePerm = await RolePermissionModel.findOne({
+            companyCode,
+            role: req.body.role,
+          });
+          targetRoleLevel = rolePerm ? rolePerm.level : 4;
+        }
+
+        const callerRolePerm = await RolePermissionModel.findOne({
+          companyCode,
+          role: actorRole,
+        });
+        const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[actorRole] || 4);
+
+        if (actorRole !== "superadmin" && targetRoleLevel <= callerLevel) {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.",
+          });
+        }
+      }
+
       if (modelName === "hr-leave-applications") {
         if (!req.body.employeeId || !req.body.startDate || !req.body.endDate) throw Object.assign(new Error("Thiếu nhân viên và khoảng ngày nghỉ."), { statusCode: 400 });
         const requestKind: LeaveRequestKind = LEAVE_REQUEST_KINDS.includes(req.body.requestKind) ? req.body.requestKind : "leave";
@@ -267,6 +300,55 @@ export const crudController = {
       const userRole = req.user?.role || "user";
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
+
+      if (modelName === "users") {
+        const actorRole = req.user?.role || "user";
+        if (actorRole !== "superadmin") {
+          const targetUser = await UserModel.findOne({ _id: id, companyCode }).lean();
+          if (targetUser) {
+            const callerRolePerm = await RolePermissionModel.findOne({ companyCode, role: actorRole });
+            const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[actorRole] || 4);
+
+            let currentTargetLevel = DEFAULT_ROLE_LEVELS[targetUser.role];
+            if (currentTargetLevel === undefined) {
+              const currentTargetPerm = await RolePermissionModel.findOne({ companyCode, role: targetUser.role });
+              currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+            }
+
+            if (currentTargetLevel <= callerLevel) {
+              return res.status(403).json({
+                status: "error",
+                message: "Bạn không có quyền chỉnh sửa tài khoản có cấp bậc tương đương hoặc cao hơn.",
+              });
+            }
+          }
+
+          if (req.body.role !== undefined) {
+            if (actorRole !== "admin") {
+              return res.status(403).json({
+                status: "error",
+                message: "Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.",
+              });
+            }
+
+            let targetLevel = DEFAULT_ROLE_LEVELS[req.body.role];
+            if (targetLevel === undefined) {
+              const targetRolePerm = await RolePermissionModel.findOne({ companyCode, role: req.body.role });
+              targetLevel = targetRolePerm ? targetRolePerm.level : 4;
+            }
+
+            const callerRolePerm = await RolePermissionModel.findOne({ companyCode, role: actorRole });
+            const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[actorRole] || 4);
+
+            if (targetLevel <= callerLevel) {
+              return res.status(403).json({
+                status: "error",
+                message: "Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.",
+              });
+            }
+          }
+        }
+      }
 
       let attendanceBefore: any = null;
       let attendanceReason = "";

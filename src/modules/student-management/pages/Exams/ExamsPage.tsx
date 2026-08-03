@@ -4,7 +4,7 @@ import {
   Plus, Download, Printer,
   ChevronDown, Trash2,
   ClipboardList, CheckCircle2, Clock, Users as UsersIcon,
-  X
+  X, Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
@@ -19,6 +19,7 @@ import { ExamCard } from '../../components/Exams/ExamCard';
 import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
+import { ErpModal } from '../../components/Erp/ErpUI';
 
 export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
@@ -32,6 +33,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
   const [assignModalExam, setAssignModalExam] = useState<ExamSession | null>(null);
   const [deleteModalExam, setDeleteModalExam] = useState<ExamSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewingExam, setViewingExam] = useState<ExamSession | null>(null);
 
   // Stats
   const stats = {
@@ -401,6 +403,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                 onEdit={() => handleEditExam(exam)}
                 onStatusClick={() => handleStatusUpdate(exam)}
                 onAssignClick={() => handleAssignStudent(exam)}
+                onViewDetail={() => setViewingExam(exam)}
                 onUnassignStudent={async (studentId) => {
                   try {
                     await apiFetch(`/exams/${exam.id}/unassign`, {
@@ -514,6 +517,70 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
             </div>
           </motion.div>
         </div>
+      )}
+      {viewingExam && (
+        <ErpModal title={`Chi tiết đợt thi: ${viewingExam.name}`} onClose={() => setViewingExam(null)}>
+          <div className="space-y-4 text-slate-700 text-left">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tên đợt thi</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.name}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạng bằng</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.rank || 'N/A'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
+                <p className="text-sm font-bold text-slate-850 mt-0.5">{viewingExam.status}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.location || 'Chưa cập nhật'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày thi dự kiến</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.tentativeDate}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày thi chính thức</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.officialDate || 'Chưa xác nhận'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số học viên</label>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.studentCount}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-emerald-600">Đậu</label>
+                <p className="text-sm font-bold text-emerald-600 mt-0.5">{viewingExam.passCount}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-rose-600">Trượt</label>
+                <p className="text-sm font-bold text-rose-600 mt-0.5">{viewingExam.failCount}</p>
+              </div>
+            </div>
+
+            {viewingExam.customFields && Object.keys(viewingExam.customFields).length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(viewingExam.customFields).map(([key, val]) => (
+                    <div key={key}>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ErpModal>
       )}
     </div>
   );

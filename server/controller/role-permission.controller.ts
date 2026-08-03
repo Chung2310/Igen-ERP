@@ -55,7 +55,7 @@ export const rolePermissionController = {
         if (typeof targetLevel === "number" && targetLevel <= callerLevel) {
           return res.status(403).json({
             status: "error",
-            message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel - 1}) tương đương hoặc cao hơn cấp bậc của bạn (${callerLevel - 1}).`,
+            message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel}) tương đương hoặc cao hơn cấp bậc của bạn (${callerLevel}).`,
           });
         }
       }

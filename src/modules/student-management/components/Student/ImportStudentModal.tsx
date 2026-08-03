@@ -9,6 +9,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useBatches } from '../../hooks/useBatches';
 
 interface ImportStudentModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ interface ParsedStudent {
   referral?: string;
   address?: string;
   enrollmentDate?: string;
+  batchCode?: string;
 }
 
 interface ValidationRow {
@@ -61,6 +63,8 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const { userProfile: user } = useAuth();
   const businessType = 'general';
   
+  const { batches } = useBatches(selectedCenter === 'all' ? undefined : selectedCenter);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -85,15 +89,15 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
       headers = [
         'Họ và tên', 'Số điện thoại', 'Học phí', 'Đã đóng', 'Còn nợ',
-        'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ', 'Ngày nhập học'
+        'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ', 'Ngày nhập học', 'Mã lớp'
       ];
       data = [
-        ['Nguyễn Văn A', '0912345678', '1.000.000', '1.000.000', '0', '25/12/1995', '123456789012', 'nva@gmail.com', 'Trần Văn B', '123 Đường Lê Lợi, Q.1', '15/06/2026'],
-        ['Trần Thị B', '0987654321', '3.500.000', '0', '3.500.000', '10/05/2000', '987654321098', 'ttb@gmail.com', '', '456 Đường Nguyễn Huệ, H.Hóc Môn', '20/06/2026']
+        ['Nguyễn Văn A', '0912345678', '1.000.000', '1.000.000', '0', '25/12/1995', '123456789012', 'nva@gmail.com', 'Trần Văn B', '123 Đường Lê Lợi, Q.1', '15/06/2026', 'LH-001'],
+        ['Trần Thị B', '0987654321', '3.500.000', '0', '3.500.000', '10/05/2000', '987654321098', 'ttb@gmail.com', '', '456 Đường Nguyễn Huệ, H.Hóc Môn', '20/06/2026', 'LH-002']
       ];
       cols = [
         { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-        { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 }
+        { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 }, { wch: 12 }
       ];
 
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -105,6 +109,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       const guide = XLSX.utils.aoa_to_sheet([
         ['L\u01b0u \u00fd'],
         ['Kh\u00f4ng c\u1ea7n nh\u1eadp ownerId, centerId ho\u1eb7c m\u00e3 trung t\u00e2m. H\u1ec7 th\u1ed1ng t\u1ef1 g\u00e1n trung t\u00e2m khi nh\u1eadp d\u1eef li\u1ec7u.'],
+        ['Trường "Mã lớp" là không bắt buộc. Nếu nhập và mã lớp tồn tại, học viên sẽ được tự động xếp vào lớp đó.'],
       ]);
       guide['!cols'] = [{ wch: 110 }];
       XLSX.utils.book_append_sheet(wb, guide, 'Huong dan');
@@ -132,6 +137,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       else if (val.includes('người giới thiệu') || val.includes('giới thiệu')) map.referral = idx;
       else if (val.includes('địa chỉ') || val.includes('dia chi') || val.includes('nơi ở')) map.address = idx;
       else if (val.includes('ngày nhập học') || val.includes('ngay nhap hoc') || val.includes('nhập học')) map.enrollmentDate = idx;
+      else if (val.includes('mã lớp') || val.includes('lớp') || val.includes('mã lớp học') || val.includes('lop') || val.includes('batch')) map.batchCode = idx;
     });
     return map;
   };
@@ -201,6 +207,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
             referral: getCellValue('referral'),
             address: getCellValue('address'),
             enrollmentDate: getCellValue('enrollmentDate'),
+            batchCode: getCellValue('batchCode'),
           };
 
           const errors: string[] = [];
@@ -214,6 +221,13 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
           if (studentData.enrollmentDate && !DATE_PATTERN.test(studentData.enrollmentDate)) {
             errors.push('Ngày nhập học không đúng định dạng DD/MM/YYYY');
+          }
+
+          if (studentData.batchCode) {
+            const exists = batches.some(b => b.code.trim().toLowerCase() === studentData.batchCode!.trim().toLowerCase());
+            if (!exists) {
+              errors.push(`Mã lớp "${studentData.batchCode}" không tồn tại trong hệ thống`);
+            }
           }
 
           validationResults.push({ rowNum: i + 1, data: studentData, isValid: errors.length === 0, errors });

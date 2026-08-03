@@ -109,6 +109,45 @@ function assertScheduleValid(data: BatchData) {
   }
 }
 
+async function assertRoomAvailable(
+  ownerId: string,
+  branchId: string | undefined,
+  batchId: string | undefined,
+  location: string | undefined,
+  startDate: string,
+  endDate: string,
+  daysOfWeek: number[],
+  startTime: string,
+  endTime: string
+) {
+  if (!location || !location.trim()) return;
+
+  const query: Record<string, unknown> = {
+    ownerId,
+    location: location.trim(),
+    status: { $ne: "Đã kết thúc" },
+  };
+  if (branchId) query.branchId = branchId;
+  if (batchId) query._id = { $ne: batchId };
+
+  const competingBatches = await Batch.find(query);
+
+  for (const b of competingBatches) {
+    const dateOverlap = startDate <= b.endDate && b.startDate <= endDate;
+    if (!dateOverlap) continue;
+
+    const dayOverlap = daysOfWeek.some(day => b.daysOfWeek.includes(day));
+    if (!dayOverlap) continue;
+
+    const timeOverlap = startTime < b.endTime && b.startTime < endTime;
+    if (!timeOverlap) continue;
+
+    throw new Error(
+      `Phòng học "${location.trim()}" đã bị trùng lịch với lớp ${b.code} (${b.startTime} - ${b.endTime}, ${b.startDate} đến ${b.endDate}).`
+    );
+  }
+}
+
 async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   const courseIds = [...new Set(batches.map(b => b.courseId).filter(Boolean))];
   const instructorIds = [...new Set(batches.map(b => b.instructorId).filter(Boolean))];
@@ -244,6 +283,18 @@ export class BatchService {
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
+    await assertRoomAvailable(
+      ownerId,
+      actor.branchId,
+      undefined,
+      String(writeData.location || ""),
+      String(writeData.startDate || ""),
+      String(writeData.endDate || ""),
+      Array.isArray(writeData.daysOfWeek) ? writeData.daysOfWeek : [],
+      String(writeData.startTime || ""),
+      String(writeData.endTime || "")
+    );
+
     const batch = new Batch({ ...normalizeInstructorFields(writeData), ownerId, branchId: actor.branchId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
@@ -330,6 +381,18 @@ export class BatchService {
     if (writeData.instructorId && writeData.instructorId !== batch.instructorId) {
       await assertInstructorAssignable(actor, writeData.instructorId);
     }
+
+    await assertRoomAvailable(
+      batch.ownerId,
+      batch.branchId,
+      batch.id,
+      writeData.location !== undefined ? String(writeData.location || "") : batch.location,
+      writeData.startDate !== undefined ? String(writeData.startDate || "") : batch.startDate,
+      writeData.endDate !== undefined ? String(writeData.endDate || "") : batch.endDate,
+      Array.isArray(writeData.daysOfWeek) ? writeData.daysOfWeek : batch.daysOfWeek,
+      writeData.startTime !== undefined ? String(writeData.startTime || "") : batch.startTime,
+      writeData.endTime !== undefined ? String(writeData.endTime || "") : batch.endTime
+    );
 
     const previousInstructorId = batch.instructorId;
     const persistData = normalizeInstructorFields(writeData);

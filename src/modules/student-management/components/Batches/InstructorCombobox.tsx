@@ -108,13 +108,13 @@ export function InstructorCombobox({
         className={cn(erpInputClass(darkMode), 'pr-16', className)}
       />
 
-      <div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 text-slate-400">
+      <div className="absolute top-0 right-1 h-9 flex items-center gap-1 text-slate-400">
         {hasValue && (
           <button
             type="button"
             title="Bỏ người phụ trách"
             onClick={clear}
-            className="p-0.5 rounded hover:text-rose-500 cursor-pointer transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:text-rose-500 hover:bg-rose-50 cursor-pointer transition-colors border border-transparent"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -123,7 +123,7 @@ export function InstructorCombobox({
           type="button"
           title="Chọn tài khoản trong công ty"
           onClick={() => (isOpen ? setIsOpen(false) : openWith(selected ? '' : instructorText))}
-          className="p-0.5 rounded hover:text-brand-primary cursor-pointer transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:text-brand-primary hover:bg-slate-100 cursor-pointer transition-colors border border-transparent"
         >
           <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
         </button>

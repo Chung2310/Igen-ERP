@@ -47,6 +47,7 @@ interface BulkStudentInput {
   fee?: string;
   status?: string;
   paidAmount?: string | number;
+  batchCode?: string;
 }
 
 function normalizeIdCard(idCard: string): string {
@@ -528,6 +529,32 @@ export class StudentService {
       const results = await Student.insertMany(validStudents);
       importedCount = results.length;
       logger.info(`[Student] Bulk import complete: successfully imported ${importedCount} students, skipped ${skippedCount} students`);
+
+      // Link students to their respective batches/classes if batchCode is provided
+      for (let j = 0; j < results.length; j++) {
+        const savedStudent = results[j];
+        const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone));
+        if (matchingInput && matchingInput.batchCode) {
+          const code = String(matchingInput.batchCode).trim();
+          if (code) {
+            const batch = await Batch.findOne({
+              code,
+              ...buildOwnerScopeQuery(ownerId),
+              ...buildBranchScopeQuery(branchId)
+            });
+            if (batch) {
+              const studentIdStr = savedStudent._id.toString();
+              if (!batch.learnerIds.includes(studentIdStr)) {
+                batch.learnerIds.push(studentIdStr);
+                await batch.save();
+                logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${batch.code}`);
+              }
+            } else {
+              logger.warn(`[Student Import] Batch with code ${code} not found for owner scope ${ownerId}`);
+            }
+          }
+        }
+      }
     } else {
       logger.info(`[Student] Bulk import complete: no valid students to import. Skipped ${skippedCount} students`);
     }
