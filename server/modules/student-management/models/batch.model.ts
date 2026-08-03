@@ -21,6 +21,8 @@ const batchSchema = new Schema<IBatch>(
   {
     customFields: { type: Schema.Types.Mixed, default: {} },
     code: { type: String, required: true, trim: true, uppercase: true, index: true },
+    name: { type: String, default: "", trim: true },
+    quota: { type: Number, default: 0, min: 0 },
     courseId: { type: String, required: true, index: true },
     instructorId: { type: String, default: "", index: true },
     instructorText: { type: String, default: "", trim: true },

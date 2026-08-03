@@ -126,6 +126,11 @@ export interface IUser extends Document {
   companyCode?: string;
   companyName?: string;
   branchId?: string;
+  activeSessionId?: string;
+  activeSessionIssuedAt?: Date;
+  activeSessionLastSeenAt?: Date;
+  activeSessionUserAgent?: string;
+  activeSessionIp?: string;
   permissions?: string[];
   superAdminSecurity?: ISuperAdminSecurity;
   

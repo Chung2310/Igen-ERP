@@ -5,6 +5,7 @@ import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
+import { WorkerTimekeepingHistory } from './WorkerTimekeepingHistory';
 import { AttendanceAttemptsModal } from './AttendanceAttemptsModal';
 
 interface AttendanceViewModalProps {
@@ -62,6 +63,19 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
   const [showAttempts, setShowAttempts] = useState(false);
 
   if (!isOpen || !batch) return null;
+
+  // Lao động chấm công theo giờ vào/ra nên thống kê buổi học không còn ý nghĩa.
+  if (entityLabel.preset === 'worker') {
+    return (
+      <ErpModal
+        title={`Lịch sử chấm công ${copy.entityNameLower} ${batch.code}`}
+        onClose={onClose}
+        maxWidth="max-w-3xl"
+      >
+        <WorkerTimekeepingHistory batch={batch} students={students} />
+      </ErpModal>
+    );
+  }
 
   const today = getLocalDateStr(new Date());
   const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);

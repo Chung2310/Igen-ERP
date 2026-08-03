@@ -11,6 +11,7 @@ import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy"
 import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen } from "lucide-react";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
+import { setBusinessApiScope } from "./lib/api";
 
 type StudentSubTab =
   | "TỔNG QUAN"
@@ -60,6 +61,7 @@ function PageLoader() {
 }
 
 export default function StudentManagementTab() {
+  React.useLayoutEffect(() => { setBusinessApiScope("student"); }, []);
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();

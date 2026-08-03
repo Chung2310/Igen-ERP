@@ -1,5 +1,8 @@
 
 export type TabType =
+  | "QUẢN LÝ LAO ĐỘNG"
+  | "QUẢN LÝ KHÁCH HÀNG"
+  | "QUẢN LÝ ỨNG VIÊN"
   | "TỔNG QUAN"
   | "NHÂN SỰ"
   | "ĐỐI TÁC"
@@ -8,6 +11,7 @@ export type TabType =
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"
   | "QUẢN LÝ HỌC VIÊN"
+  | "PHÂN TÍCH & BÁO CÁO"
   | "QUẢN TRỊ USER"
   | "CÀI ĐẶT"
   | "HƯỚNG DẪN";
@@ -40,6 +44,7 @@ export interface UserProfile {
   branchId?: string;
   /** Module nghiệp vụ được bật cho doanh nghiệp. Thiếu hoặc rỗng = bật tất cả. */
   enabledModules?: string[];
+  businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   monthlySalary?: number;
 }
 
@@ -50,6 +55,7 @@ export interface CompanyProfile {
   createdAt: any;
   ownerEmail: string;
   enabledModules?: string[];
+  businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   monthlySalary?: number;
 }
 

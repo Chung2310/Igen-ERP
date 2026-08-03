@@ -1,4 +1,16 @@
 import { ApiClientError, parseApiErrorResponse } from "../../../services/apiClientError";
+
+export type BusinessApiScope = "student" | "worker";
+let businessApiScope: BusinessApiScope = "student";
+
+export function setBusinessApiScope(scope: BusinessApiScope) {
+  businessApiScope = scope;
+}
+
+function resolveBusinessEndpoint(endpoint: string) {
+  if (businessApiScope !== "worker" || endpoint.startsWith("/auth/")) return endpoint;
+  return `/worker-management${endpoint}`;
+}
 export function setAccessToken(token: string | null) {
   if (token) {
     localStorage.setItem("accessToken", token);
@@ -26,7 +38,8 @@ interface RefreshTokenResponse {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function apiFetch<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const url = new URL(`/api/v1${endpoint}`, window.location.origin);
+  const resolvedEndpoint = resolveBusinessEndpoint(endpoint);
+  const url = new URL(`/api/v1${resolvedEndpoint}`, window.location.origin);
 
   if (options.params) {
     Object.entries(options.params).forEach(([key, val]) => {

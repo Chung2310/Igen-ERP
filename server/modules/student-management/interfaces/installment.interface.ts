@@ -6,4 +6,5 @@ export interface IInstallmentPlan {
   installmentNo: number;  // Số thứ tự đợt (bắt đầu từ 1)
   percent: number;        // % tổng học phí gốc của đợt này (ví dụ: 40 = 40%)
   label?: string;         // Nhãn tùy chỉnh (ví dụ: "Đợt 1", "Đợt cuối")
+  dueDate?: string;       // Ngày đến hạn (YYYY-MM-DD)
 }

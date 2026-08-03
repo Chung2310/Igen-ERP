@@ -1,6 +1,7 @@
-import { sanitizeModuleKeys, type ModuleKey } from "../config/module-keys";
+import { type ModuleKey } from "../config/module-keys";
+import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 
-export function resolveCompanyModuleUpdate(updateData: { enabledModules?: unknown; [key: string]: unknown }): ModuleKey[] | undefined {
+export function resolveCompanyModuleUpdate(updateData: { enabledModules?: unknown; businessType?: unknown; legacyEntityPreset?: unknown; [key: string]: unknown }): ModuleKey[] | undefined {
   if (updateData.enabledModules === undefined) return undefined;
-  return sanitizeModuleKeys(updateData.enabledModules);
+  return filterModulesForBusinessType(updateData.enabledModules, resolveBusinessType(updateData.businessType, updateData.legacyEntityPreset));
 }

@@ -20,6 +20,7 @@ const notificationSchema = new Schema<INotification>(
       installmentNo: { type: Number },
       percent: { type: Number },
       label: { type: String, default: "" },
+      dueDate: { type: String, default: "" },
     },
   },
   {

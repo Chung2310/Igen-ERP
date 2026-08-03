@@ -20,6 +20,7 @@ import moduleSettingsRoutes from "./routes/module-settings.routes";
 import qrAttendanceRoutes from "./routes/qr-attendance.routes";
 import studentOnlineAttendanceRoutes from "./routes/student-online-attendance.routes";
 import studentAttendanceAttemptRoutes from "./routes/student-attendance-attempt.routes";
+import workerAttendanceRoutes from "./routes/worker-attendance.routes";
 import studentFaceRoutes from "./routes/student-face.routes";
 import assignmentRoutes from "./routes/assignment.routes";
 import { logger } from "./config/logger";
@@ -31,7 +32,14 @@ import { STUDENT_AREA_PERMISSIONS } from "./permissions";
 
 export const studentManagementRouter = Router();
 
-const requireStudentModule = requireModule("student") as RequestHandler;
+const studentModuleGuard = requireModule("student") as RequestHandler;
+const workerModuleGuard = requireModule("worker") as RequestHandler;
+export const resolveBusinessModuleKey = (originalUrl: string) =>
+  originalUrl.includes("/worker-management/") ? "worker" : "student";
+const requireStudentModule: RequestHandler = (req, res, next) => {
+  const guard = resolveBusinessModuleKey(req.originalUrl) === "worker" ? workerModuleGuard : studentModuleGuard;
+  return guard(req, res, next);
+};
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
 
@@ -59,6 +67,8 @@ studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);
 studentManagementRouter.use("/attendance/attempts", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("assignment"), studentAttendanceAttemptRoutes);
+// Chấm công lao động theo dự án (giờ vào/giờ về + vị trí công trường)
+studentManagementRouter.use("/attendance/worker", authMiddleware as unknown as RequestHandler, requireStudentModule, workerAttendanceRoutes);
 
 studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-notification"), async (req: AuthRequest, res) => {
   try {

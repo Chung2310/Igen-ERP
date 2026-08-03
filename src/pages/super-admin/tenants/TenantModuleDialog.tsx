@@ -1,10 +1,8 @@
 import React from "react";
 import { X } from "lucide-react";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
-
-import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
-import { getEntityPresetOptions, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
 
 type Props = {
   code: string;
@@ -16,7 +14,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const [tenant, setTenant] = React.useState<Tenant>();
   const [summary, setSummary] = React.useState<TenantSummary>();
   const [selected, setSelected] = React.useState<ModuleKey[]>([]);
-  const [entityPreset, setEntityPreset] = React.useState<EntityPreset>("student");
+  const [businessType, setBusinessType] = React.useState<BusinessType>("general");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -27,18 +25,19 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   const loadTenant = React.useCallback((active: { current: boolean } = { current: true }) => {
     setLoading(true);
     setError("");
-    return Promise.all([
-      superAdminTenantService.detail(code),
-      getModuleSettings(code).catch(() => ({ entityPreset: "student" as EntityPreset })),
-    ])
-      .then(([result, settings]) => {
+    return superAdminTenantService.detail(code)
+      .then((result) => {
         if (!active.current) return;
+        const nextBusinessType = resolveBusinessType(result.tenant.businessType);
         setTenant(result.tenant);
         setSummary(result.summary);
-        setEntityPreset(settings.entityPreset || "student");
-        setSelected(Array.isArray(result.tenant.enabledModules)
+        setBusinessType(nextBusinessType);
+        const modules = Array.isArray(result.tenant.enabledModules)
           ? result.tenant.enabledModules.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey))
-          : [...MODULE_KEYS]);
+          : [...MODULE_KEYS];
+        const allowed = modules.filter((key) => isModuleAllowedForBusinessType(key, nextBusinessType));
+        const required = getRequiredBusinessModule(nextBusinessType);
+        setSelected(required && !allowed.includes(required) ? [required, ...allowed] : allowed);
       })
       .catch((cause: any) => {
         if (active.current) setError(`${cause.message}${cause.correlationId ? ` (${cause.correlationId})` : ""}`);
@@ -63,9 +62,17 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
   }, [onClose, saving]);
 
   const toggleModule = (key: ModuleKey) => {
+    if (key === getRequiredBusinessModule(businessType)) return;
     setSelected((current) => current.includes(key)
       ? current.filter((item) => item !== key)
       : MODULE_KEYS.filter((item) => item === key || current.includes(item)));
+  };
+
+  const changeBusinessType = (next: BusinessType) => {
+    const allowed = selected.filter((key) => isModuleAllowedForBusinessType(key, next));
+    const required = getRequiredBusinessModule(next);
+    setBusinessType(next);
+    setSelected(required && !allowed.includes(required) ? [required, ...allowed] : allowed);
   };
 
   const save = async () => {
@@ -76,9 +83,9 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
       await Promise.all([
         superAdminTenantService.updateModules(code, {
           enabledModules: selected,
+          businessType,
           reason: "Cập nhật cấu hình module",
         }),
-        updateModuleSettings(entityPreset, code),
       ]);
       onSaved();
     } catch (cause: any) {
@@ -144,14 +151,15 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
               <h4 className="text-sm font-bold">Loại hình doanh nghiệp / Nhãn thực thể</h4>
               <p className="mt-1 text-xs text-slate-400">Đổi tên xưng hô đối tượng mặc định cho doanh nghiệp này (SuperAdmin đặc quyền).</p>
               <select
-                value={entityPreset}
-                onChange={(e) => setEntityPreset(e.target.value as EntityPreset)}
+                aria-label="Loại hình doanh nghiệp"
+                value={businessType}
+                onChange={(e) => changeBusinessType(e.target.value as BusinessType)}
                 disabled={saving}
                 className="mt-2.5 w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2.5 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
               >
-                {getEntityPresetOptions(entityPreset).map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {BUSINESS_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {BUSINESS_TYPE_LABELS[type]}
                   </option>
                 ))}
               </select>
@@ -160,9 +168,9 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
             <div>
               <h4 className="text-sm font-bold">Module được kích hoạt</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {MODULE_KEYS.map((key) => (
+                {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, businessType)).map((key) => (
                   <label key={key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-800 px-3 py-3 text-sm hover:border-cyan-400/40">
-                    <input type="checkbox" checked={selected.includes(key)} onChange={() => toggleModule(key)} disabled={saving} />
+                    <input type="checkbox" checked={selected.includes(key)} onChange={() => toggleModule(key)} disabled={saving || key === getRequiredBusinessModule(businessType)} />
                     {MODULE_LABELS[key]}
                   </label>
                 ))}

@@ -23,7 +23,7 @@ export function createTenantRouter(deps: Dependencies = {}) {
   router.get("/tenants/:companyCode/users", async (req, res) => { try { return res.json({ users: await service.listUsers(req.params.companyCode) }); } catch (error) { return res.status(404).json({ message: (error as Error).message, correlationId: (req as any).id }); } });
   router.patch("/tenants/:companyCode", mutation(tenantActions.update, async (input) => service.update(input.companyCode, input)));
   router.patch("/tenants/:companyCode/modules", mutation(tenantActions.updateModules, async (input) => {
-    const tenant = await service.updateModules(input.companyCode, input.enabledModules);
+    const tenant = await service.updateModules(input.companyCode, { enabledModules: input.enabledModules, businessType: input.businessType });
     await notifyCompanyModulesChanged(tenant.code, tenant.enabledModules || [], { clearModuleCache: clearCache, emitToCompany: emitCompany }, "tenant modules");
     return tenant;
   }));

@@ -220,6 +220,10 @@ export interface BatchGeoLocation {
 export interface Batch {
   id: string;
   code: string;
+  /** Tên hiển thị (tên dự án ở preset lao động) */
+  name?: string;
+  /** Chỉ tiêu riêng của dự án; 0 = dùng chỉ tiêu của khóa học/danh mục */
+  quota?: number;
   courseId: string;
   instructorId?: string;
   /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */

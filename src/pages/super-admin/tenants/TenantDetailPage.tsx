@@ -2,76 +2,39 @@ import React from "react";
 import { superAdminTenantService, type Tenant, type TenantSummary, type TenantUser } from "../../../services/superAdminTenantService";
 import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
-import { getModuleSettings, updateModuleSettings } from "../../../modules/student-management/api/moduleSettings.api";
-import { getEntityPresetOptions, type EntityPreset } from "../../../modules/student-management/config/entityLabels";
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 
-function EntityPresetEditor({ code, onSaved }: { code: string; onSaved: () => void }) {
-  const [preset, setPreset] = React.useState<EntityPreset>("student");
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState("");
-
-  React.useEffect(() => {
-    setLoading(true);
-    getModuleSettings(code)
-      .then((s) => setPreset(s.entityPreset || "student"))
-      .catch(() => setPreset("student"))
-      .finally(() => setLoading(false));
-  }, [code]);
-
-  const save = async () => {
-    setError("");
-    setSaving(true);
-    try {
-      await updateModuleSettings(preset, code);
-      onSaved();
-    } catch (e: any) {
-      setError(`${e.message || "Lỗi khi cập nhật loại hình doanh nghiệp"}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <p className="text-xs text-slate-500">Đang tải loại hình doanh nghiệp...</p>;
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-slate-400">
-        Chọn loại hình thực thể phù hợp cho doanh nghiệp này (đặc quyền SuperAdmin).
-      </p>
-      <select
-        value={preset}
-        onChange={(e) => setPreset(e.target.value as EntityPreset)}
-        className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-400 cursor-pointer font-medium"
-      >
-        {getEntityPresetOptions(preset).map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{error}</p>}
-      <button disabled={saving} onClick={save} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-900 disabled:opacity-40">
-        {saving ? "Đang lưu..." : "Lưu loại hình doanh nghiệp"}
-      </button>
-    </div>
-  );
-}
-
-function ModulesEditor({ code, current, onSaved }: { code: string; current: string[]; onSaved: () => void }) {
-  const [selected, setSelected] = React.useState<ModuleKey[]>((current as ModuleKey[]) || [...MODULE_KEYS]);
+function ModulesEditor({ code, current, businessType, onSaved }: { code: string; current: string[]; businessType: BusinessType; onSaved: () => void }) {
+  const normalizeModules = React.useCallback((modules: string[], type: BusinessType) => {
+    const allowed = (modules as ModuleKey[]).filter((key) => isModuleAllowedForBusinessType(key, type));
+    const required = getRequiredBusinessModule(type);
+    return required && !allowed.includes(required) ? [required, ...allowed] : allowed;
+  }, []);
+  const [selected, setSelected] = React.useState<ModuleKey[]>(() => normalizeModules(current, businessType));
+  const [selectedBusinessType, setSelectedBusinessType] = React.useState<BusinessType>(businessType);
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => { setSelected((current as ModuleKey[]) || [...MODULE_KEYS]); }, [current]);
+  React.useEffect(() => {
+    setSelectedBusinessType(businessType);
+    setSelected(normalizeModules(current, businessType));
+  }, [businessType, current, normalizeModules]);
 
-  const toggle = (key: ModuleKey) => setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const toggle = (key: ModuleKey) => {
+    if (key === getRequiredBusinessModule(selectedBusinessType)) return;
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const changeBusinessType = (nextType: BusinessType) => {
+    setSelectedBusinessType(nextType);
+    setSelected((prev) => normalizeModules(prev, nextType));
+  };
 
   const save = async () => {
     setError(""); setSaving(true);
     try {
-      await superAdminTenantService.updateModules(code, { enabledModules: selected, reason });
+      await superAdminTenantService.updateModules(code, { enabledModules: selected, businessType: selectedBusinessType, reason });
       setReason("");
       onSaved();
     } catch (e: any) {
@@ -81,10 +44,16 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
 
   return (
     <div className="space-y-3">
+      <label className="block text-xs font-semibold text-slate-400">
+        Loại hình doanh nghiệp
+        <select aria-label="Loại hình doanh nghiệp" value={selectedBusinessType} onChange={(e) => changeBusinessType(e.target.value as BusinessType)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-400">
+          {BUSINESS_TYPES.map((type) => <option key={type} value={type}>{BUSINESS_TYPE_LABELS[type]}</option>)}
+        </select>
+      </label>
       <div className="grid grid-cols-2 gap-2">
-        {MODULE_KEYS.map((key) => (
+        {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, selectedBusinessType)).map((key) => (
           <label key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
-            <input type="checkbox" checked={selected.includes(key)} onChange={() => toggle(key)} />
+            <input type="checkbox" checked={selected.includes(key)} onChange={() => toggle(key)} disabled={key === getRequiredBusinessModule(selectedBusinessType)} />
             {MODULE_LABELS[key]}
           </label>
         ))}
@@ -192,13 +161,8 @@ export function TenantDetailPage({ code, onBack }: { code: string; onBack?: () =
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
-        <h3 className="text-sm font-bold text-slate-200">Loại hình doanh nghiệp / Nhãn thực thể</h3>
-        <div className="mt-3"><EntityPresetEditor code={code} onSaved={load} /></div>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
-        <h3 className="text-sm font-bold text-slate-200">Module</h3>
-        <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} onSaved={load} /></div>
+        <h3 className="text-sm font-bold text-slate-200">Loại hình doanh nghiệp và module</h3>
+        <div className="mt-3"><ModulesEditor code={code} current={tenant.enabledModules || []} businessType={resolveBusinessType(tenant.businessType)} onSaved={load} /></div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">

@@ -2,7 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { superAdminTenantService } from "../../../services/superAdminTenantService";
 import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
-import { ENTITY_PRESET_OPTIONS } from "../../../modules/student-management/config/entityLabels";
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, type BusinessType } from "../../../config/businessTypes";
 
 export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
   const [code, setCode] = React.useState("");
@@ -10,13 +10,21 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
   const [ownerName, setOwnerName] = React.useState("");
   const [ownerEmail, setOwnerEmail] = React.useState("");
   const [ownerPassword, setOwnerPassword] = React.useState("");
-  const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>([...MODULE_KEYS]);
-  const [entityPreset, setEntityPreset] = React.useState("student");
+  const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>(MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, "education")));
+  const [businessType, setBusinessType] = React.useState<BusinessType>("education");
   const [error, setError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
   const toggleModule = (key: ModuleKey) => {
+    if (key === getRequiredBusinessModule(businessType)) return;
     setEnabledModules((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const changeBusinessType = (nextType: BusinessType) => {
+    const allowed = enabledModules.filter((key) => isModuleAllowedForBusinessType(key, nextType));
+    const required = getRequiredBusinessModule(nextType);
+    setBusinessType(nextType);
+    setEnabledModules(required && !allowed.includes(required) ? [required, ...allowed] : allowed);
   };
 
   const submit = async () => {
@@ -30,7 +38,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
         ownerName: ownerName.trim(),
         ownerPassword,
         enabledModules,
-        entityPreset,
+        businessType,
       });
       onCreated(code.trim().toUpperCase());
     } catch (e: any) {
@@ -78,12 +86,12 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
             <label className="block text-xs font-semibold text-slate-400">
               Loại hình doanh nghiệp / Nhãn thực thể
               <select
-                value={entityPreset}
-                onChange={(e) => setEntityPreset(e.target.value)}
+                value={businessType}
+                onChange={(e) => changeBusinessType(e.target.value as BusinessType)}
                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-cyan-400 text-slate-100 cursor-pointer"
               >
-                {ENTITY_PRESET_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                {BUSINESS_TYPES.map((type) => (
+                  <option key={type} value={type}>{BUSINESS_TYPE_LABELS[type]}</option>
                 ))}
               </select>
             </label>
@@ -91,9 +99,9 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
           <div>
             <span className="block text-xs font-semibold text-slate-400">Module kích hoạt</span>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {MODULE_KEYS.map((key) => (
+              {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, businessType)).map((key) => (
                 <label key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
-                  <input type="checkbox" checked={enabledModules.includes(key)} onChange={() => toggleModule(key)} />
+                  <input type="checkbox" checked={enabledModules.includes(key)} onChange={() => toggleModule(key)} disabled={key === getRequiredBusinessModule(businessType)} />
                   {MODULE_LABELS[key]}
                 </label>
               ))}

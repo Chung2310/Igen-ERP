@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
-import { hasAnyPermission } from "./auth";
+import { DEFAULT_ROLE_PERMISSIONS, hasAnyPermission } from "./auth";
 
 const EXPECTED_CODES = [
   "student-profile:read", "student-profile:manage",
@@ -32,6 +32,12 @@ test("permission policy accepts wildcard or any matching permission", () => {
   assert.equal(hasAnyPermission(new Set(["*"]), ["course:manage"]), true);
   assert.equal(hasAnyPermission(new Set(["course:read"]), ["student:read", "course:read"]), true);
   assert.equal(hasAnyPermission(new Set(["batch:read"]), ["student:read", "course:read"]), false);
+});
+
+test("company admin has access to every enabled business module", () => {
+  for (const permission of ["student:manage", "worker:manage", "customer:manage", "candidate:manage"]) {
+    assert.equal(hasAnyPermission(new Set(DEFAULT_ROLE_PERMISSIONS.admin), [permission]), true);
+  }
 });
 
 test("database seeding consumes the canonical permission catalog", () => {

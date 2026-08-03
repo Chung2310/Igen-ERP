@@ -10,14 +10,7 @@ import { socketService } from "../services/socketService";
 import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
 import { ensureEntityPresetLoaded } from "../modules/student-management/hooks/entityPresetStore";
 
-export interface ErpLoginChallenge {
-  status: "challenge_required";
-  challengeId: string;
-  enrollmentRequired: boolean;
-  expiresAt: string;
-}
-
-export type ErpLoginOutcome = { status: "authenticated" } | ErpLoginChallenge;
+export type ErpLoginOutcome = { status: "authenticated"; role?: string };
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +27,9 @@ interface AuthContextType {
   isModuleEnabled: (key: ModuleKey) => boolean;
   hasPermission: (code: string) => boolean;
 }
+
+const SESSION_REPLACED_EVENT = "auth:session-replaced";
+const SESSION_REPLACED_CODE = "SESSION_REPLACED";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -81,8 +77,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!userProfile) return;
+    const shouldLoadStudentSettings = userProfile.businessType === "education"
+      || (userProfile.businessType === undefined && checkModule(userProfile.enabledModules, "student"));
+    if (!shouldLoadStudentSettings) return;
     void ensureEntityPresetLoaded();
-  }, [userProfile?.uid, userProfile?.companyCode]);
+  }, [userProfile?.uid, userProfile?.companyCode, userProfile?.businessType, userProfile?.enabledModules]);
   useEffect(() => {
     if (!userProfile?.companyCode) return;
     const companyCode = userProfile.companyCode.trim().toUpperCase();
@@ -111,6 +110,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!userProfile) return;
+    return socketService.on(SESSION_REPLACED_EVENT, (value: unknown) => {
+      const event = value as { code?: string; message?: string };
+      if (event.code && event.code !== SESSION_REPLACED_CODE) return;
+
+      localStorage.removeItem("accessToken");
+      socketService.disconnect();
+      setUser(null);
+      setUserProfile(null);
+      toast.error(event.message || "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.");
+    });
+  }, [userProfile?.uid]);
+
+  useEffect(() => {
+    if (!userProfile) return;
     return socketService.onStatusChange((connected) => {
       if (!connected) return;
       void authService.getMe().then((profile) => {
@@ -124,14 +137,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const result = await authService.loginWithEmail(email, password);
-      if (result.status === "challenge_required") {
-        return {
-          status: "challenge_required",
-          challengeId: result.challengeId,
-          enrollmentRequired: Boolean(result.enrollmentRequired),
-          expiresAt: result.expiresAt,
-        };
-      }
       const profile: UserProfile = {
         ...result.user,
         uid: result.user._id,
@@ -147,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       toast.success("Đăng nhập tài khoản thành công!");
-      return { status: "authenticated" };
+      return { status: "authenticated", role: meProfile?.role || profile.role };
     } catch (error: any) {
       console.error("[loginWithEmail] Error:", error);
       const friendlyMsg = parseFirebaseError(error, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");

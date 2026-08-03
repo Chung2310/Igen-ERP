@@ -35,7 +35,7 @@ export function RevenuePanel({
   outstandingDebt: number;
   totalStudents: number;
 }) {
-  const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel();
+  const { titleCase: studentEntityTitle, singular: studentEntitySingular } = useEntityLabel(canSeeStudent);
 
   return (
     <div className="space-y-6">

@@ -1,8 +1,10 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { UserModel } from "../model/user.model";
 import { normalizeBirthDate } from "./birth-date";
 import { BranchModel } from "../model/branch.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 import { CompanyModel } from "../model/company.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { RolePermissionModel } from "../model/role-permission.model";
@@ -14,14 +16,28 @@ import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
-import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
-import { sanitizeModuleKeys } from "../config/module-keys";
+import { filterModulesForBusinessType, resolveBusinessType } from "../config/business-types";
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
+export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
+export const REGULAR_SESSION_REPLACED_EVENT = "auth:session-replaced";
+export const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
+
+function isSuperAdminRole(role?: string) {
+  return role === "superadmin";
+}
+
+function assertRegularSessionCurrent(user: IUser, sessionId?: string) {
+  if (!isSuperAdminRole(user.role) && (!sessionId || user.activeSessionId !== sessionId)) {
+    const error = new Error(REGULAR_SESSION_REPLACED_MESSAGE);
+    (error as Error & { code?: string }).code = REGULAR_SESSION_REPLACED_CODE;
+    throw error;
+  }
+}
 
 function generateTelegramLinkCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -46,12 +62,13 @@ export const authService = {
   /**
    * Tạo bộ đôi Access Token và Refresh Token
    */
-  generateTokens(user: IUser) {
+  generateTokens(user: IUser, sessionId?: string) {
     const payload = {
       id: user._id,
       email: user.email,
       role: user.role,
       companyCode: user.companyCode,
+      ...(sessionId ? { sid: sessionId } : {}),
     };
 
     const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
@@ -116,11 +133,30 @@ export const authService = {
 
     await assertAccountUsable(user);
 
-    if (requiresSuperAdminChallenge(user.role)) {
-      return superAdminAuthService.beginSuperAdminLogin(user, requestMetadata);
+    if (user.role === "superadmin") {
+      const privilegedSession = await superAdminAuthService.completePasswordLogin(user, requestMetadata);
+      return { kind: "authenticated" as const, user, ...privilegedSession };
     }
 
-    const tokens = this.generateTokens(user);
+    const previousSessionId = user.activeSessionId;
+    const sessionId = crypto.randomUUID();
+    const now = new Date();
+    user.activeSessionId = sessionId;
+    user.activeSessionIssuedAt = now;
+    user.activeSessionLastSeenAt = now;
+    user.activeSessionUserAgent = requestMetadata?.userAgent || "";
+    user.activeSessionIp = requestMetadata?.sourceIp || "";
+    await user.save();
+
+    if (previousSessionId && previousSessionId !== sessionId) {
+      const { emitToUserSession } = await import("../socket");
+      emitToUserSession(previousSessionId, REGULAR_SESSION_REPLACED_EVENT, {
+        code: REGULAR_SESSION_REPLACED_CODE,
+        message: REGULAR_SESSION_REPLACED_MESSAGE,
+      });
+    }
+
+    const tokens = this.generateTokens(user, sessionId);
     return { kind: "authenticated" as const, user, ...tokens };
   },
 
@@ -138,13 +174,15 @@ export const authService = {
 
       await assertAccountUsable(user);
 
-      if (decoded.sid) {
+      if (isSuperAdminRole(user.role) && decoded.sid) {
         const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
         const now = Date.now();
         const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
         if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
           throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
         }
+      } else {
+        assertRegularSessionCurrent(user, decoded.sid);
       }
 
       const payload = {
@@ -250,7 +288,7 @@ export const authService = {
    * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
    */
   async registerCompanyAndAdmin(data: any): Promise<any> {
-    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules } = data;
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules, businessType: businessTypeInput, entityPreset } = data;
     const normalizedCode = companyCode.toUpperCase().trim();
     const emailLower = ownerEmail.toLowerCase().trim();
 
@@ -267,11 +305,13 @@ export const authService = {
     }
 
     // 3. Tạo doanh nghiệp
+    const businessType = resolveBusinessType(businessTypeInput, entityPreset);
     const newCompany = new CompanyModel({
       code: normalizedCode,
       name: companyName.trim(),
       ownerEmail: emailLower,
-      enabledModules: sanitizeModuleKeys(enabledModules),
+      businessType,
+      enabledModules: filterModulesForBusinessType(enabledModules, businessType),
       createdAt: new Date(),
     });
     await newCompany.save();
@@ -438,7 +478,15 @@ export const authService = {
     const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
     const newName = updateData.name ? updateData.name.trim() : undefined;
     const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
-    const newEnabledModules = resolveCompanyModuleUpdate(updateData);
+    const legacyEntityPreset = updateData.enabledModules !== undefined && !company.businessType
+      ? (await ModuleSettings.findOne({ tenantId: company.code }).select("entityPreset").lean())?.entityPreset
+      : undefined;
+    const businessType = resolveBusinessType(company.businessType, legacyEntityPreset);
+    const newEnabledModules = resolveCompanyModuleUpdate({
+      ...updateData,
+      businessType: company.businessType,
+      legacyEntityPreset,
+    });
 
     // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
     if (newCode && newCode !== oldCode) {
@@ -487,7 +535,10 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
-    if (newEnabledModules !== undefined) company.enabledModules = newEnabledModules;
+    if (newEnabledModules !== undefined) {
+      company.enabledModules = newEnabledModules;
+      company.businessType = businessType;
+    }
 
     const savedCompany = await company.save();
     clearModuleCache(oldCode);

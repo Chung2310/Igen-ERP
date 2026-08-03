@@ -8,6 +8,7 @@ import { ErpModal, ErpField, ErpInput } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
+import { WorkerTimekeepingPanel } from './WorkerTimekeepingPanel';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -140,6 +141,20 @@ export function AttendanceModal({
     });
     setBulkSelectStudents([]);
   };
+
+  // Preset lao động dùng chấm công vào/ra theo vị trí công trường thay cho mô
+  // hình có mặt/vắng theo buổi của lớp học.
+  if (entityLabel.preset === 'worker') {
+    return (
+      <ErpModal
+        title={`Chấm công ${copy.entityNameLower} ${batch.code}`}
+        onClose={onClose}
+        maxWidth="max-w-3xl"
+      >
+        <WorkerTimekeepingPanel batch={batch} students={students} />
+      </ErpModal>
+    );
+  }
 
   return (
     <ErpModal

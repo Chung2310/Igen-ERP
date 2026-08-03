@@ -3,6 +3,11 @@ import { QRAttendanceService, QrCheckinError } from "../services/qr-attendance.s
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
+import { ModuleSettingsService } from "../services/module-settings.service";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+
+/** QR chấm công lao động sống 1 giờ để quản lý kịp gửi vào nhóm chat. */
+const WORKER_QR_DURATION_MINUTES = 60;
 
 type UploadRequest = Request & { file?: Express.Multer.File };
 
@@ -27,11 +32,20 @@ export class QRAttendanceController {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học hoặc bạn không có quyền." });
       }
 
+      // Preset lấy từ cấu hình module của chính chủ sở hữu dự án, không tin
+      // client: quyết định này đổi cả cách ghi dữ liệu lẫn tuổi thọ mã QR.
+      const tenantId = await resolveCustomFieldTenantForOwner(batch.ownerId);
+      const { entityPreset } = await new ModuleSettingsService().get(tenantId);
+      const isWorker = entityPreset === "worker";
+
       const session = await QRAttendanceService.createSession(
         batchId,
         date,
-        durationMinutes ? Number(durationMinutes) : 5,
-        batch.ownerId
+        durationMinutes ? Number(durationMinutes) : (isWorker ? WORKER_QR_DURATION_MINUTES : 5),
+        batch.ownerId,
+        // Lao động quét mã được gửi vào nhóm chat nên mã phải dùng chung và
+        // sống lâu; lớp học giữ mã xoay 30s trên màn hình giảng viên.
+        { shared: isWorker, mode: isWorker ? "worker" : "class" }
       );
 
       res.status(201).json({ success: true, ...session });

@@ -56,7 +56,7 @@ describe("worker recruitment copy", () => {
       pageTitle: "Dự án tuyển dụng",
       createButton: "Thêm dự án",
       codeLabel: "Mã dự án",
-      courseLabel: "Danh mục tuyển dụng",
+      courseLabel: "Tên dự án",
       instructorLabel: "Người phụ trách",
       capacityLabel: "Chỉ tiêu",
       createSubmit: "Tạo dự án",

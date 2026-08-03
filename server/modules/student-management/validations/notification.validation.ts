@@ -29,6 +29,7 @@ export const createNotificationSchema = Joi.object({
       "number.max": "Phần trăm đợt không được vượt quá 100.",
     }),
     label: Joi.string().allow("").optional(),
+    dueDate: Joi.string().isoDate().optional(),
   }).optional(),
 });
 

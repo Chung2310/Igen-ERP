@@ -51,6 +51,23 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../modules/student-management/StudentManagementTab")),
   },
   {
+    tab: "QUẢN LÝ LAO ĐỘNG",
+    component: lazy(() => import("../modules/worker-management/WorkerWorkspace")),
+  },
+  {
+    tab: "QUẢN LÝ KHÁCH HÀNG",
+    component: lazy(() => import("../modules/customer-management/CustomerManagementTab")),
+  },
+  {
+    tab: "QUẢN LÝ ỨNG VIÊN",
+    component: lazy(() => import("../modules/candidate-management/CandidateManagementTab")),
+  },
+  {
+    tab: "PHÂN TÍCH & BÁO CÁO",
+    component: lazy(() => import("../pages/AnalyticsTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin",
+  },
+  {
     tab: "QUẢN TRỊ USER",
     component: lazy(() => import("../pages/UserAdminTab")),
     canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin",

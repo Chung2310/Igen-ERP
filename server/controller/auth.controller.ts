@@ -5,6 +5,7 @@ import { UserModel } from "../model/user.model";
 import { googleOAuthService } from "../service/google-oauth.service";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import { CompanyModel } from "../model/company.model";
+import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
 import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
 import { recordUserActivity } from "../middleware/user-activity";
 import { clearModuleCache } from "../middleware/require-module";
@@ -172,7 +173,10 @@ export const authController = {
     try {
       const userId = req.user?.id;
       if (userId) {
-        await UserModel.findByIdAndUpdate(userId, { status: "offline" });
+        const activeSessionClear = req.user?.sessionId
+          ? { $set: { status: "offline" }, $unset: { activeSessionId: "", activeSessionIssuedAt: "", activeSessionLastSeenAt: "", activeSessionUserAgent: "", activeSessionIp: "" } }
+          : { $set: { status: "offline" } };
+        await UserModel.updateOne({ _id: userId, ...(req.user?.sessionId ? { activeSessionId: req.user.sessionId } : {}) }, activeSessionClear);
       }
 
       res.clearCookie("refreshToken", {
@@ -221,9 +225,13 @@ export const authController = {
       // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
       const userObj = user.toObject();
       const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
-        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules").lean()
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType").lean()
         : null;
-      userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules);
+      const legacyEntityPreset = company && !company.businessType
+        ? (await ModuleSettings.findOne({ tenantId: userObj.companyCode }).select("entityPreset").lean())?.entityPreset
+        : undefined;
+      userObj.businessType = company?.businessType ?? "general";
+      userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules, company?.businessType, legacyEntityPreset);
       userObj.permissions = await resolveProfilePermissions(userId, userObj.role, userObj.companyCode);
 
       return res.status(200).json({

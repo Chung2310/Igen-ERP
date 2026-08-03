@@ -15,7 +15,7 @@ export interface SuperAdminSession {
 }
 
 export const superAdminAuthService = {
-  login: (email: string, password: string) => request("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email: string, password: string) => request("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }).then(accept),
   startEnrollment: (challengeId: string): Promise<{ qrDataUrl: string; manualEntryKey: string }> => request("/api/v1/super-admin/auth/enrollment/start", { method: "POST", body: JSON.stringify({ challengeId }) }),
   confirmEnrollment: (challengeId: string, token: string) => request("/api/v1/super-admin/auth/enrollment/confirm", { method: "POST", body: JSON.stringify({ challengeId, token }) }).then(accept),
   verifyTotp: (challengeId: string, token: string) => request("/api/v1/super-admin/auth/totp/verify", { method: "POST", body: JSON.stringify({ challengeId, token }) }).then(accept),
