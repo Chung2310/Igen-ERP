@@ -483,7 +483,7 @@ export class BatchService {
     ownerId: string | string[],
     batchId: string,
     date: string,
-    records: { studentId: string; status: "present" | "absent" | "excused" }[],
+    records: { studentId: string; status: "present" | "absent" | "excused" | "late" }[],
     note?: string,
     branchId?: string
   ): Promise<EnrichedBatch> {
