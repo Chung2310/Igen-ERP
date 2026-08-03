@@ -134,40 +134,26 @@ export const publicRegisterStudentSchema = Joi.object({
     "string.pattern.base": "Số điện thoại không hợp lệ (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).",
   }),
   referral: Joi.string().allow("").optional(),
-  email: Joi.string().email().required().messages({
-    "any.required": "Email là bắt buộc.",
-    "string.empty": "Email không được để trống.",
+  // Từ đây trở xuống chỉ kiểm tra ĐỊNH DẠNG. Trường nào bắt buộc là do cấu hình
+  // trường của từng công ty quyết định, được kiểm ở controller (publicRegister)
+  // để form công khai khớp đúng với popup thêm học viên.
+  email: Joi.string().email().allow("").optional().messages({
     "string.email": "Định dạng email không hợp lệ.",
   }),
-  birthday: Joi.string().required().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({
-    "any.required": "Ngày sinh là bắt buộc.",
-    "string.empty": "Ngày sinh không được để trống.",
+  birthday: Joi.string().allow("").optional().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({
     "string.pattern.base": "Ngày sinh không đúng định dạng DD/MM/YYYY.",
   }),
-  idCard: Joi.string().required().pattern(/^\d{12}$/).messages({
-    "any.required": "Số CCCD/CMND là bắt buộc.",
-    "string.empty": "Số CCCD/CMND không được để trống.",
+  idCard: Joi.string().allow("").optional().pattern(/^\d{12}$/).messages({
     "string.pattern.base": "Số CCCD phải có đúng 12 chữ số.",
   }),
   rank: Joi.string().allow("").optional(),
-  enrollmentDate: Joi.string().required().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({
-    "any.required": "Ngày nhập học là bắt buộc.",
-    "string.empty": "Ngày nhập học không được để trống.",
+  enrollmentDate: Joi.string().allow("").optional().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({
     "string.pattern.base": "Ngày nhập học không đúng định dạng DD/MM/YYYY.",
   }),
-  address: Joi.string().required().messages({
-    "any.required": "Địa chỉ là bắt buộc.",
-    "string.empty": "Địa chỉ không được để trống.",
-  }),
-  idCardFrontFile: uploadedFileSchema.required().messages({
-    "any.required": "Ảnh CCCD mặt trước là bắt buộc.",
-  }),
-  idCardBackFile: uploadedFileSchema.required().messages({
-    "any.required": "Ảnh CCCD mặt sau là bắt buộc.",
-  }),
-  portraitFile: uploadedFileSchema.required().messages({
-    "any.required": "Ảnh chân dung là bắt buộc.",
-  }),
+  address: Joi.string().allow("").optional(),
+  idCardFrontFile: uploadedFileSchema.optional(),
+  idCardBackFile: uploadedFileSchema.optional(),
+  portraitFile: uploadedFileSchema.optional(),
   teacherId: objectIdSchema.required().messages({
     "any.required": "ID giáo viên là bắt buộc.",
     "string.empty": "ID giáo viên không được để trống.",

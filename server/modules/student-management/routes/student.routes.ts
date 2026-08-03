@@ -5,6 +5,7 @@ import { validate } from "../middlewares/validate.middleware";
 import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, publicRegisterStudentSchema, assignStudentBranchSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
 import { upload } from "../config/cloudinary";
+import { publicRegisterConfigQuerySchema } from "../validations/standard-field.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
@@ -13,6 +14,7 @@ export const publicStudentRouter = Router();
 const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student-profile"].manage]) as any;
 
 publicStudentRouter.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
+publicStudentRouter.get("/public-register-config", publicApiRateLimiter, validate(publicRegisterConfigQuerySchema, "query"), StudentController.publicRegisterConfig);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 publicStudentRouter.post("/public-register-upload", publicApiRateLimiter, StudentController.assertPublicTeacher as any, upload.single("file") as any, StudentController.publicUpload as any);
 publicStudentRouter.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
