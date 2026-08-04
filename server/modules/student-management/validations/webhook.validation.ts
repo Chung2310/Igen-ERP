@@ -3,7 +3,9 @@ import Joi from "joi";
 export const webhookPaymentSchema = Joi.object({
   // SePay flat fields
   transferAmount: Joi.number().optional(),
+  amountIn: Joi.number().optional(),
   content: Joi.string().allow("", null).optional(),
+  transactionContent: Joi.string().allow("", null).optional(),
   accountNumber: Joi.any().optional(), // Có thể là string hoặc number
   transactionDate: Joi.string().allow("", null).optional(),
 
