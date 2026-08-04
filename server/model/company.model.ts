@@ -68,6 +68,15 @@ const CompanyCelebrationConfigSchema = new Schema({
   holidayOverrides: { type: [{ date: String, enabled: { type: Boolean, default: true }, subject: String, html: String }], default: () => [] },
 }, { _id: false });
 
+const CompanyVietqrConfigSchema = new Schema(
+  {
+    bankId: { type: String, default: "" },
+    accountNo: { type: String, default: "" },
+    accountName: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -85,6 +94,7 @@ const CompanySchema = new Schema<ICompany>({
   dashboardReportConfig: { type: CompanyDashboardReportConfigSchema, default: () => ({}) },
   smtpConfig: { type: CompanySmtpConfigSchema, default: undefined },
   celebrationConfig: { type: CompanyCelebrationConfigSchema, default: () => ({}) },
+  vietqrConfig: { type: CompanyVietqrConfigSchema, default: () => ({}) },
   lifecycleStatus: { type: String, enum: ["active", "suspended", "archived", "scheduled-deletion"], default: "active", index: true },
   lifecycleChangedAt: { type: Date, default: Date.now },
   deletionScheduledAt: { type: Date, default: null },

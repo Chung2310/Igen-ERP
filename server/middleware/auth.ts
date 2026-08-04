@@ -57,7 +57,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "hr:read", "student:read", "student:manage", "partner:read", "partner:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:prepare", "payroll:manage", "payroll:pay",
     "chat:read", "resource:read", "resource:manage", "company-email:manage", "recruitment:manage",
     // student-settings:manage không nằm ở đây: loại hình doanh nghiệp chỉ SuperAdmin sửa
-    "custom-field:manage", "company-smtp:manage"
+    "custom-field:manage", "company-smtp:manage", "company-payment:manage"
   ],
   branch_owner: [
     "dashboard:read", "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"

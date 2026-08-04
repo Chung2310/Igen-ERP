@@ -7,6 +7,7 @@ import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
 import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
 import StudentManagementErpSettings from "./StudentManagementErpSettings";
 import CompanySmtpSettingsTab from "./CompanySmtpSettingsTab";
+import CompanyPaymentSettingsTab from "./CompanyPaymentSettingsTab";
 import WorkShiftsTab from "./WorkShiftsTab";
 
 export default function ErpConfigTab() {
@@ -38,8 +39,7 @@ export default function ErpConfigTab() {
   const canViewStudentSettings =
     userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canManageSmtp = hasPermission("company-smtp:manage");
-  const canManageCompanyModules = canViewStudentSettings || canManageSmtp;
-
+  const canManageCompanyModules = canViewStudentSettings || canManageSmtp || hasPermission("company-payment:manage");
 
   useEffect(() => {
     if (canManageLocation) {
@@ -192,6 +192,7 @@ export default function ErpConfigTab() {
       {activeTab === "companyModules" && canManageCompanyModules && (
         <div className="space-y-5">
           {canViewStudentSettings && <StudentManagementErpSettings />}
+          {hasPermission("company-payment:manage") && <CompanyPaymentSettingsTab />}
           {canManageSmtp && <CompanySmtpSettingsTab />}
         </div>
       )}

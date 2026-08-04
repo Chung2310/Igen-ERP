@@ -45,6 +45,11 @@ export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEn
 export interface ICompanySmtpConfig { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string; fromEmail: string; fromName: string; updatedAt?: Date; }
 export interface ICelebrationTemplate { subject: string; html: string; }
 export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
+export interface ICompanyVietqrConfig {
+  bankId: string;
+  accountNo: string;
+  accountName: string;
+}
 
 export interface ICompany extends Document {
   code: string;
@@ -67,6 +72,7 @@ export interface ICompany extends Document {
   dashboardReportConfig?: ICompanyDashboardReportConfig;
   smtpConfig?: ICompanySmtpConfig;
   celebrationConfig?: ICompanyCelebrationConfig;
+  vietqrConfig?: ICompanyVietqrConfig;
 
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;
