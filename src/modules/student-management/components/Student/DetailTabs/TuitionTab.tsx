@@ -26,12 +26,16 @@ interface TuitionTabProps {
   student: Student;
   handleStartEditPayment: (p: PaymentHistoryItem, idx: number) => void;
   handleDeletePaymentClick: (p: PaymentHistoryItem, idx: number) => Promise<void>;
+  undoState?: { history: any[], message: string } | null;
+  handleUndoPayment?: () => Promise<void>;
 }
 
 export function TuitionTab({
   student,
   handleStartEditPayment,
-  handleDeletePaymentClick
+  handleDeletePaymentClick,
+  undoState,
+  handleUndoPayment
 }: TuitionTabProps) {
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
@@ -129,6 +133,16 @@ export function TuitionTab({
           <h3 className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
             <History className="w-4 h-4 text-cyan-500" /> Nhật ký đóng phí
           </h3>
+          
+          {undoState && (
+            <div className="mb-4 flex items-center justify-between p-3 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-lg animate-in slide-in-from-top-2">
+              <span className="flex-1 pr-4">{undoState.message}</span>
+              <button onClick={handleUndoPayment} className="px-3 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 rounded-lg transition-all shrink-0">
+                Hoàn tác
+              </button>
+            </div>
+          )}
+
           <div className="space-y-3">
             {(student.paymentHistory || []).length > 0 ? (
               student.paymentHistory?.map((p, idx) => (

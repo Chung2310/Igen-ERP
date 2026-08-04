@@ -45,6 +45,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
     recipient: string;
   }
   const [editingPayment, setEditingPayment] = React.useState<EditingPaymentState | null>(null);
+  const [undoState, setUndoState] = React.useState<{ history: any[], message: string } | null>(null);
 
   const fetchStudentDetail = React.useCallback(async () => {
     if (!initialStudent?.id) return;
@@ -107,6 +108,28 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
     });
   };
 
+  const handleUndoPayment = async () => {
+    if (!student || !undoState) return;
+    try {
+      await apiFetch(`/students/${student.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ paymentHistory: undoState.history })
+      });
+      toast.success('Đã hoàn tác giao dịch thành công!');
+      
+      setStudent({ ...student, paymentHistory: undoState.history });
+      setUndoState(null);
+      
+      window.dispatchEvent(new Event("payment-mutation"));
+      window.dispatchEvent(new Event('student-mutation'));
+      
+      fetchStudentDetail();
+    } catch (error) {
+      console.error("Undo error:", error);
+      toast.error('Lỗi hoàn tác: ' + (error instanceof Error ? error.message : 'Không xác định'));
+    }
+  };
+
   const handleSavePaymentEdit = async () => {
     if (!student || !student.paymentHistory || !editingPayment) return;
 
@@ -117,6 +140,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
     }
 
     try {
+      const oldHistory = [...student.paymentHistory];
       const updatedHistory = [...student.paymentHistory];
       updatedHistory[editingPayment.index] = {
         ...updatedHistory[editingPayment.index],
@@ -133,7 +157,12 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
       });
 
       toast.success('Cập nhật đợt thanh toán thành công!');
+      
+      setStudent({ ...student, paymentHistory: updatedHistory });
       setEditingPayment(null);
+      
+      setUndoState({ history: oldHistory, message: `Đã lưu thay đổi giao dịch.` });
+      setTimeout(() => setUndoState(null), 10000);
 
       // Dispatch events to refresh lists
       window.dispatchEvent(new Event("payment-mutation"));
@@ -153,6 +182,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
     if (!confirmDelete) return;
 
     try {
+      const oldHistory = [...student.paymentHistory];
       const updatedHistory = student.paymentHistory.filter((_, i) => i !== idx);
 
       await apiFetch(`/students/${student.id}`, {
@@ -161,6 +191,11 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
       });
 
       toast.success('Đã xóa giao dịch đóng phí thành công!');
+      
+      setStudent({ ...student, paymentHistory: updatedHistory });
+      
+      setUndoState({ history: oldHistory, message: `Đã xóa giao dịch ${new Intl.NumberFormat('vi-VN').format(p.amount)}đ.` });
+      setTimeout(() => setUndoState(null), 10000);
 
       // Dispatch events to refresh lists
       window.dispatchEvent(new Event("payment-mutation"));
@@ -291,6 +326,8 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                     student={student}
                     handleStartEditPayment={handleStartEditPayment}
                     handleDeletePaymentClick={handleDeletePaymentClick}
+                    undoState={undoState}
+                    handleUndoPayment={handleUndoPayment}
                   />
                 )}
 
