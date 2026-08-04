@@ -2,14 +2,13 @@ import React, { Suspense, lazy } from "react";
 import { Bell, BriefcaseBusiness, ChevronDown, LayoutDashboard, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
-import { AddBusinessRecordModal as AddWorkerModal, BusinessRecordDetailModal as WorkerDetailModal } from "../shared-management/components";
-import { setEntityPreset, useAdminCenters, useStudents as useWorkers, setBusinessApiScope, type BusinessRecord as WorkerRecord } from "../shared-management/runtime";
+import { setEntityPreset, useAdminCenters, setBusinessApiScope } from "../shared-management/runtime";
+import WorkersPage from "./pages/WorkersPage";
 import { canManageWorkerArea, canReadWorkerArea } from "./workerPermissionPolicy";
 import { getAllowedWorkerTabSlugs } from "./workerTabPermissions";
 
 type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "THÔNG BÁO";
 const DashboardPage = lazy(() => import("../shared-management/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
-const WorkersPage = lazy(() => import("../shared-management/pages/RecordsPage").then((module) => ({ default: module.RecordsPage })));
 const ProjectsPage = lazy(() => import("../shared-management/pages/ProjectsPage").then((module) => ({ default: module.ProjectsPage })));
 const NotificationsPage = lazy(() => import("../shared-management/pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 
@@ -33,21 +32,16 @@ export default function WorkerWorkspace() {
   const tabs = SUB_TABS.filter((tab) => allowedSlugs.includes(tab.slug as (typeof allowedSlugs)[number]));
   const [center, setCenter] = React.useState(() => userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all");
   const [activeTab, setActiveTab] = useSubTabRouter<WorkerSubTab>(tabs, tabs[0]?.value || "TỔNG QUAN");
-  const [selectedWorker, setSelectedWorker] = React.useState<WorkerRecord | null>(null);
-  const [addOpen, setAddOpen] = React.useState(false);
-  const [detailTab, setDetailTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
   const canRead = canReadWorkerArea(userProfile?.permissions || [], "worker-profile");
   const canManage = (area: Parameters<typeof canManageWorkerArea>[1]) => canManageWorkerArea(userProfile?.permissions || [], area);
-  const { students: workers } = useWorkers(center === "all" ? undefined : center, "branch", canRead);
-  const openWorker = React.useCallback((worker: WorkerRecord, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => { setSelectedWorker(worker); setDetailTab(tab); }, []);
 
   if (!ready) return <Loader />;
   if (!tabs.length) return <div className="flex h-full min-h-[320px] items-center justify-center bg-white p-6"><div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5 text-sm font-semibold text-amber-800">Bạn chưa được cấp quyền sử dụng chức năng này</div></div>;
 
   const page = activeTab === "TỔNG QUAN"
-    ? <DashboardPage formattedDate={formatDate()} onSelectStudent={openWorker} onNavigate={() => {}} selectedCenter={center} />
+    ? <DashboardPage formattedDate={formatDate()} onSelectStudent={() => {}} onNavigate={() => {}} selectedCenter={center} />
     : activeTab === "LAO ĐỘNG"
-      ? <WorkersPage onSelectStudent={openWorker} onAddStudent={() => setAddOpen(true)} selectedCenter={center} canManage={canManage("worker-profile")} />
+      ? <WorkersPage selectedCenter={center} canManage={canManage("worker-profile")} />
       : activeTab === "DỰ ÁN"
         ? <ProjectsPage selectedCenter={center} canManage={canManage("project")} />
         : <NotificationsPage canManage={canManage("notification")} />;
@@ -58,7 +52,5 @@ export default function WorkerWorkspace() {
       {userProfile?.role === "superadmin" && <div className="flex shrink-0 items-center gap-2 pb-2 pr-2 sm:pb-0"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cơ sở:</span><div className="relative min-w-[200px]"><select value={center} onChange={(event) => setCenter(event.target.value)} className="h-8 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-bold text-slate-700 outline-none"><option value="all">Tất cả cơ sở</option>{centers.map((item) => <option key={item.uid} value={item.uid}>{item.displayName}</option>)}</select><ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /></div></div>}
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto p-6"><Suspense fallback={<Loader />}>{page}</Suspense></div>
-    {addOpen && <AddWorkerModal isOpen onClose={() => setAddOpen(false)} students={workers} selectedCenter={center} onSuccess={(worker) => { setAddOpen(false); openWorker(worker); }} />}
-    {selectedWorker && <WorkerDetailModal student={selectedWorker} selectedCenter={center} onClose={() => setSelectedWorker(null)} initialTab={detailTab} />}
   </div>;
 }
