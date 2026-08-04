@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Loader2, Save, CreditCard } from "lucide-react";
+import { CheckCircle2, Loader2, Save, CreditCard, Undo2 } from "lucide-react";
 import { companyPaymentApi } from "../../services/companyPaymentService";
 import { toast } from "../../pages/Toast";
 import { SearchableSelect } from "../inventory/SearchableSelect";
@@ -8,13 +8,17 @@ const empty = { bankId: "", accountNo: "", accountName: "" };
 
 export default function CompanyPaymentSettingsTab() {
   const [form, setForm] = React.useState<any>(empty);
+  const [originalForm, setOriginalForm] = React.useState<any>(empty);
   const [busy, setBusy] = React.useState("");
   const [banks, setBanks] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     companyPaymentApi.getVietqr()
       .then((data) => {
-        if (data) setForm(data);
+        if (data) {
+          setForm(data);
+          setOriginalForm(data);
+        }
       })
       .catch((e) => toast.error(e.message));
 
@@ -36,6 +40,9 @@ export default function CompanyPaymentSettingsTab() {
     try {
       await fn();
       toast.success(message);
+      if (name === "save") {
+        setOriginalForm(form);
+      }
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -43,15 +50,20 @@ export default function CompanyPaymentSettingsTab() {
     }
   };
 
+  const handleReset = () => {
+    setForm(originalForm);
+    toast.success("Đã khôi phục lại thông tin ban đầu.");
+  };
+
   return (
     <section className="space-y-5 bg-white border border-slate-200 p-5 rounded-xl">
       <div>
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-indigo-600" />
-          Thanh toán VietQR doanh nghiệp
+          Thanh toán SePay doanh nghiệp
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          Tài khoản ngân hàng dùng chung để nhận thanh toán qua VietQR.
+          Tài khoản ngân hàng dùng chung để nhận thanh toán tự động qua SePay.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -84,8 +96,14 @@ export default function CompanyPaymentSettingsTab() {
           busy={busy === "save"}
           label="Lưu cấu hình"
           onClick={() =>
-            act("save", () => companyPaymentApi.saveVietqr(form), "Đã lưu tài khoản VietQR doanh nghiệp.")
+            act("save", () => companyPaymentApi.saveVietqr(form), "Đã lưu tài khoản SePay doanh nghiệp.")
           }
+        />
+        <Action
+          icon={Undo2}
+          label="Khôi phục"
+          secondary
+          onClick={handleReset}
         />
       </div>
     </section>
