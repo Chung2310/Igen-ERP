@@ -28,7 +28,11 @@ import { hrContractRouter } from "./hr-contract.router";
 import { companyEmailRouter } from "./company-email.router";
 import { companyPaymentRouter } from "./company-payment.router";
 import { recruitmentRouter } from "./recruitment.router";
+import { webhookRouter } from "./webhook.router";
 export const apiRouter = Router();
+
+// Webhooks
+apiRouter.use("/webhook", webhookRouter);
 /**
  * GET /api/v1/health
  * Health Check API để giám sát trạng thái của hệ thống

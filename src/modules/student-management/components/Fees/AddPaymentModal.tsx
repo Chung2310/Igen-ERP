@@ -262,7 +262,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <QrCode className="w-3.5 h-3.5 text-cyan-600" /> Quét mã thanh toán (VietQR)
+                        <QrCode className="w-3.5 h-3.5 text-cyan-600" /> Quét mã thanh toán (SePay)
                       </span>
                       <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">Tự động điền số tiền</span>
                     </div>
