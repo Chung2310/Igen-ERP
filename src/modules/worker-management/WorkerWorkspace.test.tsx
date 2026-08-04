@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
+import fs from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WorkerWorkspace from "./WorkerWorkspace";
@@ -24,6 +25,11 @@ vi.mock("../shared-management/pages/NotificationsPage", () => ({ NotificationsPa
 afterEach(cleanup);
 
 describe("WorkerWorkspace", () => {
+  it("does not directly import student-management", () => {
+    const source = fs.readFileSync("src/modules/worker-management/WorkerWorkspace.tsx", "utf8");
+    expect(source).not.toContain("../student-management/");
+  });
+
   it("keeps the full legacy worker workflow tabs in the separate worker module", async () => {
     render(<WorkerWorkspace />);
     expect(await screen.findByText("Worker dashboard content")).toBeTruthy();

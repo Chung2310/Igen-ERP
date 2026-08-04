@@ -26,11 +26,13 @@ describe("business module boundaries", () => {
     expect(importsModule("server/modules/worker-management", "student-management")).toEqual([]);
   });
 
-  it("routes reuse through shared-management adapters", () => {
+  it("keeps temporary worker adapters isolated from student implementation", () => {
     const workspace = fs.readFileSync("src/modules/worker-management/WorkerWorkspace.tsx", "utf8");
     const router = fs.readFileSync("server/modules/worker-management/router.ts", "utf8");
     expect(workspace).toContain("../shared-management/");
+    expect(workspace).not.toContain("../student-management/");
     expect(router).toContain("../shared-management/router");
+    expect(router).not.toContain("../student-management/router");
   });
 
   it("keeps independent worker extension points", () => {
