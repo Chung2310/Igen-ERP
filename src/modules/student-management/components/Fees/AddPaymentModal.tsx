@@ -127,12 +127,18 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
 
     let cancelled = false;
     let failedChecks = 0;
-    const expectedAmount = Number(amount.replace(/\D/g, '')) || 0;
     const checkPaymentReceived = async () => {
       try {
         const data = await apiFetch(`/students/${student.id}`);
-        const updatedStudent = data?.student;
-        if (!cancelled && updatedStudent && Number(updatedStudent.paidAmount || 0) >= transferStartPaid + expectedAmount) {
+        // StudentController trả dữ liệu theo dạng { success, data }. Đọc sai
+        // `data.student` làm polling không bao giờ thấy khoản SePay vừa ghi nhận,
+        // nên modal QR vẫn mở dù công nợ trên server đã được cập nhật.
+        const updatedStudent = data?.data ?? data?.student;
+        // SePay can record a partial transfer (for example a test transfer).
+        // Once this student's paid amount increases, the callback was handled
+        // successfully; waiting for the full QR amount leaves the modal open
+        // forever after a valid partial payment.
+        if (!cancelled && updatedStudent && Number(updatedStudent.paidAmount || 0) > transferStartPaid) {
           toast.success('SePay đã nhận tiền và ghi nhận học phí thành công.');
           window.dispatchEvent(new Event('payment-mutation'));
           window.dispatchEvent(new Event('student-mutation'));
@@ -158,7 +164,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
       window.clearInterval(interval);
       window.clearTimeout(timeout);
     };
-  }, [showTransferQr, student?.id, amount, transferStartPaid, onSuccess, onClose]);
+  }, [showTransferQr, student?.id, transferStartPaid, onSuccess, onClose]);
 
   if (!isOpen || !student || !user) return null;
 
