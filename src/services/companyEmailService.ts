@@ -9,7 +9,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const companyEmailApi = {
   getSmtp: () => request<any>("/smtp"),
-  saveSmtp: (data: any) => request<any>("/smtp", { method: "PUT", body: JSON.stringify(data) }),
+  saveSmtp: (data: any) => {
+    const { host, port, secure, user, password, fromEmail, fromName } = data;
+    return request<any>("/smtp", { method: "PUT", body: JSON.stringify({ host, port, secure, user, password, fromEmail, fromName }) });
+  },
   verifySmtp: () => request<any>("/smtp/verify", { method: "POST" }),
   testSmtp: () => request<any>("/smtp/test", { method: "POST" }),
   getCelebration: () => request<any>("/celebration"),

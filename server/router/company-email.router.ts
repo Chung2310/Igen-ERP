@@ -10,7 +10,12 @@ export const companyEmailRouter = Router();
 companyEmailRouter.use(requireAuth as any);
 const companyCode = (req: any) => String(req.user?.companyCode || "").toUpperCase();
 const smtpSchema = Joi.object({ host: Joi.string().trim().required(), port: Joi.number().integer().min(1).max(65535).required(), secure: Joi.boolean().required(), user: Joi.string().trim().required(), password: Joi.string().allow("").optional(), fromEmail: Joi.string().email().required(), fromName: Joi.string().trim().required() });
-export const normalizeSmtpPayload = (body: any) => body?.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : body;
+export const normalizeSmtpPayload = (body: any) => {
+  let payload = body;
+  while (payload?.data && typeof payload.data === "object" && !Array.isArray(payload.data) && !payload.host) payload = payload.data;
+  const { host, port, secure, user, password, fromEmail, fromName } = payload || {};
+  return { host, port, secure, user, password, fromEmail, fromName };
+};
 const celebrationSchema = Joi.object({ birthdayEnabled: Joi.boolean().required(), holidayEnabled: Joi.boolean().required(), sendTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).required(), birthdayTemplate: Joi.object({ subject: Joi.string().max(300).required(), html: Joi.string().max(50000).required() }).required(), holidayTemplate: Joi.object({ subject: Joi.string().max(300).required(), html: Joi.string().max(50000).required() }).required(), holidayOverrides: Joi.array().items(Joi.object({ date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(), enabled: Joi.boolean().required(), subject: Joi.string().max(300).allow("").optional(), html: Joi.string().max(50000).allow("").optional() })).default([]) });
 
 companyEmailRouter.use("/smtp", requirePermission("company-smtp:manage") as any);
