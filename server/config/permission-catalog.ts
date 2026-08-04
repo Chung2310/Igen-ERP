@@ -44,6 +44,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "custom-field:manage", label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Tạo, sửa, lưu trữ và xóa trường dữ liệu tùy chỉnh của module học viên." },
   { code: "student-settings:manage", label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module quản lý học viên." },
   { code: "company-smtp:manage", label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử bằng máy chủ SMTP doanh nghiệp." },
+  { code: "company-payment:manage", label: "Cấu hình thanh toán doanh nghiệp", group: "Cấu hình hệ thống", description: "Cài đặt tài khoản VietQR và cấu hình thanh toán chung của doanh nghiệp." },
   { code: "partner:read", label: "Xem đối tác & cộng tác viên", group: "Đối tác" },
   { code: "partner:manage", label: "Quản lý đối tác & hoa hồng", group: "Đối tác" },
   { code: "chat:read", label: "Xem trò chuyện", group: "Trò chuyện" },
