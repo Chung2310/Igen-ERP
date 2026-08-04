@@ -1,5 +1,6 @@
 import { Student } from "../models/student.model";
 import { User } from "../models/user.model";
+import { CompanyModel } from "../../../model/company.model";
 import { PaymentService } from "./payment.service";
 import { sseManager } from "./sse.manager";
 import { logger } from "../config/logger";
@@ -90,7 +91,9 @@ export class WebhookService {
     description?: string;
     content?: string;
     amount?: number;
+    amountIn?: number;
     transferAmount?: number;
+    transactionContent?: string;
     when?: string;
     transactionDate?: string;
     subAccount?: string | number;
@@ -100,8 +103,8 @@ export class WebhookService {
     logger.info(`[Webhook] Processing incoming transaction payload: ${JSON.stringify(payload)}`);
 
     // Parse thông tin linh hoạt từ Casso hoặc SePay
-    const description = payload.description || payload.content || "";
-    const amount = Number(payload.amount || payload.transferAmount || 0);
+    const description = payload.description || payload.content || payload.transactionContent || "";
+    const amount = Number(payload.amount || payload.transferAmount || payload.amountIn || 0);
     const dateStr = payload.when || payload.transactionDate || new Date().toISOString();
     const date = dateStr.substring(0, 10); // Lấy YYYY-MM-DD
     const bankAccountNo = (payload.subAccount || payload.accountNumber || "").toString().trim();
@@ -117,14 +120,28 @@ export class WebhookService {
     }
 
     // Tìm user sở hữu tài khoản ngân hàng này
-    const user = await User.findOne({ bankAccountNo });
+    // Support both legacy per-user bank settings and the company's SePay
+    // receiving account used by the current VietQR payment flow.
+    let user = await User.findOne({ bankAccountNo });
+    let isCompanyAccount = false;
+    if (!user) {
+      const company = await CompanyModel.findOne({ "vietqrConfig.accountNo": bankAccountNo })
+        .select("code ownerEmail")
+        .lean();
+      if (company) {
+        user = await User.findOne({ companyCode: company.code, email: company.ownerEmail })
+          || await User.findOne({ companyCode: company.code });
+        isCompanyAccount = Boolean(user);
+      }
+    }
     if (!user) {
       logger.error(`[Webhook] No user found with bankAccountNo: "${bankAccountNo}"`);
       throw new Error(`Không tìm thấy admin nào có tài khoản ngân hàng: ${bankAccountNo}`);
     }
 
     const ownerId = user._id.toString();
-    const branchId = user.branchId ? String(user.branchId) : undefined;
+    // Company-level accounts receive tuition for all branches.
+    const branchId = isCompanyAccount ? undefined : (user.branchId ? String(user.branchId) : undefined);
 
     // Tìm học viên khớp với nội dung chuyển khoản
     const student = await this.matchStudentByDescription(description, ownerId, branchId);
