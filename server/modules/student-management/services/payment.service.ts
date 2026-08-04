@@ -15,7 +15,7 @@ interface PaymentCreateData {
   amount: number | string;
   date: string;
   note?: string;
-  method?: string;
+  method?: "Tiền mặt" | "Chuyển khoản";
   [key: string]: unknown;
 }
 
@@ -83,7 +83,7 @@ export class PaymentService {
       id: savedPayment._id.toString(),
       amount: payAmount,
       date: data.date,
-      method: "Chuyển khoản",
+      method: data.method || "Tiền mặt",
       note: data.note,
       recipient: "Hệ thống",
     });
