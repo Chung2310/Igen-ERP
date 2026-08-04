@@ -4,6 +4,7 @@ export interface IPayment extends Document {
   studentId: string;
   studentName: string;
   amount: number;
+  method: "Tiền mặt" | "Chuyển khoản";
   date: string;
   paidOn?: Date;
   note?: string;

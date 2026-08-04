@@ -14,7 +14,10 @@ const vietqrSchema = Joi.object({
   accountName: Joi.string().trim().allow("").max(100).required(),
 });
 
-companyPaymentRouter.use("/vietqr", requirePermission("company-payment:manage") as any);
+// Reading the company's receiving account is needed by payment screens for
+// ordinary authenticated users. Only changing the account requires the
+// management permission.
+companyPaymentRouter.put("/vietqr", requirePermission("company-payment:manage") as any);
 
 companyPaymentRouter.get("/vietqr", async (req: any, res) => {
   try {
