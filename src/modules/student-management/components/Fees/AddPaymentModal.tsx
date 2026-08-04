@@ -62,6 +62,9 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
   const [note, setNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'Tiền mặt' | 'Chuyển khoản'>('Tiền mặt');
   const [showTransferQr, setShowTransferQr] = useState(false);
+  const [transferStartPaid, setTransferStartPaid] = useState(0);
+  const [transferTimedOut, setTransferTimedOut] = useState(false);
+  const [transferCheckError, setTransferCheckError] = useState('');
   const [vietqrConfig, setVietqrConfig] = useState(() => {
     const localConfig = getLocalVietQrConfig();
     const bankId = localConfig?.bankId || user?.bankId || '';
@@ -119,6 +122,44 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
     }
   }, [isOpen, student, vietqrConfig]);
 
+  React.useEffect(() => {
+    if (!showTransferQr || !student?.id) return;
+
+    let cancelled = false;
+    let failedChecks = 0;
+    const expectedAmount = Number(amount.replace(/\D/g, '')) || 0;
+    const checkPaymentReceived = async () => {
+      try {
+        const data = await apiFetch(`/students/${student.id}`);
+        const updatedStudent = data?.student;
+        if (!cancelled && updatedStudent && Number(updatedStudent.paidAmount || 0) >= transferStartPaid + expectedAmount) {
+          toast.success('SePay đã nhận tiền và ghi nhận học phí thành công.');
+          window.dispatchEvent(new Event('payment-mutation'));
+          window.dispatchEvent(new Event('student-mutation'));
+          setShowTransferQr(false);
+          onSuccess();
+          onClose();
+        }
+      } catch {
+        failedChecks += 1;
+        if (!cancelled && failedChecks >= 3) {
+          setTransferCheckError('Không thể kiểm tra trạng thái giao dịch. Hệ thống sẽ tiếp tục thử lại.');
+        }
+      }
+    };
+
+    void checkPaymentReceived();
+    const interval = window.setInterval(() => void checkPaymentReceived(), 3000);
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setTransferTimedOut(true);
+    }, 15 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [showTransferQr, student?.id, amount, transferStartPaid, onSuccess, onClose]);
+
   if (!isOpen || !student || !user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,6 +189,9 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
           toast.warning('Chưa có cấu hình tài khoản SePay để nhận chuyển khoản.');
           return;
         }
+        setTransferStartPaid(student.paidAmount || 0);
+        setTransferTimedOut(false);
+        setTransferCheckError('');
         setShowTransferQr(true);
         return;
       }
@@ -201,7 +245,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
           initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className={`relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${showTransferQr ? 'hidden' : ''}`}
         >
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
             <h3 className="text-xl font-extrabold text-slate-800">Thanh toán học phí</h3>
@@ -357,6 +401,8 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
             <QrCode className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
             <h4 className="text-lg font-black text-slate-800">Quét mã để chuyển khoản</h4>
             <p className="text-xs text-slate-500 mt-1">Sau khi SePay nhận tiền, học phí sẽ được ghi nhận tự động.</p>
+            {transferTimedOut && <p className="mt-2 text-xs font-semibold text-amber-600">Chưa nhận được giao dịch sau 15 phút. Vui lòng kiểm tra lại nội dung chuyển khoản hoặc liên hệ trung tâm.</p>}
+            {!transferTimedOut && transferCheckError && <p className="mt-2 text-xs font-semibold text-amber-600">{transferCheckError}</p>}
             <img
               className="w-64 h-64 object-contain mx-auto my-4"
               src={`https://img.vietqr.io/image/${getVietQRBankCode(vietqrConfig.bankId)}-${vietqrConfig.accountNo}-compact2.png?amount=${amount.replace(/\D/g, '')}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(vietqrConfig.accountName)}`}
