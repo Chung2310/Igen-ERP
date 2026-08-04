@@ -4,6 +4,9 @@ import { Student } from '../../../types';
 import { cn, formatVND, parseVND, getVietQRBankCode } from '../../../lib/utils';
 import { useAuth } from '../../../../../context/AuthContext';
 import { useEntityLabel } from '../../../hooks/useEntityLabel';
+import { companyPaymentApi } from '../../../../../services/companyPaymentService';
+import { apiFetch } from '../../../lib/api';
+import { toast } from '../../../../../pages/Toast';
 
 type PaymentHistoryItem = NonNullable<Student['paymentHistory']>[number];
 
@@ -41,12 +44,15 @@ export function TuitionTab({
   const entityLabel = useEntityLabel();
   const feeLabel = 'Học phí đã chốt';
   const totalFee = parseInt(parseVND(student.fee)) || 0;
-  const paid = student.paidAmount || 0;
+  const paid = student.paymentHistory?.length
+    ? student.paymentHistory.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    : (student.paidAmount || 0);
   const remaining = totalFee - paid;
 
   const [paymentAmount, setPaymentAmount] = useState<number>(remaining > 0 ? remaining : 0);
   const [paymentAmountInput, setPaymentAmountInput] = useState<string>(formatVND(remaining > 0 ? remaining : 0));
   const [copied, setCopied] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
   const [vietqrConfig, setVietqrConfig] = useState(() => {
     const localConfig = getLocalVietQrConfig();
     const bankId = localConfig?.bankId || (user as any)?.bankId || '';
@@ -58,12 +64,30 @@ export function TuitionTab({
 
   React.useEffect(() => {
     const localConfig = getLocalVietQrConfig();
-    setVietqrConfig({
+    const fallbackConfig = {
       enabled: localConfig?.enabled ?? ((user as any)?.bankQrEnabled !== false),
       bankId: localConfig?.bankId || (user as any)?.bankId || '',
       accountNo: localConfig?.accountNo || (user as any)?.bankAccountNo || '',
       accountName: localConfig?.accountName || (user as any)?.bankAccountName || user?.displayName || ''
-    });
+    };
+    setVietqrConfig(fallbackConfig);
+
+    // Company settings are the source of truth for tuition payments. Keep
+    // personal/local settings as a fallback for older installations.
+    companyPaymentApi.getVietqr()
+      .then((companyConfig) => {
+        if (companyConfig?.bankId && companyConfig?.accountNo) {
+          setVietqrConfig({
+            ...fallbackConfig,
+            bankId: companyConfig.bankId,
+            accountNo: companyConfig.accountNo,
+            accountName: companyConfig.accountName || fallbackConfig.accountName,
+          });
+        }
+      })
+      .catch(() => {
+        // The fallback above still supports accounts configured per user.
+      });
   }, [user]);
 
   const [prevRemaining, setPrevRemaining] = useState(remaining);
@@ -77,6 +101,39 @@ export function TuitionTab({
     navigator.clipboard.writeText(student.id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSendTuitionReminder = async () => {
+    const email = String((student as any).email || '').trim();
+    if (!email) {
+      toast.warning('Học viên chưa có địa chỉ email.');
+      return;
+    }
+    if (remaining <= 0) {
+      toast.info('Học viên đã hoàn tất học phí.');
+      return;
+    }
+
+    setSendingReminder(true);
+    try {
+      const qr = hasValidConfig
+        ? `<p><b>Ngân hàng:</b> ${accountName ? accountName : 'Tài khoản SePay doanh nghiệp'}<br/><b>Số tài khoản:</b> ${accountNo}<br/><b>Nội dung chuyển khoản:</b> ${student.id}</p><img src="${qrCodeUrl}" alt="VietQR" width="260" />`
+        : '<p>Vui lòng liên hệ trung tâm để nhận thông tin chuyển khoản.</p>';
+      const data = await apiFetch('/send-email', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: email,
+          subject: `Nhắc nhở học phí - ${student.fullName}`,
+          html: `<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Nhắc nhở thanh toán học phí</h2><p>Xin chào ${student.fullName},</p><p>Học phí cần thanh toán: <b>${formatVND(totalFee)}đ</b><br/>Đã đóng: <b>${formatVND(paid)}đ</b><br/>Còn nợ: <b style="color:#e11d48">${formatVND(remaining)}đ</b></p>${qr}<p>Trân trọng.</p></div>`,
+        }),
+      });
+      if (!data?.success) throw new Error(data?.error || 'Không thể gửi email.');
+      toast.success(`Đã gửi nhắc học phí đến ${email}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể gửi email nhắc học phí.');
+    } finally {
+      setSendingReminder(false);
+    }
   };
 
   const handleAmountInputChange = (val: string) => {
@@ -313,8 +370,8 @@ export function TuitionTab({
                   </div>
                 );
               })()}
-              <button className="w-full py-3 bg-cyan-600 text-white rounded-xl text-xs font-bold hover:bg-cyan-700 transition-all active:scale-95 shadow-lg shadow-cyan-100 mt-2">
-                Nhắc nhở đóng phí
+              <button onClick={handleSendTuitionReminder} disabled={sendingReminder} className="w-full py-3 bg-cyan-600 text-white rounded-xl text-xs font-bold hover:bg-cyan-700 transition-all active:scale-95 shadow-lg shadow-cyan-100 mt-2 disabled:opacity-60">
+                {sendingReminder ? 'Đang gửi...' : 'Nhắc nhở đóng phí'}
               </button>
             </div>
           </div>

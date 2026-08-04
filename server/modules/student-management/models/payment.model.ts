@@ -6,6 +6,7 @@ const paymentSchema = new Schema<IPayment>(
     studentId: { type: String, required: true, index: true },
     studentName: { type: String, required: true, trim: true },
     amount: { type: Number, required: true },
+    method: { type: String, enum: ["Tiền mặt", "Chuyển khoản"], required: true },
     // Hiển thị cho người dùng — lịch sử lưu DD/MM/YYYY, không dùng để lọc/sắp xếp
     date: { type: String, required: true },
     // Ngày thu tiền đã chuẩn hóa — nguồn duy nhất để gom nhóm theo thời gian

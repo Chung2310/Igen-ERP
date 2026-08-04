@@ -13,6 +13,7 @@ export const createPaymentSchema = Joi.object({
     "any.required": "Số tiền thanh toán là bắt buộc.",
     "number.positive": "Số tiền phải lớn hơn 0.",
   }),
+  method: Joi.string().valid("Tiền mặt", "Chuyển khoản").required(),
   // Siết định dạng để không sinh thêm dữ liệu không quy đổi được sang paidOn.
   date: Joi.string().pattern(PAYMENT_DATE_PATTERN).required().messages({
     "any.required": "Ngày thanh toán là bắt buộc.",

@@ -317,6 +317,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                 transition={{ duration: 0.3 }}
                 className="w-full"
               >
+                {student && activeTab === tabs[tabs.length - 1] && <StudentHistoryTab student={student} />}
                 {student && activeTab === 'Hồ sơ' && (
                   <ProfileTab student={student} selectedCenter={selectedCenter} />
                 )}
@@ -371,4 +372,31 @@ function TabIcon({ tab, size = 16 }: { tab: TabType, size?: number }) {
     case 'Lịch sử': return <History size={size} />;
     default: return null;
   }
+}
+
+function StudentHistoryTab({ student }: { student: Student }) {
+  const payments = student.paymentHistory || [];
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-slate-800">Lịch sử thanh toán</h3>
+        <span className="text-xs font-bold text-slate-400">{payments.length} giao dịch</span>
+      </div>
+      {payments.length === 0 ? (
+        <div className="py-10 text-center text-sm text-slate-400">Chưa có dữ liệu lịch sử.</div>
+      ) : (
+        <div className="space-y-2">
+          {[...payments].reverse().map((payment, index) => (
+            <div key={payment.id || index} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-700">{payment.method}</p>
+                <p className="text-xs text-slate-400">{payment.date}{payment.note ? ` · ${payment.note}` : ''}</p>
+              </div>
+              <span className="shrink-0 text-sm font-black text-emerald-600">{new Intl.NumberFormat('vi-VN').format(payment.amount)}đ</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

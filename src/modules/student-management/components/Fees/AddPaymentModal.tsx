@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, FileText, Loader2, Save, CreditCard, QrCode } from 'lucide-react';
+import { X, FileText, Loader2, Save, CreditCard, QrCode, Banknote, Landmark } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { Student } from '../../types';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
 import { getVietQRBankCode, toDisplayDate } from '../../lib/utils';
+import { companyPaymentApi } from '../../../../services/companyPaymentService';
 
 const BANK_NAMES: Record<string, string> = {
   mbbank: 'MBBank',
@@ -59,6 +60,8 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'Tiền mặt' | 'Chuyển khoản'>('Tiền mặt');
+  const [showTransferQr, setShowTransferQr] = useState(false);
   const [vietqrConfig, setVietqrConfig] = useState(() => {
     const localConfig = getLocalVietQrConfig();
     const bankId = localConfig?.bankId || user?.bankId || '';
@@ -79,6 +82,16 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
       accountName: localConfig?.accountName || user?.bankAccountName || user?.displayName || '',
       template: localConfig?.template || '[Mã HV] - [Họ tên] - Nộp học phí khóa {hang}',
     });
+    companyPaymentApi.getVietqr().then((companyConfig) => {
+      if (companyConfig?.bankId && companyConfig?.accountNo) {
+        setVietqrConfig((current) => ({
+          ...current,
+          bankId: companyConfig.bankId,
+          accountNo: companyConfig.accountNo,
+          accountName: companyConfig.accountName || current.accountName,
+        }));
+      }
+    }).catch(() => undefined);
   }, [isOpen, user]);
 
   React.useEffect(() => {
@@ -130,6 +143,15 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
         return;
       }
 
+      if (paymentMethod === 'Chuyển khoản') {
+        if (!vietqrConfig.enabled || !vietqrConfig.bankId || !vietqrConfig.accountNo) {
+          toast.warning('Chưa có cấu hình tài khoản SePay để nhận chuyển khoản.');
+          return;
+        }
+        setShowTransferQr(true);
+        return;
+      }
+
       setIsSubmitting(true);
 
       await apiFetch("/payments", {
@@ -139,6 +161,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
           studentName: student.fullName,
           amount: payAmount,
           date: toDisplayDate(date),
+          method: paymentMethod,
           note: note.trim(),
         }),
       });
@@ -230,7 +253,26 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-base font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
                   />
-                  <Calendar className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Phương thức thanh toán</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ['Tiền mặt', Banknote],
+                    ['Chuyển khoản', Landmark],
+                  ] as const).map(([value, Icon]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setPaymentMethod(value)}
+                      className={`h-12 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${paymentMethod === value ? 'border-cyan-600 bg-cyan-50 text-cyan-700 ring-2 ring-cyan-500/10' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-cyan-200'}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {value}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -248,7 +290,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                 </div>
               </div>
 
-              {vietqrConfig.enabled && vietqrConfig.bankId && vietqrConfig.accountNo && (() => {
+              {!showTransferQr && paymentMethod === 'Chuyển khoản' && vietqrConfig.enabled && vietqrConfig.bankId && vietqrConfig.accountNo && (() => {
                 const qrCodeMemo = (() => {
                   let m = note;
                   const objectIdRegex = /[0-9a-fA-F]{24}/;
@@ -310,6 +352,20 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
             </div>
           </form>
         </motion.div>
+        {showTransferQr && paymentMethod === 'Chuyển khoản' && (
+          <div className="absolute z-10 w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 text-center">
+            <QrCode className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
+            <h4 className="text-lg font-black text-slate-800">Quét mã để chuyển khoản</h4>
+            <p className="text-xs text-slate-500 mt-1">Sau khi SePay nhận tiền, học phí sẽ được ghi nhận tự động.</p>
+            <img
+              className="w-64 h-64 object-contain mx-auto my-4"
+              src={`https://img.vietqr.io/image/${getVietQRBankCode(vietqrConfig.bankId)}-${vietqrConfig.accountNo}-compact2.png?amount=${amount.replace(/\D/g, '')}&addInfo=${encodeURIComponent(note)}&accountName=${encodeURIComponent(vietqrConfig.accountName)}`}
+              alt="Mã QR chuyển khoản SePay"
+            />
+            <p className="text-xs text-slate-500">Nội dung: <strong className="font-mono text-slate-800">{note}</strong></p>
+            <button type="button" onClick={() => { setShowTransferQr(false); onClose(); }} className="mt-4 w-full h-12 rounded-xl bg-slate-100 text-slate-700 font-bold">Đóng</button>
+          </div>
+        )}
       </div>
     </AnimatePresence>
   );
