@@ -12,7 +12,7 @@
 
 - Do not migrate or delete legacy worker-preset data from student collections.
 - Keep the four worker tabs, visual layout, modal lifecycle, loading states, toast behavior, and navigation unchanged.
-- Keep public worker URL, method, request body, HTTP status, response shape, and validation/error behavior unchanged.
+- Replace student-named worker URLs with worker-owned resources (`workers`, `projects`, `attendance`, `qr-attendance`, `dashboard`, `notifications`) and keep method, request body semantics, HTTP status, response shape, and validation/error behavior unchanged; do not retain legacy aliases.
 - Keep permissions exactly `worker:read` and `worker:manage`.
 - Every worker query is scoped by `companyCode` and, when present, `branchId`.
 - Worker code must not import student hooks, types, pages, models, services, or routers directly or through `shared-management`.
@@ -103,9 +103,9 @@ export function workerScopeFromActor(actor: { companyCode?: unknown; branchId?: 
 }
 ```
 
-- [ ] **Step 5: Keep failing isolation tests as cutover gates and commit baseline**
+- [ ] **Step 5: Record cutover assertions without committing skipped tests and commit baseline**
 
-Focused contract tests must pass; cutover isolation tests remain explicitly skipped with reason `pending worker flow cutover` until Task 7. Commit:
+Focused contract tests must pass. Store the cutover assertions in the Task 7 brief/progress ledger; do not add or commit skipped tests. Commit:
 
 ```powershell
 git add server/modules/worker-management src/modules/business-module-isolation.test.ts src/modules/worker-management/WorkerWorkspace.test.tsx

@@ -9,7 +9,7 @@ Module lao động dùng model và collection riêng. Dữ liệu lao động c�
 ## Nguyên tắc bất biến
 
 - Không thay đổi UI, thứ tự tab, thao tác hoặc luồng điều hướng hiện tại.
-- Không thay đổi URL công khai, method, payload, HTTP status hoặc response shape của API worker hiện tại.
+- Được đổi các URL nội bộ còn mang tên học viên sang namespace worker thuần (`workers`, `projects`, `attendance`, `qr-attendance`, `dashboard`, `notifications`) vì hệ thống chưa vận hành thực tế; method, payload, HTTP status, response shape và hành vi vẫn phải giữ nguyên.
 - Không thay đổi hành vi loading, empty state, toast, validation và error handling.
 - Giữ nguyên hai quyền `worker:read` và `worker:manage`; không mở rộng permission trong đợt tách này.
 - Không thay đổi logic học viên ngoài việc xóa các nhánh worker đã không còn được sử dụng sau cutover cuối cùng.
@@ -53,7 +53,7 @@ Tuy nhiên luồng chính vẫn phụ thuộc gián tiếp vào học viên:
 
 ### API contract
 
-Giữ nguyên toàn bộ endpoint công khai đang được workspace sử dụng dưới `/api/v1/worker-management/*`. Trước khi thay implementation, test phải khóa:
+Thay toàn bộ endpoint còn mang tên học viên bằng endpoint worker thuần dưới `/api/v1/worker-management/*`; không giữ alias tương thích cũ. Trước khi thay implementation, test phải khóa hành vi:
 
 - Method, URL, query parameters và request body.
 - HTTP status và response body.
