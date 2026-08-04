@@ -163,7 +163,13 @@ export class WebhookService {
     const payAmount = Math.min(amount, remaining);
 
     // Ghi nhận thanh toán qua PaymentService
-    const savedPayment = await PaymentService.createPayment(ownerId, {
+    // `matchStudentByDescription` is intentionally company-wide for a
+    // company receiving account. Use the matched student's actual owner for
+    // the write as well; using only the representative account user makes a
+    // valid same-company student fail at PaymentService with "student not
+    // found" and turns the SePay callback into a 500.
+    const paymentOwnerId = String(student.ownerId || ownerId);
+    const savedPayment = await PaymentService.createPayment(paymentOwnerId, {
       studentId: student._id.toString(),
       amount: payAmount,
       date,
@@ -178,7 +184,7 @@ export class WebhookService {
     }).format(payAmount);
 
     // Broadcast sự kiện qua SSE
-    sseManager.broadcast(ownerId, "payment-received", {
+    sseManager.broadcast(paymentOwnerId, "payment-received", {
       studentId: student._id.toString(),
       studentName: student.fullName,
       amount: formattedAmount,
