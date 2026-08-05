@@ -569,7 +569,7 @@ export class BatchService {
 
     batch.learnerIds.push(studentId);
     const saved = await batch.save();
-await StudentBatchEnrollmentService.activate({
+    await StudentBatchEnrollmentService.activate({
       ownerId: saved.ownerId,
       branchId: saved.branchId,
       batchId: String(saved._id),
@@ -598,7 +598,7 @@ await StudentBatchEnrollmentService.activate({
       throw new Error("Học viên không có trong lớp này.");
     }
     const saved = await batch.save();
-await StudentBatchEnrollmentService.remove({
+    await StudentBatchEnrollmentService.remove({
       ownerId: saved.ownerId,
       branchId: saved.branchId,
       batchId: String(saved._id),
