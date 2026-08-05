@@ -87,7 +87,9 @@ export interface EmployeeNode {
   parentId?: string;
   status: "online" | "offline";
   division: string;
+  isLeader?: boolean;
   jobDescriptionLink?: string;
+  qualification?: string;
   monthlySalary?: number;
 }
 
