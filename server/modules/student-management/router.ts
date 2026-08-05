@@ -24,6 +24,7 @@ import studentAttendanceAttemptRoutes from "./routes/student-attendance-attempt.
 import studentFaceRoutes from "./routes/student-face.routes";
 import assignmentRoutes from "./routes/assignment.routes";
 import studentQualityRoutes from "./routes/student-quality.routes";
+import learningRoadmapRoutes from "./routes/learning-roadmap.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
@@ -69,6 +70,7 @@ studentManagementRouter.use("/student-management/settings", authMiddleware as un
 studentManagementRouter.use("/student-management/standard-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, standardFieldRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/student-quality", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-quality"), studentQualityRoutes);
+studentManagementRouter.use("/learning-roadmaps", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("learning-roadmap"), learningRoadmapRoutes);
 studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);
 studentManagementRouter.use("/attendance/attempts", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("assignment"), studentAttendanceAttemptRoutes);

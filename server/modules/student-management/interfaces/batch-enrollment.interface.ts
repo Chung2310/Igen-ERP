@@ -39,6 +39,11 @@ export interface IBatchEnrollment extends Document {
   suspendedAt?: Date | null;
   suspensionReason?: string;
   expectedReturnAt?: string | null;
+  /** Lien ket voi Module lo trinh; de trong voi enrollment da co truoc Module 7. */
+  roadmapId?: string;
+  roadmapStepId?: string;
+  sourceEnrollmentId?: string;
+  enrollmentReason?: "initial" | "promotion" | "repeat" | "resume" | "manual";
   history: IBatchEnrollmentHistoryEntry[];
   createdAt?: Date;
   updatedAt?: Date;

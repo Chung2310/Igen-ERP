@@ -9,6 +9,7 @@ export type StudentPermissionArea =
   | "classroom"
   | "assignment"
   | "student-quality"
+  | "learning-roadmap"
   | "custom-field"
   | "student-settings"
   | "company-smtp";

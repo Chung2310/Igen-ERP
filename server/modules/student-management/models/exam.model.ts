@@ -1,6 +1,8 @@
 import { Schema, model } from "mongoose";
 import { IExam } from "../interfaces/exam.interface";
 
+const resultSchema = new Schema({ studentId: { type: String, required: true }, score: { type: Number, min: 0 }, note: { type: String, default: "" }, gradedBy: { type: String, default: "" }, gradedAt: { type: Date, default: null } }, { _id: false });
+
 const examSchema = new Schema<IExam>(
   {
     customFields: { type: Schema.Types.Mixed, default: {} },
@@ -21,6 +23,9 @@ const examSchema = new Schema<IExam>(
     tentativeDate: { type: String, required: true },
     officialDate: { type: String, default: "" },
     location: { type: String, required: true },
+    batchId: { type: String, default: "", index: true },
+    maxScore: { type: Number, default: 100, min: 1 },
+    results: { type: [resultSchema], default: [] },
     studentCount: { type: Number, default: 0 },
     passCount: { type: Number, default: 0 },
     failCount: { type: Number, default: 0 },
