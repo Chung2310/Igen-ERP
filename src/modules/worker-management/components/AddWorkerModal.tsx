@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Save, X } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import type {
@@ -148,14 +149,24 @@ export function AddWorkerModal({
   };
 
   return (
+    <AnimatePresence>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
+      <motion.button
         aria-label="Đóng"
         type="button"
         onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
       />
-      <div className="relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 30 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="text-base font-bold text-slate-800">
             Thêm lao động mới
@@ -286,8 +297,9 @@ export function AddWorkerModal({
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
+    </AnimatePresence>
   );
 }
 

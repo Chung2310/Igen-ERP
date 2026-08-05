@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   CalendarRange,
   Clock,
@@ -514,7 +515,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, code: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Tên dự án">
@@ -523,7 +524,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, name: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Chỉ tiêu">
@@ -534,7 +535,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, quota: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Trạng thái">
@@ -546,7 +547,7 @@ export function WorkerProjectsPage({
                       status: event.target.value as ProjectStatus,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 >
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -565,7 +566,7 @@ export function WorkerProjectsPage({
                       startDate: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Ngày kết thúc">
@@ -578,7 +579,7 @@ export function WorkerProjectsPage({
                       endDate: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Giờ bắt đầu">
@@ -591,7 +592,7 @@ export function WorkerProjectsPage({
                       startTime: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Giờ kết thúc">
@@ -604,7 +605,7 @@ export function WorkerProjectsPage({
                       endTime: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
             </div>
@@ -617,7 +618,7 @@ export function WorkerProjectsPage({
                     location: event.target.value,
                   }))
                 }
-                className="input"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
               />
             </Field>
             <fieldset>
@@ -658,18 +659,18 @@ export function WorkerProjectsPage({
                 className="input min-h-20"
               />
             </Field>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <div className="flex justify-end gap-4 border-t border-slate-100 pt-4">
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
-                className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500"
+                className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                className="rounded-xl bg-cyan-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
               >
                 {editing ? "Cập nhật dự án" : "Tạo dự án"}
               </button>
@@ -723,7 +724,7 @@ export function WorkerProjectsPage({
               id="worker-project-member"
               value={workerId}
               onChange={(event) => setWorkerId(event.target.value)}
-              className="input flex-1"
+              className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
             >
               <option value="">Chọn lao động...</option>
               {availableWorkers.map((worker) => (
@@ -736,7 +737,7 @@ export function WorkerProjectsPage({
               type="button"
               disabled={!workerId}
               onClick={() => void addMember()}
-              className="flex items-center gap-1 rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="flex items-center gap-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
             >
               <UserPlus className="h-3.5 w-3.5" /> Thêm vào dự án
             </button>
@@ -877,17 +878,39 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-          <h2 className="text-sm font-bold text-cyan-700">{title}</h2>
-          <button type="button" aria-label="Đóng" onClick={onClose}>
-            <X className="h-4 w-4 text-slate-400" />
-          </button>
-        </div>
-        {children}
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <motion.button
+          aria-label="Đóng"
+          type="button"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 30 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
+            <h2 className="text-base font-bold text-slate-800">{title}</h2>
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={onClose}
+              className="rounded-full p-1.5 transition-colors hover:bg-slate-100"
+            >
+              <X className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+          <div className="space-y-4 overflow-y-auto p-6">{children}</div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -900,8 +923,8 @@ function Field({
 }) {
   const id = `worker-project-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
-    <label htmlFor={id} className="block">
-      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">
+    <label htmlFor={id} className="block space-y-1">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
         {label}
       </span>
       {React.cloneElement(children, { id })}
