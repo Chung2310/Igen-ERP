@@ -1,0 +1,3 @@
+﻿import { describe, expect, it } from "vitest";
+import { createWorkerNotificationSchema } from "./worker-notification.validation";
+describe("createWorkerNotificationSchema", () => { it("requires non-empty title and content", () => { expect(createWorkerNotificationSchema.validate({ title: "", content: "" }).error).toBeTruthy(); }); it("rejects unknown fields and invalid channels", () => { expect(createWorkerNotificationSchema.validate({ title: "A", content: "B", foo: true }).error).toBeTruthy(); expect(createWorkerNotificationSchema.validate({ title: "A", content: "B", channels: ["sms"] }).error).toBeTruthy(); }); });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { ModuleKey, FieldDefinition, DynamicFieldType } from "../custom-fields/types";
 import type { EntityPreset } from "../config/entityLabels";
 import { apiFetch } from "../lib/api";
@@ -150,16 +150,29 @@ export function mergeStandardFieldOverrides(
   });
 }
 
-export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
+export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset, tenantId?: string) {
   const legacyStorageKey = `standardFieldsConfig:${moduleKey}`;
+  const configKey = `${moduleKey}:${preset || ""}:${tenantId || ""}`;
+  const activeConfigKeyRef = useRef(configKey);
+  activeConfigKeyRef.current = configKey;
   const [fields, setFields] = useState<StandardFieldConfig[]>(() =>
     getDefaultStandardFields(moduleKey, preset),
   );
 
+  const [loadedConfigKey, setLoadedConfigKey] = useState(configKey);
+  const commitLoadedFields = useCallback(
+    (nextFields: StandardFieldConfig[]) => {
+      if (activeConfigKeyRef.current !== configKey) return;
+      setFields(nextFields);
+      setLoadedConfigKey(configKey);
+    },
+    [configKey],
+  );
   const load = useCallback(async () => {
     try {
       const response = await apiFetch<{ data: StandardFieldOverride[] }>(
         `/student-management/standard-fields/${moduleKey}`,
+        { params: { tenantId } },
       );
       let overrides = response.data || [];
 
@@ -180,7 +193,11 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
             }));
             const saved = await apiFetch<{ data: StandardFieldOverride[] }>(
               `/student-management/standard-fields/${moduleKey}`,
-              { method: "PUT", body: JSON.stringify({ fields: migrated }) },
+              {
+                method: "PUT",
+                body: JSON.stringify({ fields: migrated }),
+                params: { tenantId },
+              },
             );
             overrides = saved.data || migrated;
           } catch (error) {
@@ -190,24 +207,31 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
         }
       }
 
-      setFields(mergeStandardFieldOverrides(moduleKey, overrides, preset));
+      commitLoadedFields(mergeStandardFieldOverrides(moduleKey, overrides, preset));
     } catch (error) {
       // Không chặn form: thiếu quyền hoặc mất mạng thì dùng bộ trường mặc định.
       console.error("Failed to load standard fields config", error);
-      setFields(getDefaultStandardFields(moduleKey, preset));
+      commitLoadedFields(getDefaultStandardFields(moduleKey, preset));
     }
-  }, [moduleKey, preset, legacyStorageKey]);
+  }, [moduleKey, preset, legacyStorageKey, tenantId, commitLoadedFields]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
+  const visibleFields =
+    loadedConfigKey === configKey
+      ? fields
+      : getDefaultStandardFields(moduleKey, preset);
+
   const saveConfig = (newFields: StandardFieldConfig[]) => {
-    const previous = fields;
+    const previous = visibleFields;
     setFields(newFields);
+    setLoadedConfigKey(configKey);
     void apiFetch(`/student-management/standard-fields/${moduleKey}`, {
       method: "PUT",
+      params: { tenantId },
       body: JSON.stringify({
         fields: newFields.map((f) => ({
           key: f.key,
@@ -225,7 +249,10 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
       .catch((error) => {
         console.error("Failed to save standard fields config", error);
         toast.error("Không lưu được cấu hình trường. Vui lòng thử lại.");
-        setFields(previous);
+        if (activeConfigKeyRef.current === configKey) {
+          setFields(previous);
+          setLoadedConfigKey(configKey);
+        }
       });
   };
 
@@ -236,7 +263,7 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
   }, [moduleKey, load]);
 
   const updateField = (key: string, input: Partial<StandardFieldConfig>) => {
-    const updated = fields.map(f => {
+    const updated = visibleFields.map(f => {
       if (f.key === key) {
         const isVisible = input.isVisible !== undefined ? input.isVisible : f.isVisible;
         const isRequired = isVisible ? (input.isRequired !== undefined ? input.isRequired : f.isRequired) : false;
@@ -253,7 +280,7 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
   };
 
   const archiveField = (key: string) => {
-    const updated = fields.map(f => {
+    const updated = visibleFields.map(f => {
       if (f.key === key) {
         return { ...f, isArchived: true, isVisible: false, isRequired: false };
       }
@@ -263,7 +290,7 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
   };
 
   const restoreField = (key: string) => {
-    const updated = fields.map(f => {
+    const updated = visibleFields.map(f => {
       if (f.key === key) {
         return { ...f, isArchived: false, isVisible: true };
       }
@@ -274,7 +301,7 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
 
   const deleteField = (key: string) => {
     // Treat permanent delete as permanently archived/hidden
-    const updated = fields.map(f => {
+    const updated = visibleFields.map(f => {
       if (f.key === key) {
         return { ...f, isArchived: false, isVisible: false, isRequired: false };
       }
@@ -283,12 +310,12 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset) {
     saveConfig(updated);
   };
 
-  const activeFields = fields.filter(f => f.isVisible && !f.isArchived);
-  const archivedFields = fields.filter(f => f.isArchived);
+  const activeFields = visibleFields.filter(f => f.isVisible && !f.isArchived);
+  const archivedFields = visibleFields.filter(f => f.isArchived);
 
   // Expose as an object with getters & actions
   return {
-    fields,
+    fields: visibleFields,
     activeFields,
     archivedFields,
     updateField,
