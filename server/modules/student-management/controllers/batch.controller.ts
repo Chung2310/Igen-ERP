@@ -126,9 +126,9 @@ export class BatchController {
   static async updateEnrollmentStatus(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const { status, reason, expectedReturnAt } = req.body;
+      const { status, reason, expectedReturnAt, retakeFee, targetBatchId } = req.body;
       const enrollment = await updateEnrollmentStatus(
-        ownerId, req.params.id, req.params.studentId, status, reason, expectedReturnAt, req.user!.branchId,
+        ownerId, req.params.id, req.params.studentId, status, reason, expectedReturnAt, req.user!.branchId, retakeFee, targetBatchId, req.user!.uid,
       );
       if (!enrollment) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học." });

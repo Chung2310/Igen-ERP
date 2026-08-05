@@ -14,6 +14,7 @@ interface ManageLearnersModalProps {
   batch: Batch;
   onClose: () => void;
   students: Student[];
+  batches?: Batch[];
   onSuccess: () => void;
 }
 
@@ -22,6 +23,7 @@ export function ManageLearnersModal({
   batch,
   onClose,
   students,
+  batches = [],
   onSuccess,
 }: ManageLearnersModalProps) {
   const darkMode = false;
@@ -32,6 +34,8 @@ export function ManageLearnersModal({
   const [isAdding, setIsAdding] = useState(false);
   const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
   const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState<string | null>(null);
+  const [suspensionDraft, setSuspensionDraft] = useState<{ studentId: string; reason: string; expectedReturnAt: string } | null>(null);
+  const [retakeDraft, setRetakeDraft] = useState<{ studentId: string; reason: string; fee: string; targetBatchId: string } | null>(null);
   const { byStudent, reload: reloadEnrollments } = useBatchEnrollments(isOpen ? batch?.id : null);
 
   /** Sổ buổi của học viên: đã học / tổng được học */
@@ -40,6 +44,7 @@ export function ManageLearnersModal({
     if (!enrollment) return null;
     const exhausted = enrollment.remainingSessions <= 0;
     const suspended = enrollment.status === "Bảo lưu";
+    const retaking = enrollment.status === "Học lại";
     return (
       <div className="space-y-0.5">
         {enrollment.allowedSessions > 0 && (
@@ -49,9 +54,10 @@ export function ManageLearnersModal({
           </p>
         )}
         <p className={cn("text-[10px] font-bold", suspended ? "text-amber-600" : "text-emerald-600")}>
-          {suspended ? "Đang bảo lưu" : "Đang học"}
+          {suspended ? "Đang bảo lưu" : retaking ? "Đang học lại" : "Đang học"}
           {suspended && enrollment.expectedReturnAt ? ` • dự kiến ${enrollment.expectedReturnAt.split("-").reverse().join("/")}` : ""}
         </p>
+        {!!enrollment.retakeCount && <p className="text-[10px] font-bold text-indigo-600">Học lại: {enrollment.retakeCount} lần{enrollment.retakeHistory?.at(-1)?.fee ? ` • phí ${enrollment.retakeHistory.at(-1)?.fee.toLocaleString("vi-VN")}đ` : " • miễn phí lần đầu"}</p>}
       </div>
     );
   };
@@ -135,36 +141,59 @@ export function ManageLearnersModal({
     }
   };
 
-  const handleToggleSuspension = async (studentId: string) => {
+const handleToggleSuspension = async (studentId: string) => {
     const enrollment = byStudent.get(studentId);
     if (!enrollment || updatingEnrollmentId) return;
-    let payload: { status: "Đang học" | "Bảo lưu"; reason?: string; expectedReturnAt?: string | null };
-    if (enrollment.status === "Bảo lưu") {
-      payload = { status: "Đang học" };
-    } else {
-      const reason = window.prompt("Lý do bảo lưu học viên:");
-      if (reason === null) return;
-      if (!reason.trim()) { toast.error("Vui lòng nhập lý do bảo lưu."); return; }
-      const expectedReturnAt = window.prompt("Ngày dự kiến quay lại (YYYY-MM-DD, có thể bỏ trống):");
-      if (expectedReturnAt === null) return;
-      payload = { status: "Bảo lưu", reason, expectedReturnAt: expectedReturnAt.trim() || null };
+    if (enrollment.status !== "Bảo lưu") {
+      setSuspensionDraft({ studentId, reason: "", expectedReturnAt: "" });
+      return;
     }
     setUpdatingEnrollmentId(studentId);
     try {
-      await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify(payload) });
+      await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify({ status: "Đang học" }) });
       await reloadEnrollments();
-      toast.success(payload.status === "Bảo lưu" ? "Đã bảo lưu học viên." : "Học viên đã quay lại học.");
+      toast.success("Học viên đã quay lại học.");
       onSuccess();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái học viên.");
-    } finally {
-      setUpdatingEnrollmentId(null);
-    }
+    } finally { setUpdatingEnrollmentId(null); }
   };
 
+  const confirmRetake = async () => {
+    if (!retakeDraft || !retakeDraft.reason.trim()) { toast.error("Vui lòng nhập lý do học lại."); return; }
+    const { studentId, reason, fee, targetBatchId } = retakeDraft;
+    setUpdatingEnrollmentId(studentId);
+    try {
+      await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify({ status: "Học lại", reason: reason.trim(), retakeFee: Number(fee) || 0, targetBatchId }) });
+      setRetakeDraft(null); await reloadEnrollments(); onSuccess(); toast.success("Đã chuyển học viên sang trạng thái học lại.");
+    } catch (error: unknown) { toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái học lại."); }
+    finally { setUpdatingEnrollmentId(null); }
+  };
+
+  const handleStatusChange = async (studentId: string, status: string) => {
+    setUpdatingEnrollmentId(studentId);
+    try { await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify({ status, reason: "Cập nhật từ quản lý lớp" }) }); await reloadEnrollments(); onSuccess(); toast.success("Đã cập nhật trạng thái học viên."); }
+    catch (error: unknown) { toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái."); }
+    finally { setUpdatingEnrollmentId(null); }
+  };
+
+  const confirmSuspension = async () => {
+    if (!suspensionDraft || !suspensionDraft.reason.trim()) { toast.error("Vui lòng nhập lý do bảo lưu."); return; }
+    const { studentId, reason, expectedReturnAt } = suspensionDraft;
+    setUpdatingEnrollmentId(studentId);
+    try {
+      await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify({ status: "Bảo lưu", reason: reason.trim(), expectedReturnAt: expectedReturnAt.trim() || null }) });
+      setSuspensionDraft(null);
+      await reloadEnrollments();
+      toast.success("Đã bảo lưu học viên.");
+      onSuccess();
+    } catch (error: unknown) { toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái học viên."); }
+    finally { setUpdatingEnrollmentId(null); }
+  };
   if (!isOpen) return null;
 
   return (
+    <>
     <ErpModal
       title={`${entityLabel.tabLabel} ${copy.entityNameLower} ${batch.code}`}
       onClose={onClose}
@@ -283,6 +312,11 @@ export function ManageLearnersModal({
                     {renderSessionCounter(s.id)}
                   </div>
                   {byStudent.get(s.id) && (
+                    <>
+                    <select value={byStudent.get(s.id)?.status || "Đang học"} onChange={(e) => handleStatusChange(s.id, e.target.value)} disabled={updatingEnrollmentId !== null} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600">
+                      <option>Đang học</option><option>Bảo lưu</option><option>Học lại</option><option>Hoàn thành khóa</option><option>Chờ xếp lớp tiếp theo</option><option>Không còn nhu cầu học</option>
+                    </select>
+
                     <button
                       type="button"
                       onClick={() => handleToggleSuspension(s.id)}
@@ -295,10 +329,14 @@ export function ManageLearnersModal({
                           : "bg-slate-50 text-slate-450 border-slate-200/60 hover:bg-amber-50 hover:text-amber-600"
                       )}
                     >
-                      {updatingEnrollmentId === s.id
+                      {byStudent.get(s.id)?.status !== "Học lại" && (
+                    <button type="button" onClick={() => setRetakeDraft({ studentId: s.id, reason: "", fee: "", targetBatchId: batch.id })} disabled={updatingEnrollmentId !== null || removingStudentId !== null || isAdding} title="Học lại" className="rounded-lg border border-indigo-200 bg-indigo-50 p-1.5 text-indigo-600 hover:bg-indigo-100">↻</button>
+                  )}
+                  {updatingEnrollmentId === s.id
                         ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         : byStudent.get(s.id)?.status === "Bảo lưu" ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
                     </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -323,5 +361,25 @@ export function ManageLearnersModal({
         </div>
       </div>
     </ErpModal>
+      {suspensionDraft && (
+        <ErpModal title="Xác nhận bảo lưu học viên" onClose={() => setSuspensionDraft(null)} maxWidth="max-w-md">
+          <div className="space-y-4">
+            <label className="block text-xs font-bold text-slate-600">Lý do bảo lưu<textarea value={suspensionDraft.reason} onChange={(e) => setSuspensionDraft({ ...suspensionDraft, reason: e.target.value })} rows={3} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" placeholder="Nhập lý do..." /></label>
+            <label className="block text-xs font-bold text-slate-600">Ngày dự kiến quay lại<input type="date" value={suspensionDraft.expectedReturnAt} onChange={(e) => setSuspensionDraft({ ...suspensionDraft, expectedReturnAt: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" /></label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setSuspensionDraft(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600">Hủy</button><button type="button" onClick={confirmSuspension} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-white">Xác nhận bảo lưu</button></div>
+          </div>
+        </ErpModal>
+      )}
+      {retakeDraft && (
+        <ErpModal title="Xác nhận học lại" onClose={() => setRetakeDraft(null)} maxWidth="max-w-md">
+          <div className="space-y-4">
+            <label className="block text-xs font-bold text-slate-600">Lý do học lại<textarea value={retakeDraft.reason} onChange={(e) => setRetakeDraft({ ...retakeDraft, reason: e.target.value })} rows={3} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm" /></label>
+            <label className="block text-xs font-bold text-slate-600">Lớp học lại đích<select value={retakeDraft.targetBatchId} onChange={(e) => setRetakeDraft({ ...retakeDraft, targetBatchId: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm">{batches.filter((item) => item.id !== batch.id && item.status !== "Đã hủy").map((item) => <option key={item.id} value={item.id}>{item.code} - {item.courseTitle}</option>)}</select></label>
+            <label className="block text-xs font-bold text-slate-600">Lệ phí học lại (VNĐ)<input type="number" min="0" value={retakeDraft.fee} onChange={(e) => setRetakeDraft({ ...retakeDraft, fee: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm" placeholder="Miễn phí lần đầu" /></label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setRetakeDraft(null)} className="rounded-xl border px-4 py-2 text-xs font-bold">Hủy</button><button type="button" onClick={confirmRetake} className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white">Xác nhận</button></div>
+          </div>
+        </ErpModal>
+      )}
+    </>
   );
 }

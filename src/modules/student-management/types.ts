@@ -237,6 +237,8 @@ export interface BatchEnrollment {
   suspendedAt?: Date | string | null;
   suspensionReason?: string;
   expectedReturnAt?: string | null;
+  retakeCount?: number;
+  retakeHistory?: Array<{ count: number; fee: number; reason: string; at: string; batchId: string }>;
 }
 
 export interface BatchGeoLocation {

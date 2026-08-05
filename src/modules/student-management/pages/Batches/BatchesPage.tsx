@@ -1253,6 +1253,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
           batch={manageBatch}
           onClose={() => setManageLearnersId(null)}
           students={students}
+          batches={batches}
           onSuccess={() => notifyBatchMutation()}
         />
       )}
