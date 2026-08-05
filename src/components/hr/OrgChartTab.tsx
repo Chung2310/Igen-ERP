@@ -372,7 +372,7 @@ export default function OrgChartTab({
   const [addPhone, setAddPhone] = useState("");
   const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
   const [addParentId, setAddParentId] = useState("");
-  const [addRole, setAddRole] = useState<"user" | "manager">("user");
+  const [addRole, setAddRole] = useState<"user" | "manager" | "branch_owner" | "admin">("user");
   const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
   const [uploadingAddJobDescription, setUploadingAddJobDescription] = useState(false);
   const addJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
@@ -381,6 +381,7 @@ export default function OrgChartTab({
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editRoleText, setEditRoleText] = useState("");
+  const [editQualification, setEditQualification] = useState("");
   const [editDivision, setEditDivision] = useState("");
   const [editDepartment, setEditDepartment] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -393,6 +394,7 @@ export default function OrgChartTab({
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = useState(false);
   const editJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingLeader, setIsSavingLeader] = useState(false);
 
   // Reset editing state when selected employee changes
   useEffect(() => {
@@ -403,6 +405,7 @@ export default function OrgChartTab({
     if (!selectedEmp) return;
     setEditName(selectedEmp.name || "");
     setEditRoleText(selectedEmp.role || "");
+    setEditQualification(selectedEmp.qualification || "");
     setEditDivision(selectedEmp.division || "Khối Vận Hành");
     setEditDepartment(selectedEmp.department || "");
     setEditMonthlySalary(selectedEmp.monthlySalary == null ? "" : String(selectedEmp.monthlySalary));
@@ -412,6 +415,27 @@ export default function OrgChartTab({
     setEditParentId(selectedEmp.parentId || "");
     setEditJobDescriptionLink(selectedEmp.jobDescriptionLink || "");
     setIsEditing(true);
+  };
+
+  const handleToggleLeader = async () => {
+    if (!selectedEmp) return;
+    try {
+      setIsSavingLeader(true);
+      const newLeaderState = !selectedEmp.isLeader;
+      await authService.updateUser(selectedEmp.id, { isLeader: newLeaderState });
+      toast.success(
+        newLeaderState
+          ? `Đã đặt ${selectedEmp.name} làm Trưởng nhóm (Leader) phòng ban!`
+          : `Đã hủy chức vụ Trưởng nhóm (Leader) của ${selectedEmp.name}!`
+      );
+      setSelectedEmp(prev => prev ? { ...prev, isLeader: newLeaderState } : null);
+      await fetchUsers();
+    } catch (err) {
+      console.error("Lỗi cập nhật chức danh leader:", err);
+      toast.error(getApiErrorMessage(err, "Không thể cập nhật chức vụ Trưởng nhóm."));
+    } finally {
+      setIsSavingLeader(false);
+    }
   };
 
   const handleJobDescriptionFileChange = async (e: React.ChangeEvent<HTMLInputElement>, target: "add" | "edit") => {
@@ -466,6 +490,7 @@ export default function OrgChartTab({
       const updateData = {
         displayName: editName.trim(),
         jobTitle: editRoleText.trim(),
+        qualification: editQualification.trim(),
         division: editDivision,
         department: editDepartment.trim(),
         phone: editPhone.trim() || "",
@@ -484,6 +509,7 @@ export default function OrgChartTab({
         ...selectedEmp,
         name: updateData.displayName,
         role: updateData.jobTitle,
+        qualification: updateData.qualification,
         division: updateData.division,
         department: updateData.department,
         phone: updateData.phone || "Chưa cập nhật",
@@ -609,7 +635,13 @@ export default function OrgChartTab({
         const firstCompanyManager = usersList.find(
           (u) => u.companyCode === compCode && u.role === "manager"
         );
-        setAddParentId(firstCompanyManager?.uid || "");
+        const firstBranchOwner = usersList.find(
+          (u) => u.companyCode === compCode && u.role === "branch_owner"
+        );
+        const firstAdmin = usersList.find(
+          (u) => u.companyCode === compCode && u.role === "admin"
+        );
+        setAddParentId(firstCompanyManager?.uid || firstBranchOwner?.uid || firstAdmin?.uid || "");
       }
     }
   }, [isAddModalOpen, userProfile, selectedCompanyCode, usersList]);
@@ -618,19 +650,35 @@ export default function OrgChartTab({
   useEffect(() => {
     if (isAddModalOpen) {
       const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
-      if (addRole === "manager") {
+      if (addRole === "admin") {
+        setAddParentId("");
+      } else if (addRole === "branch_owner") {
         const companyAdmin = usersList.find(
           (u) => u.companyCode === compCode && u.role === "admin"
         );
         setAddParentId(companyAdmin?.uid || "");
-      } else {
+      } else if (addRole === "manager") {
+        const branchOwner = usersList.find(
+          (u) => u.companyCode === compCode && u.role === "branch_owner"
+        );
+        const companyAdmin = usersList.find(
+          (u) => u.companyCode === compCode && u.role === "admin"
+        );
+        setAddParentId(branchOwner?.uid || companyAdmin?.uid || "");
+      } else { // addRole === "user"
         if (userProfile?.role === "manager") {
           setAddParentId(userProfile.uid);
         } else {
           const firstCompanyManager = usersList.find(
             (u) => u.companyCode === compCode && u.role === "manager"
           );
-          setAddParentId(firstCompanyManager?.uid || "");
+          const branchOwner = usersList.find(
+            (u) => u.companyCode === compCode && u.role === "branch_owner"
+          );
+          const companyAdmin = usersList.find(
+            (u) => u.companyCode === compCode && u.role === "admin"
+          );
+          setAddParentId(firstCompanyManager?.uid || branchOwner?.uid || companyAdmin?.uid || "");
         }
       }
     }
@@ -755,7 +803,8 @@ export default function OrgChartTab({
 
     const manager = addParentId ? employees.find(emp => emp.id === addParentId) : undefined;
     const managerLevel = manager ? manager.level : undefined;
-    const deptName = addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự");
+    const isDeptScopedRole = addRole === "user" || addRole === "manager";
+    const deptName = isDeptScopedRole ? (addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự")) : undefined;
 
     try {
       setIsAddingEmployee(true);
@@ -997,14 +1046,59 @@ export default function OrgChartTab({
     return matchSearch && matchDepartment;
   };
 
-  // Identify root employees (level 1 or nodes with no parent in the displayed tree)
-  const rootEmployees = employees.filter(e => !e.parentId || !employees.some(p => p.id === e.parentId));
+  // Auto-arrange employees without parentId into the correct hierarchy based on role
+  const arrangedEmployees = (() => {
+    const ROLE_LEVEL: Record<string, number> = {
+      superadmin: 0,
+      admin: 1,
+      branch_owner: 2,
+      manager: 3,
+      user: 4,
+    };
+
+    // Build a mutable copy with virtual parentId for rendering
+    const list = employees.map(e => ({ ...e }));
+
+    list.forEach(emp => {
+      // If already has a valid parentId that exists, skip
+      if (emp.parentId && list.some(p => p.id === emp.parentId)) return;
+
+      const myLevel = ROLE_LEVEL[usersList.find(u => u.uid === emp.id)?.role ?? "user"] ?? 4;
+
+      // Find the best parent: highest-level employee that is strictly above this one
+      let bestParent: typeof list[0] | undefined;
+
+      for (let targetLevel = myLevel - 1; targetLevel >= 0; targetLevel--) {
+        const candidates = list.filter(p => {
+          const pRole = usersList.find(u => u.uid === p.id)?.role ?? "user";
+          return ROLE_LEVEL[pRole] === targetLevel && p.id !== emp.id;
+        });
+        if (candidates.length > 0) {
+          bestParent = candidates[0];
+          break;
+        }
+      }
+
+      if (bestParent) {
+        emp.parentId = bestParent.id;
+      } else {
+        // This employee is truly at the top
+        emp.parentId = undefined;
+      }
+    });
+
+    return list;
+  })();
+
+  // Identify root employees (nodes with no parent in the arranged tree)
+  const rootEmployees = arrangedEmployees.filter(e => !e.parentId || !arrangedEmployees.some(p => p.id === e.parentId))
+    .sort((a, b) => (a.level ?? 99) - (b.level ?? 99));
   const visibleEmployees = filterOrgChartEmployees(employees, searchQuery, filterDepartment);
   const missingValue = "Chua cap nhat";
 
   // Recursive Branch rendering component helper
   const renderBranch = (node: EmployeeNode) => {
-    const children = employees.filter(e => e.parentId === node.id);
+    const children = arrangedEmployees.filter(e => e.parentId === node.id);
     const isSelected = selectedEmp?.id === node.id;
     const isMatch = isMatchingFilter(node);
     const isFilteredOut = (searchQuery.trim() !== "" || filterDepartment !== "Tất cả") && !isMatch;
@@ -1062,13 +1156,16 @@ export default function OrgChartTab({
             )}
           </div>
 
-          <div className="space-y-2">
-            {/* Top row: Category Badge */}
-            <div className="flex items-center justify-between">
-              <span className={`text-[8px] font-extrabold border px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono ${getCategoryBadgeStyles(category.key)}`}>
-                {category.badge}
+          {node.isLeader && (
+            <div className="absolute top-2 left-2 z-10">
+              <span className="bg-amber-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono shadow-sm flex items-center gap-0.5">
+                👑 Leader
               </span>
             </div>
+          )}
+
+          <div className="space-y-2">
+
 
             {/* Middle row: Department (Main Title) */}
             <div className="min-h-[32px] flex items-center">
@@ -1302,6 +1399,11 @@ export default function OrgChartTab({
                   />
                 </div>
 
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Trình độ</label>
+                  <input type="text" value={editQualification} onChange={(e) => setEditQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white" />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Chức danh</label>
@@ -1418,7 +1520,22 @@ export default function OrgChartTab({
                           if (child.parentId === pId) return true;
                           return checkIsDescendant(pId, child.parentId);
                         };
-                        return emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
+
+                        const targetUserRaw = usersList.find(u => u.uid === selectedEmp.id);
+                        const rawUser = usersList.find(u => u.uid === emp.id);
+                        if (!targetUserRaw || !rawUser) return false;
+
+                        const ROLES_HIERARCHY: Record<string, number> = {
+                          admin: 1,
+                          branch_owner: 2,
+                          manager: 3,
+                          user: 4
+                        };
+                        const targetLevel = ROLES_HIERARCHY[targetUserRaw.role] || 4;
+                        const parentLevel = ROLES_HIERARCHY[rawUser.role] || 4;
+
+                        // Chỉ cho phép chọn quản lý có vai trò cấp cao hơn và không phải là chính mình/cấp dưới
+                        return parentLevel < targetLevel && emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
                       })
                       .map(emp => (
                         <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
@@ -1597,6 +1714,20 @@ export default function OrgChartTab({
               </div>
 
               <div className="pt-4 border-t flex flex-col gap-2 font-sans font-bold">
+                {isManager && usersList.find(u => u.uid === selectedEmp.id)?.role === "user" && (
+                  <button
+                    type="button"
+                    onClick={handleToggleLeader}
+                    disabled={isSavingLeader}
+                    className={`w-full py-2.5 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 ${
+                      selectedEmp.isLeader
+                        ? "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800"
+                        : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                    }`}
+                  >
+                    👑 {selectedEmp.isLeader ? "Hủy chức vụ Trưởng nhóm (Leader)" : "Đặt làm Trưởng nhóm (Leader)"}
+                  </button>
+                )}
                 {canEditEmployee(selectedEmp.id) && (
                   <button
                     type="button"
@@ -1705,10 +1836,11 @@ export default function OrgChartTab({
                 >
                   <option value="user">USER (Nhân viên)</option>
                   <option value="manager">MANAGER (Quản lý)</option>
+                  <option value="branch_owner">BRANCH OWNER (Chủ chi nhánh)</option>
                 </select>
               </div>
 
-              {addRole === "user" && (
+              {addRole !== "admin" && (
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp (Báo cáo cho)</label>
                   <select
@@ -1719,7 +1851,19 @@ export default function OrgChartTab({
                     <option value="">Không phân công</option>
                     {employees.filter(emp => {
                       const rawUser = usersList.find(u => u.uid === emp.id);
-                      if (rawUser?.role !== "manager") return false;
+                      if (!rawUser) return false;
+
+                      const ROLES_HIERARCHY: Record<string, number> = {
+                        admin: 1,
+                        branch_owner: 2,
+                        manager: 3,
+                        user: 4
+                      };
+                      const targetLevel = ROLES_HIERARCHY[addRole] || 4;
+                      const parentLevel = ROLES_HIERARCHY[rawUser.role] || 4;
+                      
+                      // Chỉ cho phép chọn quản lý có vai trò cấp cao hơn
+                      if (parentLevel >= targetLevel) return false;
 
                       if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
                         return true;
