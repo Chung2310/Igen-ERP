@@ -6,6 +6,7 @@ import type {
   WorkerInput,
   WorkerProfileFieldConfig,
   WorkerProfileFieldKey,
+  WorkerProjectSummary,
 } from "../types";
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
   onSuccess: (worker: Worker) => void;
   workers?: Worker[];
   profileFields?: WorkerProfileFieldConfig[];
+  projects?: WorkerProjectSummary[];
 };
 
 const defaultFields: WorkerProfileFieldConfig[] = [
@@ -45,6 +47,7 @@ function initialForm(): WorkerInput {
     birthday: "",
     idCard: "",
     registrationDate: new Date().toLocaleDateString("vi-VN"),
+    projectId: "",
   };
 }
 
@@ -82,6 +85,7 @@ export function AddWorkerModal({
   onSuccess,
   workers = [],
   profileFields = defaultFields,
+  projects = [],
 }: Props) {
   const [form, setForm] = React.useState<WorkerInput>(initialForm);
   const [submitting, setSubmitting] = React.useState(false);
@@ -251,6 +255,26 @@ export function AddWorkerModal({
                 value={form.address || ""}
                 onChange={update}
               />
+            )}
+            {projects.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                  Dự án
+                </label>
+                <select
+                  name="projectId"
+                  value={form.projectId || ""}
+                  onChange={update}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+                >
+                  <option value="">Chưa gán dự án</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
           {visible("note") && (
