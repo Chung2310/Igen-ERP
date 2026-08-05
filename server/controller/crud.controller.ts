@@ -95,7 +95,7 @@ export const crudController = {
       if (req.user?.branchId) {
         if (modelName === "timekeeping-logs") {
           filters.branchId = { $in: [req.user.branchId, null, undefined] };
-        } else {
+        } else if (modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows") {
           filters.branchId = req.user.branchId;
         }
       }

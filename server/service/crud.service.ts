@@ -255,9 +255,6 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
  * và mọi truy cập theo _id đều bị giới hạn trong chi nhánh của người dùng.
  */
 const BRANCH_SCOPED_MODELS = new Set<string>([
-  "workflows",
-  "training-courses",
-  "training-enrollments",
   "projects",
   "hr-calendar-events",
   "hr-leave-templates",
