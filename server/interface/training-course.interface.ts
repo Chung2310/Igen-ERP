@@ -5,6 +5,7 @@ export interface ILesson {
   url: string;
   type: "youtube" | "document" | "other" | "text" | "video";
   content?: string;
+  fileName?: string;
 }
 
 export interface IQuizQuestion {
