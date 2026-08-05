@@ -25,10 +25,7 @@ vi.mock("../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: wor
 vi.mock("../../hooks/useSubTabRouter", () => ({ useSubTabRouter: (routes: any[], initial: string) => [workspaceState.showWorkers ? routes.find((route) => route.slug === "lao-dong").value : initial, vi.fn()] }));
 vi.mock("./workerRuntime", () => ({
   useAdminCenters: () => ({ centers: workspaceState.centers }),
-  useBatches: () => ({ batches: [] }),
   useStandardFields: (...args: unknown[]) => workspaceState.standardFields(...args),
-  setEntityPreset: vi.fn(),
-  setBusinessApiScope: vi.fn(),
 }));
 vi.mock("./api/client", () => ({
   workerApiFetch: (...args: unknown[]) => workspaceState.projectFetch(...args),
