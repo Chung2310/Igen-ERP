@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Loader2, Search, UserPlus, X } from 'lucide-react';
+import { Check, Loader2, Pause, Play, Search, UserPlus, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
@@ -7,6 +7,7 @@ import { ErpModal } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
+import { useBatchEnrollments } from '../../hooks/useBatchEnrollments';
 
 interface ManageLearnersModalProps {
   isOpen: boolean;
@@ -30,6 +31,30 @@ export function ManageLearnersModal({
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
+  const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState<string | null>(null);
+  const { byStudent, reload: reloadEnrollments } = useBatchEnrollments(isOpen ? batch?.id : null);
+
+  /** Sổ buổi của học viên: đã học / tổng được học */
+  const renderSessionCounter = (studentId: string) => {
+    const enrollment = byStudent.get(studentId);
+    if (!enrollment) return null;
+    const exhausted = enrollment.remainingSessions <= 0;
+    const suspended = enrollment.status === "Bảo lưu";
+    return (
+      <div className="space-y-0.5">
+        {enrollment.allowedSessions > 0 && (
+          <p className={cn("text-[10px] font-bold", exhausted ? "text-rose-500" : "text-slate-400")}>
+            {enrollment.attendedSessions}/{enrollment.allowedSessions} buổi
+            {exhausted ? " — đã hết buổi" : ""}
+          </p>
+        )}
+        <p className={cn("text-[10px] font-bold", suspended ? "text-amber-600" : "text-emerald-600")}>
+          {suspended ? "Đang bảo lưu" : "Đang học"}
+          {suspended && enrollment.expectedReturnAt ? ` • dự kiến ${enrollment.expectedReturnAt.split("-").reverse().join("/")}` : ""}
+        </p>
+      </div>
+    );
+  };
 
   const availableStudents = students.filter((s) => !batch.learnerIds.includes(s.id));
   const remainingSlots = batch.maxLearners > 0
@@ -107,6 +132,33 @@ export function ManageLearnersModal({
       toast.error(msg);
     } finally {
       setRemovingStudentId(null);
+    }
+  };
+
+  const handleToggleSuspension = async (studentId: string) => {
+    const enrollment = byStudent.get(studentId);
+    if (!enrollment || updatingEnrollmentId) return;
+    let payload: { status: "Đang học" | "Bảo lưu"; reason?: string; expectedReturnAt?: string | null };
+    if (enrollment.status === "Bảo lưu") {
+      payload = { status: "Đang học" };
+    } else {
+      const reason = window.prompt("Lý do bảo lưu học viên:");
+      if (reason === null) return;
+      if (!reason.trim()) { toast.error("Vui lòng nhập lý do bảo lưu."); return; }
+      const expectedReturnAt = window.prompt("Ngày dự kiến quay lại (YYYY-MM-DD, có thể bỏ trống):");
+      if (expectedReturnAt === null) return;
+      payload = { status: "Bảo lưu", reason, expectedReturnAt: expectedReturnAt.trim() || null };
+    }
+    setUpdatingEnrollmentId(studentId);
+    try {
+      await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify(payload) });
+      await reloadEnrollments();
+      toast.success(payload.status === "Bảo lưu" ? "Đã bảo lưu học viên." : "Học viên đã quay lại học.");
+      onSuccess();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái học viên.");
+    } finally {
+      setUpdatingEnrollmentId(null);
     }
   };
 
@@ -228,7 +280,26 @@ export function ManageLearnersModal({
                   <div>
                     <p className={cn("text-xs font-bold", darkMode ? "text-slate-200" : "text-slate-700")}>{s.fullName}</p>
                     <p className="text-[10px] text-slate-400">{s.phone}</p>
+                    {renderSessionCounter(s.id)}
                   </div>
+                  {byStudent.get(s.id) && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSuspension(s.id)}
+                      disabled={updatingEnrollmentId !== null || removingStudentId !== null || isAdding}
+                      title={byStudent.get(s.id)?.status === "Bảo lưu" ? "Tiếp tục học" : "Bảo lưu"}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+                        byStudent.get(s.id)?.status === "Bảo lưu"
+                          ? "bg-amber-50 text-amber-600 border-amber-200"
+                          : "bg-slate-50 text-slate-450 border-slate-200/60 hover:bg-amber-50 hover:text-amber-600"
+                      )}
+                    >
+                      {updatingEnrollmentId === s.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : byStudent.get(s.id)?.status === "Bảo lưu" ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleRemoveLearner(s.id)}

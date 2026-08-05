@@ -197,7 +197,7 @@ export type ManagedUser = {
   permissions?: string[];
 };
 
-export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc';
+export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc' | 'Đã hủy';
 
 export interface AttendanceRecord {
   studentId: string;
@@ -209,6 +209,34 @@ export interface AttendanceSession {
   date: string;
   note?: string;
   records: AttendanceRecord[];
+}
+
+/** Mức cảnh báo tiến độ vận hành của lớp */
+export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'grey';
+
+/** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với mức tiến độ */
+export type BatchAgeLabel = 'yellow' | 'red' | null;
+
+export interface BatchProgress {
+  totalSessions: number;
+  doneSessions: number;
+  remainingSessions: number;
+  progressLevel: BatchProgressLevel;
+  ageLabel: BatchAgeLabel;
+}
+
+/** Sổ buổi học của một học viên trong một lớp */
+export interface BatchEnrollment {
+  batchId: string;
+  studentId: string;
+  allowedSessions: number;
+  attendedSessions: number;
+  remainingSessions: number;
+  status: string;
+  leftAt?: string | null;
+  suspendedAt?: Date | string | null;
+  suspensionReason?: string;
+  expectedReturnAt?: string | null;
 }
 
 export interface BatchGeoLocation {
@@ -237,6 +265,9 @@ export interface Batch {
   startDate: string;    // YYYY-MM-DD
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;
+  /** Thời điểm lớp được đóng — dùng cho nhãn tuổi lớp */
+  completedAt?: Date | string | null;
+  cancelledAt?: Date | string | null;
   ownerId: string;
   attendanceSessions?: AttendanceSession[];
   // Thông tin server gắn kèm để hiển thị
@@ -244,6 +275,8 @@ export interface Batch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  /** Cảnh báo tiến độ do server tính sẵn */
+  progress?: BatchProgress;
   customFields?: CustomFieldValues;
   __v?: number;
   createdAt?: Date | string;

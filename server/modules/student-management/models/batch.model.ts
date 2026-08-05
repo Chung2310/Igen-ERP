@@ -40,10 +40,13 @@ const batchSchema = new Schema<IBatch>(
     endDate: { type: String, required: true },
     status: {
       type: String,
-      enum: ["Sắp khai giảng", "Đang học", "Đã kết thúc"],
+      enum: ["Sắp khai giảng", "Đang học", "Đã kết thúc", "Đã hủy"],
       default: "Sắp khai giảng",
       index: true,
     },
+    // Mốc thời gian để tính nhãn tuổi lớp (6 tháng / 1 năm) khi rà soát dữ liệu cũ
+    completedAt: { type: Date, default: null },
+    cancelledAt: { type: Date, default: null },
     ownerId: { type: String, required: true, index: true },
     branchId: { type: String, index: true },
     attendanceSessions: { type: [attendanceSessionSchema], default: [] },

@@ -2,7 +2,18 @@ import { Batch } from "../models/batch.model";
 import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
+import {
+  countConsumedSessions,
+  countTotalSessions,
+  listScheduledSessionDates,
+  loadHolidaySet,
+  resolveCompanyCodeForOwner,
+  todayInVietnam,
+} from "../utils/session-count.util";
+import { computeBatchProgress, BatchProgress } from "../utils/batch-progress.util";
+import { transitionEnrollmentStatus, type EnrollmentOperationalStatus } from "../utils/enrollment-status.util";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
@@ -43,9 +54,32 @@ export interface EnrichedBatch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  /** Cảnh báo tiến độ + nhãn tuổi lớp, tính sẵn để client không phải suy ra */
+  progress: BatchProgress;
 }
 
 const ACTIVE_STATUSES = ["Sắp khai giảng", "Đang học"];
+
+/** Trạng thái điểm danh được tính là đã dùng một buổi học */
+const CONSUMING_ATTENDANCE_STATUSES = ["present", "late"];
+
+/**
+ * Ghi mốc thời gian khi lớp đóng/hủy, và xóa mốc khi lớp được mở lại.
+ * Nhãn tuổi lớp dựa vào completedAt nên mốc phải luôn khớp với status.
+ */
+function applyStatusTimestamps(data: BatchData, batch: IBatch): BatchData {
+  const nextStatus = data.status as string | undefined;
+  if (!nextStatus || nextStatus === batch.status) return data;
+
+  if (nextStatus === "Đã kết thúc") {
+    return { ...data, completedAt: batch.completedAt || new Date(), cancelledAt: null };
+  }
+  if (nextStatus === "Đã hủy") {
+    return { ...data, cancelledAt: batch.cancelledAt || new Date(), completedAt: null };
+  }
+  // Mở lại lớp: bỏ cả hai mốc để lớp quay về luồng cảnh báo tiến độ bình thường.
+  return { ...data, completedAt: null, cancelledAt: null };
+}
 
 function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
   if (ownerId === "ALL") return {};
@@ -125,7 +159,8 @@ async function assertRoomAvailable(
   const query: Record<string, unknown> = {
     ownerId,
     location: location.trim(),
-    status: { $ne: "Đã kết thúc" },
+    // Lớp đã đóng hoặc bị hủy thì không còn giữ chỗ phòng học
+    status: { $nin: ["Đã kết thúc", "Đã hủy"] },
   };
   if (branchId) query.branchId = branchId;
   if (batchId) query._id = { $ne: batchId };
@@ -160,6 +195,11 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   const courseMap = new Map(courses.map(c => [String(c._id), c]));
   const instructorMap = new Map(instructors.map(i => [String(i._id), i]));
 
+  // Cảnh báo tiến độ cần biết ngày nghỉ lễ của công ty; gom một lần cho cả
+  // trang thay vì query theo từng lớp.
+  const today = todayInVietnam();
+  const holidaySetByOwner = await loadHolidaySetsForBatches(batches);
+
   return batches.map(b => {
     const course = courseMap.get(b.courseId);
     const instructor = b.instructorId ? instructorMap.get(b.instructorId) : undefined;
@@ -171,8 +211,52 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
       maxLearners: resolveQuota(b.quota, course?.maxLearners),
       // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
       instructorName: instructor?.displayName || b.instructorText || "",
+      progress: computeBatchProgress(
+        {
+          status: b.status,
+          startDate: b.startDate,
+          endDate: b.endDate,
+          daysOfWeek: b.daysOfWeek,
+          completedAt: b.completedAt,
+          updatedAt: (b as IBatch & { updatedAt?: Date }).updatedAt,
+        },
+        { today, holidaySet: holidaySetByOwner.get(String(b.ownerId)) }
+      ),
     };
   });
+}
+
+/**
+ * Tập ngày nghỉ lễ theo từng owner, phủ toàn bộ khoảng ngày của các lớp
+ * đang được enrich. Lỗi đọc lịch không được làm hỏng danh sách lớp —
+ * khi đó coi như không có ngày lễ nào.
+ */
+async function loadHolidaySetsForBatches(batches: IBatch[]): Promise<Map<string, Set<string>>> {
+  const result = new Map<string, Set<string>>();
+  if (batches.length === 0) return result;
+
+  const byOwner = new Map<string, IBatch[]>();
+  for (const b of batches) {
+    const owner = String(b.ownerId);
+    byOwner.set(owner, [...(byOwner.get(owner) || []), b]);
+  }
+
+  const companyCodeCache = new Map<string, string | undefined>();
+  await Promise.all(
+    [...byOwner.entries()].map(async ([ownerId, ownerBatches]) => {
+      try {
+        const starts = ownerBatches.map(b => b.startDate).filter(Boolean).sort();
+        const ends = ownerBatches.map(b => b.endDate).filter(Boolean).sort();
+        if (starts.length === 0 || ends.length === 0) return;
+        const companyCode = await resolveCompanyCodeForOwner(ownerId, companyCodeCache);
+        result.set(ownerId, await loadHolidaySet(companyCode, starts[0], ends[ends.length - 1]));
+      } catch (error) {
+        console.error(`[batch] Không đọc được lịch nghỉ lễ của owner ${ownerId}:`, error);
+      }
+    })
+  );
+
+  return result;
 }
 
 const DAY_LABELS = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
@@ -357,11 +441,14 @@ export class BatchService {
     const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
     const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
 
-    if (writeData.code && String(writeData.code).toUpperCase() !== batch.code) {
-      const dup = await Batch.findOne({ ownerId: batch.ownerId, branchId: batch.branchId, code: String(writeData.code).toUpperCase() });
-      if (dup) {
-        throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
-      }
+    // Mã lớp và tên lớp bị khóa sau khi tạo để lịch sử học, điểm danh và đối
+    // soát luôn tham chiếu được về đúng lớp. Gửi lại đúng giá trị hiện tại
+    // vẫn hợp lệ; chỉ chặn khi thực sự đổi.
+    if (writeData.code !== undefined && String(writeData.code).toUpperCase() !== batch.code) {
+      throw new Error("Không được đổi mã lớp sau khi tạo.");
+    }
+    if (writeData.name !== undefined && String(writeData.name || "") !== (batch.name || "")) {
+      throw new Error("Không được đổi tên lớp sau khi tạo.");
     }
 
     assertScheduleValid({
@@ -395,7 +482,7 @@ export class BatchService {
     );
 
     const previousInstructorId = batch.instructorId;
-    const persistData = normalizeInstructorFields(writeData);
+    const persistData = applyStatusTimestamps(normalizeInstructorFields(writeData), batch);
     let saved: IBatch;
     if (context) {
       const updated = await Batch.findOneAndUpdate(
@@ -468,6 +555,7 @@ export class BatchService {
 
     batch.learnerIds.push(studentId);
     const saved = await batch.save();
+    await ensureEnrollment(saved, studentId);
     logger.info(`[Batch] Learner added: batchId=${id}, studentId=${studentId}`);
     return (await enrichBatches([saved]))[0];
   }
@@ -483,6 +571,8 @@ export class BatchService {
       throw new Error("Học viên không có trong lớp này.");
     }
     const saved = await batch.save();
+    // Giữ lại bản ghi đăng ký để không mất lịch sử học của lớp.
+    await closeEnrollment(String(saved._id), studentId);
     logger.info(`[Batch] Learner removed: batchId=${id}, studentId=${studentId}`);
     return (await enrichBatches([saved]))[0];
   }
@@ -568,6 +658,10 @@ export class BatchService {
       session = batch.attendanceSessions.find(s => s.date === dateStr);
     }
 
+    if (records) {
+      await assertWithinSessionQuota(batch, dateStr, records);
+    }
+
     if (session) {
       if (note !== undefined) session.note = note;
       if (records) {
@@ -579,6 +673,7 @@ export class BatchService {
     }
 
     const saved = await batch.save();
+    await syncAttendedSessions(saved);
     return (await enrichBatches([saved]))[0];
   }
 
@@ -601,6 +696,217 @@ export class BatchService {
     }
 
     const saved = await batch.save();
+    await syncAttendedSessions(saved);
     return (await enrichBatches([saved]))[0];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Đăng ký học (BatchEnrollment): sổ buổi học của từng học viên trong một lớp
+// ---------------------------------------------------------------------------
+
+/** Tổng số buổi theo lịch của lớp, đã trừ ngày nghỉ lễ của công ty */
+export async function resolveBatchTotalSessions(batch: IBatch): Promise<number> {
+  let holidaySet: Set<string> | undefined;
+  try {
+    const companyCode = await resolveCompanyCodeForOwner(String(batch.ownerId));
+    holidaySet = await loadHolidaySet(companyCode, batch.startDate, batch.endDate);
+  } catch (error) {
+    console.error(`[batch] Không đọc được lịch nghỉ lễ khi đếm buổi lớp ${batch.code}:`, error);
+  }
+  return countTotalSessions(batch.startDate, batch.endDate, batch.daysOfWeek, holidaySet);
+}
+
+/** Số buổi học viên đã dùng, đếm lại từ dữ liệu điểm danh của lớp */
+function countAttendedFromBatch(batch: IBatch, studentId: string): number {
+  return countConsumedSessions(batch.attendanceSessions, studentId);
+}
+
+/**
+ * Tạo đăng ký học khi thêm học viên vào lớp. Lỗi ở đây không được làm hỏng
+ * việc thêm học viên — dữ liệu cũ có thể thiếu companyCode hoặc lịch lớp.
+ */
+export async function ensureEnrollment(batch: IBatch, studentId: string): Promise<void> {
+  try {
+    const existing = await BatchEnrollment.findOne({
+      ownerId: batch.ownerId,
+      batchId: String(batch._id),
+      studentId,
+    });
+
+    if (existing) {
+      // Học viên quay lại lớp cũ: mở lại đăng ký, giữ nguyên số buổi đã dùng.
+      if (existing.leftAt) {
+        existing.leftAt = null;
+        existing.status = "Đang học";
+        existing.history.push({ at: new Date(), action: "rejoined" });
+        await existing.save();
+      }
+      return;
+    }
+
+    const allowedSessions = await resolveBatchTotalSessions(batch);
+    await BatchEnrollment.create({
+      ownerId: batch.ownerId,
+      branchId: batch.branchId,
+      batchId: String(batch._id),
+      studentId,
+      allowedSessions,
+      attendedSessions: countAttendedFromBatch(batch, studentId),
+      status: "Đang học",
+      joinedAt: new Date(),
+      history: [{ at: new Date(), action: "enrolled", toStatus: "Đang học" }],
+    });
+  } catch (error) {
+    console.error(`[batch] Không tạo được đăng ký học cho học viên ${studentId}:`, error);
+  }
+}
+
+/** Đánh dấu rời lớp mà không xóa bản ghi, để giữ lịch sử học */
+export async function closeEnrollment(batchId: string, studentId: string): Promise<void> {
+  try {
+    await BatchEnrollment.updateOne(
+      { batchId, studentId, leftAt: null },
+      {
+        $set: { leftAt: new Date() },
+        $push: { history: { at: new Date(), action: "left" } },
+      }
+    );
+  } catch (error) {
+    console.error(`[batch] Không đóng được đăng ký học của học viên ${studentId}:`, error);
+  }
+}
+
+/**
+ * Chặn điểm danh vượt số buổi được học. Chỉ chặn buổi làm tăng số buổi đã
+ * dùng — sửa lại buổi cũ hoặc đánh vắng thì luôn cho phép.
+ */
+export async function assertWithinSessionQuota(
+  batch: IBatch,
+  dateStr: string,
+  records: { studentId: string; status: string }[]
+): Promise<void> {
+  const consuming = records
+    .filter(r => CONSUMING_ATTENDANCE_STATUSES.includes(r.status))
+    .map(r => r.studentId);
+  const uniqueConsuming = [...new Set(consuming)];
+  if (uniqueConsuming.length === 0) return;
+
+  await backfillBatchEnrollments(batch);
+  const enrollments = await BatchEnrollment.find({
+    batchId: String(batch._id),
+    studentId: { $in: uniqueConsuming },
+  });
+  if (enrollments.length !== uniqueConsuming.length) {
+    throw new Error("Học viên không còn thuộc lớp hoặc chưa có sổ buổi hợp lệ.");
+  }
+
+  // Buổi này đã được tính chưa? Nếu rồi thì lưu lại không làm tăng số buổi.
+  const existingSession = batch.attendanceSessions.find(s => s.date === dateStr);
+  const alreadyCounted = new Set(
+    (existingSession?.records || [])
+      .filter(r => CONSUMING_ATTENDANCE_STATUSES.includes(r.status))
+      .map(r => r.studentId)
+  );
+
+  for (const enrollment of enrollments) {
+    if (enrollment.status === "Bảo lưu") {
+      throw new Error("Học viên đang bảo lưu, không thể điểm danh.");
+    }
+    if (alreadyCounted.has(enrollment.studentId)) continue;
+    if (enrollment.allowedSessions <= 0) continue;
+    if (enrollment.attendedSessions < enrollment.allowedSessions) continue;
+
+    const student = await Student.findById(enrollment.studentId).select("fullName name").lean();
+    const label =
+      (student as { fullName?: string; name?: string } | null)?.fullName ||
+      (student as { fullName?: string; name?: string } | null)?.name ||
+      enrollment.studentId;
+    throw new Error(
+      `Học viên ${label} đã dùng hết ${enrollment.allowedSessions} buổi được học của lớp này.`
+    );
+  }
+}
+
+/**
+ * Đếm lại attendedSessions cho mọi học viên trong lớp từ dữ liệu điểm danh.
+ * Gọi sau mỗi lần ghi/xóa điểm danh (kể cả điểm danh QR và online) để sổ
+ * buổi không bao giờ lệch với thực tế.
+ */
+export async function syncAttendedSessions(batch: IBatch): Promise<void> {
+  try {
+    const enrollments = await BatchEnrollment.find({ batchId: String(batch._id) });
+    await Promise.all(
+      enrollments.map(enrollment => {
+        const attended = countAttendedFromBatch(batch, enrollment.studentId);
+        if (attended === enrollment.attendedSessions) return Promise.resolve();
+        enrollment.attendedSessions = attended;
+        return enrollment.save();
+      })
+    );
+  } catch (error) {
+    console.error(`[batch] Không đồng bộ được số buổi đã học của lớp ${batch.code}:`, error);
+  }
+}
+
+/** Sổ buổi học của các học viên trong một lớp, dùng cho UI quản lý học viên */
+export async function backfillBatchEnrollments(batch: IBatch): Promise<void> {
+  await Promise.all(batch.learnerIds.map((studentId) => ensureEnrollment(batch, studentId)));
+  const existing = await BatchEnrollment.find({ batchId: String(batch._id), studentId: { $in: batch.learnerIds } }).select("studentId").lean();
+  const existingIds = new Set(existing.map((enrollment) => enrollment.studentId));
+  const missing = batch.learnerIds.filter((studentId) => !existingIds.has(studentId));
+  if (missing.length > 0) throw new Error("Không thể khởi tạo sổ buổi cho toàn bộ học viên của lớp.");
+}
+
+/** Cập nhật bảo lưu/quay lại học mà không đổi sổ buổi của học viên. */
+export async function updateEnrollmentStatus(
+  ownerId: string | string[],
+  batchId: string,
+  studentId: string,
+  status: EnrollmentOperationalStatus,
+  reason?: string,
+  expectedReturnAt?: string | null,
+  branchId?: string,
+) {
+  const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
+  if (!batch) return null;
+  if (!batch.learnerIds.includes(studentId)) throw new Error("Học viên không còn thuộc lớp này.");
+  await backfillBatchEnrollments(batch);
+  const enrollment = await BatchEnrollment.findOne({ batchId: String(batch._id), studentId });
+  if (!enrollment) throw new Error("Không tìm thấy sổ buổi của học viên.");
+  if (enrollment.status !== "Đang học" && enrollment.status !== "Bảo lưu") {
+    throw new Error("Chỉ có thể bảo lưu hoặc tiếp tục một học viên đang học/bảo lưu.");
+  }
+  const fromStatus = enrollment.status;
+  const next = transitionEnrollmentStatus({
+    status: enrollment.status as EnrollmentOperationalStatus,
+    allowedSessions: enrollment.allowedSessions,
+    attendedSessions: enrollment.attendedSessions,
+    suspendedAt: enrollment.suspendedAt,
+    suspensionReason: enrollment.suspensionReason,
+    expectedReturnAt: enrollment.expectedReturnAt,
+  }, status, { now: new Date(), reason, expectedReturnAt });
+  enrollment.status = next.status;
+  enrollment.suspendedAt = next.suspendedAt;
+  enrollment.suspensionReason = next.suspensionReason;
+  enrollment.expectedReturnAt = next.expectedReturnAt;
+  enrollment.history.push({
+    at: new Date(),
+    action: status === "Bảo lưu" ? "suspended" : "resumed",
+    fromStatus,
+    toStatus: status,
+    note: status === "Bảo lưu" ? next.suspensionReason : "",
+  });
+  await enrollment.save();
+  return enrollment.toObject();
+}
+
+export async function listBatchEnrollments(ownerId: string | string[], batchId: string, branchId?: string) {
+  const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
+  if (!batch) return null;
+  await backfillBatchEnrollments(batch);
+  return BatchEnrollment.find({ batchId: String(batch._id) }).lean({ virtuals: true });
+}
+
+// Danh sách buổi theo lịch — export lại để các service khác dùng chung nguồn
+export { listScheduledSessionDates };

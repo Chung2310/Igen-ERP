@@ -1,7 +1,7 @@
 import { Document } from "mongoose";
 import type { CustomFieldValues } from "./custom-field.interface";
 
-export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc';
+export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc' | 'Đã hủy';
 
 export interface IAttendanceRecord {
   studentId: string;
@@ -41,6 +41,9 @@ export interface IBatch extends Document {
   startDate: string;    // YYYY-MM-DD
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;
+  /** Thời điểm lớp được chuyển sang "Đã kết thúc" — dùng cho nhãn tuổi lớp */
+  completedAt?: Date | null;
+  cancelledAt?: Date | null;
   ownerId: string;
   branchId?: string;
   attendanceSessions: IAttendanceSession[];
