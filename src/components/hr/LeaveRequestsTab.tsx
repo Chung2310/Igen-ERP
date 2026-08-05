@@ -278,10 +278,6 @@ export default function LeaveRequestsTab({
       toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
       return;
     }
-    if (appFiles.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
-      return;
-    }
     const startDateTime = new Date(`${appStartDate}T00:00:00`);
     const endDateTime = new Date(`${appEndDate}T23:59:59`);
     if (endDateTime < startDateTime) {
@@ -841,7 +837,6 @@ export default function LeaveRequestsTab({
                   <input
                     type="file"
                     multiple
-                    required
                     accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm"
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);

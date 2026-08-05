@@ -20,6 +20,7 @@ import {
   Clock,
   CheckCircle2,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import {
   UserProfile,
@@ -132,9 +133,7 @@ export default function WorkflowTab({
     if (!selectedCompanyCode) return;
     setLoading(true);
     try {
-      const url = activeBranchId
-        ? `/api/v1/crud/workflows?branchId=${activeBranchId}`
-        : "/api/v1/crud/workflows";
+      const url = "/api/v1/crud/workflows";
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
@@ -207,7 +206,7 @@ export default function WorkflowTab({
           category: data.category.trim(),
           description: data.description.trim(),
           steps: data.steps,
-          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "", branchId: activeBranchId }),
+          ...(isEdit ? {} : { creatorUid: userProfile?.uid || "" }),
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message || "Không thể lưu quy trình.");
@@ -240,7 +239,6 @@ export default function WorkflowTab({
         description: wfDescription.trim(),
         steps: override?.steps ?? steps,
         creatorUid: userProfile?.uid || "",
-        ...(activeId ? {} : { branchId: activeBranchId }),
       };
       const url = activeId
         ? `/api/v1/crud/workflows/${activeId}`
@@ -470,31 +468,44 @@ export default function WorkflowTab({
               {workflows.map((wf) => {
                 const total = wf.steps?.length || 0;
                 return (
-                  <button
+                  <div
                     key={wf.id}
-                    onClick={() => {
-                      setWizardData(wf);
-                      setWizardOpen(true);
-                    }}
-                    className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md cursor-pointer"
+                    className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                         <WorkflowIcon className="h-5 w-5" />
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         {wf.category && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 mr-1">
                             {wf.category}
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDetail(wf);
+                          }}
+                          className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                          title="Xem chi tiết quy trình"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                         {canEdit && (
-                          <span
-                            className="rounded-lg p-1 text-slate-400 group-hover:text-indigo-650 transition-colors"
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWizardData(wf);
+                              setWizardOpen(true);
+                            }}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors cursor-pointer"
                             title="Sửa quy trình"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                          </span>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -511,7 +522,7 @@ export default function WorkflowTab({
                         <Layers className="h-3.5 w-3.5" /> {total} bước
                       </span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -902,21 +913,16 @@ export function WorkflowReader({
             ) : (
               <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {workflow.steps.map((step, index) => (
-                  <li key={step.id} className="relative h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                  <li
+                    key={step.id}
+                    onClick={() => setSelectedStep(step)}
+                    className="relative h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                  >
                     {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-indigo-500 sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
                     <div className="flex items-start gap-4">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h2 className="text-base font-extrabold text-slate-800 truncate">{step.title || `Bước ${index + 1}`}</h2>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedStep(step)}
-                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-650 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all cursor-pointer shadow-3xs shrink-0"
-                          >
-                            <Pencil className="h-3 w-3" /> Sửa
-                          </button>
-                        </div>
+                        <h2 className="text-base font-extrabold text-slate-800 break-words leading-snug">{step.title || `Bước ${index + 1}`}</h2>
                       </div>
                     </div>
                   </li>
@@ -987,7 +993,32 @@ function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAt
         {isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}
         {isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}
         {isAudio && <audio src={attachment.url} controls />}
-        {!isImage && !isVideo && !isAudio && <div className="text-center text-sm text-slate-600"><p>Không thể xem trực tiếp loại tệp này.</p><a href={attachment.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white">Mở tệp</a></div>}
+        {!isImage && !isVideo && !isAudio && (
+          attachment.url.toLowerCase().includes(".pdf") ||
+          attachment.url.toLowerCase().match(/\.(docx?|xlsx?|pptx?)$/) ||
+          attachment.type.includes("pdf") ||
+          attachment.type.includes("word") ||
+          attachment.type.includes("sheet") ||
+          attachment.type.includes("presentation") ? (
+            <iframe
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(attachment.url)}&embedded=true`}
+              className="w-full h-[60vh] border-0 bg-white"
+              title={attachment.name}
+            />
+          ) : (
+            <div className="text-center text-sm text-slate-600">
+              <p>Không thể xem trực tiếp loại tệp này.</p>
+              <a
+                href={attachment.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white cursor-pointer"
+              >
+                Mở tệp
+              </a>
+            </div>
+          )
+        )}
       </div>
       <div className="mt-4 flex justify-end"><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div>
     </div>
@@ -1017,6 +1048,35 @@ function NewWorkflowWizard({
   const [category, setCategory] = useState(initialData?.category || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [steps, setSteps] = useState<WorkflowStep[]>(initialData?.steps || []);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".canvas-node") || (e.target as HTMLElement).closest("button")) {
+      return;
+    }
+    if (e.button !== 0) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning) return;
+    setPan({
+      x: e.clientX - panStart.x,
+      y: e.clientY - panStart.y
+    });
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsPanning(false);
+  };
+
+  const handleZoom = (factor: number) => {
+    setZoom((prev) => Math.min(Math.max(prev * factor, 0.5), 2));
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1214,8 +1274,13 @@ function NewWorkflowWizard({
                   addStage();
                 }
               }}
-              className={`flex-1 p-8 overflow-y-auto flex items-center justify-center min-h-[450px] relative border-r transition-colors ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"
-                }`}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
+              className={`flex-1 p-8 overflow-hidden flex items-center justify-center min-h-[450px] relative border-r transition-colors ${
+                isPanning ? "cursor-grabbing" : "cursor-grab"
+              } ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"}`}
             >
               {/* Decorative top-left selection tool */}
               <button
@@ -1225,7 +1290,7 @@ function NewWorkflowWizard({
                   e.dataTransfer.setData("text/plain", "new-step");
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing ${isDark
+                className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing z-20 ${isDark
                   ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
                   : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
                   }`}
@@ -1243,101 +1308,132 @@ function NewWorkflowWizard({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-5 gap-y-16 gap-x-12 relative p-4 max-w-3xl w-full">
+                <div
+                  className="flex flex-col gap-y-16 p-20 select-none w-max min-w-max"
+                  style={{
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    transformOrigin: "center center",
+                    transition: isPanning ? "none" : "transform 0.15s ease-out",
+                  }}
+                >
                   {(() => {
-                    const rowsCount = Math.ceil(steps.length / 5);
-                    const cellsCount = rowsCount * 5;
-                    const gridCells = Array(cellsCount).fill(null);
-
-                    steps.forEach((s, idx) => {
-                      const r = Math.floor(idx / 5);
-                      const c = idx % 5;
-                      const c_pos = r % 2 === 0 ? c : 4 - c;
-                      gridCells[r * 5 + c_pos] = { step: s, index: idx };
-                    });
-
-                    return gridCells.map((cell, gridIdx) => {
-                      if (!cell) {
-                        return <div key={`empty-${gridIdx}`} className="w-32 h-20" />;
-                      }
-
-                      const { step: s, index: idx } = cell;
-                      const isSelected = selectedId === s.id;
-                      const r = Math.floor(idx / 5);
-
-                      let arrow = null;
-                      if (idx < steps.length - 1) {
-                        const nextIdx = idx + 1;
-                        const r_next = Math.floor(nextIdx / 5);
-                        if (r === r_next) {
-                          if (r % 2 === 0) {
-                            arrow = (
-                              <div className="absolute top-1/2 -translate-y-1/2 -right-8 z-10 flex items-center justify-center">
-                                <ArrowRight className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
-                              </div>
-                            );
-                          } else {
-                            arrow = (
-                              <div className="absolute top-1/2 -translate-y-1/2 -left-8 z-10 flex items-center justify-center">
-                                <ArrowLeft className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
-                              </div>
-                            );
-                          }
-                        } else {
-                          arrow = (
-                            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
-                              <ArrowDown className={`h-4 w-4 animate-pulse ${isDark ? "text-zinc-550" : "text-slate-400"}`} />
-                            </div>
-                          );
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={s.id}
-                          onClick={() => setSelectedId(s.id)}
-                          className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer ${isSelected
-                            ? isDark
-                              ? "border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10 scale-102"
-                              : "border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-500/10 scale-102"
-                            : isDark
-                              ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-zinc-500"
-                              : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
-                            }`}
-                        >
-                          <span
-                            className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-sm transition-colors ${isDark
-                              ? "bg-zinc-800 text-zinc-400 border-zinc-700"
-                              : "bg-white text-slate-550 border-gray-200"
-                              }`}
-                          >
-                            {idx + 1}
-                          </span>
-
-                          <span
-                            className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isSelected
-                              ? isDark
-                                ? "text-indigo-400"
-                                : "text-indigo-700"
-                              : isDark
-                                ? "text-zinc-100"
-                                : "text-slate-700"
-                              }`}
-                          >
-                            {s.title || "(CHƯA ĐẶT TÊN)"}
-                          </span>
-
-                          {idx === 0 && (
-                            <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 bg-emerald-600/90 text-white font-extrabold text-[7px] uppercase tracking-wider px-1.5 py-0.5 rounded-t-md shadow-sm">
-                              Bắt đầu
-                            </div>
-                          )}
-
-                          {arrow}
-                        </div>
+                    const rows: { step: WorkflowStep; index: number }[][] = [];
+                    for (let i = 0; i < steps.length; i += 5) {
+                      rows.push(
+                        steps.slice(i, i + 5).map((step, idx) => ({
+                          step,
+                          index: i + idx,
+                        }))
                       );
-                    });
+                    }
+
+                    return rows.map((row, rowIndex) => (
+                      <div key={rowIndex} className="flex items-center gap-x-12 relative w-max min-w-max">
+                        {row.map(({ step: s, index: idx }, cellIndex) => {
+                          const isSelected = selectedId === s.id;
+                          const hasNextInRow = cellIndex < row.length - 1;
+
+                          return (
+                            <React.Fragment key={s.id}>
+                              {/* Node Card */}
+                              <div
+                                onClick={() => setSelectedId(s.id)}
+                                className={`canvas-node w-48 rounded-2xl border p-4.5 transition-all duration-300 cursor-pointer shadow-md relative shrink-0 ${
+                                  isSelected
+                                    ? isDark
+                                      ? "border-indigo-500 bg-indigo-950/20 ring-4 ring-indigo-500/10 scale-102"
+                                      : "border-indigo-500 bg-indigo-50/70 ring-4 ring-indigo-500/10 scale-102 shadow-lg"
+                                    : isDark
+                                      ? "border-zinc-750 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-zinc-500"
+                                      : "border-gray-200 bg-white hover:bg-slate-50/50 hover:border-gray-300"
+                                }`}
+                              >
+                                {/* Step Number Badge */}
+                                <span
+                                  className={`absolute -top-3 left-4 text-[9px] font-extrabold px-2 py-0.5 rounded-lg border shadow-3xs transition-colors ${
+                                    isDark
+                                      ? "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                      : "bg-white text-slate-550 border-gray-200"
+                                  }`}
+                                >
+                                  Giai đoạn {idx + 1}
+                                </span>
+
+                                <h4
+                                  className={`text-xs font-black uppercase tracking-wide leading-tight line-clamp-2 transition-colors mt-1 ${
+                                    isSelected
+                                      ? isDark
+                                        ? "text-indigo-400"
+                                        : "text-indigo-700"
+                                      : isDark
+                                        ? "text-zinc-100"
+                                        : "text-slate-800"
+                                  }`}
+                                >
+                                  {s.title || "(Chưa đặt tên)"}
+                                </h4>
+
+                                {s.description && (
+                                  <p className="text-[10px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed font-semibold">
+                                    {s.description}
+                                  </p>
+                                )}
+
+                                {idx === 0 && (
+                                  <div className="absolute -left-3 -top-3 bg-emerald-600 text-white font-extrabold text-[7px] uppercase tracking-wider px-2 py-0.5 rounded-lg shadow-sm">
+                                    Khởi đầu
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Connector Line */}
+                              {hasNextInRow && (
+                                <div className="flex items-center justify-center shrink-0">
+                                  <ArrowRight className={`h-5 w-5 animate-pulse ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                                </div>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    ));
                   })()}
+                </div>
+              )}
+
+              {/* Zoom Controls */}
+              {steps.length > 0 && (
+                <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-20">
+                  <button
+                    type="button"
+                    onClick={() => handleZoom(0.85)}
+                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-black transition-all active:scale-90 cursor-pointer ${
+                      isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                    title="Thu nhỏ"
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }}
+                    className={`h-8 px-3 flex items-center justify-center rounded-xl border shadow-3xs text-[10px] font-black uppercase tracking-wider transition-all active:scale-90 cursor-pointer ${
+                      isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                    title="Đặt lại"
+                  >
+                    Mặc định
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleZoom(1.15)}
+                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-black transition-all active:scale-90 cursor-pointer ${
+                      isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                    title="Phóng to"
+                  >
+                    +
+                  </button>
                 </div>
               )}
             </div>
@@ -1580,6 +1676,7 @@ function WizardStepEditorModal({
       title: title.trim() || step.title,
       description,
       subTasks,
+      attachments,
     });
   };
 

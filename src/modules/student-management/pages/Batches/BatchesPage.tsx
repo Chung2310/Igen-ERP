@@ -75,6 +75,20 @@ const progressStyle = (level: BatchProgressLevel) => {
 };
 
 /** Nội dung chip cảnh báo tiến độ; đỏ nghĩa là quá hạn mà lớp chưa được đóng */
+const progressAccentStyle = (level?: BatchProgressLevel) => {
+  if (level === 'red') return "border-l-rose-600";
+  if (level === 'yellow') return "border-l-amber-500";
+  if (level === 'green') return "border-l-emerald-600";
+  return "border-l-slate-400";
+};
+
+const progressStatusText = (level: BatchProgressLevel) => {
+  if (level === 'red') return "Quá hạn";
+  if (level === 'yellow') return "Cần chú ý";
+  if (level === 'green') return "Tốt";
+  return "Chưa có dữ liệu";
+};
+
 const progressText = (p: BatchProgress) => {
   const sessionSummary = `Đã học ${p.doneSessions}/${p.totalSessions} buổi`;
   if (p.progressLevel === 'red') return `Quá hạn — chưa đóng lớp • ${sessionSummary}`;
@@ -590,6 +604,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     if (!b.progress) return null;
     return (
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide", b.progress.progressLevel === 'red' ? "bg-rose-600 text-white" : b.progress.progressLevel === 'yellow' ? "bg-amber-500 text-white" : b.progress.progressLevel === 'green' ? "bg-emerald-600 text-white" : "bg-slate-500 text-white")}>
+          {progressStatusText(b.progress.progressLevel)}
+        </span>
         <span className={cn(
           "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
           progressStyle(b.progress.progressLevel)
@@ -744,7 +761,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedBatches.map((b) => (
-              <ErpCard key={b.id} className="p-4 flex flex-col gap-3">
+              <ErpCard key={b.id} className={cn("overflow-hidden border-l-[6px] p-4 flex flex-col gap-3", progressAccentStyle(b.progress?.progressLevel))}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>

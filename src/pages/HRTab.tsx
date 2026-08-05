@@ -103,7 +103,7 @@ export default function HRTab() {
           data = userProfile ? [userProfile] : [];
         }
       } else {
-        data = await authService.getUsersByCompany(selectedCompanyCode, activeBranchId || undefined);
+        data = await authService.getUsersByCompany(selectedCompanyCode);
       }
       setUsersList(data);
     } catch (error) {
@@ -145,7 +145,12 @@ export default function HRTab() {
   const employees: EmployeeNode[] = usersList.map((usr) => ({
     id: usr.uid,
     name: usr.displayName,
-    role: usr.jobTitle || (usr.role === "superadmin" ? "CEO" : "Nhân viên"),
+    role: usr.jobTitle || (
+      usr.role === "superadmin" ? "CEO" :
+      usr.role === "admin" ? "Quản trị viên" :
+      usr.role === "branch_owner" ? "Chủ chi nhánh" :
+      usr.role === "manager" ? "Quản lý" : "Nhân viên"
+    ),
     department: usr.department || "Ban Giám đốc",
     email: usr.email,
     phone: usr.phone || "Chưa cập nhật",
@@ -153,10 +158,16 @@ export default function HRTab() {
       usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/"))
         ? usr.photoURL
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(usr.displayName)}&background=random&color=fff`,
-    level: usr.level || 4,
+    level: usr.level || (
+      usr.role === "superadmin" ? 0 :
+      usr.role === "admin" ? 1 :
+      usr.role === "branch_owner" ? 2 :
+      usr.role === "manager" ? 3 : 4
+    ),
     parentId: usr.parentId,
     status: usr.status || "offline",
     division: usr.division || "Khối Vận Hành",
+    isLeader: usr.isLeader,
     jobDescriptionLink: usr.jobDescriptionLink || "",
     monthlySalary: usr.monthlySalary,
   }));
