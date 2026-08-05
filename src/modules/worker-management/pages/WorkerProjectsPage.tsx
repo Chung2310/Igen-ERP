@@ -16,6 +16,8 @@ import {
 import { toast } from "../../../pages/Toast";
 import { useWorkerProjects } from "../hooks/useWorkerProjects";
 import { useWorkers } from "../hooks/useWorkers";
+import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
+import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import type {
   Worker,
   WorkerProject,
@@ -182,6 +184,7 @@ export function WorkerProjectsPage({
     ? projects.find((project) => project._id === memberTargetId) || null
     : null;
   const [workerId, setWorkerId] = React.useState("");
+  const [attendanceProject, setAttendanceProject] = React.useState<WorkerProject | null>(null);
 
   const filtered = projects.filter((project) => {
     if (status !== "all" && project.status !== status) return false;
@@ -299,6 +302,9 @@ export function WorkerProjectsPage({
   const actions = (project: WorkerProject) =>
     canManage ? (
       <div className="flex items-center gap-1.5">
+        <ActionButton title="Attendance" onClick={() => setAttendanceProject(project)}>
+          <Clock className="h-3.5 w-3.5" />
+        </ActionButton>
         <ActionButton
           title="Chỉnh sửa dự án"
           onClick={() => openEdit(project)}
@@ -696,6 +702,14 @@ export function WorkerProjectsPage({
         </Modal>
       )}
 
+      {attendanceProject && (
+        <Modal title={`Attendance · ${attendanceProject.code}`} onClose={() => setAttendanceProject(null)}>
+          <div className="space-y-4">
+            <WorkerTimekeepingPanel projectId={attendanceProject._id} workers={workers.filter((worker) => attendanceProject.workerIds.includes(worker._id))} canManage={canManage} />
+            <WorkerQrAttendance projectId={attendanceProject._id} date={new Date().toISOString().slice(0, 10)} />
+          </div>
+        </Modal>
+      )}
       {memberTarget && (
         <Modal
           title={`Quản lý lao động · ${memberTarget.code}`}
