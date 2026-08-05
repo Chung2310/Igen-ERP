@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { BatchService } from "../services/batch.service";
+import { BatchService, listBatchEnrollments, updateEnrollmentStatus } from "../services/batch.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
@@ -49,6 +49,22 @@ export class BatchController {
     }
   }
 
+  /** Sổ buổi học của các học viên trong lớp */
+  static async getEnrollments(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      // Đi qua getBatchById để giữ nguyên kiểm tra owner + chi nhánh
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const batch = await BatchService.getBatchById(ownerId, req.params.id, req.user!.branchId);
+      if (!batch) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy lớp học." });
+      }
+      const data = await listBatchEnrollments(ownerId, req.params.id, req.user!.branchId);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async update(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -87,7 +103,7 @@ export class BatchController {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const businessType = "general";
-      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType, req.user!.branchId);
+      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType, req.user!.branchId, req.user!.uid);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -98,8 +114,26 @@ export class BatchController {
   static async removeLearner(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId, req.user!.branchId);
+      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId, req.user!.branchId, req.user!.uid);
       res.json({ success: true, data: batch });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
+  /** Bảo lưu hoặc tiếp tục học mà không đổi sổ buổi. */
+  static async updateEnrollmentStatus(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const { status, reason, expectedReturnAt } = req.body;
+      const enrollment = await updateEnrollmentStatus(
+        ownerId, req.params.id, req.params.studentId, status, reason, expectedReturnAt, req.user!.branchId,
+      );
+      if (!enrollment) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy lớp học." });
+      }
+      res.json({ success: true, data: enrollment });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
       res.status(400).json({ success: false, error: msg });

@@ -97,6 +97,7 @@ export default function UserAdminTab() {
   const [userBranchId, setUserBranchId] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
+  const [userQualification, setUserQualification] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
   const [userMonthlySalary, setUserMonthlySalary] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
@@ -112,6 +113,7 @@ export default function UserAdminTab() {
     setUserBranchId("");
     setUserParentId("");
     setUserDepartment("");
+    setUserQualification("");
     setUserJobDescriptionLink("");
     setUserMonthlySalary("");
   };
@@ -188,6 +190,7 @@ export default function UserAdminTab() {
       }
     } else if (isUserModalOpen && userRole === "user" && !userParentId) {
       setUserDepartment("");
+    setUserQualification("");
     }
   }, [userRole, userParentId, usersList, isUserModalOpen]);
 
@@ -195,6 +198,7 @@ export default function UserAdminTab() {
   useEffect(() => {
     if (!isUserModalOpen) {
       setUserDepartment("");
+    setUserQualification("");
       setUserJobDescriptionLink("");
     setUserMonthlySalary("");
       setEditingUser(null);
@@ -562,6 +566,7 @@ export default function UserAdminTab() {
           division: userDepartment.trim() || "",
           phone: userPhone.trim(),
           birthDate: userBirthDate || null,
+          qualification: userQualification.trim(),
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
           branchId: userBranchId || null,
@@ -585,6 +590,7 @@ export default function UserAdminTab() {
           userJobDescriptionLink.trim() || undefined,
           userBranchId || undefined,
           userBirthDate || undefined,
+          userQualification.trim() || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -626,6 +632,7 @@ export default function UserAdminTab() {
     setUserBranchId(user.branchId || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
+    setUserQualification(user.qualification || "");
     setUserJobDescriptionLink(user.jobDescriptionLink || "");
     setUserMonthlySalary(user.monthlySalary == null ? "" : String(user.monthlySalary));
     setIsUserModalOpen(true);
@@ -965,6 +972,8 @@ export default function UserAdminTab() {
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
+        userQualification={userQualification}
+        setUserQualification={setUserQualification}
         userJobDescriptionLink={userJobDescriptionLink}
         userMonthlySalary={userMonthlySalary}
         setUserMonthlySalary={setUserMonthlySalary}

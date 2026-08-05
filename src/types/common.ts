@@ -32,6 +32,7 @@ export interface UserProfile {
   createdAt: any;
   birthDate?: string;
   jobTitle?: string;
+  qualification?: string;
   department?: string;
   jobDescriptionLink?: string;
   phone?: string;
@@ -47,6 +48,7 @@ export interface UserProfile {
   enabledModules?: string[];
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   monthlySalary?: number;
+  isLeader?: boolean;
 }
 
 export interface CompanyProfile {

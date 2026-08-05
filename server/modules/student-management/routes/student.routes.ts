@@ -28,6 +28,7 @@ router.post("/", requireManage, validate(createStudentSchema), StudentController
 router.post("/bulk", requireManage, StudentController.bulkCreate);
 router.post("/bulk-delete", requireManage, StudentController.bulkDelete);
 router.get("/", StudentController.getList);
+router.get("/:id/learning-history", validate(idParamSchema, "params"), StudentController.getLearningHistory);
 router.get("/:id", validate(idParamSchema, "params"), StudentController.getDetail);
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateStudentSchema), StudentController.update);
 router.delete("/:id", requireManage, validate(idParamSchema, "params"), StudentController.delete);

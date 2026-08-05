@@ -150,6 +150,10 @@ export interface ExamSession {
   tentativeDate: string;
   officialDate?: string;
   location: string;
+  batchId?: string;
+  batchCode?: string;
+  maxScore?: number;
+  results?: Array<{ studentId: string; score?: number; note?: string; gradedAt?: string }>;
   studentCount: number;
   passCount: number;
   failCount: number;
@@ -197,7 +201,7 @@ export type ManagedUser = {
   permissions?: string[];
 };
 
-export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc';
+export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc' | 'Đã hủy';
 
 export interface AttendanceRecord {
   studentId: string;
@@ -209,6 +213,34 @@ export interface AttendanceSession {
   date: string;
   note?: string;
   records: AttendanceRecord[];
+}
+
+/** Mức cảnh báo tiến độ vận hành của lớp */
+export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'grey';
+
+/** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với mức tiến độ */
+export type BatchAgeLabel = 'yellow' | 'red' | null;
+
+export interface BatchProgress {
+  totalSessions: number;
+  doneSessions: number;
+  remainingSessions: number;
+  progressLevel: BatchProgressLevel;
+  ageLabel: BatchAgeLabel;
+}
+
+/** Sổ buổi học của một học viên trong một lớp */
+export interface BatchEnrollment {
+  batchId: string;
+  studentId: string;
+  allowedSessions: number;
+  attendedSessions: number;
+  remainingSessions: number;
+  status: string;
+  leftAt?: string | null;
+  suspendedAt?: Date | string | null;
+  suspensionReason?: string;
+  expectedReturnAt?: string | null;
 }
 
 export interface BatchGeoLocation {
@@ -225,6 +257,8 @@ export interface Batch {
   /** Chỉ tiêu riêng của dự án; 0 = dùng chỉ tiêu của khóa học/danh mục */
   quota?: number;
   courseId: string;
+  roadmapId?: string;
+  roadmapStepId?: string;
   instructorId?: string;
   /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */
   instructorText?: string;
@@ -237,6 +271,9 @@ export interface Batch {
   startDate: string;    // YYYY-MM-DD
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;
+  /** Thời điểm lớp được đóng — dùng cho nhãn tuổi lớp */
+  completedAt?: Date | string | null;
+  cancelledAt?: Date | string | null;
   ownerId: string;
   attendanceSessions?: AttendanceSession[];
   // Thông tin server gắn kèm để hiển thị
@@ -244,10 +281,87 @@ export interface Batch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  instructorQualification?: string;
+  /** Cảnh báo tiến độ do server tính sẵn */
+  progress?: BatchProgress;
   customFields?: CustomFieldValues;
   __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+}
+
+export type StudentQualityWarningLevel = 'risk' | 'watch' | 'good' | 'unrated';
+
+export interface StudentQualityMiniTest {
+  id: string;
+  title: string;
+  date: string;
+  score: number | null;
+  maxScore: number;
+  rate: number | null;
+  note?: string;
+  assessedBy?: string;
+  assessedAt?: string;
+}
+
+export interface StudentQualityAssignment {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  status: "not_submitted" | "submitted" | "graded" | "late";
+  score: number | null;
+  feedback: string;
+  submittedAt: string | null;
+}
+
+export interface StudentQualityExam {
+  id?: string;
+  name?: string;
+  date?: string;
+  type?: string;
+  status?: string;
+  result?: { overall?: string; theory?: number | string; practice?: number | string; simulation?: number | string };
+}
+
+export interface StudentQualityRow {
+  id: string;
+  batchId: string;
+  batchCode: string;
+  courseId: string;
+  courseTitle: string;
+  instructorId: string;
+  instructorName: string;
+  studentId: string;
+  studentName: string;
+  studentPhone: string;
+  studentStatus: StudentStatus[];
+  attendance: { attended: number; total: number; rate: number | null };
+  assignments: { completed: number; total: number; rate: number | null; items: StudentQualityAssignment[] };
+  attitudeNote: string;
+  teacherAssessment: string;
+  latestMiniTest: StudentQualityMiniTest | null;
+  miniTestCount: number;
+  latestExam: StudentQualityExam | null;
+  examResults: StudentQualityExam[];
+  examCount: number;
+  warningLevel: StudentQualityWarningLevel;
+  updatedAt: string | null;
+}
+
+export interface StudentQualityListResponse {
+  success: boolean;
+  items: StudentQualityRow[];
+  summary: {
+    totalStudents: number;
+    riskCount: number;
+    watchCount: number;
+    averageAttendanceRate: number | null;
+    averageAssignmentRate: number | null;
+  };
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 // Phân loại tài nguyên là chuỗi động (quản lý qua /resources/categories);

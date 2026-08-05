@@ -201,6 +201,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
           </div>
         )}
 
+
         <div className="grid grid-cols-2 gap-4">
           {!forceType && isFieldVisible('type') && (
             <div className="relative group/std">

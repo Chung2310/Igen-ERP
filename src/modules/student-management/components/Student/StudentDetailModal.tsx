@@ -17,6 +17,7 @@ import { ProfileTab } from './DetailTabs/ProfileTab';
 import { TuitionTab } from './DetailTabs/TuitionTab';
 import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
 import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
+import { QualityTab } from './DetailTabs/QualityTab';
 
 interface StudentDetailModalProps {
   student: Student | null;
@@ -25,7 +26,7 @@ interface StudentDetailModalProps {
   initialTab?: TabType;
 }
 
-type TabType = 'Hồ sơ' | 'Học phí' | 'Khuôn mặt' | 'Lịch sử';
+type TabType = 'Hồ sơ' | 'Học phí' | 'Khuôn mặt' | 'Lịch sử học tập' | 'Lịch sử';
 
 export function StudentDetailModal({ student: initialStudent, selectedCenter, onClose, initialTab = 'Hồ sơ' }: StudentDetailModalProps) {
   const { userProfile: user } = useAuth();
@@ -87,7 +88,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const tabs: TabType[] = operationalCopy.isWorker || operationalCopy.isCustomer
     ? ['Hồ sơ', 'Lịch sử']
-    : ['Hồ sơ', 'Học phí', 'Lịch sử'];
+    : ['Hồ sơ', 'Lịch sử học tập', 'Học phí', 'Lịch sử'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {
@@ -336,9 +337,14 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   <FaceEnrollmentTab student={student} />
                 )}
 
+                {student && activeTab === 'Lịch sử học tập' && (
+                  <QualityTab student={student} />
+                )}
+
                 {activeTab !== 'Hồ sơ' &&
                   activeTab !== 'Học phí' &&
                   activeTab !== 'Khuôn mặt' &&
+                  activeTab !== 'Lịch sử học tập' &&
                   activeTab !== 'Lịch sử' && (
                     <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
                       <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -369,6 +375,7 @@ function TabIcon({ tab, size = 16 }: { tab: TabType, size?: number }) {
     case 'Hồ sơ': return <FileText size={size} />;
     case 'Học phí': return <CreditCard size={size} />;
     case 'Khuôn mặt': return <ScanFace size={size} />;
+    case 'Lịch sử học tập': return <History size={size} />;
     case 'Lịch sử': return <History size={size} />;
     default: return null;
   }

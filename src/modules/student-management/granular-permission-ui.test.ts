@@ -5,12 +5,12 @@ import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 
 test("umbrella read keeps all operational tabs visible", () => {
   const tabs = getAllowedStudentTabSlugs(["student:read"], "student");
-  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen", "thong-bao"]);
+  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
 });
 
 test("umbrella manage keeps all operational tabs visible", () => {
   const tabs = getAllowedStudentTabSlugs(["student:manage"], "student");
-  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen", "thong-bao"]);
+  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
 });
 
 test("worker preset hides student-only tabs", () => {

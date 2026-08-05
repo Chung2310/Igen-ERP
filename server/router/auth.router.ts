@@ -49,6 +49,7 @@ const registerSchema = {
     companyName: Joi.string().optional().allow(""),
     branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
+    qualification: Joi.string().max(200).optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
     monthlySalary: Joi.number().min(0).optional(),
@@ -220,6 +221,7 @@ const registerUserSchema = {
     level: Joi.number().integer().optional(),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
+    isLeader: Joi.boolean().optional(),
     heygenAccess: Joi.object({
       avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),
@@ -354,6 +356,7 @@ const bulkUpdateUsersSchema = {
         department: Joi.string().optional().allow(""),
         division: Joi.string().optional().allow(""),
         jobTitle: Joi.string().optional().allow(""),
+    qualification: Joi.string().max(200).optional().allow(""),
       })
     ).required().messages({
       "any.required": "Danh sách 'updates' là bắt buộc.",
@@ -375,6 +378,8 @@ const updateUserSchema = {
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
+    qualification: Joi.string().max(200).optional().allow(""),
+    isLeader: Joi.boolean().optional(),
     displayName: Joi.string().optional().allow(""),
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),

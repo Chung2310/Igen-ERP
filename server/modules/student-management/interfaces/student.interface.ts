@@ -42,6 +42,8 @@ export interface IStudentExam {
   date: string;
   type: 'Tốt nghiệp' | 'Sát hạch';
   status: 'Sắp thi' | 'Đã thi';
+  batchId?: string;
+  courseId?: string;
   result?: {
     theory: number | 'Đạt' | 'Không đạt';
     practice: number | 'Đạt' | 'Không đạt';
