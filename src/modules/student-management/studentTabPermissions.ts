@@ -5,6 +5,7 @@ const ORDERED_TABS = [
   ["khoa-hoc", "course"],
   ["lop-hoc", "batch"],
   ["chat-luong-hoc-vien", "student-quality"],
+  ["lo-trinh-va-cho-lop", "learning-roadmap"],
   ["hoc-vien", "student-profile"],
   ["hoc-phi", "payment"],
   ["lich-thi", "exam"],
@@ -20,7 +21,7 @@ export function getAllowedStudentTabSlugs(
   const hasUmbrella = permissions.some((code) => ["*", "student:read", "student:manage"].includes(code));
   return ORDERED_TABS.flatMap(([slug, area]) => {
     if (slug === "tong-quan") return hasUmbrella ? [slug] : [];
-    if (preset !== "student" && ["lop-hoc", "chat-luong-hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen", "phong-hoc"].includes(slug)) return [];
+    if (preset !== "student" && ["lop-hoc", "chat-luong-hoc-vien", "lo-trinh-va-cho-lop", "hoc-phi", "lich-thi", "tai-nguyen", "phong-hoc"].includes(slug)) return [];
     const effectiveArea = preset === "worker" && slug === "khoa-hoc" ? "batch" : area;
     return effectiveArea && canReadStudentArea(permissions, effectiveArea) ? [slug] : [];
   });

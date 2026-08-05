@@ -9,6 +9,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
+import { getRoadmaps, type LearningRoadmap } from '../../api/learningRoadmap.api';
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
 import { useResources } from '../../hooks/useResources';
@@ -118,6 +119,9 @@ interface BatchForm {
   geoLng: number | '';
   geoRadius: number | '';
   courseId: string;
+  learningMode: 'standalone' | 'roadmap';
+  roadmapId: string;
+  roadmapStepId: string;
   instructorId: string;
   instructorText: string;
   daysOfWeek: number[];
@@ -143,6 +147,9 @@ const EMPTY_FORM: BatchForm = {
   geoLng: '',
   geoRadius: '',
   courseId: '',
+  learningMode: 'standalone',
+  roadmapId: '',
+  roadmapStepId: '',
   instructorId: '',
   instructorText: '',
   daysOfWeek: [],
@@ -288,6 +295,11 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading } = useBatches(resolvedCenter);
   const { courses } = useCourses(resolvedCenter);
+  const [roadmaps, setRoadmaps] = useState<LearningRoadmap[]>([]);
+  React.useEffect(() => {
+    if (entityLabel.preset === 'worker') return;
+    void getRoadmaps().then(setRoadmaps).catch(() => setRoadmaps([]));
+  }, [entityLabel.preset, resolvedCenter]);
   const { resources } = useResources();
   const classrooms = React.useMemo(() => resources.filter(r => r.type === 'Phòng học'), [resources]);
   const [users, setUsers] = useState<any[]>([]);
@@ -351,6 +363,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       geoLng: batch.geoLocation?.longitude ?? '',
       geoRadius: batch.geoLocation?.radiusMeters ?? '',
       courseId: batch.courseId,
+      learningMode: batch.roadmapId && batch.roadmapStepId ? 'roadmap' : 'standalone',
+      roadmapId: batch.roadmapId || '',
+      roadmapStepId: batch.roadmapStepId || '',
       instructorId: batch.instructorId || '',
       instructorText: batch.instructorText || '',
       daysOfWeek: batch.daysOfWeek || [],
@@ -438,7 +453,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         }
       }
 
-      const { geoLat, geoLng, geoRadius, ...restForm } = form;
+      const { geoLat, geoLng, geoRadius, learningMode: _learningMode, ...restForm } = form;
       const payload = {
         ...restForm,
         courseId: resolvedCourseId,
@@ -900,6 +915,35 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     </ErpField>
                   </div>
                 )}
+                {entityLabel.preset !== 'worker' && (
+                  <div className="col-span-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-700">Cách áp dụng khóa học</p>
+                      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'standalone', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'standalone' ? 'bg-slate-800 text-white' : 'text-slate-600'}`}>Lớp độc lập</button>
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'roadmap', courseId: '', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'roadmap' ? 'bg-cyan-700 text-white' : 'text-slate-600'}`}>Theo lộ trình</button>
+                      </div>
+                    </div>
+                    {form.learningMode === 'roadmap' && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <ErpSelect value={form.roadmapId} onChange={(event) => setForm((current) => ({ ...current, roadmapId: event.target.value, roadmapStepId: '', courseId: '' }))}>
+                          <option value="">-- Chọn lộ trình --</option>
+                          {roadmaps.map((roadmap) => <option key={roadmap.id} value={roadmap.id}>{roadmap.name}</option>)}
+                        </ErpSelect>
+                        <ErpSelect value={form.roadmapStepId} disabled={!form.roadmapId} onChange={(event) => {
+                          const step = roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps.find((item) => item.id === event.target.value);
+                          setForm((current) => ({ ...current, roadmapStepId: event.target.value, courseId: step?.courseId || '' }));
+                        }}>
+                          <option value="">-- Chọn chặng học --</option>
+                          {(roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps || []).sort((a, b) => a.order - b.order).map((step) => {
+                            const course = courses.find((item) => item.id === step.courseId);
+                            return <option key={step.id} value={step.id}>Chặng {step.order}: {course?.title || 'Khóa học đã xóa'}</option>;
+                          })}
+                        </ErpSelect>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {isFieldVisible('courseId') && (
                   <div className="relative group/std">
                     {renderFieldActions('courseId')}
@@ -918,6 +962,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                             value={form.name}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
                             className="pl-10"
+                          />
+                        ) : form.learningMode === 'roadmap' ? (
+                          <ErpInput
+                            type="text"
+                            readOnly
+                            placeholder="Chọn lộ trình và chặng học ở trên"
+                            value={courses.find((course) => course.id === form.courseId)?.title || ''}
+                            className="pl-10 bg-slate-50"
                           />
                         ) : (
                         <ErpSelect

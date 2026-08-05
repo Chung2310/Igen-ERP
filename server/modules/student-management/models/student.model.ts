@@ -38,6 +38,8 @@ const studentExamSchema = new Schema({
   date: { type: String, required: true },
   type: { type: String, enum: ["Tốt nghiệp", "Sát hạch"], required: true },
   status: { type: String, enum: ["Sắp thi", "Đã thi"], required: true },
+  batchId: { type: String, default: "", index: true },
+  courseId: { type: String, default: "", index: true },
   result: {
     theory: { type: Schema.Types.Mixed, default: 0 },
     practice: { type: Schema.Types.Mixed, default: 0 },

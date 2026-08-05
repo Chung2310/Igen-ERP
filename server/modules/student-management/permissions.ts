@@ -19,6 +19,7 @@ export const STUDENT_AREA_PERMISSIONS = {
   "classroom": { read: STUDENT_READ, manage: STUDENT_MANAGE },
   assignment: { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "student-quality": { read: STUDENT_READ, manage: STUDENT_MANAGE },
+  "learning-roadmap": { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "custom-field": { read: ["custom-field:manage"], manage: ["custom-field:manage"] },
   "student-settings": { read: ["student-settings:manage"], manage: ["student-settings:manage"] },
   "company-smtp": { read: ["company-smtp:manage"], manage: ["company-smtp:manage"] },

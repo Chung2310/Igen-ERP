@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { useExams } from '../../hooks/useExams';
 import { useStudents } from '../../hooks/useStudents';
+import { useBatches } from '../../hooks/useBatches';
 import { ExamSession, ExamStatus } from '../../types';
 import { AddExamModal } from '../../components/Exams/AddExamModal';
 import { ExamStatusModal } from '../../components/Exams/ExamStatusModal';
@@ -25,6 +26,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { exams, loading: examsLoading } = useExams(resolvedCenter);
   const { students } = useStudents(resolvedCenter);
+  const { batches } = useBatches(resolvedCenter);
 
   const [activeTab, setActiveTab] = useState<'exams' | 'students'>('exams');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -397,13 +399,20 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
               <ExamCard
                 key={exam.id}
                 exam={exam}
-                assignedStudents={students.filter(s => s.examId === exam.id)}
+                assignedStudents={exam.batchId ? students.filter((student) => batches.find((batch) => batch.id === exam.batchId)?.learnerIds.includes(student.id)) : students.filter(s => s.examId === exam.id)}
                 getStatusInfo={getStatusInfo}
                 onDelete={() => setDeleteModalExam(exam)}
                 onEdit={() => handleEditExam(exam)}
                 onStatusClick={() => handleStatusUpdate(exam)}
                 onAssignClick={() => handleAssignStudent(exam)}
                 onViewDetail={() => setViewingExam(exam)}
+                onProgressRoute={exam.batchId ? async () => {
+                  if ((exam.results || []).some((item) => typeof item.score !== 'number')) { toast.warning('Hãy nhập đủ điểm thi trước khi chuyển lộ trình.'); return; }
+                  await apiFetch(`/batches/${exam.batchId}`, { method: 'PATCH', body: JSON.stringify({ status: 'Đã kết thúc' }) });
+                  window.dispatchEvent(new Event('batch-mutation'));
+                  window.history.pushState({}, '', '/quan-ly-hoc-vien?sub=lo-trinh-va-cho-lop');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                } : undefined}
                 onUnassignStudent={async (studentId) => {
                   try {
                     await apiFetch(`/exams/${exam.id}/unassign`, {
@@ -431,6 +440,14 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                     console.error("Error updating student result:", error);
                     toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật kết quả thi."));
                   }
+                }}
+                onUpdateStudentScore={async (studentId, score, note) => {
+                  try {
+                    await apiFetch(`/exams/${exam.id}/results`, { method: 'PATCH', body: JSON.stringify({ results: [{ studentId, score, note }] }) });
+                    window.dispatchEvent(new Event("student-mutation"));
+                    window.dispatchEvent(new Event("exam-mutation"));
+                    toast.success("Đã lưu điểm thi.");
+                  } catch (error) { toast.error(getApiErrorMessage(error, "Không thể lưu điểm thi.")); }
                 }}
               />
             ))}

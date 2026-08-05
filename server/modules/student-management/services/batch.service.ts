@@ -3,6 +3,7 @@ import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
+import { LearningRoadmap } from "../models/learning-roadmap.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import {
   countConsumedSessions,
@@ -90,6 +91,16 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
 
 function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
   return branchId ? { branchId } : {};
+}
+
+async function assertRoadmapAssignment(input: { ownerId: string; branchId?: string; courseId: string; roadmapId?: unknown; roadmapStepId?: unknown; }) {
+  const roadmapId = String(input.roadmapId || "");
+  const roadmapStepId = String(input.roadmapStepId || "");
+  if (!roadmapId && !roadmapStepId) return;
+  if (!roadmapId || !roadmapStepId) throw new Error("Lớp theo lộ trình cần chọn đủ lộ trình và chặng học.");
+  const roadmap = await LearningRoadmap.findOne({ _id: roadmapId, ownerId: input.ownerId, ...buildBranchScopeQuery(input.branchId), status: "active" }).lean();
+  const step = roadmap?.steps.find((item) => item.id === roadmapStepId);
+  if (!step || step.courseId !== input.courseId) throw new Error("Chặng lộ trình không khớp với khóa học của lớp.");
 }
 
 /**
@@ -367,6 +378,7 @@ export class BatchService {
     if (!course) {
       throw new Error("Không tìm thấy khóa học của lớp.");
     }
+    await assertRoadmapAssignment({ ownerId, branchId: actor.branchId, courseId: String(writeData.courseId), roadmapId: writeData.roadmapId, roadmapStepId: writeData.roadmapStepId });
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
@@ -477,6 +489,14 @@ export class BatchService {
         throw new Error("Không tìm thấy khóa học của lớp.");
       }
     }
+
+    const nextRoadmapId = writeData.roadmapId === undefined ? batch.roadmapId : String(writeData.roadmapId || "");
+    const nextRoadmapStepId = writeData.roadmapStepId === undefined ? batch.roadmapStepId : String(writeData.roadmapStepId || "");
+    const nextCourseId = String(writeData.courseId || batch.courseId);
+    if ((nextRoadmapId !== (batch.roadmapId || "") || nextRoadmapStepId !== (batch.roadmapStepId || "")) && batch.learnerIds.length > 0) {
+      throw new Error("Không thể đổi lộ trình của lớp đã có học viên.");
+    }
+    await assertRoadmapAssignment({ ownerId: batch.ownerId, branchId: batch.branchId, courseId: nextCourseId, roadmapId: nextRoadmapId, roadmapStepId: nextRoadmapStepId });
 
     if (writeData.instructorId && writeData.instructorId !== batch.instructorId) {
       await assertInstructorAssignable(actor, writeData.instructorId);

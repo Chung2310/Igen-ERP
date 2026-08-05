@@ -29,6 +29,9 @@ export interface IBatch extends Document {
   /** Chỉ tiêu riêng của dự án. 0 = dùng chỉ tiêu của khóa học/danh mục. */
   quota?: number;
   courseId: string;
+  /** Lộ trình và chặng mà lớp này đảm nhiệm; để trống với lớp học độc lập. */
+  roadmapId?: string;
+  roadmapStepId?: string;
   instructorId?: string;
   /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */
   instructorText?: string;
