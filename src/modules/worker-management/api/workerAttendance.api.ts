@@ -1,4 +1,4 @@
-import { apiFetch } from "../../shared-management/api";
+import { workerApiFetch } from "./client";
 import type { WorkerAttendanceLog } from "../types";
 
 export const workerAttendanceApi = {
@@ -10,7 +10,7 @@ export const workerAttendanceApi = {
     deviceInfo?: string;
   }) {
     return (
-      await apiFetch<{ data: any }>("/attendance/worker/mark", {
+      await workerApiFetch<{ data: any }>("/worker-management/attendance/mark", {
         method: "POST",
         body: JSON.stringify(payload),
       })
@@ -24,7 +24,7 @@ export const workerAttendanceApi = {
     if (to) params.to = to;
 
     return (
-      await apiFetch<{ data: WorkerAttendanceLog[] }>("/attendance/worker", {
+      await workerApiFetch<{ data: WorkerAttendanceLog[] }>("/worker-management/attendance", {
         params,
       })
     ).data;
@@ -35,7 +35,7 @@ export const workerAttendanceApi = {
     changes: { checkInAt?: string | null; checkOutAt?: string | null; note?: string }
   ) {
     return (
-      await apiFetch<{ data: WorkerAttendanceLog }>(`/attendance/worker/${id}`, {
+      await workerApiFetch<{ data: WorkerAttendanceLog }>(`/worker-management/attendance/${id}`, {
         method: "PATCH",
         body: JSON.stringify(changes),
       })
@@ -44,7 +44,7 @@ export const workerAttendanceApi = {
 
   async createQrSession(projectId: string, date: string, durationMinutes = 60) {
     return (
-      await apiFetch<{ data: any }>("/qr-attendance/session", {
+      await workerApiFetch<{ data: any }>("/worker-management/qr-attendance/session", {
         method: "POST",
         body: JSON.stringify({ projectId, date, durationMinutes }),
       })
@@ -53,19 +53,19 @@ export const workerAttendanceApi = {
 
   async getQrToken(sessionId: string) {
     return (
-      await apiFetch<{ data: any }>(`/qr-attendance/session/${sessionId}/token`)
+      await workerApiFetch<{ data: any }>(`/worker-management/qr-attendance/session/${sessionId}/token`)
     ).data;
   },
 
   async getQrStatus(sessionId: string) {
     return (
-      await apiFetch<{ data: any }>(`/qr-attendance/session/${sessionId}/status`)
+      await workerApiFetch<{ data: any }>(`/worker-management/qr-attendance/session/${sessionId}/status`)
     ).data;
   },
 
   async closeQrSession(sessionId: string) {
     return (
-      await apiFetch<{ message: string }>(`/qr-attendance/session/${sessionId}/close`, {
+      await workerApiFetch<{ message: string }>(`/worker-management/qr-attendance/session/${sessionId}/close`, {
         method: "POST",
       })
     );

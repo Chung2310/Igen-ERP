@@ -1,6 +1,65 @@
 export type WorkerStatus = "active" | "inactive" | "placed";
-export type Worker = { _id: string; fullName: string; phone?: string; email?: string; status: WorkerStatus; note?: string; branchId?: string };
-export type WorkerInput = Pick<Worker, "fullName" | "phone" | "email" | "status" | "note" | "branchId">;
+
+export type WorkerScope = {
+  companyCode: string;
+  branchId?: string;
+};
+
+export type WorkerProfileFieldKey =
+  | "fullName"
+  | "phone"
+  | "email"
+  | "idCard"
+  | "birthday"
+  | "registrationDate"
+  | "address"
+  | "status"
+  | "note";
+
+export type WorkerProfileFieldConfig = {
+  key: WorkerProfileFieldKey;
+  label: string;
+  isRequired: boolean;
+  isVisible: boolean;
+};
+
+export type WorkerProjectSummary = {
+  id: string;
+  name: string;
+};
+
+export type Worker = {
+  _id: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  status: WorkerStatus;
+  note?: string;
+  branchId?: string;
+  address?: string;
+  birthday?: string;
+  idCard?: string;
+  registrationDate?: string;
+  customFields?: Record<string, unknown>;
+  projectIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type WorkerInput = Pick<
+  Worker,
+  | "fullName"
+  | "phone"
+  | "email"
+  | "status"
+  | "note"
+  | "branchId"
+  | "address"
+  | "birthday"
+  | "idCard"
+  | "registrationDate"
+  | "customFields"
+>;
 
 export type WorkerProject = {
   _id: string;
@@ -59,4 +118,3 @@ export interface WorkerAttendanceLog {
   createdAt?: string;
   updatedAt?: string;
 }
-

@@ -21,6 +21,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useCourses } from '../../hooks/useCourses';
 import { useCourseCategories } from '../../hooks/useCourseCategories';
+import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { useAuth } from '../../../../context/AuthContext';
 import { Course } from '../../types';
 import {
@@ -781,16 +782,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                 <div className="relative group/std">
                   {renderFieldActions('category')}
                   <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
-                    <ErpSelect
-                      value={newCourse.category}
-                      onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </ErpSelect>
+                    <RoadmapPicker value={newCourse.category} placeholder="-- Chọn phân loại --" options={categories.map((category) => ({ value: category.name, label: category.name }))} onChange={(value) => setNewCourse({ ...newCourse, category: value })} />
                   </ErpField>
                 </div>
               )}
@@ -931,16 +923,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                 <div className="relative group/std">
                   {renderFieldActions('category')}
                   <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
-                    <ErpSelect
-                      value={editForm.category}
-                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </ErpSelect>
+                    <RoadmapPicker value={editForm.category} placeholder="-- Chọn phân loại --" options={categories.map((category) => ({ value: category.name, label: category.name }))} onChange={(value) => setEditForm({ ...editForm, category: value })} />
                   </ErpField>
                 </div>
               )}

@@ -1,0 +1,3 @@
+import mongoose, { Schema } from "mongoose";
+const workerNotificationSchema = new Schema({ companyCode: { type: String, required: true, index: true }, branchId: { type: String, index: true }, title: { type: String, required: true, trim: true }, content: { type: String, required: true }, recipients: { type: String, required: true }, recipientCount: { type: Number, default: 0 }, channels: [{ type: String }], status: { type: String, enum: ["sent", "sending", "failed"], default: "sent" } }, { timestamps: true });
+export const WorkerNotificationModel = mongoose.models.WorkerNotification || mongoose.model("WorkerNotification", workerNotificationSchema);

@@ -19,17 +19,21 @@ export class StudentLearningHistoryService {
     const scope = { ...ownerQuery(ownerId), ...branchQuery(branchId) };
     const student = await Student.findOne({ _id: studentId, ...scope }).lean();
     if (!student) throw new Error("Không tìm thấy học viên.");
+    const completedCourseIds = student.completedCourseIds || [];
 
     const [enrollments, learnerBatches] = await Promise.all([
       StudentBatchEnrollment.find({ ...scope, studentId }).lean(),
       Batch.find({ ...scope, learnerIds: studentId }).lean(),
     ]);
     const batchIds = new Set([...enrollments.map((item) => item.batchId), ...learnerBatches.map((item) => String(item._id))]);
-    if (!batchIds.size) return { studentId, summary: { totalClasses: 0, totalCourses: 0, totalAttendedSessions: 0, totalMiniTests: 0, totalExams: (student.exams || []).length }, entries: [], unassignedExams: student.exams || [] };
+    if (!batchIds.size) {
+      const completedCourses = completedCourseIds.length ? await Course.find({ _id: { $in: completedCourseIds }, ...scope }).select("title code").lean() : [];
+      return { studentId, summary: { totalClasses: 0, totalCourses: 0, totalAttendedSessions: 0, totalMiniTests: 0, totalExams: (student.exams || []).length }, entries: [], unassignedExams: student.exams || [], completedCourses: completedCourses.map((course) => ({ id: String(course._id), title: course.title, code: course.code })) };
+    }
 
     const batches = await Batch.find({ ...scope, _id: { $in: [...batchIds] } }).lean();
     const validBatchIds = batches.map((batch) => String(batch._id));
-    const courseIds = [...new Set(batches.map((batch) => batch.courseId).filter(Boolean))];
+    const courseIds = [...new Set([...batches.map((batch) => batch.courseId), ...completedCourseIds].filter(Boolean))];
     const [courses, assignments, miniTests, qualityRecords] = await Promise.all([
       Course.find({ _id: { $in: courseIds }, ...scope }).lean(),
       AssignmentModel.find({ batchId: { $in: validBatchIds }, ...scope }).lean(),
@@ -40,6 +44,7 @@ export class StudentLearningHistoryService {
     const submissions = assignmentIds.length ? await SubmissionModel.find({ studentId, assignmentId: { $in: assignmentIds } }).lean() : [];
     const enrollmentMap = new Map(enrollments.map((item) => [item.batchId, item]));
     const courseMap = new Map(courses.map((item) => [String(item._id), item]));
+    const completedCourses = completedCourseIds.map((courseId) => ({ id: courseId, title: courseMap.get(courseId)?.title || "Khóa học đã xóa", code: courseMap.get(courseId)?.code || "" }));
     const qualityMap = new Map(qualityRecords.map((item) => [item.batchId, item]));
     const assignmentsByBatch = new Map<string, typeof assignments>();
     const testsByBatch = new Map<string, typeof miniTests>();
@@ -79,6 +84,7 @@ export class StudentLearningHistoryService {
       summary: { totalClasses: entries.length, totalCourses: new Set(entries.map((entry) => entry.courseId)).size, totalAttendedSessions: entries.reduce((total, entry) => total + entry.attendance.attended, 0), totalMiniTests: entries.reduce((total, entry) => total + entry.miniTests.filter((item) => item.score !== null).length, 0), totalExams: exams.length },
       entries,
       unassignedExams: exams.filter((exam) => !assignedExamIds.has(exam.id)),
+      completedCourses,
     };
   }
 }

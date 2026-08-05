@@ -81,6 +81,8 @@ export interface IStudent extends Document {
   /** Hạng bằng lái — thông tin riêng ngành lái xe, học viên ngành khác để trống */
   rank?: string;
   courseId?: string;
+  /** Các khóa học học viên đã hoàn thành theo kết quả thi. */
+  completedCourseIds?: string[];
   registrationDate: string;
   enrollmentDate?: string;
   fee: string;

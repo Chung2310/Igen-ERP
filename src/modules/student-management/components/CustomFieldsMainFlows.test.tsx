@@ -204,7 +204,7 @@ describe("course, batch and exam custom-field integration", () => {
     view.rerender(<AddExamModal isOpen onClose={onClose} onSuccess={vi.fn()} initialData={exam} />);
     await waitFor(() => expect((view.container.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-existing"));
 
-    const card = render(<ExamCard exam={exam} assignedStudents={[]} getStatusInfo={() => ({ color: "", icon: () => null, label: exam.status })} onDelete={vi.fn()} onEdit={vi.fn()} onStatusClick={vi.fn()} onAssignClick={vi.fn()} />);
+    const card = render(<ExamCard exam={exam} assignedStudents={[]} onDelete={vi.fn()} onEdit={vi.fn()} onAssignClick={vi.fn()} />);
     act(() => Array.from(card.container.querySelectorAll("button")).find((button) => button.title === "Xem học viên")?.click());
     expect(card.container.textContent).toContain("details-exams-exam-existing");
   });
