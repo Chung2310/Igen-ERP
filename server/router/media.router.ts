@@ -100,6 +100,26 @@ mediaRouter.get(
     }
 
     try {
+      // Trích xuất phần mở rộng (extension) từ fileUrl để đính kèm vào tên file tải về
+      let extension = "";
+      try {
+        const urlObj = new URL(fileUrl);
+        const pathname = urlObj.pathname;
+        const lastDot = pathname.lastIndexOf(".");
+        if (lastDot !== -1) {
+          const ext = pathname.substring(lastDot);
+          // Chỉ lấy các extension hợp lệ (độ dài từ 2 đến 6 ký tự chữ và số)
+          if (/^\.[a-zA-Z0-9]{1,5}$/.test(ext)) {
+            extension = ext;
+          }
+        }
+      } catch {}
+
+      let finalFilename = filename;
+      if (extension && !filename.toLowerCase().endsWith(extension.toLowerCase())) {
+        finalFilename = `${filename}${extension}`;
+      }
+
       const response = await fetch(fileUrl);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -110,10 +130,10 @@ mediaRouter.get(
         res.setHeader("Content-Type", contentType);
       }
       // Content-Disposition theo RFC 5987: giữ đúng tên gốc (kể cả tiếng Việt) + fallback ASCII.
-      const asciiFallback = filename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
+      const asciiFallback = finalFilename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(finalFilename)}`
       );
       
       const arrayBuffer = await response.arrayBuffer();
