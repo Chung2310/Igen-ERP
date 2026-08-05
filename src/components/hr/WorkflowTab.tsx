@@ -1009,7 +1009,7 @@ function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAt
             <div className="text-center text-sm text-slate-600">
               <p>Không thể xem trực tiếp loại tệp này.</p>
               <a
-                href={attachment.url}
+                href={`/api/v1/media/download?url=${encodeURIComponent(attachment.url)}&filename=${encodeURIComponent(attachment.name || "tai-lieu-quy-trinh")}`}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white cursor-pointer"
