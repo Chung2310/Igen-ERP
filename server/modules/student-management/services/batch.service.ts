@@ -3,6 +3,7 @@ import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
+import { BatchEnrollmentStatus } from "../interfaces/batch-enrollment.interface";
 import { LearningRoadmap } from "../models/learning-roadmap.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import {
@@ -919,7 +920,7 @@ export async function updateEnrollmentStatus(
   ownerId: string | string[],
   batchId: string,
   studentId: string,
-  status: EnrollmentOperationalStatus | "Học lại",
+  status: BatchEnrollmentStatus,
   reason?: string,
   expectedReturnAt?: string | null,
   branchId?: string,
@@ -969,7 +970,7 @@ export async function updateEnrollmentStatus(
     suspendedAt: enrollment.suspendedAt,
     suspensionReason: enrollment.suspensionReason,
     expectedReturnAt: enrollment.expectedReturnAt,
-  }, status, { now: new Date(), reason, expectedReturnAt });
+  }, status as EnrollmentOperationalStatus, { now: new Date(), reason, expectedReturnAt });
   enrollment.status = next.status;
   enrollment.suspendedAt = next.suspendedAt;
   enrollment.suspensionReason = next.suspensionReason;

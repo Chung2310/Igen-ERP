@@ -234,6 +234,8 @@ const registerUserSchema = {
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
     branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
+    jobDescriptionLink: Joi.string().uri().optional().allow(""),
+    qualification: Joi.string().max(200).optional().allow(""),
   }),
 };
 

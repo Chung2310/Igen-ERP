@@ -6,6 +6,7 @@ const ORDERED_TABS = [
   ["lop-hoc", "batch"],
   ["chat-luong-hoc-vien", "student-quality"],
   ["lo-trinh-va-cho-lop", "learning-roadmap"],
+  ["bao-luu-hoc-lai", "batch"],
   ["hoc-vien", "student-profile"],
   ["hoc-phi", "payment"],
   ["lich-thi", "exam"],

@@ -374,6 +374,7 @@ export default function OrgChartTab({
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager" | "branch_owner" | "admin">("user");
   const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
+  const [addQualification, setAddQualification] = useState("");
   const [uploadingAddJobDescription, setUploadingAddJobDescription] = useState(false);
   const addJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -822,7 +823,9 @@ export default function OrgChartTab({
         addPhone.trim(),
         undefined,
         addJobDescriptionLink.trim() || undefined,
-        activeBranchId || undefined
+        activeBranchId || undefined,
+        undefined,
+        addQualification.trim() || undefined
       );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
@@ -841,6 +844,7 @@ export default function OrgChartTab({
       setAddRole("user");
       setAddDepartment("Phòng Kỹ Thuật");
       setAddJobDescriptionLink("");
+      setAddQualification("");
 
       await fetchUsers();
       if (compCode) {
@@ -1263,8 +1267,8 @@ export default function OrgChartTab({
 
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl border border-gray-200 bg-white p-1">
-            <button type="button" onClick={() => setViewMode("tree")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cay</button>
-            <button type="button" onClick={() => setViewMode("list")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sach</button>
+            <button type="button" onClick={() => setViewMode("tree")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cây</button>
+            <button type="button" onClick={() => setViewMode("list")} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sách</button>
           </div>
 
 
@@ -1716,11 +1720,10 @@ export default function OrgChartTab({
                     type="button"
                     onClick={handleToggleLeader}
                     disabled={isSavingLeader}
-                    className={`w-full py-2.5 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 ${
-                      selectedEmp.isLeader
+                    className={`w-full py-2.5 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 ${selectedEmp.isLeader
                         ? "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800"
                         : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
-                    }`}
+                      }`}
                   >
                     👑 {selectedEmp.isLeader ? "Hủy chức vụ Trưởng nhóm (Leader)" : "Đặt làm Trưởng nhóm (Leader)"}
                   </button>
@@ -1781,6 +1784,17 @@ export default function OrgChartTab({
                   placeholder="Ví dụ: Lê Thị B"
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
+                  className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Trình độ</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: TESOL, Cử nhân Sư phạm"
+                  value={addQualification}
+                  onChange={(e) => setAddQualification(e.target.value)}
                   className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -1858,7 +1872,7 @@ export default function OrgChartTab({
                       };
                       const targetLevel = ROLES_HIERARCHY[addRole] || 4;
                       const parentLevel = ROLES_HIERARCHY[rawUser.role] || 4;
-                      
+
                       // Chỉ cho phép chọn quản lý có vai trò cấp cao hơn
                       if (parentLevel >= targetLevel) return false;
 

@@ -14,6 +14,7 @@ import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
 
 type StudentSubTab =
+  | "BAO_LUU_HOC_LAI"
   | "LO_TRINH_CHO_LOP"
   | "TỔNG QUAN"
   | "HỌC VIÊN"
@@ -31,6 +32,7 @@ const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m)
 const CoursesPage = lazy(() => import("./pages/Courses/CoursesPage").then((m) => ({ default: m.CoursesPage })));
 const BatchesPage = lazy(() => import("./pages/Batches/BatchesPage").then((m) => ({ default: m.BatchesPage })));
 const StudentQualityPage = lazy(() => import("./pages/StudentQuality/StudentQualityPage").then((m) => ({ default: m.StudentQualityPage })));
+const EnrollmentLifecyclePage = lazy(() => import("./pages/EnrollmentLifecycle/EnrollmentLifecyclePage").then((m) => ({ default: m.EnrollmentLifecyclePage })));
 const LearningRoadmapPage = lazy(() => import("./pages/LearningRoadmap/LearningRoadmapPage").then((m) => ({ default: m.LearningRoadmapPage })));
 const ExamsPage = lazy(() => import("./pages/Exams/ExamsPage").then((m) => ({ default: m.ExamsPage })));
 const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ default: m.FeesPage })));
@@ -49,6 +51,7 @@ const SUB_TAB_ROUTES = [
   { slug: "phong-hoc", value: "PHÒNG HỌC" as const, label: "Phòng học", icon: School },
   { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Thiết bị", icon: FolderOpen },
   { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo", icon: Bell },
+  { slug: "bao-luu-hoc-lai", value: "BAO_LUU_HOC_LAI" as const, label: "Bảo lưu & học lại", icon: ClipboardCheck },
   { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" as const, label: "Lộ trình & chờ lớp", icon: Route },
 ];
 
@@ -135,6 +138,7 @@ export default function StudentManagementTab() {
   }
 
   const renderPage = () => {
+    if ((activeSubTab as string) === "BAO_LUU_HOC_LAI") return <EnrollmentLifecyclePage />;
     if ((activeSubTab as string) === "LO_TRINH_CHO_LOP") {
       return <LearningRoadmapPage selectedCenter={selectedCenter} canManage={canManage("learning-roadmap")} />;
     }
