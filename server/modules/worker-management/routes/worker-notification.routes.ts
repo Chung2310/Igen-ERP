@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { requirePermission } from "../../../middleware/auth";
+import { WORKER_MANAGE_PERMISSION, WORKER_READ_PERMISSION } from "../permissions";
+import { workerScopeFromActor } from "../contracts";
+import { validate } from "../middlewares/validate.middleware";
+import { createWorkerNotificationSchema } from "../validations/worker-notification.validation";
+import { createWorkerNotification, listWorkerNotifications } from "../services/worker-notification.service";
+export const workerNotificationRoutes = Router();
+workerNotificationRoutes.get("/", requirePermission(WORKER_READ_PERMISSION) as any, async (req: any, res) => { try { res.json({ data: await listWorkerNotifications(workerScopeFromActor(req.user || {})) }); } catch (error) { res.status(500).json({ error: error instanceof Error ? error.message : "Unable to load notifications" }); } });
+workerNotificationRoutes.post("/", requirePermission(WORKER_MANAGE_PERMISSION) as any, validate(createWorkerNotificationSchema), async (req: any, res) => { try { const item = await createWorkerNotification(workerScopeFromActor(req.user || {}), req.body || {}); res.status(201).json({ data: item }); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Unable to create notification" }); } });

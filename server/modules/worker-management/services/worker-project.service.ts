@@ -1,6 +1,8 @@
 import { WorkerProjectModel } from "../models/worker-project.model";
 import { WorkerScope, WorkerProjectInput } from "../interfaces/worker-project.interface";
 import { Types } from "mongoose";
+import { WorkerModel } from "../models/worker.model";
+import { buildWorkerQuery } from "./worker.service";
 
 export function buildWorkerProjectQuery(scope: WorkerScope) {
   return {
@@ -38,6 +40,18 @@ export function normalizeWorkerProjectInput(input: WorkerProjectInput) {
   };
 }
 
+async function assertWorkersInScope(
+  scope: WorkerScope,
+  workerIds: Types.ObjectId[],
+) {
+  for (const workerId of workerIds) {
+    const worker = await WorkerModel.findOne({
+      _id: workerId,
+      ...buildWorkerQuery(scope),
+    });
+    if (!worker) throw new Error("Worker not found.");
+  }
+}
 export const WorkerProjectService = {
   async list(scope: WorkerScope, queryFilters: any = {}) {
     const baseQuery = buildWorkerProjectQuery(scope);
@@ -63,6 +77,8 @@ export const WorkerProjectService = {
       throw new Error("Mã dự án đã tồn tại trong hệ thống.");
     }
 
+    await assertWorkersInScope(scope, normalized.workerIds);
+
     const project = new WorkerProjectModel({
       ...normalized,
       companyCode: scope.companyCode,
@@ -85,6 +101,8 @@ export const WorkerProjectService = {
     if (existing) {
       throw new Error("Mã dự án đã tồn tại trong hệ thống.");
     }
+
+    await assertWorkersInScope(scope, normalized.workerIds);
 
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
@@ -111,6 +129,12 @@ export const WorkerProjectService = {
   },
 
   async addWorker(scope: WorkerScope, id: string, workerId: string) {
+    const worker = await WorkerModel.findOne({
+      _id: new Types.ObjectId(workerId),
+      ...buildWorkerQuery(scope),
+    });
+    if (!worker) throw new Error("Worker not found.");
+
     const baseQuery = buildWorkerProjectQuery(scope);
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },

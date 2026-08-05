@@ -1,0 +1,3 @@
+﻿import React from "react";
+import type { WorkerAttendanceLog } from "../types";
+export function WorkerTimekeepingHistory({ logs }: { logs: WorkerAttendanceLog[] }) { return <section aria-label="worker-timekeeping-history" className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="mb-3 font-bold text-slate-800">Lịch sử chấm công</h2>{logs.length ? <div className="grid gap-2">{logs.map((log) => <div key={log._id} className="flex justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span>{log.date}</span><span className="font-semibold">{log.status}</span></div>)}</div> : <p className="text-sm text-slate-400">Chưa có dữ liệu.</p>}</section>; }
