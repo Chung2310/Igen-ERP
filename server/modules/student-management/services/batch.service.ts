@@ -14,6 +14,7 @@ import {
 } from "./custom-field-write.service";
 import { EmailService, SmtpSettings } from "./email.service";
 import { companyEmailService } from "../../../service/company-email.service";
+import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 
 interface BatchFilters {
   page?: number | string;
@@ -297,6 +298,16 @@ export class BatchService {
 
     const batch = new Batch({ ...normalizeInstructorFields(writeData), ownerId, branchId: actor.branchId });
     const saved = await batch.save();
+    await Promise.all(
+      saved.learnerIds.map((studentId) => StudentBatchEnrollmentService.activate({
+        ownerId: saved.ownerId,
+        branchId: saved.branchId,
+        batchId: String(saved._id),
+        studentId,
+        actorId: actor.uid,
+        allowedSessions: getPlannedSessionCount(saved),
+      })),
+    );
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
     const enriched = (await enrichBatches([saved]))[0];
 
@@ -429,7 +440,8 @@ export class BatchService {
     id: string,
     studentId: string,
     businessType: "driving" | "language" | "general" = "general",
-    branchId?: string
+    branchId?: string,
+    actorId?: string,
   ): Promise<EnrichedBatch> {
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
@@ -468,11 +480,25 @@ export class BatchService {
 
     batch.learnerIds.push(studentId);
     const saved = await batch.save();
+    await StudentBatchEnrollmentService.activate({
+      ownerId: saved.ownerId,
+      branchId: saved.branchId,
+      batchId: String(saved._id),
+      studentId,
+      actorId,
+      allowedSessions: getPlannedSessionCount(saved),
+    });
     logger.info(`[Batch] Learner added: batchId=${id}, studentId=${studentId}`);
     return (await enrichBatches([saved]))[0];
   }
 
-  static async removeLearner(ownerId: string | string[], id: string, studentId: string, branchId?: string): Promise<EnrichedBatch> {
+  static async removeLearner(
+    ownerId: string | string[],
+    id: string,
+    studentId: string,
+    branchId?: string,
+    actorId?: string,
+  ): Promise<EnrichedBatch> {
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
       throw new Error("Không tìm thấy lớp học.");
@@ -483,6 +509,13 @@ export class BatchService {
       throw new Error("Học viên không có trong lớp này.");
     }
     const saved = await batch.save();
+    await StudentBatchEnrollmentService.remove({
+      ownerId: saved.ownerId,
+      branchId: saved.branchId,
+      batchId: String(saved._id),
+      studentId,
+      actorId,
+    });
     logger.info(`[Batch] Learner removed: batchId=${id}, studentId=${studentId}`);
     return (await enrichBatches([saved]))[0];
   }
@@ -578,6 +611,8 @@ export class BatchService {
       }
     }
 
+    await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
+
     const saved = await batch.save();
     return (await enrichBatches([saved]))[0];
   }
@@ -599,6 +634,8 @@ export class BatchService {
     if (batch.attendanceSessions.length === before) {
       throw new Error("Không tìm thấy dữ liệu điểm danh của ngày này để xóa.");
     }
+
+    await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
 
     const saved = await batch.save();
     return (await enrichBatches([saved]))[0];

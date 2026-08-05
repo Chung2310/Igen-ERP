@@ -250,6 +250,80 @@ export interface Batch {
   updatedAt?: Date | string;
 }
 
+export type StudentQualityWarningLevel = 'risk' | 'watch' | 'good' | 'unrated';
+
+export interface StudentQualityMiniTest {
+  id: string;
+  title: string;
+  date: string;
+  score: number | null;
+  maxScore: number;
+  rate: number | null;
+  note?: string;
+  assessedBy?: string;
+  assessedAt?: string;
+}
+
+export interface StudentQualityAssignment {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  status: "not_submitted" | "submitted" | "graded" | "late";
+  score: number | null;
+  feedback: string;
+  submittedAt: string | null;
+}
+
+export interface StudentQualityExam {
+  id?: string;
+  name?: string;
+  date?: string;
+  type?: string;
+  status?: string;
+  result?: { overall?: string; theory?: number | string; practice?: number | string; simulation?: number | string };
+}
+
+export interface StudentQualityRow {
+  id: string;
+  batchId: string;
+  batchCode: string;
+  courseId: string;
+  courseTitle: string;
+  instructorId: string;
+  instructorName: string;
+  studentId: string;
+  studentName: string;
+  studentPhone: string;
+  studentStatus: StudentStatus[];
+  attendance: { attended: number; total: number; rate: number | null };
+  assignments: { completed: number; total: number; rate: number | null; items: StudentQualityAssignment[] };
+  attitudeNote: string;
+  teacherAssessment: string;
+  latestMiniTest: StudentQualityMiniTest | null;
+  miniTestCount: number;
+  latestExam: StudentQualityExam | null;
+  examResults: StudentQualityExam[];
+  examCount: number;
+  warningLevel: StudentQualityWarningLevel;
+  updatedAt: string | null;
+}
+
+export interface StudentQualityListResponse {
+  success: boolean;
+  items: StudentQualityRow[];
+  summary: {
+    totalStudents: number;
+    riskCount: number;
+    watchCount: number;
+    averageAttendanceRate: number | null;
+    averageAssignmentRate: number | null;
+  };
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 // Phân loại tài nguyên là chuỗi động (quản lý qua /resources/categories);
 // các giá trị cũ 'ROOM' | 'VEHICLE' | 'EQUIPMENT' vẫn hợp lệ với dữ liệu đã có.
 export type ResourceType = string;

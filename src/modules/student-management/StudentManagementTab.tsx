@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School, ClipboardCheck } from "lucide-react";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
@@ -18,6 +18,7 @@ type StudentSubTab =
   | "HỌC VIÊN"
   | "KHÓA HỌC"
   | "LỚP HỌC"
+  | "CHẤT LƯỢNG HỌC VIÊN"
   | "LỊCH THI"
   | "HỌC PHÍ"
   | "THÔNG BÁO"
@@ -28,6 +29,7 @@ const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then(
 const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
 const CoursesPage = lazy(() => import("./pages/Courses/CoursesPage").then((m) => ({ default: m.CoursesPage })));
 const BatchesPage = lazy(() => import("./pages/Batches/BatchesPage").then((m) => ({ default: m.BatchesPage })));
+const StudentQualityPage = lazy(() => import("./pages/StudentQuality/StudentQualityPage").then((m) => ({ default: m.StudentQualityPage })));
 const ExamsPage = lazy(() => import("./pages/Exams/ExamsPage").then((m) => ({ default: m.ExamsPage })));
 const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ default: m.FeesPage })));
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
@@ -38,6 +40,7 @@ const SUB_TAB_ROUTES = [
   { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: LayoutDashboard },
   { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học", icon: BookOpen },
   { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học", icon: GraduationCap },
+  { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" as const, label: "Chất lượng học viên", icon: ClipboardCheck },
   { slug: "hoc-vien", value: "HỌC VIÊN" as const, label: "Học viên", icon: Users },
   { slug: "hoc-phi", value: "HỌC PHÍ" as const, label: "Học phí", icon: CreditCard },
   { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi", icon: Calendar },
@@ -83,8 +86,8 @@ export default function StudentManagementTab() {
 
     if (entityLabel.preset !== "student") {
       const hiddenSlugs = entityLabel.preset === "worker"
-        ? ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"]
-        : ["lop-hoc", "hoc-phi", "lich-thi", "tai-nguyen"];
+        ? ["lop-hoc", "chat-luong-hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen"]
+        : ["lop-hoc", "chat-luong-hoc-vien", "hoc-phi", "lich-thi", "tai-nguyen"];
       routes = routes.filter((item) => !hiddenSlugs.includes(item.slug));
     }
 
@@ -152,6 +155,15 @@ export default function StudentManagementTab() {
           : <CoursesPage selectedCenter={selectedCenter} canManage={canManage("course")} />;
       case "LỚP HỌC":
         return <BatchesPage selectedCenter={selectedCenter} canManage={canManage("batch")} />;
+      case "CHẤT LƯỢNG HỌC VIÊN":
+        return (
+          <StudentQualityPage
+            selectedCenter={selectedCenter}
+            canManage={canManage("student-quality")}
+            onSelectStudent={handleOpenStudent}
+            onOpenBatches={() => setActiveSubTab("LỚP HỌC")}
+          />
+        );
       case "LỊCH THI":
         return <ExamsPage selectedCenter={selectedCenter} canManage={canManage("exam")} />;
       case "HỌC PHÍ":
