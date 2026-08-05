@@ -23,7 +23,7 @@ const workspaceState = vi.hoisted(() => ({
 
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: workspaceState.userProfile }) }));
 vi.mock("../../hooks/useSubTabRouter", () => ({ useSubTabRouter: (routes: any[], initial: string) => [workspaceState.showWorkers ? routes.find((route) => route.slug === "lao-dong").value : initial, vi.fn()] }));
-vi.mock("../shared-management/runtime", () => ({
+vi.mock("./workerRuntime", () => ({
   useAdminCenters: () => ({ centers: workspaceState.centers }),
   useBatches: () => ({ batches: [] }),
   useStandardFields: (...args: unknown[]) => workspaceState.standardFields(...args),
@@ -45,8 +45,8 @@ vi.mock("./hooks/useWorkers", () => ({
     updateWorker: (...args: unknown[]) => workspaceState.workerHookUpdate(...args),
   }),
 }));
-vi.mock("../shared-management/pages/DashboardPage", () => ({
-  DashboardPage: ({ onSelectStudent }: { onSelectStudent: (worker: object) => void }) => (
+vi.mock("./pages/WorkerDashboardPage", () => ({
+  WorkerDashboardPage: ({ onSelectStudent }: { onSelectStudent: (worker: object) => void }) => (
     <div>
       Worker dashboard content
       <button
@@ -64,7 +64,7 @@ vi.mock("../shared-management/pages/DashboardPage", () => ({
   ),
 }));
 vi.mock("./pages/WorkersPage", () => ({ default: ({ projects, profileFields }: any) => <div>Worker list content; project prop: {projects?.[0]?.name}; profile prop: {profileFields?.[0]?.label}</div> }));
-vi.mock("../shared-management/pages/NotificationsPage", () => ({ NotificationsPage: () => <div>Worker notification content</div> }));
+vi.mock("./pages/WorkerNotificationsPage", () => ({ WorkerNotificationsPage: () => <div>Worker notification content</div> }));
 
 afterEach(() => {
   vi.clearAllMocks();

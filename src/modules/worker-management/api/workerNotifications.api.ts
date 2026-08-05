@@ -1,0 +1,2 @@
+import { workerApiFetch } from "./client";
+export const workerNotificationsApi = { async list() { return (await workerApiFetch<{ data: unknown[] }>("/worker-management/notifications")).data; }, async create(input: { title: string; content: string; recipients?: string; channels?: string[] }) { return (await workerApiFetch<{ data: unknown }>("/worker-management/notifications", { method: "POST", body: JSON.stringify(input) })).data; } };

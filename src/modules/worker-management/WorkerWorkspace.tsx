@@ -9,11 +9,9 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import {
-  setBusinessApiScope,
-  setEntityPreset,
   useAdminCenters,
   useStandardFields,
-} from "../shared-management/runtime";
+} from "./workerRuntime";
 import { workerApiFetch } from "./api/client";
 import { WorkerDetailModal } from "./components/WorkerDetailModal";
 import { useWorkers } from "./hooks/useWorkers";
@@ -48,21 +46,13 @@ const isWorkerProfileFieldKey = (key: string): key is WorkerProfileFieldKey =>
 
 type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "THÔNG BÁO";
 
-const DashboardPage = lazy(() =>
-  import("../shared-management/pages/DashboardPage").then((module) => ({
-    default: module.DashboardPage,
-  })),
-);
+const DashboardPage = lazy(() => import("./pages/WorkerDashboardPage").then((module) => ({ default: module.WorkerDashboardPage })));
 const WorkerProjectsPage = lazy(() =>
   import("./pages/WorkerProjectsPage").then((module) => ({
     default: module.WorkerProjectsPage,
   })),
 );
-const NotificationsPage = lazy(() =>
-  import("../shared-management/pages/NotificationsPage").then((module) => ({
-    default: module.NotificationsPage,
-  })),
-);
+const NotificationsPage = lazy(() => import("./pages/WorkerNotificationsPage").then((module) => ({ default: module.WorkerNotificationsPage })));
 
 const SUB_TABS = [
   {
@@ -160,11 +150,7 @@ export default function WorkerWorkspace() {
     null,
   );
 
-  React.useLayoutEffect(() => {
-    setBusinessApiScope("worker");
-    setEntityPreset("worker");
-    setReady(true);
-  }, []);
+  React.useLayoutEffect(() => { setReady(true); }, []);
 
   const allowedSlugs = getAllowedWorkerTabSlugs(
     userProfile?.permissions || [],

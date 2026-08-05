@@ -99,7 +99,7 @@ describe("worker management API wiring", () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:${address.port}/api/v1/projects?companyCode=labor&branchId=branch-2`,
+        `http://127.0.0.1:${address.port}/api/v1/worker-management/projects?companyCode=labor&branchId=branch-2`,
       );
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ success: true, data: [] });

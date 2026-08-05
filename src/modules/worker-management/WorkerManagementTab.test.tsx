@@ -7,7 +7,7 @@ describe("WorkerWorkspace boundaries", () => {
       "src/modules/worker-management/WorkerWorkspace.tsx",
       "utf8",
     );
-    expect(source).toContain("../shared-management/");
+    expect(source).not.toContain("../shared-management/");
     expect(source).not.toContain("../student-management/");
   });
 });
