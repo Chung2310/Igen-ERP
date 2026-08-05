@@ -101,3 +101,84 @@ Boundary/self-review:
 - No new student-management imports, `/students` calls, or `/batches` calls were introduced in the worker profile flow.
 - Existing Task 4 project and Task 6 dashboard/notification adapters were not converted.
 - The native `apply_patch` tool was unavailable because the managed Windows sandbox could not enforce the split writable-root profile. The task owner authorized `git apply` unified patches as the controlled fallback; no Set-Content/cat/scripted file writes were used.
+
+## Task 3 remaining review fixes (2026-08-05)
+
+### Root causes and fixes
+
+1. **Legacy worker URL alias**
+   - The worker router still mounted the same CRUD router at both `/workers` and the required `/worker-management/workers`.
+   - Removed the legacy mount and added an HTTP regression test proving `/api/v1/workers` returns 404 without invoking `WorkerService.list`.
+
+2. **Missing runtime inputs for the worker profile page**
+   - The copied worker-owned page accepted project summaries and standard-field configuration, but `WorkerWorkspace` never supplied either prop.
+   - Added a profile-tab-only transitional runtime adapter that obtains the existing project list and standard-field rules through `shared-management/runtime`, maps only worker-supported profile keys, and supplies both props to `WorkersPage`.
+   - This intentionally does not convert the project endpoint/page ahead of Task 4 and introduces no direct student-management import in worker production code.
+
+3. **Edit-modal validation parity**
+   - `WorkerDetailModal` submitted edits without the configurable required-field and duplicate email/phone/CCCD checks used during creation.
+   - Passed workers and profile-field rules from `WorkersPage`; edit submission now blocks missing configured fields and duplicate normalized values while excluding the current worker.
+
+### TDD evidence
+
+RED command:
+
+```powershell
+node ..\..\node_modules\vitest\vitest.mjs run server/router/worker-management-routing.test.ts src/modules/worker-management/WorkerWorkspace.test.tsx src/modules/worker-management/pages/WorkersPage.test.tsx
+```
+
+Observed before production changes: **3 files failed; 4 failed / 19 passed tests**. The legacy URL returned 200 instead of 404, workspace project/profile props were empty, and both invalid edit cases reached the update mutation.
+
+Final focused verification:
+
+```powershell
+node ..\..\node_modules\vitest\vitest.mjs run src/modules/worker-management/pages/WorkersPage.test.tsx src/modules/worker-management/hooks/useWorkers.test.tsx src/modules/worker-management/WorkerWorkspace.test.tsx server/modules/worker-management/routes/worker.routes.test.ts server/router/worker-management-routing.test.ts
+```
+
+Result: **5 files passed; 29/29 tests passed**.
+
+Required root compiler:
+
+```powershell
+node --max-old-space-size=4096 ..\..\node_modules\typescript\bin\tsc --noEmit
+```
+
+Result: **PASS (exit 0)**.
+
+- `git diff --check`: pass (repository CRLF normalization warnings only).
+- All edits used the authorized UTF-8 `git apply` fallback.
+
+### Final review hardening
+
+A fresh review found two additional stale-state paths after the runtime wiring:
+
+- Dashboard edits called `workerApi.update` directly, so the workspace worker list used for duplicate checks did not reload.
+- Switching superadmin company scope could briefly expose the previous company's projects and standard-field overrides.
+
+RED verification produced **3 failed / 6 passed tests** across `WorkerWorkspace.test.tsx` and the new `useStandardFields.test.tsx`. The failures proved the hook update was bypassed and both prior-tenant data sets remained visible during an A-to-B transition.
+
+Production fixes route dashboard saves through `useWorkers.updateWorker`, key project results by worker scope, render default standard fields until the current tenant's configuration resolves, and reject late responses from stale tenant requests.
+
+Final focused verification:
+
+```powershell
+node ..\..\node_modules\vitest\vitest.mjs run src/modules/worker-management/pages/WorkersPage.test.tsx src/modules/worker-management/hooks/useWorkers.test.tsx src/modules/worker-management/WorkerWorkspace.test.tsx server/modules/worker-management/routes/worker.routes.test.ts
+```
+
+Result: **4 files passed; 31/31 tests passed**.
+
+```powershell
+node ..\..\node_modules\vitest\vitest.mjs run server/router/worker-management-routing.test.ts server/modules/worker-management/services/worker-project.service.test.ts
+```
+
+Result: **2 files passed; 5/5 tests passed**.
+
+```powershell
+node ..\..\node_modules\vitest\vitest.mjs run src/modules/student-management/hooks/useStandardFields.test.tsx
+```
+
+Result: **1 file passed; 1/1 test passed**.
+
+Final independent review: **Ready; no Critical or Important issues**.
+- Root TypeScript compiler: **PASS (exit 0)**.
+- Final `git diff --check`: **PASS** (repository CRLF normalization warnings only).

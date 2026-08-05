@@ -373,6 +373,8 @@ export default function WorkersPage({
       )}
       <WorkerDetailModal
         worker={selectedWorker}
+        workers={workers}
+        profileFields={profileFields}
         onClose={() => setSelectedWorker(null)}
         onSubmit={updateWorker}
         onSuccess={setSelectedWorker}

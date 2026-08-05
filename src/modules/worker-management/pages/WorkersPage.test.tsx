@@ -8,6 +8,7 @@ const workersHook = vi.hoisted(() => ({ useWorkers: vi.fn() }));
 vi.mock("../hooks/useWorkers", () => workersHook);
 import WorkersPage from "./WorkersPage";
 import { workerApi } from "../api/workers.api";
+import { toast } from "../../../pages/Toast";
 
 const worker = {
   _id: "worker-1",
@@ -161,4 +162,76 @@ describe("worker profile ownership", () => {
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(hookValue.updateWorker).toHaveBeenCalledWith("worker-1", expect.objectContaining({ fullName: "Nguyễn Văn B" })));
   });
+
+  it("applies configurable required-field validation when editing a worker", async () => {
+    const hookValue = state();
+    const errorToast = vi.spyOn(toast, "error");
+    workersHook.useWorkers.mockReturnValue(hookValue);
+    const { container } = render(
+      <WorkersPage
+        profileFields={[{ key: "phone", label: "Required phone", isRequired: true, isVisible: true }]}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(container.querySelector("tbody button[title]") as HTMLElement);
+    const modal = container.querySelector(".fixed.z-\\[60\\]") as HTMLElement;
+    await user.click(modal.querySelector(".border-b button") as HTMLElement);
+    fireEvent.change(modal.querySelector('input[name="phone"]') as HTMLInputElement, {
+      target: { value: "" },
+    });
+    fireEvent.submit(modal.querySelector("form") as HTMLFormElement);
+    expect(errorToast).toHaveBeenCalledWith(expect.stringContaining("Required phone"));
+    expect(hookValue.updateWorker).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate profile values when editing a worker", async () => {
+    const otherWorker = { ...worker, _id: "worker-2", fullName: "Other Worker", phone: "0902" };
+    const errorToast = vi.spyOn(toast, "error");
+    const hookValue = state({ workers: [worker, otherWorker] });
+    workersHook.useWorkers.mockReturnValue(hookValue);
+    const { container } = render(<WorkersPage />);
+    const user = userEvent.setup();
+    await user.click(container.querySelector("tbody button[title]") as HTMLElement);
+    const modal = container.querySelector(".fixed.z-\\[60\\]") as HTMLElement;
+    await user.click(modal.querySelector(".border-b button") as HTMLElement);
+    fireEvent.change(modal.querySelector('input[name="phone"]') as HTMLInputElement, {
+      target: { value: "0902" },
+    });
+    fireEvent.submit(modal.querySelector("form") as HTMLFormElement);
+    expect(errorToast).toHaveBeenCalledWith(expect.stringContaining("đã tồn tại"));
+    expect(hookValue.updateWorker).not.toHaveBeenCalled();
+  });
 });
+
+  it("renders editable controls for configurable profile fields before validating them", async () => {
+    const hookValue = state();
+    workersHook.useWorkers.mockReturnValue(hookValue);
+    const { container } = render(
+      <WorkersPage
+        profileFields={[
+          { key: "note", label: "Required note", isRequired: true, isVisible: true },
+          {
+            key: "registrationDate",
+            label: "Registration date",
+            isRequired: false,
+            isVisible: true,
+          },
+        ]}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(container.querySelector("tbody button[title]") as HTMLElement);
+    const modal = container.querySelector(".fixed.z-\\[60\\]") as HTMLElement;
+    await user.click(modal.querySelector(".border-b button") as HTMLElement);
+    const note = modal.querySelector('input[name="note"]') as HTMLInputElement;
+    expect(note).toBeTruthy();
+    expect(modal.querySelector('input[name="registrationDate"]')).toBeTruthy();
+    fireEvent.change(note, { target: { value: "Ready" } });
+    fireEvent.submit(modal.querySelector("form") as HTMLFormElement);
+    await waitFor(() =>
+      expect(hookValue.updateWorker).toHaveBeenCalledWith(
+        "worker-1",
+        expect.objectContaining({ note: "Ready" }),
+      ),
+    );
+  });

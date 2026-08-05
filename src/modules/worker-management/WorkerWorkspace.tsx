@@ -12,13 +12,39 @@ import {
   setBusinessApiScope,
   setEntityPreset,
   useAdminCenters,
+  useStandardFields,
 } from "../shared-management/runtime";
-import { workerApi } from "./api/workers.api";
+import { workerApiFetch } from "./api/client";
 import { WorkerDetailModal } from "./components/WorkerDetailModal";
+import { useWorkers } from "./hooks/useWorkers";
 import WorkersPage from "./pages/WorkersPage";
-import type { Worker, WorkerScope, WorkerStatus } from "./types";
+import type {
+  Worker,
+  WorkerProfileFieldConfig,
+  WorkerProfileFieldKey,
+  WorkerProject,
+  WorkerProjectSummary,
+  WorkerScope,
+  WorkerStatus,
+} from "./types";
 import { canManageWorkerArea } from "./workerPermissionPolicy";
+
 import { getAllowedWorkerTabSlugs } from "./workerTabPermissions";
+
+const WORKER_PROFILE_FIELD_KEYS: WorkerProfileFieldKey[] = [
+  "fullName",
+  "phone",
+  "email",
+  "idCard",
+  "birthday",
+  "registrationDate",
+  "address",
+  "status",
+  "note",
+];
+
+const isWorkerProfileFieldKey = (key: string): key is WorkerProfileFieldKey =>
+  WORKER_PROFILE_FIELD_KEYS.includes(key as WorkerProfileFieldKey);
 
 type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "THÔNG BÁO";
 
@@ -99,6 +125,33 @@ function normalizeDashboardWorker(value: any): Worker {
   };
 }
 
+function WorkerProfilesRuntime({
+  selectedCenter,
+  branchId,
+  registrationOwnerId,
+  canManage,
+  projects,
+  profileFields,
+}: {
+  selectedCenter: string;
+  branchId?: string;
+  registrationOwnerId?: string;
+  canManage: boolean;
+  projects: WorkerProjectSummary[];
+  profileFields: WorkerProfileFieldConfig[];
+}) {
+  return (
+    <WorkersPage
+      selectedCenter={selectedCenter}
+      branchId={branchId}
+      registrationOwnerId={registrationOwnerId}
+      canManage={canManage}
+      projects={projects}
+      profileFields={profileFields}
+    />
+  );
+}
+
 export default function WorkerWorkspace() {
   const { userProfile } = useAuth();
   const { centers } = useAdminCenters();
@@ -145,6 +198,60 @@ export default function WorkerWorkspace() {
     [center, userProfile?.branchId],
   );
 
+  const { workers: workspaceWorkers, updateWorker } = useWorkers(scope);
+  const scopeKey = scope ? `${scope.companyCode}:${scope.branchId || ""}` : "";
+  const { fields } = useStandardFields(
+    "students",
+    undefined,
+    center !== "all" ? center : undefined,
+  );
+  const profileFields = React.useMemo<WorkerProfileFieldConfig[]>(
+    () =>
+      fields
+        .filter((field) => isWorkerProfileFieldKey(field.key))
+        .map((field) => ({
+          key: field.key as WorkerProfileFieldKey,
+          label: field.label,
+          isRequired: field.isRequired,
+          isVisible: field.isVisible && !field.isArchived,
+        })),
+    [fields],
+  );
+  const [projectState, setProjectState] = React.useState<{
+    scopeKey: string;
+    items: WorkerProjectSummary[];
+  }>({ scopeKey, items: [] });
+  const projects =
+    projectState.scopeKey === scopeKey ? projectState.items : [];
+  React.useEffect(() => {
+    let active = true;
+    if (!scope) {
+      setProjectState({ scopeKey, items: [] });
+      return () => {
+        active = false;
+      };
+    }
+    void workerApiFetch<{ data: WorkerProject[] }>("/projects", {
+      params: scope,
+    })
+      .then((response) => {
+        if (!active) return;
+        setProjectState({
+          scopeKey,
+          items: response.data.map((project) => ({
+            id: project._id,
+            name: project.name || project.code,
+          })),
+        });
+      })
+      .catch(() => {
+        if (active) setProjectState({ scopeKey, items: [] });
+      });
+    return () => {
+      active = false;
+    };
+  }, [scope, scopeKey]);
+
   const openDashboardWorker = React.useCallback((value: unknown) => {
     const worker = normalizeDashboardWorker(value);
     if (worker._id) setSelectedWorker(worker);
@@ -170,11 +277,13 @@ export default function WorkerWorkspace() {
         selectedCenter={center}
       />
     ) : activeTab === "LAO ĐỘNG" ? (
-      <WorkersPage
+      <WorkerProfilesRuntime
         selectedCenter={center}
         branchId={userProfile?.branchId}
         registrationOwnerId={userProfile?.uid}
         canManage={canManage("worker-profile")}
+        projects={projects}
+        profileFields={profileFields}
       />
     ) : activeTab === "DỰ ÁN" ? (
       <ProjectsPage
@@ -244,10 +353,11 @@ export default function WorkerWorkspace() {
       </div>
       <WorkerDetailModal
         worker={selectedWorker}
+        workers={workspaceWorkers}
+        profileFields={profileFields}
         onClose={() => setSelectedWorker(null)}
         onSubmit={async (id, input) => {
-          if (!scope) throw new Error("Vui lòng chọn công ty.");
-          return workerApi.update(id, input, scope);
+          return updateWorker(id, input);
         }}
         onSuccess={setSelectedWorker}
       />
