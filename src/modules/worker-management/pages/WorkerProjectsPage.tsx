@@ -1,5 +1,8 @@
 import React from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
+  BarChart2,
+  CalendarCheck,
   CalendarRange,
   Clock,
   LayoutGrid,
@@ -18,8 +21,11 @@ import { useWorkerProjects } from "../hooks/useWorkerProjects";
 import { useWorkers } from "../hooks/useWorkers";
 import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
+import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
+import { workerAttendanceApi } from "../api/workerAttendance.api";
 import type {
   Worker,
+  WorkerAttendanceLog,
   WorkerProject,
   WorkerProjectInput,
   WorkerScope,
@@ -42,12 +48,17 @@ type FormState = {
   startTime: string;
   endTime: string;
   location: string;
+  geoLat: number | "";
+  geoLng: number | "";
+  geoRadius: number | "";
   startDate: string;
   endDate: string;
   status: ProjectStatus;
   note: string;
   workerIds: string[];
 };
+
+const DEFAULT_PROJECT_RADIUS_METERS = 300;
 
 const STATUS_OPTIONS: Array<{ value: ProjectStatus; label: string }> = [
   { value: "planned", label: "Sắp triển khai" },
@@ -73,6 +84,9 @@ const EMPTY_FORM: FormState = {
   startTime: "08:00",
   endTime: "17:00",
   location: "",
+  geoLat: "",
+  geoLng: "",
+  geoRadius: "",
   startDate: "",
   endDate: "",
   status: "planned",
@@ -95,6 +109,9 @@ function toForm(project: WorkerProject): FormState {
     startTime: project.startTime || "08:00",
     endTime: project.endTime || "17:00",
     location: project.location || "",
+    geoLat: project.geoLocation?.latitude ?? "",
+    geoLng: project.geoLocation?.longitude ?? "",
+    geoRadius: project.geoLocation?.radiusMeters ?? "",
     startDate: project.startDate || "",
     endDate: project.endDate || "",
     status: project.status,
@@ -113,6 +130,17 @@ function toInput(form: FormState): WorkerProjectInput {
     startTime: form.startTime,
     endTime: form.endTime,
     location: form.location.trim(),
+    geoLocation:
+      form.geoLat === "" || form.geoLng === ""
+        ? null
+        : {
+            latitude: Number(form.geoLat),
+            longitude: Number(form.geoLng),
+            radiusMeters:
+              form.geoRadius === ""
+                ? DEFAULT_PROJECT_RADIUS_METERS
+                : Number(form.geoRadius),
+          },
     startDate: form.startDate,
     endDate: form.endDate,
     status: form.status,
@@ -185,6 +213,39 @@ export function WorkerProjectsPage({
     : null;
   const [workerId, setWorkerId] = React.useState("");
   const [attendanceProject, setAttendanceProject] = React.useState<WorkerProject | null>(null);
+  const [viewAttendanceProject, setViewAttendanceProject] = React.useState<WorkerProject | null>(null);
+  const [locating, setLocating] = React.useState(false);
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ định vị.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((previous) => ({
+          ...previous,
+          geoLat: Number(position.coords.latitude.toFixed(6)),
+          geoLng: Number(position.coords.longitude.toFixed(6)),
+          geoRadius:
+            previous.geoRadius === ""
+              ? DEFAULT_PROJECT_RADIUS_METERS
+              : previous.geoRadius,
+        }));
+        setLocating(false);
+      },
+      (error) => {
+        setLocating(false);
+        toast.error(
+          error.code === error.PERMISSION_DENIED
+            ? "Bạn đã chặn quyền vị trí cho trang này."
+            : "Không lấy được vị trí hiện tại.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   const filtered = projects.filter((project) => {
     if (status !== "all" && project.status !== status) return false;
@@ -302,8 +363,11 @@ export function WorkerProjectsPage({
   const actions = (project: WorkerProject) =>
     canManage ? (
       <div className="flex items-center gap-1.5">
-        <ActionButton title="Attendance" onClick={() => setAttendanceProject(project)}>
-          <Clock className="h-3.5 w-3.5" />
+        <ActionButton title="Điểm danh thủ công & QR" onClick={() => setAttendanceProject(project)}>
+          <CalendarCheck className="h-3.5 w-3.5" />
+        </ActionButton>
+        <ActionButton title="Lịch sử & Thống kê điểm danh" onClick={() => setViewAttendanceProject(project)}>
+          <BarChart2 className="h-3.5 w-3.5" />
         </ActionButton>
         <ActionButton
           title="Chỉnh sửa dự án"
@@ -514,7 +578,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, code: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Tên dự án">
@@ -523,7 +587,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, name: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Chỉ tiêu">
@@ -534,7 +598,7 @@ export function WorkerProjectsPage({
                   onChange={(event) =>
                     setForm((value) => ({ ...value, quota: event.target.value }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Trạng thái">
@@ -546,7 +610,7 @@ export function WorkerProjectsPage({
                       status: event.target.value as ProjectStatus,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 >
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -565,7 +629,7 @@ export function WorkerProjectsPage({
                       startDate: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Ngày kết thúc">
@@ -578,7 +642,7 @@ export function WorkerProjectsPage({
                       endDate: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Giờ bắt đầu">
@@ -591,7 +655,7 @@ export function WorkerProjectsPage({
                       startTime: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Giờ kết thúc">
@@ -604,7 +668,7 @@ export function WorkerProjectsPage({
                       endTime: event.target.value,
                     }))
                   }
-                  className="input"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
             </div>
@@ -617,9 +681,82 @@ export function WorkerProjectsPage({
                     location: event.target.value,
                   }))
                 }
-                className="input"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
               />
             </Field>
+            <div className="space-y-1">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                Giới hạn điểm danh bằng GPS (tùy chọn)
+              </span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <div
+                    className={`flex items-center gap-2 rounded-xl border border-dashed px-4 py-2.5 pr-28 text-xs font-semibold ${
+                      form.geoLat !== "" && form.geoLng !== ""
+                        ? "border-cyan-300 bg-cyan-50 text-cyan-700"
+                        : "border-slate-200 bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {form.geoLat !== "" && form.geoLng !== ""
+                        ? "Đã lưu tọa độ GPS"
+                        : "Chưa thiết lập tọa độ"}
+                    </span>
+                  </div>
+                  <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                    {form.geoLat !== "" && form.geoLng !== "" && (
+                      <button
+                        type="button"
+                        title="Xóa tọa độ"
+                        onClick={() =>
+                          setForm((value) => ({
+                            ...value,
+                            geoLat: "",
+                            geoLng: "",
+                            geoRadius: "",
+                          }))
+                        }
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-rose-500 transition-colors hover:bg-rose-100"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={useCurrentLocation}
+                      disabled={locating}
+                      className="flex h-7 items-center gap-1 rounded-md bg-slate-800 px-2.5 text-[10px] font-black uppercase tracking-wide text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {locating ? "Đang lấy..." : "Lấy vị trí"}
+                    </button>
+                  </div>
+                </div>
+                {form.geoLat !== "" && form.geoLng !== "" && (
+                  <div className="relative w-full shrink-0 sm:w-40">
+                    <input
+                      type="number"
+                      min={10}
+                      placeholder={`Bán kính (m), mặc định ${DEFAULT_PROJECT_RADIUS_METERS}`}
+                      value={form.geoRadius}
+                      onChange={(event) =>
+                        setForm((value) => ({
+                          ...value,
+                          geoRadius:
+                            event.target.value === ""
+                              ? ""
+                              : Number(event.target.value),
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-7 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                      m
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
             <fieldset>
               <legend className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
                 Ngày hoạt động
@@ -658,18 +795,18 @@ export function WorkerProjectsPage({
                 className="input min-h-20"
               />
             </Field>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <div className="flex justify-end gap-4 border-t border-slate-100 pt-4">
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
-                className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500"
+                className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-800"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                className="rounded-xl bg-cyan-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
               >
                 {editing ? "Cập nhật dự án" : "Tạo dự án"}
               </button>
@@ -703,11 +840,19 @@ export function WorkerProjectsPage({
       )}
 
       {attendanceProject && (
-        <Modal title={`Attendance · ${attendanceProject.code}`} onClose={() => setAttendanceProject(null)}>
+        <Modal title={`Điểm danh · ${attendanceProject.code}`} onClose={() => setAttendanceProject(null)}>
           <div className="space-y-4">
             <WorkerTimekeepingPanel projectId={attendanceProject._id} workers={workers.filter((worker) => attendanceProject.workerIds.includes(worker._id))} canManage={canManage} />
             <WorkerQrAttendance projectId={attendanceProject._id} date={new Date().toISOString().slice(0, 10)} />
           </div>
+        </Modal>
+      )}
+      {viewAttendanceProject && (
+        <Modal
+          title={`Lịch sử chấm công · ${viewAttendanceProject.code}`}
+          onClose={() => setViewAttendanceProject(null)}
+        >
+          <WorkerAttendanceHistory projectId={viewAttendanceProject._id} />
         </Modal>
       )}
       {memberTarget && (
@@ -723,7 +868,7 @@ export function WorkerProjectsPage({
               id="worker-project-member"
               value={workerId}
               onChange={(event) => setWorkerId(event.target.value)}
-              className="input flex-1"
+              className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
             >
               <option value="">Chọn lao động...</option>
               {availableWorkers.map((worker) => (
@@ -736,7 +881,7 @@ export function WorkerProjectsPage({
               type="button"
               disabled={!workerId}
               onClick={() => void addMember()}
-              className="flex items-center gap-1 rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="flex items-center gap-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
             >
               <UserPlus className="h-3.5 w-3.5" /> Thêm vào dự án
             </button>
@@ -805,6 +950,80 @@ function MemberCount({ project }: { project: WorkerProject }) {
       {project.workerIds.length}
       {project.quota ? `/${project.quota}` : ""} lao động
     </span>
+  );
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
+  const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [from, setFrom] = React.useState(todayIso());
+  const [to, setTo] = React.useState(todayIso());
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    workerAttendanceApi
+      .list(projectId, undefined, from || undefined, to || undefined)
+      .then((data) => {
+        if (!cancelled) setLogs(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Không thể tải lịch sử chấm công");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, from, to]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setFrom(todayIso());
+            setTo(todayIso());
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+        >
+          Hôm nay
+        </button>
+      </div>
+      {loading ? (
+        <p className="text-sm text-slate-400">Đang tải...</p>
+      ) : error ? (
+        <p role="alert" className="text-sm text-red-600">{error}</p>
+      ) : (
+        <WorkerTimekeepingHistory logs={logs} />
+      )}
+    </div>
   );
 }
 
@@ -877,17 +1096,39 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-          <h2 className="text-sm font-bold text-cyan-700">{title}</h2>
-          <button type="button" aria-label="Đóng" onClick={onClose}>
-            <X className="h-4 w-4 text-slate-400" />
-          </button>
-        </div>
-        {children}
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <motion.button
+          aria-label="Đóng"
+          type="button"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 30 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
+            <h2 className="text-base font-bold text-slate-800">{title}</h2>
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={onClose}
+              className="rounded-full p-1.5 transition-colors hover:bg-slate-100"
+            >
+              <X className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+          <div className="space-y-4 overflow-y-auto p-6">{children}</div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -900,8 +1141,8 @@ function Field({
 }) {
   const id = `worker-project-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
-    <label htmlFor={id} className="block">
-      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">
+    <label htmlFor={id} className="block space-y-1">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
         {label}
       </span>
       {React.cloneElement(children, { id })}

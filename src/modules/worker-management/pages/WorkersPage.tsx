@@ -366,6 +366,7 @@ export default function WorkersPage({
           isOpen
           workers={workers}
           profileFields={profileFields}
+          projects={projects}
           onClose={() => setAddOpen(false)}
           onSubmit={createWorker}
           onSuccess={setSelectedWorker}

@@ -10,6 +10,7 @@ import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { workerManagementRouter } from "../modules/worker-management/router";
+import { workerQrAttendancePublicRoutes } from "../modules/worker-management/routes/worker-qr-attendance.routes";
 import { timekeepingRouter } from "./timekeeping.router";
 import { dashboardRouter } from "./dashboard.router";
 import { analyticsRouter } from "./analytics.router";
@@ -105,4 +106,9 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
+
+// Public QR attendance routes cho lao động (không yêu cầu đăng nhập)
+// Lao động quét mã QR từ điện thoại cá nhân — không có session đăng nhập.
+apiRouter.use("/worker-management/qr-attendance", workerQrAttendancePublicRoutes);
+
 apiRouter.use("/", requireAuth as any, requireModule("worker"), workerManagementRouter);
