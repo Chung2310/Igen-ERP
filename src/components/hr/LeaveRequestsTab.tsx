@@ -114,7 +114,8 @@ export default function LeaveRequestsTab({
 
   const getFileDownloadUrl = (url: string, filename: string) => {
     if (!url) return "#";
-    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}`;
+    const token = localStorage.getItem("accessToken") || "";
+    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}&token=${encodeURIComponent(token)}`;
   };
 
   const uploadFileToCloudinary = async (file: File): Promise<string> => {

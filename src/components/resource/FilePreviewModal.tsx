@@ -48,7 +48,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
   const url = item.fileUrl;
   const kind = getPreviewKind(item.mimeType, item.name);
-  const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
+  const token = localStorage.getItem("accessToken") || "";
+  const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}&token=${encodeURIComponent(token)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
   const lowerName = item.name.toLowerCase();
