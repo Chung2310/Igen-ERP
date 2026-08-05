@@ -175,8 +175,12 @@ export function WorkerProjectsPage({
   const [deleteTarget, setDeleteTarget] = React.useState<WorkerProject | null>(
     null,
   );
-  const [memberTarget, setMemberTarget] =
-    React.useState<WorkerProject | null>(null);
+  const [memberTargetId, setMemberTargetId] = React.useState<string | null>(
+    null,
+  );
+  const memberTarget = memberTargetId
+    ? projects.find((project) => project._id === memberTargetId) || null
+    : null;
   const [workerId, setWorkerId] = React.useState("");
 
   const filtered = projects.filter((project) => {
@@ -311,7 +315,7 @@ export function WorkerProjectsPage({
         <ActionButton
           title="Quản lý lao động"
           onClick={() => {
-            setMemberTarget(project);
+            setMemberTargetId(project._id);
             setWorkerId("");
           }}
         >
@@ -695,7 +699,7 @@ export function WorkerProjectsPage({
       {memberTarget && (
         <Modal
           title={`Quản lý lao động · ${memberTarget.code}`}
-          onClose={() => setMemberTarget(null)}
+          onClose={() => setMemberTargetId(null)}
         >
           <div className="flex gap-2">
             <label className="sr-only" htmlFor="worker-project-member">

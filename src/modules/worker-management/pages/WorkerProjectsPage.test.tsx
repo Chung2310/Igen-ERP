@@ -221,4 +221,72 @@ describe("worker project ownership", () => {
       ),
     );
   });
+
+  it("keeps the membership modal synchronized with reloaded projects", async () => {
+    const addWorker = vi
+      .fn()
+      .mockResolvedValue({ ...project, workerIds: ["worker-1", "worker-2"] });
+    const removeWorker = vi
+      .fn()
+      .mockResolvedValue({ ...project, workerIds: ["worker-2"] });
+    projectHooks.useWorkerProjects.mockReturnValue(
+      projectState({ addWorker, removeWorker }),
+    );
+    const { rerender } = render(
+      <WorkerProjectsPage selectedCenter="ACME" />,
+    );
+    const manageButton = screen
+      .getAllByRole("button")
+      .find((element) => element.getAttribute("title")?.includes("lao"));
+    expect(manageButton).toBeTruthy();
+    await userEvent.click(manageButton!);
+
+    const memberSelect = document.getElementById(
+      "worker-project-member",
+    ) as HTMLSelectElement;
+    await userEvent.selectOptions(memberSelect, "worker-2");
+    const addButton = memberSelect.parentElement?.querySelector("button");
+    expect(addButton).toBeTruthy();
+    await userEvent.click(addButton!);
+    await waitFor(() =>
+      expect(addWorker).toHaveBeenCalledWith("project-1", "worker-2"),
+    );
+
+    projectHooks.useWorkerProjects.mockReturnValue(
+      projectState({
+        addWorker,
+        removeWorker,
+        projects: [
+          { ...project, workerIds: ["worker-1", "worker-2"] },
+        ],
+      }),
+    );
+    rerender(<WorkerProjectsPage selectedCenter="ACME" />);
+
+    expect(screen.getByTitle((title) => title.includes("Worker Two"))).toBeTruthy();
+    expect(
+      screen.queryByRole("option", { name: "Worker Two" }),
+    ).toBeNull();
+
+    await userEvent.click(
+      screen.getByTitle((title) => title.includes("Worker One")),
+    );
+    await waitFor(() =>
+      expect(removeWorker).toHaveBeenCalledWith("project-1", "worker-1"),
+    );
+
+    projectHooks.useWorkerProjects.mockReturnValue(
+      projectState({
+        addWorker,
+        removeWorker,
+        projects: [{ ...project, workerIds: ["worker-2"] }],
+      }),
+    );
+    rerender(<WorkerProjectsPage selectedCenter="ACME" />);
+
+    expect(
+      screen.queryByTitle((title) => title.includes("Worker One")),
+    ).toBeNull();
+    expect(screen.getByRole("option", { name: "Worker One" })).toBeTruthy();
+  });
 });

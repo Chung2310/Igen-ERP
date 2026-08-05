@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({
@@ -91,5 +91,73 @@ describe("useWorkerProjects", () => {
     rerender({ scope: { companyCode: "COMPANY-B" } });
 
     expect(result.current.projects).toEqual([]);
+  });
+
+  it("ignores a stale project response after the company changes", async () => {
+    const companyBProject = { ...project, _id: "project-b", code: "B" };
+    let resolveCompanyA!: (projects: (typeof project)[]) => void;
+    const companyARequest = new Promise<(typeof project)[]>((resolve) => {
+      resolveCompanyA = resolve;
+    });
+    api.workerProjectsApi.getList.mockImplementation(
+      (scope: { companyCode: string }) =>
+        scope.companyCode === "COMPANY-A"
+          ? companyARequest
+          : Promise.resolve([companyBProject]),
+    );
+    const { result, rerender } = renderHook(
+      ({ scope }) => useWorkerProjects(scope),
+      { initialProps: { scope: { companyCode: "COMPANY-A" } } },
+    );
+    await waitFor(() =>
+      expect(api.workerProjectsApi.getList).toHaveBeenCalledWith({
+        companyCode: "COMPANY-A",
+      }),
+    );
+
+    rerender({ scope: { companyCode: "COMPANY-B" } });
+    await waitFor(() =>
+      expect(result.current.projects).toEqual([companyBProject]),
+    );
+
+    await act(async () => resolveCompanyA([project]));
+
+    expect(result.current.projects).toEqual([companyBProject]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a stale project error after the company changes", async () => {
+    const companyBProject = { ...project, _id: "project-b", code: "B" };
+    let rejectCompanyA!: (reason: Error) => void;
+    const companyARequest = new Promise<(typeof project)[]>((_, reject) => {
+      rejectCompanyA = reject;
+    });
+    api.workerProjectsApi.getList.mockImplementation(
+      (scope: { companyCode: string }) =>
+        scope.companyCode === "COMPANY-A"
+          ? companyARequest
+          : Promise.resolve([companyBProject]),
+    );
+    const { result, rerender } = renderHook(
+      ({ scope }) => useWorkerProjects(scope),
+      { initialProps: { scope: { companyCode: "COMPANY-A" } } },
+    );
+    await waitFor(() =>
+      expect(api.workerProjectsApi.getList).toHaveBeenCalledWith({
+        companyCode: "COMPANY-A",
+      }),
+    );
+
+    rerender({ scope: { companyCode: "COMPANY-B" } });
+    await waitFor(() =>
+      expect(result.current.projects).toEqual([companyBProject]),
+    );
+
+    await act(async () => rejectCompanyA(new Error("Company A failed")));
+
+    expect(result.current.projects).toEqual([companyBProject]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
   });
 });

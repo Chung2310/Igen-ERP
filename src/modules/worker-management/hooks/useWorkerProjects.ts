@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { workerProjectsApi } from "../api/workerProjects.api";
 import type {
   WorkerProject,
@@ -16,6 +16,8 @@ export function useWorkerProjects(scope?: WorkerScope) {
     scopeKey: string;
     items: WorkerProject[];
   }>({ scopeKey, items: [] });
+  const activeScopeKeyRef = useRef(scopeKey);
+  activeScopeKeyRef.current = scopeKey;
   const projects =
     projectState.scopeKey === scopeKey ? projectState.items : [];
 
@@ -34,11 +36,12 @@ export function useWorkerProjects(scope?: WorkerScope) {
     setLoading(true);
     setError(null);
     try {
-      setProjectState({
-        scopeKey,
-        items: await workerProjectsApi.getList(requestScope),
-      });
+      const items = await workerProjectsApi.getList(requestScope);
+      if (activeScopeKeyRef.current === scopeKey) {
+        setProjectState({ scopeKey, items });
+      }
     } catch (reason) {
+      if (activeScopeKeyRef.current !== scopeKey) return;
       setProjectState({ scopeKey, items: [] });
       setError(
         reason instanceof Error
@@ -46,7 +49,9 @@ export function useWorkerProjects(scope?: WorkerScope) {
           : "Không thể tải danh sách dự án.",
       );
     } finally {
-      setLoading(false);
+      if (activeScopeKeyRef.current === scopeKey) {
+        setLoading(false);
+      }
     }
   }, [branchId, companyCode, scopeKey]);
 
