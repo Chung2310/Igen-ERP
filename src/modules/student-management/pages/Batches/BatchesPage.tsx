@@ -746,6 +746,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
                     {b.instructorName || <span className="text-slate-400 italic">Chưa gán</span>}
                   </p>
+                  {b.instructorQualification && (
+                    <p className="ml-1 flex w-fit items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-100">
+                      <GraduationCap className="h-3 w-3 text-indigo-500" />
+                      Trình độ: {b.instructorQualification}
+                    </p>
+                  )}
                   <p className="flex items-center gap-1.5 font-bold">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     {formatDays(b.daysOfWeek)} • {b.startTime} - {b.endTime}
@@ -1302,7 +1308,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || 'Chưa gán'}</p>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || "Chưa gán"}</p>
+                {viewingBatch.instructorQualification && <p className="text-xs text-slate-400 mt-0.5">Trình độ: {viewingBatch.instructorQualification}</p>}
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>

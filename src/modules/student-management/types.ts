@@ -275,6 +275,7 @@ export interface Batch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  instructorQualification?: string;
   /** Cảnh báo tiến độ do server tính sẵn */
   progress?: BatchProgress;
   customFields?: CustomFieldValues;

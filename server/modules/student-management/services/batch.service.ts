@@ -54,6 +54,7 @@ export interface EnrichedBatch {
   courseTitle: string;
   maxLearners: number;
   instructorName: string;
+  instructorQualification: string;
   /** Cảnh báo tiến độ + nhãn tuổi lớp, tính sẵn để client không phải suy ra */
   progress: BatchProgress;
 }
@@ -189,7 +190,7 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
 
   const [courses, instructors] = await Promise.all([
     Course.find({ _id: { $in: courseIds } }).select("code title maxLearners"),
-    User.find({ _id: { $in: instructorIds } }).select("displayName"),
+    User.find({ _id: { $in: instructorIds } }).select("displayName qualification"),
   ]);
 
   const courseMap = new Map(courses.map(c => [String(c._id), c]));
@@ -211,6 +212,7 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
       maxLearners: resolveQuota(b.quota, course?.maxLearners),
       // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
       instructorName: instructor?.displayName || b.instructorText || "",
+      instructorQualification: instructor?.qualification || "",
       progress: computeBatchProgress(
         {
           status: b.status,
