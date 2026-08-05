@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School, ClipboardCheck, Route } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School, ClipboardCheck, Route } from "lucide-react";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
@@ -105,6 +105,8 @@ export default function StudentManagementTab() {
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
+  const subTabsRef = React.useRef<HTMLDivElement>(null);
+  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
   const canReadStudents = canReadStudentArea(userProfile?.permissions || [], "student-profile");
   const canManage = (area: Parameters<typeof canManageStudentArea>[1]) => canManageStudentArea(userProfile?.permissions || [], area);
   const { students } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents);
@@ -189,7 +191,9 @@ export default function StudentManagementTab() {
     <div className="flex h-full min-h-0 flex-col bg-white">
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0" id="student_sub_tabs_bar">
-        <div className="flex flex-wrap gap-1 select-none">
+        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
+          <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
           {subTabRoutes.map((item) => {
             const isActive = activeSubTab === item.value;
             const Icon = item.icon;
@@ -209,6 +213,8 @@ export default function StudentManagementTab() {
               </button>
             );
           })}
+          </div>
+          <button type="button" title="Mục sau" onClick={() => scrollSubTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
         </div>
 
         {userProfile?.role === "superadmin" && (

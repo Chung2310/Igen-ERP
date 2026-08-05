@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronDown, UserPlus, Edit3, Trash2,
-  CheckCircle2, Map, UserMinus, RefreshCw,
-  Download, Upload, Calendar as CalendarIcon, Eye, Route
+  CheckCircle2, Map, UserMinus,
+  Download, Upload, Calendar as CalendarIcon, Route
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
-import { DrivingStudent, ExamSession, ExamStatus } from '../../types';
+import { DrivingStudent, ExamSession } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
@@ -82,44 +82,54 @@ const formatExcelPhone = (phoneVal: unknown): string => {
 export interface ExamCardProps {
   exam: ExamSession;
   assignedStudents: DrivingStudent[];
-  getStatusInfo: (status: ExamStatus) => { 
-    color: string; 
-    icon: React.ComponentType<{ className?: string }>; 
-    label: string; 
-  };
   onDelete: () => void | Promise<unknown>;
   onEdit: () => void | Promise<unknown>;
-  onStatusClick: () => void | Promise<unknown>;
   onAssignClick: () => void | Promise<unknown>;
   onUnassignStudent?: (studentId: string) => void | Promise<unknown>;
   onUpdateStudentResult?: (studentId: string, result: 'Đậu' | 'Trượt' | 'Chưa có') => void | Promise<unknown>;
-  onUpdateStudentScore?: (studentId: string, score: number, note?: string) => void | Promise<unknown>;
-  onViewDetail?: () => void;
+  onSaveStudentScores?: (results: Array<{ studentId: string; score: number }>) => void | Promise<unknown>;
   onProgressRoute?: () => void | Promise<unknown>;
 }
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
   exam, 
   assignedStudents, 
-  getStatusInfo, 
   onDelete, 
   onEdit, 
-  onStatusClick, 
   onAssignClick, 
   onUnassignStudent, 
-  onUpdateStudentResult, onUpdateStudentScore,
-  onViewDetail, onProgressRoute
+  onUpdateStudentResult, onSaveStudentScores,
+  onProgressRoute
 }) => {
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
   const businessType = 'general';
-  const status = getStatusInfo(exam.status);
+  // The stored aggregate can be stale after changing assignments.
+  const assignedStudentCount = assignedStudents.length;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [validPreviewList, setValidPreviewList] = useState<PreviewStudent[]>([]);
   const [invalidPreviewList, setInvalidPreviewList] = useState<InvalidStudent[]>([]);
   const [rawResults, setRawResults] = useState<{ phone: string; overallResult: 'Đậu' | 'Trượt' | 'Chưa có' }[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [draftScores, setDraftScores] = useState<Record<string, string>>(() => Object.fromEntries((exam.results || []).filter((item) => typeof item.score === "number").map((item) => [item.studentId, String(item.score)])));
+  const [isSavingScores, setIsSavingScores] = useState(false);
+
+  React.useEffect(() => {
+    setDraftScores(Object.fromEntries((exam.results || []).filter((item) => typeof item.score === "number").map((item) => [item.studentId, String(item.score)])));
+  }, [exam.id]);
+
+  const changedScores = assignedStudents.flatMap((student) => {
+    const value = draftScores[student.id];
+    const savedScore = exam.results?.find((item) => item.studentId === student.id)?.score;
+    return value !== undefined && value !== "" && Number(value) !== savedScore ? [{ studentId: student.id, score: Number(value) }] : [];
+  });
+  const saveScores = async () => {
+    if (!changedScores.length || !onSaveStudentScores) return;
+    setIsSavingScores(true);
+    try { await onSaveStudentScores(changedScores); }
+    finally { setIsSavingScores(false); }
+  };
   
 
   const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,21 +294,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl border border-slate-200 border-l-[4px] shadow-sm hover:shadow transition-all overflow-hidden"
-      style={{ borderLeftColor: exam.status === 'Sắp diễn ra' ? '#f59e0b' : exam.status === 'Đã xác nhận' ? '#3b82f6' : exam.status === 'Đã hoàn thành' ? '#10b981' : '#e2e8f0' }}
+      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all overflow-hidden"
     >
       <div className="p-2.5 sm:p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 sm:gap-4">
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{exam.name}</h3>
             <div className="flex flex-wrap items-center gap-1">
-              <button 
-                onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
-                title="Thay đổi trạng thái đợt thi"
-                className={cn("flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-semibold border hover:opacity-80 transition-opacity active:scale-95 cursor-pointer", status.color)}
-              >
-                <status.icon className="w-3 h-3" /> {status.label}
-              </button>
               {exam.rank && (
                 <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-700 rounded text-[9px] font-bold border border-cyan-100">
                   {exam.rank}
@@ -345,20 +347,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-50">
             <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
-              <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{exam.studentCount}</p>
+              <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{assignedStudentCount}</p>
               <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{entityLabel.tabLabel}</p>
             </div>
-              <div className="flex-1 sm:flex-none px-2 py-1 bg-cyan-50 rounded-lg text-center min-w-[65px] border border-cyan-100/30"><p className="text-sm sm:text-base font-extrabold text-cyan-700 leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{exam.studentCount}</p><p className="text-[8px] sm:text-[9px] font-bold text-cyan-600 mt-0.5 uppercase tracking-wide">Đã chấm</p></div>
+              <div className="flex-1 sm:flex-none px-2 py-1 bg-cyan-50 rounded-lg text-center min-w-[65px] border border-cyan-100/30"><p className="text-sm sm:text-base font-extrabold text-cyan-700 leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{assignedStudentCount}</p><p className="text-[8px] sm:text-[9px] font-bold text-cyan-600 mt-0.5 uppercase tracking-wide">Đã chấm</p></div>
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
-            <button 
-              onClick={(e) => { e.stopPropagation(); onViewDetail?.(); }}
-              title="Xem chi tiết đợt thi"
-              className="p-1 rounded-md text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </button>
             {onProgressRoute ? <button onClick={(event) => { event.stopPropagation(); void onProgressRoute(); }} title="Chuyển sang đánh giá lộ trình" className="p-1 rounded-md text-cyan-700 hover:bg-cyan-50 transition-all border border-cyan-200 bg-white shadow-sm"><Route className="w-3.5 h-3.5" /></button> : null}
             <button 
               onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
@@ -380,13 +375,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({
               className="p-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-all shadow-md shadow-rose-100 active:scale-95 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
-              title="Cập nhật trạng thái"
-              className="p-1 rounded-md text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
             </button>
             <div className="hidden sm:block w-px h-5 bg-slate-100 mx-0.5" />
             <button 
@@ -501,7 +489,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                               </span>
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
-                              {exam.batchId ? <input type="number" min="0" max={exam.maxScore || 100} defaultValue={scoreEntry?.score ?? ''} onBlur={(event) => { const raw = event.target.value; if (raw !== '') void onUpdateStudentScore?.(student.id, Number(raw)); }} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /> :
+                              {exam.batchId ? <input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /> :
                               <select
                                 value={resultText}
                                 onChange={async (e) => {
@@ -540,6 +528,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                       })}
                     </tbody>
                   </table>
+                  {exam.batchId ? <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-3 py-2"><button type="button" disabled={!changedScores.length || isSavingScores} onClick={() => void saveScores()} className="flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-40"><CheckCircle2 className="w-3.5 h-3.5" />{isSavingScores ? "Đang lưu điểm..." : `Lưu toàn bộ điểm${changedScores.length ? ` (${changedScores.length} học viên)` : ""}`}</button></div> : null}
                 </div>
               )}
             </div>

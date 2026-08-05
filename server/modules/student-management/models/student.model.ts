@@ -86,6 +86,7 @@ const studentSchema = new Schema<IStudent>(
     // Hạng bằng lái — riêng ngành lái xe, ngành khác để trống
     rank: { type: String, default: "", trim: true, index: true },
     courseId: { type: String, default: "", trim: true, index: true },
+    completedCourseIds: { type: [String], default: [] },
     registrationDate: { type: String, required: true },
     enrollmentDate: { type: String, default: "" },
     fee: { type: String, required: true },
