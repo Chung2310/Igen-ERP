@@ -12,15 +12,20 @@ import {
 
 export const workerQrAttendanceRoutes = Router();
 
-// Public routes for workers scanning QR codes (protected by rate limiter)
-workerQrAttendanceRoutes.post(
+// Public routes for workers scanning QR codes (protected by rate limiter).
+// Mounted separately at the app level (see server/router/index.ts) so they
+// are reachable WITHOUT going through requireAuth — workers scanning the QR
+// from their phone are not logged in.
+export const workerQrAttendancePublicRoutes = Router();
+
+workerQrAttendancePublicRoutes.post(
   "/checkin",
   publicApiRateLimiter,
   validate(workerQrCheckinSchema),
   WorkerQrAttendanceController.checkin as any
 );
 
-workerQrAttendanceRoutes.get(
+workerQrAttendancePublicRoutes.get(
   "/session-info",
   publicApiRateLimiter,
   WorkerQrAttendanceController.getSessionInfo as any
