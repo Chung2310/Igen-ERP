@@ -11,6 +11,7 @@ import { InsightFaceClient } from "../../../service/insightface.service";
 import type { FaceReasonCode } from "../../../service/insightface.service";
 import { companyEmailService } from "../../../service/company-email.service";
 import { assertWithinSessionQuota, syncAttendedSessions } from "./batch.service";
+import { StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 
@@ -232,6 +233,7 @@ export class StudentOnlineAttendanceService {
         session.records.push({ studentId, status: recordStatus } as any);
       }
     }
+    await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
     await batch.save();
     await syncAttendedSessions(batch);
 

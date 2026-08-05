@@ -103,7 +103,7 @@ export class BatchController {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const businessType = "general";
-      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType, req.user!.branchId);
+      const batch = await BatchService.addLearner(ownerId, req.params.id, req.body.studentId, businessType, req.user!.branchId, req.user!.uid);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -114,7 +114,7 @@ export class BatchController {
   static async removeLearner(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId, req.user!.branchId);
+      const batch = await BatchService.removeLearner(ownerId, req.params.id, req.params.studentId, req.user!.branchId, req.user!.uid);
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
