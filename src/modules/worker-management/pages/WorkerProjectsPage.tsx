@@ -1,6 +1,8 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  BarChart2,
+  CalendarCheck,
   CalendarRange,
   Clock,
   LayoutGrid,
@@ -19,8 +21,11 @@ import { useWorkerProjects } from "../hooks/useWorkerProjects";
 import { useWorkers } from "../hooks/useWorkers";
 import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
+import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
+import { workerAttendanceApi } from "../api/workerAttendance.api";
 import type {
   Worker,
+  WorkerAttendanceLog,
   WorkerProject,
   WorkerProjectInput,
   WorkerScope,
@@ -208,6 +213,7 @@ export function WorkerProjectsPage({
     : null;
   const [workerId, setWorkerId] = React.useState("");
   const [attendanceProject, setAttendanceProject] = React.useState<WorkerProject | null>(null);
+  const [viewAttendanceProject, setViewAttendanceProject] = React.useState<WorkerProject | null>(null);
   const [locating, setLocating] = React.useState(false);
 
   const useCurrentLocation = () => {
@@ -357,8 +363,11 @@ export function WorkerProjectsPage({
   const actions = (project: WorkerProject) =>
     canManage ? (
       <div className="flex items-center gap-1.5">
-        <ActionButton title="Attendance" onClick={() => setAttendanceProject(project)}>
-          <Clock className="h-3.5 w-3.5" />
+        <ActionButton title="Điểm danh thủ công & QR" onClick={() => setAttendanceProject(project)}>
+          <CalendarCheck className="h-3.5 w-3.5" />
+        </ActionButton>
+        <ActionButton title="Lịch sử & Thống kê điểm danh" onClick={() => setViewAttendanceProject(project)}>
+          <BarChart2 className="h-3.5 w-3.5" />
         </ActionButton>
         <ActionButton
           title="Chỉnh sửa dự án"
@@ -831,11 +840,19 @@ export function WorkerProjectsPage({
       )}
 
       {attendanceProject && (
-        <Modal title={`Attendance · ${attendanceProject.code}`} onClose={() => setAttendanceProject(null)}>
+        <Modal title={`Điểm danh · ${attendanceProject.code}`} onClose={() => setAttendanceProject(null)}>
           <div className="space-y-4">
             <WorkerTimekeepingPanel projectId={attendanceProject._id} workers={workers.filter((worker) => attendanceProject.workerIds.includes(worker._id))} canManage={canManage} />
             <WorkerQrAttendance projectId={attendanceProject._id} date={new Date().toISOString().slice(0, 10)} />
           </div>
+        </Modal>
+      )}
+      {viewAttendanceProject && (
+        <Modal
+          title={`Lịch sử chấm công · ${viewAttendanceProject.code}`}
+          onClose={() => setViewAttendanceProject(null)}
+        >
+          <WorkerAttendanceHistory projectId={viewAttendanceProject._id} />
         </Modal>
       )}
       {memberTarget && (
@@ -934,6 +951,36 @@ function MemberCount({ project }: { project: WorkerProject }) {
       {project.quota ? `/${project.quota}` : ""} lao động
     </span>
   );
+}
+
+function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
+  const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    workerAttendanceApi
+      .list(projectId)
+      .then((data) => {
+        if (!cancelled) setLogs(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Không thể tải lịch sử chấm công");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (loading) return <p className="text-sm text-slate-400">Đang tải...</p>;
+  if (error) return <p role="alert" className="text-sm text-red-600">{error}</p>;
+  return <WorkerTimekeepingHistory logs={logs} />;
 }
 
 function ActionButton({
