@@ -43,12 +43,15 @@ export const createBatchSchema = Joi.object({
     "any.required": "Ngày kết thúc là bắt buộc.",
     "string.pattern.base": "Ngày kết thúc phải có định dạng YYYY-MM-DD.",
   }),
-  status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc").optional(),
+  status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc", "Đã hủy").optional(),
   customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateBatchSchema = Joi.object({
   expectedVersion: Joi.number().integer().min(0).optional(),
+  // Mã lớp và tên lớp bị khóa sau khi tạo. Vẫn nhận ở đây để payload cũ không
+  // bị Joi chặn thẳng; BatchService.updateBatch mới là nơi từ chối khi giá trị
+  // thực sự thay đổi (gửi lại đúng giá trị hiện tại thì không sao).
   code: Joi.string().optional(),
   name: Joi.string().trim().max(200).allow("", null).optional(),
   quota: Joi.number().integer().min(0).optional(),
@@ -66,7 +69,7 @@ export const updateBatchSchema = Joi.object({
   location: Joi.string().allow("", null).optional(),
   startDate: Joi.string().pattern(datePattern).optional(),
   endDate: Joi.string().pattern(datePattern).optional(),
-  status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc").optional(),
+  status: Joi.string().valid("Sắp khai giảng", "Đang học", "Đã kết thúc", "Đã hủy").optional(),
   customFields: Joi.object().unknown(true).optional(),
 });
 
@@ -74,5 +77,16 @@ export const addLearnerSchema = Joi.object({
   studentId: Joi.string().required().messages({
     "any.required": "Học viên là bắt buộc.",
     "string.empty": "Học viên không được để trống.",
+  }),
+});
+
+export const updateEnrollmentStatusSchema = Joi.object({
+  status: Joi.string().valid("Đang học", "Bảo lưu").required().messages({
+    "any.required": "Trạng thái bảo lưu là bắt buộc.",
+    "any.only": "Chỉ có thể chuyển sang Đang học hoặc Bảo lưu.",
+  }),
+  reason: Joi.string().trim().max(500).allow("", null).optional(),
+  expectedReturnAt: Joi.string().pattern(datePattern).allow("", null).optional().messages({
+    "string.pattern.base": "Ngày dự kiến quay lại phải có định dạng YYYY-MM-DD.",
   }),
 });

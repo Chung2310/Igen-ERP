@@ -351,7 +351,7 @@ export const authService = {
     displayName: string,
     email: string,
     password: string,
-    role: "user" | "manager" | "admin",
+    role: "user" | "manager" | "branch_owner" | "admin",
     companyCode: string,
     companyName: string,
     parentId?: string,
@@ -367,7 +367,8 @@ export const authService = {
     },
     jobDescriptionLink?: string,
     branchId?: string,
-    birthDate?: string
+    birthDate?: string,
+    qualification?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -391,6 +392,7 @@ export const authService = {
         jobDescriptionLink,
         branchId,
         birthDate,
+        qualification,
       }),
     });
 

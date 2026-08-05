@@ -10,6 +10,7 @@ import { cloudinaryService } from "../../../service/cloudinary.service";
 import { InsightFaceClient } from "../../../service/insightface.service";
 import type { FaceReasonCode } from "../../../service/insightface.service";
 import { companyEmailService } from "../../../service/company-email.service";
+import { assertWithinSessionQuota, syncAttendedSessions } from "./batch.service";
 import { StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
@@ -206,6 +207,10 @@ export class StudentOnlineAttendanceService {
       throw new OnlineCheckinError(gateResult.reasonCode, "Xác thực khuôn mặt không thành công. Vui lòng thử lại.");
     }
 
+    // Điểm danh online cũng tiêu một buổi học nên phải qua đúng hạn mức như
+    // điểm danh thủ công.
+    await assertWithinSessionQuota(batch, dateStr, [{ studentId, status: "present" }]);
+
     // Ghi nhận điểm danh vào phiên của ngày này (không ghi đè các học viên khác)
     let session = batch.attendanceSessions.find((s) => s.date === dateStr);
     if (!session) {
@@ -230,6 +235,7 @@ export class StudentOnlineAttendanceService {
     }
     await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
     await batch.save();
+    await syncAttendedSessions(batch);
 
     await StudentAttendanceAttemptModel.create({
       ...attemptBase,

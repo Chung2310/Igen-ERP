@@ -28,7 +28,9 @@ export interface UserFormModalProps {
   userParentId: string;
   setUserParentId: (val: string) => void;
   userDepartment: string;
+  userQualification: string;
   setUserDepartment: (val: string) => void;
+  setUserQualification: (val: string) => void;
   userJobDescriptionLink: string;
   userMonthlySalary: string;
   setUserMonthlySalary: (val: string) => void;
@@ -66,6 +68,8 @@ export function UserFormModal({
   setUserParentId,
   userDepartment,
   setUserDepartment,
+  userQualification,
+  setUserQualification,
   userJobDescriptionLink,
   userMonthlySalary,
   setUserMonthlySalary,
@@ -320,7 +324,10 @@ export function UserFormModal({
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Trình độ giáo viên</label>
+              <input type="text" value={userQualification} onChange={(e) => setUserQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 text-left"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Lương tháng (VNĐ)</label><input type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs outline-none" placeholder="26000000" /></div>
             </div>
 

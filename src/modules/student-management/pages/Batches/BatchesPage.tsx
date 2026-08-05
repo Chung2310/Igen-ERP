@@ -12,7 +12,7 @@ import { useCourses } from '../../hooks/useCourses';
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
 import { useResources } from '../../hooks/useResources';
-import { Batch, BatchStatus } from '../../types';
+import { Batch, BatchStatus, BatchProgress, BatchProgressLevel, BatchAgeLabel } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpModal, ErpField, ErpInput, ErpSelect,
@@ -38,7 +38,10 @@ import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModa
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
-const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc'];
+const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc', 'Đã hủy'];
+
+/** Bộ lọc nhanh theo mức cảnh báo tiến độ */
+type ProgressFilter = 'all' | 'yellow' | 'red';
 
 // Thứ trong tuần theo giá trị getDay(): 0 = CN ... 6 = T7, hiển thị theo thứ tự T2 → CN
 const DAY_OPTIONS: { value: number; label: string }[] = [
@@ -59,8 +62,36 @@ const formatDate = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 const statusStyle = (status: BatchStatus) => {
   if (status === 'Đang học') return "bg-emerald-500/10 text-emerald-400 border-emerald-500/15";
   if (status === 'Sắp khai giảng') return "bg-sky-500/10 text-sky-400 border-sky-500/15";
+  if (status === 'Đã hủy') return "bg-rose-500/10 text-rose-400 border-rose-500/15";
   return "bg-slate-500/10 text-slate-400 border-slate-500/15";
 };
+
+const progressStyle = (level: BatchProgressLevel) => {
+  if (level === 'red') return "bg-rose-500/10 text-rose-500 border-rose-500/20";
+  if (level === 'yellow') return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+  if (level === 'green') return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+  return "bg-slate-500/10 text-slate-400 border-slate-500/15";
+};
+
+/** Nội dung chip cảnh báo tiến độ; đỏ nghĩa là quá hạn mà lớp chưa được đóng */
+const progressText = (p: BatchProgress) => {
+  const sessionSummary = `Đã học ${p.doneSessions}/${p.totalSessions} buổi`;
+  if (p.progressLevel === 'red') return `Quá hạn — chưa đóng lớp • ${sessionSummary}`;
+  if (p.progressLevel === 'grey') return sessionSummary;
+  return `${sessionSummary} • còn ${p.remainingSessions} buổi`;
+};
+
+/** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với màu tiến độ */
+const ageLabelText = (label: BatchAgeLabel) => {
+  if (label === 'red') return 'Hoàn thành quá 1 năm';
+  if (label === 'yellow') return 'Hoàn thành 6–12 tháng';
+  return '';
+};
+
+const ageLabelStyle = (label: BatchAgeLabel) =>
+  label === 'red'
+    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+    : "bg-amber-500/10 text-amber-500 border-amber-500/20";
 
 interface BatchForm {
   code: string;
@@ -268,6 +299,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
@@ -412,7 +444,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         ...(!editingId && resolvedCenter ? { companyCode: resolvedCenter } : {}),
       };
       if (editingId) {
-        await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        // Mã lớp và tên lớp bị khóa sau khi tạo nên không gửi lên khi sửa.
+        const { code: _lockedCode, name: _lockedName, ...editPayload } = payload;
+        await apiFetch(`/batches/${editingId}`, { method: 'PATCH', body: JSON.stringify(editPayload) });
         toast.success(`Đã cập nhật ${copy.entityNameLower} ${payload.code}.`);
       } else {
         await apiFetch('/batches', { method: 'POST', body: JSON.stringify(payload) });
@@ -491,7 +525,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       (b.courseTitle || '').toLowerCase().includes(term) ||
       (b.instructorName || '').toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesProgress = progressFilter === 'all' || b.progress?.progressLevel === progressFilter;
+    return matchesSearch && matchesStatus && matchesProgress;
   });
   const totalPages = Math.ceil(filteredBatches.length / pageSize);
   const paginatedBatches = filteredBatches.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -501,7 +536,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       setCurrentPage(1);
     }, 0);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, progressFilter]);
 
   const availableStudents = manageBatch
     ? students.filter(s => !manageBatch.learnerIds.includes(s.id))
@@ -531,6 +566,35 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
     </select>
   );
+
+  /**
+   * Chip cảnh báo tiến độ + nhãn tuổi lớp. Nhãn tuổi là nhãn phụ, hiển thị
+   * song song chứ không thay thế màu tiến độ.
+   */
+  const renderProgressChips = (b: Batch) => {
+    if (!b.progress) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <span className={cn(
+          "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
+          progressStyle(b.progress.progressLevel)
+        )}>
+          {progressText(b.progress)}
+        </span>
+        {b.progress.ageLabel && (
+          <span
+            title="Nhãn rà soát dữ liệu lớp cũ"
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
+              ageLabelStyle(b.progress.ageLabel)
+            )}
+          >
+            {ageLabelText(b.progress.ageLabel)}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const actionButtonClass = (tone: 'neutral' | 'danger' | 'brand' | 'emerald' | 'sky') => cn(
     "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
@@ -609,6 +673,18 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             </ErpFilterTab>
           ))}
         </ErpFilterRail>
+        {/* Lọc nhanh theo cảnh báo tiến độ — dữ liệu do server tính sẵn */}
+        <ErpFilterRail>
+          <ErpFilterTab active={progressFilter === 'all'} onClick={() => setProgressFilter('all')}>
+            Mọi tiến độ
+          </ErpFilterTab>
+          <ErpFilterTab active={progressFilter === 'yellow'} onClick={() => setProgressFilter('yellow')}>
+            Sắp hết buổi
+          </ErpFilterTab>
+          <ErpFilterTab active={progressFilter === 'red'} onClick={() => setProgressFilter('red')}>
+            Quá hạn
+          </ErpFilterTab>
+        </ErpFilterRail>
         <div className={cn(
           "flex items-center gap-1 p-1 rounded-xl border self-start",
           darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200/60"
@@ -670,6 +746,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
                     {b.instructorName || <span className="text-slate-400 italic">Chưa gán</span>}
                   </p>
+                  {b.instructorQualification && (
+                    <p className="ml-1 flex w-fit items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-100">
+                      <GraduationCap className="h-3 w-3 text-indigo-500" />
+                      Trình độ: {b.instructorQualification}
+                    </p>
+                  )}
                   <p className="flex items-center gap-1.5 font-bold">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     {formatDays(b.daysOfWeek)} • {b.startTime} - {b.endTime}
@@ -684,6 +766,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       {b.location}
                     </p>
                   )}
+                  {renderProgressChips(b)}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
@@ -706,7 +789,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
-              <ErpTableHead columns={[copy.codeLabel, copy.courseLabel, copy.instructorLabel, 'Lịch hoạt động', 'Thời gian', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
+              <ErpTableHead columns={[copy.codeLabel, copy.courseLabel, copy.instructorLabel, 'Lịch hoạt động', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
                 {paginatedBatches.map((b) => (
                   <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
@@ -732,6 +815,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     </td>
                     <td className="py-2 px-4 font-bold whitespace-nowrap">
                       {formatDate(b.startDate)} → {formatDate(b.endDate)}
+                    </td>
+                    <td className="py-2 px-4">
+                      {renderProgressChips(b)}
                     </td>
                     <td className="py-2 px-4">
                       {renderLearnerCountButton(b)}
@@ -775,11 +861,16 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                 {isFieldVisible('code') && (
                   <div className="relative group/std">
                     {renderFieldActions('code')}
-                    <ErpField label={getFieldLabel('code', copy.codeLabel)}>
+                    <ErpField
+                      label={getFieldLabel('code', copy.codeLabel)}
+                      hint={editingId ? 'Không thể thay đổi sau khi tạo' : undefined}
+                    >
                       <div className="relative">
                         <ErpInput
                           type="text"
                           required={isFieldRequired('code', true)}
+                          readOnly={!!editingId}
+                          disabled={!!editingId}
                           placeholder={getFieldPlaceholder('code', entityLabel.preset === 'worker' ? 'Ví dụ: DA-001' : 'Ví dụ: K32')}
                           value={form.code}
                           onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -795,12 +886,17 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                 {isFieldVisible('courseId') && (
                   <div className="relative group/std">
                     {renderFieldActions('courseId')}
-                    <ErpField label={getFieldLabel('courseId', copy.courseLabel)}>
+                    <ErpField
+                      label={getFieldLabel('courseId', copy.courseLabel)}
+                      hint={editingId && entityLabel.preset === 'worker' ? 'Không thể thay đổi sau khi tạo' : undefined}
+                    >
                       <div className="relative">
                         {entityLabel.preset === 'worker' ? (
                           <ErpInput
                             type="text"
                             required
+                            readOnly={!!editingId}
+                            disabled={!!editingId}
                             placeholder={getFieldPlaceholder('courseId', 'Ví dụ: Tuyển 100 công nhân nhà máy Samsung')}
                             value={form.name}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -1212,7 +1308,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || 'Chưa gán'}</p>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || "Chưa gán"}</p>
+                {viewingBatch.instructorQualification && <p className="text-xs text-slate-400 mt-0.5">Trình độ: {viewingBatch.instructorQualification}</p>}
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>

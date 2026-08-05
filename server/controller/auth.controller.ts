@@ -477,13 +477,12 @@ export const authController = {
       }
 
       const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId : "";
-      const scopedBranchId = requestedBranchId || (req.user?.role !== "superadmin" ? req.user?.branchId || "" : "");
-      const filter = buildUserRosterFilter(companyCode, scopedBranchId);
-      if (scopedBranchId && companyCode) {
+      const filter = buildUserRosterFilter(companyCode, requestedBranchId);
+      if (requestedBranchId && companyCode) {
         const { BranchModel } = await import("../model/branch.model");
-        const branch = await BranchModel.findOne({ _id: scopedBranchId, companyCode }).select("_id").lean();
-        if (!branch) return res.status(403).json({ status: "error", message: "Chi nh?nh kh?ng thu?c c?ng ty." });
-        filter.branchId = scopedBranchId;
+        const branch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id").lean();
+        if (!branch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty." });
+        filter.branchId = requestedBranchId;
       }
       const users = await authService.getUsers(filter);
 
@@ -699,7 +698,7 @@ export const authController = {
 
       const colleagues = await UserModel.find(
         { companyCode, isDeleted: { $ne: true } },
-        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1, branchId: 1 }
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, qualification: 1, department: 1, role: 1, branchId: 1 }
       ).lean();
 
       const branchIds = colleagues
@@ -719,6 +718,7 @@ export const authController = {
         email: colleague.email,
         ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),
         ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),
+        ...(colleague.qualification ? { qualification: colleague.qualification } : {}),
         ...(colleague.department ? { department: colleague.department } : {}),
         ...(colleague.role ? { role: colleague.role } : {}),
         ...(colleague.branchId
