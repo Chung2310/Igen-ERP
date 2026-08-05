@@ -952,17 +952,23 @@ function MemberCount({ project }: { project: WorkerProject }) {
   );
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
   const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [from, setFrom] = React.useState(todayIso());
+  const [to, setTo] = React.useState(todayIso());
 
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
     workerAttendanceApi
-      .list(projectId)
+      .list(projectId, undefined, from || undefined, to || undefined)
       .then((data) => {
         if (!cancelled) setLogs(data);
       })
@@ -975,11 +981,49 @@ function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, from, to]);
 
-  if (loading) return <p className="text-sm text-slate-400">Đang tải...</p>;
-  if (error) return <p role="alert" className="text-sm text-red-600">{error}</p>;
-  return <WorkerTimekeepingHistory logs={logs} />;
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setFrom(todayIso());
+            setTo(todayIso());
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+        >
+          Hôm nay
+        </button>
+      </div>
+      {loading ? (
+        <p className="text-sm text-slate-400">Đang tải...</p>
+      ) : error ? (
+        <p role="alert" className="text-sm text-red-600">{error}</p>
+      ) : (
+        <WorkerTimekeepingHistory logs={logs} />
+      )}
+    </div>
+  );
 }
 
 function ActionButton({
