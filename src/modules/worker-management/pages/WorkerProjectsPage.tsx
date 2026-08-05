@@ -43,12 +43,17 @@ type FormState = {
   startTime: string;
   endTime: string;
   location: string;
+  geoLat: number | "";
+  geoLng: number | "";
+  geoRadius: number | "";
   startDate: string;
   endDate: string;
   status: ProjectStatus;
   note: string;
   workerIds: string[];
 };
+
+const DEFAULT_PROJECT_RADIUS_METERS = 300;
 
 const STATUS_OPTIONS: Array<{ value: ProjectStatus; label: string }> = [
   { value: "planned", label: "Sắp triển khai" },
@@ -74,6 +79,9 @@ const EMPTY_FORM: FormState = {
   startTime: "08:00",
   endTime: "17:00",
   location: "",
+  geoLat: "",
+  geoLng: "",
+  geoRadius: "",
   startDate: "",
   endDate: "",
   status: "planned",
@@ -96,6 +104,9 @@ function toForm(project: WorkerProject): FormState {
     startTime: project.startTime || "08:00",
     endTime: project.endTime || "17:00",
     location: project.location || "",
+    geoLat: project.geoLocation?.latitude ?? "",
+    geoLng: project.geoLocation?.longitude ?? "",
+    geoRadius: project.geoLocation?.radiusMeters ?? "",
     startDate: project.startDate || "",
     endDate: project.endDate || "",
     status: project.status,
@@ -114,6 +125,17 @@ function toInput(form: FormState): WorkerProjectInput {
     startTime: form.startTime,
     endTime: form.endTime,
     location: form.location.trim(),
+    geoLocation:
+      form.geoLat === "" || form.geoLng === ""
+        ? null
+        : {
+            latitude: Number(form.geoLat),
+            longitude: Number(form.geoLng),
+            radiusMeters:
+              form.geoRadius === ""
+                ? DEFAULT_PROJECT_RADIUS_METERS
+                : Number(form.geoRadius),
+          },
     startDate: form.startDate,
     endDate: form.endDate,
     status: form.status,
@@ -186,6 +208,38 @@ export function WorkerProjectsPage({
     : null;
   const [workerId, setWorkerId] = React.useState("");
   const [attendanceProject, setAttendanceProject] = React.useState<WorkerProject | null>(null);
+  const [locating, setLocating] = React.useState(false);
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ định vị.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((previous) => ({
+          ...previous,
+          geoLat: Number(position.coords.latitude.toFixed(6)),
+          geoLng: Number(position.coords.longitude.toFixed(6)),
+          geoRadius:
+            previous.geoRadius === ""
+              ? DEFAULT_PROJECT_RADIUS_METERS
+              : previous.geoRadius,
+        }));
+        setLocating(false);
+      },
+      (error) => {
+        setLocating(false);
+        toast.error(
+          error.code === error.PERMISSION_DENIED
+            ? "Bạn đã chặn quyền vị trí cho trang này."
+            : "Không lấy được vị trí hiện tại.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   const filtered = projects.filter((project) => {
     if (status !== "all" && project.status !== status) return false;
@@ -621,6 +675,79 @@ export function WorkerProjectsPage({
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
               />
             </Field>
+            <div className="space-y-1">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                Giới hạn điểm danh bằng GPS (tùy chọn)
+              </span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <div
+                    className={`flex items-center gap-2 rounded-xl border border-dashed px-4 py-2.5 pr-28 text-xs font-semibold ${
+                      form.geoLat !== "" && form.geoLng !== ""
+                        ? "border-cyan-300 bg-cyan-50 text-cyan-700"
+                        : "border-slate-200 bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {form.geoLat !== "" && form.geoLng !== ""
+                        ? "Đã lưu tọa độ GPS"
+                        : "Chưa thiết lập tọa độ"}
+                    </span>
+                  </div>
+                  <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                    {form.geoLat !== "" && form.geoLng !== "" && (
+                      <button
+                        type="button"
+                        title="Xóa tọa độ"
+                        onClick={() =>
+                          setForm((value) => ({
+                            ...value,
+                            geoLat: "",
+                            geoLng: "",
+                            geoRadius: "",
+                          }))
+                        }
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-rose-500 transition-colors hover:bg-rose-100"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={useCurrentLocation}
+                      disabled={locating}
+                      className="flex h-7 items-center gap-1 rounded-md bg-slate-800 px-2.5 text-[10px] font-black uppercase tracking-wide text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {locating ? "Đang lấy..." : "Lấy vị trí"}
+                    </button>
+                  </div>
+                </div>
+                {form.geoLat !== "" && form.geoLng !== "" && (
+                  <div className="relative w-full shrink-0 sm:w-40">
+                    <input
+                      type="number"
+                      min={10}
+                      placeholder={`Bán kính (m), mặc định ${DEFAULT_PROJECT_RADIUS_METERS}`}
+                      value={form.geoRadius}
+                      onChange={(event) =>
+                        setForm((value) => ({
+                          ...value,
+                          geoRadius:
+                            event.target.value === ""
+                              ? ""
+                              : Number(event.target.value),
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-7 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                      m
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
             <fieldset>
               <legend className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
                 Ngày hoạt động

@@ -59,7 +59,9 @@ export type WorkerInput = Pick<
   | "idCard"
   | "registrationDate"
   | "customFields"
->;
+> & {
+  projectId?: string;
+};
 
 export type WorkerProject = {
   _id: string;
