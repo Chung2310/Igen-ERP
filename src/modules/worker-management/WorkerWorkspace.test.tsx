@@ -2,6 +2,7 @@
 import React from "react";
 import fs from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WorkerWorkspace from "./WorkerWorkspace";
 
@@ -12,7 +13,24 @@ vi.mock("../shared-management/runtime", () => ({
   setEntityPreset: vi.fn(),
   setBusinessApiScope: vi.fn(),
 }));
-vi.mock("../shared-management/pages/DashboardPage", () => ({ DashboardPage: () => <div>Worker dashboard content</div> }));
+vi.mock("../shared-management/pages/DashboardPage", () => ({
+  DashboardPage: ({ onSelectStudent }: { onSelectStudent: (worker: object) => void }) => (
+    <div>
+      Worker dashboard content
+      <button
+        type="button"
+        onClick={() => onSelectStudent({
+          _id: "worker-1",
+          fullName: "Nguyễn Văn A",
+          phone: "0901",
+          status: "active",
+        })}
+      >
+        Open dashboard worker
+      </button>
+    </div>
+  ),
+}));
 vi.mock("./pages/WorkersPage", () => ({ default: () => <div>Worker list content</div> }));
 vi.mock("../shared-management/pages/ProjectsPage", () => ({ ProjectsPage: () => <div>Worker project content</div> }));
 vi.mock("../shared-management/pages/NotificationsPage", () => ({ NotificationsPage: () => <div>Worker notification content</div> }));
@@ -38,5 +56,11 @@ describe("WorkerWorkspace", () => {
     expect(screen.getByRole("button", { name: /Dự án/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Lao động/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Thông báo/ })).toBeTruthy();
+  });
+
+  it("opens worker profile detail from a dashboard selection", async () => {
+    render(<WorkerWorkspace />);
+    await userEvent.click(await screen.findByRole("button", { name: "Open dashboard worker" }));
+    expect(screen.getByRole("heading", { name: "Nguyễn Văn A" })).toBeTruthy();
   });
 });

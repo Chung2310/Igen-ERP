@@ -22,7 +22,11 @@ async function withServer(run: (base: string) => Promise<void>) {
   const app = express();
   app.use(express.json());
   app.use((req: any, _res, next) => {
-    req.user = { companyCode: String(req.headers["x-company"] || "ACME"), branchId: req.headers["x-branch"] };
+    req.user = {
+      role: String(req.headers["x-role"] || "admin"),
+      companyCode: String(req.headers["x-company"] || "ACME"),
+      branchId: req.headers["x-branch"],
+    };
     next();
   });
   app.use("/workers", workerRoutes);
@@ -67,6 +71,38 @@ describe("worker HTTP routes", () => {
       expect(update.status).toBe(404);
       const remove = await fetch(`${base}/missing`, { method: "DELETE", headers: { "x-permissions": "worker:manage" } });
       expect(remove.status).toBe(404);
+    });
+  });
++  it("applies a superadmin-selected company and branch scope", async () => {
+    vi.spyOn(WorkerService, "list").mockResolvedValue([] as any);
+    await withServer(async (base) => {
+      const response = await fetch(`${base}?companyCode=labor&branchId=branch-2`, {
+        headers: {
+          "x-company": "",
+          "x-role": "superadmin",
+          "x-permissions": "worker:read",
+        },
+      });
+      expect(response.status).toBe(200);
+      expect(WorkerService.list).toHaveBeenCalledWith({
+        companyCode: "LABOR",
+        branchId: "branch-2",
+      });
+    });
+  });
+
+  it("rejects a tenant user attempting to override authenticated scope", async () => {
+    const list = vi.spyOn(WorkerService, "list").mockResolvedValue([] as any);
+    await withServer(async (base) => {
+      const response = await fetch(`${base}?companyCode=OTHER`, {
+        headers: {
+          "x-company": "ACME",
+          "x-role": "admin",
+          "x-permissions": "worker:read",
+        },
+      });
+      expect(response.status).toBe(403);
+      expect(list).not.toHaveBeenCalled();
     });
   });
 });

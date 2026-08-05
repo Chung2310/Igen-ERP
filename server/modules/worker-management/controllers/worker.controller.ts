@@ -1,16 +1,69 @@
 import type { Request, Response } from "express";
-import { workerScopeFromActor } from "../contracts";
+import {
+  WorkerScopeError,
+  workerScopeFromRequest,
+} from "../contracts";
 import { WorkerService } from "../services/worker.service";
 
+function scopeFromRequest(req: Request) {
+  return workerScopeFromRequest((req as any).user || {}, {
+    companyCode: req.query.companyCode,
+    branchId: req.query.branchId,
+  });
+}
+
+async function handle(
+  res: Response,
+  action: () => Promise<unknown>,
+) {
+  try {
+    return await action();
+  } catch (error) {
+    if (error instanceof WorkerScopeError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    throw error;
+  }
+}
+
 export const workerController = {
-  list: async (req: Request, res: Response) => res.json({ workers: await WorkerService.list(workerScopeFromActor((req as any).user || {})) }),
-  create: async (req: Request, res: Response) => res.status(201).json({ worker: await WorkerService.create(workerScopeFromActor((req as any).user || {}), req.body || {}) }),
-  update: async (req: Request, res: Response) => {
-    const worker = await WorkerService.update(workerScopeFromActor((req as any).user || {}), req.params.id, req.body || {});
-    return worker ? res.json({ worker }) : res.status(404).json({ message: "Worker not found" });
-  },
-  delete: async (req: Request, res: Response) => {
-    const worker = await WorkerService.delete(workerScopeFromActor((req as any).user || {}), req.params.id);
-    return worker ? res.json({ worker }) : res.status(404).json({ message: "Worker not found" });
-  },
+  list: async (req: Request, res: Response) =>
+    handle(res, async () =>
+      res.json({
+        workers: await WorkerService.list(scopeFromRequest(req)),
+      }),
+    ),
+
+  create: async (req: Request, res: Response) =>
+    handle(res, async () =>
+      res.status(201).json({
+        worker: await WorkerService.create(
+          scopeFromRequest(req),
+          req.body || {},
+        ),
+      }),
+    ),
+
+  update: async (req: Request, res: Response) =>
+    handle(res, async () => {
+      const worker = await WorkerService.update(
+        scopeFromRequest(req),
+        req.params.id,
+        req.body || {},
+      );
+      return worker
+        ? res.json({ worker })
+        : res.status(404).json({ message: "Worker not found" });
+    }),
+
+  delete: async (req: Request, res: Response) =>
+    handle(res, async () => {
+      const worker = await WorkerService.delete(
+        scopeFromRequest(req),
+        req.params.id,
+      );
+      return worker
+        ? res.json({ worker })
+        : res.status(404).json({ message: "Worker not found" });
+    }),
 };
