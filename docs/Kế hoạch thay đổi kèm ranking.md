@@ -158,7 +158,7 @@ Nhãn phụ về tuổi lớp chỉ hiển thị khi lớp đã hoàn thành:
 
 ### Ghi chú triển khai
 
-- Khi mở sổ buổi của lớp hoặc lưu điểm danh, hệ thống tự khởi tạo đăng ký còn thiếu cho học viên đã có từ dữ liệu cũ. Số buổi được học lấy theo lịch lớp hợp lệ và số buổi đã học được đếm lại từ lịch sử điểm danh.
+- Khi triển khai, chạy `yarn backfill:batch-enrollments` một lần để khởi tạo đăng ký còn thiếu cho toàn bộ học viên ở lớp cũ; script idempotent nên có thể chạy lại an toàn. Khi mở sổ buổi hoặc lưu điểm danh, hệ thống vẫn tự khởi tạo phần dữ liệu cũ còn thiếu. Số buổi được học lấy theo lịch lớp hợp lệ và số buổi đã học được đếm lại từ lịch sử điểm danh.
 - Bảo lưu lưu lý do, ngày bảo lưu và ngày dự kiến quay lại; học viên bảo lưu không thể được điểm danh có mặt/đi muộn. Khi tiếp tục học, hệ thống chỉ đổi trạng thái và giữ nguyên tổng buổi, buổi đã học và buổi còn lại.
 - Thẻ và bảng lớp hiển thị đồng thời số buổi đã học/tổng số buổi cùng số buổi còn lại để theo dõi tiến độ.
 

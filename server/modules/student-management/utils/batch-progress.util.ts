@@ -3,10 +3,6 @@ import { countRemainingSessions, countTotalSessions } from "./session-count.util
 /** Ngưỡng cảnh báo vàng: lớp còn tối đa 4 buổi theo lịch */
 export const YELLOW_SESSION_THRESHOLD = 4;
 
-/** Mốc nhãn tuổi lớp, tính theo ngày kể từ lúc hoàn thành */
-const AGE_YELLOW_DAYS = 182; // ~6 tháng
-const AGE_RED_DAYS = 365;
-
 export type BatchProgressLevel = "green" | "yellow" | "red" | "grey";
 export type BatchAgeLabel = "yellow" | "red" | null;
 
@@ -36,8 +32,14 @@ interface ProgressOptions {
 
 const CLOSED_STATUSES = ["Đã kết thúc", "Đã hủy"];
 
-function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / 86_400_000);
+function addCalendarMonths(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const targetYear = year + Math.floor(month / 12);
+  const targetMonth = ((month % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+
+  return new Date(Date.UTC(targetYear, targetMonth, Math.min(date.getUTCDate(), lastDay)));
 }
 
 /**
@@ -52,9 +54,9 @@ function computeAgeLabel(input: ProgressInput, today: string): BatchAgeLabel {
   const completedDate = new Date(anchor);
   if (Number.isNaN(completedDate.getTime())) return null;
 
-  const age = daysBetween(completedDate, new Date(`${today}T00:00:00Z`));
-  if (age > AGE_RED_DAYS) return "red";
-  if (age >= AGE_YELLOW_DAYS) return "yellow";
+  const todayDate = new Date(`${today}T00:00:00Z`);
+  if (todayDate > addCalendarMonths(completedDate, 12)) return "red";
+  if (todayDate >= addCalendarMonths(completedDate, 6)) return "yellow";
   return null;
 }
 

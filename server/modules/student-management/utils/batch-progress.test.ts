@@ -60,6 +60,14 @@ it("labels a class finished between six months and a year yellow", () => {
   assert.equal(result.ageLabel, "yellow");
 });
 
+it("labels a class finished exactly six calendar months ago yellow", () => {
+  const result = computeBatchProgress(
+    { ...base, status: "Đã kết thúc", completedAt: "2026-02-28" },
+    at("2026-08-28")
+  );
+  assert.equal(result.ageLabel, "yellow");
+});
+
 it("labels a class finished over a year ago red", () => {
   const result = computeBatchProgress(
     { ...base, status: "Đã kết thúc", completedAt: "2025-01-10" },
