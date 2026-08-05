@@ -131,6 +131,13 @@ export class ExamService {
       { _id: input.studentId },
       { $push: { exams: { id: String(exam._id), name: exam.name, date: exam.officialDate || exam.tentativeDate, type: "Tốt nghiệp", status: "Đã thi", batchId: exam.batchId || "", result: { theory: input.score, practice: 0, simulation: 0, overall: "Chưa có" } } } }
     ))));
+    if (complete && exam.batchId) {
+      const batch = await Batch.findOne({ _id: exam.batchId }).select("courseId").lean();
+      if (batch?.courseId) await Student.updateMany(
+        { _id: { $in: (exam.results || []).map((item) => item.studentId) } },
+        { $addToSet: { completedCourseIds: batch.courseId } },
+      );
+    }
     return exam;
   }
 
@@ -384,30 +391,19 @@ export class ExamService {
       throw new Error("Học viên không thuộc kỳ thi này hoặc không tồn tại.");
     }
 
-    // Set student status and exam subdocument details based on the overallResult
-    let studentStatus: string[];
-    let examStatus: "Sắp thi" | "Đã thi";
+    const examStatus: "Sắp thi" | "Đã thi" = overallResult === "Chưa có" ? "Sắp thi" : "Đã thi";
+    const batch = exam.batchId ? await Batch.findOne({ _id: exam.batchId }).select("courseId").lean() : null;
+    const courseCompletion = overallResult === "Đậu" && batch?.courseId ? { $addToSet: { completedCourseIds: batch.courseId } } : {};
 
-    if (overallResult === "Đậu") {
-      studentStatus = ["Đã đậu"];
-      examStatus = "Đã thi";
-    } else if (overallResult === "Trượt") {
-      studentStatus = ["Thi lại"];
-      examStatus = "Đã thi";
-    } else {
-      studentStatus = ["Đang thi"];
-      examStatus = "Sắp thi";
-    }
-
-    // Update student's status and the specific exam's status & result
+    // Results must not overwrite the student's broader lifecycle status.
     await Student.updateOne(
       { _id: studentId, "exams.id": examId },
       {
         $set: {
-          status: studentStatus,
           "exams.$.status": examStatus,
           "exams.$.result.overall": overallResult,
-        }
+        },
+        ...courseCompletion,
       }
     );
 
@@ -466,6 +462,7 @@ export class ExamService {
       logger.warn(`[Exam] Import results failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
       throw new Error("Kỳ thi không tồn tại.");
     }
+    const batchCourseId = exam.batchId ? (await Batch.findOne({ _id: exam.batchId }).select("courseId").lean())?.courseId || "" : "";
 
     const businessType = "general";
 
@@ -559,19 +556,8 @@ export class ExamService {
           continue;
         }
 
-        let studentStatus: string[];
-        let examStatus: "Sắp thi" | "Đã thi" = "Sắp thi";
-
-        if (overallResult === "Đậu") {
-          studentStatus = ["Đã đậu"];
-          examStatus = "Đã thi";
-        } else if (overallResult === "Trượt") {
-          studentStatus = ["Thi lại"];
-          examStatus = "Đã thi";
-        } else {
-          studentStatus = ["Đang thi"];
-          examStatus = "Sắp thi";
-        }
+        const examStatus: "Sắp thi" | "Đã thi" = overallResult === "Chưa có" ? "Sắp thi" : "Đã thi";
+        const courseCompletion = overallResult === "Đậu" && batchCourseId ? { $addToSet: { completedCourseIds: batchCourseId } } : {};
 
         // Check if student already has this exam entry in history
         const hasExamEntry = student.exams?.some((e) => e.id === examId);
@@ -584,13 +570,13 @@ export class ExamService {
                 examId: exam._id.toString(),
                 examName: exam.name,
                 examDate: exam.tentativeDate,
-                status: studentStatus,
                 "exams.$.status": examStatus,
                 "exams.$.result.theory": theory,
                 "exams.$.result.practice": practice,
                 "exams.$.result.simulation": simulation,
                 "exams.$.result.overall": overallResult,
-              }
+              },
+              ...courseCompletion,
             }
           );
         } else {
@@ -601,8 +587,8 @@ export class ExamService {
                 examId: exam._id.toString(),
                 examName: exam.name,
                 examDate: exam.tentativeDate,
-                status: studentStatus,
               },
+              ...courseCompletion,
               $push: {
                 exams: {
                   id: exam._id.toString(),

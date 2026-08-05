@@ -21,6 +21,7 @@ import {
   erpInputClass
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
+import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { TimeInput24 } from '../../../../components/common/TimeInput24';
 import { useAuth } from '../../../../context/AuthContext';
 import { useBranch } from '../../../../context/BranchContext';
@@ -926,20 +927,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     </div>
                     {form.learningMode === 'roadmap' && (
                       <div className="grid gap-3 md:grid-cols-2">
-                        <ErpSelect value={form.roadmapId} onChange={(event) => setForm((current) => ({ ...current, roadmapId: event.target.value, roadmapStepId: '', courseId: '' }))}>
-                          <option value="">-- Chọn lộ trình --</option>
-                          {roadmaps.map((roadmap) => <option key={roadmap.id} value={roadmap.id}>{roadmap.name}</option>)}
-                        </ErpSelect>
-                        <ErpSelect value={form.roadmapStepId} disabled={!form.roadmapId} onChange={(event) => {
-                          const step = roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps.find((item) => item.id === event.target.value);
-                          setForm((current) => ({ ...current, roadmapStepId: event.target.value, courseId: step?.courseId || '' }));
-                        }}>
-                          <option value="">-- Chọn chặng học --</option>
-                          {(roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps || []).sort((a, b) => a.order - b.order).map((step) => {
-                            const course = courses.find((item) => item.id === step.courseId);
-                            return <option key={step.id} value={step.id}>Chặng {step.order}: {course?.title || 'Khóa học đã xóa'}</option>;
-                          })}
-                        </ErpSelect>
+                        <RoadmapPicker value={form.roadmapId} placeholder="-- Chọn lộ trình --" options={roadmaps.map((roadmap) => ({ value: roadmap.id, label: roadmap.name }))} onChange={(value) => setForm((current) => ({ ...current, roadmapId: value, roadmapStepId: '', courseId: '' }))} />
+                        <RoadmapPicker value={form.roadmapStepId} disabled={!form.roadmapId} placeholder="-- Chọn chặng học --" options={(roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps || []).sort((a, b) => a.order - b.order).map((step) => ({ value: step.id, label: `Chặng ${step.order}: ${courses.find((item) => item.id === step.courseId)?.title || 'Khóa học đã xóa'}` }))} onChange={(value) => { const step = roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps.find((item) => item.id === value); setForm((current) => ({ ...current, roadmapStepId: value, courseId: step?.courseId || '' })); }} />
                       </div>
                     )}
                   </div>
@@ -972,17 +961,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                             className="pl-10 bg-slate-50"
                           />
                         ) : (
-                        <ErpSelect
-                          required={isFieldRequired('courseId', true)}
-                          value={form.courseId}
-                          onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-                          className="pl-10"
-                        >
-                          <option value="" disabled>{`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`}</option>
-                          {courses.map((c) => (
-                            <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
-                          ))}
-                        </ErpSelect>
+                        <RoadmapPicker value={form.courseId} className="h-9 rounded-lg border-slate-200 bg-slate-50 px-3 pl-10 text-xs shadow-none focus:ring-brand-primary/5" placeholder={`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`} options={courses.map((course) => ({ value: course.id, label: `${course.code} — ${course.title}` }))} onChange={(value) => setForm({ ...form, courseId: value })} />
                         )}
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
                           <BookOpen className="w-4 h-4" />
@@ -1145,22 +1124,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <ErpField label={getFieldLabel('room', 'Địa điểm / Phòng học (tùy chọn)')}>
                     <div className="relative">
                       {classrooms.length > 0 ? (
-                        <>
-                          <select
-                            required={isFieldRequired('room', false)}
-                            value={form.location}
-                            onChange={(e) => setForm({ ...form, location: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all appearance-none pr-10 cursor-pointer text-slate-800"
-                          >
-                            <option value="">-- Chọn phòng học --</option>
-                            {classrooms.map(room => (
-                              <option key={room.id} value={room.name}>
-                                {room.name} ({room.identifier})
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                        </>
+                        <RoadmapPicker value={form.location} placeholder="-- Chọn phòng học --" options={classrooms.map((room) => ({ value: room.name, label: `${room.name} (${room.identifier})` }))} onChange={(value) => setForm({ ...form, location: value })} />
                       ) : (
                         <>
                           <ErpInput

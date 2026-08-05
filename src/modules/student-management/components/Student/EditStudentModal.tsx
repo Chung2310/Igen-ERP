@@ -13,6 +13,7 @@ import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { RoadmapPicker } from '../ui/RoadmapPicker';
 import { getOperationalStatusLabel } from '../../config/workerRecruitmentCopy';
 import { isFaceAttendanceVisible } from '../../config/faceAttendanceVisibility';
 import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
@@ -318,10 +319,8 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
-                        <select
-                          value={referralMode}
-                          onChange={(e) => {
-                            const mode = e.target.value as 'none' | 'partner' | 'custom';
+                        <RoadmapPicker value={referralMode} options={[{ value: 'none', label: 'Không có giới thiệu' }, { value: 'partner', label: 'Đối tác / CTV hệ thống' }, { value: 'custom', label: 'Nhập người giới thiệu khác' }]} placeholder="Chọn nguồn giới thiệu" onChange={(value) => {
+                            const mode = value as 'none' | 'partner' | 'custom';
                             setReferralMode(mode);
                             if (mode === 'none') {
                               setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
@@ -330,35 +329,15 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                             } else {
                               setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
                             }
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                        >
-                          <option value="none">Không có giới thiệu</option>
-                          <option value="partner">Đối tác / CTV hệ thống</option>
-                          <option value="custom">Nhập người giới thiệu khác</option>
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          }} />
                       </div>
 
                       {referralMode === 'partner' && (
                         <div className="relative">
-                          <select
-                            value={formData.partnerId}
-                            onChange={(e) => {
-                              const pId = e.target.value;
+                          <RoadmapPicker value={formData.partnerId} placeholder="-- Chọn đối tác --" options={partners.map((partner) => ({ value: partner._id, label: `${partner.name} (${partner.phone})` }))} onChange={(pId) => {
                               const pObj = partners.find(p => p._id === pId);
                               setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
-                            }}
-                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                          >
-                            <option value="">-- Chọn đối tác --</option>
-                            {partners.map(p => (
-                              <option key={p._id} value={p._id}>
-                                {p.name} ({p.phone})
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                            }} />
                         </div>
                       )}
 

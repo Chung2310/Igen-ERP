@@ -27,6 +27,8 @@ export interface DrivingStudent {
   /** Hạng bằng lái — thông tin riêng ngành lái xe, học viên ngành khác để trống */
   rank?: string;
   courseId?: string;
+  /** Các khóa học đã hoàn thành, được ghi nhận khi đạt kết quả thi. */
+  completedCourseIds?: string[];
   registrationDate: string;
   enrollmentDate?: string;
   fee: string; // This is the TOTAL fee string (e.g. "12,000,000")
