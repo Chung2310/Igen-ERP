@@ -1,4 +1,4 @@
-﻿import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 import React from "react";
 import { workerApiFetch } from "./api/client";
@@ -12,6 +12,6 @@ export function useAdminCenters() {
 
 export function useStandardFields(_moduleKey: string, _preset?: string, tenantId?: string) {
   const [fields, setFields] = React.useState([{ key: "phone", label: "Runtime phone", isRequired: true, isVisible: true, isArchived: false }]);
-  React.useEffect(() => { if (!tenantId) return; let active = true; void workerApiFetch<{ data?: typeof fields }>("/worker-management/standard-fields", { params: { tenantId } }).then((body) => { if (active && body.data?.length) setFields(body.data); }).catch(() => undefined); return () => { active = false; }; }, [tenantId]);
+  React.useEffect(() => { if (!tenantId) return; let active = true; void workerApiFetch<{ data?: typeof fields }>("/worker-management/standard-fields", { params: { tenantId, moduleKey: _moduleKey } }).then((body) => { if (active && body.data?.length) setFields(body.data); }).catch(() => undefined); return () => { active = false; }; }, [tenantId]);
   return { fields };
 }
