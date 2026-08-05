@@ -1,39 +1,94 @@
-import { apiFetch } from "../../shared-management/api";
-import type { WorkerProject, WorkerProjectInput } from "../types";
+import { workerApiFetch } from "./client";
+import type {
+  WorkerProject,
+  WorkerProjectInput,
+  WorkerScope,
+} from "../types";
+
+export const WORKER_PROJECTS_BASE = "/worker-management/projects";
+
+const scopeParams = (scope: WorkerScope) => ({
+  companyCode: scope.companyCode,
+  branchId: scope.branchId,
+});
 
 export const workerProjectsApi = {
-  async getList() {
-    return (await apiFetch<{ data: WorkerProject[] }>("/batches")).data;
+  async getList(scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject[] }>(WORKER_PROJECTS_BASE, {
+        params: scopeParams(scope),
+      })
+    ).data;
   },
-  async getDetail(id: string) {
-    return (await apiFetch<{ data: WorkerProject }>(`/batches/${id}`)).data;
+
+  async getDetail(id: string, scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(
+        `${WORKER_PROJECTS_BASE}/${id}`,
+        { params: scopeParams(scope) },
+      )
+    ).data;
   },
-  async create(input: WorkerProjectInput) {
-    return (await apiFetch<{ data: WorkerProject }>("/batches", {
-      method: "POST",
-      body: JSON.stringify(input),
-    })).data;
+
+  async create(input: WorkerProjectInput, scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(WORKER_PROJECTS_BASE, {
+        method: "POST",
+        body: JSON.stringify(input),
+        params: scopeParams(scope),
+      })
+    ).data;
   },
-  async update(id: string, input: Partial<WorkerProjectInput>) {
-    return (await apiFetch<{ data: WorkerProject }>(`/batches/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    })).data;
+
+  async update(
+    id: string,
+    input: Partial<WorkerProjectInput>,
+    scope: WorkerScope,
+  ) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(
+        `${WORKER_PROJECTS_BASE}/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(input),
+          params: scopeParams(scope),
+        },
+      )
+    ).data;
   },
-  async delete(id: string) {
-    return (await apiFetch<{ message: string }>(`/batches/${id}`, {
-      method: "DELETE",
-    }));
+
+  async delete(id: string, scope: WorkerScope) {
+    return workerApiFetch<{ message: string }>(
+      `${WORKER_PROJECTS_BASE}/${id}`,
+      {
+        method: "DELETE",
+        params: scopeParams(scope),
+      },
+    );
   },
-  async addWorker(id: string, workerId: string) {
-    return (await apiFetch<{ data: WorkerProject }>(`/batches/${id}/workers`, {
-      method: "POST",
-      body: JSON.stringify({ workerId }),
-    })).data;
+
+  async addWorker(id: string, workerId: string, scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(
+        `${WORKER_PROJECTS_BASE}/${id}/workers`,
+        {
+          method: "POST",
+          body: JSON.stringify({ workerId }),
+          params: scopeParams(scope),
+        },
+      )
+    ).data;
   },
-  async removeWorker(id: string, workerId: string) {
-    return (await apiFetch<{ data: WorkerProject }>(`/batches/${id}/workers/${workerId}`, {
-      method: "DELETE",
-    })).data;
+
+  async removeWorker(id: string, workerId: string, scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(
+        `${WORKER_PROJECTS_BASE}/${id}/workers/${workerId}`,
+        {
+          method: "DELETE",
+          params: scopeParams(scope),
+        },
+      )
+    ).data;
   },
 };

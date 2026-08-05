@@ -3,6 +3,7 @@ import { Student } from '../../../types';
 import { formatDisplayDate } from '../../../lib/utils';
 import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 import { useBatches } from '../../../hooks/useBatches';
+import { apiFetch } from '../../../lib/api';
 
 interface ProfileTabProps {
   student: Student;
@@ -14,7 +15,15 @@ export function ProfileTab({ student }: ProfileTabProps) {
   const joinedBatches = React.useMemo(
     () => batches.filter((b) => b.learnerIds?.includes(student.id)),
     [batches, student.id],
-  );
+  );  const [retakeHistory, setRetakeHistory] = React.useState<Array<{ batchId: string; batchCode: string; count: number; fee: number; reason: string; at: string }>>([]);
+
+  React.useEffect(() => {
+    let active = true;
+    Promise.all(joinedBatches.map(async (batch) => { const payload = await apiFetch<any>(`/batches/${batch.id}/enrollments`); const response = Array.isArray(payload?.data) ? payload.data : payload; const enrollment = response.find((item) => item.studentId === student.id); return (enrollment?.retakeHistory ?? []).map((entry: any) => ({ batchId: batch.id, batchCode: batch.code, count: entry.count, fee: entry.fee || 0, reason: entry.reason || "", at: entry.at })); })).then((rows) => { if(active) setRetakeHistory(rows.flat()); }).catch(() => { if(active) setRetakeHistory([]); });
+    return () => { active = false; };
+  }, [joinedBatches, student.id]);
+
+
 
   return (
     <div className="space-y-6">
@@ -45,6 +54,10 @@ export function ProfileTab({ student }: ProfileTabProps) {
         />
       </div>
       <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-sm shadow-slate-200/50">
+        <h3 className="mb-4 text-xs font-black uppercase tracking-widest text-slate-500">Lịch sử học lại</h3>
+        {retakeHistory.length === 0 ? <p className="text-sm text-slate-400">Chưa có lịch sử học lại.</p> : <div className="space-y-2">{retakeHistory.map((entry, index) => <div key={`${entry.batchCode}-${entry.at}-${index}`} className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-sm"><p className="font-bold text-indigo-700">Lần {entry.count} · Lớp {entry.batchCode}</p><p className="text-xs text-slate-600">{entry.reason || "Không có lý do"} · {entry.fee > 0 ? `${entry.fee.toLocaleString("vi-VN")}đ` : "Miễn phí"}</p></div>)}</div>}
+      </div>
+        <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 shadow-sm shadow-slate-200/50">
         <CustomFieldDetails moduleKey="students" values={student.customFields ?? {}} />
       </div>
     </div>

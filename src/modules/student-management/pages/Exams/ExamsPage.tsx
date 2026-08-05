@@ -4,36 +4,38 @@ import {
   Plus, Download, Printer,
   ChevronDown, Trash2,
   ClipboardList, CheckCircle2, Clock, Users as UsersIcon,
-  X, Eye
+  X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { useExams } from '../../hooks/useExams';
 import { useStudents } from '../../hooks/useStudents';
-import { ExamSession, ExamStatus } from '../../types';
+import { useBatches } from '../../hooks/useBatches';
+import { ExamSession } from '../../types';
 import { AddExamModal } from '../../components/Exams/AddExamModal';
-import { ExamStatusModal } from '../../components/Exams/ExamStatusModal';
 import { AssignStudentModal } from '../../components/Exams/AssignStudentModal';
 import { ExamCard } from '../../components/Exams/ExamCard';
 import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ErpModal } from '../../components/Erp/ErpUI';
+import { getBatchProgression, getWaitlist, placeWaitlist, saveProgression, type BatchProgression } from '../../api/learningRoadmap.api';
 
 export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { exams, loading: examsLoading } = useExams(resolvedCenter);
   const { students } = useStudents(resolvedCenter);
+  const { batches } = useBatches(resolvedCenter);
 
   const [activeTab, setActiveTab] = useState<'exams' | 'students'>('exams');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamSession | null>(null);
-  const [statusModalExam, setStatusModalExam] = useState<ExamSession | null>(null);
   const [assignModalExam, setAssignModalExam] = useState<ExamSession | null>(null);
   const [deleteModalExam, setDeleteModalExam] = useState<ExamSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewingExam, setViewingExam] = useState<ExamSession | null>(null);
+  const [progressingExam, setProgressingExam] = useState<ExamSession | null>(null);
 
   // Stats
   const stats = {
@@ -112,21 +114,6 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
     currentPage * pageSize
   );
 
-  const getStatusInfo = (status: ExamStatus) => {
-    switch (status) {
-      case 'Đã hoàn thành':
-        return { color: 'text-emerald-500 bg-emerald-50 border-emerald-100', icon: CheckCircle2, label: 'Đã hoàn thành' };
-      case 'Sắp diễn ra':
-        return { color: 'text-amber-500 bg-amber-50 border-amber-100', icon: Clock, label: 'Sắp diễn ra' };
-      case 'Đã xác nhận':
-        return { color: 'text-blue-500 bg-blue-50 border-blue-100', icon: CheckCircle2, label: 'Đã xác nhận' };
-      case 'Đã hủy':
-        return { color: 'text-rose-500 bg-rose-50 border-rose-100', icon: X, label: 'Đã hủy' };
-      default:
-        return { color: 'text-slate-500 bg-slate-50 border-slate-100', icon: ClipboardList, label: status };
-    }
-  };
-
   const handleDeleteExam = async () => {
     if (!deleteModalExam) return;
 
@@ -148,10 +135,6 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
   const handleEditExam = (exam: ExamSession) => {
     setEditingExam(exam);
     setIsAddModalOpen(true);
-  };
-
-  const handleStatusUpdate = (exam: ExamSession) => {
-    setStatusModalExam(exam);
   };
 
   const handleAssignStudent = (exam: ExamSession) => {
@@ -397,13 +380,14 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
               <ExamCard
                 key={exam.id}
                 exam={exam}
-                assignedStudents={students.filter(s => s.examId === exam.id)}
-                getStatusInfo={getStatusInfo}
+                assignedStudents={exam.batchId ? students.filter((student) => batches.find((batch) => batch.id === exam.batchId)?.learnerIds.includes(student.id)) : students.filter(s => s.examId === exam.id)}
                 onDelete={() => setDeleteModalExam(exam)}
                 onEdit={() => handleEditExam(exam)}
-                onStatusClick={() => handleStatusUpdate(exam)}
                 onAssignClick={() => handleAssignStudent(exam)}
-                onViewDetail={() => setViewingExam(exam)}
+                onProgressRoute={exam.batchId ? async () => {
+                  if ((exam.results || []).some((item) => typeof item.score !== 'number')) { toast.warning('Hãy nhập đủ điểm thi trước khi chuyển lộ trình.'); return; }
+                  setProgressingExam(exam);
+                } : undefined}
                 onUnassignStudent={async (studentId) => {
                   try {
                     await apiFetch(`/exams/${exam.id}/unassign`, {
@@ -430,6 +414,17 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                   } catch (error) {
                     console.error("Error updating student result:", error);
                     toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật kết quả thi."));
+                  }
+                }}
+                onSaveStudentScores={async (results) => {
+                  try {
+                    await apiFetch(`/exams/${exam.id}/results`, { method: 'PATCH', body: JSON.stringify({ results }) });
+                    window.dispatchEvent(new Event("student-mutation"));
+                    window.dispatchEvent(new Event("exam-mutation"));
+                    toast.success(`Đã lưu điểm cho ${results.length} học viên.`);
+                  } catch (error) {
+                    toast.error(getApiErrorMessage(error, "Không thể lưu điểm thi."));
+                    throw error;
                   }
                 }}
               />
@@ -461,13 +456,6 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
         onSuccess={() => { }}
         initialData={editingExam}
         tenantId={resolvedCenter || editingExam?.ownerId}
-      />
-
-      <ExamStatusModal
-        isOpen={!!statusModalExam}
-        exam={statusModalExam}
-        onClose={() => setStatusModalExam(null)}
-        onSuccess={() => { }}
       />
 
       <AssignStudentModal
@@ -582,8 +570,62 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           </div>
         </ErpModal>
       )}
+      {progressingExam ? <ExamProgressionModal exam={progressingExam} students={students} batches={batches} onClose={() => setProgressingExam(null)} /> : null}
     </div>
   );
+}
+
+function ExamProgressionModal({ exam, students, batches, onClose }: { exam: ExamSession; students: import('../../types').DrivingStudent[]; batches: import('../../types').Batch[]; onClose: () => void }) {
+  const [progression, setProgression] = React.useState<BatchProgression | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [targetBatchId, setTargetBatchId] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const resultFor = (studentId: string) => students.find((student) => student.id === studentId)?.exams?.find((entry) => entry.id === exam.id)?.result?.overall || "Chưa có";
+  const passedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Đậu");
+  const failedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Trượt");
+  const passedStudents = students.filter((student) => passedIds.includes(student.id));
+  const targetBatches = progression?.targetStep ? batches.filter((batch) => batch.courseId === progression.targetStep!.courseId && batch.status === "Sắp khai giảng") : [];
+
+  React.useEffect(() => {
+    let active = true;
+    if (!exam.batchId) return;
+    void getBatchProgression(exam.batchId, "").then((data) => {
+      if (!active) return;
+      setProgression(data);
+      setSelectedIds((data.rows || []).map((row) => row.studentId).filter((id) => passedIds.includes(id)));
+    }).catch((error) => toast.error(getApiErrorMessage(error, "Không thể tải chặng lộ trình kế tiếp."))).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [exam.batchId]);
+
+  const promote = async () => {
+    if (!exam.batchId || !progression?.selectedRoadmapId || !progression.targetStep || !targetBatchId || !selectedIds.length) return;
+    setSaving(true);
+    try {
+      await Promise.all(selectedIds.map((studentId) => saveProgression(exam.batchId!, studentId, { roadmapId: progression.selectedRoadmapId, intent: "continue", teacherConfirmed: true, teacherNote: "Đạt kết quả thi", overrideEligible: true, overrideReason: "Đạt kết quả thi" })));
+      const waitlist = await getWaitlist({ page: 1, limit: 100, roadmapId: progression.selectedRoadmapId, targetStepId: progression.targetStep.id, batchId: exam.batchId });
+      const entryIds = waitlist.items.filter((item) => selectedIds.includes(item.studentId)).map((item) => item.id);
+      if (entryIds.length !== selectedIds.length) throw new Error("Không thể tạo đủ danh sách học viên để xếp lớp.");
+      await placeWaitlist(targetBatchId, entryIds);
+      toast.success(`Đã chuyển ${selectedIds.length} học viên vào lớp khóa học tiếp theo.`);
+      window.dispatchEvent(new Event("batch-mutation"));
+      window.dispatchEvent(new Event("student-mutation"));
+      onClose();
+    } catch (error) { toast.error(getApiErrorMessage(error, "Không thể chuyển học viên sang lớp tiếp theo.")); }
+    finally { setSaving(false); }
+  };
+
+  return <ErpModal title="Chuyển lộ trình tiếp theo" onClose={onClose} maxWidth="max-w-3xl">
+    <p className="text-sm text-slate-500">Lớp nguồn vẫn giữ nguyên trạng thái hoạt động. Chỉ các học viên được chọn mới được xếp vào lớp của khóa học kế tiếp.</p>
+    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{exam.results?.length || 0}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
+    {loading ? <p className="py-6 text-center text-sm text-slate-500">Đang kiểm tra lộ trình...</p> : !progression?.targetStep ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Lớp này chưa được gắn lộ trình hoặc đang ở chặng cuối nên chưa có khóa học tiếp theo.</p> : <>
+      <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800">Chặng kế tiếp: <b>{progression.targetStep.order}</b>. Chọn lớp mở cho khóa học này và các học viên đậu cần chuyển.</div>
+      <select value={targetBatchId} onChange={(event) => setTargetBatchId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Chọn lớp khóa học tiếp theo</option>{targetBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} · {batch.courseTitle} ({batch.learnerIds.length}/{batch.maxLearners || "∞"})</option>)}</select>
+      {!targetBatches.length ? <p className="text-xs text-amber-700">Chưa có lớp “Sắp khai giảng” cho khóa học kế tiếp.</p> : null}
+      <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200"><label className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2 text-sm font-bold"><input type="checkbox" checked={passedStudents.length > 0 && selectedIds.length === passedStudents.length} onChange={(event) => setSelectedIds(event.target.checked ? passedStudents.map((student) => student.id) : [])} />Chọn tất cả học viên đậu ({passedStudents.length})</label>{passedStudents.map((student) => <label key={student.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-0"><input type="checkbox" checked={selectedIds.includes(student.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span className="flex-1 font-medium">{student.fullName}</span><span className="text-xs text-slate-400">{student.phone}</span><span className="text-xs font-bold text-emerald-600">Đậu</span></label>)}</div>
+      <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-600">Hủy</button><button type="button" disabled={saving || !targetBatchId || !selectedIds.length} onClick={() => void promote()} className="h-10 rounded-lg bg-cyan-700 px-4 text-sm font-bold text-white disabled:opacity-50">{saving ? "Đang chuyển..." : `Chuyển ${selectedIds.length} học viên`}</button></div>
+    </>}
+  </ErpModal>;
 }
 
 interface StatCardProps {

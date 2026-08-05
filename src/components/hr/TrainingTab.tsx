@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Award,
   BookOpen,
@@ -17,7 +17,9 @@ import {
   Video,
   Eye,
   AlertCircle,
-  Edit2
+  Edit2,
+  Upload,
+  Paperclip
 } from "lucide-react";
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
@@ -108,6 +110,8 @@ export default function TrainingTab({
   // New state variables for lessons and quizzes
   const [courseFormLessons, setCourseFormLessons] = useState<Lesson[]>([]);
   const [courseFormQuizzes, setCourseFormQuizzes] = useState<QuizQuestion[]>([]);
+  const [uploadingLessonFileIndex, setUploadingLessonFileIndex] = useState<number | null>(null);
+  const lessonFileInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // Active study player state
   const [activeStudyCourse, setActiveStudyCourse] = useState<TrainingCourse | null>(null);
@@ -705,6 +709,22 @@ export default function TrainingTab({
     }));
   };
 
+  const handleLessonFileUpload = async (index: number, file: File) => {
+    if (!file) return;
+    setUploadingLessonFileIndex(index);
+    try {
+      const url = await authService.uploadFile(file);
+      setCourseFormLessons(prev => prev.map((les, idx) =>
+        idx === index ? { ...les, url, fileName: file.name } : les
+      ));
+      toast.success(`Đã tải lên tài liệu "${file.name}" thành công!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Tải file tài liệu thất bại.");
+    } finally {
+      setUploadingLessonFileIndex(null);
+    }
+  };
+
   const handleAddQuizForm = () => {
     setCourseFormQuizzes(prev => [
       ...prev,
@@ -1087,15 +1107,68 @@ export default function TrainingTab({
                               />
                             </div>
                           ) : (
-                            <div>
-                              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Nội dung giáo trình bài viết *</label>
-                              <textarea
-                                required
-                                placeholder="Nhập giáo trình lý thuyết chi tiết..."
-                                value={les.content}
-                                onChange={(e) => handleLessonFormChange(index, "content", e.target.value)}
-                                className="w-full p-3 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none min-h-[60px] transition-all resize-y"
-                              />
+                            <div className="space-y-2">
+                              {/* File upload for text/document lesson */}
+                              <div>
+                                <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tài liệu đính kèm (PDF, Word, PPT...)</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    ref={el => { lessonFileInputsRef.current[index] = el; }}
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (file) handleLessonFileUpload(index, file);
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={uploadingLessonFileIndex === index}
+                                    onClick={() => lessonFileInputsRef.current[index]?.click()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold cursor-pointer active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {uploadingLessonFileIndex === index ? (
+                                      <><RefreshCw className="w-3 h-3 animate-spin" /> Đang tải lên...</>
+                                    ) : (
+                                      <><Upload className="w-3 h-3" /> Tải file lên</>  
+                                    )}
+                                  </button>
+                                  {les.url && (
+                                    <a
+                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold hover:underline truncate max-w-[180px]"
+                                      title={les.url}
+                                    >
+                                      <Paperclip className="w-3 h-3 shrink-0" />
+                                      Xem tài liệu
+                                    </a>
+                                  )}
+                                  {les.url && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleLessonFormChange(index, "url", "")}
+                                      className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                                      title="Xóa tài liệu"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Text content area */}
+                              <div>
+                                <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Nội dung bài viết (Tùy chọn)</label>
+                                <textarea
+                                  placeholder="Nhập giáo trình lý thuyết chi tiết..."
+                                  value={les.content}
+                                  onChange={(e) => handleLessonFormChange(index, "content", e.target.value)}
+                                  className="w-full p-3 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none min-h-[60px] transition-all resize-y"
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1455,8 +1528,45 @@ export default function TrainingTab({
                             </div>
                           </div>
                         ) : (
-                          <div className="bg-white border border-gray-250 p-6 rounded-2xl shadow-3xs leading-relaxed text-xs text-slate-700 whitespace-pre-wrap font-sans">
-                            {les.content}
+                          <div className="space-y-4">
+                            {/* Document attachment preview */}
+                            {les.url && (
+                              <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-gray-100 select-none">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                                      <FileText className="w-3.5 h-3.5" /> Xem tài liệu bài giảng
+                                    </span>
+                                    <a
+                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-sans"
+                                    >
+                                      <ExternalLink className="w-3 h-3" /> Tải về tài liệu
+                                    </a>
+                                  </div>
+                                  <div className="relative w-full" style={{ height: "550px" }}>
+                                    <iframe
+                                      src={`https://docs.google.com/gview?url=${encodeURIComponent(les.url)}&embedded=true`}
+                                      className="w-full h-full border-0"
+                                      title={les.title}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {/* Text content */}
+                            {les.content && (
+                              <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-xs leading-relaxed text-xs text-slate-700 whitespace-pre-wrap font-sans">
+                                {les.content}
+                              </div>
+                            )}
+                            {!les.url && !les.content && (
+                              <div className="bg-slate-50 border border-dashed border-slate-200 p-8 rounded-2xl text-center text-xs text-slate-400">
+                                Bài giảng này chưa có nội dung hoặc tài liệu đính kèm.
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

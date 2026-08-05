@@ -7,6 +7,7 @@ const LessonSchema = new Schema(
     url: { type: String, required: false },
     type: { type: String, enum: ["youtube", "document", "other", "text", "video"], required: true },
     content: { type: String },
+    fileName: { type: String },
   },
   { _id: false }
 );

@@ -18,6 +18,8 @@ export const createExamSchema = Joi.object({
   location: Joi.string().required().messages({
     "any.required": "Địa điểm thi là bắt buộc.",
   }),
+  batchId: objectIdSchema.required(),
+  maxScore: Joi.number().min(1).max(10000).default(100),
   studentCount: Joi.number().optional(),
   passCount: Joi.number().optional(),
   failCount: Joi.number().optional(),
@@ -32,6 +34,8 @@ export const updateExamSchema = Joi.object({
   tentativeDate: Joi.string().optional(),
   officialDate: Joi.string().allow("").optional(),
   location: Joi.string().optional(),
+  batchId: objectIdSchema.optional(),
+  maxScore: Joi.number().min(1).max(10000).optional(),
   studentCount: Joi.number().optional(),
   passCount: Joi.number().optional(),
   failCount: Joi.number().optional(),
@@ -57,6 +61,10 @@ export const updateStudentResultSchema = Joi.object({
     "any.required": "Kết quả thi (overallResult) là bắt buộc.",
     "any.only": "Kết quả thi chỉ được phép là 'Đậu', 'Trượt' hoặc 'Chưa có'.",
   }),
+});
+
+export const gradeExamSchema = Joi.object({
+  results: Joi.array().items(Joi.object({ studentId: objectIdSchema.required(), score: Joi.number().min(0).required(), note: Joi.string().allow("").max(1000).default("") })).min(1).required(),
 });
 
 export const examStudentParamsSchema = Joi.object({

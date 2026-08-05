@@ -1,16 +1,13 @@
 import { Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "../../../middleware/auth";
+import { workerScopeFromRequest } from "../contracts";
 import { WorkerProjectService } from "../services/worker-project.service";
 
 function getScope(req: AuthenticatedRequest) {
-  const companyCode = req.user?.companyCode;
-  if (!companyCode) {
-    throw new Error("Không xác định được mã công ty của tài khoản.");
-  }
-  return {
-    companyCode,
-    branchId: req.user?.branchId,
-  };
+  return workerScopeFromRequest(req.user || {}, {
+    companyCode: req.query.companyCode,
+    branchId: req.query.branchId,
+  });
 }
 
 export class WorkerProjectController {
@@ -27,7 +24,8 @@ export class WorkerProjectController {
   static async getList(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const scope = getScope(req);
-      const list = await WorkerProjectService.list(scope, req.query);
+      const { companyCode: _companyCode, branchId: _branchId, ...filters } = req.query;
+      const list = await WorkerProjectService.list(scope, filters);
       res.json({ success: true, data: list });
     } catch (error: unknown) {
       next(error);

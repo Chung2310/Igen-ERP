@@ -48,7 +48,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
   const url = item.fileUrl;
   const kind = getPreviewKind(item.mimeType, item.name);
-  const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
+  const token = localStorage.getItem("accessToken") || "";
+  const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}&token=${encodeURIComponent(token)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
   const lowerName = item.name.toLowerCase();
@@ -224,7 +225,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
             )}
 
             {kind === "pdf" && (
-              <iframe src={url} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
+              <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
             )}
 
             {kind === "text" && (
@@ -313,79 +314,23 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                   />
                 </React.Suspense>
               ) : (
-                <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
-                  <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-md border border-slate-100 ${color}`}>
-                    <Icon className="w-10 h-10" strokeWidth={1.4} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-bold text-slate-800 text-base">{item.name}</p>
-                    <p className="text-sm text-slate-500 leading-relaxed">
-                      Tệp Office không thể xem trực tiếp trên trình duyệt.<br />
-                      Bạn có thể tải xuống hoặc mở tệp trong tab mới để xem nội dung.
-                    </p>
-                    <p className="text-xs text-slate-400">{(item.mimeType || "Tệp").replace(/^application\//, "")} · {formatBytes(item.size)}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Mở tab mới
-                    </a>
-                    {!hideDownload && (
-                      <button
-                        onClick={handleDownload}
-                        disabled={downloading}
-                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer disabled:opacity-50"
-                      >
-                        {downloading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        Tải xuống
-                      </button>
-                    )}
-                  </div>
+                <div className="relative h-[80vh] w-full">
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
+                    title={item.name}
+                    className="relative h-full w-full border-0 bg-white"
+                  />
                 </div>
               )
             )}
 
             {kind === "unsupported" && (
-              <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-8 text-center">
-                <FileQuestion className="w-16 h-16 text-slate-300" />
-                <div>
-                  <p className="font-semibold text-slate-600">Không thể xem trước loại tệp này</p>
-                  <p className="text-sm text-slate-400">Bạn có thể mở trong tab mới hoặc tải xuống để xem.</p>
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Mở tab mới
-                  </a>
-                  {!hideDownload && (
-                    <button
-                      onClick={handleDownload}
-                      disabled={downloading}
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-                    >
-                      {downloading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      Tải xuống
-                    </button>
-                  )}
-                </div>
+              <div className="relative h-[80vh] w-full">
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
+                  title={item.name}
+                  className="relative h-full w-full border-0 bg-white"
+                />
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  X, Printer, FileText, CreditCard, History, ScanFace
+  X, Printer, FileText, CreditCard, History, ScanFace, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Student } from '../../types';
 import { apiFetch } from '../../lib/api';
@@ -17,6 +17,7 @@ import { ProfileTab } from './DetailTabs/ProfileTab';
 import { TuitionTab } from './DetailTabs/TuitionTab';
 import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
 import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
+import { QualityTab } from './DetailTabs/QualityTab';
 
 interface StudentDetailModalProps {
   student: Student | null;
@@ -25,7 +26,7 @@ interface StudentDetailModalProps {
   initialTab?: TabType;
 }
 
-type TabType = 'Hồ sơ' | 'Học phí' | 'Khuôn mặt' | 'Lịch sử';
+type TabType = 'Hồ sơ' | 'Học phí' | 'Khuôn mặt' | 'Lịch sử học tập' | 'Lịch sử';
 
 export function StudentDetailModal({ student: initialStudent, selectedCenter, onClose, initialTab = 'Hồ sơ' }: StudentDetailModalProps) {
   const { userProfile: user } = useAuth();
@@ -34,6 +35,8 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const [student, setStudent] = React.useState<Student | null>(initialStudent);
   const [activeTab, setActiveTab] = React.useState<TabType>(initialTab);
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const scrollTabs = (direction: "left" | "right") => tabsRef.current?.scrollBy({ left: direction === "left" ? -220 : 220, behavior: "smooth" });
 
   interface EditingPaymentState {
     index: number;
@@ -87,7 +90,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const tabs: TabType[] = operationalCopy.isWorker || operationalCopy.isCustomer
     ? ['Hồ sơ', 'Lịch sử']
-    : ['Hồ sơ', 'Học phí', 'Lịch sử'];
+    : ['Hồ sơ', 'Lịch sử học tập', 'Học phí', 'Lịch sử'];
 
   // Nếu tab đang mở không còn khả dụng thì quay về Hồ sơ
   React.useEffect(() => {
@@ -287,8 +290,9 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
               </div>
 
               {/* Tab Navigation */}
-              <div className="mt-6 sm:mt-8">
-                <div className="flex items-center justify-start gap-1 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-1">
+              <div className="mt-6 flex items-center gap-2 sm:mt-8">
+                <button type="button" title="Tab trước" onClick={() => scrollTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
+                <div ref={tabsRef} className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto no-scrollbar scroll-smooth pb-1 sm:gap-2">
                   {tabs.map((tab) => (
                     <button
                       key={tab}
@@ -305,6 +309,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                     </button>
                   ))}
                 </div>
+                <button type="button" title="Tab sau" onClick={() => scrollTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
 
@@ -317,7 +322,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                 transition={{ duration: 0.3 }}
                 className="w-full"
               >
-                {student && activeTab === tabs[tabs.length - 1] && <StudentHistoryTab student={student} />}
+                {student && activeTab === tabs[tabs.length - 1] && <StudentExamHistoryTab student={student} />}
                 {student && activeTab === 'Hồ sơ' && (
                   <ProfileTab student={student} selectedCenter={selectedCenter} />
                 )}
@@ -336,9 +341,14 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   <FaceEnrollmentTab student={student} />
                 )}
 
+                {student && activeTab === 'Lịch sử học tập' && (
+                  <QualityTab student={student} />
+                )}
+
                 {activeTab !== 'Hồ sơ' &&
                   activeTab !== 'Học phí' &&
                   activeTab !== 'Khuôn mặt' &&
+                  activeTab !== 'Lịch sử học tập' &&
                   activeTab !== 'Lịch sử' && (
                     <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
                       <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
@@ -369,9 +379,15 @@ function TabIcon({ tab, size = 16 }: { tab: TabType, size?: number }) {
     case 'Hồ sơ': return <FileText size={size} />;
     case 'Học phí': return <CreditCard size={size} />;
     case 'Khuôn mặt': return <ScanFace size={size} />;
+    case 'Lịch sử học tập': return <History size={size} />;
     case 'Lịch sử': return <History size={size} />;
     default: return null;
   }
+}
+
+function StudentExamHistoryTab({ student }: { student: Student }) {
+  const exams = student.exams || [];
+  return <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-5"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black text-slate-800">Bài thi đã làm</h3><p className="mt-1 text-xs text-slate-400">Điểm số và kết quả của từng bài thi.</p></div><span className="text-xs font-bold text-slate-400">{exams.length} bài thi</span></div>{!exams.length ? <div className="py-10 text-center text-sm text-slate-400">Chưa có bài thi nào được ghi nhận.</div> : <div className="space-y-2">{[...exams].reverse().map((exam, index) => { const scores = [["Lý thuyết", exam.result?.theory], ["Thực hành", exam.result?.practice], ["Mô phỏng", exam.result?.simulation]].filter(([, score]) => typeof score === "number" && score > 0) as Array<[string, number]>; const overall = exam.result?.overall; return <div key={exam.id || index} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700"><FileText className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-700">{exam.name}</p><p className="mt-0.5 text-xs text-slate-400">{exam.type} · {toDisplayDate(exam.date)}</p>{scores.length ? <p className="mt-1 text-xs font-semibold text-cyan-700">{scores.map(([label, score]) => `${label}: ${score}`).join(" · ")}</p> : null}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${overall === "Đậu" ? "bg-emerald-50 text-emerald-700" : overall === "Trượt" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>{overall || "Chưa có kết quả"}</span></div>; })}</div>}</div>;
 }
 
 function StudentHistoryTab({ student }: { student: Student }) {

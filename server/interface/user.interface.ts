@@ -115,12 +115,14 @@ export interface IUser extends Document {
   
   // Org Chart & SaaS fields
   jobTitle?: string;
+  qualification?: string;
   department?: string;
   jobDescriptionLink?: string;
   phone?: string;
   level?: number;
   parentId?: string;
   status?: "online" | "offline";
+  isLeader?: boolean;
   disabledAt?: Date | null;
   division?: string;
   companyCode?: string;

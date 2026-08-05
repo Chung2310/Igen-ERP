@@ -1,5 +1,6 @@
 import { Exam } from "../models/exam.model";
 import { Student } from "../models/student.model";
+import { Batch } from "../models/batch.model";
 import { IExam } from "../interfaces/exam.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
@@ -96,13 +97,48 @@ export class ExamService {
   static async createExam(ownerId: string, data: ExamCreateData, context: CustomFieldWriteContext): Promise<IExam> {
     logger.info(`[Exam] Creating exam for ownerId=${ownerId}, data=${JSON.stringify(data)}`);
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
-    const exam = new Exam({
-      ...writeData,
-      ownerId,
-    });
+    const batchId = String(writeData.batchId || "");
+    if (!batchId) throw new Error("Hãy chọn lớp học cho lịch thi.");
+    const batch = await Batch.findOne({ _id: batchId, ownerId, branchId: writeData.branchId });
+    if (!batch) throw new Error("Không tìm thấy lớp học của lịch thi.");
+    const exam = new Exam({ ...writeData, ownerId, studentCount: batch.learnerIds.length, results: batch.learnerIds.map((studentId) => ({ studentId })) });
     const savedExam = await exam.save();
     logger.info(`[Exam] Exam created successfully: id=${savedExam._id}, name=${savedExam.name}`);
     return savedExam;
+  }
+
+  static async gradeResults(ownerId: string | string[], examId: string, results: Array<{ studentId: string; score: number; note?: string }>, actorId: string, branchId?: string) {
+    const query: Record<string, unknown> = { _id: examId };
+    if (ownerId !== "ALL") query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
+    if (branchId) query.branchId = branchId;
+    const exam = await Exam.findOne(query);
+    if (!exam) throw new Error("Không tìm thấy lịch thi.");
+    const allowedStudents = new Set((exam.results || []).map((item) => item.studentId));
+    const invalid = results.find((item) => !allowedStudents.has(item.studentId) || item.score > (exam.maxScore || 100));
+    if (invalid) throw new Error("Điểm hoặc học viên không hợp lệ cho lịch thi này.");
+    const now = new Date();
+    for (const input of results) {
+      const item = exam.results?.find((result) => result.studentId === input.studentId);
+      if (item) { item.score = input.score; item.note = input.note || ""; item.gradedBy = actorId; item.gradedAt = now; }
+    }
+    const complete = (exam.results || []).every((item) => typeof item.score === "number");
+    exam.status = complete ? "Đã hoàn thành" : exam.status;
+    await exam.save();
+    await Promise.all(results.map((input) => Student.updateOne(
+      { _id: input.studentId },
+      { $pull: { exams: { id: String(exam._id) } } }
+    ).then(() => Student.updateOne(
+      { _id: input.studentId },
+      { $push: { exams: { id: String(exam._id), name: exam.name, date: exam.officialDate || exam.tentativeDate, type: "Tốt nghiệp", status: "Đã thi", batchId: exam.batchId || "", result: { theory: input.score, practice: 0, simulation: 0, overall: "Chưa có" } } } }
+    ))));
+    if (complete && exam.batchId) {
+      const batch = await Batch.findOne({ _id: exam.batchId }).select("courseId").lean();
+      if (batch?.courseId) await Student.updateMany(
+        { _id: { $in: (exam.results || []).map((item) => item.studentId) } },
+        { $addToSet: { completedCourseIds: batch.courseId } },
+      );
+    }
+    return exam;
   }
 
   static async getExams(ownerId: string | string[], filters: ExamFilters, branchId?: string) {
@@ -355,30 +391,19 @@ export class ExamService {
       throw new Error("Học viên không thuộc kỳ thi này hoặc không tồn tại.");
     }
 
-    // Set student status and exam subdocument details based on the overallResult
-    let studentStatus: string[];
-    let examStatus: "Sắp thi" | "Đã thi";
+    const examStatus: "Sắp thi" | "Đã thi" = overallResult === "Chưa có" ? "Sắp thi" : "Đã thi";
+    const batch = exam.batchId ? await Batch.findOne({ _id: exam.batchId }).select("courseId").lean() : null;
+    const courseCompletion = overallResult === "Đậu" && batch?.courseId ? { $addToSet: { completedCourseIds: batch.courseId } } : {};
 
-    if (overallResult === "Đậu") {
-      studentStatus = ["Đã đậu"];
-      examStatus = "Đã thi";
-    } else if (overallResult === "Trượt") {
-      studentStatus = ["Thi lại"];
-      examStatus = "Đã thi";
-    } else {
-      studentStatus = ["Đang thi"];
-      examStatus = "Sắp thi";
-    }
-
-    // Update student's status and the specific exam's status & result
+    // Results must not overwrite the student's broader lifecycle status.
     await Student.updateOne(
       { _id: studentId, "exams.id": examId },
       {
         $set: {
-          status: studentStatus,
           "exams.$.status": examStatus,
           "exams.$.result.overall": overallResult,
-        }
+        },
+        ...courseCompletion,
       }
     );
 
@@ -437,6 +462,7 @@ export class ExamService {
       logger.warn(`[Exam] Import results failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
       throw new Error("Kỳ thi không tồn tại.");
     }
+    const batchCourseId = exam.batchId ? (await Batch.findOne({ _id: exam.batchId }).select("courseId").lean())?.courseId || "" : "";
 
     const businessType = "general";
 
@@ -530,19 +556,8 @@ export class ExamService {
           continue;
         }
 
-        let studentStatus: string[];
-        let examStatus: "Sắp thi" | "Đã thi" = "Sắp thi";
-
-        if (overallResult === "Đậu") {
-          studentStatus = ["Đã đậu"];
-          examStatus = "Đã thi";
-        } else if (overallResult === "Trượt") {
-          studentStatus = ["Thi lại"];
-          examStatus = "Đã thi";
-        } else {
-          studentStatus = ["Đang thi"];
-          examStatus = "Sắp thi";
-        }
+        const examStatus: "Sắp thi" | "Đã thi" = overallResult === "Chưa có" ? "Sắp thi" : "Đã thi";
+        const courseCompletion = overallResult === "Đậu" && batchCourseId ? { $addToSet: { completedCourseIds: batchCourseId } } : {};
 
         // Check if student already has this exam entry in history
         const hasExamEntry = student.exams?.some((e) => e.id === examId);
@@ -555,13 +570,13 @@ export class ExamService {
                 examId: exam._id.toString(),
                 examName: exam.name,
                 examDate: exam.tentativeDate,
-                status: studentStatus,
                 "exams.$.status": examStatus,
                 "exams.$.result.theory": theory,
                 "exams.$.result.practice": practice,
                 "exams.$.result.simulation": simulation,
                 "exams.$.result.overall": overallResult,
-              }
+              },
+              ...courseCompletion,
             }
           );
         } else {
@@ -572,8 +587,8 @@ export class ExamService {
                 examId: exam._id.toString(),
                 examName: exam.name,
                 examDate: exam.tentativeDate,
-                status: studentStatus,
               },
+              ...courseCompletion,
               $push: {
                 exams: {
                   id: exam._id.toString(),

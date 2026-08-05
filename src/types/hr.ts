@@ -87,7 +87,9 @@ export interface EmployeeNode {
   parentId?: string;
   status: "online" | "offline";
   division: string;
+  isLeader?: boolean;
   jobDescriptionLink?: string;
+  qualification?: string;
   monthlySalary?: number;
 }
 
@@ -144,6 +146,7 @@ export interface Lesson {
   url: string;
   type: "youtube" | "document" | "other" | "text" | "video";
   content?: string;
+  fileName?: string;
 }
 
 export interface QuizQuestion {

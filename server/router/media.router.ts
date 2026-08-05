@@ -8,6 +8,50 @@ import http from "http";
 
 export const mediaRouter = Router();
 
+/**
+ * Dò định dạng file thật qua magic bytes (chữ ký nhị phân đầu file).
+ * Dùng khi URL lưu trên Cloudinary không có đuôi mở rộng và client cũng
+ * không gửi được filename gốc (dữ liệu cũ), để tránh tải về file không có đuôi.
+ */
+function sniffFileExtension(buffer: Buffer): string {
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString("ascii") === "%PDF") {
+    return ".pdf";
+  }
+  if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && (buffer[2] === 0x03 || buffer[2] === 0x05 || buffer[2] === 0x07)) {
+    // Zip-based: docx/xlsx/pptx đều bắt đầu bằng "PK", phân biệt qua tên thư mục nội bộ.
+    const text = buffer.toString("latin1");
+    if (text.includes("word/")) return ".docx";
+    if (text.includes("xl/")) return ".xlsx";
+    if (text.includes("ppt/")) return ".pptx";
+    return ".zip";
+  }
+  if (buffer.length >= 8 && buffer.subarray(0, 8).toString("hex") === "d0cf11e0a1b11ae1") {
+    return ".doc"; // Office cũ (doc/xls/ppt) dùng chung định dạng OLE, không phân biệt được chính xác.
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return ".jpg";
+  }
+  if (buffer.length >= 8 && buffer.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
+    return ".png";
+  }
+  if (buffer.length >= 6 && ["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString("ascii"))) {
+    return ".gif";
+  }
+  return "";
+}
+
+const EXTENSION_MIME_MAP: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".doc": "application/msword",
+  ".zip": "application/zip",
+  ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+};
+
 const uploadSchema = {
   body: Joi.object({
     file: Joi.string().required().messages({
@@ -100,24 +144,61 @@ mediaRouter.get(
     }
 
     try {
+      // Trích xuất phần mở rộng (extension) từ fileUrl để đính kèm vào tên file tải về
+      let extension = "";
+      try {
+        const urlObj = new URL(fileUrl);
+        const pathname = urlObj.pathname;
+        const lastDot = pathname.lastIndexOf(".");
+        if (lastDot !== -1) {
+          const ext = pathname.substring(lastDot);
+          // Chỉ lấy các extension hợp lệ (độ dài từ 2 đến 6 ký tự chữ và số)
+          if (/^\.[a-zA-Z0-9]{1,5}$/.test(ext)) {
+            extension = ext;
+          }
+        }
+      } catch {}
+
+      // Filename do client truyền lên đã có sẵn đuôi hợp lệ hay chưa (vd les.fileName gốc)
+      const hasValidExtension = /\.[a-zA-Z0-9]{1,5}$/.test(filename);
+
+      let finalFilename = filename;
+      if (extension && !filename.toLowerCase().endsWith(extension.toLowerCase())) {
+        finalFilename = `${filename}${extension}`;
+      }
+
       const response = await fetch(fileUrl);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const contentType = response.headers.get("content-type");
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Nếu vẫn chưa xác định được đuôi file (URL không có extension và filename client
+      // gửi lên cũng không có), dò định dạng thật của file qua magic bytes để tránh tải về
+      // một file không có đuôi (mở lên bị lỗi/không đọc được nội dung).
+      let sniffedExt = "";
+      if (!extension && !hasValidExtension) {
+        sniffedExt = sniffFileExtension(buffer);
+        if (sniffedExt) {
+          finalFilename = `${finalFilename}${sniffedExt}`;
+        }
+      }
+
+      const upstreamContentType = response.headers.get("content-type");
+      const isGenericContentType = !upstreamContentType || upstreamContentType === "application/octet-stream";
+      const contentType = isGenericContentType && sniffedExt ? EXTENSION_MIME_MAP[sniffedExt] : upstreamContentType;
       if (contentType) {
         res.setHeader("Content-Type", contentType);
       }
       // Content-Disposition theo RFC 5987: giữ đúng tên gốc (kể cả tiếng Việt) + fallback ASCII.
-      const asciiFallback = filename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
+      const asciiFallback = finalFilename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(finalFilename)}`
       );
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+
       res.send(buffer);
     } catch (err: any) {
       console.error("[Media Proxy Download Error]:", err);

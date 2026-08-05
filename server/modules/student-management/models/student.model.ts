@@ -38,6 +38,8 @@ const studentExamSchema = new Schema({
   date: { type: String, required: true },
   type: { type: String, enum: ["Tốt nghiệp", "Sát hạch"], required: true },
   status: { type: String, enum: ["Sắp thi", "Đã thi"], required: true },
+  batchId: { type: String, default: "", index: true },
+  courseId: { type: String, default: "", index: true },
   result: {
     theory: { type: Schema.Types.Mixed, default: 0 },
     practice: { type: Schema.Types.Mixed, default: 0 },
@@ -84,6 +86,7 @@ const studentSchema = new Schema<IStudent>(
     // Hạng bằng lái — riêng ngành lái xe, ngành khác để trống
     rank: { type: String, default: "", trim: true, index: true },
     courseId: { type: String, default: "", trim: true, index: true },
+    completedCourseIds: { type: [String], default: [] },
     registrationDate: { type: String, required: true },
     enrollmentDate: { type: String, default: "" },
     fee: { type: String, required: true },

@@ -114,7 +114,8 @@ export default function LeaveRequestsTab({
 
   const getFileDownloadUrl = (url: string, filename: string) => {
     if (!url) return "#";
-    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}`;
+    const token = localStorage.getItem("accessToken") || "";
+    return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}&token=${encodeURIComponent(token)}`;
   };
 
   const uploadFileToCloudinary = async (file: File): Promise<string> => {
@@ -276,10 +277,6 @@ export default function LeaveRequestsTab({
     e.preventDefault();
     if (!appStartDate || !appEndDate) {
       toast.error("Vui lòng chọn đầy đủ ngày nghỉ.");
-      return;
-    }
-    if (appFiles.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất một minh chứng.");
       return;
     }
     const startDateTime = new Date(`${appStartDate}T00:00:00`);
@@ -841,7 +838,6 @@ export default function LeaveRequestsTab({
                   <input
                     type="file"
                     multiple
-                    required
                     accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.xls,.xlsx,.mp4,.mov,.webm"
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);

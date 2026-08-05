@@ -20,6 +20,7 @@ test("BatchService teacher assignment notification email flow", async (t) => {
     _id: new mongoose.Types.ObjectId("60c72b2f9b1d8b2345678911"),
     role: "user",
     email: "teacher@igen.vn",
+    qualification: "TESOL",
     displayName: "Thầy Nguyễn Văn A",
     smtpHost: "smtp.gmail.com",
     smtpUser: "system@igen.vn",
@@ -101,6 +102,7 @@ test("BatchService teacher assignment notification email flow", async (t) => {
 
     assert.equal(result.code, "ENG101-B1");
     assert.equal(result.instructorName, "Thầy Nguyễn Văn A");
+    assert.equal((result as any).instructorQualification, "TESOL");
 
     // Wait a brief moment for async mail sending to execute
     await new Promise((resolve) => setTimeout(resolve, 100));

@@ -170,11 +170,12 @@ export function ErpModal({ title, onClose, children, maxWidth = "max-w-md" }: {
   );
 }
 
-export function ErpField({ label, children }: { label: string; children: React.ReactNode }) {
+export function ErpField({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="space-y-1.5">
       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{label}</div>
       {children}
+      {hint && <p className="text-[9px] font-bold text-slate-400 italic">{hint}</p>}
     </div>
   );
 }
