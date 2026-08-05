@@ -139,6 +139,15 @@ export class ExamController {
     }
   }
 
+  static async gradeResults(req: AuthRequest, res: Response) {
+    try {
+      const data = await ExamService.gradeResults(await getAllowedOwnerIds(req.user!), req.params.id, req.body.results, req.user!.uid, req.user!.branchId);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : "Không thể lưu điểm thi." });
+    }
+  }
+
   static async importResults(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

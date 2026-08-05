@@ -150,6 +150,10 @@ export interface ExamSession {
   tentativeDate: string;
   officialDate?: string;
   location: string;
+  batchId?: string;
+  batchCode?: string;
+  maxScore?: number;
+  results?: Array<{ studentId: string; score?: number; note?: string; gradedAt?: string }>;
   studentCount: number;
   passCount: number;
   failCount: number;
@@ -255,6 +259,8 @@ export interface Batch {
   /** Chỉ tiêu riêng của dự án; 0 = dùng chỉ tiêu của khóa học/danh mục */
   quota?: number;
   courseId: string;
+  roadmapId?: string;
+  roadmapStepId?: string;
   instructorId?: string;
   /** Tên người phụ trách nhập tay khi không gán tài khoản trong công ty */
   instructorText?: string;

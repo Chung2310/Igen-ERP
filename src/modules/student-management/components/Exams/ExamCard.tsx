@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronDown, UserPlus, Edit3, Trash2,
   CheckCircle2, Map, UserMinus, RefreshCw,
-  Download, Upload, Calendar as CalendarIcon, Eye
+  Download, Upload, Calendar as CalendarIcon, Eye, Route
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
@@ -93,7 +93,9 @@ export interface ExamCardProps {
   onAssignClick: () => void | Promise<unknown>;
   onUnassignStudent?: (studentId: string) => void | Promise<unknown>;
   onUpdateStudentResult?: (studentId: string, result: 'Đậu' | 'Trượt' | 'Chưa có') => void | Promise<unknown>;
+  onUpdateStudentScore?: (studentId: string, score: number, note?: string) => void | Promise<unknown>;
   onViewDetail?: () => void;
+  onProgressRoute?: () => void | Promise<unknown>;
 }
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
@@ -105,8 +107,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   onStatusClick, 
   onAssignClick, 
   onUnassignStudent, 
-  onUpdateStudentResult,
-  onViewDetail
+  onUpdateStudentResult, onUpdateStudentScore,
+  onViewDetail, onProgressRoute
 }) => {
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
@@ -341,19 +343,12 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-50">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
               <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{exam.studentCount}</p>
               <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{entityLabel.tabLabel}</p>
             </div>
-            <div className="flex-1 sm:flex-none px-2 py-1 bg-emerald-50 rounded-lg text-center min-w-[45px] sm:min-w-[50px] border border-emerald-100/30">
-              <p className="text-sm sm:text-base font-extrabold text-emerald-600 leading-none">{exam.passCount}</p>
-              <p className="text-[8px] sm:text-[9px] font-bold text-emerald-500 mt-0.5 uppercase tracking-wide">Đậu</p>
-            </div>
-            <div className="flex-1 sm:flex-none px-2 py-1 bg-rose-50 rounded-lg text-center min-w-[45px] sm:min-w-[50px] border border-rose-100/30">
-              <p className="text-sm sm:text-base font-extrabold text-rose-600 leading-none">{exam.failCount}</p>
-              <p className="text-[8px] sm:text-[9px] font-bold text-rose-500 mt-0.5 uppercase tracking-wide">Trượt</p>
-            </div>
+              <div className="flex-1 sm:flex-none px-2 py-1 bg-cyan-50 rounded-lg text-center min-w-[65px] border border-cyan-100/30"><p className="text-sm sm:text-base font-extrabold text-cyan-700 leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{exam.studentCount}</p><p className="text-[8px] sm:text-[9px] font-bold text-cyan-600 mt-0.5 uppercase tracking-wide">Đã chấm</p></div>
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
@@ -364,6 +359,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             >
               <Eye className="w-3.5 h-3.5" />
             </button>
+            {onProgressRoute ? <button onClick={(event) => { event.stopPropagation(); void onProgressRoute(); }} title="Chuyển sang đánh giá lộ trình" className="p-1 rounded-md text-cyan-700 hover:bg-cyan-50 transition-all border border-cyan-200 bg-white shadow-sm"><Route className="w-3.5 h-3.5" /></button> : null}
             <button 
               onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
               title={`Xếp ${entityLabel.singular}`}
@@ -477,6 +473,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                       {assignedStudents.map((student) => {
                         const examEntry = student.exams?.find(e => e.id === exam.id);
                         const resultText = examEntry?.result?.overall || 'Chưa có';
+                        const scoreEntry = exam.results?.find((item) => item.studentId === student.id);
                         
                         return (
                           <tr key={student.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
@@ -504,6 +501,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                               </span>
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
+                              {exam.batchId ? <input type="number" min="0" max={exam.maxScore || 100} defaultValue={scoreEntry?.score ?? ''} onBlur={(event) => { const raw = event.target.value; if (raw !== '') void onUpdateStudentScore?.(student.id, Number(raw)); }} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /> :
                               <select
                                 value={resultText}
                                 onChange={async (e) => {
@@ -521,6 +519,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                                 <option value="Đậu" className="bg-white text-emerald-600 font-bold uppercase">Đậu</option>
                                 <option value="Trượt" className="bg-white text-rose-600 font-bold uppercase">Trượt</option>
                               </select>
+                              }
                             </td>
                             <td className="px-2.5 py-1.5 text-right">
                               <button

@@ -45,6 +45,10 @@ const batchEnrollmentSchema = new Schema<IBatchEnrollment>(
     suspendedAt: { type: Date, default: null },
     suspensionReason: { type: String, default: "" },
     expectedReturnAt: { type: String, default: null },
+    roadmapId: { type: String, default: "", index: true },
+    roadmapStepId: { type: String, default: "", index: true },
+    sourceEnrollmentId: { type: String, default: "" },
+    enrollmentReason: { type: String, enum: ["initial", "promotion", "repeat", "resume", "manual"], default: "initial" },
     history: { type: [historyEntrySchema], default: [] },
     retakeCount: { type: Number, default: 0, min: 0 },
     retakeHistory: { type: [retakeEntrySchema], default: [] },
@@ -64,5 +68,6 @@ batchEnrollmentSchema.virtual("remainingSessions").get(function (this: IBatchEnr
 
 // Một học viên chỉ có một đăng ký trong một lớp
 batchEnrollmentSchema.index({ ownerId: 1, batchId: 1, studentId: 1 }, { unique: true });
+batchEnrollmentSchema.index({ ownerId: 1, studentId: 1, roadmapId: 1, roadmapStepId: 1, status: 1 });
 
 export const BatchEnrollment = model<IBatchEnrollment>("BatchEnrollment", batchEnrollmentSchema);

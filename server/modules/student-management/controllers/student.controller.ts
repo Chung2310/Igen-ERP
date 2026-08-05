@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { StudentService } from "../services/student.service";
+import { StudentLearningHistoryService } from "../services/student-learning-history.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
@@ -21,6 +22,16 @@ async function resolveActorName(uid: string, fallbackEmail?: string): Promise<st
 }
 
 export class StudentController {
+  static async getLearningHistory(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const data = await StudentLearningHistoryService.getHistory(ownerId, req.params.id, req.user!.branchId);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async create(req: AuthRequest, res: Response) {
     try {
       if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {

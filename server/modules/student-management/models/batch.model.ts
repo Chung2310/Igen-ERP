@@ -24,6 +24,8 @@ const batchSchema = new Schema<IBatch>(
     name: { type: String, default: "", trim: true },
     quota: { type: Number, default: 0, min: 0 },
     courseId: { type: String, required: true, index: true },
+    roadmapId: { type: String, default: "", index: true },
+    roadmapStepId: { type: String, default: "" },
     instructorId: { type: String, default: "", index: true },
     instructorText: { type: String, default: "", trim: true },
     learnerIds: { type: [String], default: [] },

@@ -9,7 +9,7 @@ import {
   unassignStudentSchema, 
   updateStudentResultSchema, 
   examStudentParamsSchema,
-  importResultsSchema
+  importResultsSchema, gradeExamSchema
 } from "../validations/exam.validation";
 import { idParamSchema } from "../validations/student.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
@@ -28,6 +28,7 @@ router.delete("/:id", requireManage, validate(idParamSchema, "params"), ExamCont
 router.post("/:id/assign", requireManage, validate(idParamSchema, "params"), validate(assignStudentSchema), ExamController.assign);
 router.post("/:id/unassign", requireManage, validate(idParamSchema, "params"), validate(unassignStudentSchema), ExamController.unassign);
 router.post("/:id/students/:studentId/result", requireManage, validate(examStudentParamsSchema, "params"), validate(updateStudentResultSchema), ExamController.updateStudentResult);
+router.patch("/:id/results", requireManage, validate(idParamSchema, "params"), validate(gradeExamSchema), ExamController.gradeResults);
 router.post("/:id/import-results", requireManage, validate(idParamSchema, "params"), validate(importResultsSchema), ExamController.importResults);
 
 export default router;

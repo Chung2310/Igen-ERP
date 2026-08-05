@@ -20,6 +20,8 @@ export const createBatchSchema = Joi.object({
     "any.required": "Khóa học là bắt buộc.",
     "string.empty": "Khóa học không được để trống.",
   }),
+  roadmapId: Joi.string().allow("", null).optional(),
+  roadmapStepId: Joi.string().allow("", null).optional(),
   instructorId: Joi.string().allow("", null).optional(),
   instructorText: Joi.string().trim().max(120).allow("", null).optional(),
   daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).required().messages({
@@ -61,6 +63,8 @@ export const updateBatchSchema = Joi.object({
     radiusMeters: Joi.number().integer().min(10).max(20000).optional(),
   }).allow(null).optional(),
   courseId: Joi.string().optional(),
+  roadmapId: Joi.string().allow("", null).optional(),
+  roadmapStepId: Joi.string().allow("", null).optional(),
   instructorId: Joi.string().allow("", null).optional(),
   instructorText: Joi.string().trim().max(120).allow("", null).optional(),
   daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).optional(),
