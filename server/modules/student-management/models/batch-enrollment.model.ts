@@ -10,6 +10,8 @@ export const BATCH_ENROLLMENT_STATUSES = [
   "Không còn nhu cầu học",
 ] as const;
 
+const retakeEntrySchema = new Schema({ count: Number, batchId: String, reason: String, fee: { type: Number, default: 0 }, at: { type: Date, default: Date.now }, actorId: String }, { _id: false });
+
 const historyEntrySchema = new Schema(
   {
     at: { type: Date, default: Date.now },
@@ -48,6 +50,8 @@ const batchEnrollmentSchema = new Schema<IBatchEnrollment>(
     sourceEnrollmentId: { type: String, default: "" },
     enrollmentReason: { type: String, enum: ["initial", "promotion", "repeat", "resume", "manual"], default: "initial" },
     history: { type: [historyEntrySchema], default: [] },
+    retakeCount: { type: Number, default: 0, min: 0 },
+    retakeHistory: { type: [retakeEntrySchema], default: [] },
   },
   {
     timestamps: true,

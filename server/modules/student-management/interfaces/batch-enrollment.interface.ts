@@ -12,6 +12,8 @@ export type BatchEnrollmentStatus =
   | "Chờ xếp lớp tiếp theo"
   | "Không còn nhu cầu học";
 
+export interface IBatchRetakeEntry { count: number; batchId: string; reason: string; fee: number; at: Date; actorId?: string; }
+
 export interface IBatchEnrollmentHistoryEntry {
   at: Date;
   action: string;
@@ -45,6 +47,8 @@ export interface IBatchEnrollment extends Document {
   sourceEnrollmentId?: string;
   enrollmentReason?: "initial" | "promotion" | "repeat" | "resume" | "manual";
   history: IBatchEnrollmentHistoryEntry[];
+  retakeCount: number;
+  retakeHistory: IBatchRetakeEntry[];
   createdAt?: Date;
   updatedAt?: Date;
 }

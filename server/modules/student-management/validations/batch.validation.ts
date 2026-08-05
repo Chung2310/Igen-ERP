@@ -85,11 +85,13 @@ export const addLearnerSchema = Joi.object({
 });
 
 export const updateEnrollmentStatusSchema = Joi.object({
-  status: Joi.string().valid("Đang học", "Bảo lưu").required().messages({
+  status: Joi.string().valid("Đang học", "Bảo lưu", "Học lại", "Hoàn thành khóa", "Chờ xếp lớp tiếp theo", "Không còn nhu cầu học").required().messages({
     "any.required": "Trạng thái bảo lưu là bắt buộc.",
     "any.only": "Chỉ có thể chuyển sang Đang học hoặc Bảo lưu.",
   }),
   reason: Joi.string().trim().max(500).allow("", null).optional(),
+  retakeFee: Joi.number().min(0).optional(),
+  targetBatchId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).allow("", null).optional(),
   expectedReturnAt: Joi.string().pattern(datePattern).allow("", null).optional().messages({
     "string.pattern.base": "Ngày dự kiến quay lại phải có định dạng YYYY-MM-DD.",
   }),

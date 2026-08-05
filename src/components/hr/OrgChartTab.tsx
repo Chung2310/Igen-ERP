@@ -1156,22 +1156,19 @@ export default function OrgChartTab({
             )}
           </div>
 
-          {node.isLeader && (
-            <div className="absolute top-2 left-2 z-10">
-              <span className="bg-amber-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono shadow-sm flex items-center gap-0.5">
-                👑 Leader
-              </span>
-            </div>
-          )}
-
           <div className="space-y-2">
 
 
             {/* Middle row: Department (Main Title) */}
-            <div className="min-h-[32px] flex items-center">
+            <div className="min-h-[32px] flex items-center flex-wrap gap-1.5">
               <h4 className="font-bold text-xs text-slate-800 leading-snug font-sans line-clamp-2">
                 {node.department}
               </h4>
+              {node.isLeader && (
+                <span className="bg-amber-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono shadow-sm flex items-center gap-0.5 shrink-0">
+                  👑 Leader
+                </span>
+              )}
             </div>
 
             {/* Bottom row: Manager Info */}

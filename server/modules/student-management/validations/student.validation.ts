@@ -10,6 +10,11 @@ export const idParamSchema = Joi.object({
   id: objectIdSchema.required(),
 });
 
+export const enrollmentStatusParamsSchema = Joi.object({
+  id: objectIdSchema.required(),
+  studentId: objectIdSchema.required(),
+});
+
 
 export const assignStudentBranchSchema = Joi.object({
   branchId: objectIdSchema.required(),
