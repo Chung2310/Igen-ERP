@@ -9,6 +9,7 @@ import { Batch, Student } from '../../types';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 import { WorkerTimekeepingPanel } from './WorkerTimekeepingPanel';
+import { useBatchEnrollments } from '../../hooks/useBatchEnrollments';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -49,6 +50,8 @@ export function AttendanceModal({
   const [sessionNote, setSessionNote] = useState('');
   const [bulkSelectStudents, setBulkSelectStudents] = useState<string[]>([]);
   const [showQrModal, setShowQrModal] = useState(false);
+  // Phải gọi trước early return bên dưới để không vi phạm quy tắc hook
+  const { byStudent, reload: reloadEnrollments } = useBatchEnrollments(isOpen ? batch?.id : null);
 
   if (!isOpen || !batch) return null;
 
@@ -109,6 +112,7 @@ export function AttendanceModal({
         body: JSON.stringify({ date: selectedSessionDate, records: recordsPayload, note: sessionNote }),
       });
       toast.success('Đã lưu thông tin điểm danh.');
+      await reloadEnrollments();
       onSuccess();
       setSelectedSessionDate(null);
     } catch (error: unknown) {
@@ -124,6 +128,7 @@ export function AttendanceModal({
         method: 'DELETE',
       });
       toast.success('Đã xóa dữ liệu điểm danh.');
+      await reloadEnrollments();
       onSuccess();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa dữ liệu điểm danh.';
@@ -429,6 +434,10 @@ export function AttendanceModal({
                 const student = students.find(s => s.id === studentId);
                 const status = attendanceRecords[studentId] || 'present';
                 const isChecked = bulkSelectStudents.includes(studentId);
+                const enrollment = byStudent.get(studentId);
+                // Hết buổi thì không được ghi nhận có mặt/muộn nữa; server cũng chặn
+                const outOfSessions =
+                  !!enrollment && enrollment.allowedSessions > 0 && enrollment.remainingSessions <= 0;
 
                 return (
                   <div key={studentId} className="flex items-center justify-between py-2.5 px-4 hover:bg-cyan-50/30 transition-all">
@@ -448,6 +457,16 @@ export function AttendanceModal({
                       <div>
                         <p className="text-xs font-bold text-slate-700">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
                         <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
+                        {enrollment && enrollment.allowedSessions > 0 && (
+                          <p className={cn(
+                            "text-[10px] font-bold",
+                            outOfSessions ? "text-rose-500" : "text-slate-400"
+                          )}>
+                            {outOfSessions
+                              ? `Đã dùng hết ${enrollment.allowedSessions} buổi`
+                              : `Còn ${enrollment.remainingSessions}/${enrollment.allowedSessions} buổi`}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -456,8 +475,11 @@ export function AttendanceModal({
                       <button
                         type="button"
                         onClick={() => setAttendanceRecords(prev => ({ ...prev, [studentId]: 'present' }))}
+                        disabled={outOfSessions && status !== 'present'}
+                        title={outOfSessions ? 'Học viên đã dùng hết số buổi được học' : undefined}
                         className={cn(
                           "px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer",
+                          "disabled:opacity-40 disabled:cursor-not-allowed",
                           status === 'present'
                             ? "bg-cyan-500 text-white border-cyan-500 shadow-sm shadow-cyan-500/20"
                             : "bg-white hover:bg-slate-50 text-slate-400 border-slate-200/60"
@@ -468,8 +490,11 @@ export function AttendanceModal({
                       <button
                         type="button"
                         onClick={() => setAttendanceRecords(prev => ({ ...prev, [studentId]: 'late' }))}
+                        disabled={outOfSessions && status !== 'late'}
+                        title={outOfSessions ? 'Học viên đã dùng hết số buổi được học' : undefined}
                         className={cn(
                           "px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer",
+                          "disabled:opacity-40 disabled:cursor-not-allowed",
                           status === 'late'
                             ? "bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/20"
                             : "bg-white hover:bg-slate-50 text-slate-400 border-slate-200/60"

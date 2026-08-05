@@ -610,6 +610,7 @@ export const authService = {
       jobDescriptionLink,
       branchId,
       birthDate,
+      qualification,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -653,6 +654,7 @@ export const authService = {
     if (branchId && !validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const finalDept = department || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự")));
     const newUser = new UserModel({
       email: emailLower,
       password: hashedPassword,
@@ -662,17 +664,26 @@ export const authService = {
       companyName: companyName?.trim(),
       branchId: branchId || undefined,
       parentId: parentId || undefined,
-      level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : targetRoleLevel)),
-      department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
-      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
-      jobTitle: role === "admin" ? "CEO" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+      level: level || (role === "admin" ? 1 : (role === "branch_owner" ? 2 : (role === "manager" ? 3 : 4))),
+      department: finalDept,
+      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự"))),
+      qualification: qualification?.trim() || "",
+      jobTitle: role === "admin" ? "CEO" : (role === "branch_owner" ? "Chủ chi nhánh" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên")),
       phone: phone || "Chưa cập nhật",
       jobDescriptionLink: jobDescriptionLink || "",
       birthDate: normalizeBirthDate(birthDate) || undefined,
       createdAt: new Date(),
       status: "offline",
-      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
+      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`,
+      isLeader: data.isLeader || false
     });
+
+    if (data.isLeader === true && finalDept) {
+      await UserModel.updateMany(
+        { companyCode: finalCompanyCode, department: finalDept },
+        { $set: { isLeader: false } }
+      );
+    }
 
     return await newUser.save();
   },
@@ -742,6 +753,17 @@ export const authService = {
       }
     }
 
+
+    if (updateData.isLeader === true) {
+      const targetCompany = user.companyCode;
+      const targetDept = updateData.department !== undefined ? updateData.department : user.department;
+      if (targetDept) {
+        await UserModel.updateMany(
+          { companyCode: targetCompany, department: targetDept, _id: { $ne: userId } },
+          { $set: { isLeader: false } }
+        );
+      }
+    }
 
     return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select("-password");
   },

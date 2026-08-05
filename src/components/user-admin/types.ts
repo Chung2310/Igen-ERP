@@ -11,6 +11,7 @@ export interface UserFormState {
   companyCode: string;
   parentId: string;
   department: string;
+  qualification: string;
 }
 
 export interface UserTableProps {
