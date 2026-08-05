@@ -8,7 +8,7 @@ const WorkerProjectSchema = new Schema<IWorkerProject>(
     code: { type: String, required: true, index: true },
     name: { type: String, required: true },
     quota: { type: Number, default: 0 },
-    workerIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    workerIds: [{ type: Schema.Types.ObjectId, ref: "Worker" }],
     daysOfWeek: [{ type: Number }],
     startTime: { type: String, default: "08:00" },
     endTime: { type: String, default: "17:00" },

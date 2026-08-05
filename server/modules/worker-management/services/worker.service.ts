@@ -1,11 +1,30 @@
 import { WorkerModel } from "../models/worker.model";
 import type { WorkerStatus } from "../interfaces/worker.interface";
+import type { WorkerScope } from "../contracts";
 
-export type WorkerScope = { companyCode: string; branchId?: string };
-export type WorkerInput = { fullName?: unknown; phone?: unknown; email?: unknown; status?: unknown; note?: unknown; branchId?: unknown };
+export type { WorkerScope } from "../contracts";
+
+export type WorkerInput = {
+  fullName?: unknown;
+  phone?: unknown;
+  email?: unknown;
+  status?: unknown;
+  note?: unknown;
+  branchId?: unknown;
+  address?: unknown;
+  birthday?: unknown;
+  idCard?: unknown;
+  registrationDate?: unknown;
+  customFields?: unknown;
+};
 
 export function buildWorkerQuery(scope: WorkerScope) {
   return { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), deletedAt: null };
+}
+
+function normalizeCustomFields(value: unknown) {
+  if (!value || Array.isArray(value) || typeof value !== "object") return undefined;
+  return value as Record<string, unknown>;
 }
 
 export function normalizeWorkerInput(input: WorkerInput) {
@@ -14,12 +33,18 @@ export function normalizeWorkerInput(input: WorkerInput) {
   const status: WorkerStatus = ["active", "inactive", "placed"].includes(String(input.status))
     ? String(input.status) as WorkerStatus
     : "active";
+  const customFields = normalizeCustomFields(input.customFields);
   return {
     fullName,
     ...(input.phone !== undefined ? { phone: String(input.phone || "").trim() } : {}),
     ...(input.email !== undefined ? { email: String(input.email || "").trim().toLowerCase() } : {}),
     status,
     ...(input.note !== undefined ? { note: String(input.note || "").trim() } : {}),
+    ...(input.address !== undefined ? { address: String(input.address || "").trim() } : {}),
+    ...(input.birthday !== undefined ? { birthday: String(input.birthday || "").trim() } : {}),
+    ...(input.idCard !== undefined ? { idCard: String(input.idCard || "").trim() } : {}),
+    ...(input.registrationDate !== undefined ? { registrationDate: String(input.registrationDate || "").trim() } : {}),
+    ...(customFields !== undefined ? { customFields } : {}),
     ...(input.branchId !== undefined ? { branchId: String(input.branchId || "").trim() } : {}),
   };
 }
