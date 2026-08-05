@@ -715,7 +715,7 @@ export default function TrainingTab({
     try {
       const url = await authService.uploadFile(file);
       setCourseFormLessons(prev => prev.map((les, idx) =>
-        idx === index ? { ...les, url } : les
+        idx === index ? { ...les, url, fileName: file.name } : les
       ));
       toast.success(`Đã tải lên tài liệu "${file.name}" thành công!`);
     } catch (err: any) {
@@ -1137,7 +1137,7 @@ export default function TrainingTab({
                                   </button>
                                   {les.url && (
                                     <a
-                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold hover:underline truncate max-w-[180px]"
@@ -1538,7 +1538,7 @@ export default function TrainingTab({
                                       <FileText className="w-3.5 h-3.5" /> Xem tài liệu bài giảng
                                     </span>
                                     <a
-                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-sans"

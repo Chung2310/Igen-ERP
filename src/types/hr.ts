@@ -146,6 +146,7 @@ export interface Lesson {
   url: string;
   type: "youtube" | "document" | "other" | "text" | "video";
   content?: string;
+  fileName?: string;
 }
 
 export interface QuizQuestion {
