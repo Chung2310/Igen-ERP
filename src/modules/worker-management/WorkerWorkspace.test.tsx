@@ -64,7 +64,6 @@ vi.mock("../shared-management/pages/DashboardPage", () => ({
   ),
 }));
 vi.mock("./pages/WorkersPage", () => ({ default: ({ projects, profileFields }: any) => <div>Worker list content; project prop: {projects?.[0]?.name}; profile prop: {profileFields?.[0]?.label}</div> }));
-vi.mock("../shared-management/pages/ProjectsPage", () => ({ ProjectsPage: () => <div>Worker project content</div> }));
 vi.mock("../shared-management/pages/NotificationsPage", () => ({ NotificationsPage: () => <div>Worker notification content</div> }));
 
 afterEach(() => {
@@ -107,7 +106,7 @@ describe("WorkerWorkspace", () => {
     render(<WorkerWorkspace />);
     expect(await screen.findByText(/project prop: Project Alpha/)).toBeTruthy();
     expect(screen.getByText(/profile prop: Runtime phone/)).toBeTruthy();
-    expect(workspaceState.projectFetch).toHaveBeenCalledWith("/projects", {
+    expect(workspaceState.projectFetch).toHaveBeenCalledWith("/worker-management/projects", {
       params: { companyCode: "LABOR" },
     });
     expect(workspaceState.standardFields).toHaveBeenCalledWith(

@@ -53,9 +53,9 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 );
-const ProjectsPage = lazy(() =>
-  import("../shared-management/pages/ProjectsPage").then((module) => ({
-    default: module.ProjectsPage,
+const WorkerProjectsPage = lazy(() =>
+  import("./pages/WorkerProjectsPage").then((module) => ({
+    default: module.WorkerProjectsPage,
   })),
 );
 const NotificationsPage = lazy(() =>
@@ -231,7 +231,7 @@ export default function WorkerWorkspace() {
         active = false;
       };
     }
-    void workerApiFetch<{ data: WorkerProject[] }>("/projects", {
+    void workerApiFetch<{ data: WorkerProject[] }>("/worker-management/projects", {
       params: scope,
     })
       .then((response) => {
@@ -286,8 +286,9 @@ export default function WorkerWorkspace() {
         profileFields={profileFields}
       />
     ) : activeTab === "DỰ ÁN" ? (
-      <ProjectsPage
+      <WorkerProjectsPage
         selectedCenter={center}
+        branchId={userProfile?.branchId}
         canManage={canManage("project")}
       />
     ) : (
