@@ -29,6 +29,7 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const QRCheckinPage = lazy(() => import("./modules/student-management/pages/QRCheckin/QRCheckinPage"));
+const WorkerQRCheckinPage = lazy(() => import("./modules/worker-management/pages/WorkerQRCheckinPage"));
 const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
 const PublicRegisterPage = lazy(() => import("./pages/PublicRegisterPage"));
 
@@ -269,6 +270,18 @@ function normalizePublicPath(pathname: string) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith("/worker/checkin/")) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-amber-950 to-orange-950 flex justify-center items-center text-xs font-semibold text-slate-400">
+          Đang tải trang chấm công...
+        </div>
+      }>
+        <WorkerQRCheckinPage />
+      </Suspense>
+    );
+  }
+
   if (window.location.pathname.startsWith("/attendance/checkin/")) {
     return (
       <Suspense fallback={
