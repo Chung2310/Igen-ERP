@@ -8,7 +8,15 @@ export class AssignmentController {
     try {
       const ownerId = await resolveCreateOwnerId(req.user!);
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const data = await AssignmentService.createAssignment(req.body, req.user!.id, ownerId, ownerScope);
+      // SMTP thuộc về doanh nghiệp của người đang thao tác. Không suy từ owner của
+      // lớp vì dữ liệu lớp cũ có thể thuộc một tài khoản quản trị khác.
+      const data = await AssignmentService.createAssignment(
+        req.body,
+        req.user!.id,
+        ownerId,
+        ownerScope,
+        req.user!.companyCode
+      );
       res.status(201).json({ success: true, data });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi tạo bài tập.";

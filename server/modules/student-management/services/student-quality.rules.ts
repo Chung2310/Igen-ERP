@@ -11,11 +11,13 @@ export interface QualityMetricsInput {
 export interface QualityThresholds {
   riskAttendance: number; riskAssignment: number; riskMiniTest: number;
   watchAttendance: number; watchAssignment: number; watchMiniTest: number;
+  assignmentMaxScore: number;
 }
 
 export const DEFAULT_QUALITY_THRESHOLDS: QualityThresholds = {
   riskAttendance: 50, riskAssignment: 50, riskMiniTest: 50,
   watchAttendance: 80, watchAssignment: 70, watchMiniTest: 70,
+  assignmentMaxScore: 10,
 };
 
 export function toRate(numerator: number, denominator: number): number | null {

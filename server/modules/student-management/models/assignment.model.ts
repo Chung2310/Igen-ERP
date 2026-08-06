@@ -15,6 +15,7 @@ const assignmentSchema = new Schema<IAssignment>({
   batchId: { type: String, required: true, index: true },
   courseId: { type: String, required: true, index: true },
   dueDate: { type: Date },
+  maxScore: { type: Number, required: true, min: 1, default: 10 },
   instructorId: { type: String, required: true, index: true },
   ownerId: { type: String, required: true, index: true },
   branchId: { type: String, index: true }
