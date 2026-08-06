@@ -7,6 +7,7 @@ const base = {
   startDate: "2026-08-03",
   endDate: "2026-08-14",
   daysOfWeek: [1, 3, 5],
+  attendanceSessions: ["2026-08-03", "2026-08-05", "2026-08-07", "2026-08-10", "2026-08-12", "2026-08-14"].map((date) => ({ date, records: [{ studentId: "student-1" }] })),
 };
 
 const at = (today: string) => ({ today });

@@ -232,6 +232,7 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
           startDate: b.startDate,
           endDate: b.endDate,
           daysOfWeek: b.daysOfWeek,
+          attendanceSessions: b.attendanceSessions,
           completedAt: b.completedAt,
           updatedAt: (b as IBatch & { updatedAt?: Date }).updatedAt,
         },

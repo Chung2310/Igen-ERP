@@ -13,6 +13,10 @@ type LearningEntry = {
   batchStatus: string;
   enrolledAt: string | null;
   leftAt: string | null;
+  enrollmentStatus: string;
+  suspensionReason: string;
+  expectedReturnAt: string | null;
+  roadmap: { id: string; name: string; code: string; stepId: string; stepOrder: number | null; totalSteps: number } | null;
 };
 
 type LearningHistory = {

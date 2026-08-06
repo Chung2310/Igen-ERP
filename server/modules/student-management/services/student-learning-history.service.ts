@@ -3,9 +3,10 @@ import { Batch } from "../models/batch.model";
 import { BatchMiniTest } from "../models/batch-mini-test.model";
 import { Course } from "../models/course.model";
 import { Student } from "../models/student.model";
-import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { StudentQualityRecord } from "../models/student-quality.model";
 import { SubmissionModel } from "../models/submission.model";
+import { LearningRoadmap } from "../models/learning-roadmap.model";
 
 type OwnerScope = string | string[];
 
@@ -22,7 +23,7 @@ export class StudentLearningHistoryService {
     const completedCourseIds = student.completedCourseIds || [];
 
     const [enrollments, learnerBatches] = await Promise.all([
-      StudentBatchEnrollment.find({ ...scope, studentId }).lean(),
+      BatchEnrollment.find({ ...scope, studentId }).lean(),
       Batch.find({ ...scope, learnerIds: studentId }).lean(),
     ]);
     const batchIds = new Set([...enrollments.map((item) => item.batchId), ...learnerBatches.map((item) => String(item._id))]);
@@ -34,11 +35,13 @@ export class StudentLearningHistoryService {
     const batches = await Batch.find({ ...scope, _id: { $in: [...batchIds] } }).lean();
     const validBatchIds = batches.map((batch) => String(batch._id));
     const courseIds = [...new Set([...batches.map((batch) => batch.courseId), ...completedCourseIds].filter(Boolean))];
-    const [courses, assignments, miniTests, qualityRecords] = await Promise.all([
+    const roadmapIds = [...new Set(enrollments.map((item) => item.roadmapId).filter(Boolean))];
+    const [courses, assignments, miniTests, qualityRecords, roadmaps] = await Promise.all([
       Course.find({ _id: { $in: courseIds }, ...scope }).lean(),
       AssignmentModel.find({ batchId: { $in: validBatchIds }, ...scope }).lean(),
       BatchMiniTest.find({ batchId: { $in: validBatchIds }, ...scope }).lean(),
       StudentQualityRecord.find({ studentId, batchId: { $in: validBatchIds }, ...scope }).lean(),
+      roadmapIds.length ? LearningRoadmap.find({ _id: { $in: roadmapIds }, ...scope }).lean() : [],
     ]);
     const assignmentIds = assignments.map((item) => String(item._id));
     const submissions = assignmentIds.length ? await SubmissionModel.find({ studentId, assignmentId: { $in: assignmentIds } }).lean() : [];
@@ -46,6 +49,7 @@ export class StudentLearningHistoryService {
     const courseMap = new Map(courses.map((item) => [String(item._id), item]));
     const completedCourses = completedCourseIds.map((courseId) => ({ id: courseId, title: courseMap.get(courseId)?.title || "Khóa học đã xóa", code: courseMap.get(courseId)?.code || "" }));
     const qualityMap = new Map(qualityRecords.map((item) => [item.batchId, item]));
+    const roadmapMap = new Map<string, any>(roadmaps.map((item: any) => [String(item._id), item] as [string, any]));
     const assignmentsByBatch = new Map<string, typeof assignments>();
     const testsByBatch = new Map<string, typeof miniTests>();
     const submissionMap = new Map(submissions.map((item) => [item.assignmentId, item]));
@@ -69,10 +73,14 @@ export class StudentLearningHistoryService {
       const classExams = exams.filter((exam) => exam.batchId === batchId).sort((left, right) => String(right.date).localeCompare(String(left.date)));
       const completedAssignments = assignmentItems.filter((item) => item.status !== "not_submitted").length;
       const quality = qualityMap.get(batchId);
+      const roadmap = enrollment?.roadmapId ? roadmapMap.get(enrollment.roadmapId) : undefined;
+      const roadmapStep = roadmap?.steps.find((step) => step.id === enrollment?.roadmapStepId);
       return {
         id: batchId, batchCode: batch.code, courseId: batch.courseId, courseTitle: courseMap.get(batch.courseId)?.title || "Khóa học đã xóa", instructorName: batch.instructorText || "",
-        status: enrollment?.status || (batch.status === "Đã kết thúc" ? "completed" : "active"), batchStatus: batch.status,
-        enrolledAt: enrollment?.enrolledAt || batch.createdAt || null, leftAt: enrollment?.leftAt || null,
+        status: enrollment?.status === "Hoàn thành khóa" || batch.status === "Đã kết thúc" ? "completed" : enrollment?.leftAt ? "removed" : "active", batchStatus: batch.status,
+        enrolledAt: enrollment?.joinedAt || batch.createdAt || null, leftAt: enrollment?.leftAt || null,
+        enrollmentStatus: enrollment?.status || "Đang học", suspensionReason: enrollment?.suspensionReason || "", expectedReturnAt: enrollment?.expectedReturnAt || null,
+        roadmap: roadmap ? { id: String(roadmap._id), name: roadmap.name, code: roadmap.code, stepId: enrollment?.roadmapStepId || "", stepOrder: roadmapStep?.order || null, totalSteps: roadmap.steps.length } : null,
         attendance: { attended, total: sessions.length, rate: toRate(attended, sessions.length) },
         assignments: { completed: completedAssignments, total: assignmentItems.length, rate: toRate(completedAssignments, assignmentItems.length), items: assignmentItems },
         miniTests: testItems, exams: classExams, attitudeNote: quality?.attitudeNote || "", teacherAssessment: quality?.teacherAssessment || "",

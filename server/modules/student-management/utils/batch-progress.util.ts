@@ -1,4 +1,4 @@
-import { countRemainingSessions, countTotalSessions } from "./session-count.util";
+import { countRemainingSessions, countTotalSessions, listScheduledSessionDates } from "./session-count.util";
 
 /** Ngưỡng cảnh báo vàng: lớp đã hoàn thành từ 80% số buổi theo lịch. */
 export const YELLOW_PROGRESS_THRESHOLD = 0.8;
@@ -8,7 +8,10 @@ export type BatchAgeLabel = "yellow" | "red" | null;
 
 export interface BatchProgress {
   totalSessions: number;
+  /** Số buổi đã được điểm danh đầy đủ trên sổ điểm danh của lớp. */
   doneSessions: number;
+  /** Số buổi theo lịch đã qua nhưng chưa có dữ liệu điểm danh. */
+  missingAttendanceSessions: number;
   remainingSessions: number;
   progressLevel: BatchProgressLevel;
   /** Nhãn phụ độc lập với progressLevel, chỉ có ở lớp đã hoàn thành */
@@ -20,6 +23,7 @@ interface ProgressInput {
   startDate: string;
   endDate: string;
   daysOfWeek: number[];
+  attendanceSessions?: Array<{ date: string; records?: unknown[] }>;
   completedAt?: Date | string | null;
   updatedAt?: Date | string | null;
 }
@@ -66,34 +70,40 @@ function computeAgeLabel(input: ProgressInput, today: string): BatchAgeLabel {
  */
 export function computeBatchProgress(input: ProgressInput, options: ProgressOptions): BatchProgress {
   const { today, holidaySet } = options;
-  const { status, startDate, endDate, daysOfWeek } = input;
+  const { status, startDate, endDate, daysOfWeek, attendanceSessions = [] } = input;
 
   const totalSessions = countTotalSessions(startDate, endDate, daysOfWeek, holidaySet);
   const remainingSessions = countRemainingSessions(today, endDate, startDate, daysOfWeek, holidaySet);
-  const doneSessions = Math.max(0, totalSessions - remainingSessions);
+  const scheduledDates = listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet);
+  // Buổi hôm nay chỉ được tính sau khi đã điểm danh; các buổi trước hôm nay mà
+  // chưa có bản ghi điểm danh phải hiển thị rõ để không tạo tiến độ ảo.
+  const scheduledDatesPassed = new Set(scheduledDates.filter((date) => date < today));
+  const attendedDates = new Set(attendanceSessions.filter((session) => scheduledDatesPassed.has(session.date) && Array.isArray(session.records) && session.records.length > 0).map((session) => session.date));
+  const doneSessions = attendedDates.size;
+  const missingAttendanceSessions = Math.max(0, scheduledDatesPassed.size - doneSessions);
   const ageLabel = computeAgeLabel(input, today);
 
   if (CLOSED_STATUSES.includes(status)) {
     if (status === "Đã kết thúc" && ageLabel === "yellow") {
-      return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "black", ageLabel: null };
+      return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions: 0, progressLevel: "black", ageLabel: null };
     }
-    return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "grey", ageLabel };
+    return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions: 0, progressLevel: "grey", ageLabel };
   }
 
   // Lớp chưa khai giảng không có cảnh báo vận hành. Nếu đã qua ngày kết thúc
   // mà vẫn chưa đóng, quy tắc quá hạn bên dưới vẫn ưu tiên để tránh bỏ sót.
   if (status === "Sắp khai giảng" && today <= endDate) {
-    return { totalSessions, doneSessions, remainingSessions, progressLevel: "grey", ageLabel };
+    return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions, progressLevel: "grey", ageLabel };
   }
 
   // Quá ngày kết thúc nhưng lớp chưa được đóng — ưu tiên hơn cảnh báo vàng.
   if (today > endDate) {
-    return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "red", ageLabel };
+    return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions: 0, progressLevel: "red", ageLabel };
   }
 
   if (status === "Đang học" && totalSessions > 0 && doneSessions / totalSessions >= YELLOW_PROGRESS_THRESHOLD) {
-    return { totalSessions, doneSessions, remainingSessions, progressLevel: "yellow", ageLabel };
+    return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions, progressLevel: "yellow", ageLabel };
   }
 
-  return { totalSessions, doneSessions, remainingSessions, progressLevel: "green", ageLabel };
+  return { totalSessions, doneSessions, missingAttendanceSessions, remainingSessions, progressLevel: "green", ageLabel };
 }
