@@ -4,6 +4,7 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
 import { ModuleSettingsService } from "../services/module-settings.service";
+import { WorkerQrAttendanceService, WorkerQrCheckinError } from "../../../modules/worker-management/services/worker-qr-attendance.service";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 /** QR chấm công lao động sống 1 giờ để quản lý kịp gửi vào nhóm chat. */
@@ -38,17 +39,13 @@ export class QRAttendanceController {
       const { entityPreset } = await new ModuleSettingsService().get(tenantId);
       const isWorker = entityPreset === "worker";
 
-      const session = await QRAttendanceService.createSession(
-        batchId,
-        date,
-        durationMinutes ? Number(durationMinutes) : (isWorker ? WORKER_QR_DURATION_MINUTES : 5),
-        batch.ownerId,
-        // Lao động quét mã được gửi vào nhóm chat nên mã phải dùng chung và
-        // sống lâu; lớp học giữ mã xoay 30s trên màn hình giảng viên.
-        { shared: isWorker, mode: isWorker ? "worker" : "class" }
-      );
+      if (isWorker) {
+        const session = await WorkerQrAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, batch.ownerId);
+        return res.status(201).json({ success: true, sessionId: session.id, token: session.currentToken, expiresAt: session.expiresAt, date: session.date });
+      }
 
-      res.status(201).json({ success: true, ...session });
+      const session = await QRAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : 5, batch.ownerId, { shared: false, mode: "class" });
+      return res.status(201).json({ success: true, ...session });
     } catch (error) {
       next(error);
     }
@@ -62,7 +59,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR." });
       }
 
-      const info = QRAttendanceService.getSessionInfo(String(token));
+      let info; try { info = WorkerQrAttendanceService.getSessionInfo(String(token)); } catch { info = QRAttendanceService.getSessionInfo(String(token)); }
       res.json({ success: true, data: info });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy thông tin phiên." });
@@ -77,7 +74,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      const tokenData = QRAttendanceService.getCurrentToken(sessionId);
+      let tokenData; try { tokenData = WorkerQrAttendanceService.getCurrentToken(sessionId); } catch { tokenData = QRAttendanceService.getCurrentToken(sessionId); }
       res.json({ success: true, ...tokenData });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy token." });
@@ -92,7 +89,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      const status = QRAttendanceService.getSessionStatus(sessionId);
+      let status; try { status = WorkerQrAttendanceService.getSessionStatus(sessionId); } catch { status = QRAttendanceService.getSessionStatus(sessionId); }
       res.json({ success: true, ...status });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy trạng thái." });
@@ -107,7 +104,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      await QRAttendanceService.closeSession(sessionId);
+      try { await WorkerQrAttendanceService.closeSession(sessionId); } catch { await QRAttendanceService.closeSession(sessionId); }
       res.json({ success: true, message: "Đã đóng phiên và lưu điểm danh thành công." });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể đóng phiên." });
@@ -129,9 +126,15 @@ export class QRAttendanceController {
       const fileBuffer = req.file?.buffer ?? Buffer.alloc(0);
       const fileMimeType = req.file?.mimetype ?? "image/jpeg";
 
-      const result = await QRAttendanceService.checkin(
-        token, phone, fingerprint || "", fileBuffer, fileMimeType, lat, lng
-      );
+      let result;
+      try {
+        WorkerQrAttendanceService.getSessionInfo(token);
+        const workerResult = await WorkerQrAttendanceService.checkin(token, phone, fingerprint || "", lat, lng);
+        result = { success: true, workerName: workerResult.workerName, studentName: workerResult.workerName, distanceMeters: workerResult.distanceMeters, kind: workerResult.kind };
+      } catch (error) {
+        if (error instanceof WorkerQrCheckinError) throw error;
+        result = await QRAttendanceService.checkin(token, phone, fingerprint || "", fileBuffer, fileMimeType, lat, lng);
+      }
       res.json(result);
     } catch (error: any) {
       if (error instanceof QrCheckinError) {
