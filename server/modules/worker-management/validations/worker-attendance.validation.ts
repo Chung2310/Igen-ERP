@@ -34,6 +34,7 @@ export const listAttendanceQuerySchema = Joi.object({
 });
 
 export const adjustAttendanceSchema = Joi.object({
+  projectId: objectIdSchema.required().messages({ "any.required": "Mã dự án là bắt buộc." }),
   checkInAt: Joi.string().isoDate().allow(null).optional().messages({
     "string.isoDate": "Giờ vào phải là chuỗi định dạng ISO date hợp lệ.",
   }),

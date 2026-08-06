@@ -32,12 +32,13 @@ export const workerAttendanceApi = {
 
   async adjust(
     id: string,
+    projectId: string,
     changes: { checkInAt?: string | null; checkOutAt?: string | null; note?: string }
   ) {
     return (
       await workerApiFetch<{ data: WorkerAttendanceLog }>(`/worker-management/attendance/${id}`, {
         method: "PATCH",
-        body: JSON.stringify(changes),
+        body: JSON.stringify({ ...changes, projectId }),
       })
     ).data;
   },
