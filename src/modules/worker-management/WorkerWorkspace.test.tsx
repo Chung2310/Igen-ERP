@@ -15,7 +15,7 @@ const workspaceState = vi.hoisted(() => ({
     data: [{ _id: "project-1", name: "Project Alpha", code: "PA" }],
   }),
   standardFields: vi.fn((..._args: unknown[]) => ({
-    fields: [{ key: "phone", label: "Runtime phone", isRequired: true, isVisible: true, isArchived: false }],
+    fields: [{ key: "phone", label: "Số điện thoại", isRequired: true, isVisible: true, isArchived: false }],
   })),
   workerUpdate: vi.fn().mockImplementation(async (_id, input) => ({ _id: "worker-1", ...input })),
   workerHookUpdate: vi.fn().mockImplementation(async (_id, input) => ({ _id: "worker-1", ...input })),
@@ -152,7 +152,7 @@ describe("WorkerWorkspace", () => {
       if (options.params.companyCode === "COMPANY-A") {
         return { data: [{ _id: "project-a", name: "Project A", code: "A" }] };
       }
-      return new Promise(() => {});
+      return new Promise(() => { });
     });
 
     render(<WorkerWorkspace />);
