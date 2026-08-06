@@ -5,6 +5,7 @@ import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
 import { ModuleSettingsService } from "../services/module-settings.service";
 import { WorkerQrAttendanceService, WorkerQrCheckinError } from "../../../modules/worker-management/services/worker-qr-attendance.service";
+import { WorkerProjectModel } from "../../../modules/worker-management/models/worker-project.model";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 /** QR chấm công lao động sống 1 giờ để quản lý kịp gửi vào nhóm chat. */
@@ -21,25 +22,28 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp batchId và date." });
       }
 
-      // Xác minh quyền: Giảng viên chỉ được tạo phiên cho lớp họ quản lý (ownerId hợp lệ)
-      const allowedOwners = await getAllowedOwnerIds(req.user!);
-      const query: Record<string, any> = { _id: batchId };
-      if (allowedOwners !== "ALL") {
-        query.ownerId = Array.isArray(allowedOwners) ? { $in: allowedOwners } : allowedOwners;
-      }
-
-      const batch = await Batch.findOne(query);
-      if (!batch) {
-        return res.status(404).json({ success: false, error: "Không tìm thấy lớp học hoặc bạn không có quyền." });
-      }
-
-      // Preset lấy từ cấu hình module của chính chủ sở hữu dự án, không tin
-      // client: quyết định này đổi cả cách ghi dữ liệu lẫn tuổi thọ mã QR.
-      const tenantId = await resolveCustomFieldTenantForOwner(batch.ownerId);
+      const ownerId = String(req.user?.companyCode || "");
+      const tenantId = await resolveCustomFieldTenantForOwner(ownerId);
       const { entityPreset } = await new ModuleSettingsService().get(tenantId);
       const isWorker = entityPreset === "worker";
 
       if (isWorker) {
+        const project = await WorkerProjectModel.findOne({ _id: batchId, companyCode: ownerId, deletedAt: null });
+        if (!project) return res.status(404).json({ success: false, error: "Không tìm thấy dự án hoặc bạn không có quyền." });
+        const session = await WorkerQrAttendanceService.createSession(String(project._id), date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, ownerId);
+        return res.status(201).json({ success: true, sessionId: session.id, token: session.currentToken, expiresAt: session.expiresAt, date: session.date });
+      }
+
+      const allowedOwners = await getAllowedOwnerIds(req.user!);
+      const query: Record<string, any> = { _id: batchId };
+      if (allowedOwners !== "ALL") query.ownerId = Array.isArray(allowedOwners) ? { $in: allowedOwners } : allowedOwners;
+      const batch = await Batch.findOne(query);
+      if (!batch) return res.status(404).json({ success: false, error: "Không tìm thấy lớp học hoặc bạn không có quyền." });
+
+      const studentTenantId = await resolveCustomFieldTenantForOwner(batch.ownerId);
+      const studentSettings = await new ModuleSettingsService().get(studentTenantId);
+      const studentPreset = studentSettings.entityPreset;
+      if (studentPreset === "worker") return res.status(400).json({ success: false, error: "Không thể dùng lớp học để tạo phiên lao động." });      if (isWorker) {
         const session = await WorkerQrAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, batch.ownerId);
         return res.status(201).json({ success: true, sessionId: session.id, token: session.currentToken, expiresAt: session.expiresAt, date: session.date });
       }
