@@ -62,6 +62,7 @@ export class StudentQualityService {
     return settings ? {
       riskAttendance: settings.riskAttendance, riskAssignment: settings.riskAssignment, riskMiniTest: settings.riskMiniTest,
       watchAttendance: settings.watchAttendance, watchAssignment: settings.watchAssignment, watchMiniTest: settings.watchMiniTest,
+      assignmentMaxScore: settings.assignmentMaxScore || DEFAULT_QUALITY_THRESHOLDS.assignmentMaxScore,
     } : DEFAULT_QUALITY_THRESHOLDS;
   }
 
@@ -147,7 +148,7 @@ export class StudentQualityService {
       const lateSessions = confirmedSessions.filter((session) => session.records.some((record) => record.studentId === studentId && record.status === "late")).length;
       const assignmentItems = (assignmentsByBatch.get(batchId) || []).map((assignment) => {
         const submission = submissionMap.get(`${String(assignment._id)}:${studentId}`);
-        return { id: String(assignment._id), title: assignment.title, dueDate: assignment.dueDate || null, status: submission?.status || "not_submitted", score: submission?.score ?? null, feedback: submission?.feedback || "", submittedAt: submission?.submittedAt || null };
+        return { id: String(assignment._id), title: assignment.title, dueDate: assignment.dueDate || null, maxScore: assignment.maxScore || DEFAULT_QUALITY_THRESHOLDS.assignmentMaxScore, status: submission?.status || "not_submitted", score: submission?.score ?? null, feedback: submission?.feedback || "", submittedAt: submission?.submittedAt || null };
       });
       const completedAssignments = assignmentItems.filter((assignment) => assignment.status !== "not_submitted").length;
       const miniTests = (miniTestsByBatch.get(batchId) || []).map((miniTest) => {
@@ -283,6 +284,7 @@ export class StudentQualityService {
     if (!assignment) throw new Error("Không tìm thấy bài tập của lớp.");
     const submission = await SubmissionModel.findOne({ assignmentId, studentId });
     if (!submission) throw new Error("Học viên chưa nộp bài tập này.");
+    if (data.score > (assignment.maxScore || DEFAULT_QUALITY_THRESHOLDS.assignmentMaxScore)) throw new Error("Điểm không được lớn hơn thang điểm của bài tập.");
     submission.score = data.score; submission.feedback = data.feedback || ""; submission.status = "graded"; submission.gradedAt = new Date();
     await submission.save();
     return this.detail(ownerId, batchId, studentId, actor.branchId);

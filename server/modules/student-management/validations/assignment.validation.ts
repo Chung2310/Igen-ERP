@@ -17,6 +17,7 @@ export const createAssignmentSchema = Joi.object({
   dueDate: Joi.date().iso().greater("now").optional().messages({
     "date.greater": "Hạn nộp bài phải là thời gian trong tương lai.",
   }),
+  maxScore: Joi.number().min(1).max(10000).optional(),
   attachments: Joi.array().items(
     Joi.object({
       name: Joi.string().required(),
@@ -69,7 +70,7 @@ export const uploadProofFileSchema = Joi.object({
 });
 
 export const gradeSubmissionSchema = Joi.object({
-  score: Joi.number().min(0).max(10).required().messages({
+  score: Joi.number().min(0).max(10000).required().messages({
     "any.required": "Điểm số là bắt buộc.",
     "number.min": "Điểm số không được nhỏ hơn 0.",
     "number.max": "Điểm số không được lớn hơn 10.",

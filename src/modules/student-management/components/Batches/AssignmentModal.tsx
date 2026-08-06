@@ -23,6 +23,7 @@ import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { Batch, Student } from "../../types";
 import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
+import { getStudentQualityThresholds } from "../../api/studentQuality.api";
 
 interface IAttachment {
   name: string;
@@ -30,11 +31,18 @@ interface IAttachment {
   type: string;
 }
 
+const DUE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  const minute = index % 2 ? "30" : "00";
+  return `${hour}:${minute}`;
+});
+
 interface IAssignment {
   _id: string;
   title: string;
   description?: string;
   dueDate?: string;
+  maxScore: number;
   attachments?: IAttachment[];
   createdAt: string;
 }
@@ -84,6 +92,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newMaxScore, setNewMaxScore] = useState("10");
   const dueDatePart = newDueDate.slice(0, 10);
   const dueTimePart = newDueDate.slice(11, 16) || "20:00";
   const updateDueDate = (date: string, time = dueTimePart) => setNewDueDate(date ? `${date}T${time || "20:00"}` : "");
@@ -105,6 +114,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   useEffect(() => {
     if (isOpen) {
       fetchAssignments();
+      void getStudentQualityThresholds().then((settings) => setNewMaxScore(String(settings.assignmentMaxScore || 10))).catch(() => undefined);
     }
   }, [isOpen, batch.id]);
 
@@ -230,6 +240,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           title: newTitle,
           description: newDescription,
           dueDate: newDueDate || undefined,
+          maxScore: Number(newMaxScore),
           attachments: newAttachments,
           batchId: batch.id,
         }),
@@ -241,6 +252,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         setNewTitle("");
         setNewDescription("");
         setNewDueDate("");
+        setNewMaxScore("10");
         setNewAttachments([]);
         fetchAssignments();
       }
@@ -255,8 +267,9 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     e.preventDefault();
     if (!selectedAssignment || !selectedStudentId) return;
 
-    if (score === "" || isNaN(Number(score)) || Number(score) < 0 || Number(score) > 10) {
-      toast.error("Điểm số phải là số trong khoảng 0 đến 10.");
+    const maxScore = selectedAssignment.maxScore || 10;
+    if (score === "" || isNaN(Number(score)) || Number(score) < 0 || Number(score) > maxScore) {
+      toast.error(`Điểm số phải là số trong khoảng 0 đến ${maxScore}.`);
       return;
     }
 
@@ -386,9 +399,14 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     <div className="mb-1 flex items-center justify-between"><label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Hạn nộp</label><button type="button" onClick={() => setNewDueDate("")} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600">Không đặt hạn</button></div>
                     <div className="grid grid-cols-[1fr_104px] gap-2">
                       <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="date" value={dueDatePart} onChange={(e) => updateDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500" /></label>
-                      <label className="relative"><Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="time" value={dueTimePart} disabled={!dueDatePart} onChange={(e) => updateDueDate(dueDatePart, e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300" /></label>
+                      <label className="relative"><Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><select value={dueTimePart} disabled={!dueDatePart} onChange={(e) => updateDueDate(dueDatePart, e.target.value)} className="w-full appearance-none rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300">{DUE_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}</select></label>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => setQuickDueDate(0)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Hôm nay · 20:00</button><button type="button" onClick={() => setQuickDueDate(1)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Ngày mai · 20:00</button></div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400">Thang điểm bài tập</label>
+                    <input type="number" min="1" max="10000" required value={newMaxScore} onChange={(event) => setNewMaxScore(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none transition focus:border-indigo-500" />
+                    <p className="mt-1 text-[10px] text-slate-400">Mặc định theo cấu hình trung tâm; có thể đổi riêng cho bài này.</p>
                   </div>
 
                   {/* Attachment creation */}
@@ -518,7 +536,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       <div className="shrink-0 flex items-center">
                         {isGraded ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-50 text-[9px] font-black text-emerald-600 border border-emerald-100">
-                            {sub.score}/10
+                            {sub.score}/{selectedAssignment?.maxScore || 10}
                           </span>
                         ) : isSubmitted ? (
                           <span className={cn(
@@ -609,16 +627,16 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                             <Award className="h-3.5 w-3.5" /> Chấm điểm & Nhận xét
                           </div>
                           <div>
-                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1">Điểm số (Thang điểm 10) *</label>
+                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1">Điểm số (Thang điểm {selectedAssignment.maxScore || 10}) *</label>
                             <input
                               type="number"
                               step="0.1"
                               min="0"
-                              max="10"
+                              max={selectedAssignment.maxScore || 10}
                               required
                               value={score}
                               onChange={(e) => setScore(e.target.value)}
-                              placeholder="Ví dụ: 8.5"
+                              placeholder={`Ví dụ: ${Math.min(8.5, selectedAssignment.maxScore || 10)}`}
                               className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition"
                             />
                           </div>

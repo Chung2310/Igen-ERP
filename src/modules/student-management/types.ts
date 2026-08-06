@@ -315,6 +315,7 @@ export interface StudentQualityAssignment {
   dueDate: string | null;
   status: "not_submitted" | "submitted" | "graded" | "late";
   score: number | null;
+  maxScore: number;
   feedback: string;
   submittedAt: string | null;
 }

@@ -9,4 +9,5 @@ export interface IStudentQualityThreshold extends Document {
   watchAttendance: number;
   watchAssignment: number;
   watchMiniTest: number;
+  assignmentMaxScore: number;
 }

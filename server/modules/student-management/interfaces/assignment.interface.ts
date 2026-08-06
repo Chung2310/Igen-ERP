@@ -14,6 +14,8 @@ export interface IAssignment extends Document {
   batchId: string;
   courseId: string;
   dueDate?: Date;
+  /** Thang điểm được chốt tại lúc giao bài, không bị ảnh hưởng khi trung tâm đổi cấu hình sau này. */
+  maxScore: number;
   instructorId: string;
   ownerId: string;
   branchId?: string;

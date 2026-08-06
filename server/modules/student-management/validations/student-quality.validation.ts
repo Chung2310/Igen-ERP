@@ -50,11 +50,12 @@ export const assignmentScoreParamsSchema = studentQualityParamsSchema.keys({
 });
 
 export const gradeAssignmentSchema = Joi.object({
-  score: Joi.number().min(0).max(10).required(),
+  score: Joi.number().min(0).max(10000).required(),
   feedback: Joi.string().trim().max(2000).allow("").optional(),
 });
 
 export const qualityThresholdSchema = Joi.object({
   riskAttendance: Joi.number().min(0).max(100).required(), riskAssignment: Joi.number().min(0).max(100).required(), riskMiniTest: Joi.number().min(0).max(100).required(),
   watchAttendance: Joi.number().min(0).max(100).required(), watchAssignment: Joi.number().min(0).max(100).required(), watchMiniTest: Joi.number().min(0).max(100).required(),
+  assignmentMaxScore: Joi.number().min(1).max(10000).required(),
 });
