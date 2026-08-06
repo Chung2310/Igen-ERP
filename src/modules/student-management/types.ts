@@ -155,7 +155,8 @@ export interface ExamSession {
   batchId?: string;
   batchCode?: string;
   maxScore?: number;
-  results?: Array<{ studentId: string; score?: number; note?: string; gradedAt?: string }>;
+  passScore?: number;
+  results?: Array<{ studentId: string; score?: number; outcome?: 'Đậu' | 'Trượt' | 'Chưa có'; note?: string; gradedAt?: string }>;
   studentCount: number;
   passCount: number;
   failCount: number;

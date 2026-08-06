@@ -30,7 +30,12 @@ export function CustomFieldsSection({
   onToggleEditingFields
 }: CustomFieldsSectionProps) {
   const { userProfile } = useAuth();
-  const { fields, archivedFields, loading, error, refresh, createField, updateField, archiveField, restoreField, deleteField } = useCustomFields(moduleKey, tenantId);
+  // Với tài khoản doanh nghiệp, tenant luôn phải lấy từ access token. Chỉ
+  // superadmin mới được gửi tenantId để cấu hình cho doanh nghiệp đã chọn.
+  // Điều này tránh việc một mã trung tâm cũ/khác định dạng bị hiểu nhầm là
+  // truy cập sang doanh nghiệp khác.
+  const requestedTenantId = userProfile?.role === "superadmin" ? tenantId : undefined;
+  const { fields, archivedFields, loading, error, refresh, createField, updateField, archiveField, restoreField, deleteField } = useCustomFields(moduleKey, requestedTenantId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const manageable = canManageCustomFields(userProfile?.permissions);

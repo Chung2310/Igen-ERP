@@ -129,7 +129,10 @@ export class ExamService {
     const batch = await Batch.findOne({ _id: batchId, ownerId, branchId: writeData.branchId });
     if (!batch) throw new Error("Không tìm thấy lớp học của lịch thi.");
     assertBatchReadyForExam(batch);
-    const exam = new Exam({ ...writeData, ownerId, studentCount: batch.learnerIds.length, results: batch.learnerIds.map((studentId) => ({ studentId })) });
+    const maxScore = Number(writeData.maxScore || 100);
+    const passScore = writeData.passScore === undefined ? Math.ceil(maxScore / 2) : Number(writeData.passScore);
+    if (!Number.isFinite(passScore) || passScore < 0 || passScore > maxScore) throw new Error("Ngưỡng đạt phải nằm trong khoảng 0 đến thang điểm.");
+    const exam = new Exam({ ...writeData, maxScore, passScore, ownerId, studentCount: batch.learnerIds.length, results: batch.learnerIds.map((studentId) => ({ studentId, outcome: "Chưa có" })) });
     const savedExam = await exam.save();
     logger.info(`[Exam] Exam created successfully: id=${savedExam._id}, name=${savedExam.name}`);
     return savedExam;
@@ -142,29 +145,46 @@ export class ExamService {
     const exam = await Exam.findOne(query);
     if (!exam) throw new Error("Không tìm thấy lịch thi.");
     const allowedStudents = new Set((exam.results || []).map((item) => item.studentId));
-    const invalid = results.find((item) => !allowedStudents.has(item.studentId) || item.score > (exam.maxScore || 100));
+    const maxScore = Number(exam.maxScore || 100);
+    const passScore = Number.isFinite(Number(exam.passScore)) ? Number(exam.passScore) : Math.ceil(maxScore / 2);
+    if (passScore > maxScore) throw new Error("Ngưỡng đạt không được lớn hơn thang điểm.");
+    if (exam.passScore == null) exam.passScore = passScore;
+    const invalid = results.find((item) => !allowedStudents.has(item.studentId) || item.score < 0 || item.score > maxScore);
     if (invalid) throw new Error("Điểm hoặc học viên không hợp lệ cho lịch thi này.");
     const now = new Date();
     for (const input of results) {
       const item = exam.results?.find((result) => result.studentId === input.studentId);
-      if (item) { item.score = input.score; item.note = input.note || ""; item.gradedBy = actorId; item.gradedAt = now; }
+      if (item) {
+        item.score = input.score;
+        item.outcome = input.score >= passScore ? "Đậu" : "Trượt";
+        item.note = input.note || "";
+        item.gradedBy = actorId;
+        item.gradedAt = now;
+      }
     }
     const complete = (exam.results || []).every((item) => typeof item.score === "number");
     exam.status = complete ? "Đã hoàn thành" : exam.status;
+    exam.passCount = (exam.results || []).filter((item) => item.outcome === "Đậu").length;
+    exam.failCount = (exam.results || []).filter((item) => item.outcome === "Trượt").length;
     await exam.save();
     await Promise.all(results.map((input) => Student.updateOne(
       { _id: input.studentId },
       { $pull: { exams: { id: String(exam._id) } } }
     ).then(() => Student.updateOne(
       { _id: input.studentId },
-      { $push: { exams: { id: String(exam._id), name: exam.name, date: exam.officialDate || exam.tentativeDate, type: "Tốt nghiệp", status: "Đã thi", batchId: exam.batchId || "", result: { theory: input.score, practice: 0, simulation: 0, overall: "Chưa có" } } } }
+      { $push: { exams: { id: String(exam._id), name: exam.name, date: exam.officialDate || exam.tentativeDate, type: "Tốt nghiệp", status: "Đã thi", batchId: exam.batchId || "", result: { theory: input.score, practice: 0, simulation: 0, overall: input.score >= passScore ? "Đậu" : "Trượt" } } } }
     ))));
-    if (complete && exam.batchId) {
+    const passedStudentIds = (exam.results || []).filter((item) => item.outcome === "Đậu").map((item) => item.studentId);
+    const failedStudentIds = (exam.results || []).filter((item) => item.outcome === "Trượt").map((item) => item.studentId);
+    if (exam.batchId && passedStudentIds.length) {
       const batch = await Batch.findOne({ _id: exam.batchId }).select("courseId").lean();
       if (batch?.courseId) await Student.updateMany(
-        { _id: { $in: (exam.results || []).map((item) => item.studentId) } },
+        { _id: { $in: passedStudentIds } },
         { $addToSet: { completedCourseIds: batch.courseId } },
       );
+    }
+    if (exam.batchId) {
+      await Promise.all(failedStudentIds.map((studentId) => queueRetakeAfterFailedExam(ownerId, branchId, exam.batchId!, studentId, String(exam._id))));
     }
     return exam;
   }
@@ -230,6 +250,10 @@ export class ExamService {
     const expectedVersion = expectedVersionOf(data);
     const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existingExam.ownerId) } : context;
     const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existingExam, data);
+    const nextMaxScore = writeData.maxScore === undefined ? Number(existingExam.maxScore || 100) : Number(writeData.maxScore);
+    const nextPassScore = writeData.passScore === undefined ? Number(existingExam.passScore ?? Math.ceil(nextMaxScore / 2)) : Number(writeData.passScore);
+    if (!Number.isFinite(nextPassScore) || nextPassScore < 0 || nextPassScore > nextMaxScore) throw new Error("Ngưỡng đạt phải nằm trong khoảng 0 đến thang điểm.");
+    writeData.passScore = nextPassScore;
     const updatedExam = await Exam.findOneAndUpdate(
       { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },

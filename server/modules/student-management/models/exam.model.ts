@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose";
 import { IExam } from "../interfaces/exam.interface";
 
-const resultSchema = new Schema({ studentId: { type: String, required: true }, score: { type: Number, min: 0 }, note: { type: String, default: "" }, gradedBy: { type: String, default: "" }, gradedAt: { type: Date, default: null } }, { _id: false });
+const resultSchema = new Schema({ studentId: { type: String, required: true }, score: { type: Number, min: 0 }, outcome: { type: String, enum: ["Đậu", "Trượt", "Chưa có"], default: "Chưa có" }, note: { type: String, default: "" }, gradedBy: { type: String, default: "" }, gradedAt: { type: Date, default: null } }, { _id: false });
 
 const examSchema = new Schema<IExam>(
   {
@@ -25,6 +25,7 @@ const examSchema = new Schema<IExam>(
     location: { type: String, required: true },
     batchId: { type: String, default: "", index: true },
     maxScore: { type: Number, default: 100, min: 1 },
+    passScore: { type: Number, default: 50, min: 0 },
     results: { type: [resultSchema], default: [] },
     studentCount: { type: Number, default: 0 },
     passCount: { type: Number, default: 0 },
