@@ -43,12 +43,7 @@ export class QRAttendanceController {
       const studentTenantId = await resolveCustomFieldTenantForOwner(batch.ownerId);
       const studentSettings = await new ModuleSettingsService().get(studentTenantId);
       const studentPreset = studentSettings.entityPreset;
-      if (studentPreset === "worker") return res.status(400).json({ success: false, error: "Không thể dùng lớp học để tạo phiên lao động." });      if (isWorker) {
-        const session = await WorkerQrAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, batch.ownerId);
-        return res.status(201).json({ success: true, sessionId: session.id, token: session.currentToken, expiresAt: session.expiresAt, date: session.date });
-      }
-
-      const session = await QRAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : 5, batch.ownerId, { shared: false, mode: "class" });
+      if (studentPreset === "worker") return res.status(400).json({ success: false, error: "Không thể dùng lớp học để tạo phiên lao động." });      const session = await QRAttendanceService.createSession(batchId, date, durationMinutes ? Number(durationMinutes) : 5, batch.ownerId, { shared: false, mode: "class" });
       return res.status(201).json({ success: true, ...session });
     } catch (error) {
       next(error);
