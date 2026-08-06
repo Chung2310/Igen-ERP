@@ -1,7 +1,7 @@
-﻿import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dropLegacyStudentAttendanceUniqueIndex } from "./student-attendance-index-migration";
 
-describe("student attendance index migration", () => {
+describe("student attendance attempt index migration", () => {
   it("drops the obsolete unique index", async () => {
     const dropIndex = vi.fn().mockResolvedValue(undefined);
     const collection = { indexes: vi.fn().mockResolvedValue([{ name: "student_batch_date_unique", key: { studentId: 1, batchId: 1, date: 1 }, unique: true }]), dropIndex };
