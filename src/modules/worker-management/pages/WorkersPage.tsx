@@ -367,6 +367,7 @@ export default function WorkersPage({
           workers={workers}
           profileFields={profileFields}
           projects={projects}
+          tenantId={selectedCenter && selectedCenter !== "all" ? selectedCenter : undefined}
           onClose={() => setAddOpen(false)}
           onSubmit={createWorker}
           onSuccess={setSelectedWorker}
