@@ -9,6 +9,7 @@ import {
   dropLegacyAttendancePeriodResultUniqueIndex,
   dropLegacyPayrollOperationJobIdempotencyIndex,
 } from "../model/payroll-branch-index-migration";
+import { dropLegacyStudentAttendanceUniqueIndex } from "../model/student-attendance-index-migration";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -201,6 +202,7 @@ export async function connectDB() {
     await dropLegacyPayrollRunPeriodKeyUniqueIndex();
     await dropLegacyPayrollOperationJobIdempotencyIndex();
     await dropLegacyAttendancePeriodResultUniqueIndex();
+    await dropLegacyStudentAttendanceUniqueIndex();
     await seedSuperAdmin();
     await seedPermissions();
   } catch (error) {
