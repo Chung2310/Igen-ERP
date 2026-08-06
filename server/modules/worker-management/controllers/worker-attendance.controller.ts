@@ -79,6 +79,7 @@ export class WorkerAttendanceController {
       const data = await WorkerAttendanceService.adjust(
         getCompanyCode(req),
         String(req.params.id),
+        String(req.body.projectId),
         {
           checkInAt: req.body.checkInAt,
           checkOutAt: req.body.checkOutAt,

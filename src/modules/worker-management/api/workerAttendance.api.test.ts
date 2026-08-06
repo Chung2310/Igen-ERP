@@ -10,7 +10,7 @@ describe("workerAttendanceApi", () => {
 
     await workerAttendanceApi.list("project-1", "2026-08-05");
     await workerAttendanceApi.mark({ projectId: "project-1", workerId: "worker-1" });
-    await workerAttendanceApi.adjust("log-1", { note: "manual" });
+    await workerAttendanceApi.adjust("log-1", "project-1", { note: "manual" });
     await workerAttendanceApi.createQrSession("project-1", "2026-08-05");
     await workerAttendanceApi.getQrToken("session-1");
     await workerAttendanceApi.getQrStatus("session-1");

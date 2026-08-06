@@ -259,11 +259,13 @@ export class WorkerAttendanceService {
   static async adjust(
     companyCode: string | string[],
     logId: string,
+    projectId: string,
     changes: { checkInAt?: string | null; checkOutAt?: string | null; note?: string },
     actorId: string
   ) {
     const log = await WorkerAttendanceLogModel.findOne({
       _id: new Types.ObjectId(logId),
+      projectId: new Types.ObjectId(projectId),
       ...buildCompanyQuery(companyCode),
     });
     if (!log) throw new WorkerAttendanceError("log_not_found", "Không tìm thấy bản ghi chấm công.");
