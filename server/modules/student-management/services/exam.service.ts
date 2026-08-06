@@ -1,6 +1,7 @@
 import { Exam } from "../models/exam.model";
 import { Student } from "../models/student.model";
 import { Batch } from "../models/batch.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { IExam } from "../interfaces/exam.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
@@ -25,6 +26,18 @@ function getDrivingExamBucket(rank?: string | null): 'motorbike' | 'car' | null 
   if (MOTORBIKE_LICENSE_PREFIXES.some(prefix => normalized.startsWith(prefix))) return 'motorbike';
   if (CAR_LICENSE_PREFIXES.some(prefix => normalized.startsWith(prefix))) return 'car';
   return null;
+}
+
+/** Kết quả trượt chỉ tạo yêu cầu chờ xếp học lại; không tự gán lớp hay lệ phí. */
+async function queueRetakeAfterFailedExam(ownerId: string | string[], branchId: string | undefined, batchId: string, studentId: string, examId: string) {
+  if (!batchId) return;
+  const ownerFilter = ownerId === "ALL" ? {} : { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+  const enrollment = await BatchEnrollment.findOne({ ...ownerFilter, ...(branchId ? { branchId } : {}), batchId, studentId });
+  if (!enrollment || enrollment.status === "Chờ xếp học lại" || enrollment.status === "Học lại") return;
+  const fromStatus = enrollment.status;
+  enrollment.status = "Chờ xếp học lại" as any;
+  enrollment.history.push({ at: new Date(), action: "exam_failed", fromStatus, toStatus: "Chờ xếp học lại" as any, note: `Trượt kỳ thi ${examId}` });
+  await enrollment.save();
 }
 
 function isStudentEligibleForExamRank(
@@ -407,6 +420,10 @@ export class ExamService {
       }
     );
 
+    if (overallResult === "Trượt" && exam.batchId) {
+      await queueRetakeAfterFailedExam(ownerId, branchId, exam.batchId, studentId, String(exam._id));
+    }
+
     // Recalculate exam stats
     const passCount = await Student.countDocuments({
       examId,
@@ -606,6 +623,10 @@ export class ExamService {
               }
             }
           );
+        }
+
+        if (overallResult === "Trượt" && exam.batchId) {
+          await queueRetakeAfterFailedExam(ownerId, branchId, exam.batchId, String(student._id), String(exam._id));
         }
 
         successCount++;

@@ -935,6 +935,7 @@ export async function updateEnrollmentStatus(
   const enrollment = await BatchEnrollment.findOne({ batchId: String(batch._id), studentId });
   if (!enrollment) throw new Error("Không tìm thấy sổ buổi của học viên.");
   if (status === "Học lại") {
+    const fromStatus = enrollment.status;
     const count = (enrollment.retakeCount || 0) + 1;
     if (count > 1 && retakeFee <= 0) throw new Error("Từ lần học lại thứ hai, lệ phí là bắt buộc.");
     enrollment.retakeCount = count;
@@ -948,11 +949,11 @@ export async function updateEnrollmentStatus(
       target.learnerIds.push(studentId); await target.save();
       await StudentBatchEnrollmentService.activate({ ownerId: String(Array.isArray(ownerId) ? ownerId[0] : ownerId), branchId, batchId: targetBatchId, studentId, actorId, allowedSessions: getPlannedSessionCount(target) });
     }
-    enrollment.history.push({ at: new Date(), action: "retake", fromStatus: enrollment.status as any, toStatus: "Học lại" as any, note: reason || "" });
+    enrollment.history.push({ at: new Date(), action: "retake", fromStatus: fromStatus as any, toStatus: "Học lại" as any, note: reason || "" });
     await enrollment.save();
     return enrollment.toObject();
   }
-  if (["Hoàn thành khóa", "Chờ xếp lớp tiếp theo", "Không còn nhu cầu học"].includes(status as string)) {
+  if (["Chờ xếp học lại", "Hoàn thành khóa", "Chờ xếp lớp tiếp theo", "Không còn nhu cầu học"].includes(status as string)) {
     const fromStatus = enrollment.status;
     enrollment.status = status as any;
     enrollment.history.push({ at: new Date(), action: "status_changed", fromStatus, toStatus: status as any, note: reason || "" });

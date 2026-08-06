@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown
+  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown, Settings
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -39,6 +39,7 @@ import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModa
 import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
 import { canManageCustomFields } from '../../custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import { DEFAULT_BATCH_PROGRESS_COLORS, getBatchProgressColors, updateBatchProgressColors, type BatchProgressColors } from '../../api/batchProgressSettings.api';
 
 const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc', 'Đã hủy'];
 
@@ -72,6 +73,7 @@ const progressStyle = (level: BatchProgressLevel) => {
   if (level === 'red') return "bg-rose-500/10 text-rose-500 border-rose-500/20";
   if (level === 'yellow') return "bg-amber-500/10 text-amber-500 border-amber-500/20";
   if (level === 'green') return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+  if (level === 'black') return "bg-slate-950 text-white border-slate-950";
   return "bg-slate-500/10 text-slate-400 border-slate-500/15";
 };
 
@@ -80,6 +82,7 @@ const progressAccentStyle = (level?: BatchProgressLevel) => {
   if (level === 'red') return "border-l-rose-600";
   if (level === 'yellow') return "border-l-amber-500";
   if (level === 'green') return "border-l-emerald-600";
+  if (level === 'black') return "border-l-slate-950";
   return "border-l-slate-400";
 };
 
@@ -87,7 +90,16 @@ const progressStatusText = (level: BatchProgressLevel) => {
   if (level === 'red') return "Quá hạn";
   if (level === 'yellow') return "Cần chú ý";
   if (level === 'green') return "Tốt";
+  if (level === 'black') return "Đã kết thúc 6–12 tháng";
   return "Chưa có dữ liệu";
+};
+
+const progressColor = (level: BatchProgressLevel, colors: BatchProgressColors) => {
+  if (level === 'green') return colors.green;
+  if (level === 'yellow') return colors.yellow;
+  if (level === 'red') return colors.red;
+  if (level === 'black') return colors.black;
+  return '#64748b';
 };
 
 const progressText = (p: BatchProgress) => {
@@ -328,6 +340,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const [statusFilter, setStatusFilter] = useState('all');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showProgressColors, setShowProgressColors] = useState(false);
+  const [progressColors, setProgressColors] = useState<BatchProgressColors>(DEFAULT_BATCH_PROGRESS_COLORS);
+  const [savingProgressColors, setSavingProgressColors] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -344,6 +359,23 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     id: '',
     code: '',
   });
+
+  useEffect(() => {
+    getBatchProgressColors().then(setProgressColors).catch(() => toast.error('Không thể tải cấu hình màu tiến độ lớp.'));
+  }, [activeBranchId]);
+
+  const saveProgressColors = async () => {
+    setSavingProgressColors(true);
+    try {
+      setProgressColors(await updateBatchProgressColors(progressColors));
+      setShowProgressColors(false);
+      toast.success('Đã lưu màu tiến độ lớp học.');
+    } catch {
+      toast.error('Không thể lưu cấu hình màu tiến độ lớp.');
+    } finally {
+      setSavingProgressColors(false);
+    }
+  };
 
   // Lấy bản mới nhất từ danh sách để modal học viên không bị dữ liệu cũ sau refetch
   const manageBatch = manageLearnersId ? batches.find(b => b.id === manageLearnersId) : undefined;
@@ -605,10 +637,10 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     if (!b.progress) return null;
     return (
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide", b.progress.progressLevel === 'red' ? "bg-rose-600 text-white" : b.progress.progressLevel === 'yellow' ? "bg-amber-500 text-white" : b.progress.progressLevel === 'green' ? "bg-emerald-600 text-white" : "bg-slate-500 text-white")}>
+        <span style={{ backgroundColor: progressColor(b.progress.progressLevel, progressColors) }} className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">
           {progressStatusText(b.progress.progressLevel)}
         </span>
-        <span className={cn(
+        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className={cn(
           "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
           progressStyle(b.progress.progressLevel)
         )}>
@@ -696,6 +728,11 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       {/* Controls */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
+        {canManage && (
+          <button type="button" onClick={() => setShowProgressColors(true)} className="flex h-9 items-center gap-1.5 self-start rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50">
+            <Settings className="h-3.5 w-3.5" /> Màu tiến độ
+          </button>
+        )}
         <ErpFilterRail>
           <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
             Tất cả
@@ -762,7 +799,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedBatches.map((b) => (
-              <ErpCard key={b.id} className={cn("overflow-hidden border-l-[6px] p-4 flex flex-col gap-3", progressAccentStyle(b.progress?.progressLevel))}>
+              <ErpCard key={b.id} style={{ borderLeftColor: b.progress ? progressColor(b.progress.progressLevel, progressColors) : undefined }} className={cn("overflow-hidden border-l-[6px] p-4 flex flex-col gap-3", progressAccentStyle(b.progress?.progressLevel))}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
@@ -878,6 +915,32 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
 
       {/* Create / Edit Batch Modal */}
+      {showProgressColors && (
+        <ErpModal title="Cấu hình màu tiến độ lớp" onClose={() => setShowProgressColors(false)} maxWidth="max-w-md">
+          <p className="mb-4 text-sm text-slate-500">Màu này áp dụng cho toàn bộ lớp học của chi nhánh hiện tại.</p>
+          <div className="space-y-3">
+            {([
+              ['green', 'Xanh — dưới 80%'],
+              ['yellow', 'Vàng — từ 80% số buổi'],
+              ['red', 'Đỏ — quá buổi cuối, chưa kết thúc'],
+              ['black', 'Đen — đã kết thúc 6–12 tháng'],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm font-semibold text-slate-700">
+                {label}
+                <span className="flex items-center gap-2">
+                  <input type="color" value={progressColors[key]} onChange={(event) => setProgressColors((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0" />
+                  <span className="w-16 font-mono text-xs text-slate-500">{progressColors[key]}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={() => setShowProgressColors(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Hủy</button>
+            <button type="button" disabled={savingProgressColors} onClick={() => void saveProgressColors()} className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{savingProgressColors ? 'Đang lưu...' : 'Lưu màu'}</button>
+          </div>
+        </ErpModal>
+      )}
+
       {showFormModal && (
         <ErpModal title={editingId ? copy.editTitle : copy.createTitle} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-6">

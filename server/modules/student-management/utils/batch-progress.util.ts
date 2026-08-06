@@ -1,9 +1,9 @@
 import { countRemainingSessions, countTotalSessions } from "./session-count.util";
 
-/** Ngưỡng cảnh báo vàng: lớp còn tối đa 4 buổi theo lịch */
-export const YELLOW_SESSION_THRESHOLD = 4;
+/** Ngưỡng cảnh báo vàng: lớp đã hoàn thành từ 80% số buổi theo lịch. */
+export const YELLOW_PROGRESS_THRESHOLD = 0.8;
 
-export type BatchProgressLevel = "green" | "yellow" | "red" | "grey";
+export type BatchProgressLevel = "green" | "yellow" | "red" | "black" | "grey";
 export type BatchAgeLabel = "yellow" | "red" | null;
 
 export interface BatchProgress {
@@ -62,7 +62,7 @@ function computeAgeLabel(input: ProgressInput, today: string): BatchAgeLabel {
 
 /**
  * Cảnh báo tiến độ vận hành của lớp theo quy tắc đã chốt:
- * quá hạn mà chưa đóng lớp ⇒ đỏ (ưu tiên cao nhất); còn ≤4 buổi ⇒ vàng.
+ * quá hạn mà chưa đóng lớp ⇒ đỏ (ưu tiên cao nhất); hoàn thành từ 80% ⇒ vàng.
  */
 export function computeBatchProgress(input: ProgressInput, options: ProgressOptions): BatchProgress {
   const { today, holidaySet } = options;
@@ -74,6 +74,9 @@ export function computeBatchProgress(input: ProgressInput, options: ProgressOpti
   const ageLabel = computeAgeLabel(input, today);
 
   if (CLOSED_STATUSES.includes(status)) {
+    if (status === "Đã kết thúc" && ageLabel === "yellow") {
+      return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "black", ageLabel: null };
+    }
     return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "grey", ageLabel };
   }
 
@@ -88,7 +91,7 @@ export function computeBatchProgress(input: ProgressInput, options: ProgressOpti
     return { totalSessions, doneSessions, remainingSessions: 0, progressLevel: "red", ageLabel };
   }
 
-  if (status === "Đang học" && remainingSessions <= YELLOW_SESSION_THRESHOLD) {
+  if (status === "Đang học" && totalSessions > 0 && doneSessions / totalSessions >= YELLOW_PROGRESS_THRESHOLD) {
     return { totalSessions, doneSessions, remainingSessions, progressLevel: "yellow", ageLabel };
   }
 
