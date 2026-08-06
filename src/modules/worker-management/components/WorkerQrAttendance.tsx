@@ -36,7 +36,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
       const created = await workerAttendanceApi.createQrSession(projectId, date);
       const sessionId: string = created.id;
       const { token } = await workerAttendanceApi.getQrToken(sessionId);
-      const checkinUrl = `${window.location.origin}/attendance/checkin/${token}`;
+      const checkinUrl = `${window.location.origin}/worker/checkin/${token}`;
       const dataUrl = await QRCode.toDataURL(checkinUrl, { width: 320, margin: 1 });
       setSession({ id: sessionId, expiresAt: created.expiresAt });
       setQrDataUrl(dataUrl);
@@ -84,17 +84,18 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
 
   React.useEffect(() => {
     if (!session) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const interval = setInterval(() => {
+      const next = Date.now();
+      setNow(next);
+      if (session.expiresAt <= next) {
+        setSession(null);
+        setQrDataUrl("");
+        setStatus(null);
+        clearInterval(interval);
+      }
+    }, 1000);
     return () => clearInterval(interval);
   }, [session]);
-
-  React.useEffect(() => {
-    if (session && session.expiresAt <= now) {
-      setSession(null);
-      setQrDataUrl("");
-      setStatus(null);
-    }
-  }, [session, now]);
 
   return (
     <section aria-label="worker-qr-attendance" className="rounded-2xl border border-slate-200 bg-white p-4">

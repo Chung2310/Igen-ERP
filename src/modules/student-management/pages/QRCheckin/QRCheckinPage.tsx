@@ -58,21 +58,34 @@ function getDeviceFingerprint(): string {
     ].join("|");
     
     return hashCode(rawData);
-  } catch (e) {
+  } catch {
     return hashCode(navigator.userAgent);
   }
 }
 
 export default function QRCheckinPage() {
-  const [token, setToken] = useState<string>("");
-  const [loadingSession, setLoadingSession] = useState<boolean>(true);
+  const [token] = useState<string>(() => {
+    const parts = window.location.pathname.split("/");
+    const t = parts[parts.length - 1];
+    return t && t !== "checkin" ? t : "";
+  });
+  const [loadingSession, setLoadingSession] = useState<boolean>(() => {
+    const parts = window.location.pathname.split("/");
+    const t = parts[parts.length - 1];
+    return !!(t && t !== "checkin"); // false ngay nếu không có token
+  });
   const [sessionInfo, setSessionInfo] = useState<{
     batchId: string;
     batchCode: string;
     courseTitle: string;
     date: string;
   } | null>(null);
-  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(() => {
+    const parts = window.location.pathname.split("/");
+    const t = parts[parts.length - 1];
+    if (!t || t === "checkin") return "Không tìm thấy mã QR điểm danh trong liên kết.";
+    return null;
+  });
 
   const [phone, setPhone] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -82,7 +95,6 @@ export default function QRCheckinPage() {
     error?: string;
   } | null>(null);
 
-  const [isWorker, setIsWorker] = useState<boolean>(false);
   const [step, setStep] = useState<"phone" | "capture">("phone");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<Blob | null>(null);
@@ -112,7 +124,7 @@ export default function QRCheckinPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-      } catch (err) {
+      } catch {
         setCameraError("Không thể truy cập camera. Vui lòng cấp quyền camera cho trình duyệt.");
       }
     })();
@@ -167,17 +179,7 @@ export default function QRCheckinPage() {
     });
   };
 
-  // 1. Lấy token từ URL
-  useEffect(() => {
-    const pathParts = window.location.pathname.split("/");
-    const tokenFromUrl = pathParts[pathParts.length - 1];
-    if (tokenFromUrl && tokenFromUrl !== "checkin") {
-      setToken(tokenFromUrl);
-    } else {
-      setSessionError("Không tìm thấy mã QR điểm danh trong liên kết.");
-      setLoadingSession(false);
-    }
-  }, []);
+  // Token và sessionError được khởi tạo từ URL ngay trong useState — không cần effect
 
   // 2. Lấy thông tin lớp học từ token
   useEffect(() => {
@@ -191,45 +193,17 @@ export default function QRCheckinPage() {
         
         if (data.success && data.data) {
           setSessionInfo(data.data);
-          setIsWorker(false);
         } else {
-          const workerRes = await fetch(`/api/v1/worker-management/qr-attendance/session-info?token=${token}`);
-          const workerData = await workerRes.json();
-          if (workerData.success && workerData.data) {
-            setSessionInfo({
-              batchId: workerData.data.projectId,
-              batchCode: workerData.data.projectCode,
-              courseTitle: workerData.data.projectName,
-              date: workerData.data.date
-            });
-            setIsWorker(true);
-          } else {
-            setSessionError(workerData.error || data.error || "Mã QR đã hết hạn hoặc không hợp lệ.");
-          }
+          setSessionError(data.error || "Mã QR đã hết hạn hoặc không hợp lệ.");
         }
-      } catch (err) {
-        try {
-          const workerRes = await fetch(`/api/v1/worker-management/qr-attendance/session-info?token=${token}`);
-          const workerData = await workerRes.json();
-          if (workerData.success && workerData.data) {
-            setSessionInfo({
-              batchId: workerData.data.projectId,
-              batchCode: workerData.data.projectCode,
-              courseTitle: workerData.data.projectName,
-              date: workerData.data.date
-            });
-            setIsWorker(true);
-            setLoadingSession(false);
-            return;
-          }
-        } catch (_) {}
+      } catch {
         setSessionError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
       } finally {
         setLoadingSession(false);
       }
     };
 
-    fetchSessionInfo();
+    void fetchSessionInfo();
   }, [token]);
 
   // Format ngày dd/mm/yyyy
@@ -238,17 +212,15 @@ export default function QRCheckinPage() {
     return dateStr.split("-").reverse().join("/");
   };
 
-  // 3. Sau khi nhập SĐT, thực hiện điểm danh bằng vị trí trực tiếp
+  // 3. Sau khi nhập SĐT, chuyển sang bước chụp ảnh
   const handleContinueToCapture = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 8) return;
-    handleCheckin(isWorker);
+    setStep("capture");
   };
 
-  // 4. Thực hiện checkin: vị trí GPS
-  const handleCheckin = async (forceWorker?: boolean | React.MouseEvent) => {
-    const isWorkerMode = isWorker || forceWorker === true;
-
+  // 4. Thực hiện checkin: ảnh khuôn mặt + vị trí GPS
+  const handleCheckin = async () => {
     try {
       setSubmitting(true);
       setCameraError(null);
@@ -260,7 +232,7 @@ export default function QRCheckinPage() {
         const position = await getCurrentPosition();
         latitude = position.coords.latitude;
         longitude = position.coords.longitude;
-      } catch (err) {
+      } catch {
         setResult({
           success: false,
           error: "Không lấy được vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt và thử lại."
@@ -269,38 +241,23 @@ export default function QRCheckinPage() {
         return;
       }
 
-      let res;
-      if (isWorkerMode) {
-        res = await fetch("/api/v1/worker-management/qr-attendance/checkin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            phone: phone.replace(/\D/g, ""),
-            fingerprint,
-            latitude,
-            longitude
-          })
-        });
-      } else {
-        res = await fetch("/api/v1/qr-attendance/checkin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            phone: phone.replace(/\D/g, ""),
-            fingerprint,
-            latitude,
-            longitude
-          })
-        });
-      }
+      const res = await fetch("/api/v1/qr-attendance/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          phone: phone.replace(/\D/g, ""),
+          fingerprint,
+          latitude,
+          longitude
+        })
+      });
 
       const data = await res.json();
       if (data.success) {
         setResult({
           success: true,
-          studentName: isWorkerMode ? (data.data?.workerName || data.workerName) : data.studentName
+          studentName: data.studentName
         });
       } else {
         setResult({
@@ -308,7 +265,7 @@ export default function QRCheckinPage() {
           error: mapReasonCode(data.reasonCode, data.error)
         });
       }
-    } catch (err) {
+    } catch {
       setResult({
         success: false,
         error: "Đã xảy ra lỗi mạng. Vui lòng kiểm tra lại kết nối."
@@ -320,12 +277,8 @@ export default function QRCheckinPage() {
 
   const handleTryAgain = () => {
     setResult(null);
-    if (isWorker) {
-      setStep("phone");
-    } else {
-      handleRetakePhoto();
-      setStep("capture");
-    }
+    handleRetakePhoto();
+    setStep("capture");
   };
 
   if (loadingSession) {
@@ -376,24 +329,22 @@ export default function QRCheckinPage() {
                 <CheckCircle2 className="w-14 h-14 animate-bounce" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công thành công!" : "Thành Công!"}</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Thành Công!</h2>
                 <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl py-3 px-4 inline-block max-w-xs mx-auto">
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">{isWorker ? "Lao động" : "Học viên"}</p>
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Học viên</p>
                   <p className="text-base font-extrabold text-slate-800 mt-1">{result.studentName}</p>
                 </div>
                 <p className="text-slate-500 text-sm font-medium mt-3">
-                  {isWorker
-                    ? `Bạn đã chấm công thành công cho ngày ${formatDate(sessionInfo?.date)}.`
-                    : `Bạn đã điểm danh thành công vào buổi học ngày ${formatDate(sessionInfo?.date)}.`}
+                  Bạn đã điểm danh thành công vào buổi học ngày {formatDate(sessionInfo?.date)}.
                 </p>
               </div>
               <div className="border-t border-slate-100 pt-4 space-y-2 text-left">
                 <div className="flex justify-between text-xs font-semibold text-slate-400">
-                  <span>{isWorker ? "Dự án:" : "Lớp học:"}</span>
+                  <span>Lớp học:</span>
                   <span className="text-slate-700 font-bold">{sessionInfo?.batchCode}</span>
                 </div>
                 <div className="flex justify-between text-xs font-semibold text-slate-400">
-                  <span>{isWorker ? "Tên dự án:" : "Khóa học:"}</span>
+                  <span>Khóa học:</span>
                   <span className="text-slate-700 font-bold text-right max-w-[200px] truncate">{sessionInfo?.courseTitle}</span>
                 </div>
               </div>
@@ -405,7 +356,7 @@ export default function QRCheckinPage() {
                 <AlertCircle className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công thất bại" : "Điểm danh thất bại"}</h2>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Điểm danh thất bại</h2>
                 <p className="text-slate-500 text-sm mt-2 font-medium">{result.error}</p>
               </div>
               <button
@@ -420,10 +371,10 @@ export default function QRCheckinPage() {
           // Màn hình nhập SĐT để điểm danh
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{isWorker ? "Chấm công Dự án" : "Điểm danh Lớp học"}</h2>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Điểm danh Lớp học</h2>
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-left space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isWorker ? "Mã dự án" : "Lớp"}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lớp</span>
                   <span className="text-xs font-extrabold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-md">{sessionInfo?.batchCode}</span>
                 </div>
                 <div className="text-xs font-bold text-slate-800 line-clamp-1">
@@ -461,7 +412,7 @@ export default function QRCheckinPage() {
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
-                Điểm danh ngay
+                Tiếp theo — Chụp ảnh
               </button>
             </form>
           </div>
@@ -503,7 +454,7 @@ export default function QRCheckinPage() {
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={handleCheckin}
+                  onClick={() => void handleCheckin()}
                   disabled={submitting}
                   className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
