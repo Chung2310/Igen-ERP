@@ -21,6 +21,7 @@ export type WorkerProfileFieldConfig = {
   label: string;
   isRequired: boolean;
   isVisible: boolean;
+  isArchived?: boolean;
 };
 
 export type WorkerProjectSummary = {

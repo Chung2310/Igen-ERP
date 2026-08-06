@@ -6,6 +6,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const workersHook = vi.hoisted(() => ({ useWorkers: vi.fn() }));
 vi.mock("../hooks/useWorkers", () => workersHook);
+// The add modal now renders the shared shell, which reads auth for
+// custom-field management and mounts the shared custom-field section.
+vi.mock("../../../context/AuthContext", () => ({
+  useAuth: () => ({ userProfile: { permissions: ["worker:manage"] } }),
+}));
+vi.mock("../../student-management/custom-fields/CustomFieldsSection", () => ({
+  CustomFieldsSection: () => null,
+}));
 import WorkersPage from "./WorkersPage";
 import { workerApi } from "../api/workers.api";
 import { toast } from "../../../pages/Toast";
