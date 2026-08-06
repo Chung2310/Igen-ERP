@@ -5,6 +5,7 @@ import { Student } from "../models/student.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { BatchEnrollmentStatus } from "../interfaces/batch-enrollment.interface";
 import { LearningRoadmap } from "../models/learning-roadmap.model";
+import { Exam } from "../models/exam.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import {
   countConsumedSessions,
@@ -83,6 +84,19 @@ function applyStatusTimestamps(data: BatchData, batch: IBatch): BatchData {
   }
   // Mở lại lớp: bỏ cả hai mốc để lớp quay về luồng cảnh báo tiến độ bình thường.
   return { ...data, completedAt: null, cancelledAt: null };
+}
+
+async function assertBatchReadyToClose(batch: IBatch) {
+  const today = todayInVietnam();
+  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+  const upcoming = scheduledDates.filter((date) => date >= today);
+  if (upcoming.length) throw new Error(`Không thể kết thúc lớp khi còn ${upcoming.length} buổi theo lịch.`);
+  const pastDates = new Set(scheduledDates.filter((date) => date < today));
+  const confirmedDates = new Set((batch.attendanceSessions || []).filter((session) => pastDates.has(session.date) && session.records.length > 0).map((session) => session.date));
+  if (confirmedDates.size < pastDates.size) throw new Error(`Không thể kết thúc lớp khi còn ${pastDates.size - confirmedDates.size} buổi chưa chốt điểm danh.`);
+  const exams = await Exam.find({ ownerId: batch.ownerId, branchId: batch.branchId, batchId: String(batch._id), status: { $ne: "Đã hủy" } }).lean();
+  const incomplete = exams.find((exam) => (exam.results || []).some((result) => typeof result.score !== "number"));
+  if (incomplete) throw new Error(`Kỳ thi "${incomplete.name}" chưa có kết quả đầy đủ. Hãy xử lý đủ kết quả hoặc hủy kỳ thi trước khi đóng lớp.`);
 }
 
 function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
@@ -467,6 +481,8 @@ export class BatchService {
     const expectedVersion = expectedVersionOf(data);
     const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
     const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
+
+    if (writeData.status === "Đã kết thúc" && batch.status !== "Đã kết thúc") await assertBatchReadyToClose(batch);
 
     // Mã lớp và tên lớp bị khóa sau khi tạo để lịch sử học, điểm danh và đối
     // soát luôn tham chiếu được về đúng lớp. Gửi lại đúng giá trị hiện tại
