@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import fs from "node:fs";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const workersHook = vi.hoisted(() => ({ useWorkers: vi.fn() }));
@@ -26,7 +26,7 @@ const worker = {
   registrationDate: "01/08/2026",
   projectIds: ["project-1"],
 };
-const state = (overrides: Record<string, unknown> = {}) => ({ workers: [worker], loading: false, error: null, createWorker: vi.fn().mockResolvedValue(worker), updateWorker: vi.fn().mockResolvedValue(worker), deleteWorker: vi.fn().mockResolvedValue(worker), reload: vi.fn(), ...overrides });
+const state = (overrides: Record<string, unknown> = {}) => ({ workers: [worker], loading: false, error: null, createWorker: vi.fn().mockResolvedValue(worker), updateWorker: vi.fn().mockResolvedValue(worker), deleteWorker: vi.fn().mockResolvedValue(worker), importWorkers: vi.fn().mockResolvedValue({ importedCount: 0, skippedCount: 0, errors: [] }), reload: vi.fn(), ...overrides });
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe("worker profile ownership", () => {
@@ -243,3 +243,34 @@ describe("worker profile ownership", () => {
       ),
     );
   });
+
+describe("worker bulk import entry point", () => {
+  it("hides the import button from users without manage rights", () => {
+    workersHook.useWorkers.mockReturnValue(state());
+    render(<WorkersPage canManage={false} />);
+    expect(screen.queryByRole("button", { name: /Nhập Excel/ })).toBeNull();
+  });
+
+  it("opens the import modal and wires it to the hook", async () => {
+    const hookValue = state();
+    workersHook.useWorkers.mockReturnValue(hookValue);
+    render(<WorkersPage projects={[{ id: "project-1", name: "Dự án Bắc Ninh" }]} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /Nhập Excel/ }));
+    const dialog = screen.getByRole("dialog", { name: "Nhập danh sách lao động" });
+    expect(dialog).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: /Tải file mẫu/ })).toBeTruthy();
+    expect(hookValue.importWorkers).not.toHaveBeenCalled();
+  });
+
+  it("closes the import modal again", async () => {
+    workersHook.useWorkers.mockReturnValue(state());
+    render(<WorkersPage />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /Nhập Excel/ }));
+    await user.click(screen.getByRole("button", { name: "Đóng" }));
+    expect(screen.queryByRole("dialog", { name: "Nhập danh sách lao động" })).toBeNull();
+  });
+});

@@ -29,6 +29,30 @@ export type WorkerProjectSummary = {
   name: string;
 };
 
+export type BulkWorkerInput = {
+  fullName: string;
+  phone: string;
+  email?: string;
+  idCard?: string;
+  birthday?: string;
+  address?: string;
+  note?: string;
+  registrationDate?: string;
+};
+
+export type WorkerBulkImportError = {
+  row: number;
+  name: string;
+  phone: string;
+  reason: string;
+};
+
+export type WorkerBulkImportResult = {
+  importedCount: number;
+  skippedCount: number;
+  errors: WorkerBulkImportError[];
+};
+
 export type Worker = {
   _id: string;
   fullName: string;
