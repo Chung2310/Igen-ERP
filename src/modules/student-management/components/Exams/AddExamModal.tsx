@@ -36,6 +36,15 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   const { courses } = useCourses(tenantId);
   const { batches } = useBatches(tenantId);
+  // Chỉ đưa vào danh sách tạo lịch thi các lớp đã học xong và đã chốt đủ điểm danh.
+  // Lớp của lịch thi cũ vẫn được giữ lại khi người dùng mở để chỉnh sửa.
+  const examEligibleBatches = React.useMemo(() => batches.filter((batch) => (
+    batch.id === initialData?.batchId || (
+      batch.status === 'Đang học' &&
+      batch.progress?.progressLevel === 'red' &&
+      batch.progress.missingAttendanceSessions === 0
+    )
+  )), [batches, initialData?.batchId]);
   // QLHV lấy khóa học qua lớp đã chọn; trường này chỉ phục vụ dữ liệu kỳ thi lái xe cũ.
   const showLegacyCourseField = false;
   const [isOpenCourses, setIsOpenCourses] = useState(false);
@@ -327,9 +336,9 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Lớp học <span className="text-rose-500">*</span></label>
                   <select name="batchId" required value={formData.batchId} disabled={Boolean(initialData?.batchId)} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary disabled:bg-slate-50">
                     <option value="">-- Chọn lớp học --</option>
-                    {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} - {batch.courseTitle}</option>)}
+                    {examEligibleBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} - {batch.courseTitle}</option>)}
                   </select>
-                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : 'Khóa học sẽ hiển thị theo lớp đã chọn.'}</p>
+                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Chỉ hiển thị lớp đã đủ điều kiện thi.' : 'Chưa có lớp nào đủ điều kiện thi.'}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Thang điểm</label>

@@ -6,7 +6,8 @@ import {
   createAssignmentSchema,
   submitProofSchema,
   uploadProofFileSchema,
-  gradeSubmissionSchema
+  gradeSubmissionSchema,
+  staffSubmitProofSchema
 } from "../validations/assignment.validation";
 import { idParamSchema } from "../validations/student.validation";
 import { requireModule } from "../../../middleware/require-module";
@@ -32,6 +33,7 @@ router.use(requireRead);
 router.post("/", requireManage, validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);
+router.post("/:id/students/:studentId/submit", requireManage, validate(staffSubmitProofSchema), AssignmentController.staffSubmit);
 router.post("/:id/students/:studentId/grade", requireManage, validate(gradeSubmissionSchema), AssignmentController.grade);
 
 export default router;

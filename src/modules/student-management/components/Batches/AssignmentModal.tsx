@@ -45,6 +45,8 @@ interface ISubmission {
   studentId: string;
   attachments: IAttachment[];
   studentNotes?: string;
+  submissionSource?: "student" | "staff";
+  submittedByUserId?: string;
   status: "submitted" | "graded" | "late";
   score?: number;
   feedback?: string;
@@ -73,12 +75,24 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const [selectedAssignment, setSelectedAssignment] = useState<IAssignment | null>(null);
   const [submissions, setSubmissions] = useState<ISubmission[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [manualAttachments, setManualAttachments] = useState<IAttachment[]>([]);
+  const [manualNotes, setManualNotes] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
 
   // Form State for creating assignment
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const dueDatePart = newDueDate.slice(0, 10);
+  const dueTimePart = newDueDate.slice(11, 16) || "20:00";
+  const updateDueDate = (date: string, time = dueTimePart) => setNewDueDate(date ? `${date}T${time || "20:00"}` : "");
+  const setQuickDueDate = (offsetDays: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offsetDays);
+    const localDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    updateDueDate(localDate, "20:00");
+  };
   const [newAttachments, setNewAttachments] = useState<IAttachment[]>([]);
 
   // Form State for grading
@@ -86,6 +100,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const [feedback, setFeedback] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const manualFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -186,6 +201,20 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     }
   };
 
+  const handleManualProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error("Dung lượng tệp đính kèm không vượt quá 20MB.");
+      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; });
+      const data = await apiFetch("/media/upload", { method: "POST", body: JSON.stringify({ file: base64, folder: "igen_erp/assignments/submissions" }) });
+      if (!data?.url) throw new Error(data?.message || "Không thể tải tệp lên server.");
+      setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type }]);
+    } catch (err: any) { toast.error(err.message || "Lỗi tải minh chứng."); }
+    finally { setUploading(false); if (manualFileInputRef.current) manualFileInputRef.current.value = ""; }
+  };
+
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
@@ -253,6 +282,18 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     } finally {
       setGrading(false);
     }
+  };
+
+  const handleStaffSubmit = async () => {
+    if (!selectedAssignment || !selectedStudentId || !manualAttachments.length) { toast.warning("Hãy tải lên ít nhất một minh chứng bài làm."); return; }
+    setManualSubmitting(true);
+    try {
+      await apiFetch(`/assignments/${selectedAssignment._id}/students/${selectedStudentId}/submit`, { method: "POST", body: JSON.stringify({ attachments: manualAttachments, studentNotes: manualNotes }) });
+      toast.success("Đã lưu bài nộp hộ học viên. Bạn có thể chấm điểm ngay.");
+      setManualAttachments([]); setManualNotes("");
+      await fetchSubmissions(selectedAssignment._id);
+    } catch (err: any) { toast.error(err.message || "Không thể lưu bài nộp hộ."); }
+    finally { setManualSubmitting(false); }
   };
 
   if (!isOpen) return null;
@@ -342,13 +383,12 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hạn nộp</label>
-                    <input
-                      type="datetime-local"
-                      value={newDueDate}
-                      onChange={(e) => setNewDueDate(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition"
-                    />
+                    <div className="mb-1 flex items-center justify-between"><label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Hạn nộp</label><button type="button" onClick={() => setNewDueDate("")} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600">Không đặt hạn</button></div>
+                    <div className="grid grid-cols-[1fr_104px] gap-2">
+                      <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="date" value={dueDatePart} onChange={(e) => updateDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500" /></label>
+                      <label className="relative"><Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="time" value={dueTimePart} disabled={!dueDatePart} onChange={(e) => updateDueDate(dueDatePart, e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300" /></label>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => setQuickDueDate(0)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Hôm nay · 20:00</button><button type="button" onClick={() => setQuickDueDate(1)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Ngày mai · 20:00</button></div>
                   </div>
 
                   {/* Attachment creation */}
@@ -462,7 +502,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                   return (
                     <button
                       key={student.id}
-                      onClick={() => { setSelectedStudentId(student.id); setScore(sub?.score ?? ""); setFeedback(sub?.feedback ?? ""); }}
+                      onClick={() => { setSelectedStudentId(student.id); setScore(sub?.score ?? ""); setFeedback(sub?.feedback ?? ""); setManualAttachments([]); setManualNotes(""); }}
                       className={cn(
                         "w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between",
                         selectedStudentId === student.id
@@ -532,6 +572,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     {/* Submission attachments */}
                     {sub ? (
                       <div className="space-y-4">
+                        {sub.submissionSource === "staff" ? <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">Nhân viên nộp hộ</span> : null}
                         
                         {/* Attachments */}
                         <div className="space-y-2">
@@ -605,6 +646,12 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     ) : (
                       <div className="p-8 text-center bg-white border border-slate-150 rounded-2xl flex flex-col items-center justify-center">
                         <Clock className="h-10 w-10 text-slate-200 mb-2" />
+                        <input ref={manualFileInputRef} type="file" onChange={handleManualProofUpload} className="hidden" />
+                        <p className="mb-3 text-[11px] text-slate-500">Nhân viên có thể tải bài làm nhận trực tiếp và lưu hộ học viên.</p>
+                        <button type="button" onClick={() => manualFileInputRef.current?.click()} disabled={uploading} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-300 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">{uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}Tải minh chứng bài làm</button>
+                        {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><span className="truncate font-semibold text-slate-600">{file.name}</span><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}
+                        <textarea value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} rows={2} placeholder="Ghi chú khi nhận bài (không bắt buộc)" className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500" />
+                        <button type="button" onClick={() => void handleStaffSubmit()} disabled={manualSubmitting || !manualAttachments.length} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white disabled:opacity-50">{manualSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Lưu bài nộp hộ</button>
                         <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng {assignmentName}.</p>
                       </div>
                     )}
