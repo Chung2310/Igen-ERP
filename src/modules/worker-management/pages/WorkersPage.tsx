@@ -10,11 +10,13 @@ import {
   QrCode,
   Search,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "../../../pages/Toast";
 import { AddWorkerModal } from "../components/AddWorkerModal";
+import { ImportWorkerModal } from "../components/ImportWorkerModal";
 import { WorkerDetailModal } from "../components/WorkerDetailModal";
 import { useWorkers } from "../hooks/useWorkers";
 import type {
@@ -84,6 +86,7 @@ export default function WorkersPage({
     loading,
     error,
     createWorker,
+    importWorkers,
     updateWorker,
     deleteWorker,
   } = useWorkers(scope);
@@ -93,6 +96,7 @@ export default function WorkersPage({
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
   const [addOpen, setAddOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [qrOpen, setQrOpen] = React.useState(false);
   const [selectedWorker, setSelectedWorker] = React.useState<Worker | null>(
     null,
@@ -236,6 +240,15 @@ export default function WorkersPage({
           {canManage && (
             <button
               type="button"
+              onClick={() => setImportOpen(true)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+            >
+              <Upload className="h-3.5 w-3.5" /> Nhập Excel
+            </button>
+          )}
+          {canManage && (
+            <button
+              type="button"
               onClick={() => setAddOpen(true)}
               className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition-all hover:bg-brand-primary/95"
             >
@@ -361,6 +374,15 @@ export default function WorkersPage({
         </div>
       </div>
 
+      {importOpen && (
+        <ImportWorkerModal
+          isOpen
+          projects={projects}
+          onImport={importWorkers}
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => undefined}
+        />
+      )}
       {addOpen && (
         <AddWorkerModal
           isOpen

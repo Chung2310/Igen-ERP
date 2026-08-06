@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { workerApi } from "../api/workers.api";
-import type { Worker, WorkerInput, WorkerScope } from "../types";
+import type { BulkWorkerInput, Worker, WorkerInput, WorkerScope } from "../types";
 
 export function useWorkers(scope?: WorkerScope) {
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -64,6 +64,20 @@ export function useWorkers(scope?: WorkerScope) {
     [branchId, companyCode, reload],
   );
 
+  const importWorkers = useCallback(
+    async (rows: BulkWorkerInput[], projectId?: string) => {
+      if (!companyCode) throw new Error("Vui lòng chọn công ty.");
+      const result = await workerApi.bulkCreate(
+        rows,
+        { companyCode, ...(branchId ? { branchId } : {}) },
+        projectId,
+      );
+      await reload();
+      return result;
+    },
+    [branchId, companyCode, reload],
+  );
+
   const deleteWorker = useCallback(
     async (id: string) => {
       if (!companyCode) throw new Error("Vui lòng chọn công ty.");
@@ -82,6 +96,7 @@ export function useWorkers(scope?: WorkerScope) {
     loading,
     error,
     createWorker,
+    importWorkers,
     updateWorker,
     deleteWorker,
     reload,
