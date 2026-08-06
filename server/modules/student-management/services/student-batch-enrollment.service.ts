@@ -1,4 +1,5 @@
 import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
 
 type AttendanceBatch = {
   ownerId: string;
@@ -42,6 +43,26 @@ export class StudentBatchEnrollmentService {
     allowedSessions?: number;
   }) {
     const actorId = input.actorId || "system";
+    // BatchEnrollment is the canonical enrollment record. Keep the older
+    // StudentBatchEnrollment record in sync while legacy consumers are moved.
+    await BatchEnrollment.findOneAndUpdate(
+      {
+        ownerId: input.ownerId,
+        branchId: input.branchId,
+        batchId: input.batchId,
+        studentId: input.studentId,
+      },
+      {
+        $set: { status: "Đang học", leftAt: null },
+        $setOnInsert: {
+          joinedAt: new Date(),
+          allowedSessions: input.allowedSessions || 0,
+          attendedSessions: 0,
+          history: [{ at: new Date(), action: "enrolled", actorId }],
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
     return StudentBatchEnrollment.findOneAndUpdate(
       {
         ownerId: input.ownerId,
@@ -70,6 +91,14 @@ export class StudentBatchEnrollmentService {
     studentId: string;
     actorId?: string;
   }) {
+    await BatchEnrollment.findOneAndUpdate(
+      { ownerId: input.ownerId, branchId: input.branchId, batchId: input.batchId, studentId: input.studentId },
+      {
+        $set: { status: "Không còn nhu cầu học", leftAt: new Date() },
+        $push: { history: { at: new Date(), action: "removed", actorId: input.actorId || "system" } },
+      },
+      { new: true },
+    );
     return StudentBatchEnrollment.findOneAndUpdate(
       {
         ownerId: input.ownerId,

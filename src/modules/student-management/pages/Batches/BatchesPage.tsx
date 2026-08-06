@@ -103,10 +103,11 @@ const progressColor = (level: BatchProgressLevel, colors: BatchProgressColors) =
 };
 
 const progressText = (p: BatchProgress) => {
-  const sessionSummary = `Đã học ${p.doneSessions}/${p.totalSessions} buổi`;
+  const sessionSummary = `Đã điểm danh ${p.doneSessions}/${p.totalSessions} buổi`;
   if (p.progressLevel === 'red') return `Quá hạn — chưa đóng lớp • ${sessionSummary}`;
   if (p.progressLevel === 'grey') return sessionSummary;
-  return `${sessionSummary} • còn ${p.remainingSessions} buổi`;
+  const missing = p.missingAttendanceSessions > 0 ? ` • chưa điểm danh ${p.missingAttendanceSessions} buổi` : '';
+  return `${sessionSummary}${missing} • còn lịch ${p.remainingSessions} buổi`;
 };
 
 /** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với màu tiến độ */

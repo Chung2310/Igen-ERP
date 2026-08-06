@@ -14,6 +14,7 @@
     "reset:superadmin-totp": "tsx server/scripts/reset-superadmin-totp.ts",
     "normalize:worker-phones": "tsx server/scripts/normalize-worker-phones.ts",
     "backfill:batch-enrollments": "tsx server/scripts/backfill-batch-enrollments.ts",
+    "migrate:canonical-enrollments": "tsx tools/migrate-canonical-batch-enrollments.ts",
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
     "debug:fb-autoreply": "tsx scripts/fb-autoreply-debug.ts",
     "fix:fb-conversation-index": "tsx scripts/fix_fb_conversation_index.ts",

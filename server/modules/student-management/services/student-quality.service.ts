@@ -3,11 +3,12 @@ import { Batch } from "../models/batch.model";
 import { BatchMiniTest } from "../models/batch-mini-test.model";
 import { Course } from "../models/course.model";
 import { Student } from "../models/student.model";
-import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { StudentQualityRecord } from "../models/student-quality.model";
 import { StudentQualityThreshold } from "../models/student-quality-threshold.model";
 import { SubmissionModel } from "../models/submission.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { listScheduledSessionDates, todayInVietnam } from "../utils/session-count.util";
 import { DEFAULT_QUALITY_THRESHOLDS, getQualityWarningLevel, toRate, type QualityThresholds, type QualityWarningLevel } from "./student-quality.rules";
 
 type OwnerScope = string | string[];
@@ -45,7 +46,12 @@ function latestByDate<T extends { date?: string }>(items: T[]): T | undefined {
   return [...items].sort((left, right) => parseDateValue(right.date) - parseDateValue(left.date))[0];
 }
 
-function isSessionHeld(date: string): boolean { return Boolean(date) && date <= new Date().toISOString().slice(0, 10); }
+function isExamFailed(exam?: { status?: string; result?: unknown }): boolean {
+  if (!exam) return false;
+  const result = exam.result as { overall?: unknown } | undefined;
+  const value = String(result?.overall || exam.status || "").trim().toLocaleLowerCase("vi-VN");
+  return value === "trượt" || value === "fail" || value === "failed";
+}
 
 export class StudentQualityService {
   static async getThresholds(ownerId: OwnerScope, branchId?: string): Promise<QualityThresholds> {
@@ -80,8 +86,8 @@ export class StudentQualityService {
     if (!batches.length) return { rows: [], resolvedOwnerId };
 
     const batchIds = batches.map((batch) => String(batch._id));
-    const enrollments = await StudentBatchEnrollment.find({
-      ...ownerQuery(resolvedOwnerId), ...branchQuery(branchId), batchId: { $in: batchIds }, status: "active",
+    const enrollments = await BatchEnrollment.find({
+      ...ownerQuery(resolvedOwnerId), ...branchQuery(branchId), batchId: { $in: batchIds }, status: { $in: ["Đang học", "Học lại"] },
     }).lean();
     const pairs: QualityPair[] = [];
     const pairKeys = new Set<string>();
@@ -127,11 +133,18 @@ export class StudentQualityService {
       list.push(miniTest); miniTestsByBatch.set(miniTest.batchId, list);
     }
 
+    const today = todayInVietnam();
     const rows = filteredPairs.map(({ batchId, studentId }) => {
       const batch = batchMap.get(batchId)!;
       const student = studentMap.get(studentId)!;
-      const heldSessions = (batch.attendanceSessions || []).filter((session) => isSessionHeld(session.date));
-      const attendedSessions = heldSessions.filter((session) => session.records.some((record) => record.studentId === studentId && (record.status === "present" || record.status === "late"))).length;
+      const scheduledPastDates = new Set(listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []).filter((date) => date < today));
+      // Chỉ buổi đã lưu sổ điểm danh mới được dùng để đo chuyên cần.
+      const confirmedSessions = (batch.attendanceSessions || []).filter((session) => scheduledPastDates.has(session.date) && session.records.length > 0);
+      const confirmedDates = new Set(confirmedSessions.map((session) => session.date));
+      const missingAttendanceSessions = Math.max(0, scheduledPastDates.size - confirmedDates.size);
+      const attendedSessions = confirmedSessions.filter((session) => session.records.some((record) => record.studentId === studentId && (record.status === "present" || record.status === "late"))).length;
+      const absentSessions = confirmedSessions.filter((session) => session.records.some((record) => record.studentId === studentId && record.status === "absent")).length;
+      const lateSessions = confirmedSessions.filter((session) => session.records.some((record) => record.studentId === studentId && record.status === "late")).length;
       const assignmentItems = (assignmentsByBatch.get(batchId) || []).map((assignment) => {
         const submission = submissionMap.get(`${String(assignment._id)}:${studentId}`);
         return { id: String(assignment._id), title: assignment.title, dueDate: assignment.dueDate || null, status: submission?.status || "not_submitted", score: submission?.score ?? null, feedback: submission?.feedback || "", submittedAt: submission?.submittedAt || null };
@@ -145,7 +158,7 @@ export class StudentQualityService {
       const latestMiniTest = latestByDate(miniTests.filter((miniTest) => miniTest.score !== null));
       const examResults = [...((student.exams || []) as Array<{ id?: string; date?: string; name?: string; type?: string; status?: string; result?: unknown }>)].sort((left, right) => parseDateValue(right.date) - parseDateValue(left.date));
       const latestExam = latestByDate(examResults);
-      const attendanceRate = toRate(attendedSessions, heldSessions.length);
+      const attendanceRate = toRate(attendedSessions, confirmedSessions.length);
       const assignmentRate = toRate(completedAssignments, assignmentItems.length);
       const miniTestRate = latestMiniTest?.rate ?? null;
       const quality = qualityMap.get(`${batchId}:${studentId}`);
@@ -153,14 +166,14 @@ export class StudentQualityService {
         id: `${batchId}:${studentId}`, batchId, batchCode: batch.code, courseId: batch.courseId,
         courseTitle: courseMap.get(batch.courseId)?.title || "(Khóa học đã xóa)", instructorId: batch.instructorId || "", instructorName: batch.instructorText || "",
         studentId, studentName: student.fullName, studentPhone: student.phone, studentStatus: student.status || [],
-        attendance: { attended: attendedSessions, total: heldSessions.length, rate: attendanceRate },
+        attendance: { attended: attendedSessions, total: confirmedSessions.length, scheduledPast: scheduledPastDates.size, missingAttendanceSessions, absent: absentSessions, late: lateSessions, rate: attendanceRate },
         assignments: { completed: completedAssignments, total: assignmentItems.length, rate: assignmentRate, items: assignmentItems },
         attitudeNote: quality?.attitudeNote || "", teacherAssessment: quality?.teacherAssessment || "",
         latestMiniTest: latestMiniTest ? { ...latestMiniTest, title: `${latestMiniTest.title}${miniTests.filter((miniTest) => miniTest.score !== null).length > 1 ? ` · ${miniTests.filter((miniTest) => miniTest.score !== null).length} bài đã chấm` : ""}` } : null,
         miniTestCount: miniTests.filter((miniTest) => miniTest.score !== null).length,
         latestExam: latestExam ? { ...latestExam, name: `${latestExam.name || "Kỳ thi"}${examResults.length > 1 ? ` · ${examResults.length} kỳ thi` : ""}` } : null,
         examResults, examCount: examResults.length,
-        warningLevel: getQualityWarningLevel({ attendanceRate, assignmentRate, latestMiniTestRate: miniTestRate }, thresholds),
+        warningLevel: getQualityWarningLevel({ attendanceRate, assignmentRate, latestMiniTestRate: miniTestRate, latestExamFailed: isExamFailed(latestExam) }, thresholds),
         updatedAt: quality?.updatedAt || quality?.createdAt || null,
       };
     });
@@ -205,7 +218,7 @@ export class StudentQualityService {
     if (!batch) throw new Error("Không tìm thấy lớp học.");
     const student = await Student.findOne({ _id: studentId, ...ownerQuery(ownerId), ...branchQuery(branchId) });
     if (!student) throw new Error("Không tìm thấy học viên.");
-    const enrollment = await StudentBatchEnrollment.exists({ ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId });
+    const enrollment = await BatchEnrollment.exists({ ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId });
     if (!enrollment && !batch.learnerIds.includes(studentId)) throw new Error("Học viên không thuộc lớp này.");
     return { batch, student };
   }
