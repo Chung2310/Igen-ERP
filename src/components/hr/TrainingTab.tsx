@@ -1538,8 +1538,7 @@ export default function TrainingTab({
                                       <FileText className="w-3.5 h-3.5" /> Xem tài liệu bài giảng
                                     </span>
                                     <a
-                                      href={les.url}
-                                      download={les.fileName || les.title || "tai-lieu-bai-giang"}
+                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-sans"
@@ -1550,13 +1549,15 @@ export default function TrainingTab({
                                   <div className="relative w-full" style={{ height: "550px" }}>
                                     {(() => {
                                       const url = les.url || "";
+                                      const token = localStorage.getItem("accessToken") || "";
+                                      const previewSrc = `/api/v1/media/preview?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
                                       const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
                                       const isPdf = ext === "pdf" || url.includes(".pdf");
                                       const isOffice = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext);
                                       if (isPdf) {
                                         return (
                                           <iframe
-                                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}`}
+                                            src={previewSrc}
                                             className="w-full h-full border-0"
                                             title={les.title}
                                           />

@@ -207,6 +207,72 @@ mediaRouter.get(
   }
 );
 
+// Route preview proxy — phục vụ tài liệu với Content-Disposition: inline để trình duyệt
+// hiển thị trực tiếp trong iframe thay vì tải về (tránh vấn đề header từ Cloudinary).
+mediaRouter.get(
+  "/preview",
+  requireAuth as any,
+  async (req, res) => {
+    const fileUrl = req.query.url as string;
+    if (!fileUrl) {
+      return res.status(400).json({ error: "Missing url parameter" });
+    }
+
+    const allowedDomains = [
+      "res.cloudinary.com",
+      "drive.google.com",
+      "docs.google.com",
+      "drive.usercontent.google.com",
+      "lh3.googleusercontent.com",
+    ];
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(fileUrl);
+    } catch {
+      return res.status(400).json({ error: "URL không hợp lệ." });
+    }
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      return res.status(400).json({ error: "Giao thức URL không được phép." });
+    }
+    const isAllowed = allowedDomains.some(
+      (domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`)
+    );
+    if (!isAllowed) {
+      return res.status(403).json({ error: "Domain không được phép proxy." });
+    }
+
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Xác định MIME type: ưu tiên từ upstream, fallback sniff magic bytes
+      const upstreamContentType = response.headers.get("content-type");
+      const isGeneric = !upstreamContentType || upstreamContentType === "application/octet-stream";
+      let contentType = upstreamContentType || "";
+      if (isGeneric) {
+        const sniffedExt = sniffFileExtension(buffer);
+        contentType = EXTENSION_MIME_MAP[sniffedExt] || "application/octet-stream";
+      }
+
+      res.setHeader("Content-Type", contentType);
+      // inline: trình duyệt sẽ render file thay vì tải về
+      res.setHeader("Content-Disposition", "inline");
+      // Cho phép nhúng trong iframe cùng origin
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
+      res.send(buffer);
+    } catch (err: any) {
+      console.error("[Media Proxy Preview Error]:", err);
+      res.status(500).json({ error: "Failed to preview file", details: err.message });
+    }
+  }
+);
+
+
 /**
  * Audio proxy endpoint — phục vụ audio từ URL bên ngoài qua server nội bộ.
  * Giải quyết lỗi 403 Forbidden trên Safari do thiếu CORS headers từ domain bên ngoài.
