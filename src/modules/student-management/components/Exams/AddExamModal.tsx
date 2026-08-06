@@ -134,6 +134,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     location: string;
     batchId: string;
     maxScore: number;
+    passScore: number;
     customFields?: CustomFieldValues;
   }>({
     name: '',
@@ -142,6 +143,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     location: '',
     batchId: '',
     maxScore: 100,
+    passScore: 50,
     customFields: {},
   });
 
@@ -172,6 +174,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           location: initialData.location || '',
           batchId: initialData.batchId || '',
           maxScore: initialData.maxScore || 100,
+          passScore: initialData.passScore ?? Math.ceil((initialData.maxScore || 100) / 2),
           customFields: initialData.customFields || {},
         });
       } else {
@@ -182,6 +185,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           location: '',
           batchId: '',
           maxScore: 100,
+          passScore: 50,
           customFields: {},
         });
       }
@@ -222,6 +226,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           location: formData.location,
           batchId: formData.batchId,
           maxScore: Number(formData.maxScore),
+          passScore: Number(formData.passScore),
           customFields: formData.customFields,
         };
 
@@ -263,7 +268,8 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
         tentativeDate: '',
         location: '',
         batchId: '',
-        maxScore: 100,
+          maxScore: 100,
+          passScore: 50,
         customFields: {},
       });
     } catch (error) {
@@ -276,7 +282,14 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      if (name === "maxScore") {
+        const nextMax = Number(value) || 1;
+        return { ...prev, maxScore: nextMax, passScore: Math.min(prev.passScore, nextMax) };
+      }
+      if (name === "passScore") return { ...prev, passScore: Number(value) || 0 };
+      return { ...prev, [name]: value };
+    });
   };
 
   return (
@@ -343,6 +356,11 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Thang điểm</label>
                   <input type="number" name="maxScore" min="1" value={formData.maxScore} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngưỡng đạt</label>
+                  <input type="number" name="passScore" min="0" max={formData.maxScore} value={formData.passScore} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary" />
+                  <p className="text-[11px] text-slate-500">Điểm từ ngưỡng này trở lên được tính là Đậu.</p>
                 </div>
                 {showLegacyCourseField && isFieldVisible('rank') && (
                   <div className="space-y-1 relative group/std">
