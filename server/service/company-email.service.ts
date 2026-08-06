@@ -9,7 +9,7 @@ export const companyEmailService = {
     const company: any = await CompanyModel.findOne({ code: companyCode }).select("+smtpConfig.passwordEncrypted").lean();
     const smtp = company?.smtpConfig;
     if (!smtp?.passwordEncrypted) return undefined;
-    return { smtpHost: smtp.host, smtpPort: smtp.port, smtpSecure: smtp.secure, smtpUser: smtp.user, smtpPass: decryptSecret(smtp.passwordEncrypted), smtpFrom: `\${smtp.fromName}\ <${smtp.fromEmail}>` };
+    return { smtpHost: smtp.host, smtpPort: smtp.port, smtpSecure: smtp.secure, smtpUser: smtp.user, smtpPass: decryptSecret(smtp.passwordEncrypted), smtpFrom: `"${smtp.fromName}" <${smtp.fromEmail}>` };
   },
   async getSmtp(companyCode: string) {
     const company: any = await CompanyModel.findOne({ code: companyCode }).select("+smtpConfig.passwordEncrypted").lean();

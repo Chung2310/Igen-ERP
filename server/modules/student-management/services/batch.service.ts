@@ -28,6 +28,7 @@ import {
 } from "./custom-field-write.service";
 import { EmailService, SmtpSettings } from "./email.service";
 import { companyEmailService } from "../../../service/company-email.service";
+import { CompanyModel } from "../../../model/company.model";
 import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 
 interface BatchFilters {
@@ -304,11 +305,13 @@ function formatDaysOfWeek(days: unknown): string {
  * EmailService dùng cấu hình SMTP mặc định từ biến môi trường.
  */
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
-  const owner = await User.findById(ownerId).select("companyCode");
-  if (owner?.companyCode) {
-    return companyEmailService.resolveLegacySettings(owner.companyCode);
+  const owner = await User.findById(ownerId).select("companyCode email");
+  let companyCode = owner?.companyCode;
+  if (!companyCode && owner?.email) {
+    const company = await CompanyModel.findOne({ ownerEmail: owner.email }).select("code").lean();
+    companyCode = company?.code;
   }
-  return undefined;
+  return companyCode ? companyEmailService.resolveLegacySettings(companyCode) : undefined;
 }
 
 function buildInstructorAssignmentHtml(instructorName: string, batch: EnrichedBatch): string {

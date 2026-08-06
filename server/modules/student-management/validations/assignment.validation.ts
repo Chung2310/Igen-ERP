@@ -76,3 +76,10 @@ export const gradeSubmissionSchema = Joi.object({
   }),
   feedback: Joi.string().allow("").optional()
 });
+
+export const staffSubmitProofSchema = Joi.object({
+  studentNotes: Joi.string().allow("").max(4000).optional(),
+  attachments: Joi.array().min(1).items(
+    Joi.object({ name: Joi.string().required(), url: Joi.string().required(), type: Joi.string().required() })
+  ).required(),
+});

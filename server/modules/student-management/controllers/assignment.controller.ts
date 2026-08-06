@@ -55,6 +55,17 @@ export class AssignmentController {
     }
   }
 
+  static async staffSubmit(req: AuthRequest, res: Response) {
+    try {
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const data = await AssignmentService.staffSubmitProof(req.params.id, req.params.studentId, req.body, req.user!.id, ownerScope);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi lưu bài nộp hộ học viên.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
   static async getPublicDetail(req: AuthRequest, res: Response) {
     try {
       const token = req.query.token as string;

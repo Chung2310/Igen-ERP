@@ -10,6 +10,8 @@ const submissionSchema = new Schema<ISubmission>({
     type: { type: String, required: true }
   }, { _id: false })], default: [] },
   studentNotes: { type: String, default: "" },
+  submissionSource: { type: String, enum: ["student", "staff"], default: "student" },
+  submittedByUserId: { type: String, default: "" },
   status: { type: String, enum: ["submitted", "graded", "late"], default: "submitted" },
   score: { type: Number, min: 0, max: 10 },
   feedback: { type: String, default: "" },
