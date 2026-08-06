@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { renderAsync } from "docx-preview";
 import {
   Plus,
   Save,
@@ -983,47 +984,16 @@ function WorkflowStepDetailModal({
 }
 
 function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAttachment; onClose: () => void }) {
-  const isImage = attachment.type === "image" || attachment.type.startsWith("image/");
-  const isVideo = attachment.type === "video" || attachment.type.startsWith("video/");
-  const isAudio = attachment.type === "audio" || attachment.type.startsWith("audio/");
-  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}>
-    <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}>
-      <div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-bold text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div>
-      <div className="mt-4 flex min-h-48 items-center justify-center rounded-xl bg-slate-100 p-4">
-        {isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}
-        {isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}
-        {isAudio && <audio src={attachment.url} controls />}
-        {!isImage && !isVideo && !isAudio && (
-          attachment.url.toLowerCase().includes(".pdf") ||
-          attachment.url.toLowerCase().match(/\.(docx?|xlsx?|pptx?)$/) ||
-          attachment.type.includes("pdf") ||
-          attachment.type.includes("word") ||
-          attachment.type.includes("sheet") ||
-          attachment.type.includes("presentation") ? (
-            <iframe
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(attachment.url)}&embedded=true`}
-              className="w-full h-[60vh] border-0 bg-white"
-              title={attachment.name}
-            />
-          ) : (
-            <div className="text-center text-sm text-slate-600">
-              <p>Không thể xem trực tiếp loại tệp này.</p>
-              <a
-                href={`/api/v1/media/download?url=${encodeURIComponent(attachment.url)}&filename=${encodeURIComponent(attachment.name || "tai-lieu-quy-trinh")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white cursor-pointer"
-              >
-                Mở tệp
-              </a>
-            </div>
-          )
-        )}
-      </div>
-      <div className="mt-4 flex justify-end"><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div>
-    </div>
-  </div>;
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [docxError, setDocxError] = useState(false);
+  const type = (attachment.type || "").toLowerCase(); const name = (attachment.name || attachment.url).toLowerCase(); const extension = name.split("?")[0].split(".").pop() || "";
+  const isImage = type === "image" || type.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(extension); const isVideo = type === "video" || type.startsWith("video/") || ["mp4", "webm", "mov"].includes(extension); const isAudio = type === "audio" || type.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "aac"].includes(extension); const isPdf = type.includes("pdf") || extension === "pdf"; const isDocx = extension === "docx" || type.includes("wordprocessingml"); const isOffice = ["doc", "xls", "xlsx", "ppt", "pptx"].includes(extension) || /word|excel|sheet|presentation/.test(type);
+  const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(attachment.url)}&filename=${encodeURIComponent(attachment.name || "tai-lieu-quy-trinh")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`;
+  useEffect(() => { const fn = (e: KeyboardEvent) => e.key === "Escape" && onClose(); document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn); }, [onClose]);
+  useEffect(() => { if (!isDocx || !containerRef.current) return; let cancelled = false; void fetch(attachment.url).then((r) => r.ok ? r.blob() : Promise.reject(new Error("download failed"))).then((blob) => !cancelled && containerRef.current && renderAsync(blob, containerRef.current, undefined, { className: "docx-preview" })).catch(() => !cancelled && setDocxError(true)); return () => { cancelled = true; }; }, [attachment.url, isDocx]);
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}><div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-bold text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div><div className="mt-4 flex min-h-48 max-h-[70vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-4">{isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}{isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}{isAudio && <audio src={attachment.url} controls />}{isPdf && <iframe src={attachment.url} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{isDocx && !docxError && <div ref={containerRef} className="w-full bg-white p-4" />}{isOffice && !isPdf && !isDocx && <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(attachment.url)}&embedded=true`} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{!isImage && !isVideo && !isAudio && !isPdf && !isOffice && <PreviewFallback downloadUrl={downloadUrl} />}{docxError && <PreviewFallback downloadUrl={downloadUrl} />}</div><div className="mt-4 flex justify-end gap-2"><a href={downloadUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Tải xuống</a><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div></div></div>;
 }
+function PreviewFallback({ downloadUrl }: { downloadUrl: string }) { return <div className="text-center text-sm text-slate-600"><p>Không thể xem trước trực tiếp loại tệp này.</p><a href={downloadUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white">Mở tệp</a></div>; }
 function NewWorkflowWizard({
   initialData,
   onClose,
