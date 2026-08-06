@@ -63,10 +63,10 @@ const formatDays = (days: number[]) =>
 const formatDate = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 
 const statusStyle = (status: BatchStatus) => {
-  if (status === 'Đang học') return "bg-emerald-500/10 text-emerald-400 border-emerald-500/15";
-  if (status === 'Sắp khai giảng') return "bg-sky-500/10 text-sky-400 border-sky-500/15";
-  if (status === 'Đã hủy') return "bg-rose-500/10 text-rose-400 border-rose-500/15";
-  return "bg-slate-500/10 text-slate-400 border-slate-500/15";
+  if (status === 'Đang học') return "bg-cyan-50 text-cyan-700 border-cyan-200";
+  if (status === 'Sắp khai giảng') return "bg-slate-100 text-slate-600 border-slate-200";
+  if (status === 'Đã hủy') return "bg-rose-50 text-rose-700 border-rose-200";
+  return "bg-slate-100 text-slate-600 border-slate-200";
 };
 
 const progressStyle = (level: BatchProgressLevel) => {
@@ -75,15 +75,6 @@ const progressStyle = (level: BatchProgressLevel) => {
   if (level === 'green') return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
   if (level === 'black') return "bg-slate-950 text-white border-slate-950";
   return "bg-slate-500/10 text-slate-400 border-slate-500/15";
-};
-
-/** Nội dung chip cảnh báo tiến độ; đỏ nghĩa là quá hạn mà lớp chưa được đóng */
-const progressAccentStyle = (level?: BatchProgressLevel) => {
-  if (level === 'red') return "border-l-rose-600";
-  if (level === 'yellow') return "border-l-amber-500";
-  if (level === 'green') return "border-l-emerald-600";
-  if (level === 'black') return "border-l-slate-950";
-  return "border-l-slate-400";
 };
 
 const progressStatusText = (level: BatchProgressLevel) => {
@@ -638,7 +629,8 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     if (!b.progress) return null;
     return (
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span style={{ backgroundColor: progressColor(b.progress.progressLevel, progressColors) }} className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">
+        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wide">
+          <i className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: progressColor(b.progress.progressLevel, progressColors) }} />
           {progressStatusText(b.progress.progressLevel)}
         </span>
         <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className={cn(
@@ -800,47 +792,35 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedBatches.map((b) => (
-              <ErpCard key={b.id} style={{ borderLeftColor: b.progress ? progressColor(b.progress.progressLevel, progressColors) : undefined }} className={cn("overflow-hidden border-l-[6px] p-4 flex flex-col gap-3", progressAccentStyle(b.progress?.progressLevel))}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
-                    <p className="font-bold text-sm truncate" title={displayTitle(b)}>{displayTitle(b)}</p>
-                    {displaySubtitle(b) && (
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{displaySubtitle(b)}</p>
-                    )}
+              <ErpCard key={b.id} className="overflow-hidden border border-slate-200 bg-white p-4 shadow-none transition-colors hover:border-slate-300 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span aria-label={`Trạng thái tiến độ: ${progressStatusText(b.progress?.progressLevel || 'grey')}`} className="relative mt-1.5 flex h-3 w-3 shrink-0" style={{ color: b.progress ? progressColor(b.progress.progressLevel, progressColors) : '#94a3b8' }}>
+                      {b.progress && ['yellow', 'red'].includes(b.progress.progressLevel) ? <span className="absolute inset-0 animate-ping rounded-full opacity-40" style={{ backgroundColor: 'currentColor' }} /> : null}
+                      <span className="relative h-3 w-3 rounded-full ring-4 ring-slate-100" style={{ backgroundColor: 'currentColor' }} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
+                      <p className="mt-0.5 truncate text-sm font-bold text-slate-800" title={displayTitle(b)}>{displayTitle(b)}</p>
+                      {displaySubtitle(b) && <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">{displaySubtitle(b)}</p>}
+                    </div>
                   </div>
                   {renderStatusSelect(b)}
                 </div>
 
-                <div className="space-y-1.5 text-xs text-slate-600">
-                  <p className="flex items-center gap-1.5 font-bold">
-                    <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
-                    {b.instructorName || <span className="text-slate-400 italic">Chưa gán</span>}
-                  </p>
-                  {b.instructorQualification && (
-                    <p className="ml-1 flex w-fit items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-100">
-                      <GraduationCap className="h-3 w-3 text-indigo-500" />
-                      Trình độ: {b.instructorQualification}
-                    </p>
-                  )}
-                  <p className="flex items-center gap-1.5 font-bold">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {formatDays(b.daysOfWeek)} • {b.startTime} - {b.endTime}
-                  </p>
-                  <p className="flex items-center gap-1.5 font-bold whitespace-nowrap">
-                    <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
-                    {formatDate(b.startDate)} → {formatDate(b.endDate)}
-                  </p>
-                  {b.location && (
-                    <p className="flex items-center gap-1.5 font-bold truncate" title={b.location}>
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      {b.location}
-                    </p>
-                  )}
-                  {renderProgressChips(b)}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-slate-100 py-2.5 text-xs font-semibold text-slate-600">
+                  <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5 text-slate-400" />{b.instructorName || <i className="font-medium text-slate-400">Chưa gán giáo viên</i>}</span>
+                  <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" />{formatDays(b.daysOfWeek)} · {b.startTime}–{b.endTime}</span>
+                  {b.location && <span className="inline-flex min-w-0 items-center gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="max-w-28 truncate" title={b.location}>{b.location}</span></span>}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                <div className="space-y-2">
+                  {renderProgressChips(b)}
+                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400"><CalendarRange className="h-3.5 w-3.5" />{formatDate(b.startDate)} → {formatDate(b.endDate)}</p>
+                  {b.instructorQualification && <p className="text-[10px] font-semibold text-indigo-600">Trình độ giáo viên: {b.instructorQualification}</p>}
+                </div>
+
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
                   {renderLearnerCountButton(b)}
                   {renderRowActions(b)}
                 </div>

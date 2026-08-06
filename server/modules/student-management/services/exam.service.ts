@@ -6,6 +6,7 @@ import { IExam } from "../interfaces/exam.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { listScheduledSessionDates, todayInVietnam } from "../utils/session-count.util";
 import {
   customFieldWriteService,
   CustomFieldWriteConflictError,
@@ -26,6 +27,19 @@ function getDrivingExamBucket(rank?: string | null): 'motorbike' | 'car' | null 
   if (MOTORBIKE_LICENSE_PREFIXES.some(prefix => normalized.startsWith(prefix))) return 'motorbike';
   if (CAR_LICENSE_PREFIXES.some(prefix => normalized.startsWith(prefix))) return 'car';
   return null;
+}
+
+/** Lịch thi chỉ được tạo sau khi lớp đã học xong và toàn bộ buổi đã qua được chốt điểm danh. */
+function assertBatchReadyForExam(batch: { status: string; startDate: string; endDate: string; daysOfWeek: number[]; attendanceSessions?: Array<{ date: string; records?: unknown[] }> }) {
+  if (batch.status === "Đã hủy" || batch.status === "Đã kết thúc") throw new Error("Lớp này không còn ở trạng thái có thể tạo lịch thi.");
+  const today = todayInVietnam();
+  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+  const upcoming = scheduledDates.filter((date) => date >= today);
+  if (upcoming.length) throw new Error(`Lớp còn ${upcoming.length} buổi theo lịch. Chỉ tạo lịch thi sau buổi học cuối.`);
+  const pastDates = new Set(scheduledDates.filter((date) => date < today));
+  const confirmed = new Set((batch.attendanceSessions || []).filter((session) => pastDates.has(session.date) && Array.isArray(session.records) && session.records.length > 0).map((session) => session.date));
+  const missing = pastDates.size - confirmed.size;
+  if (missing > 0) throw new Error(`Còn ${missing} buổi chưa chốt điểm danh. Hãy hoàn tất điểm danh trước khi tạo lịch thi.`);
 }
 
 /** Kết quả trượt chỉ tạo yêu cầu chờ xếp học lại; không tự gán lớp hay lệ phí. */
@@ -114,6 +128,7 @@ export class ExamService {
     if (!batchId) throw new Error("Hãy chọn lớp học cho lịch thi.");
     const batch = await Batch.findOne({ _id: batchId, ownerId, branchId: writeData.branchId });
     if (!batch) throw new Error("Không tìm thấy lớp học của lịch thi.");
+    assertBatchReadyForExam(batch);
     const exam = new Exam({ ...writeData, ownerId, studentCount: batch.learnerIds.length, results: batch.learnerIds.map((studentId) => ({ studentId })) });
     const savedExam = await exam.save();
     logger.info(`[Exam] Exam created successfully: id=${savedExam._id}, name=${savedExam.name}`);
