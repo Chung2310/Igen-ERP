@@ -1137,7 +1137,7 @@ export default function TrainingTab({
                                   </button>
                                   {les.url && (
                                     <a
-                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      href={les.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold hover:underline truncate max-w-[180px]"
@@ -1538,7 +1538,8 @@ export default function TrainingTab({
                                       <FileText className="w-3.5 h-3.5" /> Xem tài liệu bài giảng
                                     </span>
                                     <a
-                                      href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
+                                      href={les.url}
+                                      download={les.fileName || les.title || "tai-lieu-bai-giang"}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-sans"
@@ -1547,11 +1548,44 @@ export default function TrainingTab({
                                     </a>
                                   </div>
                                   <div className="relative w-full" style={{ height: "550px" }}>
-                                    <iframe
-                                      src={`https://docs.google.com/gview?url=${encodeURIComponent(les.url)}&embedded=true`}
-                                      className="w-full h-full border-0"
-                                      title={les.title}
-                                    />
+                                    {(() => {
+                                      const url = les.url || "";
+                                      const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+                                      const isPdf = ext === "pdf" || url.includes(".pdf");
+                                      const isOffice = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext);
+                                      if (isPdf) {
+                                        return (
+                                          <iframe
+                                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}`}
+                                            className="w-full h-full border-0"
+                                            title={les.title}
+                                          />
+                                        );
+                                      }
+                                      if (isOffice) {
+                                        return (
+                                          <iframe
+                                            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
+                                            className="w-full h-full border-0"
+                                            title={les.title}
+                                          />
+                                        );
+                                      }
+                                      return (
+                                        <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
+                                          <FileText className="w-12 h-12 opacity-30" />
+                                          <p className="text-xs font-medium">Không thể hiển thị trước định dạng này.</p>
+                                          <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold transition-all"
+                                          >
+                                            Mở tài liệu trong tab mới
+                                          </a>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
