@@ -218,7 +218,7 @@ export interface AttendanceSession {
 }
 
 /** Mức cảnh báo tiến độ vận hành của lớp */
-export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'grey';
+export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'black' | 'grey';
 
 /** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với mức tiến độ */
 export type BatchAgeLabel = 'yellow' | 'red' | null;

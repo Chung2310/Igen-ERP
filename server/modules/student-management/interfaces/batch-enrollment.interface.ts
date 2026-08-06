@@ -7,6 +7,7 @@ import { Document } from "mongoose";
 export type BatchEnrollmentStatus =
   | "Đang học"
   | "Bảo lưu"
+  | "Chờ xếp học lại"
   | "Học lại"
   | "Hoàn thành khóa"
   | "Chờ xếp lớp tiếp theo"

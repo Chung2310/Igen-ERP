@@ -2,6 +2,14 @@ import Joi from "joi";
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const hexColor = /^#[0-9a-fA-F]{6}$/;
+
+export const batchProgressColorsSchema = Joi.object({
+  green: Joi.string().pattern(hexColor).required(),
+  yellow: Joi.string().pattern(hexColor).required(),
+  red: Joi.string().pattern(hexColor).required(),
+  black: Joi.string().pattern(hexColor).required(),
+});
 
 export const createBatchSchema = Joi.object({
   companyCode: Joi.string().trim().min(1).optional(),
@@ -85,7 +93,7 @@ export const addLearnerSchema = Joi.object({
 });
 
 export const updateEnrollmentStatusSchema = Joi.object({
-  status: Joi.string().valid("Đang học", "Bảo lưu", "Học lại", "Hoàn thành khóa", "Chờ xếp lớp tiếp theo", "Không còn nhu cầu học").required().messages({
+  status: Joi.string().valid("Đang học", "Bảo lưu", "Chờ xếp học lại", "Học lại", "Hoàn thành khóa", "Chờ xếp lớp tiếp theo", "Không còn nhu cầu học").required().messages({
     "any.required": "Trạng thái bảo lưu là bắt buộc.",
     "any.only": "Chỉ có thể chuyển sang Đang học hoặc Bảo lưu.",
   }),

@@ -8,10 +8,10 @@ import { cn } from '../../lib/utils';
  */
 const useErpTheme = () => ({ darkMode: false });
 
-export function ErpCard({ children, className }: { children: React.ReactNode; className?: string }) {
+export function ErpCard({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   const { darkMode } = useErpTheme();
   return (
-    <div className={cn(
+    <div style={style} className={cn(
       "rounded-2xl border transition-all duration-300",
       darkMode
         ? "bg-slate-900/60 border-slate-800/80 backdrop-blur-md"

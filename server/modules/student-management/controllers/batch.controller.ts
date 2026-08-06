@@ -3,8 +3,23 @@ import { BatchService, listBatchEnrollments, updateEnrollmentStatus } from "../s
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { BatchProgressSettingService } from "../services/batch-progress-setting.service";
 
 export class BatchController {
+  static async getProgressColors(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      res.json({ success: true, data: await BatchProgressSettingService.get(ownerId, req.user!.branchId) });
+    } catch (error) { next(error); }
+  }
+
+  static async updateProgressColors(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      res.json({ success: true, data: await BatchProgressSettingService.update(ownerId, req.user!.branchId, req.body) });
+    } catch (error) { next(error); }
+  }
+
   static async create(req: AuthRequest, res: Response) {
     try {
       if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
