@@ -1,4 +1,5 @@
 import React from "react";
+import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BarChart2,
@@ -852,7 +853,7 @@ export function WorkerProjectsPage({
           title={`Lịch sử chấm công · ${viewAttendanceProject.code}`}
           onClose={() => setViewAttendanceProject(null)}
         >
-          <WorkerAttendanceHistory projectId={viewAttendanceProject._id} />
+          <WorkerAttendanceHistory projectId={viewAttendanceProject._id} workers={workers.filter((worker) => viewAttendanceProject.workerIds.includes(worker._id))} projectName={viewAttendanceProject.name} />
         </Modal>
       )}
       {memberTarget && (
@@ -957,7 +958,11 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
+function formatAttendanceTime(value?: string) {
+  return value ? new Date(value).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+}
+
+function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectId: string; workers: Worker[]; projectName: string }) {
   const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -966,67 +971,49 @@ function WorkerAttendanceHistory({ projectId }: { projectId: string }) {
 
   React.useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
-    workerAttendanceApi
-      .list(projectId, undefined, from || undefined, to || undefined)
-      .then((data) => {
-        if (!cancelled) setLogs(data);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Không thể tải lịch sử chấm công");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setLoading(true); setError("");
+    workerAttendanceApi.list(projectId, undefined, from || undefined, to || undefined).then((data) => {
+      if (!cancelled) setLogs(data);
+    }).catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Không thể tải lịch sử chấm công"); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [projectId, from, to]);
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setFrom(todayIso());
-            setTo(todayIso());
-          }}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-        >
-          Hôm nay
-        </button>
-      </div>
-      {loading ? (
-        <p className="text-sm text-slate-400">Đang tải...</p>
-      ) : error ? (
-        <p role="alert" className="text-sm text-red-600">{error}</p>
-      ) : (
-        <WorkerTimekeepingHistory logs={logs} />
-      )}
-    </div>
-  );
-}
+  const rows = logs.map((log) => ({
+    log,
+    worker: workers.find((worker) => worker._id === log.workerId),
+  })).sort((a, b) => `${b.log.date}-${b.worker?.fullName || ""}`.localeCompare(`${a.log.date}-${a.worker?.fullName || ""}`));
 
+  const exportExcel = () => {
+    const data = rows.map(({ log, worker }, index) => ({
+      "STT": index + 1,
+      "Ngày": log.date,
+      "Họ và tên": worker?.fullName || "Không xác định",
+      "Số điện thoại": worker?.phone || "",
+      "Giờ vào": formatAttendanceTime(log.checkIn?.time),
+      "Giờ ra": formatAttendanceTime(log.checkOut?.time),
+      "Tổng phút": log.workedMinutes ?? "",
+      "Trạng thái": log.status,
+      "Khoảng cách vào (m)": log.checkIn?.distanceMeters ?? "",
+      "Khoảng cách ra (m)": log.checkOut?.distanceMeters ?? "",
+      "Ghi chú": log.note || "",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet["!cols"] = [{ wch: 7 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 30 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Chấm công");
+    XLSX.writeFile(workbook, `cham-cong-${projectName.replace(/[^a-zA-Z0-9À-ỹ]+/g, "-")}-${from || "all"}-${to || "all"}.xlsx`);
+  };
+
+  return <div className="space-y-3">
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Hôm nay</button>
+      <button type="button" onClick={exportExcel} disabled={loading || rows.length === 0} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
+    </div>
+    {loading ? <p className="text-sm text-slate-400">Đang tải...</p> : error ? <p role="alert" className="text-sm text-red-600">{error}</p> : rows.length === 0 ? <p className="text-sm text-slate-400">Chưa có dữ liệu trong khoảng ngày đã chọn.</p> : <div className="overflow-x-auto rounded-xl border border-slate-200"><table className="min-w-[1050px] w-full text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Ngày</th><th className="px-3 py-2">Lao động</th><th className="px-3 py-2">Số điện thoại</th><th className="px-3 py-2">Giờ vào</th><th className="px-3 py-2">Giờ ra</th><th className="px-3 py-2">Tổng phút</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">GPS vào</th><th className="px-3 py-2">GPS ra</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map(({ log, worker }) => <tr key={log._id} className="hover:bg-slate-50"><td className="px-3 py-2 font-semibold">{log.date}</td><td className="px-3 py-2 font-semibold text-slate-800">{worker?.fullName || "Không xác định"}</td><td className="px-3 py-2">{worker?.phone || "—"}</td><td className="px-3 py-2">{formatAttendanceTime(log.checkIn?.time)}</td><td className="px-3 py-2">{formatAttendanceTime(log.checkOut?.time)}</td><td className="px-3 py-2">{log.workedMinutes ?? "—"}</td><td className="px-3 py-2">{log.status}</td><td className="px-3 py-2">{log.checkIn?.distanceMeters != null ? `${Math.round(log.checkIn.distanceMeters)} m` : "—"}</td><td className="px-3 py-2">{log.checkOut?.distanceMeters != null ? `${Math.round(log.checkOut.distanceMeters)} m` : "—"}</td></tr>)}</tbody></table></div>}
+  </div>;
+}
 function ActionButton({
   title,
   tone = "neutral",

@@ -21,11 +21,36 @@ export type WorkerProfileFieldConfig = {
   label: string;
   isRequired: boolean;
   isVisible: boolean;
+  isArchived?: boolean;
 };
 
 export type WorkerProjectSummary = {
   id: string;
   name: string;
+};
+
+export type BulkWorkerInput = {
+  fullName: string;
+  phone: string;
+  email?: string;
+  idCard?: string;
+  birthday?: string;
+  address?: string;
+  note?: string;
+  registrationDate?: string;
+};
+
+export type WorkerBulkImportError = {
+  row: number;
+  name: string;
+  phone: string;
+  reason: string;
+};
+
+export type WorkerBulkImportResult = {
+  importedCount: number;
+  skippedCount: number;
+  errors: WorkerBulkImportError[];
 };
 
 export type Worker = {

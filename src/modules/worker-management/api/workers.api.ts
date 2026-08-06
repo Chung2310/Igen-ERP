@@ -1,5 +1,11 @@
 import { workerApiFetch } from "./client";
-import type { Worker, WorkerInput, WorkerScope } from "../types";
+import type {
+  BulkWorkerInput,
+  Worker,
+  WorkerBulkImportResult,
+  WorkerInput,
+  WorkerScope,
+} from "../types";
 
 export const WORKER_BASE = "/worker-management/workers";
 
@@ -25,6 +31,18 @@ export const workerApi = {
         params: scopeParams(scope),
       })
     ).worker;
+  },
+
+  async bulkCreate(
+    workers: BulkWorkerInput[],
+    scope: WorkerScope,
+    projectId?: string,
+  ) {
+    return workerApiFetch<WorkerBulkImportResult>(`${WORKER_BASE}/bulk`, {
+      method: "POST",
+      body: JSON.stringify({ workers, ...(projectId ? { projectId } : {}) }),
+      params: scopeParams(scope),
+    });
   },
 
   async update(id: string, input: WorkerInput, scope: WorkerScope) {

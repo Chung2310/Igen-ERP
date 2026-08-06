@@ -106,3 +106,50 @@ describe("worker HTTP routes", () => {
     });
   });
 });
+
+describe("bulk import route", () => {
+  const post = (base: string, body: unknown, permissions = "worker:manage") =>
+    fetch(`${base}/bulk`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-company": "ACME", "x-role": "admin", "x-permissions": permissions },
+      body: JSON.stringify(body),
+    });
+
+  it("requires the manage permission", async () => {
+    const bulk = vi.spyOn(WorkerService, "bulkCreate");
+    await withServer(async (base) => {
+      const response = await post(base, { workers: [] }, "worker:read");
+      expect(response.status).toBe(403);
+      expect(bulk).not.toHaveBeenCalled();
+    });
+  });
+
+  it("passes the scoped rows and project to the service", async () => {
+    const bulk = vi.spyOn(WorkerService, "bulkCreate").mockResolvedValue({ importedCount: 1, skippedCount: 0, errors: [] });
+    await withServer(async (base) => {
+      const response = await post(base, { workers: [{ fullName: "A", phone: "0912345678" }], projectId: "p1" });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({ importedCount: 1, skippedCount: 0, errors: [] });
+      expect(bulk).toHaveBeenCalledWith({ companyCode: "ACME" }, [{ fullName: "A", phone: "0912345678" }], "p1");
+    });
+  });
+
+  it("rejects a payload that is not a list", async () => {
+    const bulk = vi.spyOn(WorkerService, "bulkCreate");
+    await withServer(async (base) => {
+      const response = await post(base, { workers: "nope" });
+      expect(response.status).toBe(400);
+      expect(bulk).not.toHaveBeenCalled();
+    });
+  });
+
+  it("rejects a file larger than the row cap", async () => {
+    const bulk = vi.spyOn(WorkerService, "bulkCreate");
+    await withServer(async (base) => {
+      const response = await post(base, { workers: new Array(2001).fill({ fullName: "A", phone: "0912345678" }) });
+      expect(response.status).toBe(400);
+      expect((await response.json()).message).toContain("2000");
+      expect(bulk).not.toHaveBeenCalled();
+    });
+  });
+});

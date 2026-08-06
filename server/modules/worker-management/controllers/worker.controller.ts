@@ -5,6 +5,9 @@ import {
 } from "../contracts";
 import { WorkerService } from "../services/worker.service";
 
+/** Guard against a runaway spreadsheet blocking the event loop on insertMany. */
+const MAX_BULK_ROWS = 2000;
+
 function scopeFromRequest(req: Request) {
   return workerScopeFromRequest((req as any).user || {}, {
     companyCode: req.query.companyCode,
@@ -43,6 +46,27 @@ export const workerController = {
         ),
       }),
     ),
+
+  bulkCreate: async (req: Request, res: Response) =>
+    handle(res, async () => {
+      const body = req.body || {};
+      const rows = Array.isArray(body.workers) ? body.workers : null;
+      if (!rows) {
+        return res.status(400).json({ message: "Danh sách lao động không hợp lệ." });
+      }
+      if (rows.length > MAX_BULK_ROWS) {
+        return res.status(400).json({
+          message: `Chỉ nhập tối đa ${MAX_BULK_ROWS} lao động mỗi lần. File hiện có ${rows.length} dòng.`,
+        });
+      }
+      return res.status(201).json(
+        await WorkerService.bulkCreate(
+          scopeFromRequest(req),
+          rows,
+          typeof body.projectId === "string" ? body.projectId : undefined,
+        ),
+      );
+    }),
 
   update: async (req: Request, res: Response) =>
     handle(res, async () => {

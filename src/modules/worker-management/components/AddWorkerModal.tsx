@@ -1,7 +1,10 @@
 import React from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Save, X } from "lucide-react";
 import { toast } from "../../../pages/Toast";
+import { useAuth } from "../../../context/AuthContext";
+import { EntityAddModal } from "../../shared/components/EntityAddModal";
+import { CustomFieldsSection } from "../../student-management/custom-fields/CustomFieldsSection";
+import type { CustomFieldValues } from "../../student-management/custom-fields/types";
+import { canManageWorkerArea } from "../workerPermissionPolicy";
 import type {
   Worker,
   WorkerInput,
@@ -18,6 +21,10 @@ type Props = {
   workers?: Worker[];
   profileFields?: WorkerProfileFieldConfig[];
   projects?: WorkerProjectSummary[];
+  /** Scope passed to the shared custom-field storage. */
+  tenantId?: string;
+  /** Provided by the host when archived standard fields can be restored. */
+  onRestoreProfileField?: (key: WorkerProfileFieldKey) => void;
 };
 
 const defaultFields: WorkerProfileFieldConfig[] = [
@@ -49,6 +56,7 @@ function initialForm(): WorkerInput {
     idCard: "",
     registrationDate: new Date().toLocaleDateString("vi-VN"),
     projectId: "",
+    customFields: {},
   };
 }
 
@@ -87,19 +95,25 @@ export function AddWorkerModal({
   workers = [],
   profileFields = defaultFields,
   projects = [],
+  tenantId,
+  onRestoreProfileField,
 }: Props) {
+  const { userProfile } = useAuth();
   const [form, setForm] = React.useState<WorkerInput>(initialForm);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const manageable = canManageWorkerArea(userProfile?.permissions || [], "custom-field");
+  const archivedFields = profileFields.filter((field) => field.isArchived);
 
   const fieldConfig = (key: WorkerProfileFieldKey) =>
     profileFields.find((field) => field.key === key) ||
     defaultFields.find((field) => field.key === key)!;
-  const visible = (key: WorkerProfileFieldKey) => fieldConfig(key).isVisible;
-  const required = (key: WorkerProfileFieldKey) =>
-    fieldConfig(key).isRequired;
+  const visible = (key: WorkerProfileFieldKey) => {
+    const config = fieldConfig(key);
+    return config.isVisible && !config.isArchived;
+  };
+  const required = (key: WorkerProfileFieldKey) => fieldConfig(key).isRequired;
   const label = (key: WorkerProfileFieldKey) =>
     `${fieldConfig(key).label}${required(key) ? " *" : ""}`;
 
@@ -116,7 +130,7 @@ export function AddWorkerModal({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const missing = profileFields
-      .filter((field) => field.isVisible && field.isRequired)
+      .filter((field) => field.isVisible && !field.isArchived && field.isRequired)
       .filter((field) => !String(form[field.key] || "").trim())
       .map((field) => field.label);
 
@@ -153,177 +167,187 @@ export function AddWorkerModal({
   };
 
   return (
-    <AnimatePresence>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.button
-        aria-label="Đóng"
-        type="button"
-        onClick={onClose}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 30 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 30 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-bold text-slate-800">
-            Thêm lao động mới
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
+    <EntityAddModal
+      isOpen={isOpen}
+      title="Thêm lao động mới"
+      onClose={onClose}
+      onSubmit={submit}
+      error={error}
+      submitting={submitting}
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {visible("fullName") && (
+          <Field
+            label={label("fullName")}
+            name="fullName"
+            value={form.fullName}
+            onChange={update}
             disabled={submitting}
-            className="rounded-full p-1.5 transition-colors hover:bg-slate-100 disabled:opacity-50"
-          >
-            <X className="h-4 w-4 text-slate-400" />
-          </button>
-        </div>
+          />
+        )}
+        {visible("phone") && (
+          <Field
+            label={label("phone")}
+            name="phone"
+            value={form.phone || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {visible("email") && (
+          <Field
+            label={label("email")}
+            name="email"
+            type="email"
+            value={form.email || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {visible("idCard") && (
+          <Field
+            label={label("idCard")}
+            name="idCard"
+            value={form.idCard || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {visible("birthday") && (
+          <Field
+            label={label("birthday")}
+            name="birthday"
+            type="date"
+            value={form.birthday || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {visible("registrationDate") && (
+          <Field
+            label={label("registrationDate")}
+            name="registrationDate"
+            value={form.registrationDate || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {visible("status") && (
+          <div className="space-y-1">
+            <label
+              htmlFor="status"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+            >
+              {label("status")}
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={form.status}
+              onChange={update}
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+            >
+              <option value="active">Đang tuyển</option>
+              <option value="placed">Đã trúng tuyển</option>
+              <option value="inactive">Ngừng xử lý</option>
+            </select>
+          </div>
+        )}
+        {visible("address") && (
+          <Field
+            label={label("address")}
+            name="address"
+            value={form.address || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {projects.length > 0 && (
+          <div className="space-y-1">
+            <label
+              htmlFor="projectId"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+            >
+              Dự án
+            </label>
+            <select
+              id="projectId"
+              name="projectId"
+              value={form.projectId || ""}
+              onChange={update}
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+            >
+              <option value="">Chưa gán dự án</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
-        <form className="space-y-4 overflow-y-auto p-6" onSubmit={submit}>
-          {error && (
-            <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm font-bold text-rose-600">
-              {error}
-            </div>
-          )}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {visible("fullName") && (
-              <Field
-                label={label("fullName")}
-                name="fullName"
-                value={form.fullName}
-                onChange={update}
-              />
-            )}
-            {visible("phone") && (
-              <Field
-                label={label("phone")}
-                name="phone"
-                value={form.phone || ""}
-                onChange={update}
-              />
-            )}
-            {visible("email") && (
-              <Field
-                label={label("email")}
-                name="email"
-                type="email"
-                value={form.email || ""}
-                onChange={update}
-              />
-            )}
-            {visible("idCard") && (
-              <Field
-                label={label("idCard")}
-                name="idCard"
-                value={form.idCard || ""}
-                onChange={update}
-              />
-            )}
-            {visible("birthday") && (
-              <Field
-                label={label("birthday")}
-                name="birthday"
-                type="date"
-                value={form.birthday || ""}
-                onChange={update}
-              />
-            )}
-            {visible("registrationDate") && (
-              <Field
-                label={label("registrationDate")}
-                name="registrationDate"
-                value={form.registrationDate || ""}
-                onChange={update}
-              />
-            )}
-            {visible("status") && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
-                  {label("status")}
-                </label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={update}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+      {visible("note") && (
+        <div className="space-y-1">
+          <label
+            htmlFor="note"
+            className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+          >
+            {label("note")}
+          </label>
+          <textarea
+            id="note"
+            name="note"
+            value={form.note || ""}
+            onChange={update}
+            rows={3}
+            disabled={submitting}
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+          />
+        </div>
+      )}
+
+      <CustomFieldsSection
+        moduleKey="students"
+        mode="create"
+        tenantId={tenantId}
+        disabled={submitting}
+        values={(form.customFields || {}) as CustomFieldValues}
+        onChange={(customFields) =>
+          setForm((current) => ({ ...current, customFields }))
+        }
+      />
+
+      {manageable && onRestoreProfileField && archivedFields.length > 0 && (
+        <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3">
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Trường mặc định đã lưu trữ
+          </h4>
+          <ul className="mt-2 divide-y divide-slate-100">
+            {archivedFields.map((field) => (
+              <li
+                key={field.key}
+                className="flex items-center justify-between py-2 text-xs text-slate-600"
+              >
+                <span>{field.label}</span>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  aria-label={`Khôi phục ${field.label}`}
+                  onClick={() => onRestoreProfileField(field.key)}
+                  className="font-bold text-cyan-600 transition-colors hover:text-cyan-700 disabled:opacity-50"
                 >
-                  <option value="active">Đang tuyển</option>
-                  <option value="placed">Đã trúng tuyển</option>
-                  <option value="inactive">Ngừng xử lý</option>
-                </select>
-              </div>
-            )}
-            {visible("address") && (
-              <Field
-                label={label("address")}
-                name="address"
-                value={form.address || ""}
-                onChange={update}
-              />
-            )}
-            {projects.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
-                  Dự án
-                </label>
-                <select
-                  name="projectId"
-                  value={form.projectId || ""}
-                  onChange={update}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
-                >
-                  <option value="">Chưa gán dự án</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          {visible("note") && (
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
-                {label("note")}
-              </label>
-              <textarea
-                name="note"
-                value={form.note || ""}
-                onChange={update}
-                rows={3}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
-              />
-            </div>
-          )}
-          <div className="flex justify-end gap-4 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-800 disabled:opacity-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 rounded-xl bg-cyan-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" />
-              {submitting ? "Đang lưu..." : "Lưu hồ sơ"}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
-    </AnimatePresence>
+                  Khôi phục
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </EntityAddModal>
   );
 }
 
@@ -342,7 +366,7 @@ function Field({
       <input
         id={props.name}
         {...props}
-        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
       />
     </div>
   );
