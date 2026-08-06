@@ -4,6 +4,8 @@ export interface QualityMetricsInput {
   attendanceRate: number | null;
   assignmentRate: number | null;
   latestMiniTestRate: number | null;
+  /** Thi trượt là tín hiệu cần can thiệp độc lập với điểm danh/bài tập. */
+  latestExamFailed?: boolean;
 }
 
 export interface QualityThresholds {
@@ -24,9 +26,9 @@ export function toRate(numerator: number, denominator: number): number | null {
 export function getQualityWarningLevel(metrics: QualityMetricsInput, thresholds: QualityThresholds = DEFAULT_QUALITY_THRESHOLDS): QualityWarningLevel {
   const values = [metrics.attendanceRate, metrics.assignmentRate, metrics.latestMiniTestRate]
     .filter((value): value is number => value !== null);
+  if (metrics.latestExamFailed) return "risk";
   if (values.length === 0) return "unrated";
-  if (
-    (metrics.attendanceRate !== null && metrics.attendanceRate < thresholds.riskAttendance) ||
+  if ((metrics.attendanceRate !== null && metrics.attendanceRate < thresholds.riskAttendance) ||
     (metrics.assignmentRate !== null && metrics.assignmentRate < thresholds.riskAssignment) ||
     (metrics.latestMiniTestRate !== null && metrics.latestMiniTestRate < thresholds.riskMiniTest)
   ) return "risk";

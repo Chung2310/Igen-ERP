@@ -7,11 +7,12 @@ const base = {
   startDate: "2026-08-03",
   endDate: "2026-08-14",
   daysOfWeek: [1, 3, 5],
+  attendanceSessions: ["2026-08-03", "2026-08-05", "2026-08-07", "2026-08-10", "2026-08-12", "2026-08-14"].map((date) => ({ date, records: [{ studentId: "student-1" }] })),
 };
 
 const at = (today: string) => ({ today });
 
-it("shows green while more than four sessions remain", () => {
+it("shows green before 80% of sessions have been completed", () => {
   // 2026-08-05: còn buổi hôm nay + 4 buổi = 5
   const result = computeBatchProgress({ ...base, status: "Đang học" }, at("2026-08-05"));
   assert.equal(result.progressLevel, "green");
@@ -20,10 +21,10 @@ it("shows green while more than four sessions remain", () => {
   assert.equal(result.doneSessions, 1);
 });
 
-it("switches to yellow at four remaining sessions", () => {
-  const result = computeBatchProgress({ ...base, status: "Đang học" }, at("2026-08-07"));
+it("switches to yellow once 80% of sessions have been completed", () => {
+  const result = computeBatchProgress({ ...base, status: "Đang học" }, at("2026-08-13"));
   assert.equal(result.progressLevel, "yellow");
-  assert.equal(result.remainingSessions, 4);
+  assert.equal(result.doneSessions, 5);
 });
 
 it("shows red when the end date has passed but the class is still open", () => {
@@ -51,21 +52,21 @@ it("greys out a finished class and adds no age label while it is recent", () => 
   assert.equal(result.ageLabel, null);
 });
 
-it("labels a class finished between six months and a year yellow", () => {
+it("shows a class finished between six months and a year in black", () => {
   const result = computeBatchProgress(
     { ...base, status: "Đã kết thúc", completedAt: "2026-01-10" },
     at("2026-09-01")
   );
-  assert.equal(result.progressLevel, "grey");
-  assert.equal(result.ageLabel, "yellow");
+  assert.equal(result.progressLevel, "black");
+  assert.equal(result.ageLabel, null);
 });
 
-it("labels a class finished exactly six calendar months ago yellow", () => {
+it("shows a class finished exactly six calendar months ago in black", () => {
   const result = computeBatchProgress(
     { ...base, status: "Đã kết thúc", completedAt: "2026-02-28" },
     at("2026-08-28")
   );
-  assert.equal(result.ageLabel, "yellow");
+  assert.equal(result.progressLevel, "black");
 });
 
 it("labels a class finished over a year ago red", () => {
@@ -101,5 +102,5 @@ it("excludes holidays from the session counts behind the warning", () => {
   );
   assert.equal(result.remainingSessions, 3);
   assert.equal(result.totalSessions, 5);
-  assert.equal(result.progressLevel, "yellow");
+  assert.equal(result.progressLevel, "green");
 });

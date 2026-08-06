@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from '../../../../../pages/Toast';
 import { useAuth } from '../../../../../context/AuthContext';
 import { useAdminCenters } from '../../../hooks/useAdminCenters';
@@ -21,6 +21,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
   const { centers } = useAdminCenters();
   const [levels, setLevels] = useState<CommissionLevel[]>([]);
   const [loading, setLoading] = useState(false);
+  const latestFetchId = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeCenterId, setActiveCenterId] = useState('');
@@ -51,24 +52,26 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
 
   const fetchLevels = useCallback(async () => {
     if (!activeCenterId) return;
+    const fetchId = ++latestFetchId.current;
     setLoading(true);
     try {
       const res = await apiFetch(`/partners/commission-levels?ownerFilter=${activeCenterId}`);
-      if (res.success && res.data) {
+      // Ignore an older response that arrives after a newer refresh.
+      if (fetchId === latestFetchId.current && res.success && res.data) {
         setLevels(res.data);
       }
     } catch (error) {
       console.error('Failed to fetch levels:', error);
       toast.error('Không thể lấy danh sách cấp bậc hoa hồng.');
     } finally {
-      setLoading(false);
+      if (fetchId === latestFetchId.current) setLoading(false);
     }
   }, [activeCenterId, toast]);
 
   useEffect(() => {
     if (isOpen && activeCenterId) {
       const timer = setTimeout(() => {
-        fetchLevels();
+        void fetchLevels();
       }, 0);
       return () => clearTimeout(timer);
     }
@@ -113,7 +116,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
       if (res.success) {
         toast.success('Đã thêm cấp bậc hoa hồng mới thành công!');
         setFormData({ name: '', minTuition: '', commissionRate: '' });
-        fetchLevels();
+        await fetchLevels();
         // Emit mutation event to refresh partners page lists
         window.dispatchEvent(new CustomEvent('partner-mutation'));
       }

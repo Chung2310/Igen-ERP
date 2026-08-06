@@ -218,7 +218,7 @@ export interface AttendanceSession {
 }
 
 /** Mức cảnh báo tiến độ vận hành của lớp */
-export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'grey';
+export type BatchProgressLevel = 'green' | 'yellow' | 'red' | 'black' | 'grey';
 
 /** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với mức tiến độ */
 export type BatchAgeLabel = 'yellow' | 'red' | null;
@@ -226,6 +226,7 @@ export type BatchAgeLabel = 'yellow' | 'red' | null;
 export interface BatchProgress {
   totalSessions: number;
   doneSessions: number;
+  missingAttendanceSessions: number;
   remainingSessions: number;
   progressLevel: BatchProgressLevel;
   ageLabel: BatchAgeLabel;
@@ -339,7 +340,7 @@ export interface StudentQualityRow {
   studentName: string;
   studentPhone: string;
   studentStatus: StudentStatus[];
-  attendance: { attended: number; total: number; rate: number | null };
+  attendance: { attended: number; total: number; scheduledPast: number; missingAttendanceSessions: number; absent: number; late: number; rate: number | null };
   assignments: { completed: number; total: number; rate: number | null; items: StudentQualityAssignment[] };
   attitudeNote: string;
   teacherAssessment: string;

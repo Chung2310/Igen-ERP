@@ -12,4 +12,5 @@ test("quality warning gives priority to risk and handles unscored learners", () 
   assert.equal(getQualityWarningLevel({ attendanceRate: 92, assignmentRate: 100, latestMiniTestRate: 49 }), "risk");
   assert.equal(getQualityWarningLevel({ attendanceRate: 78, assignmentRate: 100, latestMiniTestRate: null }), "watch");
   assert.equal(getQualityWarningLevel({ attendanceRate: 90, assignmentRate: 80, latestMiniTestRate: 70 }), "good");
+  assert.equal(getQualityWarningLevel({ attendanceRate: null, assignmentRate: null, latestMiniTestRate: null, latestExamFailed: true }), "risk");
 });

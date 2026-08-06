@@ -2,7 +2,7 @@ import { Router } from "express";
 import { BatchController } from "../controllers/batch.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { createBatchSchema, updateBatchSchema, addLearnerSchema, updateEnrollmentStatusSchema } from "../validations/batch.validation";
+import { createBatchSchema, updateBatchSchema, addLearnerSchema, updateEnrollmentStatusSchema, batchProgressColorsSchema } from "../validations/batch.validation";
 import { idParamSchema, enrollmentStatusParamsSchema } from "../validations/student.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
@@ -12,6 +12,8 @@ const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.batch.ma
 
 router.use(authMiddleware);
 
+router.get("/settings/progress-colors", BatchController.getProgressColors);
+router.patch("/settings/progress-colors", requireManage, validate(batchProgressColorsSchema), BatchController.updateProgressColors);
 router.post("/", requireManage, validate(createBatchSchema), BatchController.create);
 router.get("/", BatchController.getList);
 router.get("/:id", validate(idParamSchema, "params"), BatchController.getDetail);

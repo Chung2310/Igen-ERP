@@ -8,6 +8,8 @@ export interface ISubmission extends Document {
   studentId: string;
   attachments: IAttachment[];
   studentNotes?: string;
+  submissionSource?: "student" | "staff";
+  submittedByUserId?: string;
   status: SubmissionStatus;
   score?: number;
   feedback?: string;

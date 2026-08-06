@@ -10,8 +10,9 @@ import { getJwtAccessSecret } from "../../../config/env";
 import { emitToUser } from "../../../socket";
 import { cloudinaryService } from "../../../service/cloudinary.service";
 import { logger } from "../config/logger";
-import { IAssignment } from "../interfaces/assignment.interface";
+import { IAssignment, IAttachment } from "../interfaces/assignment.interface";
 import { companyEmailService } from "../../../service/company-email.service";
+import { CompanyModel } from "../../../model/company.model";
 
 type OwnerScope = string | string[];
 
@@ -23,13 +24,22 @@ function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
   try {
     let companyCode: string | undefined;
+    let ownerEmail: string | undefined;
     if (mongoose.Types.ObjectId.isValid(ownerId)) {
-      const owner = await User.findById(ownerId).select("companyCode");
+      const owner = await User.findById(ownerId).select("companyCode email");
       companyCode = owner?.companyCode;
+      ownerEmail = owner?.email;
     }
     if (!companyCode) {
-      const owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select("companyCode");
+      const owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select("companyCode email");
       companyCode = owner?.companyCode || ownerId;
+      ownerEmail = owner?.email || ownerEmail;
+    }
+    // Lớp cũ có thể thuộc owner chưa được gắn companyCode. Khi đó suy ngược
+    // theo email chủ doanh nghiệp để dùng đúng SMTP mà màn hình gửi thử đang dùng.
+    if ((!companyCode || companyCode === ownerId) && ownerEmail) {
+      const company = await CompanyModel.findOne({ ownerEmail }).select("code").lean();
+      companyCode = company?.code || companyCode;
     }
     return companyCode ? await companyEmailService.resolveLegacySettings(companyCode) : undefined;
   } catch (err) {
@@ -235,6 +245,20 @@ export class AssignmentService {
       status: "deleted",
       submittedAt: null,
     });
+  }
+
+  /** Nhân viên/giáo viên nhập minh chứng trực tiếp khi học viên không có email hoặc không tự nộp được. */
+  static async staffSubmitProof(assignmentId: string, studentId: string, data: { attachments: IAttachment[]; studentNotes?: string }, actorId: string, ownerScope: OwnerScope) {
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
+    if (!assignment) throw new Error("Bài tập không tồn tại.");
+    const batch = await Batch.findOne({ _id: assignment.batchId, ...buildOwnerQuery(ownerScope), learnerIds: studentId }).select("_id");
+    if (!batch) throw new Error("Học viên không thuộc lớp nhận bài tập này.");
+    const status = assignment.dueDate && new Date() > new Date(assignment.dueDate) ? "late" : "submitted";
+    return SubmissionModel.findOneAndUpdate(
+      { assignmentId, studentId },
+      { $set: { attachments: data.attachments, studentNotes: data.studentNotes || "", status, submittedAt: new Date(), submissionSource: "staff", submittedByUserId: actorId } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
   }
 
   static async gradeSubmission(

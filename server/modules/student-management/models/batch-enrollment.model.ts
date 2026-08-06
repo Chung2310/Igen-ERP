@@ -4,6 +4,7 @@ import { IBatchEnrollment } from "../interfaces/batch-enrollment.interface";
 export const BATCH_ENROLLMENT_STATUSES = [
   "Đang học",
   "Bảo lưu",
+  "Chờ xếp học lại",
   "Học lại",
   "Hoàn thành khóa",
   "Chờ xếp lớp tiếp theo",

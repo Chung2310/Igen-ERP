@@ -122,12 +122,13 @@ export class PartnerController {
 
   static async getCommissionLevels(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const ownerId =
-        req.user!.role === "superadmin" && typeof req.query.ownerFilter === "string"
-          ? req.query.ownerFilter
-          : req.user!.role === "superadmin"
-            ? "ALL"
-            : req.user!.uid;
+      // Phải dùng cùng ownerId với luồng tạo. Admin/manager ghi cấu hình vào
+      // owner chính của doanh nghiệp, không phải uid của tài khoản nhân viên.
+      const ownerId = req.user!.role === "superadmin"
+        ? (typeof req.query.ownerFilter === "string" ? req.query.ownerFilter : "ALL")
+        : ["admin", "manager"].includes(req.user!.role)
+          ? await resolveCreateOwnerId(req.user!)
+          : req.user!.uid;
 
       const levels = await PartnerService.getCommissionLevels(ownerId, req.user!.branchId);
       res.json({ success: true, data: levels });
