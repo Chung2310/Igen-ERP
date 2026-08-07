@@ -13,6 +13,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 import { useCourses } from '../../hooks/useCourses';
 import { useBatches } from '../../hooks/useBatches';
+import { cn } from '../../lib/utils';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -47,16 +48,25 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
   // QLHV lấy khóa học qua lớp đã chọn; trường này chỉ phục vụ dữ liệu kỳ thi lái xe cũ.
   const showLegacyCourseField = false;
   const [isOpenCourses, setIsOpenCourses] = useState(false);
+  const [isOpenBatches, setIsOpenBatches] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const batchDropdownRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpenCourses(false);
       }
+      if (batchDropdownRef.current && !batchDropdownRef.current.contains(event.target as Node)) {
+        setIsOpenBatches(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   const manageable = canManageCustomFields(user?.permissions);
@@ -328,7 +338,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div key="exam-modal-portal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -381,10 +391,63 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Lớp học <span className="text-rose-500">*</span></label>
-                  <select name="batchId" required value={formData.batchId} disabled={Boolean(initialData?.batchId)} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary disabled:bg-slate-50">
-                    <option value="">-- Chọn lớp học --</option>
-                    {batches.map((batch) => <option key={batch.id} value={batch.id} disabled={!isBatchExamEligible(batch)}>{batch.code} - {batch.courseTitle}{isBatchExamEligible(batch) ? '' : ' (không thể lập lịch)'}</option>)}
-                  </select>
+                  <div ref={batchDropdownRef} className="relative">
+                    <button
+                      type="button"
+                      disabled={Boolean(initialData?.batchId)}
+                      onClick={() => setIsOpenBatches(!isOpenBatches)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all text-slate-800 text-left select-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
+                    >
+                      <span className={formData.batchId ? "text-slate-850 font-bold truncate pr-2" : "text-slate-350 font-medium"}>
+                        {formData.batchId
+                          ? `${batches.find((b) => b.id === formData.batchId)?.code} - ${batches.find((b) => b.id === formData.batchId)?.courseTitle}`
+                          : "-- Chọn lớp học --"}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isOpenBatches ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isOpenBatches && (
+                      <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5 max-h-[180px] overflow-y-auto scrollbar-thin">
+                        <div
+                          key="default-batch-option"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, batchId: '' }));
+                            setIsOpenBatches(false);
+                          }}
+                          className={`px-4 py-2 text-xs font-semibold cursor-pointer transition-colors hover:bg-slate-50 ${!formData.batchId ? "text-cyan-600 bg-cyan-50/50 font-bold" : "text-slate-500"}`}
+                        >
+                          -- Chọn lớp học --
+                        </div>
+                        {batches.map((batch, index) => {
+                          const eligible = isBatchExamEligible(batch);
+                          return (
+                            <div
+                              key={batch.id || `batch-${index}`}
+                              onClick={() => {
+                                if (eligible) {
+                                  setFormData(prev => ({ ...prev, batchId: batch.id }));
+                                  setIsOpenBatches(false);
+                                }
+                              }}
+                              className={cn(
+                                "px-4 py-2 text-xs font-medium transition-colors flex items-center justify-between",
+                                eligible
+                                  ? "cursor-pointer hover:bg-slate-50 text-slate-700"
+                                  : "cursor-not-allowed bg-slate-50/30 text-slate-400",
+                                formData.batchId === batch.id && "text-cyan-600 bg-cyan-50/50 font-bold"
+                              )}
+                            >
+                              <div className="truncate pr-2">
+                                <span className="font-bold text-slate-800">{batch.code}</span> - {batch.courseTitle}
+                                {!eligible && <span className="text-[10px] text-slate-400 ml-1 italic">(không thể lập lịch)</span>}
+                              </div>
+                              {formData.batchId === batch.id && <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Có thể lập lịch trước; đến ngày thi mới chốt điểm danh và kết quả.' : batches.length ? 'Chỉ lớp đang học mới có thể lập lịch thi.' : 'Chưa tải được danh sách lớp học.'}</p>
                   {selectedBatch ? <div className={`mt-1 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed ${selectedBatch.status === 'Đang học' ? 'border-cyan-100 bg-cyan-50 text-cyan-800' : 'border-amber-100 bg-amber-50 text-amber-800'}`}>
                     {selectedBatch.status === 'Đang học'
@@ -423,6 +486,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       {isOpenCourses && (
                         <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 py-1.5 max-h-[250px] overflow-y-auto no-scrollbar">
                           <div 
+                            key="default-course-option"
                             onClick={() => {
                               setFormData(prev => ({ ...prev, rank: '' }));
                               setIsOpenCourses(false);
@@ -431,9 +495,9 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                           >
                             -- Chọn khóa học --
                           </div>
-                          {courses.map(course => (
+                          {courses.map((course, index) => (
                             <div
-                              key={course.id}
+                              key={course.id || `course-${index}`}
                               onClick={() => {
                                 setFormData(prev => ({ ...prev, rank: course.title }));
                                 setIsOpenCourses(false);
@@ -510,8 +574,8 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
                 <ul className="mt-2 divide-y divide-slate-100">
-                  {archivedStdFields.map((field) => (
-                    <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                  {archivedStdFields.map((field, index) => (
+                    <li key={field.key || `archived-${index}`} className="flex items-center justify-between py-2 text-xs text-slate-600">
                       <span>{field.label}</span>
                       <button
                         type="button"
@@ -551,6 +615,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
       </div>
 
       <CustomFieldEditorModal
+        key="exam-modal-custom-field-editor"
         open={stdEditorOpen}
         moduleKey="exams"
         initialField={editingStdField}

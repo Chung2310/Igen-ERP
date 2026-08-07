@@ -142,18 +142,18 @@ export default function ErpConfigTab() {
     <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
       {/* Tab bar nội bộ của Cấu hình ERP */}
       {(canManageLocation || canManageCompanyModules) && (
-        <div className="flex gap-2 border-b border-gray-100 pb-3">
+        <div className="flex gap-2 border-b border-gray-100 pb-3 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab("workShifts")}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
           >
             Ca làm việc
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("general")}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === "general" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -162,14 +162,14 @@ export default function ErpConfigTab() {
           <button
             type="button"
             onClick={() => setActiveTab("workCalendar")}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
           >
             Lịch nghỉ lễ
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("workHours")}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === "workHours" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -177,7 +177,7 @@ export default function ErpConfigTab() {
           </button>
           {canManageCompanyModules && (
             <button type="button" onClick={() => setActiveTab("companyModules")}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               Học viên & Email
             </button>
           )}

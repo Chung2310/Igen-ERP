@@ -10,6 +10,7 @@ import {
   ExternalLink, Link, SlidersHorizontal, Calendar, List, LayoutGrid, Mic, Undo2, Redo2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { cn } from "../modules/student-management/lib/utils";
 import { toast } from "./Toast";
 import { getAccessToken, authService } from "../services/authService";
 import { FileExplorer } from "../components/resource/FileExplorer";
@@ -252,6 +253,11 @@ export default function ResourceTab() {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [filterType, setFilterType] = useState<string>("");
+  
+  const activeFiltersCount = React.useMemo(() => {
+    return [filterStartDate, filterEndDate, filterType].filter(Boolean).length;
+  }, [filterStartDate, filterEndDate, filterType]);
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   // Pagination for Drive list view
   const DRIVE_LIST_PAGE_SIZE = 20;
@@ -2189,14 +2195,22 @@ export default function ResourceTab() {
                     {subTab === "TÀI LIỆU KHÁC" && (
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer ${
+                        className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer relative ${
                           showFilters 
-                            ? "bg-cyan-50 hover:bg-cyan-100/50 text-cyan-600 border-cyan-600" 
+                            ? "bg-slate-900 border-slate-900 text-white" 
                             : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
                         }`}
                         title="Bộ lọc"
                       >
                         <SlidersHorizontal className="h-4 w-4" />
+                        {activeFiltersCount > 0 && (
+                          <span className={cn(
+                            "absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[9px] font-black shadow-sm",
+                            showFilters ? "bg-white text-slate-900" : "bg-cyan-600 text-white"
+                          )}>
+                            {activeFiltersCount}
+                          </span>
+                        )}
                       </button>
                     )}
 
@@ -2415,7 +2429,7 @@ export default function ResourceTab() {
 
                 {/* Advanced Filters Panel matching mockup */}
                 {showFilters && subTab === "TÀI LIỆU KHÁC" && (
-                  <div className="px-6 py-2.5 border-b border-slate-100 bg-[#fbfcfc] flex flex-wrap items-center gap-3 animate-fadeIn shrink-0 select-none text-left">
+                  <div className="px-4 sm:px-6 py-3 border-b border-slate-100 bg-[#fbfcfc] flex flex-col gap-3 animate-fadeIn shrink-0 select-none text-left">
                     {/* CSS override to hide default browser date picker indicators but make them clickable */}
                     <style>{`
                       .style-date-input::-webkit-calendar-picker-indicator {
@@ -2434,82 +2448,86 @@ export default function ResourceTab() {
                       }
                     `}</style>
 
-                    {/* Từ ngày */}
-                    <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150">
-                      <input
-                        type={filterStartDate ? "date" : "text"}
-                        onFocus={(e) => (e.target.type = "date")}
-                        onBlur={(e) => {
-                          if (!e.target.value) e.target.type = "text";
-                        }}
-                        placeholder="Từ ngày"
-                        value={filterStartDate}
-                        onChange={(e) => setFilterStartDate(e.target.value)}
-                        className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-28 cursor-pointer style-date-input"
-                      />
-                      <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                    </div>
+                    {/* Date filters and Clear button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Từ ngày */}
+                        <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150 w-full sm:w-auto">
+                          <input
+                            type={filterStartDate ? "date" : "text"}
+                            onFocus={(e) => (e.target.type = "date")}
+                            onBlur={(e) => {
+                              if (!e.target.value) e.target.type = "text";
+                            }}
+                            placeholder="Từ ngày"
+                            value={filterStartDate}
+                            onChange={(e) => setFilterStartDate(e.target.value)}
+                            className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-full sm:w-28 cursor-pointer style-date-input"
+                          />
+                          <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                        </div>
 
-                    {/* Đến ngày */}
-                    <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150">
-                      <input
-                        type={filterEndDate ? "date" : "text"}
-                        onFocus={(e) => (e.target.type = "date")}
-                        onBlur={(e) => {
-                          if (!e.target.value) e.target.type = "text";
-                        }}
-                        placeholder="Đến ngày"
-                        value={filterEndDate}
-                        onChange={(e) => setFilterEndDate(e.target.value)}
-                        className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-28 cursor-pointer style-date-input"
-                      />
-                      <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                    </div>
+                        {/* Đến ngày */}
+                        <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150 w-full sm:w-auto">
+                          <input
+                            type={filterEndDate ? "date" : "text"}
+                            onFocus={(e) => (e.target.type = "date")}
+                            onBlur={(e) => {
+                              if (!e.target.value) e.target.type = "text";
+                            }}
+                            placeholder="Đến ngày"
+                            value={filterEndDate}
+                            onChange={(e) => setFilterEndDate(e.target.value)}
+                            className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-full sm:w-28 cursor-pointer style-date-input"
+                          />
+                          <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
 
-                    {/* Divider vertical */}
-                    <div className="h-5 w-[1px] bg-slate-200 mx-1"></div>
-
-                    {/* Filter Type Pills */}
-                    {[
-                      { value: "folder", label: "Thư mục" },
-                      { value: "image", label: "Hình ảnh" },
-                      { value: "audio", label: "Âm thanh" },
-                      { value: "video", label: "Video" },
-                      { value: "pdf", label: "PDF" },
-                      { value: "document", label: "Tài liệu" },
-                      { value: "spreadsheet", label: "Bảng tính" },
-                      { value: "presentation", label: "Bản trình bày" },
-                      { value: "link", label: "Liên kết" }
-                    ].map((type) => {
-                      const isActive = filterType === type.value;
-                      return (
+                      {/* Clear Filter button if any is active */}
+                      {(filterStartDate || filterEndDate || filterType) && (
                         <button
-                          key={type.value}
-                          onClick={() => setFilterType(isActive ? "" : type.value)}
-                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer border ${
-                            isActive
-                              ? "bg-slate-800 border-slate-800 text-white shadow-xs"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                          }`}
+                          onClick={() => {
+                            setFilterStartDate("");
+                            setFilterEndDate("");
+                            setFilterType("");
+                          }}
+                          className="text-[10px] font-black text-rose-500 hover:text-rose-700 transition uppercase tracking-wider cursor-pointer text-left sm:text-right"
                         >
-                          {type.label}
+                          Xóa lọc
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
 
-                    {/* Clear Filter button if any is active */}
-                    {(filterStartDate || filterEndDate || filterType) && (
-                      <button
-                        onClick={() => {
-                          setFilterStartDate("");
-                          setFilterEndDate("");
-                          setFilterType("");
-                        }}
-                        className="text-[10px] font-black text-red-500 hover:text-red-700 transition uppercase tracking-wider ml-auto cursor-pointer"
-                      >
-                        Xóa lọc
-                      </button>
-                    )}
+                    {/* Filter Type Pills Row (Scrollable horizontally on mobile, wrapped on desktop) */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none whitespace-nowrap">
+                      {[
+                        { value: "folder", label: "Thư mục" },
+                        { value: "image", label: "Hình ảnh" },
+                        { value: "audio", label: "Âm thanh" },
+                        { value: "video", label: "Video" },
+                        { value: "pdf", label: "PDF" },
+                        { value: "document", label: "Tài liệu" },
+                        { value: "spreadsheet", label: "Bảng tính" },
+                        { value: "presentation", label: "Bản trình bày" },
+                        { value: "link", label: "Liên kết" }
+                      ].map((type) => {
+                        const isActive = filterType === type.value;
+                        return (
+                          <button
+                            key={type.value}
+                            onClick={() => setFilterType(isActive ? "" : type.value)}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer border flex-shrink-0 ${
+                              isActive
+                                ? "bg-slate-800 border-slate-800 text-white shadow-xs"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
+                          >
+                            {type.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
