@@ -720,8 +720,8 @@ export default function LeaveRequestsTab({
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-700">
+          <div className="overflow-x-auto overscroll-x-contain">
+            <table className="w-full min-w-[760px] text-left text-xs text-slate-700 sm:min-w-[1100px]">
               <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
                 <tr>
                   {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
