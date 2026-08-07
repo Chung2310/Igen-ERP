@@ -212,7 +212,7 @@ export default function LandingPage() {
                 <span>ERP tích hợp AI thế hệ mới</span>
               </div>
               
-              <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
                 Tối ưu hóa Vận hành Doanh nghiệp của Bạn
               </h1>
               
@@ -220,11 +220,11 @@ export default function LandingPage() {
                 {BRAND_NAME} mang đến giải pháp quản trị doanh nghiệp toàn diện. Đồng bộ và kết nối liền mạch các kênh bán hàng, mạng xã hội, quản lý nhân sự HRM và kho vận trên một nền tảng trực quan, hiện đại.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
                 <a 
                   href="/dang-nhap" 
                   id="hero_btn_get_started"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/15 hover:shadow-blue-600/25 transition-all"
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/15 hover:shadow-blue-600/25 transition-all"
                 >
                   <span>Bắt đầu ngay hôm nay</span>
                   <ArrowRight className="h-4 w-4" />
@@ -232,24 +232,24 @@ export default function LandingPage() {
                 <a 
                   href="#tich-hop-tiktok" 
                   id="hero_btn_tiktok_features"
-                  className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+                  className="w-full sm:w-auto bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl text-sm flex items-center justify-center gap-2 transition-all"
                 >
                   <span>Xem tích hợp TikTok</span>
                 </a>
               </div>
 
-            <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-200/80">
-              <div>
-                <span className="block text-2xl font-extrabold text-slate-900">99.9%</span>
-                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Thời gian hoạt động</span>
+            <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-6 border-t border-slate-200/80">
+              <div className="text-center sm:text-left">
+                <span className="block text-xl sm:text-2xl font-extrabold text-slate-900">99.9%</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium uppercase tracking-wider">Thời gian<br className="sm:hidden"/> hoạt động</span>
               </div>
-              <div>
-                <span className="block text-2xl font-extrabold text-slate-900">10x</span>
-                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Hiệu suất vận hành</span>
+              <div className="text-center sm:text-left">
+                <span className="block text-xl sm:text-2xl font-extrabold text-slate-900">10x</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium uppercase tracking-wider">Hiệu suất<br className="sm:hidden"/> vận hành</span>
               </div>
-              <div>
-                <span className="block text-2xl font-extrabold text-slate-900">24/7</span>
-                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Hỗ trợ AI tự động</span>
+              <div className="text-center sm:text-left">
+                <span className="block text-xl sm:text-2xl font-extrabold text-slate-900">24/7</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium uppercase tracking-wider">Hỗ trợ AI<br className="sm:hidden"/> tự động</span>
               </div>
             </div>
           </div>
