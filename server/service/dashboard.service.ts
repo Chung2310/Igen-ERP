@@ -123,8 +123,8 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
       Student.find(ownerQ).select("fee paidAmount").lean(),
       Course.countDocuments({ ...ownerQ, status: "Hoạt động" }),
       Batch.countDocuments({ ...ownerQ, status: "Đang học" }),
-      Batch.countDocuments({ ...ownerQ, startDate: { $gte: today, $lte: endOfToday } }),
-      Batch.countDocuments({ ...ownerQ, status: "Đang học", endDate: { $lte: twoWeeksFromNow } }),
+      Batch.countDocuments({ ...ownerQ, startDate: getLocalDateString() }),
+      Batch.countDocuments({ ...ownerQ, status: "Đang học", endDate: { $lte: twoWeeksFromNow.toISOString().slice(0, 10) } }),
       Batch.countDocuments({ ...ownerQ, status: "Đang học", $or: [{ instructorId: null }, { instructorId: { $exists: false } }] }),
       Payment.aggregate([
         { $match: { ...ownerQ, createdAt: { $gte: today, $lte: endOfToday } } },
@@ -147,6 +147,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
     activeCourses,
     activeBatches,
     expiringStudentCount: 0, // Fallback as it requires deep batch enrollment aggregation
+    unpaidStudentCount: 0,
   };
   
   const batches = {
@@ -321,7 +322,7 @@ export const dashboardService = {
         : Promise.resolve({ activeProjects: 0, tasks: { todo: 0, doing: 0, done: 0, total: 0 }, overdueTasks: 0 }),
       access.student
         ? getStudentStats(user, range)
-        : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 } }),
+        : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 } }),
       access.timekeeping
         ? getTimekeepingStats(user)
         : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
