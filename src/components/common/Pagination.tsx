@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type PaginationProps = {
@@ -26,10 +26,6 @@ function buildPageItems(currentPage: number, totalPages: number) {
 
 export function Pagination({ currentPage, totalPages, onPageChange, className = "" }: PaginationProps) {
   const [jumpPage, setJumpPage] = useState(String(currentPage));
-
-  useEffect(() => {
-    setJumpPage(String(currentPage));
-  }, [currentPage]);
 
   if (totalPages <= 1) return null;
 
@@ -104,6 +100,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
           }}
           className="h-11 w-16 rounded-lg border border-gray-200 bg-slate-50 px-2 text-center font-semibold text-gray-700 outline-none focus:border-slate-400 sm:h-8"
           aria-label="Nhập trang cần nhảy"
+          key={currentPage}
         />
         <button
           type="button"

@@ -35,10 +35,6 @@ export function ConfirmDialog({
   title,
   tone = "danger",
 }: ConfirmDialogProps) {
-  if (!isOpen) return null;
-
-  const styles = toneStyles[tone];
-
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -52,6 +48,10 @@ export function ConfirmDialog({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, isSubmitting, onClose]);
+
+  if (!isOpen) return null;
+
+  const styles = toneStyles[tone];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
