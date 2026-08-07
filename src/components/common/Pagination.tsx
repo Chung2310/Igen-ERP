@@ -53,7 +53,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:w-8"
           aria-label="Trang trước"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -61,7 +61,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
 
         {pageItems.map((item, index) =>
           item === "..." ? (
-            <span key={`ellipsis-${index}`} className="flex h-8 min-w-8 items-center justify-center px-1 text-xs font-semibold text-gray-400">
+            <span key={`ellipsis-${index}`} className="hidden h-8 min-w-8 items-center justify-center px-1 text-xs font-semibold text-gray-400 sm:flex">
               ...
             </span>
           ) : (
@@ -69,7 +69,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
               key={item}
               type="button"
               onClick={() => onPageChange(Number(item))}
-              className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-bold transition-colors ${
+              className={`hidden h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-bold transition-colors sm:flex ${
                 currentPage === item
                   ? "bg-slate-900 text-white"
                   : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
@@ -84,7 +84,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:w-8"
           aria-label="Trang sau"
         >
           <ChevronRight className="h-4 w-4" />
@@ -102,13 +102,13 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
           onKeyDown={(event) => {
             if (event.key === "Enter") submitJump();
           }}
-          className="h-8 w-16 rounded-lg border border-gray-200 bg-slate-50 px-2 text-center font-semibold text-gray-700 outline-none focus:border-slate-400"
+          className="h-11 w-16 rounded-lg border border-gray-200 bg-slate-50 px-2 text-center font-semibold text-gray-700 outline-none focus:border-slate-400 sm:h-8"
           aria-label="Nhập trang cần nhảy"
         />
         <button
           type="button"
           onClick={submitJump}
-          className="h-8 rounded-lg border border-gray-200 px-3 font-bold text-gray-700 transition-colors hover:bg-gray-50"
+          className="h-11 rounded-lg border border-gray-200 px-3 font-bold text-gray-700 transition-colors hover:bg-gray-50 sm:h-8"
         >
           Di
         </button>
