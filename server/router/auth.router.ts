@@ -283,25 +283,6 @@ const companyCodeParamSchema = {
   }),
 };
 
-const updateCompanyHeyGenSchema = {
-  params: companyCodeParamSchema.params,
-  body: Joi.object({
-    apiKey: Joi.string().allow("").optional(),
-    defaultAvatarId: Joi.string().allow("").optional(),
-    defaultVoiceId: Joi.string().allow("").optional(),
-    isConnected: Joi.boolean().optional(),
-    connectedAt: Joi.date().optional().allow(null),
-    lastSyncAt: Joi.date().optional().allow(null),
-  }),
-};
-
-const testCompanyHeyGenSchema = {
-  params: companyCodeParamSchema.params,
-  body: Joi.object({
-    apiKey: Joi.string().allow("").optional(),
-  }),
-};
-
 authRouter.patch(
   "/companies/:id",
   requireAuth as any,

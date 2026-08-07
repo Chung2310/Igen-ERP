@@ -67,10 +67,6 @@ export interface IHeyGenAccessConfig {
   apiKey?: string;
 }
 
-export interface IElevenLabsAccessConfig {
-  apiKey?: string;
-}
-
 export interface IGoogleDriveIntegration {
   isConnected: boolean;
   driveEmail: string;
@@ -111,8 +107,7 @@ export interface IUser extends Document {
   googleDriveIntegration?: IGoogleDriveIntegration | null;
   aiAutoReplyConfig?: IAiAutoReplyConfig | null;
   heygenAccess?: IHeyGenAccessConfig | null;
-  elevenlabsAccess?: IElevenLabsAccessConfig | null;
-  
+
   // Org Chart & SaaS fields
   jobTitle?: string;
   qualification?: string;

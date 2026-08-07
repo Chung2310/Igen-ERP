@@ -950,7 +950,7 @@ export default function InventoryTab() {
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex justify-between items-center shrink-0" id="inventory_tabs_switch">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
         <div className="flex gap-1 overflow-x-auto select-none">
           {[
             { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
@@ -978,7 +978,7 @@ export default function InventoryTab() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
         {subTab === "DANH MỤC" && (
           <div className="space-y-6" id="product_catalog_menu">
             <input

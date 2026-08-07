@@ -284,7 +284,7 @@ export default function WorkerWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div
-        className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-5 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between"
+        className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
         id="worker_sub_tabs_bar"
       >
         <div className="flex select-none gap-1 overflow-x-auto">
@@ -317,7 +317,7 @@ export default function WorkerWorkspace() {
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Cơ sở:
             </span>
-            <div className="relative min-w-[200px]">
+            <div className="relative min-w-0 flex-1 sm:min-w-[200px] sm:flex-none">
               <select
                 value={center}
                 onChange={(event) => setCenter(event.target.value)}
@@ -335,7 +335,7 @@ export default function WorkerWorkspace() {
           </div>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <Suspense fallback={<Loader />}>{page}</Suspense>
       </div>
       <WorkerDetailModal

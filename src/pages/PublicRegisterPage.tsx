@@ -166,7 +166,7 @@ export default function PublicRegisterPage() {
   if (!teacherId || configError) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <AlertTriangle className="mx-auto mb-4 h-14 w-14 text-rose-500" />
           <h2 className="text-base font-bold text-slate-800">Không mở được biểu mẫu</h2>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
@@ -180,7 +180,7 @@ export default function PublicRegisterPage() {
   if (done) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <CheckCircle className="mx-auto mb-4 h-14 w-14 text-emerald-500" />
           <h2 className="text-base font-bold text-slate-800">Đăng ký thành công!</h2>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
@@ -206,7 +206,7 @@ export default function PublicRegisterPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+        <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {fields.map((field) => (
               <div key={field.key} className={field.key === "address" ? "sm:col-span-2" : undefined}>

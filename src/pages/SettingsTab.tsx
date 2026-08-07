@@ -112,7 +112,7 @@ export default function SettingsTab() {
     <div className="h-full flex flex-col font-sans overflow-y-auto pr-2 pb-6" id="settings_tab_container">
 
       {/* Title Header with Glassmorphism Header */}
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-gray-200/80 shadow-xs">
+      <div className="mb-4 flex flex-col justify-between gap-3 rounded-2xl border border-gray-200/80 bg-white/80 p-3 shadow-xs backdrop-blur-md sm:gap-4 sm:p-5 md:flex-row md:items-center">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
             <Sliders className="h-5 w-5 text-white" />
@@ -159,7 +159,7 @@ export default function SettingsTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* Left Column: Quick Profile Card */}
-        <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs flex flex-col items-center text-center gap-4 relative overflow-hidden">
+        <div className="relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-center shadow-xs backdrop-blur-md sm:p-6">
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-80" />
 
           <div className="relative mt-10 cursor-pointer group" onClick={handleAvatarClick}>

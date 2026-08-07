@@ -231,7 +231,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-dvh w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
+    <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
       <Sidebar
         activeTab={resolvedActiveTab}
@@ -248,7 +248,7 @@ function AppContent() {
         />
 
         <main
-          className={`flex-1 overflow-hidden bg-surface ${
+          className={`min-w-0 flex-1 overflow-hidden bg-surface ${
             activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
           }`}
           id="primary_page_container"

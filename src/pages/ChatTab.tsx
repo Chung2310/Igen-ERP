@@ -2004,7 +2004,7 @@ export default function ChatTab() {
         {activeRoom ? (
           <>
             {/* CHAT HEADER BLOCK */}
-            <div className="flex h-[72px] items-center justify-between border-b-2 border-slate-300 bg-white px-4 md:px-6 backdrop-blur-md shrink-0 shadow-2xs">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b-2 border-slate-300 bg-white px-3 shadow-2xs backdrop-blur-md sm:h-[72px] sm:px-4 md:px-6">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Back button on mobile */}
                 <button
@@ -2172,7 +2172,7 @@ export default function ChatTab() {
                 <div
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
-                  className="flex-1 overflow-y-auto p-4 md:p-6"
+                  className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6"
                 >
                   {loadingMore && (
                     <div className="flex items-center justify-center py-2 text-slate-400">
@@ -3300,7 +3300,7 @@ export default function ChatTab() {
                             }
                           }
                         }}
-                        className="flex-1 resize-none max-h-[140px] rounded-2xl border border-slate-200/80 bg-slate-55/60 py-3 px-5 text-sm leading-relaxed outline-none transition-all duration-300 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 placeholder-slate-450 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)]"
+                        className="max-h-[140px] min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/80 bg-slate-55/60 px-3 py-3 text-sm leading-relaxed outline-none transition-all duration-300 placeholder-slate-450 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)] sm:px-5"
                       />
                     )}
 

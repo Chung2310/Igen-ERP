@@ -211,6 +211,17 @@
   color: var(--color-on-surface);
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
 .dark {
   color-scheme: dark;
   --color-background: #0d0f14;
@@ -345,7 +356,7 @@ code, kbd, samp, pre {
   font-family: var(--font-sans) !important;
 }
 
-/* Global Scrollbar Hiding (Preserves Scroll Functionality) */
+/* Keep scrolling available without forcing a visible scrollbar on dense ERP views. */
 * {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */

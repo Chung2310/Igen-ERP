@@ -10,8 +10,6 @@ export const API_COSTS = {
   GEMINI_VIDEO: 324,
   GEMINI_OPTIMIZE: 2.5,
   GEMINI_FAQ: 2.5,
-  ELEVENLABS_TTS_CHAR: 0.005,
-  ELEVENLABS_MIN: 1.0,
   HEYGEN_VIDEO: 100,
   OPUSCLIP_PER_MINUTE: 30, // Credit / 1 phut video goc (toi thieu 1 phut, lam tron len)
   OPUSCLIP_MIN_HOLD_MINUTES: 10, // So phut tam giu khi chua do duoc thoi luong (YouTube/Drive)

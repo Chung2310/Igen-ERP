@@ -472,7 +472,7 @@ function TaskTable({
 }) {
   return (
     <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-2xs bg-white">
-      <table className="w-full text-left border-collapse text-xs min-w-[1200px]">
+        <table className="w-full min-w-[900px] border-collapse text-left text-xs sm:min-w-[1200px]">
         <thead>
           <tr className="bg-slate-50 border-b border-gray-200 select-none font-bold text-gray-500 font-sans text-[10px] uppercase tracking-wider">
             <th className="px-4 py-3 w-[200px]">Công việc</th>
@@ -1326,8 +1326,8 @@ export default function KanbanTab({
 
   return (
     <>
-      <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
-        <div className="bg-white text-slate-800 p-8 rounded-3xl border border-gray-200 shadow-xs space-y-6 text-left" id="job_delegation_kanban">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="hr_tab_content">
+        <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-4 text-left text-slate-800 shadow-xs sm:space-y-6 sm:rounded-3xl sm:p-8" id="job_delegation_kanban">
           {/* Header section */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
             <div className="flex items-center gap-4">
@@ -1512,7 +1512,7 @@ export default function KanbanTab({
 
           {/* Tab 2: Standard Kanban Board grid */}
           {kanbanViewTab === "Board" && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 items-start min-h-[400px]" id="kanban_board_columns">
+            <div className="grid min-h-[400px] grid-cols-1 items-start gap-3 md:grid-cols-4 md:gap-5" id="kanban_board_columns">
               {/* Column 1: Not Started */}
               <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
