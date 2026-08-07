@@ -168,7 +168,7 @@ export default function AnalyticsTab() {
               ))}
             </div>
             <button type="button" onClick={() => setPresetKey("custom")} className={`rounded-xl px-3 py-1.5 text-xs font-bold ${presetKey === "custom" ? "bg-blue-50 text-blue-700" : "border border-slate-200 text-slate-600"}`}>Tùy chọn</button>
-            {presetKey === "custom" && <><input aria-label="Từ ngày" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs"/><input aria-label="Đến ngày" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs"/></>}
+            {presetKey === "custom" && <><input aria-label="Từ ngày" type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /><input aria-label="Đến ngày" type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs" /></>}
             <select aria-label="Chi nhánh" value={branchId} onChange={(e) => { setBranchId(e.target.value); setCourseId(""); }} className="rounded-xl border border-slate-200 px-3 py-2 text-xs"><option value="">Tất cả chi nhánh</option>{meta?.filters.branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <select aria-label="Khóa học" value={courseId} onChange={(e) => setCourseId(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs"><option value="">Tất cả khóa học</option>{meta?.filters.courses.filter((item) => !branchId || item.branchId === branchId).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <select value={exportReport} onChange={(event) => setExportReport(event.target.value as AnalyticsExportReport)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
@@ -203,7 +203,7 @@ export default function AnalyticsTab() {
 
       {!loading && !error && revenue && receivables && expenses && pnl && (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <section className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             <StatTile
               label="Tổng doanh thu"
               value={`${formatVnd(revenue.total)} ₫`}
@@ -404,25 +404,25 @@ function StatTile({
   const isUp = hasGrowth && growthPct >= 0;
 
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-800">{value}</p>
+    <div className="rounded-2xl sm:rounded-[28px] border border-slate-200 bg-white p-3 sm:p-5 shadow-sm">
+      <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 sm:mt-2 text-base sm:text-2xl font-bold text-slate-800 leading-tight truncate" title={value}>{value}</p>
 
       {hasGrowth && (
         <p
-          className={`mt-1 flex items-center gap-1 text-xs font-semibold ${
+          className={`mt-1 flex items-center gap-1 text-[9px] sm:text-xs font-semibold ${
             isUp ? "text-emerald-600" : "text-rose-600"
           }`}
         >
-          {isUp ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+          {isUp ? <TrendingUp className="h-3 sm:h-3.5 w-3 sm:w-3.5" /> : <TrendingDown className="h-3 sm:h-3.5 w-3 sm:w-3.5" />}
           {isUp ? "+" : ""}
-          {growthPct}% so với kỳ trước
+          {growthPct}% <span className="hidden sm:inline">so với kỳ trước</span>
         </p>
       )}
 
       {/* Không có kỳ trước thì nói rõ, không hiển thị 0% */}
       {growthPct === null && (
-        <p className="mt-1 text-xs text-slate-400">Chưa có số liệu kỳ trước để so sánh</p>
+        <p className="mt-1 text-[9px] sm:text-xs text-slate-400">Không có số liệu so sánh</p>
       )}
     </div>
   );

@@ -53,14 +53,18 @@ export const inventoryCategoryService = {
     };
   },
 
-  async createCategory(input: CategoryInput) {
+  async createCategory(input: CategoryInput, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch("/api/v1/crud/categories", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           name: input.name,
           code: input.code,
@@ -80,14 +84,18 @@ export const inventoryCategoryService = {
     }
   },
 
-  async updateCategory(id: string, input: CategoryInput) {
+  async updateCategory(id: string, input: CategoryInput, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/categories/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           name: input.name,
           code: input.code,
@@ -105,13 +113,17 @@ export const inventoryCategoryService = {
     }
   },
 
-  async deleteCategory(id: string) {
+  async deleteCategory(id: string, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/categories/${id}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
 
       if (!res.ok) {

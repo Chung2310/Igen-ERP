@@ -286,7 +286,7 @@ export default function InventoryTab() {
     setProductSubmitting(true);
 
     try {
-      const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined);
+      const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined, activeBranchId);
       if (!isSkuAvailable) {
         toast.error("Mã sản phẩm này đã tồn tại trong kho.");
         setProductSubmitting(false);
@@ -308,7 +308,7 @@ export default function InventoryTab() {
           status,
           imageFile: newProdImageFile,
           imageUrl: currentProduct?.imageUrl || "",
-        });
+        }, activeBranchId);
 
         if (result?.imageUploadFailed) {
           const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
@@ -329,7 +329,7 @@ export default function InventoryTab() {
           description,
           status,
           imageFile: newProdImageFile,
-        });
+        }, activeBranchId);
 
         try {
           await inventoryStockLogService.createLog({
@@ -342,7 +342,7 @@ export default function InventoryTab() {
             notes: "Khởi tạo sản phẩm mới trong danh mục",
             status: "Hoàn thành",
             items: [{ productId: result.productId || "", sku, productName: name, quantity: stock }],
-          });
+          }, activeBranchId);
         } catch (logErr) {
           console.error("Lỗi tạo phiếu nhập kho khởi tạo:", logErr);
         }
@@ -375,7 +375,7 @@ export default function InventoryTab() {
   };
 
   const deleteProductById = async (productId: string) => {
-    await inventoryProductService.deleteProduct(productId);
+    await inventoryProductService.deleteProduct(productId, activeBranchId);
     toast.success("Đã xóa sản phẩm.");
   };
 
@@ -422,10 +422,10 @@ export default function InventoryTab() {
           name: cleanName,
           code: cleanCode,
           description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-        });
+        }, activeBranchId);
 
         if (currentCategory && currentCategory.name !== cleanName) {
-          await inventoryProductService.updateProductsCategoryName(currentCategory.name, cleanName);
+          await inventoryProductService.updateProductsCategoryName(currentCategory.name, cleanName, activeBranchId);
           if (selectedCategoryFilter === currentCategory.name) setSelectedCategoryFilter(cleanName);
         }
 
@@ -435,7 +435,7 @@ export default function InventoryTab() {
           name: cleanName,
           code: cleanCode,
           description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-        });
+        }, activeBranchId);
         setNewProdCategory(cleanName);
         toast.success("Đã tạo phân loại sản phẩm.");
       }
@@ -469,10 +469,10 @@ export default function InventoryTab() {
 
     const linkedProductCount = products.filter((product) => product.category === category.name).length;
     if (linkedProductCount > 0) {
-      await inventoryProductService.moveProductsToUncategorized(category.name);
+      await inventoryProductService.moveProductsToUncategorized(category.name, activeBranchId);
     }
 
-    await inventoryCategoryService.deleteCategory(categoryId);
+    await inventoryCategoryService.deleteCategory(categoryId, activeBranchId);
     if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
     toast.success("Đã xóa phân loại sản phẩm.");
   };
@@ -546,7 +546,7 @@ export default function InventoryTab() {
               name: catName,
               code: code,
               description: `Danh mục được tạo tự động khi nhập sản phẩm từ Excel.`,
-            });
+            }, activeBranchId);
             createdCategoryNames.add(catNameLower);
             existingCodes.add(code);
           } catch (err) {
@@ -565,7 +565,7 @@ export default function InventoryTab() {
           description: row.description || "",
           status: row.status || "Active",
           imageUrl: row.imageUrl || "",
-        });
+        }, activeBranchId);
 
         importedSkus.add(row.sku);
         createdCount += 1;
@@ -677,7 +677,7 @@ export default function InventoryTab() {
               const currentStock = runningStocks.get(item.product.id) ?? item.product.stock;
               const nextStock = log.type === "nhập" ? currentStock + item.quantity : currentStock - item.quantity;
               runningStocks.set(item.product.id, nextStock);
-              return inventoryProductService.updateProductStock(item.product.id, nextStock);
+              return inventoryProductService.updateProductStock(item.product.id, nextStock, activeBranchId);
             })
           );
         }
@@ -699,7 +699,7 @@ export default function InventoryTab() {
           notes: log.notes || "",
           status: normalizedStatus,
           createdAt: log.createdAt,
-        });
+        }, activeBranchId);
 
         addedCount += 1;
       }
@@ -741,7 +741,8 @@ export default function InventoryTab() {
         resolvedItems.map((item) =>
           inventoryProductService.updateProductStock(
             item.product.id,
-            payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity
+            payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity,
+            activeBranchId
           )
         )
       );
@@ -767,7 +768,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes || (payload.type === "nhập" ? "Phiếu nhập kho mới" : "Phiếu xuất kho mới"),
       status: payload.status,
-    });
+    }, activeBranchId);
 
     toast.success(payload.type === "nhập" ? "Đã tạo phiếu nhập kho." : "Đã tạo phiếu xuất kho.");
   };
@@ -840,7 +841,7 @@ export default function InventoryTab() {
         Array.from(adjustments.entries()).map(async ([productId, delta]) => {
           const product = products.find((entry) => entry.id === productId);
           if (!product) return;
-          await inventoryProductService.updateProductStock(productId, product.stock + delta);
+          await inventoryProductService.updateProductStock(productId, product.stock + delta, activeBranchId);
         })
       );
     }
@@ -865,7 +866,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes,
       status: payload.status,
-    });
+    }, activeBranchId);
 
     toast.success("Đã cập nhật phiếu nhập xuất kho.");
   };
@@ -908,7 +909,7 @@ export default function InventoryTab() {
   };
 
   const deleteLogById = async (logId: string) => {
-    await inventoryStockLogService.deleteLog(logId);
+    await inventoryStockLogService.deleteLog(logId, activeBranchId);
     toast.success("Đã xóa phiếu.");
   };
 

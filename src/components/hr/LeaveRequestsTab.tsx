@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import {
   ChevronLeft,
   ChevronRight,
@@ -55,6 +56,7 @@ export default function LeaveRequestsTab({
   onApproved,
 }: LeaveRequestsTabProps) {
   const isLeaveAdmin = canApprove;
+  const isMobile = useIsMobile();
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -584,153 +586,288 @@ export default function LeaveRequestsTab({
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left text-slate-700">
-            <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-              <tr>
-                {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
-                <th className="px-5 py-4 min-w-[110px]">Yêu cầu</th>
-                <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
-                <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
-                <th className="px-5 py-4 min-w-[220px]">Lý do</th>
-                <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
-                {isLeaveAdmin ? (
-                  <>
-                    <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                    <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
-                    <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
-                    <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-              {isAppLoading ? (
-                <tr>
-                  <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400">
-                    <div className="flex justify-center items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                      Đang tải danh sách đơn từ...
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredApplications.length === 0 ? (
-                <tr>
-                  <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400 font-medium">
-                    {applications.length === 0
-                      ? "Chưa có đơn từ nào được đăng ký."
-                      : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
-                  </td>
-                </tr>
-              ) : (
-                filteredApplications.map((app) => {
-                  const showDelete = app.status === "pending" || isLeaveAdmin;
-                  return (
-                    <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
-                      {isLeaveAdmin && (
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="font-bold text-slate-800">{app.employeeName}</div>
-                        </td>
-                      )}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${
-                            REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
-                          }`}
-                        >
-                          {getRequestKindLabel(app.requestKind)}
+        {isMobile ? (
+          <div className="flex flex-col gap-3 p-4 bg-slate-50/50">
+            {isAppLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                <div className="w-6 h-6 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs">Đang tải danh sách đơn từ...</span>
+              </div>
+            ) : filteredApplications.length === 0 ? (
+              <div className="px-6 py-12 text-center text-slate-400 font-medium text-xs">
+                {applications.length === 0
+                  ? "Chưa có đơn từ nào được đăng ký."
+                  : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+              </div>
+            ) : (
+              filteredApplications.map((app) => {
+                const showDelete = app.status === "pending" || isLeaveAdmin;
+                return (
+                  <div
+                    key={app._id || app.id}
+                    className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3.5 text-left"
+                  >
+                    {/* Card Header */}
+                    <div className="flex justify-between items-start gap-2.5">
+                      <div className="flex flex-col gap-1">
+                        {isLeaveAdmin && (
+                          <span className="font-extrabold text-xs text-slate-800 tracking-wide">
+                            {app.employeeName}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          Loại: <span className="text-slate-800 font-extrabold">{getAppTypeLabel(app.type)}</span>
                         </span>
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="font-bold text-slate-850">{getAppTypeLabel(app.type)}</span>
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-slate-500">
-                        <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
-                        <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
-                      </td>
-                      <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" title={app.reason} style={{ wordBreak: "break-all" }}>
-                        {app.reason}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        {app.uploadedFileUrl ? (
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-wider shrink-0 ${
+                          REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
+                        }`}
+                      >
+                        {getRequestKindLabel(app.requestKind)}
+                      </span>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="flex flex-col gap-2 text-xs text-slate-650 font-medium">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Thời gian</span>
+                        <span className="font-mono text-[10px] text-slate-700 bg-slate-50 border border-slate-200/50 rounded-lg px-2.5 py-1 w-fit">
+                          {new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                          {` -> `}
+                          {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                        </span>
+                      </div>
+
+                      {app.reason && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Lý do</span>
+                          <p className="text-[11px] text-slate-700 leading-relaxed font-semibold">{app.reason}</p>
+                        </div>
+                      )}
+
+                      {app.uploadedFileUrl ? (
+                        <div className="pt-1">
                           <a
                             href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
                             download={app.uploadedFileName}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold transition-all shadow-3xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-105 font-bold transition-all shadow-3xs"
                             title={`Tải xuống: ${app.uploadedFileName}`}
                           >
                             <Download className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Xem đơn đính kèm</span>
+                            <span>Minh chứng đính kèm</span>
                           </a>
-                        ) : (
-                          <span className="text-slate-400 italic">Chưa có tệp</span>
-                        )}
-                      </td>
-                      {isLeaveAdmin ? (
-                        <>
-                          <td className="px-5 py-4 whitespace-nowrap text-center">
-                            {getStatusBadge(app.status, app.rejectReason)}
-                          </td>
-                          <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                            {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {app.status === "pending" && (
-                                <>
-                                  <button
-                                    onClick={() => handleApproveApp(app)}
-                                    className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
-                                    title="Duyệt đơn"
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedAppId(app._id || app.id);
-                                      setRejectReasonText("");
-                                      setAppRejectModalOpen(true);
-                                    }}
-                                    className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
-                                    title="Từ chối"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </button>
-                                </>
-                              )}
-                              {showDelete && (
-                                <button
-                                  onClick={() => handleDeleteApp(app._id || app.id)}
-                                  className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
-                                  title="Xóa đơn"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                            {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap text-center">
-                            {getStatusBadge(app.status, app.rejectReason)}
-                          </td>
-                        </>
+                        <span className="text-[10px] text-slate-400 italic">Không có tệp đính kèm</span>
                       )}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+
+                    {/* Card Footer */}
+                    <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Trạng thái:</span>
+                          {getStatusBadge(app.status, app.rejectReason)}
+                        </div>
+
+                        {/* Thao tác */}
+                        <div className="flex items-center gap-1.5">
+                          {isLeaveAdmin && app.status === "pending" && (
+                            <>
+                              <button
+                                onClick={() => handleApproveApp(app)}
+                                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
+                                title="Duyệt đơn"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedAppId(app._id || app.id);
+                                  setRejectReasonText("");
+                                  setAppRejectModalOpen(true);
+                                }}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
+                                title="Từ chối"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                          {showDelete && (
+                            <button
+                              onClick={() => handleDeleteApp(app._id || app.id)}
+                              className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
+                              title="Xóa đơn"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {(app.note || app.rejectReason) && (
+                        <div className="rounded-xl bg-slate-50 border border-slate-150 p-2.5 text-[10px] text-slate-600 font-semibold leading-relaxed">
+                          <span className="font-extrabold uppercase text-slate-450 tracking-wide block mb-0.5">Phản hồi của Admin:</span>
+                          {app.note || app.rejectReason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-700">
+              <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
+                <tr>
+                  {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
+                  <th className="px-5 py-4 min-w-[110px]">Yêu cầu</th>
+                  <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
+                  <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
+                  <th className="px-5 py-4 min-w-[220px]">Lý do</th>
+                  <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
+                  {isLeaveAdmin ? (
+                    <>
+                      <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                      <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
+                      <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
+                      <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                {isAppLoading ? (
+                  <tr>
+                    <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400">
+                      <div className="flex justify-center items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        Đang tải danh sách đơn từ...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredApplications.length === 0 ? (
+                  <tr>
+                    <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400 font-medium">
+                      {applications.length === 0
+                        ? "Chưa có đơn từ nào được đăng ký."
+                        : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredApplications.map((app) => {
+                    const showDelete = app.status === "pending" || isLeaveAdmin;
+                    return (
+                      <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
+                        {isLeaveAdmin && (
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-800">{app.employeeName}</div>
+                          </td>
+                        )}
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${
+                              REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
+                            }`}
+                          >
+                            {getRequestKindLabel(app.requestKind)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="font-bold text-slate-850">{getAppTypeLabel(app.type)}</span>
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-slate-500">
+                          <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
+                          <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
+                        </td>
+                        <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" title={app.reason} style={{ wordBreak: "break-all" }}>
+                          {app.reason}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {app.uploadedFileUrl ? (
+                            <a
+                              href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
+                              download={app.uploadedFileName}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold transition-all shadow-3xs"
+                              title={`Tải xuống: ${app.uploadedFileName}`}
+                            >
+                              <Download className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>Xem đơn đính kèm</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">Chưa có tệp</span>
+                          )}
+                        </td>
+                        {isLeaveAdmin ? (
+                          <>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              {getStatusBadge(app.status, app.rejectReason)}
+                            </td>
+                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
+                              {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {app.status === "pending" && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveApp(app)}
+                                      className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
+                                      title="Duyệt đơn"
+                                    >
+                                      <Check className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedAppId(app._id || app.id);
+                                        setRejectReasonText("");
+                                        setAppRejectModalOpen(true);
+                                      }}
+                                      className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
+                                      title="Từ chối"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                                {showDelete && (
+                                  <button
+                                    onClick={() => handleDeleteApp(app._id || app.id)}
+                                    className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
+                                    title="Xóa đơn"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
+                              {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              {getStatusBadge(app.status, app.rejectReason)}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal nộp đơn */}

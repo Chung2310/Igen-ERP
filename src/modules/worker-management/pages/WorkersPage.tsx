@@ -213,18 +213,18 @@ export default function WorkersPage({
             {loading ? "..." : `${filtered.length} / ${workers.length}`} Lao động
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={handleExport}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
           >
             <Download className="h-3.5 w-3.5" /> Xuất
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
           >
             <Printer className="h-3.5 w-3.5" /> In
           </button>
@@ -232,7 +232,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setQrOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
             >
               <QrCode className="h-3.5 w-3.5" /> QR đăng ký
             </button>
@@ -241,7 +241,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
             >
               <Upload className="h-3.5 w-3.5" /> Nhập Excel
             </button>
@@ -250,7 +250,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition-all hover:bg-brand-primary/95"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition-all hover:bg-brand-primary/95 whitespace-nowrap"
             >
               <Plus className="h-3.5 w-3.5" /> Thêm
             </button>

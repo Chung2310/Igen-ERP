@@ -5,7 +5,7 @@ import {
   ChevronDown, SendHorizontal,
   AlertCircle, MessageCircle, Smartphone, Mail,
   Inbox, Loader2, CheckCircle2, X, Trash2, Lock,
-  Plus, Minus, ToggleLeft, ToggleRight, Banknote, BadgeCheck
+  Plus, Minus, ToggleLeft, ToggleRight, Banknote, BadgeCheck, Check
 } from 'lucide-react';
 import { cn, parseVND, getVietQRBankCode } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -385,6 +385,26 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   };
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const insertVariable = (varName: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const variableString = `{${varName}}`;
+    const newContent = text.substring(0, start) + variableString + text.substring(end);
+    setContent(newContent);
+
+    // Focus back and place cursor after the inserted variable
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + variableString.length;
+    }, 0);
+  };
 
   const checkApiStatus = async () => {
     try {
@@ -1196,28 +1216,29 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </div>
                 </div>
               </div>
-              <div className="relative">
+              <div className="space-y-2">
                 <textarea 
+                  ref={textareaRef}
                   required
                   rows={6}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Nội dung thông báo..."
-                  className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all min-h-[140px] resize-none text-left pb-24"
+                  className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all min-h-[145px] resize-none text-left"
                 />
-                <div className="absolute bottom-3 left-3 right-3 p-2.5 rounded-lg bg-white/80 border border-slate-100 backdrop-blur-sm">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 text-left">Biến dùng được:</p>
-                  <div className="flex flex-wrap gap-x-2 gap-y-1">
-                    <VariableTag name="ten" label="Tên" />
-                    <VariableTag name="email" label="Email" />
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Biến dùng được (Nhấp để chèn):</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <VariableTag name="ten" label="Tên" onClick={() => insertVariable('ten')} />
+                    <VariableTag name="email" label="Email" onClick={() => insertVariable('email')} />
                     {!operationalCopy.isWorker && !operationalCopy.isCustomer && (
                       <>
-                        <VariableTag name="hang" label="Hạng" />
-                        <VariableTag name="kv" label="KV" />
-                        <VariableTag name="ngaythi" label="Ngày thi" />
-                        <VariableTag name="sotien" label="Tổng nợ" />
-                        <VariableTag name="tiendot" label="Tiền đợt" highlight={useInstallment && isDebtFilter} />
-                        <VariableTag name="nhac_dong_phi" label="Gợi ý đóng phí" highlight={useInstallment && isDebtFilter} />
+                        <VariableTag name="hang" label="Hạng" onClick={() => insertVariable('hang')} />
+                        <VariableTag name="kv" label="KV" onClick={() => insertVariable('kv')} />
+                        <VariableTag name="ngaythi" label="Ngày thi" onClick={() => insertVariable('ngaythi')} />
+                        <VariableTag name="sotien" label="Tổng nợ" onClick={() => insertVariable('sotien')} />
+                        <VariableTag name="tiendot" label="Tiền đợt" highlight={useInstallment && isDebtFilter} onClick={() => insertVariable('tiendot')} />
+                        <VariableTag name="nhac_dong_phi" label="Gợi ý đóng phí" highlight={useInstallment && isDebtFilter} onClick={() => insertVariable('nhac_dong_phi')} />
                       </>
                     )}
                   </div>
@@ -1294,7 +1315,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     "w-5 h-5 rounded-md border flex items-center justify-center transition-all",
                     channels.includes('Email') ? "bg-cyan-600 border-cyan-600" : "border-slate-300 group-hover:border-slate-400"
                   )}>
-                    {channels.includes('Email') && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                    {channels.includes('Email') && <Check className="w-3.5 h-3.5 text-white" />}
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-rose-500" />
@@ -1420,19 +1441,24 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   }
 }
 
-function VariableTag({ name, label, highlight = false }: { name: string, label: string, highlight?: boolean }) {
+function VariableTag({ name, label, highlight = false, onClick }: { name: string, label: string, highlight?: boolean, onClick?: () => void }) {
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 group cursor-help px-2 py-1 rounded-lg border transition-all",
-      highlight
-        ? "bg-violet-50 border-violet-200"
-        : "bg-slate-50 border-slate-100"
-    )}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 group px-2.5 py-1 rounded-lg border transition-all active:scale-95 cursor-pointer",
+        highlight
+          ? "bg-violet-50 border-violet-200 hover:bg-violet-100 hover:border-violet-300"
+          : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-350"
+      )}
+      title="Nhấp để chèn biến này vào nội dung"
+    >
       <span className={cn(
-        "text-[11px] font-black leading-none",
+        "text-[10px] md:text-[11px] font-black leading-none",
         highlight ? "text-violet-600" : "text-cyan-600"
       )}>{"{" + name + "}"}</span>
-      <span className="text-[10px] font-extrabold text-slate-400 tracking-tight"> - {label}</span>
-    </div>
+      <span className="text-[9px] md:text-[10px] font-extrabold text-slate-500 tracking-tight"> - {label}</span>
+    </button>
   );
 }

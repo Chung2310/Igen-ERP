@@ -102,12 +102,16 @@ export const inventoryProductService = {
     };
   },
 
-  async ensureSkuAvailable(sku: string, ignoreId?: string) {
+  async ensureSkuAvailable(sku: string, ignoreId?: string, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/products?filters[sku]=${encodeURIComponent(sku)}`, {
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
       if (!res.ok) {
         throw new Error("Không thể kiểm tra SKU.");
@@ -121,18 +125,23 @@ export const inventoryProductService = {
     }
   },
 
-  async createProduct(input: ProductInput): Promise<ProductMutationResult> {
+  async createProduct(input: ProductInput, branchId?: string): Promise<ProductMutationResult> {
     try {
       const uploadResult = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : { url: null };
       const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
+
       const res = await fetch("/api/v1/crud/products", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           sku: input.sku,
           name: input.name,
@@ -163,18 +172,23 @@ export const inventoryProductService = {
     }
   },
 
-  async updateProduct(id: string, input: ProductInput): Promise<ProductMutationResult> {
+  async updateProduct(id: string, input: ProductInput, branchId?: string): Promise<ProductMutationResult> {
     try {
       const uploadResult = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : { url: input.imageUrl || null };
       const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
+
       const res = await fetch(`/api/v1/crud/products/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           sku: input.sku,
           name: input.name,
@@ -202,12 +216,16 @@ export const inventoryProductService = {
     }
   },
 
-  async updateProductsCategoryName(previousCategoryName: string, nextCategoryName: string) {
+  async updateProductsCategoryName(previousCategoryName: string, nextCategoryName: string, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/products?filters[category]=${encodeURIComponent(previousCategoryName)}`, {
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
       if (!res.ok) {
         throw new Error("Không thể tải danh sách sản phẩm để cập nhật danh mục.");
@@ -215,14 +233,19 @@ export const inventoryProductService = {
       const json = await res.json();
       const items = json.data || [];
 
+      const patchHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        patchHeaders["x-branch-id"] = branchId;
+      }
+
       await Promise.all(
         items.map((item: any) =>
           fetch(`/api/v1/crud/products/${item._id}`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${getAccessToken()}`,
-            },
+            headers: patchHeaders,
             body: JSON.stringify({ category: nextCategoryName }),
           })
         )
@@ -233,12 +256,16 @@ export const inventoryProductService = {
     }
   },
 
-  async moveProductsToUncategorized(categoryName: string) {
+  async moveProductsToUncategorized(categoryName: string, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/products?filters[category]=${encodeURIComponent(categoryName)}`, {
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
       if (!res.ok) {
         throw new Error("Không thể tải danh sách sản phẩm để chuyển danh mục.");
@@ -246,14 +273,19 @@ export const inventoryProductService = {
       const json = await res.json();
       const items = json.data || [];
 
+      const patchHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        patchHeaders["x-branch-id"] = branchId;
+      }
+
       await Promise.all(
         items.map((item: any) =>
           fetch(`/api/v1/crud/products/${item._id}`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${getAccessToken()}`,
-            },
+            headers: patchHeaders,
             body: JSON.stringify({ category: "Chưa phân loại" }),
           })
         )
@@ -264,14 +296,18 @@ export const inventoryProductService = {
     }
   },
 
-  async updateProductStock(id: string, stock: number) {
+  async updateProductStock(id: string, stock: number, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/products/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({ stock }),
       });
       if (!res.ok) {
@@ -283,13 +319,17 @@ export const inventoryProductService = {
     }
   },
 
-  async deleteProduct(id: string) {
+  async deleteProduct(id: string, branchId?: string) {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/products/${id}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
       if (!res.ok) {
         throw new Error("Không thể xóa sản phẩm.");
