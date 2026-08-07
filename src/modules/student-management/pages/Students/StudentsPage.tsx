@@ -453,44 +453,44 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <h1 className="text-lg font-bold text-cyan-700 tracking-tight">{entityLabel.tabLabel}</h1>
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50 whitespace-nowrap"
             >
               <Trash2 className="w-3.5 h-3.5" /> Xóa hàng loạt ({selectedStudentIds.length})
             </button>
           )}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
           >
             <Download className="w-3.5 h-3.5" /> Xuất
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
           {canManage && usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
           {canManage && userProfile?.uid && <button
             onClick={() => setIsRegisterQROpen(true)}
             title="QR để học viên tự đăng ký"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
           >
             <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
           {canManage && <button
             onClick={onAddStudent}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" /> Thêm
           </button>}

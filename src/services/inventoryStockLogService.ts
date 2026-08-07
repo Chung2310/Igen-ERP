@@ -77,14 +77,18 @@ export const inventoryStockLogService = {
     };
   },
 
-  async createLog(input: StockLogCreateInput): Promise<string> {
+  async createLog(input: StockLogCreateInput, branchId?: string): Promise<string> {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch("/api/v1/crud/stock-logs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           type: input.type,
           purpose: input.type === "xuất" ? input.purpose : undefined,
@@ -115,14 +119,18 @@ export const inventoryStockLogService = {
     }
   },
 
-  async updateLog(id: string, input: StockLogCreateInput): Promise<void> {
+  async updateLog(id: string, input: StockLogCreateInput, branchId?: string): Promise<void> {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
         body: JSON.stringify({
           type: input.type,
           purpose: input.type === "xuất" ? input.purpose : undefined,
@@ -150,12 +158,16 @@ export const inventoryStockLogService = {
     }
   },
 
-  async saveImportedLog(id: string, input: StockLogCreateInput): Promise<void> {
+  async saveImportedLog(id: string, input: StockLogCreateInput, branchId?: string): Promise<void> {
     try {
+      const checkHeaders: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        checkHeaders["x-branch-id"] = branchId;
+      }
       const checkRes = await fetch(`/api/v1/crud/stock-logs/${id}`, {
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers: checkHeaders,
       });
 
       const bodyData = {
@@ -172,23 +184,25 @@ export const inventoryStockLogService = {
         createdAt: toIsoDateString(input.createdAt),
       };
 
+      const mutationHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        mutationHeaders["x-branch-id"] = branchId;
+      }
+
       let res;
       if (checkRes.ok) {
         res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${getAccessToken()}`,
-          },
+          headers: mutationHeaders,
           body: JSON.stringify(bodyData),
         });
       } else {
         res = await fetch("/api/v1/crud/stock-logs", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${getAccessToken()}`,
-          },
+          headers: mutationHeaders,
           body: JSON.stringify({
             ...bodyData,
             _id: id,
@@ -206,13 +220,17 @@ export const inventoryStockLogService = {
     }
   },
 
-  async deleteLog(id: string): Promise<void> {
+  async deleteLog(id: string, branchId?: string): Promise<void> {
     try {
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      };
+      if (branchId) {
+        headers["x-branch-id"] = branchId;
+      }
       const res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
+        headers,
       });
 
       if (!res.ok) {

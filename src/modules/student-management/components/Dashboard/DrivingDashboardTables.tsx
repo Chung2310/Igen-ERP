@@ -110,8 +110,8 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
             </h3>
             <button onClick={() => onNavigate('Exams')} className="text-xs text-slate-400 hover:text-slate-600 font-medium">Xem tất cả</button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-left min-w-[500px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Đợt thi</th>
@@ -161,8 +161,8 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
           </h3>
           <button onClick={() => onNavigate('Students')} className="text-xs text-slate-400 hover:text-slate-600 font-medium whitespace-nowrap ml-2">Xem tất cả</button>
         </div>
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto flex-1 scrollbar-thin">
+          <table className="w-full text-left min-w-[500px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Họ tên</th>

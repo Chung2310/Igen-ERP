@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -94,6 +95,8 @@ export default function CalendarTab({
   // must be able to see/approve everyone's leave requests, not just their own.
   const isLeaveAdmin = canManageAttendance;
   const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">("schedule");
 
@@ -123,6 +126,8 @@ export default function CalendarTab({
   const [logsPage, setLogsPage] = useState(1);
   const [logsLimit] = useState(10);
   const [logFilterEmployee, setLogFilterEmployee] = useState(userProfile?.uid || "all");
+  const [expandedEmployeeUid, setExpandedEmployeeUid] = useState<string | null>(null);
+  const [mobileAttendanceViewMode, setMobileAttendanceViewMode] = useState<"table" | "list">("list");
   const [logFilterStatus, setLogFilterStatus] = useState("all");
   const [logStartDate, setLogStartDate] = useState("");
   const [logEndDate, setLogEndDate] = useState("");
@@ -775,7 +780,32 @@ export default function CalendarTab({
               />
             </div>
 
-
+            {isMobile && (
+              <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs bg-white items-center">
+                <button
+                  type="button"
+                  onClick={() => setMobileAttendanceViewMode("table")}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                    mobileAttendanceViewMode === "table"
+                      ? "bg-cyan-600 text-white"
+                      : "text-slate-550 hover:bg-slate-50"
+                  }`}
+                >
+                  Bảng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileAttendanceViewMode("list")}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                    mobileAttendanceViewMode === "list"
+                      ? "bg-cyan-600 text-white"
+                      : "text-slate-550 hover:bg-slate-50"
+                  }`}
+                >
+                  Danh sách
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Bảng Grid Chấm Công */}
@@ -784,6 +814,129 @@ export default function CalendarTab({
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm font-medium">Đang tải dữ liệu chấm công...</span>
+              </div>
+            ) : isMobile && mobileAttendanceViewMode === "list" ? (
+              // Collapsible Employee Card List for Mobile
+              <div className="flex flex-col gap-3 p-4">
+                {paginatedGridEmployees.length === 0 ? (
+                  <div className="px-6 py-16 text-center text-slate-400 font-medium">
+                    Không tìm thấy nhân viên nào.
+                  </div>
+                ) : (
+                  paginatedGridEmployees.map((emp, empIdx) => {
+                    const u = getUserDetail(emp.uid);
+                    const { totalHours, totalCoeff } = calcMonthTotals(emp);
+                    const isExpanded = expandedEmployeeUid === emp.uid;
+
+                    return (
+                      <div
+                        key={emp.uid}
+                        className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3 transition-all"
+                      >
+                        {/* Employee Row Header */}
+                        <div
+                          className="flex items-center justify-between cursor-pointer"
+                          onClick={() => setExpandedEmployeeUid(isExpanded ? null : emp.uid)}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {u.photoURL ? (
+                              <img src={u.photoURL} alt={u.displayName} className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-xs shrink-0">
+                                {u.displayName.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex flex-col">
+                              <span className="font-extrabold text-xs text-slate-800 tracking-wide">{u.displayName}</span>
+                              <span className="text-[10px] text-slate-550 font-medium truncate max-w-[150px]">{u.email}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-lg">
+                              {totalCoeff} công
+                            </span>
+                            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                          </div>
+                        </div>
+
+                        {/* Collapsible Daily Details List */}
+                        {isExpanded && (
+                          <div className="flex flex-col gap-2 pt-3 border-t border-slate-100 animate-fade-in max-h-[300px] overflow-y-auto pr-1">
+                            {dayColumns.map((day) => {
+                              const cell = getDayCellData(emp, day);
+                              const isWeekend = cell.isWeekend;
+                              const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                              const dbLog = logs.find((log: any) => log.uid === emp.uid && log.date === dateStr);
+                              const cellCoeff = cell.coeff ?? 0;
+
+                              const dow = getDayOfWeek(day);
+                              const dowLabel = dayLabels[dow];
+
+                              if (isWeekend) {
+                                return (
+                                  <div key={day} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-xl text-[10px] text-slate-400 font-semibold border border-slate-100/50">
+                                    <span>Ngày {day} ({dowLabel})</span>
+                                    <span className="font-bold">Cuối tuần (—)</span>
+                                  </div>
+                                );
+                              }
+
+                              if (cell.isFuture) {
+                                return (
+                                  <div key={day} className="flex justify-between items-center px-3 py-2 rounded-xl text-[10px] text-slate-350 font-semibold border border-dashed border-slate-100">
+                                    <span>Ngày {day} ({dowLabel})</span>
+                                    <span>·</span>
+                                  </div>
+                                );
+                              }
+
+                              const badgeColor =
+                                cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                  : cell.status === "Late" || cell.status === "Left-Early"
+                                    ? "bg-amber-50 text-amber-700 border-amber-100"
+                                    : "bg-rose-50 text-rose-700 border-rose-100";
+
+                              return (
+                                <div
+                                  key={day}
+                                  onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
+                                  className={`flex justify-between items-center px-3 py-2 rounded-xl border border-slate-100 hover:border-cyan-200 transition-all ${
+                                    canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-50/30" : "cursor-default"
+                                  }`}
+                                >
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-700">
+                                      <span>Ngày {day} ({dowLabel})</span>
+                                      {cell.status && (
+                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-md border uppercase tracking-wider font-bold ${badgeColor}`}>
+                                          {getStatusShort(cell.status)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {(cell.checkIn || cell.checkOut) && (
+                                      <span className="text-[9px] font-bold text-slate-500 font-mono pl-0.5">
+                                        {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
+                                      </span>
+                                    )}
+                                    {dbLog?.manuallyAdjusted && (
+                                      <span className="text-[7.5px] font-bold text-violet-600 pl-0.5">Đã điều chỉnh</span>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[10px] font-black text-slate-700">
+                                    {cellCoeff} công
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             ) : (
               <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${448 + daysInMonth * 50}px` }}>
@@ -1276,6 +1429,33 @@ export default function CalendarTab({
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
+
+                {isMobile && (
+                  <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-2 bg-white items-center">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("grid")}
+                      className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        viewMode === "grid"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-550 hover:bg-slate-50"
+                      }`}
+                    >
+                      Lịch
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("list")}
+                      className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        viewMode === "list"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-550 hover:bg-slate-50"
+                      }`}
+                    >
+                      Danh sách
+                    </button>
+                  </div>
+                )}
               </div>
 
 
@@ -1320,7 +1500,7 @@ export default function CalendarTab({
               </div>
 
               {/* Premium stats widgets (6 cols) */}
-              <div className="lg:col-span-6 flex justify-end gap-3 flex-wrap">
+              <div className="lg:col-span-6 flex flex-row lg:justify-end gap-3 overflow-x-auto pb-2 lg:pb-0 w-full lg:w-auto scrollbar-thin">
                 <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
                   <div className="flex flex-col">
                     <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
@@ -1380,6 +1560,116 @@ export default function CalendarTab({
               <div className="flex flex-col items-center justify-center h-full py-20 gap-3.5">
                 <div className="w-9 h-9 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs text-slate-500 font-bold tracking-wider">Đang tải lịch trình...</span>
+              </div>
+            ) : isMobile && viewMode === "list" ? (
+              // Agenda List View for Mobile
+              <div className="flex flex-col gap-3.5">
+                {(() => {
+                  const activeMonthItems = filteredItems
+                    .filter((item) => {
+                      const sDate = new Date(item.startDate);
+                      return sDate.getMonth() === month && sDate.getFullYear() === year;
+                    })
+                    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+                  if (activeMonthItems.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-16 text-slate-400 font-medium">
+                        <CalendarIcon className="h-10 w-10 text-slate-300 mb-3" />
+                        <span className="text-xs">Không có lịch trình nào trong tháng này.</span>
+                      </div>
+                    );
+                  }
+
+                  return activeMonthItems.map((item) => {
+                    const badgeColor =
+                      item.type === "leave"
+                        ? "bg-rose-50 text-rose-700 border-rose-100"
+                        : item.type === "wfh"
+                          ? "bg-teal-50 text-teal-700 border-teal-100"
+                          : item.type === "exception"
+                            ? "bg-violet-50 text-violet-700 border-violet-100"
+                            : item.type === "reminder"
+                              ? "bg-amber-50 text-amber-700 border-amber-100"
+                              : "bg-blue-50 text-blue-700 border-blue-100";
+
+                    const typeLabel =
+                      item.type === "leave"
+                        ? "Nghỉ phép"
+                        : item.type === "wfh"
+                          ? "Làm tại nhà"
+                          : item.type === "exception"
+                            ? "Ngoại lệ"
+                            : item.type === "reminder"
+                              ? "Nhắc hẹn"
+                              : "Sự kiện";
+
+                    const leftBorderColor =
+                      item.type === "leave"
+                        ? "border-l-rose-500"
+                        : item.type === "wfh"
+                          ? "border-l-teal-500"
+                          : item.type === "exception"
+                            ? "border-l-violet-500"
+                            : item.type === "reminder"
+                              ? "border-l-amber-500"
+                              : "border-l-blue-500";
+
+                    const itemDate = new Date(item.startDate);
+                    const formattedDate = `${itemDate.getDate()}/${itemDate.getMonth() + 1}/${itemDate.getFullYear()}`;
+
+                    return (
+                      <div
+                        key={item._id || item.id}
+                        onClick={() => {
+                          setSelectedDayDate(itemDate);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className={`border border-slate-150 bg-white border-l-4 ${leftBorderColor} rounded-2xl p-4 flex flex-col gap-2 hover:border-slate-200 hover:shadow-md transition-all duration-300 cursor-pointer`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className={`text-[9px] px-2 py-0.5 font-extrabold rounded-lg border uppercase tracking-wider ${badgeColor}`}>
+                            {typeLabel}
+                          </span>
+                          <span className="text-[10px] text-slate-550 font-bold bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200/50">
+                            {formattedDate}
+                          </span>
+                        </div>
+
+                        <h4 className="font-extrabold text-xs text-slate-800 tracking-wide">{item.title}</h4>
+                        {item.description && (
+                          <p className="text-[10px] text-slate-550 font-semibold leading-relaxed line-clamp-2">
+                            {item.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-y-1 items-center gap-3.5 text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-100/50">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 text-slate-400" />
+                            {new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            {` - `}
+                            {new Date(item.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {["leave", "wfh", "exception"].includes(item.type) && item.employeeName && (
+                            <span className="flex items-center gap-1.5">
+                              <Users className="h-3 w-3 text-slate-400" />
+                              {item.employeeName}
+                            </span>
+                          )}
+                          {["leave", "wfh", "exception"].includes(item.type) && (
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                              item.status === "approved"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                : "bg-amber-50 text-amber-700 border border-amber-100"
+                            }`}>
+                              {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             ) : (
               <div className="min-w-[750px] h-full flex flex-col">

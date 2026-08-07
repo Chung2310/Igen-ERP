@@ -216,53 +216,55 @@ export function WorkerOverviewDashboard({
           </div>
 
           {/* SVG / Pure CSS Column Chart */}
-          <div className="pt-6 pb-2">
-            <div className="h-56 flex items-end justify-between gap-2 px-2 border-b border-slate-200 pb-2 relative">
-              {/* Background Grid Lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-                <div className="border-b border-slate-400 w-full" />
-                <div className="border-b border-slate-400 w-full" />
-                <div className="border-b border-slate-400 w-full" />
+          <div className="pt-6 pb-2 overflow-x-auto scrollbar-thin">
+            <div className="min-w-[600px] md:min-w-0">
+              <div className="h-56 flex items-end justify-between gap-2 px-2 border-b border-slate-200 pb-2 relative">
+                {/* Background Grid Lines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                  <div className="border-b border-slate-400 w-full" />
+                  <div className="border-b border-slate-400 w-full" />
+                  <div className="border-b border-slate-400 w-full" />
+                </div>
+
+                {monthlyData.months.map((m, idx) => {
+                  const heightPercent = Math.max(8, Math.round((m.count / monthlyData.maxCount) * 100));
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
+                      {/* Tooltip on hover */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute -top-8 bg-slate-900 text-white text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-20">
+                        {m.fullLabel}: <strong>{m.count}</strong> {entityLabel.singular}
+                      </div>
+
+                      {/* Value Badge above column */}
+                      <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-600 transition-colors">
+                        {m.count > 0 ? m.count : ''}
+                      </span>
+
+                      {/* Column Bar */}
+                      <div className="w-full max-w-[28px] bg-slate-100 rounded-t-xl overflow-hidden flex items-end h-full">
+                        <div
+                          className={cn(
+                            "w-full rounded-t-xl transition-all duration-500 group-hover:brightness-110",
+                            m.count > 0
+                              ? "bg-gradient-to-t from-indigo-600 to-cyan-500 shadow-md"
+                              : "bg-slate-200/60"
+                          )}
+                          style={{ height: `${heightPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
-              {monthlyData.months.map((m, idx) => {
-                const heightPercent = Math.max(8, Math.round((m.count / monthlyData.maxCount) * 100));
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
-                    {/* Tooltip on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute -top-8 bg-slate-900 text-white text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-20">
-                      {m.fullLabel}: <strong>{m.count}</strong> {entityLabel.singular}
-                    </div>
-
-                    {/* Value Badge above column */}
-                    <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-600 transition-colors">
-                      {m.count > 0 ? m.count : ''}
-                    </span>
-
-                    {/* Column Bar */}
-                    <div className="w-full max-w-[28px] bg-slate-100 rounded-t-xl overflow-hidden flex items-end h-full">
-                      <div
-                        className={cn(
-                          "w-full rounded-t-xl transition-all duration-500 group-hover:brightness-110",
-                          m.count > 0
-                            ? "bg-gradient-to-t from-indigo-600 to-cyan-500 shadow-md"
-                            : "bg-slate-200/60"
-                        )}
-                        style={{ height: `${heightPercent}%` }}
-                      />
-                    </div>
+              {/* X Axis Labels */}
+              <div className="flex justify-between gap-2 px-2 pt-2">
+                {monthlyData.months.map((m, idx) => (
+                  <div key={idx} className="flex-1 text-center text-[10px] font-black text-slate-400">
+                    {m.monthLabel}
                   </div>
-                );
-              })}
-            </div>
-
-            {/* X Axis Labels */}
-            <div className="flex justify-between gap-2 px-2 pt-2">
-              {monthlyData.months.map((m, idx) => (
-                <div key={idx} className="flex-1 text-center text-[10px] font-black text-slate-400">
-                  {m.monthLabel}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </ErpCard>
@@ -397,8 +399,8 @@ export function WorkerOverviewDashboard({
         </div>
 
         {/* Detailed Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full text-left text-xs min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <th className="px-4 py-3">Họ và tên {entityLabel.singular}</th>
