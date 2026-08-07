@@ -1024,6 +1024,8 @@ function NewWorkflowWizard({
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [activeTab, setActiveTab] = useState<"diagram" | "list">("list");
+
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".canvas-node") || (e.target as HTMLElement).closest("button")) {
@@ -1045,6 +1047,31 @@ function NewWorkflowWizard({
   const handleMouseUpOrLeave = () => {
     setIsPanning(false);
   };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest(".canvas-node") || (e.target as HTMLElement).closest("button")) {
+      return;
+    }
+    if (e.touches.length !== 1) return;
+    setIsPanning(true);
+    const touch = e.touches[0];
+    setPanStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPanning) return;
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setPan({
+      x: touch.clientX - panStart.x,
+      y: touch.clientY - panStart.y
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+  };
+
 
   const handleZoom = (factor: number) => {
     setZoom((prev) => Math.min(Math.max(prev * factor, 0.5), 2));
@@ -1108,6 +1135,20 @@ function NewWorkflowWizard({
     });
     setDragId(null);
   };
+
+  const moveStep = (id: string, direction: -1 | 1) => {
+    setSteps((prev) => {
+      const arr = [...prev];
+      const idx = arr.findIndex((s) => s.id === id);
+      if (idx < 0) return prev;
+      const nextIdx = idx + direction;
+      if (nextIdx < 0 || nextIdx >= arr.length) return prev;
+      const [moved] = arr.splice(idx, 1);
+      arr.splice(nextIdx, 0, moved);
+      return arr;
+    });
+  };
+
 
   const goNext = () => {
     if (!name.trim()) {
@@ -1192,6 +1233,41 @@ function NewWorkflowWizard({
           </div>
         )}
 
+
+        {/* Mobile View Toggle Tabs for Step 2 */}
+        {step === 2 && (
+          <div className={`flex md:hidden border-b p-2 gap-2 transition-colors ${
+            isDark ? "bg-[#181818] border-zinc-800" : "bg-slate-50 border-gray-200"
+          }`}>
+            <button
+              type="button"
+              onClick={() => setActiveTab("diagram")}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                activeTab === "diagram"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : isDark
+                    ? "text-zinc-400 hover:bg-zinc-800"
+                    : "text-slate-500 hover:bg-gray-105"
+              }`}
+            >
+              Sơ đồ quy trình
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("list")}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                activeTab === "list"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : isDark
+                    ? "text-zinc-400 hover:bg-zinc-800"
+                    : "text-slate-500 hover:bg-gray-105"
+              }`}
+            >
+              Danh sách ({steps.length})
+            </button>
+          </div>
+        )}
+
         {/* ---- BƯỚC 1: Thông tin ---- */}
         {step === 1 && (
           <div className="flex-1 space-y-4 overflow-y-auto p-6">
@@ -1234,7 +1310,7 @@ function NewWorkflowWizard({
 
         {/* ---- BƯỚC 2: Thiết lập giai đoạn theo snake layout ---- */}
         {step === 2 && (
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
             {/* Flowchart workspace (Left Column) */}
             <div
               onDragOver={(e) => {
@@ -1250,14 +1326,20 @@ function NewWorkflowWizard({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseUpOrLeave}
-              className={`flex-1 p-8 overflow-hidden flex items-center justify-center min-h-[450px] relative border-r transition-colors ${
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`flex-1 p-8 overflow-hidden items-center justify-center min-h-[450px] relative border-r transition-colors touch-none ${
                 isPanning ? "cursor-grabbing" : "cursor-grab"
-              } ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"}`}
+              } ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"} ${
+                activeTab === "diagram" ? "flex" : "hidden md:flex"
+              }`}
             >
               {/* Decorative top-left selection tool */}
               <button
                 type="button"
                 draggable
+                onClick={addStage}
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", "new-step");
                   e.dataTransfer.effectAllowed = "copy";
@@ -1266,7 +1348,7 @@ function NewWorkflowWizard({
                   ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
                   : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
                   }`}
-                title="Kéo thả vào vùng làm việc để tạo giai đoạn mới"
+                title="Bấm hoặc Kéo thả vào vùng làm việc để tạo giai đoạn mới"
               >
                 <div className={`w-4 h-4 border rounded ${isDark ? "border-zinc-500" : "border-gray-300"}`} />
               </button>
@@ -1412,8 +1494,9 @@ function NewWorkflowWizard({
 
             {/* Sidebar list layout (Right Column) */}
             <div
-              className={`w-80 flex flex-col border-l transition-colors duration-300 ${isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
-                }`}
+              className={`w-full md:w-80 flex flex-col border-l transition-colors duration-300 ${
+                isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
+              } ${activeTab === "list" ? "flex" : "hidden md:flex"}`}
             >
               <div
                 className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
@@ -1495,11 +1578,28 @@ function NewWorkflowWizard({
                           Bắt đầu
                         </span>
                       )}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => moveStep(s.id, -1)}
+                          disabled={i === 0}
+                          className="p-1 text-slate-350 hover:text-slate-600 disabled:opacity-20 cursor-pointer"
+                          title="Chuyển lên"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveStep(s.id, 1)}
+                          disabled={i === steps.length - 1}
+                          className="p-1 text-slate-350 hover:text-slate-600 disabled:opacity-20 cursor-pointer"
+                          title="Chuyển xuống"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
                             setSelectedId(s.id);
                             setEditingStep(s);
                           }}
@@ -1513,8 +1613,7 @@ function NewWorkflowWizard({
                         </button>
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             deleteStep(s.id);
                           }}
                           className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
