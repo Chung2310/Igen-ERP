@@ -141,8 +141,8 @@ export default function AnalyticsTab() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-4 sm:space-y-6">
+      <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
@@ -203,7 +203,7 @@ export default function AnalyticsTab() {
 
       {!loading && !error && revenue && receivables && expenses && pnl && (
         <>
-          <section className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
             <StatTile
               label="Tổng doanh thu"
               value={`${formatVnd(revenue.total)} ₫`}
@@ -216,7 +216,7 @@ export default function AnalyticsTab() {
             <StatTile label="Kết quả vận hành" value={pnl.operatingResult === null ? "Chưa đủ dữ liệu" : `${formatVnd(pnl.operatingResult)} ₫`} />
           </section>
 
-          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-6">
             <h2 className="mb-5 text-sm font-bold uppercase tracking-wide text-slate-500">
               Cơ cấu doanh thu theo thời gian
             </h2>
@@ -235,7 +235,7 @@ export default function AnalyticsTab() {
             <ExpenseBreakdown report={expenses} />
           </section>
 
-          <form onSubmit={handleAddExpense} className="grid gap-3 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-5">
+          <form onSubmit={handleAddExpense} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-6 md:grid-cols-5">
             <div className="md:col-span-5"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Ghi nhận chi phí vận hành</h2><p className="mt-1 text-xs text-slate-400">Khoản xác nhận sẽ được đưa ngay vào tổng chi phí và P&amp;L.</p></div>
             <input required value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} placeholder="Nhóm chi phí" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             <input required value={expenseDraft.description} onChange={(e) => setExpenseDraft({ ...expenseDraft, description: e.target.value })} placeholder="Nội dung chi" className="rounded-xl border border-slate-200 px-3 py-2 text-sm md:col-span-2" />

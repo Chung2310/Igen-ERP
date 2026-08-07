@@ -748,7 +748,7 @@ export default function DashboardTab() {
   });
 
   return (
-    <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
+    <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto px-0.5 pb-4 text-left sm:pr-2" id="dashboard_tab_view">
       <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
@@ -762,7 +762,7 @@ export default function DashboardTab() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
           <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
             {tabs
               .filter(
