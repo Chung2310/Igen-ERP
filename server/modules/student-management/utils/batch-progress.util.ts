@@ -73,14 +73,17 @@ export function computeBatchProgress(input: ProgressInput, options: ProgressOpti
   const { status, startDate, endDate, daysOfWeek, attendanceSessions = [] } = input;
 
   const totalSessions = countTotalSessions(startDate, endDate, daysOfWeek, holidaySet);
-  const remainingSessions = countRemainingSessions(today, endDate, startDate, daysOfWeek, holidaySet);
+  const scheduledRemainingSessions = countRemainingSessions(today, endDate, startDate, daysOfWeek, holidaySet);
   const scheduledDates = listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet);
   // Buổi hôm nay chỉ được tính sau khi đã điểm danh; các buổi trước hôm nay mà
   // chưa có bản ghi điểm danh phải hiển thị rõ để không tạo tiến độ ảo.
-  const scheduledDatesPassed = new Set(scheduledDates.filter((date) => date < today));
+  // Buổi hôm nay được tính ngay khi đã có bản ghi điểm danh; nếu chưa có dữ liệu
+  // thì vẫn hiển thị là buổi chưa xử lý.
+  const scheduledDatesPassed = new Set(scheduledDates.filter((date) => date <= today));
   const attendedDates = new Set(attendanceSessions.filter((session) => scheduledDatesPassed.has(session.date) && Array.isArray(session.records) && session.records.length > 0).map((session) => session.date));
   const doneSessions = attendedDates.size;
   const missingAttendanceSessions = Math.max(0, scheduledDatesPassed.size - doneSessions);
+  const remainingSessions = Math.max(0, scheduledRemainingSessions - (attendedDates.has(today) ? 1 : 0));
   const ageLabel = computeAgeLabel(input, today);
 
   if (CLOSED_STATUSES.includes(status)) {

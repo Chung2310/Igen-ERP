@@ -29,17 +29,68 @@ function getDrivingExamBucket(rank?: string | null): 'motorbike' | 'car' | null 
   return null;
 }
 
-/** Lịch thi chỉ được tạo sau khi lớp đã học xong và toàn bộ buổi đã qua được chốt điểm danh. */
-function assertBatchReadyForExam(batch: { status: string; startDate: string; endDate: string; daysOfWeek: number[]; attendanceSessions?: Array<{ date: string; records?: unknown[] }> }) {
-  if (batch.status === "Đã hủy" || batch.status === "Đã kết thúc") throw new Error("Lớp này không còn ở trạng thái có thể tạo lịch thi.");
+/** Lịch thi có thể được lập trước khi lớp kết thúc; chỉ khóa lớp đã đóng/hủy. */
+function assertBatchReadyForExam(batch: { status: string }) {
+  if (batch.status === "Đã hủy" || batch.status === "Đã kết thúc") throw new Error("Lớp này đã đóng hoặc bị hủy, không thể tạo lịch thi mới.");
+  if (batch.status !== "Đang học") throw new Error("Chỉ lớp đang học mới có thể lập lịch thi.");
+}
+
+function isExamResultComplete(result: { score?: number; outcome?: string }) {
+  return typeof result.score === "number" || result.outcome === "Đậu" || result.outcome === "Trượt";
+}
+
+function examDateToIso(value?: string) {
+  const raw = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parts = raw.split("/");
+  if (parts.length === 3 && /^\d{1,2}$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1]) && /^\d{4}$/.test(parts[2])) {
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+  }
+  return "";
+}
+
+/** Chỉ chấm khi tới ngày thi, lớp đã hết buổi và toàn bộ buổi đã chốt điểm danh. */
+async function assertExamReadyToGrade(exam: Pick<IExam, "batchId" | "tentativeDate" | "officialDate">, ownerId: string | string[], branchId?: string) {
+  if (!exam.batchId) return;
+  const ownerFilter = ownerId === "ALL" ? {} : { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+  const batch = await Batch.findOne({ _id: exam.batchId, ...ownerFilter, ...(branchId ? { branchId } : {}) });
+  if (!batch) throw new Error("Không tìm thấy lớp học của kỳ thi.");
+  if (batch.status === "Đã hủy") throw new Error("Lớp đã hủy, không thể chấm kết quả thi.");
+
   const today = todayInVietnam();
+  const examDate = examDateToIso(exam.officialDate || exam.tentativeDate);
+  if (examDate && today < examDate) throw new Error("Chưa đến ngày thi, chưa thể nhập kết quả.");
+
   const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
-  const upcoming = scheduledDates.filter((date) => date >= today);
-  if (upcoming.length) throw new Error(`Lớp còn ${upcoming.length} buổi theo lịch. Chỉ tạo lịch thi sau buổi học cuối.`);
-  const pastDates = new Set(scheduledDates.filter((date) => date < today));
-  const confirmed = new Set((batch.attendanceSessions || []).filter((session) => pastDates.has(session.date) && Array.isArray(session.records) && session.records.length > 0).map((session) => session.date));
-  const missing = pastDates.size - confirmed.size;
-  if (missing > 0) throw new Error(`Còn ${missing} buổi chưa chốt điểm danh. Hãy hoàn tất điểm danh trước khi tạo lịch thi.`);
+  const futureSessions = scheduledDates.filter((date) => date > today);
+  if (futureSessions.length) throw new Error(`Lớp còn ${futureSessions.length} buổi theo lịch. Chỉ chấm sau buổi học cuối.`);
+
+  const requiredDates = new Set(scheduledDates.filter((date) => date <= today));
+  const confirmedDates = new Set((batch.attendanceSessions || [])
+    .filter((session) => requiredDates.has(session.date) && session.records.length > 0)
+    .map((session) => session.date));
+  const missingAttendance = requiredDates.size - confirmedDates.size;
+  if (missingAttendance > 0) throw new Error(`Còn ${missingAttendance} buổi chưa chốt điểm danh. Hãy hoàn tất điểm danh trước khi chấm thi.`);
+}
+
+/** Tự đóng lớp sau khi toàn bộ kỳ thi của lớp đã có kết quả. */
+async function closeBatchAfterExamIfReady(ownerId: string | string[], batchId: string, branchId?: string) {
+  const ownerFilter = ownerId === "ALL" ? {} : { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+  const batch = await Batch.findOne({ _id: batchId, ...ownerFilter, ...(branchId ? { branchId } : {}) });
+  if (!batch || batch.status !== "Đang học") return false;
+
+  const exams = await Exam.find({ ownerId: batch.ownerId, branchId: batch.branchId, batchId: String(batch._id), status: { $ne: "Đã hủy" } })
+    .select("results")
+    .lean();
+  if (!exams.length || exams.some((item) => !(item.results || []).length || (item.results || []).some((result) => !isExamResultComplete(result)))) return false;
+
+  const updated = await Batch.findOneAndUpdate(
+    { _id: batch._id, status: "Đang học" },
+    { $set: { status: "Đã kết thúc", completedAt: new Date(), cancelledAt: null } },
+    { new: true },
+  );
+  if (updated) logger.info(`[Exam] Batch closed automatically after exam completion: batchId=${batch._id}`);
+  return Boolean(updated);
 }
 
 /** Kết quả trượt chỉ tạo yêu cầu chờ xếp học lại; không tự gán lớp hay lệ phí. */
@@ -144,6 +195,7 @@ export class ExamService {
     if (branchId) query.branchId = branchId;
     const exam = await Exam.findOne(query);
     if (!exam) throw new Error("Không tìm thấy lịch thi.");
+    await assertExamReadyToGrade(exam, ownerId, branchId);
     const allowedStudents = new Set((exam.results || []).map((item) => item.studentId));
     const maxScore = Number(exam.maxScore || 100);
     const passScore = Number.isFinite(Number(exam.passScore)) ? Number(exam.passScore) : Math.ceil(maxScore / 2);
@@ -167,6 +219,7 @@ export class ExamService {
     exam.passCount = (exam.results || []).filter((item) => item.outcome === "Đậu").length;
     exam.failCount = (exam.results || []).filter((item) => item.outcome === "Trượt").length;
     await exam.save();
+    if (complete && exam.batchId) await closeBatchAfterExamIfReady(ownerId, String(exam.batchId), branchId);
     await Promise.all(results.map((input) => Student.updateOne(
       { _id: input.studentId },
       { $pull: { exams: { id: String(exam._id) } } }
@@ -430,15 +483,23 @@ export class ExamService {
       logger.warn(`[Exam] Update student result failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
       throw new Error("Kỳ thi không tồn tại.");
     }
+    await assertExamReadyToGrade(exam, ownerId, branchId);
 
-    // Find student who matches the studentId and ownerId and has active examId = examId
-    const studentQuery: Record<string, unknown> = { _id: studentId, examId };
+    // Kỳ thi theo lớp lưu người dự thi ở exam.results; kỳ thi cũ có thể lưu ở student.examId.
+    const studentQuery: Record<string, unknown> = { _id: studentId };
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
     if (branchId) studentQuery.branchId = branchId;
     const student = await Student.findOne(studentQuery);
-    if (!student) {
+    const belongsToExam = Boolean(
+      student && (
+        (exam.results || []).some((result) => String(result.studentId) === String(studentId))
+        || student.examId === examId
+        || student.exams?.some((item) => item.id === examId)
+      )
+    );
+    if (!student || !belongsToExam) {
       logger.warn(`[Exam] Update student result failed - Student not found or not assigned: studentId=${studentId}, examId=${examId}`);
       throw new Error("Học viên không thuộc kỳ thi này hoặc không tồn tại.");
     }
@@ -447,17 +508,37 @@ export class ExamService {
     const batch = exam.batchId ? await Batch.findOne({ _id: exam.batchId }).select("courseId").lean() : null;
     const courseCompletion = overallResult === "Đậu" && batch?.courseId ? { $addToSet: { completedCourseIds: batch.courseId } } : {};
 
-    // Results must not overwrite the student's broader lifecycle status.
-    await Student.updateOne(
-      { _id: studentId, "exams.id": examId },
-      {
-        $set: {
-          "exams.$.status": examStatus,
-          "exams.$.result.overall": overallResult,
-        },
-        ...courseCompletion,
-      }
-    );
+    const hasExamEntry = student.exams?.some((item) => item.id === examId);
+    const examDate = exam.officialDate || exam.tentativeDate;
+    if (hasExamEntry) {
+      await Student.updateOne(
+        { _id: studentId, "exams.id": examId },
+        {
+          $set: {
+            examId,
+            examName: exam.name,
+            examDate,
+            "exams.$.status": examStatus,
+            "exams.$.result.overall": overallResult,
+          },
+          ...courseCompletion,
+        }
+      );
+    } else {
+      await Student.updateOne(
+        { _id: studentId },
+        {
+          $set: { examId, examName: exam.name, examDate },
+          ...courseCompletion,
+          $push: {
+            exams: {
+              id: String(exam._id), name: exam.name, date: examDate, type: "Tốt nghiệp", status: examStatus,
+              batchId: exam.batchId || "", result: { theory: 0, practice: 0, simulation: 0, overall: overallResult },
+            },
+          },
+        }
+      );
+    }
 
     if (overallResult === "Trượt" && exam.batchId) {
       await queueRetakeAfterFailedExam(ownerId, branchId, exam.batchId, studentId, String(exam._id));
@@ -483,9 +564,14 @@ export class ExamService {
       }
     });
 
+    const examResult = exam.results?.find((result) => String(result.studentId) === String(studentId));
+    if (examResult) examResult.outcome = overallResult;
+    const complete = Boolean(exam.results?.length) && (exam.results || []).every((result) => isExamResultComplete(result));
+    if (complete) exam.status = "Đã hoàn thành";
     exam.passCount = passCount;
     exam.failCount = failCount;
     await exam.save();
+    if (complete && exam.batchId) await closeBatchAfterExamIfReady(ownerId, String(exam.batchId), branchId);
 
     logger.info(`[Exam] Updated student result successfully. Exam stats: passCount=${passCount}, failCount=${failCount}`);
     return { success: true };
@@ -518,6 +604,7 @@ export class ExamService {
       logger.warn(`[Exam] Import results failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
       throw new Error("Kỳ thi không tồn tại.");
     }
+    if (!preview) await assertExamReadyToGrade(exam, ownerId, branchId);
     const batchCourseId = exam.batchId ? (await Batch.findOne({ _id: exam.batchId }).select("courseId").lean())?.courseId || "" : "";
 
     const businessType = "general";
@@ -612,6 +699,8 @@ export class ExamService {
           continue;
         }
 
+        const examResult = exam.results?.find((result) => String(result.studentId) === String(student._id));
+        if (examResult) examResult.outcome = overallResult;
         const examStatus: "Sắp thi" | "Đã thi" = overallResult === "Chưa có" ? "Sắp thi" : "Đã thi";
         const courseCompletion = overallResult === "Đậu" && batchCourseId ? { $addToSet: { completedCourseIds: batchCourseId } } : {};
 
@@ -708,7 +797,10 @@ export class ExamService {
     exam.studentCount = studentCount;
     exam.passCount = passCount;
     exam.failCount = failCount;
+    const complete = Boolean(exam.results?.length) && (exam.results || []).every((result) => isExamResultComplete(result));
+    if (complete) exam.status = "Đã hoàn thành";
     await exam.save();
+    if (complete && exam.batchId) await closeBatchAfterExamIfReady(ownerId, String(exam.batchId), branchId);
 
     logger.info(`[Exam] Finished importing results. Success: ${successCount}, Failed: ${failedCount}, studentCount=${studentCount}, passCount=${passCount}, failCount=${failCount}`);
 

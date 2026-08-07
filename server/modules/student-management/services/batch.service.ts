@@ -935,7 +935,7 @@ export async function backfillBatchEnrollments(batch: IBatch): Promise<void> {
   if (missing.length > 0) throw new Error("Không thể khởi tạo sổ buổi cho toàn bộ học viên của lớp.");
 }
 
-/** Cập nhật bảo lưu/quay lại học mà không đổi sổ buổi của học viên. */
+/** Cập nhật bảo lưu/quay lại học mà không đổi sổ buổi của học viên. Bảo lưu rời danh sách lớp hiện tại nhưng vẫn giữ toàn bộ lịch sử. */
 export async function updateEnrollmentStatus(
   ownerId: string | string[],
   batchId: string,
@@ -950,10 +950,11 @@ export async function updateEnrollmentStatus(
 ) {
   const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   if (!batch) return null;
-  if (!batch.learnerIds.includes(studentId)) throw new Error("Học viên không còn thuộc lớp này.");
+  const isActiveLearner = batch.learnerIds.includes(studentId);
   await backfillBatchEnrollments(batch);
   const enrollment = await BatchEnrollment.findOne({ batchId: String(batch._id), studentId });
   if (!enrollment) throw new Error("Không tìm thấy sổ buổi của học viên.");
+  if (!isActiveLearner && enrollment.status !== "Bảo lưu") throw new Error("Học viên không còn thuộc lớp này.");
   if (status === "Học lại") {
     const fromStatus = enrollment.status;
     const count = (enrollment.retakeCount || 0) + 1;
@@ -983,6 +984,12 @@ export async function updateEnrollmentStatus(
   if (enrollment.status !== "Đang học" && enrollment.status !== "Bảo lưu") {
     throw new Error("Chỉ có thể bảo lưu hoặc tiếp tục một học viên đang học/bảo lưu.");
   }
+  if (status === "Bảo lưu" && !isActiveLearner && enrollment.status !== "Bảo lưu") throw new Error("Học viên không còn thuộc lớp này.");
+  if (status === "Đang học" && !isActiveLearner) {
+    const course = await Course.findOne({ _id: batch.courseId }).select("maxLearners").lean();
+    const quota = resolveQuota(batch.quota, course?.maxLearners);
+    if (quota > 0 && batch.learnerIds.length >= quota) throw new Error(`Lớp đã đủ sĩ số (${quota} học viên), chưa thể tiếp tục học trong lớp này.`);
+  }
   const fromStatus = enrollment.status;
   const next = transitionEnrollmentStatus({
     status: enrollment.status as EnrollmentOperationalStatus,
@@ -1004,6 +1011,13 @@ export async function updateEnrollmentStatus(
     note: status === "Bảo lưu" ? next.suspensionReason : "",
   });
   await enrollment.save();
+  if (status === "Bảo lưu") {
+    batch.learnerIds = batch.learnerIds.filter((id) => id !== studentId);
+    await batch.save();
+  } else if (status === "Đang học" && !batch.learnerIds.includes(studentId)) {
+    batch.learnerIds.push(studentId);
+    await batch.save();
+  }
   return enrollment.toObject();
 }
 

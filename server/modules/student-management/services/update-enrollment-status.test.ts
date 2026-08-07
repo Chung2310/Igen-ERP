@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it, afterAll } from "vitest";
+import { describe, it, afterAll, beforeEach } from "vitest";
 import mongoose from "mongoose";
 import { updateEnrollmentStatus } from "./batch.service";
 
@@ -91,6 +91,14 @@ describe("updateEnrollmentStatus functional flows", () => {
     return {};
   };
 
+  beforeEach(() => {
+    mockBatch.learnerIds = ["student-1"];
+    mockEnrollment.status = "Đang học";
+    mockEnrollment.retakeCount = 0;
+    mockEnrollment.retakeHistory = [];
+    mockEnrollment.history = [];
+  });
+
   it("suspends enrollment correctly with reason and return date", async () => {
     mockEnrollment.status = "Đang học";
     const result = await updateEnrollmentStatus("owner-1", "60c72b2f9b1d8b23456789a1", "student-1", "Bảo lưu", "Lý do bảo lưu", "2026-09-15");
@@ -98,6 +106,7 @@ describe("updateEnrollmentStatus functional flows", () => {
     assert.equal(result.status, "Bảo lưu");
     assert.equal(result.suspensionReason, "Lý do bảo lưu");
     assert.equal(result.expectedReturnAt, "2026-09-15");
+    assert.deepEqual(mockBatch.learnerIds, []);
   });
 
   it("throws error if suspending without a reason", async () => {
@@ -108,6 +117,15 @@ describe("updateEnrollmentStatus functional flows", () => {
       },
       /Lý do bảo lưu là bắt buộc/
     );
+  });
+
+  it("returns a suspended learner to the class when resuming", async () => {
+    mockBatch.learnerIds = [];
+    mockEnrollment.status = "Bảo lưu";
+    const result = await updateEnrollmentStatus("owner-1", "60c72b2f9b1d8b23456789a1", "student-1", "Đang học");
+    assert.ok(result);
+    assert.equal(result.status, "Đang học");
+    assert.deepEqual(mockBatch.learnerIds, ["student-1"]);
   });
 
   it("transitions other standard statuses", async () => {
