@@ -329,7 +329,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <div className="relative w-full" id="search_container">
+        <div className="relative hidden w-full sm:block" id="search_container">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
@@ -467,7 +467,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             }
             window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
           }}
-          className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
+          className="hidden items-center justify-center rounded-full p-2 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 sm:flex"
           title={isDark ? "Giao diện sáng" : "Giao diện tối"}
           id="header_darkmode_btn"
         >
@@ -791,7 +791,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
         </div>
 
-        <div className="relative" id="notification_dropdown_button">
+        <div className="relative hidden sm:block" id="notification_dropdown_button">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95"
@@ -932,6 +932,44 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   )}
                 </div>
                 <div className="p-1">
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowNotifications(true);
+                    }}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden"
+                  >
+                    <Bell className="h-4 w-4 text-blue-500" />
+                    <span className="flex-1">Thông báo</span>
+                    {unreadCount > 0 && <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const nextDark = !isDark;
+                      setIsDark(nextDark);
+                      document.documentElement.classList.toggle("dark", nextDark);
+                      localStorage.setItem("theme", nextDark ? "dark" : "light");
+                      window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
+                      setShowProfileMenu(false);
+                    }}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden"
+                  >
+                    {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-gray-500" />}
+                    <span>{isDark ? "Giao diện sáng" : "Giao diện tối"}</span>
+                  </button>
+                  {userProfile && !hasCheckOut && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        handleTimekeepingAction(hasCheckIn ? "out" : "in");
+                      }}
+                      disabled={timekeepingChecking !== null}
+                      className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden disabled:opacity-50"
+                    >
+                      {hasCheckIn ? <LogOutIcon className="h-4 w-4 text-emerald-600" /> : <LogIn className="h-4 w-4 text-indigo-600" />}
+                      <span>{timekeepingChecking ? "Đang xử lý..." : hasCheckIn ? "Check-Out" : "Check-In"}</span>
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       setShowProfileMenu(false);
