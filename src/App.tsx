@@ -248,7 +248,7 @@ function AppContent() {
         />
 
         <main
-          className={`min-w-0 flex-1 overflow-hidden bg-surface ${
+          className={`min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface ${
             activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
           }`}
           id="primary_page_container"
