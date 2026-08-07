@@ -529,7 +529,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Filters Bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 bg-white p-2 rounded-xl border border-slate-100 shadow-sm filters-bar">
+      <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-5 filters-bar">
         <div className="space-y-0.5">
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
           <div className="relative">
@@ -616,7 +616,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {/* Main Table Card */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-left min-w-[1100px]">
+          <table className="w-full min-w-[760px] text-left sm:min-w-[1100px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-3 py-2 w-8 no-print">

@@ -291,7 +291,7 @@ export default function WorkersPage({
         })}
       </div>
 
-      <div className="filters-bar grid grid-cols-2 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm lg:grid-cols-5">
+      <div className="filters-bar grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
         <FilterSelect
           label="Dự án"
           value={project}
@@ -333,7 +333,7 @@ export default function WorkersPage({
 
       <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full min-w-[850px] text-left">
+          <table className="w-full min-w-[720px] text-left sm:min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <TableHead>Họ và tên</TableHead>
