@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { getTimekeepingStatusDisplay } from "./DashboardTab";
+import { getTimekeepingStatusDisplay } from "../components/dashboard/TimekeepingWidget";
 
 describe("getTimekeepingStatusDisplay", () => {
   it("shows missing-attendance warning on working days without check-in", () => {
