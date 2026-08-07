@@ -727,7 +727,7 @@ export default function UserAdminTab() {
             }}
           />
           {/* Main List Area */}
-          <div className="flex-1 p-6 overflow-y-auto" id="user_admin_content">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="user_admin_content">
             {loading ? (
               <div className="h-48 flex flex-col items-center justify-center text-center">
                 <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
@@ -755,7 +755,7 @@ export default function UserAdminTab() {
             )}
           </div>
         </>      ) : (
-        <div className="flex-1 p-6 overflow-y-auto space-y-6" id="roles_permissions_tab_content">
+        <div className="flex-1 space-y-6 overflow-y-auto p-3 sm:p-6" id="roles_permissions_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
               <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>

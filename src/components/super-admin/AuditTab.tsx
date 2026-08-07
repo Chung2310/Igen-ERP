@@ -375,7 +375,7 @@ export function AuditTab() {
       {/* Results Table */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/30 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[620px] text-left text-sm sm:min-w-[720px]">
             <thead className="bg-slate-950/40 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
               <tr>
                 <th className="p-4">Thời gian</th>

@@ -19,7 +19,7 @@ export function UserListTable({
   return (
     <div className="max-w-full rounded-2xl border border-gray-150 bg-white shadow-xs" style={{ overflow: "clip" }}>
       <div className="max-w-full overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[1180px] border-collapse text-left font-sans text-xs">
+        <table className="w-full min-w-[820px] border-collapse text-left font-sans text-xs sm:min-w-[1180px]">
           <thead>
             <tr className="border-b border-gray-150 bg-gray-50 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">
               <th className="p-4 pl-6">Thành viên</th>
