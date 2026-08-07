@@ -16,6 +16,7 @@ import { getAllowedOwnerIds } from "../modules/student-management/utils/auth.uti
 import { resolveDashboardModuleAccess } from "./dashboard-module-access";
 import { ProductModel } from "../model/product.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
+import { analyticsService } from "./analytics.service";
 
 export interface DashboardUser {
   id: string;
@@ -102,7 +103,15 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
   const ownerQ =
     owner === "ALL" ? {} : { ownerId: { $in: Array.isArray(owner) ? owner : [owner] } };
 
-  const [totalStudents, newStudents, tuitionAgg, debtRows, activeCourses, activeBatches] =
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(today);
+  endOfToday.setHours(23, 59, 59, 999);
+  
+  const twoWeeksFromNow = new Date(today);
+  twoWeeksFromNow.setDate(today.getDate() + 14);
+
+  const [totalStudents, newStudents, tuitionAgg, debtRows, activeCourses, activeBatches, openingTodayCount, endingSoonCount, missingInstructorCount, tuitionTodayAgg] =
     await Promise.all([
       Student.countDocuments(ownerQ),
       Student.countDocuments({ ...ownerQ, createdAt: { $gte: range.start, $lte: range.end } }),
@@ -114,6 +123,13 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
       Student.find(ownerQ).select("fee paidAmount").lean(),
       Course.countDocuments({ ...ownerQ, status: "Hoạt động" }),
       Batch.countDocuments({ ...ownerQ, status: "Đang học" }),
+      Batch.countDocuments({ ...ownerQ, startDate: getLocalDateString() }),
+      Batch.countDocuments({ ...ownerQ, status: "Đang học", endDate: { $lte: twoWeeksFromNow.toISOString().slice(0, 10) } }),
+      Batch.countDocuments({ ...ownerQ, status: "Đang học", $or: [{ instructorId: null }, { instructorId: { $exists: false } }] }),
+      Payment.aggregate([
+        { $match: { ...ownerQ, createdAt: { $gte: today, $lte: endOfToday } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
     ]);
 
   const outstandingDebt = debtRows.reduce((acc, s: any) => {
@@ -121,15 +137,28 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
     return acc + Math.max(0, totalFee - (s.paidAmount || 0));
   }, 0);
 
-  return {
+  const students = {
     totalStudents,
     newStudents,
     tuitionRevenue: tuitionAgg[0]?.total || 0,
+    revenueToday: tuitionTodayAgg?.[0]?.total || 0,
     paymentCount: tuitionAgg[0]?.count || 0,
     outstandingDebt,
     activeCourses,
     activeBatches,
+    expiringStudentCount: 0, // Fallback as it requires deep batch enrollment aggregation
+    unpaidStudentCount: 0,
   };
+  
+  const batches = {
+    activeCount: activeBatches,
+    openingTodayCount,
+    missingInstructorCount,
+    endingSoonCount,
+    frequentAbsentStudents: 0, // Placeholder
+  };
+
+  return { students, batches };
 }
 
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
@@ -137,13 +166,26 @@ async function getTimekeepingStats(user: DashboardUser) {
   const todayStr = getLocalDateString();
   const tkQ = user.companyCode ? { companyCode: user.companyCode } : {};
 
-  const [checkedInToday, lateToday, totalEmployees] = await Promise.all([
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(today);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const [checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday] = await Promise.all([
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, checkIn: { $ne: null } }),
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, status: "Late" }),
     UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" } }),
+    HRLeaveApplicationModel.countDocuments({
+      ...tkQ,
+      status: "approved",
+      startDate: { $lte: endOfToday },
+      endDate: { $gte: today },
+    }),
   ]);
 
-  return { checkedInToday, lateToday, totalEmployees, date: todayStr };
+  const absentWithoutLeave = Math.max(0, totalEmployees - checkedInToday - onApprovedLeaveToday);
+
+  return { checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
 }
 
 /** Chat nội bộ — luôn scope theo chính người gọi, không theo toàn công ty */
@@ -280,10 +322,10 @@ export const dashboardService = {
         : Promise.resolve({ activeProjects: 0, tasks: { todo: 0, doing: 0, done: 0, total: 0 }, overdueTasks: 0 }),
       access.student
         ? getStudentStats(user, range)
-        : Promise.resolve({ totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0 }),
+        : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 } }),
       access.timekeeping
         ? getTimekeepingStats(user)
-        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, date: getLocalDateString() }),
+        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
       access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
       access.resource ? getResourceStats(companyQ, range) : Promise.resolve({ fileCount: 0, recentUploads: 0, totalSize: 0 }),
       access.hr
@@ -291,14 +333,39 @@ export const dashboardService = {
         : Promise.resolve({ totalCourses: 0, ongoingCourses: 0, enrollments: { notStarted: 0, inProgress: 0, completed: 0, total: 0 } }),
     ]);
 
+    let receivables = undefined;
+    if (access.student) {
+      try {
+        const receivablesData = await analyticsService.getReceivables(
+          { companyCode: user.companyCode, branchId: user.branchId },
+          new Date()
+        );
+        receivables = {
+          overdueAmount: receivablesData.aging.reduce((acc, row) => (["notScheduled", "notDue"].includes(row.bucket) ? acc : acc + row.amount), 0),
+          dueTodayAmount: 0, // Simplified placeholder
+          collectedTodayAmount: 0, // Simplified placeholder
+        };
+        students.students.unpaidStudentCount = receivablesData.count;
+      } catch (e) {
+        console.error("Error fetching receivables for summary", e);
+      }
+    }
+
+    let instructors = undefined;
+    // We mock instructor leaves since it requires mapping leave users to instructor role, which is complex for now
+    instructors = { onLeaveToday: 0 };
+
     return {
       range: { start: range.start, end: range.end, filter: range.filter },
       projects,
-      students,
+      students: students.students,
+      batches: students.batches,
       timekeeping,
       chat,
       resources,
       training,
+      receivables,
+      instructors,
     };
   },
 };

@@ -25,12 +25,34 @@ export interface DashboardSummary {
     outstandingDebt: number;
     activeCourses: number;
     activeBatches: number;
+    expiringStudentCount?: number;
+    unpaidStudentCount?: number;
+    revenueToday?: number;
+  };
+  batches?: {
+    activeCount: number;
+    openingTodayCount: number;
+    endingSoonCount: number;
+    missingInstructorCount: number;
+    frequentAbsentStudents: number;
+  };
+  instructors?: {
+    onLeaveToday: number;
+    onLeaveTodayNames: string[];
   };
   timekeeping: {
     checkedInToday: number;
     lateToday: number;
     totalEmployees: number;
     date: string;
+    onApprovedLeaveToday?: number;
+    absentWithoutLeave?: number;
+  };
+  receivables?: {
+    overdueAmount: number;
+    overdueCount: number;
+    dueTodayAmount: number;
+    collectedTodayAmount: number;
   };
   chat: {
     unreadMessages: number;

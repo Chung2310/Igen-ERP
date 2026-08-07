@@ -259,8 +259,8 @@ export default function SubmitProofPage() {
   const isGraded = submission && submission.status === "graded";
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center font-sans">
-      <div className="max-w-3xl w-full space-y-8 bg-white/70 backdrop-blur-md rounded-3xl border border-slate-200/60 p-6 md:p-10 shadow-2xl relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50/50 px-3 py-6 font-sans sm:px-6 sm:py-12 lg:px-8">
+      <div className="relative w-full max-w-3xl space-y-6 overflow-hidden rounded-3xl border border-slate-200/60 bg-white/70 p-4 shadow-2xl backdrop-blur-md sm:space-y-8 sm:p-6 md:p-10">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-violet-500/5 pointer-events-none" />
 
         {/* Status Alert Bar */}
@@ -356,7 +356,7 @@ export default function SubmitProofPage() {
                 onDragLeave={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center select-none ${
+                className={`flex cursor-pointer select-none flex-col items-center justify-center rounded-3xl border-2 border-dashed p-5 text-center transition-all duration-300 sm:p-8 ${
                   dragActive
                     ? "border-indigo-500 bg-indigo-50/30 scale-[0.99] shadow-inner"
                     : "border-slate-200 hover:border-indigo-400 hover:bg-slate-50/50 bg-white"

@@ -317,8 +317,8 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
   return (
     <>
-    <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-3 sm:px-6 shadow-xs" id="app_header">
-      <div className="flex flex-1 items-center max-w-2xl">
+    <header className="sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-gray-100 bg-white px-3 shadow-xs sm:gap-4 sm:px-6" id="app_header">
+      <div className="relative flex min-w-0 flex-1 items-center sm:max-w-2xl">
         {onMenuClick && (
           <button
             onClick={onMenuClick}
@@ -329,7 +329,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <div className="relative w-full" id="search_container">
+        <div className="relative hidden w-full sm:block" id="search_container">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
@@ -380,7 +380,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         </div>
       </div>
 
-      <div className="ml-2 sm:ml-6 flex items-center gap-1 sm:gap-3" id="header_controls">
+      <div className="ml-1 flex shrink-0 items-center gap-1 sm:ml-6 sm:gap-3" id="header_controls">
 
         {userProfile?.role === "admin" && branches.length > 0 && (
           <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-800 shadow-sm" title={`Chi nhánh đang xem: ${activeBranch?.name || ""}`}>
@@ -467,7 +467,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             }
             window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
           }}
-          className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
+          className="hidden items-center justify-center rounded-full p-2 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 sm:flex"
           title={isDark ? "Giao diện sáng" : "Giao diện tối"}
           id="header_darkmode_btn"
         >
@@ -486,7 +486,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </button>
 
           {showUtilities && (
-            <div className={`absolute right-0 z-50 mt-3 w-[calc(100vw-1.5rem)] max-w-[580px] max-h-[80vh] overflow-y-auto rounded-3xl p-4 sm:p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
+            <div className={`fixed inset-x-3 top-[4.75rem] z-50 max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-3xl p-4 shadow-2xl font-sans animate-fade-in border sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:max-h-[80vh] sm:w-[calc(100vw-1.5rem)] sm:max-w-[580px] sm:p-6 ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
               {/* Header */}
               <div className={`flex items-center justify-between border-b pb-3.5 mb-2 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
                 <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Menu</span>
@@ -791,7 +791,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
         </div>
 
-        <div className="relative" id="notification_dropdown_button">
+        <div className="relative hidden sm:block" id="notification_dropdown_button">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95"
@@ -805,7 +805,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 z-50 mt-3 w-[calc(100vw-1.5rem)] max-w-96 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
+            <div className="fixed inset-x-3 top-[4.75rem] z-50 max-h-[calc(100dvh-5.5rem)] overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-[calc(100vw-1.5rem)] sm:max-w-96">
               {/* Panel Header */}
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -932,6 +932,44 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   )}
                 </div>
                 <div className="p-1">
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowNotifications(true);
+                    }}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden"
+                  >
+                    <Bell className="h-4 w-4 text-blue-500" />
+                    <span className="flex-1">Thông báo</span>
+                    {unreadCount > 0 && <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const nextDark = !isDark;
+                      setIsDark(nextDark);
+                      document.documentElement.classList.toggle("dark", nextDark);
+                      localStorage.setItem("theme", nextDark ? "dark" : "light");
+                      window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
+                      setShowProfileMenu(false);
+                    }}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden"
+                  >
+                    {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-gray-500" />}
+                    <span>{isDark ? "Giao diện sáng" : "Giao diện tối"}</span>
+                  </button>
+                  {userProfile && !hasCheckOut && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        handleTimekeepingAction(hasCheckIn ? "out" : "in");
+                      }}
+                      disabled={timekeepingChecking !== null}
+                      className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden disabled:opacity-50"
+                    >
+                      {hasCheckIn ? <LogOutIcon className="h-4 w-4 text-emerald-600" /> : <LogIn className="h-4 w-4 text-indigo-600" />}
+                      <span>{timekeepingChecking ? "Đang xử lý..." : hasCheckIn ? "Check-Out" : "Check-In"}</span>
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       setShowProfileMenu(false);

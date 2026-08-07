@@ -1853,7 +1853,7 @@ export default function ResourceTab() {
       }}
     >
       {/* Left Vertical Sub-tab Switcher */}
-      <div className="w-20 border-r border-slate-200 bg-[#f4f5f6] flex flex-col items-center py-8 gap-6 shrink-0 select-none">
+      <div className="flex w-14 shrink-0 flex-col items-center gap-4 border-r border-slate-200 bg-[#f4f5f6] py-5 select-none sm:w-20 sm:gap-6 sm:py-8">
         {SUB_TABS.map((tab) => {
           const Icon = tab.icon;
           const active = subTab === tab.value;
@@ -2534,7 +2534,7 @@ export default function ResourceTab() {
                 {/* Main Content Area */}
                 <div className="flex-1 overflow-hidden relative text-left">
                   {subTab === "TÀI LIỆU KHÁC" ? (
-                    <div className="w-full h-full overflow-y-auto p-6">
+                    <div className="h-full w-full overflow-y-auto p-3 sm:p-6">
                       <FileExplorer
                         key={explorerKey}
                         onOpenFile={handleOpenFile}
@@ -2628,7 +2628,7 @@ export default function ResourceTab() {
                         </div>
                       )}
 
-                      <div className="flex-1 overflow-y-auto p-6 bg-white">
+                      <div className="flex-1 overflow-y-auto bg-white p-3 sm:p-6">
                         {(selectedSpace === "personal" && !isConnected) ? (
                           <div className="flex flex-col items-center justify-center py-16 bg-white/50 border border-dashed border-gray-200 rounded-3xl p-10 max-w-xl mx-auto mt-10 text-center">
                             <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-blue-600 mb-4 shadow-inner">

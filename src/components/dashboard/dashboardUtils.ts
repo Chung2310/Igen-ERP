@@ -9,28 +9,28 @@ export const toneClass: Record<Tone, { soft: string; text: string; fill: string;
 };
 
 export const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {
-  if (val === 0) return "₫0";
-  if (!isFinite(val) || isNaN(val)) return "₫0";
+  if (val === 0) return "0";
+  if (!isFinite(val) || isNaN(val)) return "0";
 
   const absVal = Math.abs(val);
   const sign = val < 0 ? "-" : "";
 
   if (absVal >= 1e15) {
-    return `${sign}₫${absVal.toExponential(2)}`;
+    return `${sign}${absVal.toExponential(2)}`;
   }
   if (absVal >= 1e12) {
-    return `${sign}₫${(absVal / 1e12).toFixed(decimalDigits)}T`;
+    return `${sign}${(absVal / 1e12).toFixed(decimalDigits)}T`;
   }
   if (absVal >= 1e9) {
-    return `${sign}₫${(absVal / 1e9).toFixed(decimalDigits)}B`;
+    return `${sign}${(absVal / 1e9).toFixed(decimalDigits)}B`;
   }
   if (absVal >= 1e6) {
-    return `${sign}₫${(absVal / 1e6).toFixed(decimalDigits)}M`;
+    return `${sign}${(absVal / 1e6).toFixed(decimalDigits)}M`;
   }
   if (useK && absVal >= 1e3) {
-    return `${sign}₫${(absVal / 1e3).toFixed(0)}K`;
+    return `${sign}${(absVal / 1e3).toFixed(0)}K`;
   }
-  return `${sign}₫${Math.round(absVal).toLocaleString("vi-VN")}`;
+  return `${sign}${Math.round(absVal).toLocaleString("vi-VN")}`;
 };
 
 export const buildPctSegments = (

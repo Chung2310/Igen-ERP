@@ -194,7 +194,7 @@ export default function StudentManagementTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       {/* Sub Tabs switcher navigation bar */}
-      <div className="border-b border-slate-200/80 bg-white px-5 pt-2 pb-0 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0" id="student_sub_tabs_bar">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="student_sub_tabs_bar">
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
           <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
           <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
@@ -224,7 +224,7 @@ export default function StudentManagementTab() {
         {userProfile?.role === "superadmin" && (
           <div className="flex items-center gap-2 shrink-0 pb-2 sm:pb-0 pr-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cơ sở:</span>
-            <div className="relative min-w-[200px]">
+            <div className="relative min-w-0 flex-1 sm:min-w-[200px] sm:flex-none">
               <select
                 value={selectedCenter}
                 onChange={(e) => setSelectedCenter(e.target.value)}
@@ -243,7 +243,7 @@ export default function StudentManagementTab() {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
       </div>
 

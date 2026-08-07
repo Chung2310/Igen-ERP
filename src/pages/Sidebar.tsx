@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BarChart3,
   ChevronLeft,
@@ -123,6 +123,15 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   const [isCollapsedState, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
+
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, mobileOpen]);
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => enabledTabs.has(item.label))
@@ -138,15 +147,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     });
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
-    // Phân tích & báo cáo doanh thu: chỉ admin. branch_owner và các vai trò khác
-    // dùng trang Tổng quan chung. Đây mới chỉ là tầng ẩn ở UI — tầng chặn thật
-    // nằm ở requireRole trong server/router/analytics.router.ts.
-    menuItems.push({
-      label: "PHÂN TÍCH & BÁO CÁO",
-      title: "Phân tích & Báo cáo",
-      icon: BarChart3,
-      group: "system",
-    });
+    // Phân tích & báo cáo doanh thu: đã bị loại bỏ theo yêu cầu của user
     menuItems.push({
       label: "QUẢN TRỊ USER",
       title: "Quản lý người dùng",
