@@ -6,6 +6,18 @@ import { analyticsService } from "../../services/analyticsService";
 
 type TimeFilter = "month" | "quarter" | "year";
 
+const revenueData: Record<TimeFilter, { label: string; value: number }[]> = {
+  month: [],
+  quarter: [],
+  year: [],
+};
+
+const courseData: Record<TimeFilter, { label: string; value: number; color: string; display: string }[]> = {
+  month: [],
+  quarter: [],
+  year: [],
+};
+
 export function RevenueAnalysisPanel() {
   const [filter, setFilter] = useState<TimeFilter>("month");
 
