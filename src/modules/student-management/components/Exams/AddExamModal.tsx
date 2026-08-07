@@ -36,15 +36,14 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
   const { courses } = useCourses(tenantId);
   const { batches } = useBatches(tenantId);
-  // Chỉ đưa vào danh sách tạo lịch thi các lớp đã học xong và đã chốt đủ điểm danh.
+  // Có thể lập lịch thi trước khi lớp kết thúc; lớp đóng/hủy không được tạo lịch mới.
   // Lớp của lịch thi cũ vẫn được giữ lại khi người dùng mở để chỉnh sửa.
-  const examEligibleBatches = React.useMemo(() => batches.filter((batch) => (
+  const isBatchExamEligible = React.useCallback((batch: typeof batches[number]) => (
     batch.id === initialData?.batchId || (
-      batch.status === 'Đang học' &&
-      batch.progress?.progressLevel === 'red' &&
-      batch.progress.missingAttendanceSessions === 0
+      batch.status === 'Đang học'
     )
-  )), [batches, initialData?.batchId]);
+  ), [initialData?.batchId]);
+  const examEligibleBatches = React.useMemo(() => batches.filter(isBatchExamEligible), [batches, isBatchExamEligible]);
   // QLHV lấy khóa học qua lớp đã chọn; trường này chỉ phục vụ dữ liệu kỳ thi lái xe cũ.
   const showLegacyCourseField = false;
   const [isOpenCourses, setIsOpenCourses] = useState(false);
@@ -147,6 +146,11 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     customFields: {},
   });
 
+  const selectedBatch = React.useMemo(
+    () => batches.find((batch) => batch.id === formData.batchId),
+    [batches, formData.batchId]
+  );
+
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const [localTentativeDate, setLocalTentativeDate] = useState('');
 
@@ -210,6 +214,36 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     if (missingFields.length > 0) {
       toast.warning(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
+    }
+    if (!formData.batchId) {
+      toast.warning('Vui lòng chọn lớp học trước khi tạo lịch thi.');
+      return;
+    }
+    if (!selectedBatch) {
+      toast.warning('Không tìm thấy lớp học đã chọn. Hãy tải lại danh sách lớp rồi thử lại.');
+      return;
+    }
+    if (!isBatchExamEligible(selectedBatch)) {
+      toast.warning('Chỉ lớp đang học mới có thể lập lịch thi. Lớp đã kết thúc, bị hủy hoặc chưa khai giảng không thể tạo lịch mới.');
+      return;
+    }
+    const maxScore = Number(formData.maxScore);
+    const passScore = Number(formData.passScore);
+    if (!Number.isFinite(maxScore) || maxScore <= 0 || !Number.isFinite(passScore) || passScore < 0 || passScore > maxScore) {
+      toast.warning('Ngưỡng đạt phải nằm trong khoảng từ 0 đến thang điểm.');
+      return;
+    }
+    if (selectedBatch && formData.tentativeDate && selectedBatch.endDate && formData.tentativeDate < selectedBatch.endDate) {
+      toast.warning(`Ngày thi dự kiến nên từ sau ngày kết thúc lớp (${selectedBatch.endDate.split('-').reverse().join('/')}). Bạn vẫn có thể tạo lịch trước, nhưng không nên thi khi lớp chưa hoàn tất.`);
+      return;
+    }
+    if (!initialData && formData.tentativeDate) {
+      const now = new Date();
+      const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+      if (formData.tentativeDate < today) {
+        toast.warning('Ngày thi dự kiến không được nằm trong quá khứ.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -349,9 +383,14 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Lớp học <span className="text-rose-500">*</span></label>
                   <select name="batchId" required value={formData.batchId} disabled={Boolean(initialData?.batchId)} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary disabled:bg-slate-50">
                     <option value="">-- Chọn lớp học --</option>
-                    {examEligibleBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} - {batch.courseTitle}</option>)}
+                    {batches.map((batch) => <option key={batch.id} value={batch.id} disabled={!isBatchExamEligible(batch)}>{batch.code} - {batch.courseTitle}{isBatchExamEligible(batch) ? '' : ' (không thể lập lịch)'}</option>)}
                   </select>
-                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Chỉ hiển thị lớp đã đủ điều kiện thi.' : 'Chưa có lớp nào đủ điều kiện thi.'}</p>
+                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Có thể lập lịch trước; đến ngày thi mới chốt điểm danh và kết quả.' : batches.length ? 'Chỉ lớp đang học mới có thể lập lịch thi.' : 'Chưa tải được danh sách lớp học.'}</p>
+                  {selectedBatch ? <div className={`mt-1 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed ${selectedBatch.status === 'Đang học' ? 'border-cyan-100 bg-cyan-50 text-cyan-800' : 'border-amber-100 bg-amber-50 text-amber-800'}`}>
+                    {selectedBatch.status === 'Đang học'
+                      ? 'Lớp đang học: có thể tạo lịch trước. Trước ngày thi cần hoàn tất các buổi học và chốt điểm danh.'
+                      : `Đang chỉnh sửa lịch của lớp ${selectedBatch.status.toLowerCase()}. Không thể dùng lớp này để tạo lịch thi mới.`}
+                  </div> : null}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Thang điểm</label>

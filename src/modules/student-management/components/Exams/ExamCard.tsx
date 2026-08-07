@@ -275,6 +275,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         toast.success(`Đã cập nhật kết quả: ${res.successCount} thành công, ${res.failedCount} thất bại.`);
         window.dispatchEvent(new Event("student-mutation"));
         window.dispatchEvent(new Event("exam-mutation"));
+        window.dispatchEvent(new Event("batch-mutation"));
         setIsPreviewOpen(false);
       } else {
         toast.error(res.error || "Nhập kết quả thi từ Excel thất bại.");

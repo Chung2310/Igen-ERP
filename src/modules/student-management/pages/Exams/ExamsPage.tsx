@@ -410,6 +410,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                     });
                     window.dispatchEvent(new Event("student-mutation"));
                     window.dispatchEvent(new Event("exam-mutation"));
+                    window.dispatchEvent(new Event("batch-mutation"));
                     toast.success("Cập nhật kết quả thi thành công.");
                   } catch (error) {
                     console.error("Error updating student result:", error);
@@ -421,6 +422,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                     await apiFetch(`/exams/${exam.id}/results`, { method: 'PATCH', body: JSON.stringify({ results }) });
                     window.dispatchEvent(new Event("student-mutation"));
                     window.dispatchEvent(new Event("exam-mutation"));
+                    window.dispatchEvent(new Event("batch-mutation"));
                     toast.success(`Đã lưu điểm cho ${results.length} học viên.`);
                   } catch (error) {
                     toast.error(getApiErrorMessage(error, "Không thể lưu điểm thi."));

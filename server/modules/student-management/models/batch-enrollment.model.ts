@@ -42,7 +42,7 @@ const batchEnrollmentSchema = new Schema<IBatchEnrollment>(
     joinedAt: { type: Date, default: Date.now },
     // Học viên rời lớp vẫn giữ bản ghi để không mất lịch sử học.
     leftAt: { type: Date, default: null },
-    // Bảo lưu tách khỏi việc rời lớp: học viên vẫn thuộc lớp và giữ sổ buổi.
+    // Bảo lưu rời danh sách lớp hiện tại nhưng vẫn giữ sổ buổi và lịch sử để điều phối quay lại.
     suspendedAt: { type: Date, default: null },
     suspensionReason: { type: String, default: "" },
     expectedReturnAt: { type: String, default: null },
