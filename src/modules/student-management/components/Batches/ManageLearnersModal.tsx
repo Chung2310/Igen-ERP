@@ -165,7 +165,7 @@ const handleToggleSuspension = async (studentId: string) => {
       await apiFetch(`/batches/${batch.id}/learners/${studentId}/enrollment-status`, { method: "PATCH", body: JSON.stringify({ status: "Bảo lưu", reason: reason.trim(), expectedReturnAt: expectedReturnAt.trim() || null }) });
       setSuspensionDraft(null);
       await reloadEnrollments();
-      toast.success("Đã bảo lưu học viên.");
+      toast.success("Đã bảo lưu và đưa học viên ra khỏi danh sách lớp.");
       onSuccess();
     } catch (error: unknown) { toast.error(error instanceof Error ? error.message : "Không thể cập nhật trạng thái học viên."); }
     finally { setUpdatingEnrollmentId(null); }
@@ -285,12 +285,13 @@ const handleToggleSuspension = async (studentId: string) => {
           ) : (
             <div className={cn("border rounded-2xl p-2 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
               {enrolledStudents.map((s) => (
-                <div key={s.id} className="flex items-center justify-between py-2.5 px-3">
+                <div key={s.id} className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,1fr)_2.5rem] items-center gap-3 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,1fr)_2.5rem]">
                   <div>
                     <p className={cn("text-xs font-bold", darkMode ? "text-slate-200" : "text-slate-700")}>{s.fullName}</p>
                     <p className="text-[10px] text-slate-400">{s.phone}</p>
                     {renderSessionCounter(s.id)}
                   </div>
+                  <div className="flex min-w-0 justify-start">
                   {byStudent.get(s.id) && (
                     <>
                     <button
@@ -299,7 +300,7 @@ const handleToggleSuspension = async (studentId: string) => {
                       disabled={updatingEnrollmentId !== null || removingStudentId !== null || isAdding}
                       title={byStudent.get(s.id)?.status === "Bảo lưu" ? "Tiếp tục học" : "Bảo lưu"}
                       className={cn(
-                        "p-1.5 rounded-lg transition-all border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex h-9 w-9 items-center justify-center rounded-lg border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                         byStudent.get(s.id)?.status === "Bảo lưu"
                           ? "bg-amber-50 text-amber-600 border-amber-200"
                           : "bg-slate-50 text-slate-450 border-slate-200/60 hover:bg-amber-50 hover:text-amber-600"
@@ -311,13 +312,15 @@ const handleToggleSuspension = async (studentId: string) => {
                     </button>
                     </>
                   )}
+                  </div>
+                  <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => handleRemoveLearner(s.id)}
                     disabled={removingStudentId !== null || isAdding}
                     title={`Bỏ khỏi ${copy.entityNameLower}`}
                     className={cn(
-                      "p-1.5 rounded-lg transition-all border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+                      "flex h-9 w-9 items-center justify-center rounded-lg border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                       darkMode
                         ? "bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border-transparent"
                         : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border-slate-200/60"
@@ -327,6 +330,7 @@ const handleToggleSuspension = async (studentId: string) => {
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <X className="h-3.5 w-3.5" />}
                   </button>
+                  </div>
                 </div>
               ))}
             </div>

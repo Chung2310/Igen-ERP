@@ -155,7 +155,8 @@ export interface ExamSession {
   batchId?: string;
   batchCode?: string;
   maxScore?: number;
-  results?: Array<{ studentId: string; score?: number; note?: string; gradedAt?: string }>;
+  passScore?: number;
+  results?: Array<{ studentId: string; score?: number; outcome?: 'Đậu' | 'Trượt' | 'Chưa có'; note?: string; gradedAt?: string }>;
   studentCount: number;
   passCount: number;
   failCount: number;
@@ -315,6 +316,7 @@ export interface StudentQualityAssignment {
   dueDate: string | null;
   status: "not_submitted" | "submitted" | "graded" | "late";
   score: number | null;
+  maxScore: number;
   feedback: string;
   submittedAt: string | null;
 }

@@ -410,6 +410,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                     });
                     window.dispatchEvent(new Event("student-mutation"));
                     window.dispatchEvent(new Event("exam-mutation"));
+                    window.dispatchEvent(new Event("batch-mutation"));
                     toast.success("Cập nhật kết quả thi thành công.");
                   } catch (error) {
                     console.error("Error updating student result:", error);
@@ -421,6 +422,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                     await apiFetch(`/exams/${exam.id}/results`, { method: 'PATCH', body: JSON.stringify({ results }) });
                     window.dispatchEvent(new Event("student-mutation"));
                     window.dispatchEvent(new Event("exam-mutation"));
+                    window.dispatchEvent(new Event("batch-mutation"));
                     toast.success(`Đã lưu điểm cho ${results.length} học viên.`);
                   } catch (error) {
                     toast.error(getApiErrorMessage(error, "Không thể lưu điểm thi."));
@@ -581,7 +583,12 @@ function ExamProgressionModal({ exam, students, batches, onClose }: { exam: Exam
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [targetBatchId, setTargetBatchId] = React.useState("");
   const [saving, setSaving] = React.useState(false);
-  const resultFor = (studentId: string) => students.find((student) => student.id === studentId)?.exams?.find((entry) => entry.id === exam.id)?.result?.overall || "Chưa có";
+  const resultFor = (studentId: string) => {
+    const entry = exam.results?.find((result) => result.studentId === studentId);
+    if (entry?.outcome) return entry.outcome;
+    if (typeof entry?.score === "number") return entry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? "Đậu" : "Trượt";
+    return students.find((student) => student.id === studentId)?.exams?.find((entry) => entry.id === exam.id)?.result?.overall || "Chưa có";
+  };
   const passedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Đậu");
   const failedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Trượt");
   const passedStudents = students.filter((student) => passedIds.includes(student.id));

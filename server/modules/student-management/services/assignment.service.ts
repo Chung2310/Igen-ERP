@@ -13,6 +13,7 @@ import { logger } from "../config/logger";
 import { IAssignment, IAttachment } from "../interfaces/assignment.interface";
 import { companyEmailService } from "../../../service/company-email.service";
 import { CompanyModel } from "../../../model/company.model";
+import { StudentQualityThreshold } from "../models/student-quality-threshold.model";
 
 type OwnerScope = string | string[];
 
@@ -53,14 +54,19 @@ export class AssignmentService {
     data: any,
     instructorId: string,
     ownerId: string,
-    ownerScope: OwnerScope = ownerId
+    ownerScope: OwnerScope = ownerId,
+    smtpCompanyCode?: string
   ): Promise<IAssignment> {
     const batch = await Batch.findOne({ _id: data.batchId, ...buildOwnerQuery(ownerScope) });
     if (!batch) throw new Error("Lớp học không tồn tại.");
 
     const assignmentOwnerId = String(batch.ownerId);
+    const gradingSettings = await StudentQualityThreshold.findOne({ ownerId: assignmentOwnerId, ...(batch.branchId ? { branchId: batch.branchId } : {}) }).select("assignmentMaxScore").lean();
+    const maxScore = Number(data.maxScore || gradingSettings?.assignmentMaxScore || 10);
+    if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 10000) throw new Error("Thang điểm bài tập không hợp lệ.");
     const assignment = await AssignmentModel.create({
       ...data,
+      maxScore,
       courseId: batch.courseId,
       instructorId,
       ownerId: assignmentOwnerId,
@@ -68,7 +74,7 @@ export class AssignmentService {
     });
 
     // Bắt đầu gửi email bất đồng bộ cho học viên trong lớp
-    void this.notifyStudents(assignment, batch, assignmentOwnerId);
+    void this.notifyStudents(assignment, batch, assignmentOwnerId, smtpCompanyCode);
 
     return assignment;
   }
@@ -83,7 +89,12 @@ export class AssignmentService {
     return SubmissionModel.find({ assignmentId });
   }
 
-  static async notifyStudents(assignment: IAssignment, batch: any, ownerId: string): Promise<void> {
+  static async notifyStudents(
+    assignment: IAssignment,
+    batch: any,
+    ownerId: string,
+    smtpCompanyCode?: string
+  ): Promise<void> {
     try {
       const studentIds = batch.learnerIds || [];
       if (studentIds.length === 0) {
@@ -92,7 +103,14 @@ export class AssignmentService {
       }
 
       const students = await Student.find({ _id: { $in: studentIds } });
-      const smtpSettings = await resolveSmtpForOwner(ownerId);
+      const smtpSettings = smtpCompanyCode
+        ? await companyEmailService.resolveLegacySettings(smtpCompanyCode)
+        : await resolveSmtpForOwner(ownerId);
+      if (!smtpSettings) {
+        logger.warn(
+          `[Assignment Email] Thiếu SMTP cho lớp ${batch.code}; companyCode=${smtpCompanyCode || "không xác định"}, ownerId=${ownerId}.`
+        );
+      }
       const rawAppUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
       const appUrl = rawAppUrl.trim().replace(/\/+$/, "");
 
@@ -273,6 +291,8 @@ export class AssignmentService {
     if (String(assignment.instructorId) !== instructorId) {
       throw new Error("Bạn không có quyền chấm điểm bài tập này.");
     }
+    const maxScore = assignment.maxScore || 10;
+    if (Number(data.score) < 0 || Number(data.score) > maxScore) throw new Error(`Điểm không được lớn hơn thang điểm ${maxScore}.`);
 
     const submission = await SubmissionModel.findOneAndUpdate(
       { assignmentId, studentId },

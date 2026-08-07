@@ -275,6 +275,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         toast.success(`Đã cập nhật kết quả: ${res.successCount} thành công, ${res.failedCount} thất bại.`);
         window.dispatchEvent(new Event("student-mutation"));
         window.dispatchEvent(new Event("exam-mutation"));
+        window.dispatchEvent(new Event("batch-mutation"));
         setIsPreviewOpen(false);
       } else {
         toast.error(res.error || "Nhập kết quả thi từ Excel thất bại.");
@@ -301,11 +302,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{exam.name}</h3>
             <div className="flex flex-wrap items-center gap-1">
-              {exam.rank && (
+            {exam.rank && (
                 <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-700 rounded text-[9px] font-bold border border-cyan-100">
                   {exam.rank}
                 </span>
               )}
+              <span className="px-1.5 py-0.2 rounded border border-amber-100 bg-amber-50 text-[9px] font-bold text-amber-700">
+                Đạt ≥ {exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)}/{exam.maxScore || 100}
+              </span>
             </div>
           </div>
           
@@ -460,8 +464,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                     <tbody>
                       {assignedStudents.map((student) => {
                         const examEntry = student.exams?.find(e => e.id === exam.id);
-                        const resultText = examEntry?.result?.overall || 'Chưa có';
                         const scoreEntry = exam.results?.find((item) => item.studentId === student.id);
+                        const resultText = scoreEntry?.outcome || (typeof scoreEntry?.score === "number" ? (scoreEntry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? 'Đậu' : 'Trượt') : examEntry?.result?.overall || 'Chưa có');
                         
                         return (
                           <tr key={student.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
@@ -489,7 +493,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                               </span>
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
-                              {exam.batchId ? <input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /> :
+                              {exam.batchId ? <div className="flex flex-col items-center gap-1"><input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /><span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold", resultText === 'Đậu' ? "bg-emerald-50 text-emerald-700" : resultText === 'Trượt' ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-500")}>{resultText}</span></div> :
                               <select
                                 value={resultText}
                                 onChange={async (e) => {

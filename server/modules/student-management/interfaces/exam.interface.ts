@@ -15,7 +15,9 @@ export interface IExam extends Document {
   /** Lớp học sở hữu kỳ thi; để trống chỉ cho dữ liệu kỳ thi cũ. */
   batchId?: string;
   maxScore?: number;
-  results?: Array<{ studentId: string; score?: number; note?: string; gradedBy?: string; gradedAt?: Date }>;
+  /** Điểm tối thiểu để được tính là đạt. */
+  passScore?: number;
+  results?: Array<{ studentId: string; score?: number; outcome?: "Đậu" | "Trượt" | "Chưa có"; note?: string; gradedBy?: string; gradedAt?: Date }>;
   studentCount: number;
   passCount: number;
   failCount: number;

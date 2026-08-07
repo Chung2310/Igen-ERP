@@ -40,6 +40,6 @@ export async function gradeStudentAssignment(batchId: string, studentId: string,
   return apiFetch(`/student-quality/batches/${batchId}/students/${studentId}/assignments/${assignmentId}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
-export type StudentQualityThresholds = { riskAttendance: number; riskAssignment: number; riskMiniTest: number; watchAttendance: number; watchAssignment: number; watchMiniTest: number; };
+export type StudentQualityThresholds = { riskAttendance: number; riskAssignment: number; riskMiniTest: number; watchAttendance: number; watchAssignment: number; watchMiniTest: number; assignmentMaxScore: number; };
 export async function getStudentQualityThresholds() { const response = await apiFetch<{ success: boolean; data: StudentQualityThresholds }>("/student-quality/settings/thresholds"); return response.data; }
 export async function updateStudentQualityThresholds(data: StudentQualityThresholds) { return apiFetch("/student-quality/settings/thresholds", { method: "PATCH", body: JSON.stringify(data) }); }

@@ -7,7 +7,10 @@ function tenantError(message: string, status: number): Error {
 }
 
 async function canonicalTenant(target: string): Promise<string | null> {
-  const clauses: Record<string, unknown>[] = [{ companyCode: target }];
+  // Bộ chọn trung tâm ở giao diện dùng `uid`, trong khi các màn hình khác có
+  // thể gửi companyCode hoặc Mongo _id. Chuẩn hoá cả ba về companyCode trước
+  // khi kiểm tra tenant để không báo nhầm lỗi 403.
+  const clauses: Record<string, unknown>[] = [{ companyCode: target }, { uid: target }];
   if (/^[0-9a-fA-F]{24}$/.test(target)) clauses.push({ _id: target });
   const owner = await User.findOne({ $or: clauses }).select("companyCode");
   return owner ? (owner.companyCode || target) : null;

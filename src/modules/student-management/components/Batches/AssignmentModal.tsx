@@ -13,7 +13,7 @@ import {
   Award,
   Users,
   Clock,
-  ExternalLink,
+  Eye,
   ChevronRight
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -23,6 +23,8 @@ import { toast } from "../../../../pages/Toast";
 import { socketService } from "../../../../services/socketService";
 import { Batch, Student } from "../../types";
 import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
+import { getStudentQualityThresholds } from "../../api/studentQuality.api";
+import { FilePreviewModal } from "../../../../components/resource/FilePreviewModal";
 
 interface IAttachment {
   name: string;
@@ -30,11 +32,18 @@ interface IAttachment {
   type: string;
 }
 
+const DUE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  const minute = index % 2 ? "30" : "00";
+  return `${hour}:${minute}`;
+});
+
 interface IAssignment {
   _id: string;
   title: string;
   description?: string;
   dueDate?: string;
+  maxScore: number;
   attachments?: IAttachment[];
   createdAt: string;
 }
@@ -76,6 +85,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const [submissions, setSubmissions] = useState<ISubmission[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [manualAttachments, setManualAttachments] = useState<IAttachment[]>([]);
+  const [previewFile, setPreviewFile] = useState<IAttachment | null>(null);
   const [manualNotes, setManualNotes] = useState("");
   const [manualSubmitting, setManualSubmitting] = useState(false);
 
@@ -84,6 +94,8 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newMaxScore, setNewMaxScore] = useState("10");
+  const [isTimeMenuOpen, setIsTimeMenuOpen] = useState(false);
   const dueDatePart = newDueDate.slice(0, 10);
   const dueTimePart = newDueDate.slice(11, 16) || "20:00";
   const updateDueDate = (date: string, time = dueTimePart) => setNewDueDate(date ? `${date}T${time || "20:00"}` : "");
@@ -105,6 +117,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   useEffect(() => {
     if (isOpen) {
       fetchAssignments();
+      void getStudentQualityThresholds().then((settings) => setNewMaxScore(String(settings.assignmentMaxScore || 10))).catch(() => undefined);
     }
   }, [isOpen, batch.id]);
 
@@ -222,6 +235,11 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
       return;
     }
 
+    if (newDueDate && !/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(newDueDate)) {
+      toast.error("Giờ hạn nộp cần theo định dạng HH:MM, ví dụ 14:30.");
+      return;
+    }
+
     setCreating(true);
     try {
       const res = await apiFetch("/assignments", {
@@ -230,6 +248,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           title: newTitle,
           description: newDescription,
           dueDate: newDueDate || undefined,
+          maxScore: Number(newMaxScore),
           attachments: newAttachments,
           batchId: batch.id,
         }),
@@ -241,6 +260,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         setNewTitle("");
         setNewDescription("");
         setNewDueDate("");
+        setNewMaxScore("10");
         setNewAttachments([]);
         fetchAssignments();
       }
@@ -255,8 +275,9 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     e.preventDefault();
     if (!selectedAssignment || !selectedStudentId) return;
 
-    if (score === "" || isNaN(Number(score)) || Number(score) < 0 || Number(score) > 10) {
-      toast.error("Điểm số phải là số trong khoảng 0 đến 10.");
+    const maxScore = selectedAssignment.maxScore || 10;
+    if (score === "" || isNaN(Number(score)) || Number(score) < 0 || Number(score) > maxScore) {
+      toast.error(`Điểm số phải là số trong khoảng 0 đến ${maxScore}.`);
       return;
     }
 
@@ -384,11 +405,16 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                   </div>
                   <div>
                     <div className="mb-1 flex items-center justify-between"><label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Hạn nộp</label><button type="button" onClick={() => setNewDueDate("")} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600">Không đặt hạn</button></div>
-                    <div className="grid grid-cols-[1fr_104px] gap-2">
+                    <div className="grid grid-cols-[1fr_92px] gap-2">
                       <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="date" value={dueDatePart} onChange={(e) => updateDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500" /></label>
-                      <label className="relative"><Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="time" value={dueTimePart} disabled={!dueDatePart} onChange={(e) => updateDueDate(dueDatePart, e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300" /></label>
+                      <label className="relative"><Clock className="pointer-events-none absolute left-2 top-3 h-3.5 w-3.5 text-slate-400" /><input type="text" value={dueTimePart} disabled={!dueDatePart} inputMode="numeric" placeholder="20:00" onFocus={() => setIsTimeMenuOpen(true)} onBlur={() => window.setTimeout(() => setIsTimeMenuOpen(false), 150)} onChange={(e) => { updateDueDate(dueDatePart, e.target.value); setIsTimeMenuOpen(true); }} className="w-full rounded-xl border border-slate-200 py-2 pl-7 pr-1 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300" aria-label="Giờ hạn nộp" title="Nhập giờ theo định dạng HH:MM" />{isTimeMenuOpen && dueDatePart ? <div className="absolute right-0 top-[calc(100%+4px)] z-30 max-h-44 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">{DUE_TIME_OPTIONS.filter((time) => time.includes(dueTimePart)).map((time) => <button key={time} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { updateDueDate(dueDatePart, time); setIsTimeMenuOpen(false); }} className="block w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">{time}</button>)}</div> : null}</label>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => setQuickDueDate(0)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Hôm nay · 20:00</button><button type="button" onClick={() => setQuickDueDate(1)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Ngày mai · 20:00</button></div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400">Thang điểm bài tập</label>
+                    <input type="number" min="1" max="10000" required value={newMaxScore} onChange={(event) => setNewMaxScore(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none transition focus:border-indigo-500" />
+                    <p className="mt-1 text-[10px] text-slate-400">Mặc định theo cấu hình trung tâm; có thể đổi riêng cho bài này.</p>
                   </div>
 
                   {/* Attachment creation */}
@@ -413,7 +439,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       <div className="mt-2 space-y-1.5">
                         {newAttachments.map((f, i) => (
                           <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 p-2 rounded-lg text-[10px] min-w-0">
-                            <span className="truncate font-semibold text-slate-650 max-w-[150px]">{f.name}</span>
+                            <button type="button" onClick={() => setPreviewFile(f)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-650 hover:text-indigo-600" title="Xem trước"><span className="truncate max-w-[150px]">{f.name}</span><Eye className="h-3 w-3 shrink-0" /></button>
                             <button
                               type="button"
                               onClick={() => setNewAttachments(prev => prev.filter((_, idx) => idx !== i))}
@@ -518,7 +544,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       <div className="shrink-0 flex items-center">
                         {isGraded ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-50 text-[9px] font-black text-emerald-600 border border-emerald-100">
-                            {sub.score}/10
+                            {sub.score}/{selectedAssignment?.maxScore || 10}
                           </span>
                         ) : isSubmitted ? (
                           <span className={cn(
@@ -569,6 +595,19 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       <p className="text-slate-450 text-[10px]">{studentInfo?.email}</p>
                     </div>
 
+                    {selectedAssignment.attachments?.length ? (
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
+                        <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-indigo-500">Tài liệu bài tập</span>
+                        <div className="space-y-1">
+                          {selectedAssignment.attachments.map((file, index) => (
+                            <button key={`${file.url}-${index}`} type="button" onClick={() => setPreviewFile(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] font-semibold text-slate-700 hover:text-indigo-600">
+                              <span className="truncate">{file.name}</span><span className="flex shrink-0 items-center gap-1 text-indigo-500"><Eye className="h-3 w-3" />Xem</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* Submission attachments */}
                     {sub ? (
                       <div className="space-y-4">
@@ -580,16 +619,15 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                           <div className="space-y-1.5">
                             {sub.attachments && sub.attachments.length > 0 ? (
                               sub.attachments.map((file, idx) => (
-                                <a
+                                <button
+                                  type="button"
                                   key={idx}
-                                  href={file.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                  onClick={() => setPreviewFile(file)}
                                   className="flex items-center justify-between p-2.5 rounded-xl border border-slate-150 hover:border-indigo-500 hover:text-indigo-650 bg-white transition group"
                                 >
                                   <span className="truncate font-semibold max-w-[190px]">{file.name}</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0 text-slate-400 group-hover:text-indigo-600 transition" />
-                                </a>
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-indigo-600"><Eye className="h-3 w-3" />Xem</span>
+                                </button>
                               ))
                             ) : (
                               <p className="text-[11px] text-slate-400 italic">Không có file đính kèm.</p>
@@ -609,16 +647,16 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                             <Award className="h-3.5 w-3.5" /> Chấm điểm & Nhận xét
                           </div>
                           <div>
-                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1">Điểm số (Thang điểm 10) *</label>
+                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1">Điểm số (Thang điểm {selectedAssignment.maxScore || 10}) *</label>
                             <input
                               type="number"
                               step="0.1"
                               min="0"
-                              max="10"
+                              max={selectedAssignment.maxScore || 10}
                               required
                               value={score}
                               onChange={(e) => setScore(e.target.value)}
-                              placeholder="Ví dụ: 8.5"
+                              placeholder={`Ví dụ: ${Math.min(8.5, selectedAssignment.maxScore || 10)}`}
                               className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition"
                             />
                           </div>
@@ -649,7 +687,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                         <input ref={manualFileInputRef} type="file" onChange={handleManualProofUpload} className="hidden" />
                         <p className="mb-3 text-[11px] text-slate-500">Nhân viên có thể tải bài làm nhận trực tiếp và lưu hộ học viên.</p>
                         <button type="button" onClick={() => manualFileInputRef.current?.click()} disabled={uploading} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-300 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">{uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}Tải minh chứng bài làm</button>
-                        {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><span className="truncate font-semibold text-slate-600">{file.name}</span><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}
+                        {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><button type="button" onClick={() => setPreviewFile(file)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-600 hover:text-indigo-600" title="Xem trước"><span className="truncate">{file.name}</span><Eye className="h-3 w-3 shrink-0" /></button><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}
                         <textarea value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} rows={2} placeholder="Ghi chú khi nhận bài (không bắt buộc)" className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500" />
                         <button type="button" onClick={() => void handleStaffSubmit()} disabled={manualSubmitting || !manualAttachments.length} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white disabled:opacity-50">{manualSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Lưu bài nộp hộ</button>
                         <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng {assignmentName}.</p>
@@ -664,6 +702,23 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         </div>
 
       </div>
+      <FilePreviewModal
+        item={previewFile ? {
+          _id: `assignment-proof-${previewFile.url}`,
+          companyCode: "",
+          section: "local",
+          type: "file",
+          name: previewFile.name,
+          parentId: null,
+          fileUrl: previewFile.url,
+          mimeType: previewFile.type,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } : null}
+        onClose={() => setPreviewFile(null)}
+        hideDownload
+        hideShare
+      />
     </div>
   );
 }
