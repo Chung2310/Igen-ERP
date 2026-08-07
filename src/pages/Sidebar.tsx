@@ -138,15 +138,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     });
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
-    // Phân tích & báo cáo doanh thu: chỉ admin. branch_owner và các vai trò khác
-    // dùng trang Tổng quan chung. Đây mới chỉ là tầng ẩn ở UI — tầng chặn thật
-    // nằm ở requireRole trong server/router/analytics.router.ts.
-    menuItems.push({
-      label: "PHÂN TÍCH & BÁO CÁO",
-      title: "Phân tích & Báo cáo",
-      icon: BarChart3,
-      group: "system",
-    });
+    // Phân tích & báo cáo doanh thu: đã bị loại bỏ theo yêu cầu của user
     menuItems.push({
       label: "QUẢN TRỊ USER",
       title: "Quản lý người dùng",
