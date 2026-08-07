@@ -75,11 +75,11 @@ export default function AuthPage() {
     <div className="min-h-dvh w-full flex items-center justify-center bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] p-4 py-8 overflow-y-auto relative font-sans">
       
       {/* Background Decorative Blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-400/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-400/10 blur-[120px] pointer-events-none" />
+      <div className="pointer-events-none absolute left-[-20%] top-[-8%] h-[360px] w-[360px] rounded-full bg-blue-400/10 blur-[90px] sm:left-[-10%] sm:top-[-10%] sm:h-[600px] sm:w-[600px] sm:blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-8%] right-[-20%] h-[360px] w-[360px] rounded-full bg-indigo-400/10 blur-[90px] sm:bottom-[-10%] sm:right-[-10%] sm:h-[600px] sm:w-[600px] sm:blur-[120px]" />
 
       {/* Main Login Card Container */}
-      <div className="w-full max-w-md bg-white/85 backdrop-blur-2xl border border-slate-100/90 rounded-3xl p-9 shadow-[0_22px_70px_rgba(15,23,42,0.06)] z-10 flex flex-col gap-6 text-left animate-fade-in-up">
+      <div className="z-10 flex w-full max-w-md flex-col gap-5 rounded-3xl border border-slate-100/90 bg-white/85 p-5 text-left shadow-[0_22px_70px_rgba(15,23,42,0.06)] backdrop-blur-2xl animate-fade-in-up sm:gap-6 sm:p-9">
         <div>
           <a
             href="/"

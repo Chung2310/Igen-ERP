@@ -293,7 +293,7 @@ export default function QRCheckinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col justify-between items-center text-slate-800 px-4 py-8 font-sans">
+    <div className="flex min-h-screen flex-col items-center justify-between bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 px-3 py-5 font-sans text-slate-800 sm:px-4 sm:py-8">
       {/* Header / Brand */}
       <div className="w-full max-w-md text-center py-4">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-400/20 mb-3">
@@ -303,7 +303,7 @@ export default function QRCheckinPage() {
       </div>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-6 md:p-8 border border-white/20 transition-all flex-1 flex flex-col justify-center my-auto min-h-[400px]">
+      <div className="my-auto flex min-h-[360px] w-full max-w-md flex-1 flex-col justify-center rounded-3xl border border-white/20 bg-white/95 p-4 shadow-2xl backdrop-blur-md transition-all sm:min-h-[400px] sm:p-6 md:p-8">
         {sessionError ? (
           // Màn hình lỗi phiên điểm danh
           <div className="text-center space-y-6">
