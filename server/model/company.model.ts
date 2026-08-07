@@ -2,25 +2,6 @@ import { Schema, model } from "mongoose";
 import { ICompany } from "../interface/company.interface";
 import { MODULE_KEYS } from "../config/module-keys";
 
-const CompanyHeyGenConfigSchema = new Schema(
-  {
-    apiKey: { type: String, default: "" },
-    defaultAvatarId: { type: String, default: "" },
-    defaultVoiceId: { type: String, default: "" },
-    isConnected: { type: Boolean, default: false },
-    connectedAt: { type: Date, default: null },
-    lastSyncAt: { type: Date, default: null },
-  },
-  { _id: false }
-);
-
-const CompanyElevenLabsConfigSchema = new Schema(
-  {
-    apiKey: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
 const CompanyDriveOAuthSchema = new Schema(
   {
     refreshToken: { type: String, default: "" },
@@ -84,8 +65,6 @@ const CompanySchema = new Schema<ICompany>({
   ownerEmail: { type: String, required: true },
   businessType: { type: String, enum: ["education", "labor", "service", "recruitment", "general"], default: "general", index: true },
   enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...MODULE_KEYS] },
-  heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
-  elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },
   driveFolderLink: { type: String, default: "" },
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },

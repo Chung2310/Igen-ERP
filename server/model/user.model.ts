@@ -88,13 +88,6 @@ const HeyGenAccessSchema = new Schema(
   { _id: false }
 );
 
-const ElevenLabsAccessSchema = new Schema(
-  {
-    apiKey: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
 const WorkHoursConfigSchema = new Schema(
   {
     useCustom: { type: Boolean, default: false },
@@ -136,7 +129,6 @@ const UserSchema = new Schema<IUser>({
   googleDriveIntegration: { type: GoogleDriveIntegrationSchema, default: null },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
   heygenAccess: { type: HeyGenAccessSchema, default: () => ({}) },
-  elevenlabsAccess: { type: ElevenLabsAccessSchema, default: () => ({}) },
   jobTitle: { type: String },
   qualification: { type: String, default: "", trim: true },
   department: { type: String },
