@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { CookieOptions } from "express";
 import { StudentDeviceModel } from "../models/student-device.model";
+import { logger } from "../config/logger";
 
 const TOKEN_VERSION = "v1";
 export const STUDENT_DEVICE_COOKIE_NAME = process.env.STUDENT_DEVICE_COOKIE_NAME || "igen_student_device";
@@ -56,24 +57,38 @@ export const studentDeviceClearCookieOptions: CookieOptions = {
 
 export class StudentDeviceService {
   static async resolve(rawCredential?: string) {
+    if (!rawCredential) {
+      logger.info("[StudentDevice] resolve skipped: no cookie");
+      return null;
+    }
     const parsed = parseStudentDeviceCredential(rawCredential);
-    if (!parsed) return null;
+    if (!parsed) {
+      logger.warn("[StudentDevice] resolve rejected: malformed cookie");
+      return null;
+    }
 
     const device = await StudentDeviceModel.findOne({
       credentialId: parsed.credentialId,
       status: "active",
       expiresAt: { $gt: new Date() },
     });
-    if (!device) return null;
+    if (!device) {
+      logger.warn(`[StudentDevice] resolve rejected: credentialId=${parsed.credentialId} not found/expired/revoked`);
+      return null;
+    }
 
     const expected = Buffer.from(device.credentialHash, "hex");
     const actual = Buffer.from(credentialHash(parsed.secret), "hex");
-    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return null;
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+      logger.warn(`[StudentDevice] resolve rejected: credentialId=${parsed.credentialId} hash mismatch`);
+      return null;
+    }
 
     const nextExpiry = expiresAtFromNow();
     device.lastUsedAt = new Date();
     device.expiresAt = nextExpiry;
     await device.save();
+    logger.info(`[StudentDevice] resolve success: credentialId=${device.credentialId}, ownerId=${device.ownerId}, studentId=${device.studentId}, expiresAt=${nextExpiry.toISOString()}`);
     return device;
   }
 
@@ -90,6 +105,7 @@ export class StudentDeviceService {
     const now = new Date();
     const expiresAt = expiresAtFromNow(now.getTime());
 
+    logger.info(`[StudentDevice] issue started: credentialId=${credentialId}, ownerId=${input.ownerId}, studentId=${input.studentId}, batchId=${input.batchId}`);
     await StudentDeviceModel.create({
       credentialId,
       credentialHash: credentialHash(secret),
@@ -104,21 +120,32 @@ export class StudentDeviceService {
       fingerprintHash: metadataHash(input.fingerprint),
     });
 
+    logger.info(`[StudentDevice] issue success: credentialId=${credentialId}, expiresAt=${expiresAt.toISOString()}`);
     return { credential: `${TOKEN_VERSION}.${credentialId}.${secret}`, expiresAt };
   }
 
   static async revoke(rawCredential?: string, reason = "student_requested") {
     const parsed = parseStudentDeviceCredential(rawCredential);
-    if (!parsed) return false;
+    if (!parsed) {
+      logger.info("[StudentDevice] revoke skipped: no valid cookie");
+      return false;
+    }
     const device = await StudentDeviceModel.findOne({ credentialId: parsed.credentialId, status: "active" });
-    if (!device) return false;
+    if (!device) {
+      logger.warn(`[StudentDevice] revoke skipped: credentialId=${parsed.credentialId} not found/active`);
+      return false;
+    }
     const expected = Buffer.from(device.credentialHash, "hex");
     const actual = Buffer.from(credentialHash(parsed.secret), "hex");
-    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return false;
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+      logger.warn(`[StudentDevice] revoke rejected: credentialId=${parsed.credentialId} hash mismatch`);
+      return false;
+    }
     device.status = "revoked";
     device.revokedAt = new Date();
     device.revokedReason = reason;
     await device.save();
+    logger.info(`[StudentDevice] revoke success: credentialId=${device.credentialId}, reason=${reason}`);
     return true;
   }
 }
