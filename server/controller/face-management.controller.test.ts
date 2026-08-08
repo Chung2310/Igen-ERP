@@ -31,7 +31,8 @@ function dependencies() {
       }),
       deleteAsset: vi.fn().mockResolvedValue(undefined),
     },
-    audit: { create: vi.fn().mockResolvedValue({}) },
+    audit: { create: vi.fn().mockResolvedValue({ _id: "audit-1" }) },
+    indexer: { registerUploadedResource: vi.fn().mockResolvedValue({}) },
   };
 }
 
@@ -46,6 +47,13 @@ describe("face management controller", () => {
     expect(deps.audit.create).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: "ACME", action: "register", outcome: "success",
       evidence: expect.objectContaining({ publicId: "face/evidence/1" }),
+    }));
+    expect(deps.indexer.registerUploadedResource).toHaveBeenCalledWith(expect.objectContaining({
+      sourceType: "hr.employee",
+      entityId: "507f1f77bcf86cd799439011",
+      sourceRecordId: "audit-1",
+      storagePublicId: "face/evidence/1",
+      storageAccess: "authenticated",
     }));
   });
 

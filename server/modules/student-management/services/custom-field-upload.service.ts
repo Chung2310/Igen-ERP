@@ -1,13 +1,15 @@
 import type { IFieldDefinition, ModuleKey } from "../interfaces/custom-field.interface";
 import { cloudinary } from "../config/cloudinary";
 import { CustomFieldDefinition } from "../models/custom-field-definition.model";
+import { managedUploadService } from "../../../service/managed-upload.service";
 
 type UploadDefinitionRepository = {
   findOne(filter: Record<string, unknown>): PromiseLike<IFieldDefinition | null>;
 };
 
-type UploadedAsset = { secure_url: string; public_id: string };
+type UploadedAsset = { secure_url: string; public_id: string; bytes: number; resource_type: string };
 type UploadAsset = (buffer: Buffer, folder: string) => Promise<UploadedAsset>;
+type PendingAssetRecorder = Pick<typeof managedUploadService, "recordPendingStoredAsset">;
 
 export type CustomFieldUploadMetadata = {
   url: string;
@@ -15,6 +17,7 @@ export type CustomFieldUploadMetadata = {
   mimeType: string;
   size: number;
   reference: string;
+  uploadToken?: string;
 };
 
 function startsWith(buffer: Buffer, bytes: number[]): boolean {
@@ -44,7 +47,7 @@ function mimeMatches(allowed: string, actual: string): boolean {
 const defaultUploadAsset: UploadAsset = (buffer, folder) => new Promise((resolve, reject) => {
   const stream = cloudinary.uploader.upload_stream({ folder, resource_type: "auto" }, (error, result) => {
     if (error || !result) reject(error ?? new Error("Không nhận được kết quả tải tệp."));
-    else resolve({ secure_url: result.secure_url, public_id: result.public_id });
+    else resolve({ secure_url: result.secure_url, public_id: result.public_id, bytes: result.bytes, resource_type: result.resource_type });
   });
   stream.end(buffer);
 });
@@ -53,9 +56,16 @@ export class CustomFieldUploadService {
   constructor(
     private readonly definitions: UploadDefinitionRepository = CustomFieldDefinition as unknown as UploadDefinitionRepository,
     private readonly uploadAsset: UploadAsset = defaultUploadAsset,
+    private readonly pendingAssets: PendingAssetRecorder = managedUploadService,
   ) {}
 
-  async upload(tenantId: string, moduleKey: ModuleKey, fieldId: string, file: Express.Multer.File): Promise<CustomFieldUploadMetadata> {
+  async upload(
+    tenantId: string,
+    moduleKey: ModuleKey,
+    fieldId: string,
+    file: Express.Multer.File,
+    actor?: { actorId: string; actorName?: string; branchId?: string },
+  ): Promise<CustomFieldUploadMetadata> {
     const field = await this.definitions.findOne({
       _id: fieldId, tenantId, moduleKey, isArchived: false, isVisible: true,
       type: { $in: ["file", "image", "multiImage"] as string[] },
@@ -82,12 +92,29 @@ export class CustomFieldUploadService {
 
     const safeTenant = tenantId.replace(/[^a-zA-Z0-9_-]/g, "_");
     const asset = await this.uploadAsset(file.buffer, `student_management/custom-fields/${safeTenant}/${moduleKey}/${field.key}`);
+    const fileName = Buffer.from(file.originalname, "latin1").toString("utf8");
+    const pending = actor ? await this.pendingAssets.recordPendingStoredAsset({
+      companyCode: tenantId,
+      branchId: actor.branchId,
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+    }, {
+      sourceType: "student.custom-field",
+      fileName,
+      fileUrl: asset.secure_url,
+      mimeType: actualMime,
+      size,
+      storageProvider: "cloudinary",
+      storagePublicId: asset.public_id,
+      storageResourceType: asset.resource_type,
+    }) : undefined;
     return {
       url: asset.secure_url,
-      fileName: Buffer.from(file.originalname, "latin1").toString("utf8"),
+      fileName,
       mimeType: actualMime,
       size,
       reference: asset.public_id,
+      ...(pending ? { uploadToken: pending.token } : {}),
     };
   }
 }

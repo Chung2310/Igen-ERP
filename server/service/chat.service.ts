@@ -1,5 +1,6 @@
 import { ChatRoomModel } from "../model/chat-room.model";
 import { ChatMessageModel } from "../model/chat-message.model";
+import { chatResourceIndexingService } from "./chat-resource-indexing.service";
 import { UserModel } from "../model/user.model";
 import { IChatRoom } from "../interface/chat-room.interface";
 import { IChatMessage, IChatAttachment } from "../interface/chat-message.interface";
@@ -530,6 +531,11 @@ Bạn cần tôi hỗ trợ thông tin gì hôm nay?`,
     });
 
     const savedMessage = await message.save();
+    await chatResourceIndexingService.finalizeMessage({
+      companyCode,
+      actorId: senderId,
+      actorName: sender.displayName || sender.email,
+    }, savedMessage, room);
 
     // Cập nhật lastMessage của phòng chat và trigger updatedAt
     room.lastMessage = savedMessage._id;

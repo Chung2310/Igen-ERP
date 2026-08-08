@@ -12,6 +12,7 @@ import type { FaceReasonCode } from "../../../service/insightface.service";
 import { companyEmailService } from "../../../service/company-email.service";
 import { assertWithinSessionQuota, syncAttendedSessions } from "./batch.service";
 import { StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
+import { attendanceResourceService } from "../../../service/attendance-resource.service";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 
@@ -237,7 +238,7 @@ export class StudentOnlineAttendanceService {
     await batch.save();
     await syncAttendedSessions(batch);
 
-    await StudentAttendanceAttemptModel.create({
+    const acceptedAttempt = await StudentAttendanceAttemptModel.create({
       ...attemptBase,
       outcome: "accepted",
       reasonCode: gateResult.reasonCode,
@@ -247,6 +248,17 @@ export class StudentOnlineAttendanceService {
       livenessScore: gateResult.verification.livenessScore ?? undefined,
       evidence: gateResult.evidence,
       attemptedAt: new Date(),
+    });
+
+    const owner = await AuthService.getUserProfile(String(batch.ownerId));
+    await attendanceResourceService.indexAcceptedStudentEvidence({
+      companyCode: owner?.companyCode || String(batch.ownerId),
+      branchId: batch.branchId,
+      studentId,
+      studentLabel: student.fullName,
+      recordId: String(acceptedAttempt._id),
+      mimeType,
+      evidence: gateResult.evidence,
     });
 
     return { success: true, studentName: student.fullName };

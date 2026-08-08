@@ -13,6 +13,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 
 const MOTORBIKE_LICENSE_PREFIXES = ['A1', 'A2', 'A3', 'A4'];
 const CAR_LICENSE_PREFIXES = ['B1', 'B2', 'C', 'D', 'E', 'F', 'FB', 'FC', 'FD', 'FE'];
@@ -185,6 +186,7 @@ export class ExamService {
     if (!Number.isFinite(passScore) || passScore < 0 || passScore > maxScore) throw new Error("Ngưỡng đạt phải nằm trong khoảng 0 đến thang điểm.");
     const exam = new Exam({ ...writeData, maxScore, passScore, ownerId, studentCount: batch.learnerIds.length, results: batch.learnerIds.map((studentId) => ({ studentId, outcome: "Chưa có" })) });
     const savedExam = await exam.save();
+    await customFieldResourceService.finalizeEntity(context, savedExam);
     logger.info(`[Exam] Exam created successfully: id=${savedExam._id}, name=${savedExam.name}`);
     return savedExam;
   }
@@ -313,6 +315,7 @@ export class ExamService {
       { new: true, runValidators: true }
     );
     if (updatedExam) {
+      await customFieldResourceService.finalizeEntity(targetContext, updatedExam);
       logger.info(`[Exam] Exam updated successfully: id=${id}`);
     } else throw new CustomFieldWriteConflictError();
     return updatedExam;

@@ -6,6 +6,10 @@ import { RecruitmentAttachmentModel } from "../model/recruitment-attachment.mode
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
 import { cloudinaryService } from "./cloudinary.service";
+import {
+  resourceIndexingService,
+  type RegisterUploadedResourceInput,
+} from "./resource-indexing.service";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const ALLOWED = new Map([
@@ -43,6 +47,49 @@ async function validateOwner(scope: RecruitmentScope, ownerType: RecruitmentAtta
     ? await RecruitmentJobModel.findOne({ _id: ownerId, ...scope, isDeleted: false }).lean()
     : await RecruitmentApplicantModel.findOne({ _id: ownerId, ...scope, isDeleted: false }).lean();
   if (!owner) throw new Error(`${ownerType === "job" ? "Job" : "Applicant"} not found`);
+  return owner as any;
+}
+
+const sourceTypeFor = (ownerType: RecruitmentAttachmentOwner) => `hr.recruitment.${ownerType}`;
+const sourceKeyFor = (ownerType: RecruitmentAttachmentOwner, attachmentId: string, storageKey: string) =>
+  `${sourceTypeFor(ownerType)}:${attachmentId}:file:${storageKey}`;
+
+function ownerLabel(ownerType: RecruitmentAttachmentOwner, owner: any): string {
+  if (ownerType === "job") {
+    return [owner.code, owner.title].filter(Boolean).join(" - ") || String(owner._id);
+  }
+  return owner.fullName || owner.email || String(owner._id);
+}
+
+function buildResourceInput(
+  scope: RecruitmentScope,
+  actorId: string,
+  ownerType: RecruitmentAttachmentOwner,
+  ownerId: string,
+  owner: any,
+  attachment: any,
+): RegisterUploadedResourceInput {
+  const attachmentId = String(attachment._id);
+  return {
+    companyCode: scope.companyCode,
+    branchId: String(scope.branchId),
+    sourceType: sourceTypeFor(ownerType),
+    entityType: ownerType,
+    entityId: ownerId,
+    entityLabel: ownerLabel(ownerType, owner),
+    sourceRecordId: attachmentId,
+    sourceField: "file",
+    sourceKey: sourceKeyFor(ownerType, attachmentId, attachment.storageKey),
+    fileName: attachment.originalName,
+    fileUrl: "",
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    storageProvider: "cloudinary",
+    storagePublicId: attachment.storageKey,
+    storageResourceType: "raw",
+    storageAccess: "authenticated",
+    uploaderId: actorId,
+  };
 }
 
 export async function getOwnerAttachment(scope: RecruitmentScope, ownerType: RecruitmentAttachmentOwner, ownerId: string) {
@@ -59,14 +106,20 @@ export async function uploadOwnerAttachment(
   version?: number,
 ) {
   const { originalName, extension } = validateFile(file);
-  await validateOwner(scope, ownerType, ownerId);
+  const owner = await validateOwner(scope, ownerType, ownerId);
   const existing: any = await RecruitmentAttachmentModel.findOne({ ...scope, ownerType, ownerId, isDeleted: false }).lean();
   const storageName = `${randomUUID()}${extension}`;
   const folder = `igen_erp/recruitment/${scope.companyCode.toLowerCase()}/${scope.branchId}/${ownerType}/${ownerId}`;
   const asset = await cloudinaryService.uploadPrivateRaw(file.buffer, folder, storageName);
   const metadata = { originalName, storageName, mimeType: file.mimetype, size: file.size, storageKey: asset.publicId, uploadedBy: actorId };
   if (!existing) {
-    try { return await RecruitmentAttachmentModel.create({ ...scope, ownerType, ownerId, ...metadata }); }
+    try {
+      const created = await RecruitmentAttachmentModel.create({ ...scope, ownerType, ownerId, ...metadata });
+      await resourceIndexingService.registerUploadedResource(
+        buildResourceInput(scope, actorId, ownerType, ownerId, owner, created),
+      );
+      return created;
+    }
     catch (error) { await cloudinaryService.deleteRawAsset(asset.publicId).catch(() => undefined); throw error; }
   }
   const expectedVersion = version ?? Number(existing.version || 0);
@@ -79,9 +132,11 @@ export async function uploadOwnerAttachment(
     await cloudinaryService.deleteRawAsset(asset.publicId).catch(() => undefined);
     throw new Error("Attachment version conflict");
   }
-  await cloudinaryService.deleteRawAsset(existing.storageKey).catch((error) => {
-    console.warn("[recruitment-attachment] Old private asset cleanup failed:", (error as Error).message);
-  });
+  await resourceIndexingService.replaceSourceResource(
+    scope.companyCode,
+    sourceKeyFor(ownerType, String(existing._id), existing.storageKey),
+    buildResourceInput(scope, actorId, ownerType, ownerId, owner, updated),
+  );
   return updated;
 }
 
@@ -101,12 +156,17 @@ export async function listApplicantAttachments(scope: RecruitmentScope, applican
 }
 
 export async function deleteApplicantAttachment(scope: RecruitmentScope, attachmentId: string, actorId: string) {
+  const deletedAt = new Date();
   const attachment: any = await RecruitmentAttachmentModel.findOneAndUpdate(
     { _id: attachmentId, ...scope, isDeleted: false },
-    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: actorId }, $inc: { version: 1 } },
+    { $set: { isDeleted: true, deletedAt, deletedBy: actorId }, $inc: { version: 1 } },
     { new: true },
   );
   if (!attachment) throw new Error("Attachment not found");
-  await cloudinaryService.deleteRawAsset(attachment.storageKey);
+  await resourceIndexingService.trashSourceResource(
+    scope.companyCode,
+    sourceKeyFor(attachment.ownerType, String(attachment._id), attachment.storageKey),
+    deletedAt,
+  );
   return attachment;
 }

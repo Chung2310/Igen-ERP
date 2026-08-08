@@ -17,6 +17,8 @@ const fileMetadata = {
   signedImageMimeType: Joi.string().allow("").max(200),
   signedImageSize: Joi.number().min(0),
   signedImageResourceId: Joi.string().hex().length(24).allow("", null),
+  contractFileUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
+  signedImageUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
 };
 const contractBody = Joi.object({
   contractType: Joi.string().trim().max(100).required(),
@@ -56,6 +58,8 @@ const extensionBody = Joi.object({
   signedImageMimeType: Joi.string().allow("").max(200),
   signedImageSize: Joi.number().min(0),
   signedImageResourceId: Joi.string().hex().length(24).allow("", null),
+  extensionFileUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
+  extensionSignedImageUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
 });
 
 hrContractRouter.use(requireAuth as any, requireModule("hr"));

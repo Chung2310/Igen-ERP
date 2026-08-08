@@ -231,12 +231,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const uploadAvatar = async (file: File): Promise<string> => {
     if (!userProfile) throw new Error("Chưa đăng nhập");
     try {
-      const downloadURL = await authService.uploadAvatar(userProfile.uid, file);
-      const updatedProfile = await authService.updateProfile({ photoURL: downloadURL });
+      const uploaded = await authService.uploadAvatar(userProfile.uid, file);
+      const updatedProfile = await authService.updateProfile({ photoURL: uploaded.url, photoUploadToken: uploaded.uploadToken });
       setUser(updatedProfile as any);
       setUserProfile(updatedProfile);
       toast.success("Tải lên ảnh đại diện thành công!");
-      return downloadURL;
+      return uploaded.url;
     } catch (error: any) {
       console.error("Lỗi upload avatar:", error);
       toast.error(error.message || "Tải lên ảnh đại diện thất bại.");

@@ -4,6 +4,7 @@ import type { ResourceItem } from "../../types";
 import { toast } from "../../pages/Toast";
 import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
 import { TextPreview } from "./TextPreview";
+import { SystemManagedResourceBadge, isSystemManagedResource } from "./SystemManagedResource";
 
 // Lazy: tách thư viện xlsx / docx-preview thành chunk riêng, chỉ tải khi xem trước đúng loại file
 const ExcelPreview = React.lazy(() => import("./ExcelPreview").then((m) => ({ default: m.ExcelPreview })));
@@ -157,8 +158,11 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               <p className="truncate text-[11px] text-slate-400">
                 {(item.mimeType || "Tệp").replace(/^application\//, "")} · {formatBytes(item.size)}
               </p>
+              <div className="mt-1.5">
+                <SystemManagedResourceBadge item={item} showSourceLink compact />
+              </div>
             </div>
-            {!hideShare && (
+            {!hideShare && !isSystemManagedResource(item) && (
               <button
                 onClick={handleShare}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition"

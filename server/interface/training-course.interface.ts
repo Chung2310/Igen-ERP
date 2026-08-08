@@ -6,6 +6,7 @@ export interface ILesson {
   type: "youtube" | "document" | "other" | "text" | "video";
   content?: string;
   fileName?: string;
+  uploadToken?: string;
 }
 
 export interface IQuizQuestion {

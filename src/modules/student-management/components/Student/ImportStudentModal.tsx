@@ -10,6 +10,7 @@ import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBatches } from '../../hooks/useBatches';
+import { authService } from '../../../../services/authService';
 
 interface ImportStudentModalProps {
   isOpen: boolean;
@@ -72,6 +73,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{
     success: boolean;
     importedCount: number;
@@ -149,6 +151,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     }
 
     setFileName(file.name);
+    setSourceFile(file);
     setErrorMsg(null);
     setImportResult(null);
 
@@ -260,9 +263,15 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       const centerQuery = user?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all'
         ? `?centerId=${encodeURIComponent(selectedCenter)}`
         : '';
+      if (!sourceFile) throw new Error('Không tìm thấy file nguồn để nhập.');
+      const uploaded = await authService.uploadManagedFile(
+        sourceFile,
+        'import.student',
+        user?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all' ? selectedCenter : undefined,
+      );
       const res = await apiFetch(`/students/bulk${centerQuery}`, {
         method: 'POST',
-        body: JSON.stringify({ students: validData }),
+        body: JSON.stringify({ students: validData, importUpload: { uploadToken: uploaded.uploadToken, fileName: sourceFile.name } }),
       });
 
       if (res.success) {
@@ -294,6 +303,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const handleReset = () => {
     setValidationRows([]);
     setFileName('');
+    setSourceFile(null);
     setErrorMsg(null);
     setImportResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';

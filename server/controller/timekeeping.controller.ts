@@ -5,6 +5,22 @@ import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { UserModel } from "../model/user.model";
 import { getDayContext, toVietnamDate } from "../service/company-work-calendar.service";
 import { resolveShift, shiftWindow, vietnamWorkDate } from "../service/work-shift.service";
+import { attendanceResourceService } from "../service/attendance-resource.service";
+
+async function indexAttendanceEvidence(req: AuthenticatedRequest, log: any, action: "check-in" | "check-out") {
+  const evidence = (req as any).attendanceEvidence;
+  if (!evidence) return;
+  await attendanceResourceService.indexAcceptedEvidence({
+    companyCode: req.user?.companyCode || "SYSTEM",
+    branchId: req.user?.branchId,
+    userId: req.user?.id || "",
+    userLabel: req.user?.email || req.user?.id || "Nhân viên",
+    recordId: String(log._id),
+    action,
+    mimeType: (req as any).file?.mimetype || "image/jpeg",
+    evidence,
+  });
+}
 
 // Haversine formula to compute distance in meters
 function calculateHaversineDistance(
@@ -230,6 +246,7 @@ export const timekeepingController = {
       }
 
       await log.save();
+      await indexAttendanceEvidence(req, log, "check-in");
 
       return res.status(200).json({
         status: "success",
@@ -326,6 +343,7 @@ export const timekeepingController = {
       }
 
       await log.save();
+      await indexAttendanceEvidence(req, log, "check-out");
 
       return res.status(200).json({
         status: "success",

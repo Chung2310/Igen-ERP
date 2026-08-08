@@ -13,6 +13,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 
 interface PartnerFilters {
   page?: number | string;
@@ -207,6 +208,7 @@ export class PartnerService {
 
     const partner = new Partner({ ...writeData, ownerId, branchId });
     const saved = await partner.save();
+    await customFieldResourceService.finalizeEntity(context, saved);
     logger.info(`[Partner] Partner created: id=${saved._id}`);
     
     const enriched = await enrichPartners([saved], branchId);
@@ -404,6 +406,7 @@ export class PartnerService {
       { new: true, runValidators: true },
     );
     if (!saved) throw new CustomFieldWriteConflictError();
+    await customFieldResourceService.finalizeEntity(targetContext, saved);
     
     const enriched = await enrichPartners([saved], branchId);
     return enriched[0];

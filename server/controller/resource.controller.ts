@@ -1,7 +1,13 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, getEffectivePermissions } from "../middleware/auth";
 import { resourceService, resourceDriveService } from "../service/resource.service";
+import {
+  assertResourceReadable,
+  filterReadableResourceItems,
+  type ResourceAccessContext,
+} from "../service/resource-access.service";
+import { resourceFileAccessService } from "../service/resource-file-access.service";
 
 interface ZipFileItem {
   name: string;
@@ -9,7 +15,7 @@ interface ZipFileItem {
   relativePath: string;
 }
 
-async function getAllLocalFiles(companyCode: string, folderId: string, relativePath: string = ""): Promise<ZipFileItem[]> {
+async function getAllLocalFiles(companyCode: string, folderId: string, access: ResourceAccessContext, relativePath: string = ""): Promise<ZipFileItem[]> {
   const { ResourceItemModel } = await import("../model/resource-item.model");
   const items = await ResourceItemModel.find({
     companyCode,
@@ -18,9 +24,10 @@ async function getAllLocalFiles(companyCode: string, folderId: string, relativeP
   }).lean();
 
   let files: ZipFileItem[] = [];
-  for (const item of items) {
+  for (const rawItem of filterReadableResourceItems(items, access)) {
+    const item = resourceFileAccessService.withReadableFileUrl(rawItem);
     if (item.type === "folder") {
-      const childFiles = await getAllLocalFiles(companyCode, String(item._id), `${relativePath}${item.name}/`);
+      const childFiles = await getAllLocalFiles(companyCode, String(item._id), access, `${relativePath}${item.name}/`);
       files = files.concat(childFiles);
     } else if (item.type === "file" && item.fileUrl) {
       files.push({
@@ -65,6 +72,19 @@ function getCreator(req: AuthenticatedRequest) {
   return { uid: req.user?.id, name: req.user?.email };
 }
 
+async function getResourceAccessContext(req: AuthenticatedRequest): Promise<ResourceAccessContext> {
+  if (!req.user) throw new Error("Người dùng chưa xác thực.");
+  const companyCode = getCompanyCode(req);
+  const permissions = await getEffectivePermissions(req.user.id, req.user.role, req.user.companyCode);
+  return {
+    companyCode,
+    branchId: req.user.branchId,
+    userId: req.user.id,
+    role: req.user.role,
+    permissions,
+  };
+}
+
 /**
  * Trả lỗi dạng JSON để client đọc được thông báo (app không có error middleware JSON,
  * nếu dùng next(error) sẽ rơi vào handler mặc định trả HTML 500).
@@ -92,8 +112,12 @@ export const resourceController = {
         targetOwnerId = req.query.ownerId as string;
       }
 
-      const items = await resourceService.list(getCompanyCode(req), section, parentId, targetOwnerId, roomId, req.user?.id);
-      return res.json({ success: true, items });
+      const access = await getResourceAccessContext(req);
+      const items = await resourceService.list(getCompanyCode(req), section, parentId, targetOwnerId, roomId, req.user?.id, access);
+      return res.json({
+        success: true,
+        items: items.map((item: any) => resourceFileAccessService.withReadableFileUrl(item)),
+      });
     } catch (error) {
       return sendError(res, error, "list");
     }
@@ -107,7 +131,8 @@ export const resourceController = {
       if (!item) {
         return res.status(404).json({ success: false, message: "Không tìm thấy tài nguyên." });
       }
-      return res.json({ success: true, item });
+      assertResourceReadable(item, await getResourceAccessContext(req));
+      return res.json({ success: true, item: resourceFileAccessService.withReadableFileUrl(item) });
     } catch (error) {
       return sendError(res, error, "getDetail");
     }
@@ -123,7 +148,7 @@ export const resourceController = {
         targetOwnerId = req.query.ownerId as string;
       }
 
-      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id, targetOwnerId, roomId);
+      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id, targetOwnerId, roomId, await getResourceAccessContext(req));
       return res.json({ success: true, trail });
     } catch (error) {
       return sendError(res, error, "breadcrumb");
@@ -255,7 +280,7 @@ export const resourceController = {
         targetOwnerId = ownerId;
       }
 
-      const items = await resourceService.listTrash(companyCode, targetOwnerId, userRole, roomId);
+      const items = await resourceService.listTrash(companyCode, targetOwnerId, userRole, roomId, await getResourceAccessContext(req));
       return res.json({ success: true, items });
     } catch (error) {
       return sendError(res, error, "trashList");
@@ -471,9 +496,11 @@ export const resourceController = {
         if (!folder || folder.type !== "folder") {
           return res.status(404).json({ success: false, message: "Không tìm thấy thư mục." });
         }
+        const access = await getResourceAccessContext(req);
+        assertResourceReadable(folder, access);
         zipFilename = `${folder.name}.zip`;
 
-        const localFiles = await getAllLocalFiles(companyCode, id);
+        const localFiles = await getAllLocalFiles(companyCode, id, access);
         for (const file of localFiles) {
           try {
             const fetchRes = await fetch(file.url);

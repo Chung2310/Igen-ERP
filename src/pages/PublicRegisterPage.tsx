@@ -7,6 +7,7 @@ interface IUploadedFile {
   name: string;
   url: string;
   type: string;
+  uploadToken?: string;
 }
 
 /** Đúng shape mà GET /students/public-register-config trả về. */

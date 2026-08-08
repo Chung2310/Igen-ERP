@@ -88,7 +88,7 @@ const formatBytes = (bytes?: number) => {
 };
 
 /** Đẩy file lên Cloudinary qua media relay sẵn có của server, trả về URL công khai */
-const uploadToMediaRelay = async (file: File | Blob, fileName: string): Promise<string> => {
+const uploadToMediaRelay = async (file: File | Blob, fileName: string): Promise<{ url: string; uploadToken: string }> => {
   const base64Data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
@@ -101,15 +101,22 @@ const uploadToMediaRelay = async (file: File | Blob, fileName: string): Promise<
       "Content-Type": "application/json",
       Authorization: `Bearer ${getAccessToken()}`,
     },
-    body: JSON.stringify({ file: base64Data, folder: "igen_erp/kanban_tasks" }),
+    body: JSON.stringify({
+      file: base64Data,
+      sourceType: "hr.kanban",
+      fileName,
+      mimeType: file.type,
+      size: file.size,
+    }),
   });
   if (!res.ok) {
     const j = await res.json().catch(() => null);
     throw new Error(j?.message || j?.error || `Tải "${fileName}" lên lưu trữ thất bại.`);
   }
-  const { url } = await res.json();
+  const { url, uploadToken } = await res.json();
   if (!url) throw new Error(`Tải "${fileName}" lên lưu trữ thất bại.`);
-  return url;
+  if (!uploadToken) throw new Error(`Upload token missing for "${fileName}".`);
+  return { url, uploadToken };
 };
 
 const ATTACHMENT_ICONS: Record<TaskAttachment["type"], React.ReactNode> = {
@@ -149,13 +156,14 @@ export function AttachmentEditor({
     try {
       const uploaded: TaskAttachment[] = [];
       for (const f of list) {
-        const url = await uploadToMediaRelay(f, f.name);
+        const { url, uploadToken } = await uploadToMediaRelay(f, f.name);
         uploaded.push({
           id: genAttachmentId(),
           name: f.name,
           url,
           type: detectAttachmentType(f.type),
           size: f.size,
+          uploadToken,
         });
       }
       onChange([...attachments, ...uploaded]);
@@ -184,10 +192,10 @@ export function AttachmentEditor({
         setUploading(true);
         try {
           const name = `Ghi âm ${new Date().toLocaleString("vi-VN")}.webm`;
-          const url = await uploadToMediaRelay(blob, name);
+          const { url, uploadToken } = await uploadToMediaRelay(blob, name);
           onChange([
             ...attachments,
-            { id: genAttachmentId(), name, url, type: "audio", size: blob.size },
+            { id: genAttachmentId(), name, url, type: "audio", size: blob.size, uploadToken },
           ]);
           toast.success("Đã đính kèm bản ghi âm.");
         } catch (err: any) {
@@ -218,8 +226,8 @@ export function AttachmentEditor({
         setUploading(true);
         try {
           const name = `Ghi hình ${new Date().toLocaleString("vi-VN")}.webm`;
-          const url = await uploadToMediaRelay(blob, name);
-          onChange([...attachments, { id: genAttachmentId(), name, url, type: "video", size: blob.size }]);
+          const { url, uploadToken } = await uploadToMediaRelay(blob, name);
+          onChange([...attachments, { id: genAttachmentId(), name, url, type: "video", size: blob.size, uploadToken }]);
           toast.success("Đã đính kèm bản ghi hình.");
         } catch (err: any) {
           toast.error(err?.message || "Không thể tải bản ghi hình lên.");

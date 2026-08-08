@@ -380,6 +380,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
               <ExamCard
                 key={exam.id}
                 exam={exam}
+                resourceCompanyCode={resolvedCenter}
                 assignedStudents={exam.batchId ? students.filter((student) => batches.find((batch) => batch.id === exam.batchId)?.learnerIds.includes(student.id)) : students.filter(s => s.examId === exam.id)}
                 onDelete={() => setDeleteModalExam(exam)}
                 onEdit={() => handleEditExam(exam)}

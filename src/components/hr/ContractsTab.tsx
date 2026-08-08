@@ -112,11 +112,13 @@ const emptyContract = {
   contractFileMimeType: "",
   contractFileSize: 0,
   contractResourceId: "",
+  contractFileUploadToken: "",
   signedImageUrl: "",
   signedImageName: "",
   signedImageMimeType: "",
   signedImageSize: 0,
   signedImageResourceId: "",
+  signedImageUploadToken: "",
   note: "",
 };
 const emptyExtension = {
@@ -129,11 +131,13 @@ const emptyExtension = {
   extensionFileMimeType: "",
   extensionFileSize: 0,
   extensionResourceId: "",
+  extensionFileUploadToken: "",
   signedImageUrl: "",
   signedImageName: "",
   signedImageMimeType: "",
   signedImageSize: 0,
   signedImageResourceId: "",
+  extensionSignedImageUploadToken: "",
 };
 const input =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15";
@@ -238,11 +242,13 @@ export default function ContractsTab({
             contractFileMimeType: contract.contractFileMimeType || "",
             contractFileSize: contract.contractFileSize || 0,
             contractResourceId: contract.contractResourceId || "",
+            contractFileUploadToken: "",
             signedImageUrl: contract.signedImageUrl || "",
             signedImageName: contract.signedImageName || "",
             signedImageMimeType: contract.signedImageMimeType || "",
             signedImageSize: contract.signedImageSize || 0,
             signedImageResourceId: contract.signedImageResourceId || "",
+            signedImageUploadToken: "",
             note: contract.note || "",
           }
         : emptyContract,
@@ -340,7 +346,6 @@ export default function ContractsTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Tải tệp thất bại.");
-      const resource = data.data?.resource;
       setContractForm((current) =>
         target === "signed"
           ? {
@@ -349,7 +354,8 @@ export default function ContractsTab({
               signedImageName: file.name,
               signedImageMimeType: file.type,
               signedImageSize: file.size,
-              signedImageResourceId: resource?._id || "",
+              signedImageResourceId: "",
+              signedImageUploadToken: data.data.uploadToken,
             }
           : {
               ...current,
@@ -357,7 +363,8 @@ export default function ContractsTab({
               contractFileName: file.name,
               contractFileMimeType: file.type,
               contractFileSize: file.size,
-              contractResourceId: resource?._id || "",
+              contractResourceId: "",
+              contractFileUploadToken: data.data.uploadToken,
             },
       );
       toast.success(`Đã tải lên ${file.name}.`);
@@ -408,7 +415,6 @@ export default function ContractsTab({
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Tải tệp thất bại.");
-      const resource = result.data?.resource;
       setExtensionForm((current) =>
         isSigned
           ? {
@@ -417,7 +423,8 @@ export default function ContractsTab({
               signedImageName: file.name,
               signedImageMimeType: file.type,
               signedImageSize: file.size,
-              signedImageResourceId: resource?._id || "",
+              signedImageResourceId: "",
+              extensionSignedImageUploadToken: result.data.uploadToken,
             }
           : {
               ...current,
@@ -425,7 +432,8 @@ export default function ContractsTab({
               extensionFileName: file.name,
               extensionFileMimeType: file.type,
               extensionFileSize: file.size,
-              extensionResourceId: resource?._id || "",
+              extensionResourceId: "",
+              extensionFileUploadToken: result.data.uploadToken,
             },
       );
       toast.success(`Đã tải lên ${file.name}.`);

@@ -8,6 +8,9 @@ export type CustomFieldWriteContext = {
   tenantId: string;
   moduleKey: ModuleKey;
   actorRole?: string;
+  actorId?: string;
+  actorName?: string;
+  branchId?: string;
 };
 
 export type EntityWriteData = Record<string, unknown>;

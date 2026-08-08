@@ -17,6 +17,7 @@ const TaskAttachmentSchema = new Schema(
     url: { type: String, required: true },
     type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
     size: { type: Number },
+    uploadToken: { type: String },
   },
   { _id: false }
 );

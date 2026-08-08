@@ -5,6 +5,7 @@ export interface IChatAttachment {
   name: string;
   type: string;
   size?: number;
+  uploadToken?: string;
 }
 
 export interface IChatReaction {

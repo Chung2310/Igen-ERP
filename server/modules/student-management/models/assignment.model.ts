@@ -5,6 +5,7 @@ const attachmentSchema = new Schema({
   name: { type: String, required: true },
   url: { type: String, required: true },
   type: { type: String, required: true },
+  uploadToken: { type: String },
   uploadedAt: { type: Date, default: Date.now }
 }, { _id: false });
 

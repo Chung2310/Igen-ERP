@@ -5,6 +5,7 @@ export interface ChatAttachment {
   name: string;
   type: string;
   size?: number;
+  uploadToken?: string;
 }
 
 export interface LinkPreview {
@@ -308,7 +309,10 @@ export const internalChatService = {
       },
       body: JSON.stringify({
         file: base64Data,
-        folder: "igen_erp/chat_attachments",
+        sourceType: "chat.attachment",
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
       }),
     });
 
@@ -323,6 +327,7 @@ export const internalChatService = {
       name: file.name,
       type: file.type,
       size: file.size,
+      uploadToken: data.uploadToken,
     };
   },
 

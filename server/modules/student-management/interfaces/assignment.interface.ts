@@ -5,6 +5,7 @@ export interface IAttachment {
   url: string;
   type: string;
   uploadedAt?: Date;
+  uploadToken?: string;
 }
 
 export interface IAssignment extends Document {

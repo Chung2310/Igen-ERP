@@ -13,6 +13,9 @@ import { clearModuleCache } from "../middleware/require-module";
 import { notifyCompanyModulesChanged } from "../service/company-module-notify";
 import { PERMISSION_CODES } from "../config/permission-catalog";
 import { getEffectivePermissions } from "../middleware/auth";
+import { profileResourceService } from "../service/profile-resource.service";
+import { employeeDocumentResourceService } from "../service/employee-document-resource.service";
+import { resourceIndexingService } from "../service/resource-indexing.service";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -346,6 +349,14 @@ export const authController = {
       }
 
       const userObj = updatedUser.toObject();
+      if (req.body.photoUploadToken) {
+        await profileResourceService.finalizeAvatar({
+          companyCode: userObj.companyCode,
+          branchId: userObj.branchId,
+          actorId: userId,
+          actorName: userObj.displayName || userObj.email,
+        }, userObj, req.body.photoUploadToken);
+      }
       const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
         ? await CompanyModel.findOne({ code: userObj.companyCode }).select("driveOAuth driveFolderId").lean()
         : null;
@@ -448,6 +459,14 @@ export const authController = {
       const newUser = await authService.registerUserForCompany(req.body, callerCompanyCode, callerRole);
       const userObj = newUser.toObject();
       delete userObj.password;
+      if (req.body.jobDescriptionUploadToken) {
+        await employeeDocumentResourceService.finalizeJobDescription({
+          companyCode: userObj.companyCode,
+          branchId: userObj.branchId,
+          actorId: req.user!.id,
+          actorName: req.user!.email,
+        }, userObj, req.body.jobDescriptionUploadToken);
+      }
 
       return res.status(201).json({
         status: "success",
@@ -645,6 +664,14 @@ export const authController = {
       const callerCompanyCode = req.user?.companyCode;
 
       const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole!);
+      if (updatedUser && req.body.jobDescriptionUploadToken) {
+        await employeeDocumentResourceService.finalizeJobDescription({
+          companyCode: updatedUser.companyCode,
+          branchId: updatedUser.branchId,
+          actorId: req.user!.id,
+          actorName: req.user!.email,
+        }, updatedUser, req.body.jobDescriptionUploadToken);
+      }
 
       return res.status(200).json({
         status: "success",
@@ -668,8 +695,15 @@ export const authController = {
       const { id } = req.params;
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
+      const target = await UserModel.findById(id).select("companyCode").lean();
 
       await authService.deleteUser(id, callerCompanyCode!, callerRole!);
+      if (target?.companyCode) {
+        await Promise.all([
+          resourceIndexingService.trashSourceRecordResources(target.companyCode, "hr.employee", id),
+          resourceIndexingService.trashSourceRecordResources(target.companyCode, "hr.org-chart", id),
+        ]);
+      }
 
       return res.status(200).json({
         status: "success",
