@@ -953,7 +953,7 @@ export default function InventoryTab() {
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
-        <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
         <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
           {[
             { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
@@ -979,7 +979,7 @@ export default function InventoryTab() {
             );
           })}
         </div>
-        <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">

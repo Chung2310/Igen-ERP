@@ -291,7 +291,7 @@ export default function WorkerWorkspace() {
         className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
         id="worker_sub_tabs_bar"
       >
-        <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
         <div ref={subTabsRef} className="flex min-w-0 flex-1 select-none gap-1 overflow-x-auto">
           {tabs.map((tab) => {
             const active = activeTab === tab.value;
@@ -317,7 +317,7 @@ export default function WorkerWorkspace() {
             );
           })}
         </div>
-        <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         {userProfile?.role === "superadmin" && (
           <div className="flex shrink-0 items-center gap-2 pb-2 pr-2 sm:pb-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
