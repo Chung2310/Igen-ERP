@@ -2,7 +2,7 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "../lib/api";
+import { apiFetch } from "../../student-management/lib/api";
 import { useAuth } from "../../../context/AuthContext";
 import { CustomFieldDetails } from "./CustomFieldDetails";
 import { CustomFieldEditorModal } from "./CustomFieldEditorModal";
@@ -11,7 +11,7 @@ import { CustomFieldsSection } from "./CustomFieldsSection";
 import type { FieldDefinition } from "./types";
 import { useCustomFields } from "./useCustomFields";
 
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../student-management/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("./useCustomFields", () => ({ useCustomFields: vi.fn() }));
 

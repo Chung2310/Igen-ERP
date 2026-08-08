@@ -6,7 +6,6 @@ import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
-import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { LEAVE_REQUEST_KINDS, LeaveRequestKind } from "../interface/hr-leave.interface";
 import { listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";

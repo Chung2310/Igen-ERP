@@ -45,12 +45,16 @@ export function QRAttendanceModal({
   const [expiresAt, setExpiresAt] = useState<number>(0);
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number>(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 phút đếm ngược (giây)
-  const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(30); // 30s xoay QR
+  const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(0);
   /** Mã dùng chung (lao động): gửi được vào nhóm chat, sống hết phiên, không xoay */
   const [shared, setShared] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [closing, setClosing] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  // Token now normally lasts for the whole configured session. Keep the
+  // rotating-token UI only for older/alternate endpoints that return a
+  // shorter token explicitly.
+  const tokenIsStable = shared || !expiresAt || !tokenExpiresAt || tokenExpiresAt >= expiresAt - 1000;
 
   // Danh sách các ID học viên đã check-in thành công
   const [checkedInMap, setCheckedInMap] = useState<Map<string, { checkinAt: number }>>(new Map());
@@ -59,6 +63,8 @@ export function QRAttendanceModal({
 
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const newlyCheckedInTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionStartKeyRef = useRef<string | null>(null);
+  const sessionRequestIdRef = useRef(0);
 
   // Format ngày dd/mm/yyyy
   const formatDate = (d: string) => (d ? d.split("-").reverse().join("/") : "");
@@ -89,18 +95,31 @@ export function QRAttendanceModal({
 
   // 1. Tạo phiên điểm danh khi mở modal
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Allow a fresh session the next time the modal opens and invalidate
+      // any response that is still in flight from the previous one.
+      sessionStartKeyRef.current = null;
+      sessionRequestIdRef.current += 1;
+      return;
+    }
+
+    const requestKey = `${batch.id}:${date}`;
+    // React StrictMode re-runs effects in development. Do not create a
+    // second server session: creating another one closes the first token.
+    if (sessionStartKeyRef.current === requestKey) return;
+    sessionStartKeyRef.current = requestKey;
+    const requestId = ++sessionRequestIdRef.current;
 
     const startSession = async () => {
       try {
         setLoading(true);
         const res = await apiFetch("/qr-attendance/session", {
           method: "POST",
-          // Không ép thời lượng: server tự chọn theo loại hình (lao động 60
-          // phút cho mã dùng chung, lớp học 5 phút cho mã xoay).
+          // Thời lượng phiên do server cấu hình; token sống cùng thời lượng đó.
           body: JSON.stringify({ batchId: batch.id, date }),
         });
 
+        if (requestId !== sessionRequestIdRef.current) return;
         if (res.sessionId) {
           setSessionId(res.sessionId);
           setShared(res.shared === true);
@@ -119,14 +138,16 @@ export function QRAttendanceModal({
           onClose();
         }
       } catch (err: any) {
+        if (requestId !== sessionRequestIdRef.current) return;
+        sessionStartKeyRef.current = null;
         toast.error(err.message || "Đã xảy ra lỗi khi tạo phiên.");
         onClose();
       } finally {
-        setLoading(false);
+        if (requestId === sessionRequestIdRef.current) setLoading(false);
       }
     };
 
-    startSession();
+    void startSession();
   }, [isOpen, batch.id, date, onClose]);
 
   /** Tải ảnh QR về máy để gửi vào nhóm chat của dự án. */
@@ -252,7 +273,8 @@ export function QRAttendanceModal({
     };
   }, [sessionId]);
 
-  // 5. Timer đếm ngược (cho cả 5 phút và 30s xoay QR tự động)
+  // 5. Timer đếm ngược thời lượng phiên. Chỉ endpoint cũ trả token ngắn hơn
+  // mới cần cơ chế xoay dự phòng.
   useEffect(() => {
     if (loading || !sessionId || !expiresAt || !tokenExpiresAt) return;
 
@@ -274,9 +296,8 @@ export function QRAttendanceModal({
       const tokenRemainingSecs = Math.max(0, Math.floor((tokenExpiresAt - now) / 1000));
       setTokenTimeRemaining(tokenRemainingSecs);
 
-      // Mã dùng chung sống hết phiên nên không xoay; xoay sẽ làm ảnh đã gửi
-      // vào nhóm chat hết hiệu lực.
-      if (!shared && tokenRemainingSecs <= 1) {
+      // Token ổn định sống hết phiên; endpoint cũ trả token ngắn hơn mới xoay.
+      if (!tokenIsStable && tokenRemainingSecs <= 1) {
         rotateToken();
       }
     }, 1000);
@@ -286,7 +307,7 @@ export function QRAttendanceModal({
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken, shared]);
+  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken, tokenIsStable]);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);
@@ -366,9 +387,9 @@ export function QRAttendanceModal({
                       </div>
                     )}
 
-                    {/* Trạng thái mã: dùng chung thì cố định, lớp học thì xoay 30s */}
+                    {/* Token ổn định trong suốt thời lượng phiên */}
                     <div className="absolute bottom-3 left-0 right-0 text-center">
-                      {shared ? (
+                      {tokenIsStable ? (
                         <span className="bg-slate-900/90 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
                           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                           Còn hiệu lực {Math.floor(timeRemaining / 60)} phút
@@ -411,7 +432,7 @@ export function QRAttendanceModal({
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-500 space-y-2.5 max-w-[285px] w-full shadow-inner">
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">1</span>
-                    <p>{entityLabel.titleCase} mở camera điện thoại quét mã QR.</p>
+                    <p>{entityLabel.titleCase} mở camera điện thoại quét mã QR. iPhone dùng ứng dụng Camera, không dùng Code Scanner trong Control Center.</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="bg-brand-primary/10 text-brand-primary w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">2</span>

@@ -2,24 +2,24 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "../lib/api";
-import type { Partner, ResourceItem } from "../types";
-import { AddResourceModal } from "../pages/Resources/components/AddResourceModal";
-import { ResourceCard } from "../pages/Resources/components/ResourceCard";
-import { AddPartnerModal } from "../pages/Partners/components/AddPartnerModal";
-import { PartnerDetailModal } from "../pages/Partners/components/PartnerDetailModal";
+import { apiFetch } from "../../student-management/lib/api";
+import type { Partner, ResourceItem } from "../../student-management/types";
+import { AddResourceModal } from "../../student-management/pages/Resources/components/AddResourceModal";
+import { ResourceCard } from "../../student-management/pages/Resources/components/ResourceCard";
+import { AddPartnerModal } from "../../student-management/pages/Partners/components/AddPartnerModal";
+import { PartnerDetailModal } from "../../student-management/pages/Partners/components/PartnerDetailModal";
 
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../student-management/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin" } }) }));
-vi.mock("../hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
+vi.mock("../../student-management/hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
 vi.mock("../../../../pages/Toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock("../pages/Partners/components/AddPayoutModal", () => ({ AddPayoutModal: () => null }));
-vi.mock("../custom-fields/CustomFieldsSection", () => ({
+vi.mock("../../student-management/pages/Partners/components/AddPayoutModal", () => ({ AddPayoutModal: () => null }));
+vi.mock("./CustomFieldsSection", () => ({
   CustomFieldsSection: ({ moduleKey, values, onChange }: { moduleKey: string; values: Record<string, unknown>; onChange(values: Record<string, unknown>): void }) => (
     <input aria-label={`custom-${moduleKey}`} value={String(values.extra ?? "")} onChange={(event) => onChange({ ...values, extra: event.target.value })} />
   ),
 }));
-vi.mock("../custom-fields/CustomFieldDetails", () => ({
+vi.mock("./CustomFieldDetails", () => ({
   CustomFieldDetails: ({ moduleKey, values }: { moduleKey: string; values: Record<string, unknown> }) => <span>{`details-${moduleKey}-${String(values.extra ?? "")}`}</span>,
 }));
 

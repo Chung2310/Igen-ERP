@@ -3,7 +3,7 @@ import { CheckCircle, Clock, AlertTriangle, UserCheck, Trash2, Wrench, X, Pencil
 import { cn } from '../../../lib/utils';
 import { ResourceItem } from '../../../types';
 import { todayStr, getTypeColor } from '../utils';
-import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+import { CustomFieldDetails } from '../../../../shared/custom-fields/CustomFieldDetails';
 
 interface ResourceCardProps {
   key?: React.Key;

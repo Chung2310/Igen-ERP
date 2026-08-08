@@ -1,6 +1,16 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "node:crypto";
 import { WebhookService } from "../services/webhook.service";
 import { logger } from "../config/logger";
+
+/** So sánh không phụ thuộc thời gian để không rò rỉ độ dài/tiền tố secret qua thời gian phản hồi. */
+function secretMatches(received: unknown, expected: string): boolean {
+  if (typeof received !== "string" || received.length === 0) return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 export class WebhookController {
   static async handlePaymentWebhook(req: Request, res: Response, _next: NextFunction) {
@@ -9,12 +19,20 @@ export class WebhookController {
 
       // 1. Xác thực WEBHOOK_SECRET
       const authHeader = req.headers.authorization;
+      // Ưu tiên header. Query string vẫn được chấp nhận để không làm gãy cổng thanh toán
+      // đang cấu hình theo kiểu cũ, nhưng bị cảnh báo: secret nằm trên URL sẽ lọt vào
+      // access log của nginx và log request của app.
+      const secretFromQuery = typeof req.query.secret === "string" ? req.query.secret : undefined;
       const secret =
         req.headers["x-webhook-secret"] ||
-        req.query.secret ||
         (authHeader && /^(Bearer|Apikey)\s+/i.test(authHeader)
           ? authHeader.split(" ").slice(1).join(" ")
-          : authHeader);
+          : authHeader) ||
+        secretFromQuery;
+
+      if (!req.headers["x-webhook-secret"] && !authHeader && secretFromQuery) {
+        logger.warn("[WebhookController] Secret nhận qua query string (đã lỗi thời). Hãy chuyển cổng thanh toán sang header x-webhook-secret.");
+      }
 
       const expectedSecret = process.env.WEBHOOK_SECRET;
       
@@ -26,8 +44,9 @@ export class WebhookController {
         });
       }
 
-      if (secret !== expectedSecret) {
-        logger.warn(`[WebhookController] Unauthorized attempt. Received secret: "${secret}"`);
+      if (!secretMatches(secret, expectedSecret)) {
+        // Không log giá trị secret nhận được — log thường được gom về nơi lưu trữ chung.
+        logger.warn("[WebhookController] Unauthorized attempt: webhook secret không hợp lệ.");
         return res.status(401).json({
           success: false,
           error: "Xác thực webhook thất bại. Token bí mật không hợp lệ.",

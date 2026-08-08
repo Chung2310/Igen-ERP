@@ -291,33 +291,35 @@ export default function WorkerWorkspace() {
         className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
         id="worker_sub_tabs_bar"
       >
-        <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-        <div ref={subTabsRef} className="flex min-w-0 flex-1 select-none gap-1 overflow-x-auto">
-          {tabs.map((tab) => {
-            const active = activeTab === tab.value;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveTab(tab.value)}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
-                  active
-                    ? "bg-cyan-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-600"
-                }`}
-              >
-                <Icon
-                  className={`h-4 w-4 ${
-                    active ? "text-white" : "text-slate-400"
+        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
+          <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 flex-1 select-none gap-1 overflow-x-auto">
+            {tabs.map((tab) => {
+              const active = activeTab === tab.value;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setActiveTab(tab.value)}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                    active
+                      ? "bg-cyan-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-600"
                   }`}
-                />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+                >
+                  <Icon
+                    className={`h-4 w-4 ${
+                      active ? "text-white" : "text-slate-400"
+                    }`}
+                  />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
-        <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         {userProfile?.role === "superadmin" && (
           <div className="flex shrink-0 items-center gap-2 pb-2 pr-2 sm:pb-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">

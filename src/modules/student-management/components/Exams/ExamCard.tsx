@@ -12,7 +12,7 @@ import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './ExcelImportPreviewModal';
-import { CustomFieldDetails } from '../../custom-fields/CustomFieldDetails';
+import { CustomFieldDetails } from '../../../shared/custom-fields/CustomFieldDetails';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {

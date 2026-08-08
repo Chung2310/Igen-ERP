@@ -1,19 +1,9 @@
-import { Download, Send } from "lucide-react";
-
-const EXPORT_LABELS = {
-  detailed: "Bảng lương chi tiết",
-  insurance: "Bảo hiểm",
-  pit: "Thuế TNCN",
-  bank_transfer: "Chuyển khoản",
-} as const;
+import { Download } from "lucide-react";
 
 const ALLOWED_RUN_STATUSES = new Set(["calculated", "approved", "closed", "partially_paid", "paid"]);
 
 export function PayrollPayslipsPanel({
-  canManage,
-  publishedCount,
   runStatus,
-  onPublish,
   onExport,
 }: {
   canManage: boolean;

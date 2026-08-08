@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Loader2, Save, CreditCard, Undo2 } from "lucide-react";
+import { Loader2, Save, CreditCard, Undo2 } from "lucide-react";
 import { companyPaymentApi } from "../../services/companyPaymentService";
 import { toast } from "../../pages/Toast";
 import { SearchableSelect } from "../inventory/SearchableSelect";

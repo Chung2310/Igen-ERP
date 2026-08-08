@@ -28,7 +28,7 @@ import learningRoadmapRoutes from "./routes/learning-roadmap.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
-import { requireModule } from "../../middleware/require-module";
+import { requireModule, getModuleStateForCompany, resolveModuleAccess } from "../../middleware/require-module";
 import { requireAnyPermission, requirePermission } from "../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "./permissions";
 
@@ -41,6 +41,31 @@ export const resolveBusinessModuleKey = (originalUrl: string) =>
 const requireStudentModule: RequestHandler = (req, res, next) => {
   const guard = resolveBusinessModuleKey(req.originalUrl) === "worker" ? workerModuleGuard : studentModuleGuard;
   return guard(req, res, next);
+};
+/**
+ * Trường tùy chỉnh là hạ tầng dùng chung cho cả hai loại hình doanh nghiệp: tenant giáo dục
+ * cấu hình cho hồ sơ học viên, tenant lao động cấu hình cho hồ sơ lao động (popup "Thêm lao
+ * động" dùng lại chính component này). Đường dẫn nằm dưới tiền tố /student-management nên
+ * resolveBusinessModuleKey luôn trả về "student"; nếu gác bằng đúng module student thì tenant
+ * lao động — vốn bị filterModulesForBusinessType loại bỏ module student — luôn nhận 403.
+ * Vì vậy chỉ cần một trong hai phân hệ được bật là cho qua.
+ */
+const requireCustomFieldModule: RequestHandler = async (req, res, next) => {
+  try {
+    const user = (req as { user?: { role?: string; companyCode?: string } }).user;
+    if (user?.role === "superadmin") return next();
+    if (!user?.companyCode) {
+      return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
+    }
+    const state = await getModuleStateForCompany(user.companyCode);
+    const allowed = (["student", "worker"] as const).some((key) =>
+      resolveModuleAccess(user, key, state.modules, state.exists, state.businessType),
+    );
+    if (allowed) return next();
+    return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
+  } catch (error) {
+    return next(error);
+  }
 };
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
@@ -61,7 +86,7 @@ studentManagementRouter.use("/student-resources", authMiddleware as unknown as R
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requirePartnerRead, partnerRoutes);
-studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("custom-field"), customFieldRoutes);
+studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireCustomFieldModule, areaRead("custom-field"), customFieldRoutes);
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);

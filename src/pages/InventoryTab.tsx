@@ -953,33 +953,35 @@ export default function InventoryTab() {
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
-        <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-        <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
-          {[
-            { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
-            { id: "PHÂN LOẠI SẢN PHẨM", label: "Phân loại kho", icon: Tags },
-            { id: "NHẬP / XUẤT KHO", label: "Nhập / Xuất kho", icon: ArrowLeftRight },
-            { id: "DỰ BÁO AI", label: "Dự báo AI", icon: Sparkles },
-          ].map((tab) => {
-            const isActive = subTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSubTab(tab.id as InventorySubTabType)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
-                  isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
+          <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
+            {[
+              { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
+              { id: "PHÂN LOẠI SẢN PHẨM", label: "Phân loại kho", icon: Tags },
+              { id: "NHẬP / XUẤT KHO", label: "Nhập / Xuất kho", icon: ArrowLeftRight },
+              { id: "DỰ BÁO AI", label: "Dự báo AI", icon: Sparkles },
+            ].map((tab) => {
+              const isActive = subTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSubTab(tab.id as InventorySubTabType)}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
+                    isActive
+                      ? "bg-cyan-600 text-white font-bold shadow-xs"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
-        <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">

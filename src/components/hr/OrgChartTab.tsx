@@ -377,6 +377,7 @@ export default function OrgChartTab({
   const [addRole, setAddRole] = useState<"user" | "manager" | "branch_owner" | "admin">("user");
   const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
   const [addQualification, setAddQualification] = useState("");
+  const [addMonthlySalary, setAddMonthlySalary] = useState("");
   const [uploadingAddJobDescription, setUploadingAddJobDescription] = useState(false);
   const addJobDescriptionFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -827,7 +828,8 @@ export default function OrgChartTab({
         addJobDescriptionLink.trim() || undefined,
         activeBranchId || undefined,
         undefined,
-        addQualification.trim() || undefined
+        addQualification.trim() || undefined,
+        addMonthlySalary.trim() === "" ? undefined : Number(addMonthlySalary)
       );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
@@ -847,6 +849,7 @@ export default function OrgChartTab({
       setAddDepartment("Phòng Kỹ Thuật");
       setAddJobDescriptionLink("");
       setAddQualification("");
+      setAddMonthlySalary("");
 
       await fetchUsers();
       if (compCode) {
@@ -1137,7 +1140,7 @@ export default function OrgChartTab({
     };
 
     return (
-      <div className={`flex flex-col ${isMobile ? "items-start w-full" : "items-center"}`} key={node.id}>
+      <div className="flex flex-col items-center" key={node.id}>
         {/* Smart Employee Card */}
         <div
           draggable={isManager ? "true" : "false"}
@@ -1149,9 +1152,7 @@ export default function OrgChartTab({
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
             ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
             : "hover:border-indigo-300 hover:shadow-md"
-            } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"} ${
-              isMobile ? "w-full max-w-[280px]" : "w-56"
-            }`}
+            } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"} w-48 sm:w-56`}
           id={`org_node_${node.id}`}
         >
           {/* Online/Offline Dot */}
@@ -1208,43 +1209,31 @@ export default function OrgChartTab({
 
         {/* Children Render recursive block */}
         {children.length > 0 && !isCollapsed && (
-          isMobile ? (
-            <div className="flex flex-col items-start pl-8 border-l border-slate-200 mt-3 space-y-4 w-full">
-              {children.map((child) => (
-                <div key={child.id} className="flex flex-col items-start relative w-full">
-                  {/* Horizontal dash connector line */}
-                  <div className="absolute top-6 -left-8 w-8 h-0.5 bg-slate-200" />
-                  {renderBranch(child)}
-                </div>
-              ))}
+          <>
+            <div className="w-0.5 h-6 bg-slate-300" />
+            <div className="flex relative items-start">
+              {children.map((child, index) => {
+                const isFirst = index === 0;
+                const isLast = index === children.length - 1;
+                const hasSiblings = children.length > 1;
+
+                return (
+                  <div key={child.id} className="flex flex-col items-center px-4 relative">
+                    {/* Horizontal Connector bar */}
+                    {hasSiblings && (
+                      <div className="absolute top-0 left-0 right-0 h-0.5 flex">
+                        <div className={`w-1/2 ${isFirst ? '' : 'border-t-2 border-slate-300'}`} />
+                        <div className={`w-1/2 ${isLast ? '' : 'border-t-2 border-slate-300'}`} />
+                      </div>
+                    )}
+                    <div className="w-0.5 h-6 border-l-2 border-slate-300" />
+
+                    {renderBranch(child)}
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            <>
-              <div className="w-0.5 h-6 bg-slate-300" />
-              <div className="flex relative items-start">
-                {children.map((child, index) => {
-                  const isFirst = index === 0;
-                  const isLast = index === children.length - 1;
-                  const hasSiblings = children.length > 1;
-
-                  return (
-                    <div key={child.id} className="flex flex-col items-center px-4 relative">
-                      {/* Horizontal Connector bar */}
-                      {hasSiblings && (
-                        <div className="absolute top-0 left-0 right-0 h-0.5 flex">
-                          <div className={`w-1/2 ${isFirst ? '' : 'border-t-2 border-slate-300'}`} />
-                          <div className={`w-1/2 ${isLast ? '' : 'border-t-2 border-slate-300'}`} />
-                        </div>
-                      )}
-                      <div className="w-0.5 h-6 border-l-2 border-slate-300" />
-
-                      {renderBranch(child)}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )
+          </>
         )}
       </div>
     );
@@ -1286,27 +1275,23 @@ export default function OrgChartTab({
             <button type="button" onClick={() => setViewMode("list")} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sách</button>
           </div>
 
-          {!isMobile && (
-            <>
-              <div className="h-6 w-px bg-gray-200 mx-1" />
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="1.5"
-                  step="0.1"
-                  value={zoomLevel}
-                  onChange={(e) => {
-                    setZoomLevel(parseFloat(e.target.value));
-                    setIsFitted(false);
-                  }}
-                  className="w-20 accent-indigo-600 cursor-pointer"
-                />
-                <span className="w-10 text-right text-[10px] font-bold text-slate-650 mr-1">{Math.round(zoomLevel * 100)}%</span>
-              </div>
-            </>
-          )}
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-px bg-gray-200 mx-1" />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
+            <input
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.1"
+              value={zoomLevel}
+              onChange={(e) => {
+                setZoomLevel(parseFloat(e.target.value));
+                setIsFitted(false);
+              }}
+              className="w-20 accent-indigo-600 cursor-pointer"
+            />
+            <span className="w-10 text-right text-[10px] font-bold text-slate-655 mr-1">{Math.round(zoomLevel * 100)}%</span>
+          </div>
 
           {isManager && (
             <>
@@ -1440,32 +1425,28 @@ export default function OrgChartTab({
 
 
             {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={toggleFitScreen}
-                className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 border border-gray-200 text-slate-700 shadow-2xs hover:bg-white hover:text-indigo-655 active:scale-95 transition-all cursor-pointer"
-                title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
-              >
-                {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleFitScreen}
+              className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 border border-gray-200 text-slate-700 shadow-2xs hover:bg-white hover:text-indigo-655 active:scale-95 transition-all cursor-pointer"
+              title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
+            >
+              {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+            </button>
             <div
               ref={containerRef}
               onMouseDown={isMobile ? undefined : handleMouseDown}
               onMouseLeave={isMobile ? undefined : handleMouseLeaveOrUp}
               onMouseUp={isMobile ? undefined : handleMouseLeaveOrUp}
               onMouseMove={isMobile ? undefined : handleMouseMove}
-              className={`flex-1 overflow-auto flex items-start justify-start min-h-[440px] select-none overscroll-none ${
-                isMobile ? "p-3 w-full" : "p-12 cursor-grab"
+              className={`flex-1 overflow-auto flex items-start justify-start min-h-[440px] select-none overscroll-none p-4 sm:p-12 ${
+                isMobile ? "" : "cursor-grab"
               } ${isDragging && !isMobile ? "cursor-grabbing" : ""}`}
               id="interactive_org_chart"
             >
               <div
                 style={
-                  isMobile
-                    ? undefined
-                    : isSafari
+                  isSafari
                     ? {
                       transform: `scale(${zoomLevel})`,
                       transformOrigin: "top center",
@@ -1476,7 +1457,7 @@ export default function OrgChartTab({
                       transition: "zoom 0.2s ease-out",
                     }
                 }
-                className={isMobile ? "flex flex-col items-start w-full px-2" : "flex flex-col items-center mx-auto min-w-max"}
+                className="flex flex-col items-center mx-auto min-w-max"
               >
                 {employees.length === 0 ? (
                   <div className="text-center py-20 text-gray-400">
@@ -1925,7 +1906,7 @@ export default function OrgChartTab({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>

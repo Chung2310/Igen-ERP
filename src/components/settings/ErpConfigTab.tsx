@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Sliders, Bell, MapPin } from "lucide-react";
+import { Sliders, Bell, MapPin, Clock, Calendar, Users, GraduationCap } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
@@ -12,7 +12,7 @@ import WorkShiftsTab from "./WorkShiftsTab";
 
 export default function ErpConfigTab() {
   const { userProfile, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts" | "companyModules">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts" | "companyModules" >("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -146,38 +146,43 @@ export default function ErpConfigTab() {
           <button
             type="button"
             onClick={() => setActiveTab("workShifts")}
-            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
           >
+            <Clock className="h-3.5 w-3.5" />
             Ca làm việc
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("general")}
-            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === "general" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
+            <Sliders className="h-3.5 w-3.5" />
             Cấu hình chung
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("workCalendar")}
-            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
           >
+            <Calendar className="h-3.5 w-3.5" />
             Lịch nghỉ lễ
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("workHours")}
-            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === "workHours" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
+            <Users className="h-3.5 w-3.5" />
             Giờ làm việc nhân viên
           </button>
           {canManageCompanyModules && (
             <button type="button" onClick={() => setActiveTab("companyModules")}
-              className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <GraduationCap className="h-3.5 w-3.5" />
               Học viên & Email
             </button>
           )}

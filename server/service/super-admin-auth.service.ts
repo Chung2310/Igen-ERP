@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
 import mongoose from "mongoose";
-import { authenticator } from "otplib";
 import { UserModel } from "../model/user.model";
 import { SuperAdminChallengeModel } from "../model/super-admin-challenge.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";

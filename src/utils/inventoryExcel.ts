@@ -82,14 +82,6 @@ async function readWorkbook(file: File) {
   return XLSX.read(buffer, { type: "array" });
 }
 
-function readSheetRows(workbook: XLSX.WorkBook, sheetName: string) {
-  const worksheet = workbook.Sheets[sheetName];
-  if (!worksheet) {
-    throw new Error(`File Excel thieu sheet ${sheetName}.`);
-  }
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
-}
-
 export function exportProductsToExcel(products: ProductItem[]) {
   createWorkbookWithSingleSheet(
     "SanPham",

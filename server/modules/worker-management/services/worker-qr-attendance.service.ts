@@ -122,7 +122,7 @@ export const WorkerQrAttendanceService = {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       throw new WorkerQrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
     const { sid } = decoded;
@@ -140,12 +140,15 @@ export const WorkerQrAttendanceService = {
 
   async checkin(
     token: string,
-    phone: string,
+    phone: string | undefined,
     fingerprint: string,
     latitude?: number,
-    longitude?: number
+    longitude?: number,
+    rememberedWorkerId?: string
   ): Promise<{
     success: boolean;
+    workerId: string;
+    companyCode: string;
     workerName: string;
     distanceMeters?: number;
     kind: "check-in" | "check-out";
@@ -153,7 +156,7 @@ export const WorkerQrAttendanceService = {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       throw new WorkerQrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
 
@@ -163,21 +166,29 @@ export const WorkerQrAttendanceService = {
       throw new WorkerQrCheckinError("session_invalid", "Phiên điểm danh đã kết thúc hoặc không tồn tại.");
     }
 
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (fingerprint) {
+    const cleanPhone = (phone || "").replace(/\D/g, "");
+    if (fingerprint && cleanPhone) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== cleanPhone) {
-        throw new WorkerQrCheckinError("device_conflict", "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
+        throw new WorkerQrCheckinError("device_conflict", "Thiết bị này đã được dùng để chấm công cho lao động khác.");
       }
     }
 
-    const worker = await WorkerModel.findOne({
-      phone: cleanPhone,
-      companyCode: session.companyCode,
-      deletedAt: null,
-    });
+    const worker = await WorkerModel.findOne(
+      rememberedWorkerId
+        ? { _id: rememberedWorkerId, companyCode: session.companyCode, deletedAt: null }
+        : { phone: cleanPhone, companyCode: session.companyCode, deletedAt: null }
+    );
     if (!worker) {
       throw new WorkerQrCheckinError("worker_not_found", "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
+    }
+
+    const workerPhone = String(worker.phone || cleanPhone).replace(/\D/g, "");
+    if (fingerprint) {
+      const registeredPhone = session.deviceMap.get(fingerprint);
+      if (registeredPhone && registeredPhone !== workerPhone) {
+        throw new WorkerQrCheckinError("device_conflict", "Thiết bị này đã được dùng để chấm công cho lao động khác.");
+      }
     }
 
     const project = await WorkerProjectModel.findById(session.projectId);
@@ -231,25 +242,27 @@ export const WorkerQrAttendanceService = {
 
     session.checkins.set(workerIdStr, {
       workerId: workerIdStr,
-      phone: cleanPhone,
+      phone: workerPhone,
       fullName: worker.fullName,
       checkinAt: Date.now(),
     });
     if (fingerprint) {
-      session.deviceMap.set(fingerprint, cleanPhone);
+      session.deviceMap.set(fingerprint, workerPhone);
     }
 
     emitToCompany(session.companyCode, "worker-qr-attendance:checkin", {
       sessionId: sid,
       workerId: workerIdStr,
       fullName: worker.fullName,
-      phone: cleanPhone,
+      phone: workerPhone,
       checkinAt: Date.now(),
       kind: markResult.kind,
     });
 
     return {
       success: true,
+      workerId: workerIdStr,
+      companyCode: session.companyCode,
       workerName: worker.fullName,
       distanceMeters,
       kind: markResult.kind,

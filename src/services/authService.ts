@@ -368,7 +368,8 @@ export const authService = {
     jobDescriptionLink?: string,
     branchId?: string,
     birthDate?: string,
-    qualification?: string
+    qualification?: string,
+    monthlySalary?: number
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -393,6 +394,7 @@ export const authService = {
         branchId,
         birthDate,
         qualification,
+        monthlySalary,
       }),
     });
 

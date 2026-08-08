@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw } from "lucide-react";
+import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy, Share2 } from "lucide-react";
 
 const REASON_MESSAGES: Record<string, string> = {
   not_registered: "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin để đăng ký trước.",
@@ -63,6 +63,38 @@ function getDeviceFingerprint(): string {
   }
 }
 
+/**
+ * QR scanners embedded in messaging/camera apps often use an ephemeral
+ * webview. Cookies from that webview are not available when the user scans
+ * again, so device recognition cannot be reliable there. Ask the user to
+ * continue in a normal Safari/Chrome tab instead.
+ */
+function isEmbeddedWebView(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  const knownEmbeddedApp = /FBAN|FBAV|Instagram|Zalo|Line|MicroMessenger|Telegram|GSA|;\s*wv\)|\bwv\b/i.test(userAgent);
+  const iosWebView = /iPhone|iPad|iPod/i.test(userAgent)
+    && /AppleWebKit/i.test(userAgent)
+    && !/Safari|CriOS|FxiOS|EdgiOS/i.test(userAgent);
+  return knownEmbeddedApp || iosWebView;
+}
+
+function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+}
+
+function hasBrowserHandoffFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("browser") === "1") return true;
+  try {
+    return window.localStorage.getItem("igen_qr_browser_ready") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function QRCheckinPage() {
   const [token] = useState<string>(() => {
     const parts = window.location.pathname.split("/");
@@ -90,6 +122,29 @@ export default function QRCheckinPage() {
     if (!t || t === "checkin") return "Không tìm thấy mã QR điểm danh trong liên kết.";
     return null;
   });
+  const [embeddedWebView] = useState<boolean>(() => isEmbeddedWebView());
+  const [iosDevice] = useState<boolean>(() => isIosDevice());
+  const [browserReady] = useState<boolean>(() => hasBrowserHandoffFlag());
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const [browserHint, setBrowserHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!browserReady) return;
+    try {
+      window.localStorage.setItem("igen_qr_browser_ready", "1");
+    } catch {
+      // Some private/webview contexts reject localStorage; the URL flag still works.
+    }
+  }, [browserReady]);
+
+  useEffect(() => {
+    if (!iosDevice || !embeddedWebView || browserReady || loadingSession || sessionInfo?.device?.recognized === true) return;
+    // Keep the temporary scanner on the handoff screen, but prepare its URL so
+    // the native "Open in Safari" action lands directly on the check-in flow.
+    const browserUrl = new URL(window.location.href);
+    browserUrl.searchParams.set("browser", "1");
+    window.history.replaceState(window.history.state, "", browserUrl.toString());
+  }, [browserReady, embeddedWebView, iosDevice, loadingSession, sessionInfo?.device?.recognized]);
 
   const [phone, setPhone] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -297,6 +352,49 @@ export default function QRCheckinPage() {
     }
   };
 
+  const handleOpenInBrowser = async () => {
+    setBrowserHint(null);
+    const browserUrl = new URL(window.location.href);
+    browserUrl.searchParams.set("browser", "1");
+
+    if (iosDevice) {
+      if (!navigator.share) {
+        setBrowserHint("Hãy bấm biểu tượng Safari hoặc Chia sẻ ở thanh công cụ, sau đó chọn Mở trong Safari.");
+        return;
+      }
+      try {
+        await navigator.share({
+          title: "Điểm danh iGen ERP",
+          text: "Mở liên kết này bằng Safari để thiết bị được ghi nhớ.",
+          url: browserUrl.toString(),
+        });
+        setBrowserHint("Trong menu Chia sẻ, hãy chọn Mở trong Safari. Không tiếp tục trong cửa sổ quét tạm.");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setBrowserHint("Hãy bấm biểu tượng Safari hoặc Chia sẻ ở thanh công cụ, sau đó chọn Mở trong Safari.");
+      }
+      return;
+    }
+
+    const openedWindow = window.open(browserUrl.toString(), "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      setBrowserHint("Nếu trang chưa mở, hãy bấm Chia sẻ → Mở trong Safari/Chrome.");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const browserUrl = new URL(window.location.href);
+      browserUrl.searchParams.set("browser", "1");
+      await navigator.clipboard.writeText(browserUrl.toString());
+      setLinkCopied(true);
+      setBrowserHint("Đã sao chép link. Dán link vào Safari/Chrome để tiếp tục.");
+      window.setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      setBrowserHint("Không sao chép tự động được. Hãy dùng Chia sẻ → Mở trong Safari/Chrome.");
+    }
+  };
+
   if (loadingSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col justify-center items-center text-white px-4">
@@ -307,6 +405,10 @@ export default function QRCheckinPage() {
       </div>
     );
   }
+
+  // The supported iPhone path is scanning with the Camera app, which opens
+  // the normal browser. Only known embedded scanners need the handoff screen.
+  const requiresBrowser = !browserReady && embeddedWebView;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 px-3 py-5 font-sans text-slate-800 sm:px-4 sm:py-8">
@@ -336,6 +438,50 @@ export default function QRCheckinPage() {
             >
               Tải lại trang
             </button>
+          </div>
+        ) : requiresBrowser ? (
+          <div className="space-y-6 text-center">
+            <div className="w-20 h-20 bg-cyan-50 rounded-full flex items-center justify-center mx-auto text-cyan-600 shadow-inner">
+              <ExternalLink className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{iosDevice ? "Mở bằng Safari" : "Mở bằng Safari/Chrome"}</h2>
+              <p className="text-sm text-slate-500 font-medium">
+                {iosDevice
+                  ? "iPhone đang mở liên kết trong trình duyệt tạm. Hãy dùng biểu tượng Safari hoặc menu Chia sẻ và chọn Mở trong Safari để thiết bị được ghi nhớ."
+                  : "Bạn đang mở link trong trình quét tạm thời. Hãy mở link bằng trình duyệt chính để thiết bị được ghi nhớ cho những lần điểm danh sau."}
+              </p>
+              {sessionInfo && (
+                <p className="text-xs text-slate-400 font-semibold">Lớp {sessionInfo.batchCode} · Buổi {formatDate(sessionInfo.date)}</p>
+              )}
+            </div>
+            {iosDevice && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left text-xs font-semibold text-amber-800 space-y-1.5">
+                <p>1. Bấm nút Mở menu Chia sẻ bên dưới.</p>
+                <p>2. Chọn Mở trong Safari hoặc bấm biểu tượng Safari của trình quét.</p>
+                <p>3. Chỉ nhập SĐT lần đầu trong Safari; lần sau hệ thống tự nhận diện.</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleOpenInBrowser()}
+              className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {iosDevice ? <Share2 className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
+              {iosDevice ? "Mở menu Chia sẻ" : "Mở trong trình duyệt"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCopyLink()}
+              className="w-full h-11 bg-slate-100 text-slate-600 rounded-2xl text-xs font-bold active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {linkCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {linkCopied ? "Đã sao chép link" : "Sao chép link để mở bằng Safari/Chrome"}
+            </button>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Link vẫn dùng được trong suốt thời lượng phiên điểm danh; khi phiên đóng hoặc hết giờ, link sẽ hết hiệu lực.
+            </p>
+            {browserHint && <p className="text-xs text-amber-600 font-semibold">{browserHint}</p>}
           </div>
         ) : result ? (
           // Màn hình kết quả Check-in

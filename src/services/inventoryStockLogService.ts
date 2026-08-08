@@ -1,8 +1,6 @@
 import { getAccessToken } from "./authService";
 import { StockLog, StockLogItem, StockLogPurpose } from "../types";
 
-const COLLECTION_NAME = "inventoryStockLogs";
-
 export type StockLogCreateInput = {
   type: "nhập" | "xuất";
   purpose?: StockLogPurpose;

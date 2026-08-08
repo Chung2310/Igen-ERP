@@ -49,11 +49,27 @@ export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "chi-nhanh", value: "branches" },
 ];
 
+export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
+  { slug: "tong-quan", value: "TỔNG QUAN" },
+  { slug: "khoa-hoc", value: "KHÓA HỌC" },
+  { slug: "lop-hoc", value: "LỚP HỌC" },
+  { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" },
+  { slug: "hoc-vien", value: "HỌC VIÊN" },
+  { slug: "hoc-phi", value: "HỌC PHÍ" },
+  { slug: "lich-thi", value: "LỊCH THI" },
+  { slug: "phong-hoc", value: "PHÒNG HỌC" },
+  { slug: "tai-nguyen", value: "TÀI NGUYÊN" },
+  { slug: "thong-bao", value: "THÔNG BÁO" },
+  { slug: "bao-luu-hoc-lai", value: "BAO_LUU_HOC_LAI" },
+  { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" },
+];
+
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
   "KHO & SẢN PHẨM": INVENTORY_SUB_TAB_ROUTES,
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
   "TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
+  "QUẢN LÝ HỌC VIÊN": STUDENT_SUB_TAB_ROUTES,
   "CÀI ĐẶT": SETTINGS_SUB_TAB_ROUTES,
 };
 

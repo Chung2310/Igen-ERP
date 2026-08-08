@@ -14,6 +14,8 @@ const REASON_MESSAGES: Record<string, string> = {
   session_invalid: "Phiên chấm công đã kết thúc hoặc mã QR không hợp lệ.",
   replay: "Mã QR này đã được quét và sử dụng rồi.",
   device_conflict: "Thiết bị này đã được dùng để chấm công cho lao động khác.",
+  worker_not_found:
+    "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
   student_not_found:
     "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
   not_in_batch: "Lao động không nằm trong danh sách dự án này.",
@@ -88,6 +90,10 @@ interface WorkerSessionInfo {
   projectCode: string;
   projectName: string;
   date: string;
+  device?: {
+    recognized: boolean;
+    workerName?: string;
+  };
 }
 
 interface CheckinResult {
@@ -151,9 +157,10 @@ export default function WorkerQRCheckinPage() {
   }, [token]);
 
   // 3. Thực hiện chấm công
-  const handleCheckin = async (e: React.FormEvent) => {
+  const handleCheckin = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
-    if (!phone || phone.length < 8) return;
+    const rememberedDevice = sessionInfo?.device?.recognized === true;
+    if (!rememberedDevice && (!phone || phone.length < 8)) return;
 
     setSubmitting(true);
     try {
@@ -179,7 +186,7 @@ export default function WorkerQRCheckinPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          phone: phone.replace(/\D/g, ""),
+          phone: rememberedDevice ? "" : phone.replace(/\D/g, ""),
           fingerprint,
           latitude,
           longitude,
@@ -209,6 +216,17 @@ export default function WorkerQRCheckinPage() {
   };
 
   // ─── Loading ────────────────────────────────────────────────────────────────
+  const handleForgetDevice = async () => {
+    try {
+      await fetch("/api/v1/worker-management/qr-attendance/device/forget", { method: "POST" });
+      setSessionInfo((previous) => previous ? { ...previous, device: { recognized: false } } : previous);
+      setPhone("");
+      setResult(null);
+    } catch {
+      setResult({ success: false, error: "Không thể đổi lao động. Vui lòng thử lại." });
+    }
+  };
+
   if (loadingSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-amber-950 to-orange-950 flex flex-col justify-center items-center text-white px-4">
@@ -322,6 +340,37 @@ export default function WorkerQRCheckinPage() {
           )
 
         /* ── Form nhập SĐT ────────────────────────────────────── */
+        ) : sessionInfo?.device?.recognized ? (
+          <div className="space-y-6 text-center">
+            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-500 shadow-inner">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                Xin chào {sessionInfo.device.workerName}
+              </h1>
+              <p className="text-sm text-slate-500 font-medium">
+                Thiết bị này đã được ghi nhớ. Bạn không cần nhập lại số điện thoại.
+              </p>
+              <p className="text-xs text-slate-400 font-semibold">
+                Dự án {sessionInfo.projectCode} · Ngày {formatDate(sessionInfo.date)}
+              </p>
+            </div>
+            <button
+              onClick={(event) => void handleCheckin(event)}
+              disabled={submitting}
+              className="w-full h-14 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {submitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Đang chấm công...</> : <><MapPin className="w-4 h-4" /> Chấm công ngay</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleForgetDevice()}
+              className="w-full text-xs font-bold text-slate-500 hover:text-amber-700 transition-colors"
+            >
+              Không phải tôi / Đổi lao động
+            </button>
+          </div>
         ) : (
           <div className="space-y-6">
             <div className="text-center space-y-2">

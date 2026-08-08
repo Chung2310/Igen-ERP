@@ -1,5 +1,5 @@
 import { RolePermission } from "../../services/rolePermissionService";
-import { CompanyProfile, UserProfile } from "../../types";
+import { UserProfile } from "../../types";
 
 export type UserAdminTabKey = "users" | "roles";
 

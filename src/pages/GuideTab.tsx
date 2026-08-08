@@ -8,19 +8,15 @@ import {
   FolderOpen,
   MessageSquare,
   GraduationCap,
-  Wallet,
   Settings,
   Shield,
-  ArrowRight,
   Info,
   AlertTriangle,
   Sparkles,
-  CheckCircle2,
   ChevronRight,
   Play,
   HelpCircle,
   Clock,
-  UserCheck,
   Send
 } from "lucide-react";
 import type { TabType } from "../types";

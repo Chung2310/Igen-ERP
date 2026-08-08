@@ -9,7 +9,6 @@ import {
 
 const HISTORY_DAYS = 30;
 const FORECAST_DAYS = 30;
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 type StockLogWithTimestamp = StockLog & {
   createdAtTimestamp?: { toDate?: () => Date; seconds?: number };

@@ -28,7 +28,7 @@ export function createFaceManagementController(deps: FaceManagementDependencies)
     status: async (req: AuthenticatedRequest, res: Response) => {
       try {
         return res.json(await deps.insightFace.getRegistrationStatus(req.params.id));
-      } catch (error) {
+      } catch {
         return res.status(503).json({ reasonCode: "model_unavailable" });
       }
     },

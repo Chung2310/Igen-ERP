@@ -3731,7 +3731,7 @@ export default function ChatTab() {
       {/* CUSTOM CONFIRM MODAL */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100/80 transform scale-100 transition-all duration-300">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100/80 transform scale-100 transition-all duration-300 max-h-[90dvh] overflow-y-auto overscroll-contain">
             <h4 className={`text-base font-extrabold mb-2.5 ${confirmModal.isDanger ? "text-rose-600" : "text-slate-800"}`}>
               {confirmModal.title}
             </h4>

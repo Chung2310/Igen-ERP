@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars, no-empty */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import {
   Briefcase,
@@ -10,6 +10,7 @@ import {
   CheckCircle,
   Clock,
   ExternalLink,
+  ChevronLeft,
   ChevronRight,
   Filter,
   Users,
@@ -641,6 +642,17 @@ export default function KanbanTab({
 
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
+  const subTabsRef = React.useRef<HTMLDivElement>(null);
+  const scrollSubTabs = (direction: "left" | "right") => {
+    if (subTabsRef.current) {
+      const scrollAmount = 120;
+      subTabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
+
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAssigneeUid, setEditAssigneeUid] = useState("");
@@ -662,7 +674,7 @@ export default function KanbanTab({
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
       const url = activeBranchId
@@ -685,9 +697,9 @@ export default function KanbanTab({
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
     }
-  };
+  }, [selectedCompanyCode, activeBranchId]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
       const url = activeBranchId
@@ -717,14 +729,14 @@ export default function KanbanTab({
     } catch (error) {
       console.error("Lỗi khi tải danh sách dự án:", error);
     }
-  };
+  }, [selectedCompanyCode, activeBranchId]);
 
   useEffect(() => {
     if (selectedCompanyCode) {
       fetchTasks();
       fetchProjects();
     }
-  }, [selectedCompanyCode, activeBranchId]);
+  }, [selectedCompanyCode, fetchTasks, fetchProjects]);
 
   // Realtime: quy trình vừa sinh task mới cho chính mình → tải lại và báo
   useEffect(() => {
@@ -735,7 +747,7 @@ export default function KanbanTab({
       );
     });
     return off;
-  }, [selectedCompanyCode]);
+  }, [fetchTasks, selectedCompanyCode]);
 
   // Deep-link từ tab Quy trình: mở modal chi tiết đúng task được trỏ tới
   useEffect(() => {
@@ -779,26 +791,29 @@ export default function KanbanTab({
       setEditAttachments(selectedKanbanTask.attachments || []);
       setTaskHistory(selectedKanbanTask.history || []);
       setEditCategory(formatTaskCategory(selectedKanbanTask.category));
-      if (presetDoneOnOpen) {
-        setEditStatus("Done");
-        setPresetDoneOnOpen(false);
-      }
     }
   }, [selectedKanbanTask]);
+
+  useEffect(() => {
+    if (selectedKanbanTask && presetDoneOnOpen) {
+      setEditStatus("Done");
+      setPresetDoneOnOpen(false);
+    }
+  }, [selectedKanbanTask, presetDoneOnOpen]);
 
   // Tự động gán thời gian hoàn thành khi chuyển trạng thái sang Done
   useEffect(() => {
     if (editStatus === "Done" && editStartTime && !editEndTime) {
       setEditEndTime(getLocalDatetimeString());
     }
-  }, [editStatus, editStartTime]);
+  }, [editStatus, editStartTime, editEndTime]);
 
   // Tự động ghi thời gian bắt đầu khi chuyển sang Đang làm (tự thu thập thay vì bắt điền tay)
   useEffect(() => {
     if (editStatus === "In Progress" && !editStartTime) {
       setEditStartTime(getLocalDatetimeString());
     }
-  }, [editStatus]);
+  }, [editStatus, editStartTime]);
 
   // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
   useEffect(() => {
@@ -1334,18 +1349,42 @@ export default function KanbanTab({
               <h2 className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
-              <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
-                {(["By project", "Board", "All tasks"] as const).map((vt) => (
-                  <button
-                    key={vt}
-                    onClick={() => setKanbanViewTab(vt)}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
+              <div className="flex items-center gap-1 select-none">
+                <button
+                  type="button"
+                  aria-label="Cuộn tab sang trái"
+                  onClick={() => scrollSubTabs("left")}
+                  className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div
+                  ref={subTabsRef}
+                  className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 overflow-x-auto scrollbar-none select-none -mb-px max-w-[50vw] sm:max-w-none"
+                >
+                  {(["By project", "Board", "All tasks"] as const).map((vt) => (
+                    <button
+                      key={vt}
+                      onClick={() => setKanbanViewTab(vt)}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
+                        kanbanViewTab === vt
+                          ? "bg-white text-slate-850 shadow-xs font-bold"
+                          : "text-gray-500 hover:text-slate-700 font-semibold"
                       }`}
-                  >
-                    {vt === "By project" ? "Theo dự án" :
-                      vt === "Board" ? "Bảng công việc" : "Tất cả công việc"}
-                  </button>
-                ))}
+                    >
+                      {vt === "By project" ? "Theo dự án" :
+                        vt === "Board" ? "Bảng công việc" : "Tất cả công việc"}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Cuộn tab sang phải"
+                  onClick={() => scrollSubTabs("right")}
+                  className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -1639,7 +1678,7 @@ export default function KanbanTab({
           onClick={() => setQuickDone(null)}
         >
           <div
-            className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left font-sans"
+            className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left font-sans max-h-[90dvh] overflow-y-auto overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2 mb-1">
@@ -2027,7 +2066,7 @@ export default function KanbanTab({
       {/* NEW PROJECT MODAL */}
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleCreateProject} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4">
+          <form onSubmit={handleCreateProject} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4 max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="flex justify-between items-center pb-3 border-b border-gray-150">
               <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
                 <Target className="h-4 w-4 text-indigo-655" />
