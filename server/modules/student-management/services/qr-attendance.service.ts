@@ -59,7 +59,6 @@ export interface QRSession {
   currentToken: string;
   tokenExpiresAt: number;
   checkins: Map<string, CheckedInStudent>; // key = studentId
-  usedNonces: Set<string>;
   deviceMap: Map<string, string>; // fingerprint -> phone
   closed: boolean;
   /**
@@ -153,7 +152,6 @@ export class QRAttendanceService {
       currentToken: token,
       tokenExpiresAt,
       checkins: new Map(),
-      usedNonces: new Set(),
       deviceMap: new Map(),
       closed: false,
       shared,
@@ -222,14 +220,16 @@ export class QRAttendanceService {
   // 3. Học viên checkin qua trang public (không cần auth) — xác thực khuôn mặt + GPS
   static async checkin(
     token: string,
-    phone: string,
+    phone: string | undefined,
     fingerprint: string,
     image: Buffer,
     mimeType: string,
     latitude?: number,
-    longitude?: number
+    longitude?: number,
+    rememberedStudentId?: string
   ): Promise<{
     success: boolean;
+    studentId: string;
     studentName: string;
     distanceMeters?: number;
     kind?: "check-in" | "check-out";
@@ -242,40 +242,31 @@ export class QRAttendanceService {
       throw new QrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
 
-    const { sid, nonce } = decoded;
+    const { sid } = decoded;
     const session = sessions.get(sid);
 
     if (!session || session.closed || Date.now() > session.expiresAt) {
       throw new QrCheckinError("session_invalid", "Phiên điểm danh đã kết thúc hoặc không tồn tại.");
     }
 
-    // A. Chống replay bằng nonce — chỉ áp cho QR xoay 30s. Với QR dùng chung,
-    // mọi người quét cùng một mã nên tiêu nonce sẽ chặn tất cả trừ người đầu
-    // tiên; chống trùng ở đây dựa vào "mỗi người một lần trong ngày" bên dưới.
-    if (!session.shared) {
-      if (session.usedNonces.has(nonce)) {
-        throw new QrCheckinError("replay", "Mã QR này đã được quét và sử dụng rồi.");
-      }
-      session.usedNonces.add(nonce);
-    }
-
-    // B. Chống gian lận bằng fingerprint: 1 thiết bị chỉ điểm danh cho 1 SĐT
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (fingerprint) {
-      const registeredPhone = session.deviceMap.get(fingerprint);
-      if (registeredPhone && registeredPhone !== cleanPhone) {
-        throw new QrCheckinError("device_conflict", "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
-      }
-    }
-
-    // C. Tìm học viên trong DB theo phone và ownerId của batch
-    const student = await Student.findOne({
-      phone: cleanPhone,
-      ownerId: session.ownerId
-    });
+    // A QR is shared by the class during its short validity window. Duplicate
+    // protection is per student/session below, never per token nonce.
+    const cleanPhone = String(phone || "").replace(/\D/g, "");
+    const student = rememberedStudentId
+      ? await Student.findOne({ _id: rememberedStudentId, ownerId: session.ownerId })
+      : await Student.findOne({ phone: cleanPhone, ownerId: session.ownerId });
 
     if (!student) {
       throw new QrCheckinError("student_not_found", "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
+    }
+
+    const studentId = student._id.toString();
+    const resolvedPhone = String(student.phone || "").replace(/\D/g, "");
+    if (fingerprint) {
+      const registeredPhone = session.deviceMap.get(fingerprint);
+      if (registeredPhone && registeredPhone !== resolvedPhone) {
+        throw new QrCheckinError("device_conflict", "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
+      }
     }
 
     // D. Kiểm tra học viên có thuộc lớp này (batch) không
@@ -290,11 +281,10 @@ export class QRAttendanceService {
 
     // E. Kiểm tra xem học viên đã điểm danh trong phiên này chưa. Phiên chấm
     // công lao động bỏ qua bước này vì lần quét thứ hai chính là giờ về.
-    if (session.mode !== "worker" && session.checkins.has(student._id.toString())) {
+    if (session.mode !== "worker" && session.checkins.has(studentId)) {
       throw new QrCheckinError("already_checked_in", "Bạn đã điểm danh thành công trước đó rồi.");
     }
 
-    const studentId = student._id.toString();
     const attemptBase = {
       studentId,
       ownerId: session.ownerId,
@@ -376,14 +366,14 @@ export class QRAttendanceService {
 
     const checkinInfo: CheckedInStudent = {
       studentId,
-      phone: cleanPhone,
+      phone: resolvedPhone,
       fullName: student.fullName,
       checkinAt: Date.now()
     };
 
     session.checkins.set(studentId, checkinInfo);
     if (fingerprint) {
-      session.deviceMap.set(fingerprint, cleanPhone);
+      session.deviceMap.set(fingerprint, resolvedPhone);
     }
 
     await StudentAttendanceAttemptModel.create({
@@ -401,12 +391,13 @@ export class QRAttendanceService {
       sessionId: sid,
       studentId,
       fullName: student.fullName,
-      phone: cleanPhone,
+      phone: resolvedPhone,
       checkinAt: checkinInfo.checkinAt
     });
 
     return {
       success: true,
+      studentId,
       studentName: student.fullName,
       distanceMeters,
       kind: markKind
