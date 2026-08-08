@@ -25,6 +25,12 @@ workerQrAttendancePublicRoutes.post(
   WorkerQrAttendanceController.checkin as any
 );
 
+workerQrAttendancePublicRoutes.post(
+  "/device/forget",
+  publicApiRateLimiter,
+  WorkerQrAttendanceController.forgetDevice as any
+);
+
 workerQrAttendancePublicRoutes.get(
   "/session-info",
   publicApiRateLimiter,
