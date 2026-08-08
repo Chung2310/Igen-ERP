@@ -11,7 +11,7 @@ import { CustomFieldsSection } from "./CustomFieldsSection";
 import type { FieldDefinition } from "./types";
 import { useCustomFields } from "./useCustomFields";
 
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../student-management/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("./useCustomFields", () => ({ useCustomFields: vi.fn() }));
 

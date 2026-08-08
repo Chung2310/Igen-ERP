@@ -71,7 +71,6 @@ function createDependencies(fields: Field[] = [], storedValues: Field[] = []): {
       entityModels: {
         students: entityModel as any, courses: entityModel as any, batches: entityModel as any,
         exams: entityModel as any, resources: entityModel as any, partners: entityModel as any,
-        workers: entityModel as any,
       },
     },
     fields,

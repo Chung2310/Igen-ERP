@@ -9,17 +9,17 @@ import { ResourceCard } from "../../student-management/pages/Resources/component
 import { AddPartnerModal } from "../../student-management/pages/Partners/components/AddPartnerModal";
 import { PartnerDetailModal } from "../../student-management/pages/Partners/components/PartnerDetailModal";
 
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../student-management/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin" } }) }));
-vi.mock("../hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
+vi.mock("../../student-management/hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
 vi.mock("../../../../pages/Toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock("../pages/Partners/components/AddPayoutModal", () => ({ AddPayoutModal: () => null }));
-vi.mock("../custom-fields/CustomFieldsSection", () => ({
+vi.mock("../../student-management/pages/Partners/components/AddPayoutModal", () => ({ AddPayoutModal: () => null }));
+vi.mock("./CustomFieldsSection", () => ({
   CustomFieldsSection: ({ moduleKey, values, onChange }: { moduleKey: string; values: Record<string, unknown>; onChange(values: Record<string, unknown>): void }) => (
     <input aria-label={`custom-${moduleKey}`} value={String(values.extra ?? "")} onChange={(event) => onChange({ ...values, extra: event.target.value })} />
   ),
 }));
-vi.mock("../custom-fields/CustomFieldDetails", () => ({
+vi.mock("./CustomFieldDetails", () => ({
   CustomFieldDetails: ({ moduleKey, values }: { moduleKey: string; values: Record<string, unknown> }) => <span>{`details-${moduleKey}-${String(values.extra ?? "")}`}</span>,
 }));
 

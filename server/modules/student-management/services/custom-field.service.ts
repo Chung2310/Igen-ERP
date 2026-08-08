@@ -7,7 +7,6 @@ import { Batch } from "../models/batch.model";
 import { Exam } from "../models/exam.model";
 import { Resource } from "../models/resource.model";
 import { Partner } from "../models/partner.model";
-import { WorkerModel } from "../../worker-management/models/worker.model";
 import { validateCustomFieldDefaultValue } from "./custom-field-value.service";
 
 export type CustomFieldContext = { tenantId: string; actorId: string };
@@ -57,7 +56,6 @@ const defaultDependencies: CustomFieldServiceDependencies = {
     exams: Exam as unknown as EntityModel,
     resources: Resource as unknown as EntityModel,
     partners: Partner as unknown as EntityModel,
-    workers: WorkerModel as unknown as EntityModel,
   },
 };
 

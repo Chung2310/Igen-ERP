@@ -13,7 +13,7 @@ import {
 import type { FieldDefinition } from "./types";
 import { useCustomFields } from "./useCustomFields";
 
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../../student-management/lib/api", () => ({ apiFetch: vi.fn() }));
 
 const mockedApiFetch = vi.mocked(apiFetch);
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
