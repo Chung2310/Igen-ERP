@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import Joi from "joi";
 import { mediaController } from "../controller/media.controller";
 import { validateRequest } from "../middleware/validation";
@@ -8,17 +8,21 @@ import http from "http";
 
 export const mediaRouter = Router();
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
- * DÃ² Ä‘á»‹nh dáº¡ng file tháº­t qua magic bytes (chá»¯ kÃ½ nhá»‹ phÃ¢n Ä‘áº§u file).
- * DÃ¹ng khi URL lÆ°u trÃªn Cloudinary khÃ´ng cÃ³ Ä‘uÃ´i má»Ÿ rá»™ng vÃ  client cÅ©ng
- * khÃ´ng gá»­i Ä‘Æ°á»£c filename gá»‘c (dá»¯ liá»‡u cÅ©), Ä‘á»ƒ trÃ¡nh táº£i vá» file khÃ´ng cÃ³ Ä‘uÃ´i.
+ * Dò định dạng file thật qua magic bytes (chữ ký nhị phân đầu file).
+ * Dùng khi URL lưu trên Cloudinary không có đuôi mở rộng và client cũng
+ * không gửi được filename gốc (dữ liệu cũ), để tránh tải về file không có đuôi.
  */
 function sniffFileExtension(buffer: Buffer): string {
   if (buffer.length >= 4 && buffer.subarray(0, 4).toString("ascii") === "%PDF") {
     return ".pdf";
   }
   if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && (buffer[2] === 0x03 || buffer[2] === 0x05 || buffer[2] === 0x07)) {
-    // Zip-based: docx/xlsx/pptx Ä‘á»u báº¯t Ä‘áº§u báº±ng "PK", phÃ¢n biá»‡t qua tÃªn thÆ° má»¥c ná»™i bá»™.
+    // Zip-based: docx/xlsx/pptx đều bắt đầu bằng "PK", phân biệt qua tên thư mục nội bộ.
     const text = buffer.toString("latin1");
     if (text.includes("word/")) return ".docx";
     if (text.includes("xl/")) return ".xlsx";
@@ -26,7 +30,7 @@ function sniffFileExtension(buffer: Buffer): string {
     return ".zip";
   }
   if (buffer.length >= 8 && buffer.subarray(0, 8).toString("hex") === "d0cf11e0a1b11ae1") {
-    return ".doc"; // Office cÅ© (doc/xls/ppt) dÃ¹ng chung Ä‘á»‹nh dáº¡ng OLE, khÃ´ng phÃ¢n biá»‡t Ä‘Æ°á»£c chÃ­nh xÃ¡c.
+    return ".doc"; // Office cũ (doc/xls/ppt) dùng chung định dạng OLE, không phân biệt được chính xác.
   }
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return ".jpg";
@@ -55,37 +59,37 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
 const uploadSchema = {
   body: Joi.object({
     file: Joi.string().required().messages({
-      "any.required": "TrÆ°á»ng 'file' lÃ  báº¯t buá»™c vÃ  khÃ´ng thá»ƒ thiáº¿u.",
-      "string.empty": "Ná»™i dung 'file' khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.",
+      "any.required": "Trường 'file' là bắt buộc và không thể thiếu.",
+      "string.empty": "Nội dung 'file' không được để trống.",
     }),
     folder: Joi.string().optional().allow("").messages({
-      "string.base": "TrÆ°á»ng 'folder' pháº£i lÃ  kiá»ƒu vÄƒn báº£n (string).",
+      "string.base": "Trường 'folder' phải là kiểu văn bản (string).",
     }),
   }),
 };
 
-// Route táº£i lÃªn Ä‘a phÆ°Æ¡ng tiá»‡n tá»›i Cloudinary qua Backend Relay (YÃªu cáº§u Ä‘Äƒng nháº­p)
+// Route tải lên đa phương tiện tới Cloudinary qua Backend Relay (Yêu cầu đăng nhập)
 mediaRouter.post(
   "/upload",
-  requireAuth as any,
+  requireAuth as RequestHandler,
   validateRequest(uploadSchema),
-  mediaController.upload as any
+  mediaController.upload as RequestHandler
 );
 
-// Route kÃ½ tham sá»‘ táº£i lÃªn trá»±c tiáº¿p lÃªn Cloudinary tá»« Client (Báº£o máº­t)
+// Route ký tham số tải lên trực tiếp lên Cloudinary từ Client (Bảo mật)
 mediaRouter.post(
   "/sign-upload",
-  requireAuth as any,
+  requireAuth as RequestHandler,
   async (req, res) => {
     try {
       const { paramsToSign } = req.body;
       if (!paramsToSign) {
-        return res.status(400).json({ error: "Thiáº¿u tham sá»‘ cáº§n kÃ½ 'paramsToSign'." });
+        return res.status(400).json({ error: "Thiếu tham số cần ký 'paramsToSign'." });
       }
       
       const apiSecret = process.env.CLOUDINARY_API_SECRET;
       if (!apiSecret) {
-        return res.status(500).json({ error: "ChÆ°a cáº¥u hÃ¬nh CLOUDINARY_API_SECRET trÃªn server." });
+        return res.status(500).json({ error: "Chưa cấu hình CLOUDINARY_API_SECRET trên server." });
       }
 
       const { v2: cloudinary } = await import("cloudinary");
@@ -96,17 +100,17 @@ mediaRouter.post(
         apiKey: process.env.CLOUDINARY_API_KEY,
         cloudName: process.env.CLOUDINARY_CLOUD_NAME,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Media Sign Upload Error]:", err);
-      res.status(500).json({ error: "Lá»—i táº¡o chá»¯ kÃ½ upload.", details: err.message });
+      res.status(500).json({ error: "Lỗi tạo chữ ký upload.", details: getErrorMessage(err) });
     }
   }
 );
 
-// Route download proxy Ä‘á»ƒ giáº£i quyáº¿t váº¥n Ä‘á» CORS á»Ÿ phÃ­a Client
+// Route download proxy để giải quyết vấn đề CORS ở phía Client
 mediaRouter.get(
   "/download",
-  requireAuth as any,
+  requireAuth as RequestHandler,
   async (req, res) => {
     const fileUrl = req.query.url as string;
     const filename = (req.query.filename as string) || "igen-download";
@@ -114,14 +118,14 @@ mediaRouter.get(
       return res.status(400).json({ error: "Missing url parameter" });
     }
 
-    // Chá»‰ cho phÃ©p proxy cÃ¡c domain Ä‘Ã£ Ä‘Æ°á»£c whitelist (cháº·n SSRF tá»›i máº¡ng ná»™i bá»™/metadata)
+    // Chỉ cho phép proxy các domain đã được whitelist (chặn SSRF tới mạng nội bộ/metadata)
     const allowedDomains = [
       "res.cloudinary.com",
       "cdn.pixabay.com",
       "www.soundhelix.com",
       "assets.mixkit.co",
       "freesound.org",
-      // Google Drive (tÃ­nh nÄƒng TÃ i nguyÃªn)
+      // Google Drive (tính năng Tài nguyên)
       "drive.google.com",
       "docs.google.com",
       "drive.usercontent.google.com",
@@ -131,35 +135,32 @@ mediaRouter.get(
     try {
       parsedUrl = new URL(fileUrl);
     } catch {
-      return res.status(400).json({ error: "URL khÃ´ng há»£p lá»‡." });
+      return res.status(400).json({ error: "URL không hợp lệ." });
     }
     if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-      return res.status(400).json({ error: "Giao thá»©c URL khÃ´ng Ä‘Æ°á»£c phÃ©p." });
+      return res.status(400).json({ error: "Giao thức URL không được phép." });
     }
     const isAllowed = allowedDomains.some(
       (domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`)
     );
     if (!isAllowed) {
-      return res.status(403).json({ error: "Domain khÃ´ng Ä‘Æ°á»£c phÃ©p proxy." });
+      return res.status(403).json({ error: "Domain không được phép proxy." });
     }
 
     try {
-      // TrÃ­ch xuáº¥t pháº§n má»Ÿ rá»™ng (extension) tá»« fileUrl Ä‘á»ƒ Ä‘Ã­nh kÃ¨m vÃ o tÃªn file táº£i vá»
+      // Trích xuất phần mở rộng (extension) từ fileUrl để đính kèm vào tên file tải về
       let extension = "";
-      try {
-        const urlObj = new URL(fileUrl);
-        const pathname = urlObj.pathname;
-        const lastDot = pathname.lastIndexOf(".");
-        if (lastDot !== -1) {
-          const ext = pathname.substring(lastDot);
-          // Chá»‰ láº¥y cÃ¡c extension há»£p lá»‡ (Ä‘á»™ dÃ i tá»« 2 Ä‘áº¿n 6 kÃ½ tá»± chá»¯ vÃ  sá»‘)
-          if (/^\.[a-zA-Z0-9]{1,5}$/.test(ext)) {
-            extension = ext;
-          }
+      const pathname = parsedUrl.pathname;
+      const lastDot = pathname.lastIndexOf(".");
+      if (lastDot !== -1) {
+        const ext = pathname.substring(lastDot);
+        // Chỉ lấy các extension hợp lệ (độ dài từ 2 đến 6 ký tự chữ và số)
+        if (/^\.[a-zA-Z0-9]{1,5}$/.test(ext)) {
+          extension = ext;
         }
-      } catch {}
+      }
 
-      // Filename do client truyá»n lÃªn Ä‘Ã£ cÃ³ sáºµn Ä‘uÃ´i há»£p lá»‡ hay chÆ°a (vd les.fileName gá»‘c)
+      // Filename do client truyền lên đã có sẵn đuôi hợp lệ hay chưa (vd les.fileName gốc)
       const hasValidExtension = /\.[a-zA-Z0-9]{1,5}$/.test(filename);
 
       let finalFilename = filename;
@@ -175,9 +176,9 @@ mediaRouter.get(
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Náº¿u váº«n chÆ°a xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c Ä‘uÃ´i file (URL khÃ´ng cÃ³ extension vÃ  filename client
-      // gá»­i lÃªn cÅ©ng khÃ´ng cÃ³), dÃ² Ä‘á»‹nh dáº¡ng tháº­t cá»§a file qua magic bytes Ä‘á»ƒ trÃ¡nh táº£i vá»
-      // má»™t file khÃ´ng cÃ³ Ä‘uÃ´i (má»Ÿ lÃªn bá»‹ lá»—i/khÃ´ng Ä‘á»c Ä‘Æ°á»£c ná»™i dung).
+      // Nếu vẫn chưa xác định được đuôi file (URL không có extension và filename client
+      // gửi lên cũng không có), dò định dạng thật của file qua magic bytes để tránh tải về
+      // một file không có đuôi (mở lên bị lỗi/không đọc được nội dung).
       let sniffedExt = "";
       if (!extension && !hasValidExtension) {
         sniffedExt = sniffFileExtension(buffer);
@@ -192,7 +193,7 @@ mediaRouter.get(
       if (contentType) {
         res.setHeader("Content-Type", contentType);
       }
-      // Content-Disposition theo RFC 5987: giá»¯ Ä‘Ãºng tÃªn gá»‘c (ká»ƒ cáº£ tiáº¿ng Viá»‡t) + fallback ASCII.
+      // Content-Disposition theo RFC 5987: giữ đúng tên gốc (kể cả tiếng Việt) + fallback ASCII.
       const asciiFallback = finalFilename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
       const disposition = req.query.inline === "true" ? "inline" : "attachment";
       res.setHeader(
@@ -201,9 +202,9 @@ mediaRouter.get(
       );
 
       res.send(buffer);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Media Proxy Download Error]:", err);
-      res.status(500).json({ error: "Failed to download file", details: err.message });
+      res.status(500).json({ error: "Failed to download file", details: getErrorMessage(err) });
     }
   }
 );
@@ -212,7 +213,7 @@ mediaRouter.get(
 // hiển thị trực tiếp trong iframe thay vì tải về (tránh vấn đề header từ Cloudinary).
 mediaRouter.get(
   "/preview",
-  requireAuth as any,
+  requireAuth as RequestHandler,
   async (req, res) => {
     const fileUrl = req.query.url as string;
     if (!fileUrl) {
@@ -266,28 +267,28 @@ mediaRouter.get(
       // Cho phép nhúng trong iframe cùng origin
       res.setHeader("X-Frame-Options", "SAMEORIGIN");
       res.send(buffer);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Media Proxy Preview Error]:", err);
-      res.status(500).json({ error: "Failed to preview file", details: err.message });
+      res.status(500).json({ error: "Failed to preview file", details: getErrorMessage(err) });
     }
   }
 );
 
 
 /**
- * Audio proxy endpoint â€” phá»¥c vá»¥ audio tá»« URL bÃªn ngoÃ i qua server ná»™i bá»™.
- * Giáº£i quyáº¿t lá»—i 403 Forbidden trÃªn Safari do thiáº¿u CORS headers tá»« domain bÃªn ngoÃ i.
- * Há»— trá»£ Range requests (cáº§n thiáº¿t cho HTML5 audio/video streaming).
+ * Audio proxy endpoint — phục vụ audio từ URL bên ngoài qua server nội bộ.
+ * Giải quyết lỗi 403 Forbidden trên Safari do thiếu CORS headers từ domain bên ngoài.
+ * Hỗ trợ Range requests (cần thiết cho HTML5 audio/video streaming).
  */
 mediaRouter.get(
   "/audio-proxy",
   async (req, res) => {
     const audioUrl = req.query.url as string;
     if (!audioUrl) {
-      return res.status(400).json({ error: "Thiáº¿u tham sá»‘ 'url'." });
+      return res.status(400).json({ error: "Thiếu tham số 'url'." });
     }
 
-    // Chá»‰ cho phÃ©p proxy cÃ¡c domain audio Ä‘Ã£ Ä‘Æ°á»£c whitelist
+    // Chỉ cho phép proxy các domain audio đã được whitelist
     const allowedDomains = [
       "cdn.pixabay.com",
       "www.soundhelix.com",
@@ -300,12 +301,12 @@ mediaRouter.get(
     try {
       parsedUrl = new URL(audioUrl);
     } catch {
-      return res.status(400).json({ error: "URL khÃ´ng há»£p lá»‡." });
+      return res.status(400).json({ error: "URL không hợp lệ." });
     }
 
     const isAllowed = allowedDomains.some((domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`));
     if (!isAllowed) {
-      return res.status(403).json({ error: "Domain khÃ´ng Ä‘Æ°á»£c phÃ©p proxy." });
+      return res.status(403).json({ error: "Domain không được phép proxy." });
     }
 
     try {
@@ -313,7 +314,7 @@ mediaRouter.get(
         "User-Agent": "Mozilla/5.0 (compatible; IgenERP/1.0)",
       };
 
-      // Chuyá»ƒn tiáº¿p Range header náº¿u cÃ³ (Ä‘á»ƒ há»— trá»£ seek/streaming)
+      // Chuyển tiếp Range header nếu có (để hỗ trợ seek/streaming)
       if (req.headers.range) {
         upstreamHeaders["Range"] = req.headers.range as string;
       }
@@ -323,12 +324,12 @@ mediaRouter.get(
         audioUrl,
         { headers: upstreamHeaders },
         (proxyRes) => {
-          // GÃ¡n CORS headers Ä‘á»ƒ Safari cháº¥p nháº­n
+          // Gán CORS headers để Safari chấp nhận
           res.setHeader("Access-Control-Allow-Origin", "*");
           res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
           res.setHeader("Accept-Ranges", "bytes");
 
-          // Chuyá»ƒn tiáº¿p status vÃ  headers tá»« upstream
+          // Chuyển tiếp status và headers từ upstream
           const statusCode = proxyRes.statusCode || 200;
           res.status(statusCode);
 
@@ -345,27 +346,27 @@ mediaRouter.get(
       proxyReq.on("error", (err) => {
         console.error("[Audio Proxy Error]:", err.message);
         if (!res.headersSent) {
-          res.status(502).json({ error: "KhÃ´ng thá»ƒ káº¿t ná»‘i Ä‘áº¿n nguá»“n audio.", details: err.message });
+          res.status(502).json({ error: "Không thể kết nối đến nguồn audio.", details: err.message });
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Audio Proxy Unexpected Error]:", err);
-      res.status(500).json({ error: "Lá»—i khÃ´ng xÃ¡c Ä‘á»‹nh khi proxy audio.", details: err.message });
+      res.status(500).json({ error: "Lỗi không xác định khi proxy audio.", details: getErrorMessage(err) });
     }
   }
 );
 
 /**
- * Video proxy endpoint â€” phá»¥c vá»¥ video tá»« URL bÃªn ngoÃ i qua server ná»™i bá»™.
- * Giáº£i quyáº¿t lá»—i url_ownership_unverified cá»§a TikTok khi gá»i video tá»« Cloudinary.
- * Há»— trá»£ Range requests (cáº§n thiáº¿t cho HTML5 video streaming).
+ * Video proxy endpoint — phục vụ video từ URL bên ngoài qua server nội bộ.
+ * Giải quyết lỗi url_ownership_unverified của TikTok khi gọi video từ Cloudinary.
+ * Hỗ trợ Range requests (cần thiết cho HTML5 video streaming).
  */
 mediaRouter.get(
   "/video-proxy",
   async (req, res) => {
     const videoUrl = req.query.url as string;
     if (!videoUrl) {
-      return res.status(400).json({ error: "Thiáº¿u tham sá»‘ 'url'." });
+      return res.status(400).json({ error: "Thiếu tham số 'url'." });
     }
 
     const allowedDomains = [
@@ -376,12 +377,12 @@ mediaRouter.get(
     try {
       parsedUrl = new URL(videoUrl);
     } catch {
-      return res.status(400).json({ error: "URL khÃ´ng há»£p lá»‡." });
+      return res.status(400).json({ error: "URL không hợp lệ." });
     }
 
     const isAllowed = allowedDomains.some((domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`));
     if (!isAllowed) {
-      return res.status(403).json({ error: "Domain khÃ´ng Ä‘Æ°á»£c phÃ©p proxy." });
+      return res.status(403).json({ error: "Domain không được phép proxy." });
     }
 
     try {
@@ -389,7 +390,7 @@ mediaRouter.get(
         "User-Agent": "Mozilla/5.0 (compatible; IgenERP/1.0)",
       };
 
-      // Chuyá»ƒn tiáº¿p Range header náº¿u cÃ³ (Ä‘á»ƒ há»— trá»£ seek/streaming)
+      // Chuyển tiếp Range header nếu có (để hỗ trợ seek/streaming)
       if (req.headers.range) {
         upstreamHeaders["Range"] = req.headers.range as string;
       }
@@ -399,12 +400,12 @@ mediaRouter.get(
         videoUrl,
         { headers: upstreamHeaders },
         (proxyRes) => {
-          // GÃ¡n CORS headers
+          // Gán CORS headers
           res.setHeader("Access-Control-Allow-Origin", "*");
           res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
           res.setHeader("Accept-Ranges", "bytes");
 
-          // Chuyá»ƒn tiáº¿p status vÃ  headers tá»« upstream
+          // Chuyển tiếp status và headers từ upstream
           const statusCode = proxyRes.statusCode || 200;
           res.status(statusCode);
 
@@ -421,12 +422,12 @@ mediaRouter.get(
       proxyReq.on("error", (err) => {
         console.error("[Video Proxy Error]:", err.message);
         if (!res.headersSent) {
-          res.status(502).json({ error: "KhÃ´ng thá»ƒ káº¿t ná»‘i Ä‘áº¿n nguá»“n video.", details: err.message });
+          res.status(502).json({ error: "Không thể kết nối đến nguồn video.", details: err.message });
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Video Proxy Unexpected Error]:", err);
-      res.status(500).json({ error: "Lá»—i khÃ´ng xÃ¡c Ä‘á»‹nh khi proxy video.", details: err.message });
+      res.status(500).json({ error: "Lỗi không xác định khi proxy video.", details: getErrorMessage(err) });
     }
   }
 );

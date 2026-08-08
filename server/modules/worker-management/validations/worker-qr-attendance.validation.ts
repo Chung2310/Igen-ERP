@@ -25,7 +25,7 @@ export const workerQrCheckinSchema = Joi.object({
   token: Joi.string().required().messages({
     "any.required": "Token mã QR là bắt buộc.",
   }),
-  phone: Joi.string().required().messages({
+  phone: Joi.string().allow("", null).optional().messages({
     "any.required": "Số điện thoại là bắt buộc.",
   }),
   fingerprint: Joi.string().allow("", null).optional(),
