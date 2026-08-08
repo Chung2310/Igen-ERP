@@ -63,6 +63,8 @@ export function QRAttendanceModal({
 
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const newlyCheckedInTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionStartKeyRef = useRef<string | null>(null);
+  const sessionRequestIdRef = useRef(0);
 
   // Format ngày dd/mm/yyyy
   const formatDate = (d: string) => (d ? d.split("-").reverse().join("/") : "");
@@ -93,7 +95,20 @@ export function QRAttendanceModal({
 
   // 1. Tạo phiên điểm danh khi mở modal
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Allow a fresh session the next time the modal opens and invalidate
+      // any response that is still in flight from the previous one.
+      sessionStartKeyRef.current = null;
+      sessionRequestIdRef.current += 1;
+      return;
+    }
+
+    const requestKey = `${batch.id}:${date}`;
+    // React StrictMode re-runs effects in development. Do not create a
+    // second server session: creating another one closes the first token.
+    if (sessionStartKeyRef.current === requestKey) return;
+    sessionStartKeyRef.current = requestKey;
+    const requestId = ++sessionRequestIdRef.current;
 
     const startSession = async () => {
       try {
@@ -104,6 +119,7 @@ export function QRAttendanceModal({
           body: JSON.stringify({ batchId: batch.id, date }),
         });
 
+        if (requestId !== sessionRequestIdRef.current) return;
         if (res.sessionId) {
           setSessionId(res.sessionId);
           setShared(res.shared === true);
@@ -122,14 +138,16 @@ export function QRAttendanceModal({
           onClose();
         }
       } catch (err: any) {
+        if (requestId !== sessionRequestIdRef.current) return;
+        sessionStartKeyRef.current = null;
         toast.error(err.message || "Đã xảy ra lỗi khi tạo phiên.");
         onClose();
       } finally {
-        setLoading(false);
+        if (requestId === sessionRequestIdRef.current) setLoading(false);
       }
     };
 
-    startSession();
+    void startSession();
   }, [isOpen, batch.id, date, onClose]);
 
   /** Tải ảnh QR về máy để gửi vào nhóm chat của dự án. */
