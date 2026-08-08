@@ -1093,7 +1093,7 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <h3 className="mb-4 font-bold text-slate-900">{title}</h3>
         {children}
         <div className="mt-5 flex justify-end gap-2">

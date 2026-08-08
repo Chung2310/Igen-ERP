@@ -341,7 +341,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     console.error("FilePreviewModal Render Error:", err);
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm">
-        <div className="bg-white p-6 rounded-3xl max-w-md text-center">
+        <div className="bg-white p-6 rounded-3xl max-w-md text-center max-h-[90dvh] overflow-y-auto overscroll-contain">
           <p className="text-red-500 font-bold mb-2">Đã xảy ra lỗi khi hiển thị tệp</p>
           <p className="text-xs text-slate-500 mb-4">{err?.message || String(err)}</p>
           <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600">Đóng</button>

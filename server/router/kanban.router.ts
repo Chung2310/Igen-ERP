@@ -1,6 +1,5 @@
 import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
-import Joi from "joi";
 import mongoose from "mongoose";
 import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";

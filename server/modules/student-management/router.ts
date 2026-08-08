@@ -42,6 +42,17 @@ const requireStudentModule: RequestHandler = (req, res, next) => {
   const guard = resolveBusinessModuleKey(req.originalUrl) === "worker" ? workerModuleGuard : studentModuleGuard;
   return guard(req, res, next);
 };
+/**
+ * Trường tùy chỉnh dùng chung cho cả hai loại hình doanh nghiệp: tenant giáo dục cấu hình
+ * cho students/courses/..., tenant lao động cấu hình cho workers. Phân giải guard theo
+ * `:moduleKey` trên URL, vì đường dẫn nằm dưới tiền tố /student-management nên
+ * resolveBusinessModuleKey luôn trả về "student" và sẽ chặn nhầm tenant lao động.
+ */
+const requireCustomFieldModule: RequestHandler = (req, res, next) => {
+  const moduleKey = String(req.path || "").split("/").filter(Boolean)[0];
+  const guard = moduleKey === "workers" ? workerModuleGuard : studentModuleGuard;
+  return guard(req, res, next);
+};
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
 
@@ -61,7 +72,7 @@ studentManagementRouter.use("/student-resources", authMiddleware as unknown as R
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requirePartnerRead, partnerRoutes);
-studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("custom-field"), customFieldRoutes);
+studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireCustomFieldModule, areaRead("custom-field"), customFieldRoutes);
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);

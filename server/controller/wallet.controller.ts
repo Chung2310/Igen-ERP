@@ -5,9 +5,6 @@ import { TransactionModel } from "../model/transaction.model";
 import { WalletModel } from "../model/wallet.model";
 import { walletService } from "../service/wallet.service";
 
-// Ty gia quy doi co dinh: 1 USD = 25,400 VND
-const EXCHANGE_RATE = 25400;
-
 export const walletController = {
   async getBalance(req: AuthenticatedRequest, res: Response) {
     try {

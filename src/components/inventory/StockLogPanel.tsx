@@ -620,7 +620,7 @@ export function StockLogPanel({
 
       {showDetailModal && selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{getLogTitle(selectedLog)}</h3>

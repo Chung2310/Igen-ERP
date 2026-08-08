@@ -23,6 +23,21 @@ import { apiErrorHandler } from "./server/middleware/api-error-handler";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+/** Che các tham số nhạy cảm trên URL để chúng không nằm lại trong log. */
+const SENSITIVE_QUERY_KEYS = ["secret", "token", "apikey", "api_key", "password"];
+function redactSensitiveQuery(url: string): string {
+  if (!url.includes("?")) return url;
+  const [path, rawQuery] = url.split("?");
+  const redacted = rawQuery
+    .split("&")
+    .map((pair) => {
+      const key = pair.split("=")[0];
+      return SENSITIVE_QUERY_KEYS.includes(key.toLowerCase()) ? `${key}=***` : pair;
+    })
+    .join("&");
+  return `${path}?${redacted}`;
+}
+
 function shouldSkipRoutineApiLog(method: string, url: string) {
   const normalizedMethod = String(method || "").toUpperCase();
   const normalizedUrl = String(url || "");
@@ -272,7 +287,7 @@ async function startServer() {
       return next();
     }
     const timestamp = new Date().toLocaleTimeString("vi-VN");
-    console.log(`[Server ${timestamp}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+    console.log(`[Server ${timestamp}] ${req.method} ${redactSensitiveQuery(req.originalUrl)} - IP: ${req.ip}`);
     next();
   });
 

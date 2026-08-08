@@ -23,7 +23,7 @@ export function StepUpDialog({ isOpen, submitting, error, onCancel, onConfirm }:
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !submitting) onCancel(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="step-up-dialog-title" className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 p-5 text-slate-100 shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="step-up-dialog-title" className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 p-5 text-slate-100 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <header className="flex items-start justify-between gap-4 border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-cyan-400" />

@@ -1,4 +1,4 @@
-import { apiFetch } from "../lib/api";
+import { apiFetch } from "../../student-management/lib/api";
 import { createMaxSizeMb, type CreateFieldInput, type FieldDefinition, type FileMetadata, type ModuleKey, type UpdateFieldInput } from "./types";
 
 type ApiResponse<T> = { success: boolean; data: T };

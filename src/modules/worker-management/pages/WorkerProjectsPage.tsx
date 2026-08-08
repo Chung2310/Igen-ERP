@@ -415,27 +415,19 @@ export function WorkerProjectsPage({
 
   return (
     <div className="space-y-4 text-left">
-      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-cyan-700">
-            Dự án tuyển dụng
-          </h1>
-          <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-            {loading ? "..." : `${filtered.length} / ${projects.length}`} dự án
-          </p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100"
-          >
-            <Plus className="h-3.5 w-3.5" /> Thêm dự án
-          </button>
-        )}
+      {/* Row 1: Title + count */}
+      <div>
+        <h1 className="text-lg font-bold tracking-tight text-cyan-700">
+          Dự án tuyển dụng
+        </h1>
+        <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+          {loading ? "..." : `${filtered.length} / ${projects.length}`} dự án
+        </p>
       </div>
 
-      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+      {/* Row 2: Search + filters + add button inline */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        {/* Search */}
         <div className="relative w-full md:max-w-sm">
           <label htmlFor="worker-project-search" className="sr-only">
             Tìm kiếm dự án
@@ -449,6 +441,8 @@ export function WorkerProjectsPage({
           />
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         </div>
+
+        {/* Filters + view toggle + add button */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
             <FilterButton active={status === "all"} onClick={() => setStatus("all")}>
@@ -482,6 +476,15 @@ export function WorkerProjectsPage({
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Thêm dự án
+            </button>
+          )}
         </div>
       </div>
 

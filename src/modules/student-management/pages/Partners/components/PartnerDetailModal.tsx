@@ -5,7 +5,7 @@ import { formatVND, cn, getBankDisplayName } from '../../../lib/utils';
 import { AddPayoutModal } from './AddPayoutModal';
 import { Handshake, Phone, Mail, Landmark, FileText, Plus, Landmark as BankIcon, Users, CheckCircle } from 'lucide-react';
 import { Partner, PartnerPayout, PartnerReferredStudent } from '../../../types';
-import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+import { CustomFieldDetails } from '../../../../shared/custom-fields/CustomFieldDetails';
 import { getOperationalStatusLabel, getWorkerOperationalCopy } from '../../../config/workerRecruitmentCopy';
 import { ENTITY_LABEL_PRESETS, type EntityPreset } from '../../../config/entityLabels';
 

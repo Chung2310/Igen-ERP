@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
@@ -10,15 +10,14 @@ import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
-import { FaceCaptureInput } from './components/FaceCaptureInput';
-import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
-import type { CustomFieldValues } from '../../custom-fields/types';
+import { CustomFieldsSection } from '../../../shared/custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { RoadmapPicker } from '../ui/RoadmapPicker';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
-import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
-import { canManageCustomFields } from '../../custom-fields/permissions';
-import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -32,7 +31,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,

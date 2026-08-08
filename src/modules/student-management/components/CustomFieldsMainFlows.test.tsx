@@ -33,12 +33,12 @@ vi.mock("../hooks/useEntityLabel", () => ({
     loading: false,
   }),
 }));
-vi.mock("../custom-fields/CustomFieldsSection", () => ({
+vi.mock("../../shared/custom-fields/CustomFieldsSection", () => ({
   CustomFieldsSection: ({ moduleKey, values, onChange }: { moduleKey: string; values: Record<string, unknown>; onChange(values: Record<string, unknown>): void }) => (
     <input aria-label={`custom-${moduleKey}`} value={String(values.extra ?? "")} onChange={(event) => onChange({ ...values, extra: event.target.value })} />
   ),
 }));
-vi.mock("../custom-fields/CustomFieldDetails", () => ({
+vi.mock("../../shared/custom-fields/CustomFieldDetails", () => ({
   CustomFieldDetails: ({ moduleKey, values }: { moduleKey: string; values: Record<string, unknown> }) => <span>{`details-${moduleKey}-${String(values.extra ?? "")}`}</span>,
 }));
 

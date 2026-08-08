@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   FolderOpen,

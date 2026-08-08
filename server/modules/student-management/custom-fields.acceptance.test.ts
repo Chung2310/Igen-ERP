@@ -31,6 +31,9 @@ const moduleWiring: Record<ModuleKey, { form: string; details?: string }> = {
     form: "src/modules/student-management/pages/Partners/components/AddPartnerModal.tsx",
     details: "src/modules/student-management/pages/Partners/components/PartnerDetailModal.tsx",
   },
+  workers: {
+    form: "src/modules/worker-management/components/AddWorkerModal.tsx",
+  },
 };
 
 test("the acceptance matrix contains exactly the supported modules", () => {

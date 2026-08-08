@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  FileText,
   UploadCloud,
   CheckCircle,
   AlertTriangle,
@@ -9,8 +8,7 @@ import {
   Paperclip,
   Check,
   X,
-  File,
-  CornerUpLeft
+  File
 } from "lucide-react";
 import { toast } from "./Toast";
 

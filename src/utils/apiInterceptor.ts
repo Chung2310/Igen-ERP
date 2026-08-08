@@ -1,14 +1,24 @@
 const originalFetch = window.fetch;
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+// null token = refresh thất bại: bên chờ phải tự giải phóng thay vì treo mãi.
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
+function subscribeTokenRefresh(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb);
 }
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
+function onRefreshed(token: string | null) {
+  const subscribers = refreshSubscribers;
   refreshSubscribers = [];
+  subscribers.forEach((cb) => cb(token));
+}
+
+function withAuthHeader(init: RequestInit | undefined, token: string): RequestInit {
+  const newInit: RequestInit = { ...init };
+  const headers = new Headers(newInit.headers || undefined);
+  headers.set("Authorization", `Bearer ${token}`);
+  newInit.headers = headers;
+  return newInit;
 }
 
 window.fetch = async function (input, init) {
@@ -33,17 +43,10 @@ window.fetch = async function (input, init) {
     if (isRefreshing) {
       return new Promise((resolve) => {
         subscribeTokenRefresh((newToken) => {
-          const newInit = { ...init };
-          if (newInit.headers) {
-            const headers = new Headers(newInit.headers);
-            headers.set("Authorization", `Bearer ${newToken}`);
-            newInit.headers = headers;
-          } else {
-            newInit.headers = {
-              "Authorization": `Bearer ${newToken}`,
-            };
-          }
-          resolve(originalFetch(input, newInit));
+          // Refresh hỏng: trả lại chính response 401 để phía gọi xử lý lỗi bình thường,
+          // thay vì để promise treo vô thời hạn.
+          if (!newToken) return resolve(response);
+          resolve(originalFetch(input, withAuthHeader(init, newToken)));
         });
       });
     }
@@ -63,26 +66,15 @@ window.fetch = async function (input, init) {
         if (newToken) {
           localStorage.setItem("accessToken", newToken);
 
-          // Retry the original request with the new token
-          const newInit = { ...init };
-          if (newInit.headers) {
-            const headers = new Headers(newInit.headers);
-            headers.set("Authorization", `Bearer ${newToken}`);
-            newInit.headers = headers;
-          } else {
-            newInit.headers = {
-              "Authorization": `Bearer ${newToken}`,
-            };
-          }
-
           // Notify all pending subscribers
           onRefreshed(newToken);
           isRefreshing = false;
 
-          return originalFetch(input, newInit);
+          // Retry the original request with the new token
+          return originalFetch(input, withAuthHeader(init, newToken));
         }
       }
-      
+
       // Refresh token failed or is invalid/expired. Force logout by clearing token and reloading.
       localStorage.removeItem("accessToken");
       window.location.reload();
@@ -90,6 +82,9 @@ window.fetch = async function (input, init) {
       console.error("Lỗi tự động làm mới token:", err);
     } finally {
       isRefreshing = false;
+      // Giải phóng mọi request đang xếp hàng ở cả nhánh lỗi lẫn nhánh ngoại lệ.
+      // Không có tác dụng nếu refresh đã thành công vì hàng đợi khi đó đã rỗng.
+      onRefreshed(null);
     }
   }
 

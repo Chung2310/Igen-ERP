@@ -168,7 +168,7 @@ export function UserFormModal({
                 </div>
               </div>
 
-'              <div className="space-y-1.5 text-left">
+              <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
                 <input type="tel" name="phone" autoComplete="off" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
               </div>
@@ -244,7 +244,7 @@ export function UserFormModal({
             </div>
 
             {/* Người quản lý trực tiếp */}
-'            {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+            {userCompanyCode && userCompanyCode !== "SYSTEM" && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh</label>
                 <select value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none">
@@ -256,7 +256,7 @@ export function UserFormModal({
               </div>
             )}
 
-'            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
+            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Người quản lý trực tiếp

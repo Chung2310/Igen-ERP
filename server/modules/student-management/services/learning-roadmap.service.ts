@@ -27,10 +27,6 @@ function ownerQuery(ownerId: OwnerScope): Record<string, unknown> {
 function branchQuery(branchId?: string): Record<string, unknown> { return branchId ? { branchId } : {}; }
 function idOf(value: unknown): string { return String(value); }
 
-function configuredConditions(policy: IProgressionPolicy) {
-  return [policy.minAttendanceRate, policy.minAssignmentRate, policy.minMiniTestRate, policy.minExamRate].filter((value) => typeof value === "number").length + (policy.teacherConfirmationRequired ? 1 : 0);
-}
-
 function evaluatePolicy(policy: IProgressionPolicy, input: { attendanceRate: number | null; assignmentRate: number | null; miniTestRate: number | null; examRate: number | null; teacherConfirmed: boolean; }) {
   const checks: Array<{ label: string; passed: boolean }> = [];
   if (typeof policy.minAttendanceRate === "number") checks.push({ label: `Chuyên cần dưới ${policy.minAttendanceRate}%`, passed: input.attendanceRate !== null && input.attendanceRate >= policy.minAttendanceRate });

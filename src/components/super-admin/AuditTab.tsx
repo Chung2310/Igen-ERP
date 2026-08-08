@@ -483,7 +483,7 @@ export function AuditTab() {
 
       {/* Inspect Detail Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in p-4">
           <div className="relative w-full max-w-3xl rounded-t-3xl sm:rounded-3xl border border-white/10 bg-slate-900 p-5 sm:p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]">
             <button
               onClick={() => setSelectedEvent(null)}

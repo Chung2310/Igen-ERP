@@ -12,7 +12,7 @@ vi.mock("../../../pages/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-vi.mock("../../student-management/custom-fields/CustomFieldsSection", () => ({
+vi.mock("../../shared/custom-fields/CustomFieldsSection", () => ({
   CustomFieldsSection: ({ values, onChange, disabled }: any) => (
     <div>
       <label htmlFor="cf-shirt">Cỡ áo</label>

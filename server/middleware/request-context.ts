@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { Request, RequestHandler } from "express";
 
 export interface RequestContext {
   requestId: string;

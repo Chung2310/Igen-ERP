@@ -2,12 +2,12 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "../lib/api";
-import type { Partner, ResourceItem } from "../types";
-import { AddResourceModal } from "../pages/Resources/components/AddResourceModal";
-import { ResourceCard } from "../pages/Resources/components/ResourceCard";
-import { AddPartnerModal } from "../pages/Partners/components/AddPartnerModal";
-import { PartnerDetailModal } from "../pages/Partners/components/PartnerDetailModal";
+import { apiFetch } from "../../student-management/lib/api";
+import type { Partner, ResourceItem } from "../../student-management/types";
+import { AddResourceModal } from "../../student-management/pages/Resources/components/AddResourceModal";
+import { ResourceCard } from "../../student-management/pages/Resources/components/ResourceCard";
+import { AddPartnerModal } from "../../student-management/pages/Partners/components/AddPartnerModal";
+import { PartnerDetailModal } from "../../student-management/pages/Partners/components/PartnerDetailModal";
 
 vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin" } }) }));

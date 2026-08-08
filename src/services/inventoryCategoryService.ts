@@ -1,8 +1,6 @@
 import { getAccessToken } from "./authService";
 import { ProductCategory } from "../types";
 
-const COLLECTION_NAME = "inventoryProductCategories";
-
 type CategoryInput = {
   name: string;
   code: string;

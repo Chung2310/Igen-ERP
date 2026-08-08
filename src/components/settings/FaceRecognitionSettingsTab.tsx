@@ -142,42 +142,52 @@ export default function FaceRecognitionSettingsTab() {
         <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{loadError}</p>
       )}
 
-      <ul className="divide-y divide-gray-100">
+      <div className="space-y-3">
         {filtered.map(employee => {
           const state = statuses[employee.uid];
           return (
-            <li key={employee.uid} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-bold text-gray-800">{employee.displayName}</p>
-                <p className="truncate text-[11px] text-gray-500">{employee.email}</p>
+            <div
+              key={employee.uid}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 hover:border-indigo-100 hover:shadow-xs transition duration-150"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0 uppercase select-none">
+                  {(employee.displayName || "AD").slice(0, 2)}
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-xs font-extrabold text-slate-800">{employee.displayName}</p>
+                  <p className="truncate text-[11px] text-slate-500 font-mono mt-0.5">{employee.email}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {statusBadge(state)}
                 <button
                   onClick={() => setEnrollTarget(employee)}
-                  className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-bold text-indigo-650 hover:bg-indigo-100 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] font-bold text-indigo-650 hover:bg-indigo-100 cursor-pointer transition active:scale-95 shadow-xs"
                 >
                   <UserCheck className="h-3.5 w-3.5" />
-                  {state === "registered" ? "Khởi tạo nhận diện lại" : "Khởi tạo nhận diện"}
+                  {state === "registered" ? "Khởi tạo lại" : "Khởi tạo nhận diện"}
                 </button>
                 {state === "registered" && (
                   <button
                     onClick={() => setDeleteTarget(employee)}
                     aria-label={`Xóa nhận diện của ${employee.displayName}`}
-                    className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-100 cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-100 cursor-pointer transition active:scale-95 shadow-xs"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Xóa nhận diện
+                    Xóa
                   </button>
                 )}
               </div>
-            </li>
+            </div>
           );
         })}
         {!loadError && filtered.length === 0 && (
-          <li className="py-8 text-center text-xs text-gray-400">Không tìm thấy nhân viên phù hợp.</li>
+          <div className="py-8 text-center text-xs text-gray-400 bg-slate-50/20 border border-dashed border-slate-200 rounded-2xl">
+            Không tìm thấy nhân viên phù hợp.
+          </div>
         )}
-      </ul>
+      </div>
 
       {enrollTarget && (
         <FaceEnrollmentCameraModal

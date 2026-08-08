@@ -52,7 +52,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 p-6 text-slate-100 shadow-2xl">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 p-6 text-slate-100 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <h3 className="text-lg font-bold">Tạo doanh nghiệp mới</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200"><X className="h-5 w-5" /></button>

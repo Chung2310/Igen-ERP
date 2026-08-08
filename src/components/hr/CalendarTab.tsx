@@ -1170,7 +1170,7 @@ export default function CalendarTab({
         </div>
         {editingAttendance && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
-            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" onClick={(event) => event.stopPropagation()}>
               <div className="mb-4 flex items-center justify-between">
                 <div><h3 className="font-bold text-slate-800">Sửa lịch sử chấm công</h3><p className="text-xs text-slate-500">{getUserDetail(editingAttendance.uid).displayName} · {editingAttendance.date}</p></div>
                 <button onClick={() => setEditingAttendance(null)} className="rounded-lg p-1.5 hover:bg-slate-100 cursor-pointer"><X className="h-4 w-4" /></button>
@@ -1787,7 +1787,7 @@ export default function CalendarTab({
       {/* 3. Detail Popover Modal */}
       {isDetailModalOpen && selectedDayDate && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
             {/* Modal Header */}
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <div>

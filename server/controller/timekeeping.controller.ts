@@ -30,12 +30,6 @@ function calculateHaversineDistance(
   return R * c;
 }
 
-// Helper to get local date string YYYY-MM-DD
-function getLocalDateString(): string {
-  const localOffset = new Date().getTimezoneOffset() * 60000;
-  return new Date(Date.now() - localOffset).toISOString().slice(0, 10);
-}
-
 // Helper to calculate attendance status based on check-in/out times and limits
 function calculateAttendanceStatus(
   checkInTime: Date,

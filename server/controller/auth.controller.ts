@@ -11,7 +11,6 @@ import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
 import { recordUserActivity } from "../middleware/user-activity";
 import { clearModuleCache } from "../middleware/require-module";
 import { notifyCompanyModulesChanged } from "../service/company-module-notify";
-import { rolePermissionService } from "../service/role-permission.service";
 import { PERMISSION_CODES } from "../config/permission-catalog";
 import { getEffectivePermissions } from "../middleware/auth";
 

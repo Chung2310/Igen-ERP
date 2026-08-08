@@ -110,7 +110,7 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="erp-authenticator-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="erp-authenticator-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <h2 id="erp-authenticator-title" className="text-xl font-semibold text-gray-900">Xác thực đăng nhập</h2>
 
         {recoveryCodes.length > 0 ? (

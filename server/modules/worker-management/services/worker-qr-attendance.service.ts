@@ -122,7 +122,7 @@ export const WorkerQrAttendanceService = {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       throw new WorkerQrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
     const { sid } = decoded;
@@ -153,7 +153,7 @@ export const WorkerQrAttendanceService = {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       throw new WorkerQrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }
 

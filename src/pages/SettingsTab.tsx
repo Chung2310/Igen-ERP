@@ -127,44 +127,48 @@ export default function SettingsTab() {
             <p className="text-xs text-slate-500 font-medium">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
           </div>
         </div>
-        <button type="button" aria-label="Cuộn tab cài đặt sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-        <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto select-none">
-          {[
-            { id: "profile", label: "Hồ sơ cá nhân", icon: User },
-            { id: "security", label: "Bảo mật", icon: Shield },
-            { id: "erp", label: "Cấu hình ERP", icon: Sliders },
-            { id: "google-drive", label: "Google Drive", icon: HardDrive },
-            ...(faceManagementAllowed
-              ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
-              : []),
-            ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
-          ].map((tab) => {
-            const isActive = activeSubTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
-                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
-                  isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-sm"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
+          <button type="button" aria-label="Cuộn tab cài đặt sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto select-none">
+            {[
+              { id: "profile", label: "Hồ sơ cá nhân", icon: User },
+              { id: "security", label: "Bảo mật", icon: Shield },
+              { id: "erp", label: "Cấu hình ERP", icon: Sliders },
+              { id: "google-drive", label: "Google Drive", icon: HardDrive },
+              ...(faceManagementAllowed
+                ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
+                : []),
+              ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
+            ].map((tab) => {
+              const isActive = activeSubTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
+                  className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                    isActive
+                      ? "bg-cyan-600 text-white font-bold shadow-sm"
+                      : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" aria-label="Cuộn tab cài đặt sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
-        <button type="button" aria-label="Cuộn tab cài đặt sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       {/* Main Settings Body Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* Left Column: Quick Profile Card */}
-        <div className="relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-center shadow-xs backdrop-blur-md sm:p-6">
+        <div className={`relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-center shadow-xs backdrop-blur-md sm:p-6 ${
+          activeSubTab !== "profile" ? "hidden lg:flex" : "flex"
+        }`}>
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-80" />
 
           <div className="relative mt-10 cursor-pointer group" onClick={handleAvatarClick}>

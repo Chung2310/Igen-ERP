@@ -1503,7 +1503,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
           onClick={() => setShowNewFolder(false)}
         >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
                 <FolderPlus className="w-6 h-6" />
@@ -1555,7 +1555,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             }
           }}
         >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
                 <FolderPlus className="w-6 h-6" />
@@ -1826,7 +1826,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
           onClick={() => setRenameTarget(null)}
         >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
                 <Pencil className="w-5 h-5" />

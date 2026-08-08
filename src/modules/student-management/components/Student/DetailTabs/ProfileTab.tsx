@@ -1,7 +1,7 @@
 import React from 'react';
 import { Student } from '../../../types';
 import { formatDisplayDate } from '../../../lib/utils';
-import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
+import { CustomFieldDetails } from '../../../../shared/custom-fields/CustomFieldDetails';
 import { useBatches } from '../../../hooks/useBatches';
 import { apiFetch } from '../../../lib/api';
 import { getRoadmaps, type LearningRoadmap } from '../../../api/learningRoadmap.api';

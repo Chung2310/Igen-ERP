@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "../../../../context/AuthContext";
 import { apiFetch } from "../../lib/api";
 import type { Student } from "../../types";
-import { useCustomFields } from "../../custom-fields/useCustomFields";
+import { useCustomFields } from "../../../shared/custom-fields/useCustomFields";
 import { useBatches } from "../../hooks/useBatches";
 import { useEntityLabel } from "../../hooks/useEntityLabel";
 import { AddStudentModal } from "./AddStudentModal";
@@ -22,7 +22,7 @@ vi.mock("../../lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("../../hooks/useBatches", () => ({ useBatches: vi.fn() }));
 vi.mock("../../hooks/useAdminCenters", () => ({ useAdminCenters: () => ({ centers: [] }) }));
 vi.mock("../../../../pages/Toast", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
-vi.mock("../../custom-fields/useCustomFields", () => ({ useCustomFields: vi.fn() }));
+vi.mock("../../../shared/custom-fields/useCustomFields", () => ({ useCustomFields: vi.fn() }));
 vi.mock("../../hooks/useEntityLabel", () => ({ useEntityLabel: vi.fn() }));
 
 const mockedAuth = vi.mocked(useAuth);

@@ -47,7 +47,10 @@ export function WorkerDashboardPage({
     void workerDashboardApi
       .get(selectedCenter)
       .then((value) => {
-        if (active) setStats(value);
+        // Gộp vào giá trị mặc định thay vì thay nguyên object: API thiếu bất kỳ khóa nào
+        // (vd monthlyRegistrations) sẽ làm phần render bên dưới ném lỗi ngoài try/catch
+        // và trắng toàn bộ trang.
+        if (active) setStats((prev) => ({ ...prev, ...value }));
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : "Không thể tải dashboard");
@@ -60,7 +63,8 @@ export function WorkerDashboardPage({
     };
   }, [selectedCenter]);
 
-  const maxRegCount = Math.max(...stats.monthlyRegistrations, 1);
+  const monthlyRegistrations = Array.isArray(stats.monthlyRegistrations) ? stats.monthlyRegistrations : [];
+  const maxRegCount = Math.max(...monthlyRegistrations, 1);
   const currentYear = new Date().getFullYear();
   const months = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
 
@@ -164,7 +168,7 @@ export function WorkerDashboardPage({
                 <div className="border-b border-slate-400 w-full" />
               </div>
 
-              {stats.monthlyRegistrations.map((count, idx) => {
+              {monthlyRegistrations.map((count, idx) => {
                 const heightPercent = Math.max(6, Math.round((count / maxRegCount) * 100));
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
