@@ -2,8 +2,8 @@ import React from "react";
 import { toast } from "../../../pages/Toast";
 import { useAuth } from "../../../context/AuthContext";
 import { EntityAddModal } from "../../shared/components/EntityAddModal";
-import { CustomFieldsSection } from "../../student-management/custom-fields/CustomFieldsSection";
-import type { CustomFieldValues } from "../../student-management/custom-fields/types";
+import { CustomFieldsSection } from "../../shared/custom-fields/CustomFieldsSection";
+import type { CustomFieldValues } from "../../shared/custom-fields/types";
 import { canManageWorkerArea } from "../workerPermissionPolicy";
 import type {
   Worker,
@@ -311,7 +311,7 @@ export function AddWorkerModal({
       )}
 
       <CustomFieldsSection
-        moduleKey="students"
+        moduleKey="workers"
         mode="create"
         tenantId={tenantId}
         disabled={submitting}

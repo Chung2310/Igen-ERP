@@ -7,12 +7,12 @@ import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../
 import { formatVND } from '../../../lib/utils';
 import { Loader2 } from 'lucide-react';
 import { Partner } from '../../../types';
-import { CustomFieldsSection } from '../../../custom-fields/CustomFieldsSection';
-import type { CustomFieldValues } from '../../../custom-fields/types';
+import { CustomFieldsSection } from '../../../../shared/custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../../hooks/useStandardFields';
-import { CustomFieldEditorModal } from '../../../custom-fields/CustomFieldEditorModal';
-import { canManageCustomFields } from '../../../custom-fields/permissions';
-import type { CreateFieldInput, FieldDefinition } from '../../../custom-fields/types';
+import { CustomFieldEditorModal } from '../../../../shared/custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../../../shared/custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../../../shared/custom-fields/types';
 import { useEntityLabel } from '../../../hooks/useEntityLabel';
 import { useBranch } from '../../../../../context/BranchContext';
 import { buildPartnerBranchHeaders } from '../partnerBranchScope';

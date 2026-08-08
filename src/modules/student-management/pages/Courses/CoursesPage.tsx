@@ -40,12 +40,12 @@ import {
   ErpSubmitButton,
   ErpTableHead,
 } from '../../components/Erp/ErpUI';
-import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
-import type { CustomFieldValues } from '../../custom-fields/types';
+import { CustomFieldsSection } from '../../../shared/custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
-import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
-import { canManageCustomFields } from '../../custom-fields/permissions';
-import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getCoursePageCopy } from '../../config/workerRecruitmentCopy';

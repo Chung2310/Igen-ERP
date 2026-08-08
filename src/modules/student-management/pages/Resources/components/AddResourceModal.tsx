@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
 import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
-import { CustomFieldsSection } from '../../../custom-fields/CustomFieldsSection';
-import type { CustomFieldValues } from '../../../custom-fields/types';
+import { CustomFieldsSection } from '../../../../shared/custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../../shared/custom-fields/types';
 import type { ResourceItem } from '../../../types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../../hooks/useStandardFields';
-import { CustomFieldEditorModal } from '../../../custom-fields/CustomFieldEditorModal';
-import { canManageCustomFields } from '../../../custom-fields/permissions';
+import { CustomFieldEditorModal } from '../../../../shared/custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../../../shared/custom-fields/permissions';
 import { useAuth } from '../../../../../context/AuthContext';
-import type { CreateFieldInput, FieldDefinition } from '../../../custom-fields/types';
+import type { CreateFieldInput, FieldDefinition } from '../../../../shared/custom-fields/types';
 
 interface Category {
   id: string;

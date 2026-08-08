@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "../lib/api";
+import { apiFetch } from "../../student-management/lib/api";
 import {
   archiveCustomField,
   createCustomField,

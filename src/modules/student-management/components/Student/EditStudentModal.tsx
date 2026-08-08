@@ -9,16 +9,16 @@ import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { useAuth } from '../../../../context/AuthContext';
 import { FormInput } from './components/StudentFormFields';
 import { FaceEnrollmentTab } from './DetailTabs/FaceEnrollmentTab';
-import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
-import type { CustomFieldValues } from '../../custom-fields/types';
+import { CustomFieldsSection } from '../../../shared/custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { RoadmapPicker } from '../ui/RoadmapPicker';
 import { getOperationalStatusLabel } from '../../config/workerRecruitmentCopy';
 import { isFaceAttendanceVisible } from '../../config/faceAttendanceVisibility';
-import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
-import { canManageCustomFields } from '../../custom-fields/permissions';
-import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
+import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
+import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 
 interface EditStudentModalProps {
   student: Student | null;

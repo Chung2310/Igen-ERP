@@ -2,7 +2,7 @@
  * Student Types
  */
 
-import type { CustomFieldValues } from './custom-fields/types';
+import type { CustomFieldValues } from '../shared/custom-fields/types';
 
 export interface UploadedFile {
   name: string;

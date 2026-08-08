@@ -1,6 +1,6 @@
 import { Document } from "mongoose";
 
-export const MODULE_KEYS = ["students", "courses", "batches", "exams", "resources", "partners"] as const;
+export const MODULE_KEYS = ["students", "courses", "batches", "exams", "resources", "partners", "workers"] as const;
 export type ModuleKey = typeof MODULE_KEYS[number];
 
 export const DYNAMIC_FIELD_TYPES = [
