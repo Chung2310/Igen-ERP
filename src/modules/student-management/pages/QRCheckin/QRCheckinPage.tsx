@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw } from "lucide-react";
+import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy } from "lucide-react";
 
 const REASON_MESSAGES: Record<string, string> = {
   not_registered: "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin để đăng ký trước.",
@@ -63,6 +63,22 @@ function getDeviceFingerprint(): string {
   }
 }
 
+/**
+ * QR scanners embedded in messaging/camera apps often use an ephemeral
+ * webview. Cookies from that webview are not available when the user scans
+ * again, so device recognition cannot be reliable there. Ask the user to
+ * continue in a normal Safari/Chrome tab instead.
+ */
+function isEmbeddedWebView(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  const knownEmbeddedApp = /FBAN|FBAV|Instagram|Zalo|Line|MicroMessenger|Telegram|GSA|;\s*wv\)|\bwv\b/i.test(userAgent);
+  const iosWebView = /iPhone|iPad|iPod/i.test(userAgent)
+    && /AppleWebKit/i.test(userAgent)
+    && !/Safari|CriOS|FxiOS|EdgiOS/i.test(userAgent);
+  return knownEmbeddedApp || iosWebView;
+}
+
 export default function QRCheckinPage() {
   const [token] = useState<string>(() => {
     const parts = window.location.pathname.split("/");
@@ -90,6 +106,9 @@ export default function QRCheckinPage() {
     if (!t || t === "checkin") return "Không tìm thấy mã QR điểm danh trong liên kết.";
     return null;
   });
+  const [requiresBrowser] = useState<boolean>(() => isEmbeddedWebView());
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const [browserHint, setBrowserHint] = useState<string | null>(null);
 
   const [phone, setPhone] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -297,6 +316,25 @@ export default function QRCheckinPage() {
     }
   };
 
+  const handleOpenInBrowser = () => {
+    setBrowserHint(null);
+    const openedWindow = window.open(window.location.href, "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      setBrowserHint("Nếu trang chưa mở, hãy bấm Chia sẻ → Mở trong Safari/Chrome.");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      setBrowserHint("Đã sao chép link. Dán link vào Safari/Chrome để tiếp tục.");
+      window.setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      setBrowserHint("Không sao chép tự động được. Hãy dùng Chia sẻ → Mở trong Safari/Chrome.");
+    }
+  };
+
   if (loadingSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col justify-center items-center text-white px-4">
@@ -336,6 +374,41 @@ export default function QRCheckinPage() {
             >
               Tải lại trang
             </button>
+          </div>
+        ) : requiresBrowser ? (
+          <div className="space-y-6 text-center">
+            <div className="w-20 h-20 bg-cyan-50 rounded-full flex items-center justify-center mx-auto text-cyan-600 shadow-inner">
+              <ExternalLink className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Mở bằng Safari/Chrome</h2>
+              <p className="text-sm text-slate-500 font-medium">
+                Bạn đang mở link trong trình quét tạm thời. Hãy mở link bằng trình duyệt chính để thiết bị được ghi nhớ cho những lần điểm danh sau.
+              </p>
+              {sessionInfo && (
+                <p className="text-xs text-slate-400 font-semibold">Lớp {sessionInfo.batchCode} · Buổi {formatDate(sessionInfo.date)}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenInBrowser}
+              className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Mở trong trình duyệt
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCopyLink()}
+              className="w-full h-11 bg-slate-100 text-slate-600 rounded-2xl text-xs font-bold active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {linkCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {linkCopied ? "Đã sao chép link" : "Sao chép link để mở bằng Safari/Chrome"}
+            </button>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Link vẫn dùng được trong suốt thời lượng phiên điểm danh; khi phiên đóng hoặc hết giờ, link sẽ hết hiệu lực.
+            </p>
+            {browserHint && <p className="text-xs text-amber-600 font-semibold">{browserHint}</p>}
           </div>
         ) : result ? (
           // Màn hình kết quả Check-in

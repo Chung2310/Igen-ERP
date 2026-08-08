@@ -45,12 +45,16 @@ export function QRAttendanceModal({
   const [expiresAt, setExpiresAt] = useState<number>(0);
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number>(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 phút đếm ngược (giây)
-  const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(30); // 30s xoay QR
+  const [tokenTimeRemaining, setTokenTimeRemaining] = useState<number>(0);
   /** Mã dùng chung (lao động): gửi được vào nhóm chat, sống hết phiên, không xoay */
   const [shared, setShared] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [closing, setClosing] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  // Token now normally lasts for the whole configured session. Keep the
+  // rotating-token UI only for older/alternate endpoints that return a
+  // shorter token explicitly.
+  const tokenIsStable = shared || !expiresAt || !tokenExpiresAt || tokenExpiresAt >= expiresAt - 1000;
 
   // Danh sách các ID học viên đã check-in thành công
   const [checkedInMap, setCheckedInMap] = useState<Map<string, { checkinAt: number }>>(new Map());
@@ -96,8 +100,7 @@ export function QRAttendanceModal({
         setLoading(true);
         const res = await apiFetch("/qr-attendance/session", {
           method: "POST",
-          // Không ép thời lượng: server tự chọn theo loại hình (lao động 60
-          // phút cho mã dùng chung, lớp học 5 phút cho mã xoay).
+          // Thời lượng phiên do server cấu hình; token sống cùng thời lượng đó.
           body: JSON.stringify({ batchId: batch.id, date }),
         });
 
@@ -252,7 +255,8 @@ export function QRAttendanceModal({
     };
   }, [sessionId]);
 
-  // 5. Timer đếm ngược (cho cả 5 phút và 30s xoay QR tự động)
+  // 5. Timer đếm ngược thời lượng phiên. Chỉ endpoint cũ trả token ngắn hơn
+  // mới cần cơ chế xoay dự phòng.
   useEffect(() => {
     if (loading || !sessionId || !expiresAt || !tokenExpiresAt) return;
 
@@ -274,9 +278,8 @@ export function QRAttendanceModal({
       const tokenRemainingSecs = Math.max(0, Math.floor((tokenExpiresAt - now) / 1000));
       setTokenTimeRemaining(tokenRemainingSecs);
 
-      // Mã dùng chung sống hết phiên nên không xoay; xoay sẽ làm ảnh đã gửi
-      // vào nhóm chat hết hiệu lực.
-      if (!shared && tokenRemainingSecs <= 1) {
+      // Token ổn định sống hết phiên; endpoint cũ trả token ngắn hơn mới xoay.
+      if (!tokenIsStable && tokenRemainingSecs <= 1) {
         rotateToken();
       }
     }, 1000);
@@ -286,7 +289,7 @@ export function QRAttendanceModal({
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken, shared]);
+  }, [loading, sessionId, expiresAt, tokenExpiresAt, rotateToken, tokenIsStable]);
 
   const handleCancel = () => {
     setShowCancelConfirm(true);
@@ -366,9 +369,9 @@ export function QRAttendanceModal({
                       </div>
                     )}
 
-                    {/* Trạng thái mã: dùng chung thì cố định, lớp học thì xoay 30s */}
+                    {/* Token ổn định trong suốt thời lượng phiên */}
                     <div className="absolute bottom-3 left-0 right-0 text-center">
-                      {shared ? (
+                      {tokenIsStable ? (
                         <span className="bg-slate-900/90 text-white text-[9px] font-black tracking-widest px-2.5 py-1 rounded-full uppercase shadow-md inline-flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
                           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                           Còn hiệu lực {Math.floor(timeRemaining / 60)} phút
