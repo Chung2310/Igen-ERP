@@ -175,7 +175,7 @@ export class QRAttendanceService {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       throw new Error("Mã QR không hợp lệ hoặc đã hết hạn.");
     }
 
@@ -234,7 +234,7 @@ export class QRAttendanceService {
     let decoded: any;
     try {
       decoded = jwt.verify(token, getJwtAccessSecret()) as any;
-    } catch (err) {
+    } catch {
       logger.warn(`[QR-Attendance] Invalid token checkin attempt.`);
       throw new QrCheckinError("session_invalid", "Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét lại.");
     }

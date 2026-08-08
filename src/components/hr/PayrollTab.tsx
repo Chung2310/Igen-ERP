@@ -40,8 +40,8 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={onCancel}>
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start gap-3 p-5">
+      <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3 p-4 sm:p-5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
             <AlertTriangle size={20} className="text-rose-600" />
           </div>
@@ -53,7 +53,7 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
             <X size={16} />
           </button>
         </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50 px-4 py-3 sm:px-5">
           <button onClick={onCancel} disabled={loading} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-slate-50 disabled:opacity-50">
             Hủy
           </button>
@@ -81,7 +81,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [results, setResults] = useState<any[]>([]);
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -135,7 +134,15 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
     XLSX.writeFile(workbook, `bang-luong-${period}.xlsx`);
   };
-  const action = async (fn: () => Promise<unknown>, success: string) => { try { await fn(); setMessage(success); await reload(); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể thực hiện thao tác"); } };
+  const action = async (fn: () => Promise<unknown>, success: string) => {
+    try {
+      await fn();
+      toast.success(success);
+      await reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể thực hiện thao tác");
+    }
+  };
 
   const allLocked = results.length > 0 && results.every((r) => r.status === "locked");
   const currentStepIndex = run?.status === "closed" ? 4
@@ -215,7 +222,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     if (run?._id) { try { const detail = await payrollService.getLineDetail(String(run._id), line.employeeId); setFormulaRow({ ...line, calculation: detail.calculation || line.calculation, attendance: detail.attendance || line.attendance, vietnam: detail.vietnam || line.vietnam }); } catch { /* keep local detail */ } finally { setFormulaLoading(false); } }
   };
 
-  const downloadExport = async (type: "detailed" | "insurance" | "pit" | "bank_transfer") => { if (!run?._id) return; try { const blob = await payrollService.exportWorkbook(String(run._id), type); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}-${type}.xlsx`; anchor.click(); URL.revokeObjectURL(url); setMessage("Đã tải export bảng lương"); } catch (error) { setMessage(error instanceof Error ? error.message : "Không thể export bảng lương"); } };
+  const downloadExport = async (type: "detailed" | "insurance" | "pit" | "bank_transfer") => {
+    if (!run?._id) return;
+    try {
+      const blob = await payrollService.exportWorkbook(String(run._id), type);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `payroll-${period}-${type}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success("Đã tải báo cáo xuất bảng lương");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xuất bảng lương");
+    }
+  };
   const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
   const getEmployeeBalance = (employeeId: string, netPay: number) => {
     const paid = payments
@@ -288,7 +309,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {message && <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-800">{message}</div>}
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && run?._id && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -342,26 +362,34 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
 
     {/* Quy trình xử lý kỳ lương */}
-    <div className="rounded-xl border border-slate-200 bg-white p-4 overflow-x-auto">
-      <div className="flex items-center min-w-max">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
         {STEPS.map((step, index) => {
           const done = index <= currentStepIndex;
           const isLast = index === STEPS.length - 1;
+          const connectorDone = index < currentStepIndex;
           return (
-            <div key={step.key} className="flex items-center">
-              <div className="flex flex-col items-center gap-1.5 w-24">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold ${
+            <li key={step.key} className="flex sm:flex-1 sm:flex-col sm:items-center">
+              {/* Cột chỉ báo: dọc trên mobile, ngang từ sm trở lên */}
+              <div className="flex flex-col items-center sm:w-full sm:flex-row">
+                <div className={`hidden sm:block sm:h-0.5 sm:flex-1 ${index === 0 ? "sm:bg-transparent" : index <= currentStepIndex ? "sm:bg-emerald-400" : "sm:bg-slate-200"}`} />
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
                   done ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400"
                 }`}>
                   {done ? <CheckCircle2 size={16} /> : index + 1}
                 </div>
-                <span className={`text-[11px] text-center font-medium ${done ? "text-emerald-700" : "text-slate-400"}`}>{step.label}</span>
+                {!isLast && (
+                  <div className={`w-0.5 flex-1 min-h-[1.25rem] sm:h-0.5 sm:w-auto sm:min-h-0 sm:flex-1 ${connectorDone ? "bg-emerald-400" : "bg-slate-200"}`} />
+                )}
+                {isLast && <div className="hidden sm:block sm:h-0.5 sm:flex-1 sm:bg-transparent" />}
               </div>
-              {!isLast && <div className={`h-0.5 w-8 -mt-4 ${index < currentStepIndex ? "bg-emerald-400" : "bg-slate-200"}`} />}
-            </div>
+              <span className={`pb-4 pl-3 text-xs font-medium sm:pb-0 sm:pl-0 sm:pt-1.5 sm:text-center sm:text-[11px] ${done ? "text-emerald-700" : "text-slate-400"}`}>
+                {step.label}
+              </span>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
 
     {/* Thẻ tổng quan */}
@@ -571,10 +599,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     />
     {formulaRow && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
-        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between"><div><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="cursor-pointer"><X size={17} /></button></div>
+        <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between gap-3"><div className="min-w-0"><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="truncate text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="shrink-0 cursor-pointer"><X size={17} /></button></div>
           {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation, formulaRow.vietnam); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Đang tải snapshot bảng lương mới nhất...</p>}
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">
+            <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 sm:p-4">
               <div><span className="text-xs text-slate-500">Lương cơ bản</span><b className="block">{money(detail.monthlySalary)}</b></div>
               <div><span className="text-xs text-slate-500">Đơn giá giờ</span><b className="block">{money(Math.round(detail.hourlyRate))}</b></div>
               <div><span className="text-xs text-slate-500">Công chuẩn</span><b className="block">{detail.standardDays.toFixed(2)} ngày</b></div>
@@ -597,12 +625,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {/* Modal Tạo Điều Chỉnh */}
     {isAdjOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsAdjOpen(false)}>
-        <form onSubmit={handleCreateAdjustment} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center border-b pb-2">
+        <form onSubmit={handleCreateAdjustment} className="flex w-full max-w-md max-h-[90dvh] flex-col rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center gap-3 border-b pb-2">
             <h3 className="font-bold text-slate-900">Tạo đề xuất điều chỉnh lương</h3>
-            <button type="button" onClick={() => setIsAdjOpen(false)} className="cursor-pointer text-slate-500"><X size={17} /></button>
+            <button type="button" onClick={() => setIsAdjOpen(false)} className="shrink-0 cursor-pointer text-slate-500"><X size={17} /></button>
           </div>
-          <div className="space-y-3 text-sm">
+          <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-4 text-sm">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nhân viên</label>
               <select
@@ -652,7 +680,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          <div className="flex flex-col-reverse gap-2 pt-3 border-t sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setIsAdjOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
             <button type="submit" disabled={adjSaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
               {adjSaving ? "Đang lưu..." : "Lưu đề xuất"}
@@ -665,12 +693,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {/* Modal Tạo Đợt Thanh Toán */}
     {isPayOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsPayOpen(false)}>
-        <form onSubmit={handleCreatePayment} className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center border-b pb-2">
+        <form onSubmit={handleCreatePayment} className="flex w-full max-w-lg max-h-[90dvh] flex-col rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center gap-3 border-b pb-2">
             <h3 className="font-bold text-slate-900">Khởi tạo đợt chi trả lương</h3>
-            <button type="button" onClick={() => setIsPayOpen(false)} className="cursor-pointer text-slate-500"><X size={17} /></button>
+            <button type="button" onClick={() => setIsPayOpen(false)} className="shrink-0 cursor-pointer text-slate-500"><X size={17} /></button>
           </div>
-          <div className="space-y-3 text-sm">
+          <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-4 text-sm">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ghi chú đợt thanh toán</label>
               <input
@@ -685,8 +713,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Chọn nhân sự chi trả</label>
               <div className="max-h-60 overflow-y-auto border rounded-lg divide-y">
                 {payLines.map((line, idx) => (
-                  <div key={line.employeeId} className="flex items-center justify-between p-3 hover:bg-slate-50/50">
-                    <div className="flex items-center gap-2">
+                  <div key={line.employeeId} className="flex items-center justify-between gap-2 p-3 hover:bg-slate-50/50">
+                    <div className="flex min-w-0 items-center gap-2">
                       <input
                         type="checkbox"
                         checked={line.selected}
@@ -697,12 +725,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         }}
                         className="rounded border-slate-300 text-indigo-600"
                       />
-                      <div>
-                        <p className="font-semibold text-slate-700">{line.name || line.employeeId}</p>
-                        <p className="text-xs text-slate-400">Còn lại: {line.balance.toLocaleString()} đ</p>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-700">{line.name || line.employeeId}</p>
+                        <p className="truncate text-xs text-slate-400">Còn lại: {line.balance.toLocaleString()} đ</p>
                       </div>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                       <input
                         type="number"
                         min="1"
@@ -713,21 +741,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                           next[idx].amount = Number(e.target.value);
                           setPayLines(next);
                         }}
-                        className="w-28 text-right rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 disabled:opacity-40"
+                        className="w-24 sm:w-28 text-right rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 disabled:opacity-40"
                       />
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-slate-50 p-3 rounded-lg flex justify-between items-center text-sm font-bold text-slate-700">
+            <div className="bg-slate-50 p-3 rounded-lg flex flex-wrap gap-x-3 gap-y-1 justify-between items-center text-sm font-bold text-slate-700">
               <span>Tổng số tiền giải ngân:</span>
               <span className="text-cyan-700 text-base">
                 {payLines.filter(l => l.selected).reduce((sum, l) => sum + l.amount, 0).toLocaleString()} đ
               </span>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          <div className="flex flex-col-reverse gap-2 pt-3 border-t sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setIsPayOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
             <button type="submit" disabled={paySaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
               {paySaving ? "Đang khởi tạo..." : "Khởi tạo đợt chi"}

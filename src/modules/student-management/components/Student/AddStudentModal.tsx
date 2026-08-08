@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
@@ -10,7 +10,6 @@ import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
-import { FaceCaptureInput } from './components/FaceCaptureInput';
 import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
 import type { CustomFieldValues } from '../../custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
@@ -32,7 +31,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,

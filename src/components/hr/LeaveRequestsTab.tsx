@@ -873,7 +873,7 @@ export default function LeaveRequestsTab({
       {/* Modal nộp đơn */}
       {isAppFormOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <h3 className="font-extrabold text-slate-800 text-sm">Nộp đơn từ</h3>
               <button
@@ -1016,7 +1016,7 @@ export default function LeaveRequestsTab({
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200 text-left">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 text-left max-h-[90dvh] overscroll-contain">
               <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
                 <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
                   <FileText className="h-4.5 w-4.5 text-indigo-600" />
@@ -1127,7 +1127,7 @@ export default function LeaveRequestsTab({
       {/* Modal Tải Biểu Mẫu Mẫu (Admin/Manager) */}
       {isTemplateFormOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <h3 className="font-extrabold text-slate-800 text-sm">Đăng tải biểu mẫu mẫu mới</h3>
               <button
@@ -1206,7 +1206,7 @@ export default function LeaveRequestsTab({
       {/* Modal Lý do Từ chối đơn */}
       {appRejectModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <h3 className="font-extrabold text-slate-800 text-sm">Từ chối duyệt đơn</h3>
               <button

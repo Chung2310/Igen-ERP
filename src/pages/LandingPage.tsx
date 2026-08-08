@@ -15,8 +15,6 @@ import {
   Menu,
   X,
   ChevronDown,
-  Phone,
-  Mail,
   MapPin,
   ExternalLink
 } from "lucide-react";

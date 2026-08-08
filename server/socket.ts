@@ -119,7 +119,7 @@ function getAllowedOrigins(): string[] {
     try {
       const url = new URL(process.env.APP_URL);
       origins.add(url.origin);
-    } catch (e) {
+    } catch {
       // Bỏ qua nếu APP_URL không hợp lệ
     }
   }
@@ -184,7 +184,7 @@ export async function initSocketServer(httpServer: HTTPServer) {
       socket.data.user = user;
       socket.data.sessionId = decoded.sid;
       next();
-    } catch (err) {
+    } catch {
       return next(new Error("Authentication error: Invalid token"));
     }
   });

@@ -16,11 +16,6 @@ function resolveInitialTab() {
   return tab;
 }
 
-function isAppTabPath(pathname: string) {
-  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  return normalized === "/" || Boolean(pathToTab(normalized));
-}
-
 export function useTabRouter(options?: { enabled?: boolean }) {
   const enabled = options?.enabled ?? true;
   const [activeTab, setActiveTab] = useState<TabType>(resolveInitialTab);

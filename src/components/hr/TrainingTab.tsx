@@ -3,14 +3,12 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
-  Clock,
   ExternalLink,
   Plus,
   Play,
   CheckCircle,
   HelpCircle,
   FileText,
-  Activity,
   Trash2,
   X,
   RefreshCw,
@@ -36,26 +34,6 @@ interface TrainingTabProps {
   fetchCourses: (compCode: string) => Promise<void>;
   employees: EmployeeNode[];
 }
-
-const isUrl = (str?: string): boolean => {
-  if (!str) return false;
-  return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
-};
-
-const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
-  if (isUrl(avatar)) {
-    return (
-      <div className={`${sizeClasses} rounded-full overflow-hidden shrink-0 flex items-center justify-center border border-gray-150`}>
-        <img src={avatar} className="w-full h-full object-cover" alt="Avatar nhân sự" />
-      </div>
-    );
-  }
-  return (
-    <div className={`${sizeClasses} bg-slate-50 rounded-full shrink-0 flex items-center justify-center border border-gray-100 select-none`}>
-      <span className={textClass}>{avatar || "👤"}</span>
-    </div>
-  );
-};
 
 export default function TrainingTab({
   userProfile,
@@ -101,9 +79,7 @@ export default function TrainingTab({
   const [courseFormTitle, setCourseFormTitle] = useState("");
   const [courseFormDesc, setCourseFormDesc] = useState("");
   const [courseFormCategory, setCourseFormCategory] = useState("Văn hóa");
-  const [courseFormInstructor, setCourseFormInstructor] = useState("");
   const [courseFormDuration, setCourseFormDuration] = useState("");
-  const [courseFormIcon, setCourseFormIcon] = useState("📚");
   const [courseFormIsRequired, setCourseFormIsRequired] = useState(false);
   const [courseFormAutoOnboarding, setCourseFormAutoOnboarding] = useState(false);
 
@@ -125,7 +101,7 @@ export default function TrainingTab({
   const [trainingFilter, setTrainingFilter] = useState<string | null>(null);
   const [supervisorEnrollments, setSupervisorEnrollments] = useState<TrainingEnrollment[]>([]);
 
-  const fetchMyEnrollments = async (uid: string, companyCode: string) => {
+  const fetchMyEnrollments = async (uid: string) => {
     try {
       const res = await fetch(`/api/v1/crud/training-enrollments?uid=${encodeURIComponent(uid)}`, {
         headers: {
@@ -165,7 +141,7 @@ export default function TrainingTab({
 
   useEffect(() => {
     if (selectedCompanyCode && userProfile) {
-      fetchMyEnrollments(userProfile.uid, selectedCompanyCode);
+      fetchMyEnrollments(userProfile.uid);
       if (isSupervisor) {
         fetchSupervisorEnrollments(selectedCompanyCode);
       }
@@ -248,7 +224,7 @@ export default function TrainingTab({
         ));
 
         if (courseFormIsRequired) {
-          await fetchMyEnrollments(userProfile.uid, companyCode);
+          await fetchMyEnrollments(userProfile.uid);
         }
         if (isSupervisor) {
           await fetchSupervisorEnrollments(companyCode);
@@ -354,7 +330,7 @@ export default function TrainingTab({
       }]);
 
       if (courseFormIsRequired) {
-        await fetchMyEnrollments(userProfile.uid, companyCode);
+        await fetchMyEnrollments(userProfile.uid);
       }
       if (isSupervisor) {
         await fetchSupervisorEnrollments(companyCode);

@@ -13,7 +13,6 @@ import {
   ExternalLink,
   ShieldCheck,
   QrCode,
-  DollarSign,
   AlertTriangle
 } from "lucide-react";
 import { walletService, TransactionInfo } from "../services/walletService";

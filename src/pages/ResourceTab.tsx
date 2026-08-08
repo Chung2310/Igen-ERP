@@ -87,7 +87,7 @@ const EmptyStateIllustration = () => (
     {/* Monitor Stand */}
     <path d="M80 120 L120 120 L110 100 L90 100 Z" fill="#cbd5e1" />
     <rect x="75" y="120" width="50" height="4" rx="2" fill="#94a3b8" />
-    
+
     {/* Monitor Frame */}
     <rect x="40" y="30" width="120" height="75" rx="6" fill="#64748b" />
     <rect x="44" y="34" width="112" height="60" rx="2" fill="#ffffff" />
@@ -97,11 +97,11 @@ const EmptyStateIllustration = () => (
     {/* Content inside Monitor */}
     <rect x="52" y="44" width="96" height="8" rx="4" fill="#f1f5f9" />
     <circle cx="58" cy="48" r="2" fill="#94a3b8" />
-    
+
     {/* Folder icon */}
     <rect x="72" y="60" width="22" height="16" rx="2" fill="#3b82f6" fillOpacity="0.2" stroke="#3b82f6" strokeWidth={1.5} />
     <path d="M72 64 H80 L83 67 H94" stroke="#3b82f6" strokeWidth={1.5} />
-    
+
     {/* Magnifying Glass */}
     <circle cx="112" cy="70" r="10" stroke="#f59e0b" strokeWidth={2} />
     <line x1="119" y1="77" x2="129" y2="87" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" />
@@ -242,7 +242,6 @@ export default function ResourceTab() {
       }
     };
     void fetchStaff();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userUid, userRole, userCompanyCode]);
 
   // Pill tab: Kho lưu trữ | Được chia sẻ
@@ -253,7 +252,7 @@ export default function ResourceTab() {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [filterType, setFilterType] = useState<string>("");
-  
+
   const activeFiltersCount = React.useMemo(() => {
     return [filterStartDate, filterEndDate, filterType].filter(Boolean).length;
   }, [filterStartDate, filterEndDate, filterType]);
@@ -309,7 +308,7 @@ export default function ResourceTab() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const noteImageInputRef = useRef<HTMLInputElement | null>(null);
   const textInputRef = useRef<HTMLInputElement | null>(null);
-  
+
   const undoStackRef = useRef<ImageData[]>([]);
   const redoStackRef = useRef<ImageData[]>([]);
   const isDrawingRef = useRef<boolean>(false);
@@ -728,7 +727,7 @@ export default function ResourceTab() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Không thể tải danh sách tài nguyên.");
-      
+
       setResources(data.data || []);
 
       if (selectedSpace !== "personal") {
@@ -853,7 +852,7 @@ export default function ResourceTab() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Cập nhật phân quyền thất bại.");
-      
+
       toast.success("Cập nhật phân quyền thành công!");
       setShowShareModal(false);
       void fetchResources();
@@ -1117,14 +1116,14 @@ export default function ResourceTab() {
       for (let i = 0; i < byteString.length; i++) {
         ia[i] = byteString.charCodeAt(i);
       }
-      const blob = new Blob([ab], {type: mimeString});
+      const blob = new Blob([ab], { type: mimeString });
       const noteFile = new File([blob], `${title}.png`, { type: "image/png" });
 
       // 3. Upload file lên qua resourceService.uploadFile
       await resourceService.uploadFile(
-        noteFile, 
-        localFolderId === "root" ? null : localFolderId, 
-        selectedSpace === "personal" ? selectedOwnerId : undefined, 
+        noteFile,
+        localFolderId === "root" ? null : localFolderId,
+        selectedSpace === "personal" ? selectedOwnerId : undefined,
         selectedSpace !== "personal" ? selectedSpace : undefined
       );
 
@@ -1147,11 +1146,11 @@ export default function ResourceTab() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
     // Lưu lại trạng thái ImageData hiện tại vào undoStack
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     undoStackRef.current.push(imgData);
-    
+
     // Clear redoStack
     redoStackRef.current = [];
   };
@@ -1205,7 +1204,7 @@ export default function ResourceTab() {
 
     const angle = Math.atan2(toy - fromy, tox - fromx);
     const headlen = 15;
-    
+
     ctx.beginPath();
     ctx.moveTo(tox, toy);
     ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
@@ -1243,7 +1242,7 @@ export default function ResourceTab() {
         img.onload = () => {
           const canvas = canvasRef.current;
           if (!canvas) return;
-          
+
           // Chiều rộng mặc định 240px, tự tính chiều cao tỷ lệ
           const defaultWidth = 240;
           const ratio = img.height / img.width;
@@ -1278,14 +1277,14 @@ export default function ResourceTab() {
           }
           // Vẽ ảnh đang edit
           ctx.drawImage(editingImage.img, editingImage.x, editingImage.y, editingImage.w, editingImage.h);
-          
+
           // Vẽ khung nét đứt màu teal
           ctx.setLineDash([5, 5]);
           ctx.strokeStyle = "#008bad";
           ctx.lineWidth = 1.5;
           ctx.strokeRect(editingImage.x, editingImage.y, editingImage.w, editingImage.h);
           ctx.setLineDash([]);
-          
+
           // Vẽ nút tròn resize ở góc dưới bên phải
           ctx.fillStyle = "#008bad";
           ctx.beginPath();
@@ -1319,7 +1318,7 @@ export default function ResourceTab() {
 
       // 2. Kiểm tra click vào trong lòng ảnh
       if (x >= editingImage.x && x <= editingImage.x + editingImage.w &&
-          y >= editingImage.y && y <= editingImage.y + editingImage.h) {
+        y >= editingImage.y && y <= editingImage.y + editingImage.h) {
         isDraggingImageRef.current = true;
         imageOffsetRef.current = {
           x: x - editingImage.x,
@@ -1433,7 +1432,7 @@ export default function ResourceTab() {
   const handleSaveTextInput = () => {
     if (!noteTextInput.isOpen) return;
     const value = noteTextInput.value.trim();
-    
+
     if (value) {
       const canvas = canvasRef.current;
       if (canvas) {
@@ -1466,10 +1465,10 @@ export default function ResourceTab() {
           if (ctx) {
             canvas.width = canvas.parentElement?.clientWidth || 800;
             canvas.height = canvas.parentElement?.clientHeight || 500;
-            
+
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             undoStackRef.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
             redoStackRef.current = [];
             setNoteTool("draw");
@@ -1496,7 +1495,7 @@ export default function ResourceTab() {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
         stream.getTracks().forEach(track => track.stop());
-        
+
         setSavingAudio(true);
         try {
           const fileName = `Ghi âm_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}_${new Date().toLocaleTimeString("vi-VN").replace(/:/g, "-")}.wav`;
@@ -1613,7 +1612,7 @@ export default function ResourceTab() {
     const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
     const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
     const isRoomAdmin = room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfileId))?.role === "admin";
-    
+
     // Check if the current user has edit permission for this space
     const canEdit = (() => {
       if (selectedSpace === "personal") return !!isConnected;
@@ -1632,8 +1631,8 @@ export default function ResourceTab() {
     const isRoomCreator = room && String(room.creatorId) === String(userProfileId);
     const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin || isRoomCreator || isMyFile;
 
-    const { Icon, iconColor } = isFolder 
-      ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" } 
+    const { Icon, iconColor } = isFolder
+      ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" }
       : getFileIconDetails(resource.mimeType);
 
     const isMenuOpen = activeMenuId === resource._id;
@@ -1650,15 +1649,14 @@ export default function ResourceTab() {
         onDragLeave={isFolder ? handleFolderDragLeave : undefined}
         onDrop={isFolder ? (e) => handleFolderDrop(e, resource) : undefined}
         onDoubleClick={() => handleResourceClick(resource)}
-        className={`group relative flex flex-col items-center justify-between border rounded-2xl p-4 transition duration-150 select-none cursor-pointer text-center w-36 h-40 shadow-none ${
-          isDragging
+        className={`group relative flex flex-col items-center justify-between border rounded-2xl p-4 transition duration-150 select-none cursor-pointer text-center w-36 h-40 shadow-none ${isDragging
             ? "opacity-40 scale-95 bg-slate-100 border-slate-300"
             : isDraggedOver
               ? "bg-teal-50 border-teal-300 border-dashed scale-105 shadow-md shadow-teal-200"
               : "bg-transparent hover:bg-slate-100 border-transparent hover:border-slate-200/50 hover:shadow-xs"
-        }`}
+          }`}
       >
-{/* Three-dot menu button */}
+        {/* Three-dot menu button */}
         {canEdit && (
           <div className={`absolute top-2 right-2 card-menu-container z-10 transition-opacity duration-150 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
             <button
@@ -1801,35 +1799,35 @@ export default function ResourceTab() {
           </div>
         )}
 
-      {/* Center Icon */}
-      <div className="flex-1 flex items-center justify-center mt-3">
-        {isFolder && resource.name.toUpperCase().includes("GOOGLE") ? (
-          <div className="relative">
-            <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
-            <div className="absolute inset-0 flex items-center justify-center mt-2.5">
-              <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
+        {/* Center Icon */}
+        <div className="flex-1 flex items-center justify-center mt-3">
+          {isFolder && resource.name.toUpperCase().includes("GOOGLE") ? (
+            <div className="relative">
+              <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
+              <div className="absolute inset-0 flex items-center justify-center mt-2.5">
+                <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
+              </div>
             </div>
-          </div>
-        ) : resource.mimeType === "application/vnd.google-apps.spreadsheet" ? (
-          <GoogleSheetsLogo className="h-16 w-16" />
-        ) : resource.mimeType === "application/vnd.google-apps.document" ? (
-          <GoogleDocsLogo className="h-16 w-16" />
-        ) : resource.mimeType === "application/vnd.google-apps.presentation" ? (
-          <GoogleSlidesLogo className="h-16 w-16" />
-        ) : !isFolder && resource.mimeType?.startsWith("image/") && (resource.thumbnailLink || resource.webViewLink) ? (
-          <div className="relative w-28 h-20 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50 border border-slate-200/60 shadow-inner">
-            <img src={resource.thumbnailLink || resource.webViewLink} alt={resource.name} className="h-full w-full object-cover" />
-            <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-sm shadow-xs">
-              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
+          ) : resource.mimeType === "application/vnd.google-apps.spreadsheet" ? (
+            <GoogleSheetsLogo className="h-16 w-16" />
+          ) : resource.mimeType === "application/vnd.google-apps.document" ? (
+            <GoogleDocsLogo className="h-16 w-16" />
+          ) : resource.mimeType === "application/vnd.google-apps.presentation" ? (
+            <GoogleSlidesLogo className="h-16 w-16" />
+          ) : !isFolder && resource.mimeType?.startsWith("image/") && (resource.thumbnailLink || resource.webViewLink) ? (
+            <div className="relative w-28 h-20 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50 border border-slate-200/60 shadow-inner">
+              <img src={resource.thumbnailLink || resource.webViewLink} alt={resource.name} className="h-full w-full object-cover" />
+              <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-sm shadow-xs">
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </div>
             </div>
-          </div>
-        ) : (
-          <Icon className={`h-16 w-16 ${iconColor}`} strokeWidth={1.5} />
-        )}
-      </div>
+          ) : (
+            <Icon className={`h-16 w-16 ${iconColor}`} strokeWidth={1.5} />
+          )}
+        </div>
 
         {/* Card Name */}
         <div className="mt-auto w-full pt-2">
@@ -1843,7 +1841,7 @@ export default function ResourceTab() {
 
   return (
     <div
-      className="flex h-full -mx-5 -my-5 overflow-hidden bg-[#f8f9fa]"
+      className="flex flex-col h-full overflow-hidden bg-[#f8f9fa]"
       onMouseDown={(e) => {
         // Close fixed dropdown when clicking outside it
         if (menuPosition && activeMenuId) {
@@ -1852,52 +1850,54 @@ export default function ResourceTab() {
         }
       }}
     >
-      {/* Left Vertical Sub-tab Switcher */}
-      <div className="flex w-14 shrink-0 flex-col items-center gap-4 border-r border-slate-200 bg-[#f4f5f6] py-5 select-none sm:w-20 sm:gap-6 sm:py-8">
-        {SUB_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const active = subTab === tab.value;
-          return (
-            <button
-              key={tab.value}
-              onClick={() => {
-                // Xóa bộ lọc, quay về thư mục gốc và tải lại kho lưu trữ của tab đích
-                setCurrentPill("KHO_LUU_TRU");
-                setViewingTrash(false);
-                setSearchQuery("");
-                setShowFilters(false);
-                setFilterStartDate("");
-                setFilterEndDate("");
-                setFilterType("");
-                if (tab.value === "TÀI LIỆU KHÁC") {
-                  setLocalFolderId(null);
-                  setExplorerKey((k) => k + 1);
-                } else if (active && currentFolderId === "root") {
-                  void fetchResources();
-                } else {
-                  setCurrentFolderId("root");
-                  setBreadcrumbs([]);
-                }
-                if (!active) setSubTab(tab.value);
-              }}
-              className={`p-3 rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center ${
-                active 
-                  ? "bg-white shadow-sm border border-slate-200/65 scale-105" 
-                  : "hover:bg-slate-200/40"
-              }`}
-              title={tab.label}
-            >
-              {tab.value === "GOOGLE DRIVE" ? (
-                <GoogleDriveLogo className={`h-7 w-7 ${active ? "" : "opacity-60 hover:opacity-100"}`} />
-              ) : (
-                <Icon className={`h-7 w-7 ${active ? "text-[#10b981]" : "text-slate-400 hover:text-slate-600"}`} strokeWidth={1.5} />
-              )}
-            </button>
-          );
-        })}
+      {/* Horizontal Sub-tab Switcher */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-slate-200 bg-white px-3 pt-2 pb-0 text-xs select-none sm:px-5" id="resource_sub_tabs_bar">
+        <div className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
+          {SUB_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = subTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                onClick={() => {
+                  setCurrentPill("KHO_LUU_TRU");
+                  setViewingTrash(false);
+                  setSearchQuery("");
+                  setShowFilters(false);
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                  setFilterType("");
+                  if (tab.value === "TÀI LIỆU KHÁC") {
+                    setLocalFolderId(null);
+                    setExplorerKey((k) => k + 1);
+                  } else if (active && currentFolderId === "root") {
+                    void fetchResources();
+                  } else {
+                    setCurrentFolderId("root");
+                    setBreadcrumbs([]);
+                  }
+                  if (!active) setSubTab(tab.value);
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                  active 
+                    ? "bg-cyan-600 text-white font-bold shadow-sm" 
+                    : "text-slate-650 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                }`}
+                title={tab.label}
+              >
+                {tab.value === "GOOGLE DRIVE" ? (
+                  <GoogleDriveLogo className={`h-4.5 w-4.5 shrink-0 ${active ? "" : "opacity-60"}`} />
+                ) : (
+                  <Icon className={`h-4.5 w-4.5 shrink-0 ${active ? "text-white" : "text-slate-400"}`} strokeWidth={2} />
+                )}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Right Content Area */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f8f9fa] overflow-hidden">
         {/* Browser Tabs Bar - only render if > 1 tabs or current tab is a google-doc */}
         {(openedTabs.length > 1 || (openedTabs.length === 1 && openedTabs[0].type !== "explorer")) && (
@@ -1905,7 +1905,7 @@ export default function ResourceTab() {
             {openedTabs.map((tab) => {
               const isActive = activeTabId === tab.id;
               const isExplorer = tab.type === "explorer";
-              
+
               // Get Tab Icon
               let TabIcon = FileIcon;
               let iconColor = "text-slate-400";
@@ -1927,20 +1927,19 @@ export default function ResourceTab() {
                 <div
                   key={tab.id}
                   onClick={() => setActiveTabId(tab.id)}
-                  className={`group h-9 flex items-center gap-2 px-4 rounded-t-xl text-xs font-bold transition duration-150 cursor-pointer border-x border-t max-w-[180px] ${
-                    isActive
+                  className={`group h-9 flex items-center gap-2 px-4 rounded-t-xl text-xs font-bold transition duration-150 cursor-pointer border-x border-t max-w-[180px] ${isActive
                       ? "bg-white text-slate-800 border-slate-200 shadow-xs z-10"
                       : "text-slate-500 bg-slate-200/40 border-transparent hover:bg-slate-200/80 hover:text-slate-700"
-                  }`}
+                    }`}
                 >
                   {!isExplorer && tab.mimeType?.includes("google-apps") ? (
                     <GoogleDriveLogo className="h-4 w-4 shrink-0" />
                   ) : (
                     <TabIcon className={`h-4 w-4 shrink-0 ${iconColor}`} />
                   )}
-                  
+
                   <span className="truncate max-w-[110px]">{tab.title}</span>
-                  
+
                   {/* Close Button */}
                   <button
                     onClick={(e) => handleCloseTab(tab.id, e)}
@@ -1990,13 +1989,13 @@ export default function ResourceTab() {
                         {getInitials(rooms.find(r => r._id === selectedSpace)?.name || "")}
                       </div>
                     )}
-                    
+
                     <span className="uppercase">
-                      {selectedSpace === "personal" 
+                      {selectedSpace === "personal"
                         ? (selectedOwnerId === userProfileId
-                            ? (userProfile?.displayName || "Cá nhân")
-                            : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "Nhân viên")
-                          )
+                          ? (userProfile?.displayName || "Cá nhân")
+                          : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "Nhân viên")
+                        )
                         : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
                       }
                     </span>
@@ -2012,11 +2011,10 @@ export default function ResourceTab() {
                           setSelectedOwnerId(userProfileId);
                           setShowSpaceDropdown(false);
                         }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
-                          selectedSpace === "personal" && selectedOwnerId === userProfileId
-                            ? "bg-blue-50 text-blue-600" 
+                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${selectedSpace === "personal" && selectedOwnerId === userProfileId
+                            ? "bg-blue-50 text-blue-600"
                             : "hover:bg-slate-50 text-slate-700"
-                        }`}
+                          }`}
                       >
                         <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
                           {getInitials(userProfile?.displayName || "LAT")}
@@ -2042,11 +2040,10 @@ export default function ResourceTab() {
                                       setSelectedOwnerId(u.uid || u.id);
                                       setShowSpaceDropdown(false);
                                     }}
-                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
-                                      isSelected 
-                                        ? "bg-blue-50 text-blue-600" 
+                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${isSelected
+                                        ? "bg-blue-50 text-blue-600"
                                         : "hover:bg-slate-50 text-slate-700"
-                                    }`}
+                                      }`}
                                   >
                                     <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${getBadgeColor(u.displayName || "")}`}>
                                       {getInitials(u.displayName || "")}
@@ -2058,7 +2055,7 @@ export default function ResourceTab() {
                           </div>
                         </>
                       )}
-                      
+
                       {rooms.length > 0 && (
                         <>
                           <div className="border-t border-slate-100 my-1"></div>
@@ -2072,11 +2069,10 @@ export default function ResourceTab() {
                                   setSelectedSpace(room._id);
                                   setShowSpaceDropdown(false);
                                 }}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
-                                  isSelected 
-                                    ? "bg-blue-50 text-blue-600" 
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${isSelected
+                                    ? "bg-blue-50 text-blue-600"
                                     : "hover:bg-slate-50 text-slate-700"
-                                }`}
+                                  }`}
                               >
                                 <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${getBadgeColor(room.name || "")}`}>
                                   {getInitials(room.name || "")}
@@ -2098,21 +2094,19 @@ export default function ResourceTab() {
                   <div className="flex items-center gap-1.5 bg-slate-100/90 rounded-2xl p-1 border border-slate-200/60 shadow-inner">
                     <button
                       onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-                        currentPill === "KHO_LUU_TRU"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${currentPill === "KHO_LUU_TRU"
                           ? "bg-cyan-600 text-white font-bold shadow-sm"
                           : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
-                      }`}
+                        }`}
                     >
                       Kho lưu trữ
                     </button>
                     <button
                       onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-                        currentPill === "DUOC_CHIA_SE"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${currentPill === "DUOC_CHIA_SE"
                           ? "bg-cyan-600 text-white font-bold shadow-sm"
                           : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
-                      }`}
+                        }`}
                     >
                       Được chia sẻ
                     </button>
@@ -2164,7 +2158,7 @@ export default function ResourceTab() {
               );
             }
 
-            
+
             return (
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Unified Toolbar Row matching image 1 */}
@@ -2182,7 +2176,7 @@ export default function ResourceTab() {
                       />
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 pl-1 text-left">
-                      {subTab === "TÀI LIỆU KHÁC" 
+                      {subTab === "TÀI LIỆU KHÁC"
                         ? `${localItemsCount.count}/${localItemsCount.total} tệp`
                         : `${filteredResources.length}/${resources.length} tệp`
                       }
@@ -2195,11 +2189,10 @@ export default function ResourceTab() {
                     {subTab === "TÀI LIỆU KHÁC" && (
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer relative ${
-                          showFilters 
-                            ? "bg-slate-900 border-slate-900 text-white" 
+                        className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer relative ${showFilters
+                            ? "bg-slate-900 border-slate-900 text-white"
                             : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
-                        }`}
+                          }`}
                         title="Bộ lọc"
                       >
                         <SlidersHorizontal className="h-4 w-4" />
@@ -2239,7 +2232,7 @@ export default function ResourceTab() {
                         </button>
 
                         {showAddMenu && (
-                          <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn text-left">
+                          <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn text-left">
                             {subTab === "TÀI LIỆU KHÁC" ? (
                               <>
                                 {/* Tải tệp lên */}
@@ -2329,7 +2322,7 @@ export default function ResourceTab() {
                                   <FileText className="h-4 w-4 text-blue-600" />
                                   <span>Thêm Google Tài liệu</span>
                                 </button>
-                                
+
                                 <button
                                   onClick={() => {
                                     setCreateFileDialog({
@@ -2517,11 +2510,10 @@ export default function ResourceTab() {
                           <button
                             key={type.value}
                             onClick={() => setFilterType(isActive ? "" : type.value)}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer border flex-shrink-0 ${
-                              isActive
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer border flex-shrink-0 ${isActive
                                 ? "bg-slate-800 border-slate-800 text-white shadow-xs"
                                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                            }`}
+                              }`}
                           >
                             {type.label}
                           </button>
@@ -2575,18 +2567,17 @@ export default function ResourceTab() {
                                 <span>← Quay lại</span>
                               </button>
                             )}
-                            
+
                             <button
                               onClick={() => {
                                 setBreadcrumbs([]);
                                 setCurrentFolderId("root");
                               }}
-                              className={`text-sm font-bold transition hover:text-slate-800 ${
-                                currentFolderId === "root" ? "text-slate-800" : "text-slate-400"
-                              }`}
+                              className={`text-sm font-bold transition hover:text-slate-800 ${currentFolderId === "root" ? "text-slate-800" : "text-slate-400"
+                                }`}
                             >
-                              {selectedSpace === "personal" 
-                                ? (userProfile?.displayName || "Cá nhân") 
+                              {selectedSpace === "personal"
+                                ? (userProfile?.displayName || "Cá nhân")
                                 : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
                               }
                             </button>
@@ -2601,9 +2592,8 @@ export default function ResourceTab() {
                                     setBreadcrumbs(newBcs);
                                     setCurrentFolderId(bc.id);
                                   }}
-                                  className={`text-sm font-bold transition hover:text-slate-800 ${
-                                    idx === breadcrumbs.length - 1 ? "text-slate-800" : "text-slate-400"
-                                  }`}
+                                  className={`text-sm font-bold transition hover:text-slate-800 ${idx === breadcrumbs.length - 1 ? "text-slate-800" : "text-slate-400"
+                                    }`}
                                 >
                                   {bc.name}
                                 </button>
@@ -2681,183 +2671,182 @@ export default function ResourceTab() {
                               </div>
                             ) : viewMode === "list" ? (
                               <div className="flex flex-col gap-3">
-                              <div className="flex flex-col bg-white rounded-3xl border border-slate-100 shadow-xs text-left w-full">
-                                {/* Table Header */}
-                                <div className="flex items-center px-6 py-3.5 bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider rounded-t-3xl">
-                                  <div className="flex-1">Tên tài liệu</div>
-                                  <div className="w-56">Ngày tạo</div>
-                                  <div className="w-32">Kích thước</div>
-                                  <div className="w-12 text-center"></div>
-                                </div>
-                      {/* Table Body */}
-                                <div className="divide-y divide-slate-100">
-                                  {(() => {
-                                    const driveListTotalPagesInner = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
-                                    const safeDrivePageInner = Math.min(driveListPage, driveListTotalPagesInner);
-                                    const pagedResources = filteredResources.slice((safeDrivePageInner - 1) * DRIVE_LIST_PAGE_SIZE, safeDrivePageInner * DRIVE_LIST_PAGE_SIZE);
-                                    return pagedResources;
-                                  })().map((resource) => {
-                                    const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
-                                    const { Icon, iconColor } = isFolder 
-                                      ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" } 
-                                      : getFileIconDetails(resource.mimeType);
+                                <div className="flex flex-col bg-white rounded-3xl border border-slate-100 shadow-xs text-left w-full">
+                                  {/* Table Header */}
+                                  <div className="flex items-center px-6 py-3.5 bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider rounded-t-3xl">
+                                    <div className="flex-1">Tên tài liệu</div>
+                                    <div className="w-56">Ngày tạo</div>
+                                    <div className="w-32">Kích thước</div>
+                                    <div className="w-12 text-center"></div>
+                                  </div>
+                                  {/* Table Body */}
+                                  <div className="divide-y divide-slate-100">
+                                    {(() => {
+                                      const driveListTotalPagesInner = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
+                                      const safeDrivePageInner = Math.min(driveListPage, driveListTotalPagesInner);
+                                      const pagedResources = filteredResources.slice((safeDrivePageInner - 1) * DRIVE_LIST_PAGE_SIZE, safeDrivePageInner * DRIVE_LIST_PAGE_SIZE);
+                                      return pagedResources;
+                                    })().map((resource) => {
+                                      const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
+                                      const { Icon, iconColor } = isFolder
+                                        ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" }
+                                        : getFileIconDetails(resource.mimeType);
 
-                                    const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
-                                    const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
-                                    
-                                    const canEdit = (() => {
-                                      if (selectedSpace === "personal") return !!isConnected;
-                                      if (isCreatorOrAdmin) return true;
-                                      if (!room) return false;
-                                      const memberInfo = room.members.find(
+                                      const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
+                                      const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
+
+                                      const canEdit = (() => {
+                                        if (selectedSpace === "personal") return !!isConnected;
+                                        if (isCreatorOrAdmin) return true;
+                                        if (!room) return false;
+                                        const memberInfo = room.members.find(
+                                          (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
+                                        );
+                                        const isRoomAdminLocal = memberInfo?.role === "admin";
+                                        const isCreator = String(room.creatorId) === String(userProfileId);
+                                        const isUploader = memberInfo?.canUploadDrive === true;
+                                        return isRoomAdminLocal || isCreator || isUploader;
+                                      })();
+
+                                      const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfileId);
+                                      const isRoomCreator = room && String(room.creatorId) === String(userProfileId);
+                                      const memberInfo = room?.members.find(
                                         (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
                                       );
-                                      const isRoomAdminLocal = memberInfo?.role === "admin";
-                                      const isCreator = String(room.creatorId) === String(userProfileId);
-                                      const isUploader = memberInfo?.canUploadDrive === true;
-                                      return isRoomAdminLocal || isCreator || isUploader;
-                                    })();
+                                      const isRoomAdminCheck = memberInfo?.role === "admin";
+                                      const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdminCheck || isRoomCreator || isMyFile;
 
-                                    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfileId);
-                                    const isRoomCreator = room && String(room.creatorId) === String(userProfileId);
-                                    const memberInfo = room?.members.find(
-                                      (m: any) => String(getMemberId(m.userId)) === String(userProfileId)
-                                    );
-                                    const isRoomAdminCheck = memberInfo?.role === "admin";
-                                    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdminCheck || isRoomCreator || isMyFile;
+                                      const isMenuOpen = activeMenuId === resource._id;
 
-                                    const isMenuOpen = activeMenuId === resource._id;
-
-                                    return (
-                                      <div 
-                                        key={resource._id}
-                                        className="group relative flex items-center px-6 py-3.5 hover:bg-slate-50/50 transition select-none cursor-pointer"
-                                        onClick={() => handleResourceClick(resource)}
-                                      >
-                                        {/* Name */}
-                                        <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
-                                          <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-white transition duration-200">
-                                            <Icon className={`h-6 w-6 ${iconColor}`} />
-                                          </div>
-                                          <span className="truncate text-sm font-bold text-slate-800" title={resource.name}>
-                                            {resource.name}
-                                          </span>
-                                        </div>
-
-                                        {/* Date */}
-                                        <div className="w-56 text-xs text-slate-400 font-semibold">
-                                          {formatDate(resource.createdAt)}
-                                        </div>
-
-                                        {/* Size */}
-                                        <div className="w-32 text-xs text-slate-500 font-semibold">
-                                          {isFolder 
-                                            ? "Thư mục" 
-                                            : resource.mimeType === "text/html" 
-                                              ? "Liên kết" 
-                                              : formatBytes(resource.size)
-                                          }
-                                        </div>
-
-                                        {/* More Actions */}
+                                      return (
                                         <div
-                                          className="w-12 flex justify-center"
-                                          onClick={(e) => e.stopPropagation()}
+                                          key={resource._id}
+                                          className="group relative flex items-center px-6 py-3.5 hover:bg-slate-50/50 transition select-none cursor-pointer"
+                                          onClick={() => handleResourceClick(resource)}
                                         >
-                                          {canEdit && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (isMenuOpen) {
-                                                  setActiveMenuId(null);
-                                                  setMenuPosition(null);
-                                                } else {
-                                                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                                  setMenuPosition({
-                                                    top: rect.bottom + 4,
-                                                    right: window.innerWidth - rect.right,
-                                                  });
-                                                  setActiveMenuId(resource._id);
-                                                }
-                                              }}
-                                              className="w-7 h-7 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
-                                            >
-                                              <MoreVertical className="h-4 w-4" />
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                                          {/* Name */}
+                                          <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
+                                            <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-white transition duration-200">
+                                              <Icon className={`h-6 w-6 ${iconColor}`} />
+                                            </div>
+                                            <span className="truncate text-sm font-bold text-slate-800" title={resource.name}>
+                                              {resource.name}
+                                            </span>
+                                          </div>
 
-                              {/* Pagination for Drive list view */}
-                              {(() => {
-                                const driveListTotalPages = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
-                                const safeDrivePage = Math.min(driveListPage, driveListTotalPages);
-                                if (driveListTotalPages <= 1) return null;
-                                return (
-                                  <div className="flex items-center justify-between px-2 py-2">
-                                    <span className="text-xs text-slate-500 font-semibold">
-                                      {filteredResources.length} mục • Trang {safeDrivePage}/{driveListTotalPages}
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setDriveListPage(p => Math.max(1, p - 1))}
-                                        disabled={safeDrivePage === 1}
-                                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                                      >
-                                        <ChevronLeft className="h-4 w-4" />
-                                      </button>
-                                      {Array.from({ length: driveListTotalPages }, (_, i) => i + 1)
-                                        .filter(p => p === 1 || p === driveListTotalPages || Math.abs(p - safeDrivePage) <= 1)
-                                        .reduce<(number | "...")[]>((acc, p, i, arr) => {
-                                          if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
-                                          acc.push(p);
-                                          return acc;
-                                        }, [])
-                                        .map((p, i) =>
-                                          p === "..." ? (
-                                            <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">...</span>
-                                          ) : (
-                                            <button
-                                              key={p}
-                                              type="button"
-                                              onClick={() => setDriveListPage(p as number)}
-                                              className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
-                                                safeDrivePage === p
-                                                  ? "bg-cyan-600 text-white shadow-sm"
-                                                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                              }`}
-                                            >
-                                              {p}
-                                            </button>
-                                          )
-                                        )
-                                      }
-                                      <button
-                                        type="button"
-                                        onClick={() => setDriveListPage(p => Math.min(driveListTotalPages, p + 1))}
-                                        disabled={safeDrivePage === driveListTotalPages}
-                                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                                      >
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                    </div>
+                                          {/* Date */}
+                                          <div className="w-56 text-xs text-slate-400 font-semibold">
+                                            {formatDate(resource.createdAt)}
+                                          </div>
+
+                                          {/* Size */}
+                                          <div className="w-32 text-xs text-slate-500 font-semibold">
+                                            {isFolder
+                                              ? "Thư mục"
+                                              : resource.mimeType === "text/html"
+                                                ? "Liên kết"
+                                                : formatBytes(resource.size)
+                                            }
+                                          </div>
+
+                                          {/* More Actions */}
+                                          <div
+                                            className="w-12 flex justify-center"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {canEdit && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (isMenuOpen) {
+                                                    setActiveMenuId(null);
+                                                    setMenuPosition(null);
+                                                  } else {
+                                                    const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                                    setMenuPosition({
+                                                      top: rect.bottom + 4,
+                                                      right: window.innerWidth - rect.right,
+                                                    });
+                                                    setActiveMenuId(resource._id);
+                                                  }
+                                                }}
+                                                className="w-7 h-7 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <MoreVertical className="h-4 w-4" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })()}
-                            </div>
+                                </div>
+
+                                {/* Pagination for Drive list view */}
+                                {(() => {
+                                  const driveListTotalPages = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
+                                  const safeDrivePage = Math.min(driveListPage, driveListTotalPages);
+                                  if (driveListTotalPages <= 1) return null;
+                                  return (
+                                    <div className="flex items-center justify-between px-2 py-2">
+                                      <span className="text-xs text-slate-500 font-semibold">
+                                        {filteredResources.length} mục • Trang {safeDrivePage}/{driveListTotalPages}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => setDriveListPage(p => Math.max(1, p - 1))}
+                                          disabled={safeDrivePage === 1}
+                                          className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                        >
+                                          <ChevronLeft className="h-4 w-4" />
+                                        </button>
+                                        {Array.from({ length: driveListTotalPages }, (_, i) => i + 1)
+                                          .filter(p => p === 1 || p === driveListTotalPages || Math.abs(p - safeDrivePage) <= 1)
+                                          .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                                            if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
+                                            acc.push(p);
+                                            return acc;
+                                          }, [])
+                                          .map((p, i) =>
+                                            p === "..." ? (
+                                              <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">...</span>
+                                            ) : (
+                                              <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setDriveListPage(p as number)}
+                                                className={`w-8 h-8 rounded-lg text-xs font-bold transition ${safeDrivePage === p
+                                                    ? "bg-cyan-600 text-white shadow-sm"
+                                                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                  }`}
+                                              >
+                                                {p}
+                                              </button>
+                                            )
+                                          )
+                                        }
+                                        <button
+                                          type="button"
+                                          onClick={() => setDriveListPage(p => Math.min(driveListTotalPages, p + 1))}
+                                          disabled={safeDrivePage === driveListTotalPages}
+                                          className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                        >
+                                          <ChevronRight className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             ) : (
                               <div className="flex flex-wrap gap-4 pb-32">
                                 {/* Folders first */}
                                 {filteredResources
                                   .filter((r) => r.mimeType === "application/vnd.google-apps.folder")
                                   .map((resource, idx) => renderResourceCard(resource, idx))}
-                                
+
                                 {/* Files after */}
                                 {filteredResources
                                   .filter((r) => r.mimeType !== "application/vnd.google-apps.folder")
@@ -2916,7 +2905,7 @@ export default function ResourceTab() {
             <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 relative">
               <iframe
                 src={
-                  previewFile.mimeType.includes("google-apps") 
+                  previewFile.mimeType.includes("google-apps")
                     ? `${previewFile.webViewLink.replace("/edit", "/preview").replace("/view", "/preview")}`
                     : `https://drive.google.com/file/d/${previewFile.driveFileId}/preview`
                 }
@@ -2931,7 +2920,7 @@ export default function ResourceTab() {
       {/* Create Document/Folder Modal Dialog */}
       {createFileDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-6 border border-slate-100 flex flex-col gap-4 text-left">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-6 border border-slate-100 flex flex-col gap-4 text-left max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 {createFileDialog.type === "document" && <FileText className="h-6 w-6" />}
@@ -2993,7 +2982,7 @@ export default function ResourceTab() {
       {/* Add Link Modal Dialog */}
       {showAddLinkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col text-left relative animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-y-auto border border-slate-100 flex flex-col text-left relative animate-fadeIn max-h-[90dvh] overscroll-contain">
             {/* Close button X */}
             <button
               onClick={() => {
@@ -3008,14 +2997,14 @@ export default function ResourceTab() {
 
             <div className="p-6 pb-4">
               <h3 className="text-base font-bold text-slate-800 mb-6">Thêm liên kết</h3>
-              
+
               <div className="space-y-4">
                 {/* Trong */}
                 <div className="flex items-center gap-4">
                   <span className="w-16 text-xs font-bold text-slate-400">Trong</span>
                   <span className="text-xs font-bold text-slate-800">
-                    {selectedSpace === "personal" 
-                      ? "Kho lưu trữ của tôi" 
+                    {selectedSpace === "personal"
+                      ? "Kho lưu trữ của tôi"
                       : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
                     }
                   </span>
@@ -3083,8 +3072,8 @@ export default function ResourceTab() {
                 <span className="text-xs text-slate-400">
                   Trong{" "}
                   <strong className="text-slate-600">
-                    {selectedSpace === "personal" 
-                      ? "Kho lưu trữ của tôi" 
+                    {selectedSpace === "personal"
+                      ? "Kho lưu trữ của tôi"
                       : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
                     }
                   </strong>
@@ -3104,7 +3093,7 @@ export default function ResourceTab() {
 
             {/* Interactive Toolbars matching mockup */}
             <div className="bg-slate-50/70 border-b border-slate-100 px-6 py-2 flex flex-wrap items-center gap-3 select-none">
-              
+
               {/* Text formatting styles (A A A A) with inline colors */}
               <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
                 {[
@@ -3113,18 +3102,17 @@ export default function ResourceTab() {
                   { color: "#22c55e", label: "A" },
                   { color: "#3b82f6", label: "A" }
                 ].map((item, idx) => (
-                  <button 
-                    key={idx} 
+                  <button
+                    key={idx}
                     onClick={() => {
                       setNoteTool("text");
                       setNoteColor(item.color);
                     }}
                     style={{ color: item.color }}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${
-                      noteTool === "text" && noteColor === item.color
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${noteTool === "text" && noteColor === item.color
                         ? "bg-slate-100 ring-2 ring-slate-300"
                         : "hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -3138,18 +3126,17 @@ export default function ResourceTab() {
                   { color: "#22c55e", label: "↗" },
                   { color: "#3b82f6", label: "↗" }
                 ].map((item, idx) => (
-                  <button 
-                    key={idx} 
+                  <button
+                    key={idx}
                     onClick={() => {
                       setNoteTool("arrow");
                       setNoteColor(item.color);
                     }}
                     style={{ color: item.color }}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${
-                      noteTool === "arrow" && noteColor === item.color
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${noteTool === "arrow" && noteColor === item.color
                         ? "bg-slate-100 ring-2 ring-slate-300"
                         : "hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -3163,21 +3150,20 @@ export default function ResourceTab() {
                   { color: "#22c55e" },
                   { color: "#3b82f6" }
                 ].map((item, idx) => (
-                  <button 
-                    key={idx} 
+                  <button
+                    key={idx}
                     onClick={() => {
                       setNoteTool("rect");
                       setNoteColor(item.color);
                     }}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
-                      noteTool === "rect" && noteColor === item.color
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${noteTool === "rect" && noteColor === item.color
                         ? "bg-slate-100 ring-2 ring-slate-300"
                         : "hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
-                    <div 
+                    <div
                       style={{ borderColor: item.color }}
-                      className="h-4 w-4 rounded-xs border-2" 
+                      className="h-4 w-4 rounded-xs border-2"
                     />
                   </button>
                 ))}
@@ -3189,9 +3175,8 @@ export default function ResourceTab() {
                   onClick={() => {
                     setNoteTool("draw");
                   }}
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
-                    noteTool === "draw" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
-                  }`}
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${noteTool === "draw" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
+                    }`}
                   title="Cái bút vẽ tự do"
                 >
                   <Pencil className="h-4 w-4 text-slate-700" />
@@ -3220,9 +3205,8 @@ export default function ResourceTab() {
                   onClick={() => {
                     setNoteTool("line");
                   }}
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
-                    noteTool === "line" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
-                  }`}
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${noteTool === "line" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
+                    }`}
                   title="Vẽ đường nét thẳng"
                 >
                   <span className="text-base font-extrabold italic select-none" style={{ color: noteColor }}>╱</span>
@@ -3258,14 +3242,14 @@ export default function ResourceTab() {
 
               {/* Undo / Redo - To hơn */}
               <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs ml-auto">
-                <button 
+                <button
                   onClick={handleNoteUndo}
                   className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-700 active:scale-95 transition cursor-pointer"
                   title="Hoàn tác (Undo)"
                 >
                   <Undo2 className="h-5.5 w-5.5 stroke-[2.5]" />
                 </button>
-                <button 
+                <button
                   onClick={handleNoteRedo}
                   className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-700 active:scale-95 transition cursor-pointer"
                   title="Làm lại (Redo)"
@@ -3284,17 +3268,17 @@ export default function ResourceTab() {
                 placeholder="Tiêu đề ghi chú..."
                 className="w-full text-lg font-bold text-slate-800 outline-hidden border-b border-slate-100 pb-2 placeholder-slate-300"
               />
-              
+
               {/* Canvas Wrapper */}
               <div className="flex-1 border border-slate-200/80 rounded-2xl overflow-hidden relative bg-white shadow-inner flex">
-                <canvas 
+                <canvas
                   ref={canvasRef}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
                   onClick={handleCanvasClick}
                   style={{
-                    cursor: noteTool === "draw" 
+                    cursor: noteTool === "draw"
                       ? "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size:24px'><text y='24'>✏️</text></svg>\") 0 24, auto"
                       : "crosshair"
                   }}
@@ -3362,7 +3346,7 @@ export default function ResourceTab() {
       {/* Add Audio Modal Dialog */}
       {showAddAudioModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-100 flex flex-col text-left relative animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-y-auto border border-slate-100 flex flex-col text-left relative animate-fadeIn max-h-[90dvh] overscroll-contain">
             {/* Close button X */}
             <button
               onClick={cancelRecording}
@@ -3377,8 +3361,8 @@ export default function ResourceTab() {
                 <span className="text-[10px] text-slate-400">
                   Trong{" "}
                   <strong className="text-slate-600">
-                    {selectedSpace === "personal" 
-                      ? "Kho lưu trữ của tôi" 
+                    {selectedSpace === "personal"
+                      ? "Kho lưu trữ của tôi"
                       : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
                     }
                   </strong>
@@ -3391,15 +3375,14 @@ export default function ResourceTab() {
                 {isRecording && (
                   <div className="absolute h-24 w-24 rounded-full bg-red-100 border-2 border-red-200 animate-ping opacity-75"></div>
                 )}
-                
+
                 <button
                   onClick={isRecording ? stopRecording : startRecording}
                   disabled={savingAudio}
-                  className={`h-20 w-20 rounded-full flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer z-10 ${
-                    isRecording 
-                      ? "bg-red-500 hover:bg-red-600 text-white" 
+                  className={`h-20 w-20 rounded-full flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer z-10 ${isRecording
+                      ? "bg-red-500 hover:bg-red-600 text-white"
                       : "bg-cyan-50 hover:bg-cyan-100 text-cyan-600"
-                  }`}
+                    }`}
                 >
                   <Mic className={`h-8 w-8 ${isRecording ? "animate-pulse" : ""}`} />
                 </button>
@@ -3522,7 +3505,7 @@ export default function ResourceTab() {
                   .map((member: any) => {
                     const isOwner = String(rooms.find(r => r._id === selectedSpace)?.creatorId) === String(getMemberId(member.userId));
                     const isMe = String(getMemberId(member.userId)) === String(userProfileId);
-                    
+
                     return (
                       <div key={String(getMemberId(member.userId))} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition">
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -3604,7 +3587,7 @@ export default function ResourceTab() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <span className="text-base font-bold text-slate-800">Chọn thư mục</span>
-                
+
                 {/* Space Dropdown */}
                 <div className="relative">
                   <button
@@ -3647,11 +3630,10 @@ export default function ResourceTab() {
                           <button
                             key={tab}
                             onClick={() => setMoveFilterTab(tab as any)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                              moveFilterTab === tab 
-                                ? "bg-cyan-600 text-white" 
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${moveFilterTab === tab
+                                ? "bg-cyan-600 text-white"
                                 : "bg-slate-50 hover:bg-slate-100 text-slate-600"
-                            }`}
+                              }`}
                           >
                             {tab}
                           </button>
@@ -3667,9 +3649,8 @@ export default function ResourceTab() {
                               setMoveBreadcrumbs([]);
                               setShowMoveSpaceDropdown(false);
                             }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-semibold transition ${
-                              moveSpace === "personal" ? "bg-blue-50 text-blue-600" : "hover:bg-slate-50 text-slate-700"
-                            }`}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-semibold transition ${moveSpace === "personal" ? "bg-blue-50 text-blue-600" : "hover:bg-slate-50 text-slate-700"
+                              }`}
                           >
                             <span className="h-5 w-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold">
                               {userProfile?.displayName?.split(" ").map((x: string) => x[0]).join("").slice(0, 2).toUpperCase() || "NT"}
@@ -3690,9 +3671,8 @@ export default function ResourceTab() {
                                   setMoveBreadcrumbs([]);
                                   setShowMoveSpaceDropdown(false);
                                 }}
-                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-semibold transition ${
-                                  moveSpace === room._id ? "bg-blue-50 text-blue-600" : "hover:bg-slate-50 text-slate-700"
-                                }`}
+                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-semibold transition ${moveSpace === room._id ? "bg-blue-50 text-blue-600" : "hover:bg-slate-50 text-slate-700"
+                                  }`}
                               >
                                 <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${getBadgeColor(room.name)}`}>
                                   {getInitials(room.name)}
@@ -3776,9 +3756,8 @@ export default function ResourceTab() {
                         setMoveBreadcrumbs(moveBreadcrumbs.slice(0, index + 1));
                         setMoveFolderId(bc.id);
                       }}
-                      className={`hover:underline font-semibold cursor-pointer ${
-                        idx === moveBreadcrumbs.length - 1 ? "text-slate-800 font-bold" : "text-slate-500"
-                      }`}
+                      className={`hover:underline font-semibold cursor-pointer ${idx === moveBreadcrumbs.length - 1 ? "text-slate-800 font-bold" : "text-slate-500"
+                        }`}
                     >
                       {bc.name}
                     </button>
@@ -3815,11 +3794,10 @@ export default function ResourceTab() {
                             setMoveFolderId(folder.driveFileId);
                             setMoveBreadcrumbs(prev => [...prev, { id: folder.driveFileId, name: folder.name }]);
                           }}
-                          className={`group relative flex flex-col items-center justify-center border rounded-2xl p-4 transition cursor-pointer text-center w-28 h-28 shadow-xs select-none ${
-                            isSelected
+                          className={`group relative flex flex-col items-center justify-center border rounded-2xl p-4 transition cursor-pointer text-center w-28 h-28 shadow-xs select-none ${isSelected
                               ? "bg-teal-50 border-teal-400 ring-2 ring-teal-400/40"
                               : "bg-white hover:bg-slate-50 border-slate-200"
-                          }`}
+                            }`}
                         >
                           {isSelected && (
                             <div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-teal-500 flex items-center justify-center">
@@ -3875,7 +3853,7 @@ export default function ResourceTab() {
           onClick={() => !driveRenaming && setDriveRenameTarget(null)}
         >
           <div
-            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl animate-fadeIn"
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl animate-fadeIn max-h-[90dvh] overflow-y-auto overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -3936,7 +3914,7 @@ export default function ResourceTab() {
         const canEdit = (() => {
           if (selectedSpace === "personal") return !!isConnected;
           if (isCreatorOrAdmin) return true;
-           const memberInfo = room?.members?.find((m: any) => getMemberId(m.userId) === userProfileId);
+          const memberInfo = room?.members?.find((m: any) => getMemberId(m.userId) === userProfileId);
           return memberInfo?.role === "admin" || room?.createdBy === userProfileId;
         })();
         const canDelete = canEdit;

@@ -22,7 +22,6 @@ const storage = new CloudinaryStorage({
   },
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const legacyAllowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",

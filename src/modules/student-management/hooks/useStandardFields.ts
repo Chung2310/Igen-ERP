@@ -216,7 +216,6 @@ export function useStandardFields(moduleKey: ModuleKey, preset?: EntityPreset, t
   }, [moduleKey, preset, legacyStorageKey, tenantId, commitLoadedFields]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

@@ -1,5 +1,4 @@
 import React from "react";
-import { Cpu } from "lucide-react";
 import type { InventorySubTabType } from "../../types";
 import { inventoryTabs } from "./data";
 

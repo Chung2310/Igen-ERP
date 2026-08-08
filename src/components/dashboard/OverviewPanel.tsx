@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import { FolderOpen, GraduationCap, KanbanSquare, MessageSquare, PackageCheck, UserCheck, Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt, BadgePercent } from "lucide-react";
+import { Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt } from "lucide-react";
 import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
-import { formatDashboardCurrency, buildPctSegments } from "./dashboardUtils";
+import { formatDashboardCurrency } from "./dashboardUtils";
 import { ActionItemsWidget } from "./ActionItemsWidget";
 import { useEntityLabel } from "../../modules/student-management/hooks/useEntityLabel";
 import { DashboardSectionCard } from "./DashboardSectionCard";

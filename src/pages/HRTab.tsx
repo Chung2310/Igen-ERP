@@ -180,38 +180,40 @@ export default function HRTab() {
 
       {/* Sub Tabs switcher navigation bar */}
       <div className="flex shrink-0 flex-col items-stretch gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="hr_sub_tabs_bar">
-        <button type="button" aria-label="Cuộn tab HR sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-        <div ref={subTabsRef} className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
-          {[
-            { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
-            { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
-            { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
-            { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
-            { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
-            { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
-            { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
-            ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
-            ...(canManageRecruitment ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: UserSearch }] : []),
-          ].map((tab) => {
-            const isActive = subTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSubTab(tab.id as HRSubTabType)}
-                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
-                  isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-sm"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
+          <button type="button" aria-label="Cuộn tab HR sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
+            {[
+              { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
+              { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
+              { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
+              { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
+              { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+              { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
+              { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
+              ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
+              ...(canManageRecruitment ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: UserSearch }] : []),
+            ].map((tab) => {
+              const isActive = subTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSubTab(tab.id as HRSubTabType)}
+                  className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                    isActive
+                      ? "bg-cyan-600 text-white font-bold shadow-sm"
+                      : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" aria-label="Cuộn tab HR sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
-        <button type="button" aria-label="Cuộn tab HR sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
 
         <div className="flex items-center gap-4 pb-2 sm:pb-0">
           {/* SaaS Multi-tenant Company Filter for Superadmin */}

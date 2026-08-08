@@ -28,7 +28,7 @@ export function CategoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-fade-in" id="add_category_modal_backdrop">
-      <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-100 bg-white font-sans shadow-2xl animate-scale-in">
+      <div className="w-full max-w-xl overflow-y-auto rounded-3xl border border-slate-100 bg-white font-sans shadow-2xl animate-scale-in max-h-[90dvh] overscroll-contain">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6">
           <div>
             <h4 className="flex items-center gap-2 text-base font-bold text-slate-800">

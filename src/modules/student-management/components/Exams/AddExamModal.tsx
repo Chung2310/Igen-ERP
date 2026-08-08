@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, ChevronDown, Loader2, Calendar } from 'lucide-react';
+import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { ExamSession } from '../../types';
 import { toast } from '../../../../pages/Toast';
@@ -27,7 +27,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
   const { userProfile: user } = useAuth();
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,

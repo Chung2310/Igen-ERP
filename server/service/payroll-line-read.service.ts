@@ -1,4 +1,4 @@
-﻿import { adaptLegacyPayrollLine, type PayrollLineSnapshot } from "../interface/payroll-revision.interface";
+﻿import { adaptLegacyPayrollLine } from "../interface/payroll-revision.interface";
 
 export async function readPayrollLine(args: {
   run: { activeRevisionId?: string; lines?: Array<{ employeeId: string; employeeName?: string; calculation?: Record<string, number> }> };

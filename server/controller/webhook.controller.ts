@@ -28,7 +28,6 @@ export const handleSePayWebhook = async (req: Request, res: Response) => {
       const {
         amountIn,
         transactionContent,
-        referenceCode,
         transactionDate,
       } = tx;
 

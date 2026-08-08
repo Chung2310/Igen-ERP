@@ -642,7 +642,7 @@ function RegistrationQrModal({
   const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(ownerId)}`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-bold text-cyan-700">

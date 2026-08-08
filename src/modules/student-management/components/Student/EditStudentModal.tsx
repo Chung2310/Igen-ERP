@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, Loader2, ChevronDown } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { Student, Partner } from '../../types';

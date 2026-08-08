@@ -611,6 +611,7 @@ export const authService = {
       branchId,
       birthDate,
       qualification,
+      monthlySalary,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -653,6 +654,11 @@ export const authService = {
     const validBranch = branchId ? await BranchModel.findOne({ _id: branchId, companyCode: finalCompanyCode, isActive: true }).lean() : null;
     if (branchId && !validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
 
+    const salaryValue = monthlySalary === undefined || monthlySalary === null || monthlySalary === "" ? undefined : Number(monthlySalary);
+    if (salaryValue !== undefined && (!Number.isFinite(salaryValue) || salaryValue < 0)) {
+      throw new Error("Lương tháng không hợp lệ.");
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const finalDept = department || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự")));
     const newUser = new UserModel({
@@ -668,6 +674,7 @@ export const authService = {
       department: finalDept,
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự"))),
       qualification: qualification?.trim() || "",
+      monthlySalary: salaryValue,
       jobTitle: role === "admin" ? "CEO" : (role === "branch_owner" ? "Chủ chi nhánh" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên")),
       phone: phone || "Chưa cập nhật",
       jobDescriptionLink: jobDescriptionLink || "",

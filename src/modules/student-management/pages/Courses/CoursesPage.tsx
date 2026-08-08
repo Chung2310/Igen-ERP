@@ -37,7 +37,6 @@ import {
   ErpPageHeader,
   ErpPrimaryButton,
   ErpSearchBar,
-  ErpSelect,
   ErpSubmitButton,
   ErpTableHead,
 } from '../../components/Erp/ErpUI';
@@ -137,7 +136,6 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const copy = getCoursePageCopy(entityLabel.preset);
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,

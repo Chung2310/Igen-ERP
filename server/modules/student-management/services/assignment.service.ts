@@ -179,7 +179,7 @@ export class AssignmentService {
         throw new Error("Token không hợp lệ.");
       }
       return decoded;
-    } catch (err) {
+    } catch {
       throw new Error("Đường dẫn nộp bài đã hết hạn hoặc không hợp lệ.");
     }
   }

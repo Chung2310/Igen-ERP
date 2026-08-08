@@ -6,7 +6,6 @@ import { ExamSession } from '../../types';
 import { useStudents } from '../../hooks/useStudents';
 import { cn, parseVND } from '../../lib/utils';
 import { toast } from '../../../../pages/Toast';
-import { useAuth } from '../../../../context/AuthContext';
 import { getExamSegmentLabel, isStudentEligibleForExamRank } from '../../pages/Exams/exam-utils';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 

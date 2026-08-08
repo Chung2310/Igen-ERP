@@ -59,13 +59,6 @@ function defaultForType(type: DynamicFieldType): FormState["defaultValue"] {
   return "";
 }
 
-function parsedOptions(value: string) {
-  return value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [label, ...rest] = line.split("|");
-    return { label: label.trim(), value: rest.join("|").trim() };
-  });
-}
-
 export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose, onSubmit, isStandard = false }: CustomFieldEditorModalProps) {
   const [form, setForm] = useState<FormState>(() => initialState(initialField));
   const [errors, setErrors] = useState<string[]>([]);

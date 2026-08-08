@@ -1,6 +1,16 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "node:crypto";
 import { WebhookService } from "../services/webhook.service";
 import { logger } from "../config/logger";
+
+/** So sánh không phụ thuộc thời gian để không rò rỉ độ dài/tiền tố secret qua thời gian phản hồi. */
+function secretMatches(received: unknown, expected: string): boolean {
+  if (typeof received !== "string" || received.length === 0) return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 export class WebhookController {
   static async handlePaymentWebhook(req: Request, res: Response, _next: NextFunction) {
