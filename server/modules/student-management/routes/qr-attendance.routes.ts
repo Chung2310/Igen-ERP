@@ -19,6 +19,7 @@ const imageUpload = multer({
 // Public route cho học viên điểm danh (bảo vệ bằng rate limiter)
 router.post("/checkin", publicApiRateLimiter, imageUpload.single("file"), QRAttendanceController.checkin);
 router.get("/session-info", publicApiRateLimiter, QRAttendanceController.getSessionInfo);
+router.post("/device/forget", publicApiRateLimiter, QRAttendanceController.forgetDevice);
 
 // Các routes cần đăng nhập (Giảng viên / Admin)
 router.use(authMiddleware as any);

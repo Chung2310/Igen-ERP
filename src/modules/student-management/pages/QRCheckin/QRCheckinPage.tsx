@@ -79,6 +79,10 @@ export default function QRCheckinPage() {
     batchCode: string;
     courseTitle: string;
     date: string;
+    device?: {
+      recognized: boolean;
+      studentName?: string;
+    };
   } | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(() => {
     const parts = window.location.pathname.split("/");
@@ -216,7 +220,7 @@ export default function QRCheckinPage() {
   const handleContinueToCapture = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 8) return;
-    setStep("capture");
+    void handleCheckin();
   };
 
   // 4. Thực hiện checkin: ảnh khuôn mặt + vị trí GPS
@@ -278,7 +282,19 @@ export default function QRCheckinPage() {
   const handleTryAgain = () => {
     setResult(null);
     handleRetakePhoto();
-    setStep("capture");
+    setStep("phone");
+  };
+
+  const handleForgetDevice = async () => {
+    try {
+      await fetch("/api/v1/qr-attendance/device/forget", { method: "POST" });
+      setSessionInfo((previous) => previous ? { ...previous, device: { recognized: false } } : previous);
+      setPhone("");
+      setResult(null);
+      setStep("phone");
+    } catch {
+      setResult({ success: false, error: "Không thể đổi học viên. Vui lòng thử lại." });
+    }
   };
 
   if (loadingSession) {
@@ -367,6 +383,31 @@ export default function QRCheckinPage() {
               </button>
             </div>
           )
+        ) : sessionInfo?.device?.recognized ? (
+          <div className="space-y-6 text-center">
+            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-500 shadow-inner">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Xin chào {sessionInfo.device.studentName}</h2>
+              <p className="text-sm text-slate-500 font-medium">Thiết bị này đã được ghi nhớ. Bạn không cần nhập lại số điện thoại.</p>
+              <p className="text-xs text-slate-400 font-semibold">Lớp {sessionInfo.batchCode} · Buổi {formatDate(sessionInfo.date)}</p>
+            </div>
+            <button
+              onClick={() => void handleCheckin()}
+              disabled={submitting}
+              className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {submitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Đang điểm danh...</> : <><MapPin className="w-4 h-4" /> Điểm danh ngay</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleForgetDevice()}
+              className="w-full text-xs font-bold text-slate-500 hover:text-cyan-700 transition-colors"
+            >
+              Không phải tôi / Đổi học viên
+            </button>
+          </div>
         ) : step === "phone" ? (
           // Màn hình nhập SĐT để điểm danh
           <div className="space-y-6">
@@ -411,8 +452,8 @@ export default function QRCheckinPage() {
                 disabled={!phone || phone.length < 8}
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Camera className="w-4 h-4" />
-                Tiếp theo — Chụp ảnh
+                <MapPin className="w-4 h-4" />
+                Xác nhận điểm danh
               </button>
             </form>
           </div>
