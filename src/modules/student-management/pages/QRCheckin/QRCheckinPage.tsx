@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy } from "lucide-react";
+import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy, Share2 } from "lucide-react";
 
 const REASON_MESSAGES: Record<string, string> = {
   not_registered: "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin để đăng ký trước.",
@@ -124,7 +124,7 @@ export default function QRCheckinPage() {
   });
   const [embeddedWebView] = useState<boolean>(() => isEmbeddedWebView());
   const [iosDevice] = useState<boolean>(() => isIosDevice());
-  const [browserReady, setBrowserReady] = useState<boolean>(() => hasBrowserHandoffFlag());
+  const [browserReady] = useState<boolean>(() => hasBrowserHandoffFlag());
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
   const [browserHint, setBrowserHint] = useState<string | null>(null);
 
@@ -136,6 +136,15 @@ export default function QRCheckinPage() {
       // Some private/webview contexts reject localStorage; the URL flag still works.
     }
   }, [browserReady]);
+
+  useEffect(() => {
+    if (!iosDevice || !embeddedWebView || browserReady || loadingSession || sessionInfo?.device?.recognized === true) return;
+    // Keep the temporary scanner on the handoff screen, but prepare its URL so
+    // the native "Open in Safari" action lands directly on the check-in flow.
+    const browserUrl = new URL(window.location.href);
+    browserUrl.searchParams.set("browser", "1");
+    window.history.replaceState(window.history.state, "", browserUrl.toString());
+  }, [browserReady, embeddedWebView, iosDevice, loadingSession, sessionInfo?.device?.recognized]);
 
   const [phone, setPhone] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -343,10 +352,30 @@ export default function QRCheckinPage() {
     }
   };
 
-  const handleOpenInBrowser = () => {
+  const handleOpenInBrowser = async () => {
     setBrowserHint(null);
     const browserUrl = new URL(window.location.href);
     browserUrl.searchParams.set("browser", "1");
+
+    if (iosDevice) {
+      if (!navigator.share) {
+        setBrowserHint("Hãy bấm biểu tượng Safari hoặc Chia sẻ ở thanh công cụ, sau đó chọn Mở trong Safari.");
+        return;
+      }
+      try {
+        await navigator.share({
+          title: "Điểm danh iGen ERP",
+          text: "Mở liên kết này bằng Safari để thiết bị được ghi nhớ.",
+          url: browserUrl.toString(),
+        });
+        setBrowserHint("Trong menu Chia sẻ, hãy chọn Mở trong Safari. Không tiếp tục trong cửa sổ quét tạm.");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setBrowserHint("Hãy bấm biểu tượng Safari hoặc Chia sẻ ở thanh công cụ, sau đó chọn Mở trong Safari.");
+      }
+      return;
+    }
+
     const openedWindow = window.open(browserUrl.toString(), "_blank", "noopener,noreferrer");
     if (!openedWindow) {
       setBrowserHint("Nếu trang chưa mở, hãy bấm Chia sẻ → Mở trong Safari/Chrome.");
@@ -377,12 +406,9 @@ export default function QRCheckinPage() {
     );
   }
 
-  // iPhone Camera/scanners can report a Safari-like User-Agent even though
-  // they are running an ephemeral webview. Android normally opens Chrome
-  // directly, so keep its existing automatic-recognition flow.
-  const requiresBrowser = !browserReady && (
-    embeddedWebView || (iosDevice && sessionInfo?.device?.recognized !== true)
-  );
+  // The supported iPhone path is scanning with the Camera app, which opens
+  // the normal browser. Only known embedded scanners need the handoff screen.
+  const requiresBrowser = !browserReady && embeddedWebView;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 px-3 py-5 font-sans text-slate-800 sm:px-4 sm:py-8">
@@ -419,21 +445,30 @@ export default function QRCheckinPage() {
               <ExternalLink className="w-10 h-10" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Mở bằng Safari/Chrome</h2>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{iosDevice ? "Mở bằng Safari" : "Mở bằng Safari/Chrome"}</h2>
               <p className="text-sm text-slate-500 font-medium">
-                Bạn đang mở link trong trình quét tạm thời. Hãy mở link bằng trình duyệt chính để thiết bị được ghi nhớ cho những lần điểm danh sau.
+                {iosDevice
+                  ? "iPhone đang mở liên kết trong trình duyệt tạm. Hãy dùng biểu tượng Safari hoặc menu Chia sẻ và chọn Mở trong Safari để thiết bị được ghi nhớ."
+                  : "Bạn đang mở link trong trình quét tạm thời. Hãy mở link bằng trình duyệt chính để thiết bị được ghi nhớ cho những lần điểm danh sau."}
               </p>
               {sessionInfo && (
                 <p className="text-xs text-slate-400 font-semibold">Lớp {sessionInfo.batchCode} · Buổi {formatDate(sessionInfo.date)}</p>
               )}
             </div>
+            {iosDevice && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left text-xs font-semibold text-amber-800 space-y-1.5">
+                <p>1. Bấm nút Mở menu Chia sẻ bên dưới.</p>
+                <p>2. Chọn Mở trong Safari hoặc bấm biểu tượng Safari của trình quét.</p>
+                <p>3. Chỉ nhập SĐT lần đầu trong Safari; lần sau hệ thống tự nhận diện.</p>
+              </div>
+            )}
             <button
               type="button"
-              onClick={handleOpenInBrowser}
+              onClick={() => void handleOpenInBrowser()}
               className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <ExternalLink className="w-4 h-4" />
-              Mở trong trình duyệt
+              {iosDevice ? <Share2 className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
+              {iosDevice ? "Mở menu Chia sẻ" : "Mở trong trình duyệt"}
             </button>
             <button
               type="button"

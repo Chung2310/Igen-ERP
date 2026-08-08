@@ -674,7 +674,7 @@ export default function KanbanTab({
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
       const url = activeBranchId
@@ -697,9 +697,9 @@ export default function KanbanTab({
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
     }
-  };
+  }, [selectedCompanyCode, activeBranchId]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
       const url = activeBranchId
@@ -729,14 +729,14 @@ export default function KanbanTab({
     } catch (error) {
       console.error("Lỗi khi tải danh sách dự án:", error);
     }
-  };
+  }, [selectedCompanyCode, activeBranchId]);
 
   useEffect(() => {
     if (selectedCompanyCode) {
       fetchTasks();
       fetchProjects();
     }
-  }, [selectedCompanyCode, activeBranchId]);
+  }, [selectedCompanyCode, fetchTasks, fetchProjects]);
 
   // Realtime: quy trình vừa sinh task mới cho chính mình → tải lại và báo
   useEffect(() => {
@@ -747,7 +747,7 @@ export default function KanbanTab({
       );
     });
     return off;
-  }, [selectedCompanyCode]);
+  }, [fetchTasks, selectedCompanyCode]);
 
   // Deep-link từ tab Quy trình: mở modal chi tiết đúng task được trỏ tới
   useEffect(() => {
@@ -791,26 +791,29 @@ export default function KanbanTab({
       setEditAttachments(selectedKanbanTask.attachments || []);
       setTaskHistory(selectedKanbanTask.history || []);
       setEditCategory(formatTaskCategory(selectedKanbanTask.category));
-      if (presetDoneOnOpen) {
-        setEditStatus("Done");
-        setPresetDoneOnOpen(false);
-      }
     }
   }, [selectedKanbanTask]);
+
+  useEffect(() => {
+    if (selectedKanbanTask && presetDoneOnOpen) {
+      setEditStatus("Done");
+      setPresetDoneOnOpen(false);
+    }
+  }, [selectedKanbanTask, presetDoneOnOpen]);
 
   // Tự động gán thời gian hoàn thành khi chuyển trạng thái sang Done
   useEffect(() => {
     if (editStatus === "Done" && editStartTime && !editEndTime) {
       setEditEndTime(getLocalDatetimeString());
     }
-  }, [editStatus, editStartTime]);
+  }, [editStatus, editStartTime, editEndTime]);
 
   // Tự động ghi thời gian bắt đầu khi chuyển sang Đang làm (tự thu thập thay vì bắt điền tay)
   useEffect(() => {
     if (editStatus === "In Progress" && !editStartTime) {
       setEditStartTime(getLocalDatetimeString());
     }
-  }, [editStatus]);
+  }, [editStatus, editStartTime]);
 
   // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
   useEffect(() => {
