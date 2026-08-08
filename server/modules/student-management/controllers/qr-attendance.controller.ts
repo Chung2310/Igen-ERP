@@ -177,6 +177,7 @@ export class QRAttendanceController {
         && batch.learnerIds.includes(resolvedDevice.studentId)
         ? resolvedDevice
         : null;
+      logger.info(`[QR-Attendance] device decision: hasCookie=${Boolean(rawCredential)}, resolved=${Boolean(resolvedDevice)}, eligibleForBatch=${Boolean(remembered)}, batchId=${sessionInfo.batchId}`);
       if (!remembered && !phone) {
         return res.status(400).json({ success: false, error: "Vui lòng nhập số điện thoại đã đăng ký." });
       }
@@ -204,6 +205,7 @@ export class QRAttendanceController {
             fingerprint: fingerprint || "",
           });
           res.cookie(STUDENT_DEVICE_COOKIE_NAME, issued.credential, studentDeviceCookieOptions(issued.expiresAt));
+          logger.info(`[QR-Attendance] device cookie set: mode=new, studentId=${result.studentId}, batchId=${sessionInfo.batchId}`);
         } catch (error) {
           // Attendance is already valid; a temporary credential-store failure must
           // not turn a successful check-in into an apparent failure/retry.
@@ -211,6 +213,7 @@ export class QRAttendanceController {
         }
       } else {
         res.cookie(STUDENT_DEVICE_COOKIE_NAME, rawCredential, studentDeviceCookieOptions(remembered.expiresAt));
+        logger.info(`[QR-Attendance] device cookie renewed: studentId=${remembered.studentId}, batchId=${sessionInfo.batchId}`);
       }
       res.json(result);
     } catch (error: any) {
