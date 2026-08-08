@@ -4,9 +4,17 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
 import { ModuleSettingsService } from "../services/module-settings.service";
-import { WorkerQrAttendanceService, WorkerQrCheckinError } from "../../../modules/worker-management/services/worker-qr-attendance.service";
+import { WorkerQrAttendanceService } from "../../../modules/worker-management/services/worker-qr-attendance.service";
 import { WorkerProjectModel } from "../../../modules/worker-management/models/worker-project.model";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  StudentDeviceService,
+  STUDENT_DEVICE_COOKIE_NAME,
+  studentDeviceClearCookieOptions,
+  studentDeviceCookieOptions,
+} from "../services/student-device.service";
+import { Student } from "../models/student.model";
+import { logger } from "../config/logger";
 
 /** QR chấm công lao động sống 1 giờ để quản lý kịp gửi vào nhóm chat. */
 const WORKER_QR_DURATION_MINUTES = 60;
@@ -51,15 +59,36 @@ export class QRAttendanceController {
   }
 
   // 1.1 Lấy thông tin phiên công khai (PUBLIC - Rate-limited)
-  static getSessionInfo(req: Request, res: Response) {
+  static async getSessionInfo(req: Request, res: Response) {
     try {
       const { token } = req.query;
       if (!token) {
         return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR." });
       }
 
-      let info; try { info = WorkerQrAttendanceService.getSessionInfo(String(token)); } catch { info = QRAttendanceService.getSessionInfo(String(token)); }
-      res.json({ success: true, data: info });
+      let info;
+      try {
+        info = WorkerQrAttendanceService.getSessionInfo(String(token));
+        return res.json({ success: true, data: info });
+      } catch {
+        info = QRAttendanceService.getSessionInfo(String(token));
+      }
+
+      let device: { recognized: boolean; studentName?: string } = { recognized: false };
+      const rawCredential = req.cookies?.[STUDENT_DEVICE_COOKIE_NAME];
+      const remembered = await StudentDeviceService.resolve(rawCredential);
+      if (remembered) {
+        const batch = await Batch.findOne({ _id: info.batchId, ownerId: remembered.ownerId }).select("learnerIds").lean();
+        if (batch?.learnerIds.includes(remembered.studentId)) {
+          const student = await Student.findOne({ _id: remembered.studentId, ownerId: remembered.ownerId }).select("fullName").lean();
+          if (student?.fullName) {
+            device = { recognized: true, studentName: student.fullName };
+            // Renew the browser expiry at the same time as the server-side sliding expiry.
+            res.cookie(STUDENT_DEVICE_COOKIE_NAME, rawCredential, studentDeviceCookieOptions(remembered.expiresAt));
+          }
+        }
+      }
+      res.json({ success: true, data: { ...info, device } });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy thông tin phiên." });
     }
@@ -114,8 +143,8 @@ export class QRAttendanceController {
   static async checkin(req: UploadRequest, res: Response) {
     try {
       const { token, phone, fingerprint, latitude, longitude } = req.body;
-      if (!token || !phone) {
-        return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR và số điện thoại." });
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Vui lòng cung cấp mã QR." });
       }
 
       const lat = latitude !== undefined && latitude !== "" ? Number(latitude) : undefined;
@@ -125,14 +154,66 @@ export class QRAttendanceController {
       const fileBuffer = req.file?.buffer ?? Buffer.alloc(0);
       const fileMimeType = req.file?.mimetype ?? "image/jpeg";
 
-      let result;
+      let workerSession = false;
       try {
         WorkerQrAttendanceService.getSessionInfo(token);
+        workerSession = true;
+      } catch {
+        workerSession = false;
+      }
+      if (workerSession) {
+        if (!phone) return res.status(400).json({ success: false, error: "Vui lòng cung cấp số điện thoại." });
         const workerResult = await WorkerQrAttendanceService.checkin(token, phone, fingerprint || "", lat, lng);
-        result = { success: true, workerName: workerResult.workerName, studentName: workerResult.workerName, distanceMeters: workerResult.distanceMeters, kind: workerResult.kind };
-      } catch (error) {
-        if (error instanceof WorkerQrCheckinError) throw error;
-        result = await QRAttendanceService.checkin(token, phone, fingerprint || "", fileBuffer, fileMimeType, lat, lng);
+        return res.json({ success: true, workerName: workerResult.workerName, studentName: workerResult.workerName, distanceMeters: workerResult.distanceMeters, kind: workerResult.kind });
+      }
+
+      const sessionInfo = QRAttendanceService.getSessionInfo(token);
+      const rawCredential = req.cookies?.[STUDENT_DEVICE_COOKIE_NAME];
+      const resolvedDevice = await StudentDeviceService.resolve(rawCredential);
+      const batch = await Batch.findById(sessionInfo.batchId).select("ownerId branchId learnerIds").lean();
+      if (!batch) throw new QrCheckinError("batch_not_found", "Không tìm thấy lớp học.");
+      const remembered = resolvedDevice
+        && resolvedDevice.ownerId === batch.ownerId
+        && batch.learnerIds.includes(resolvedDevice.studentId)
+        ? resolvedDevice
+        : null;
+      logger.info(`[QR-Attendance] device decision: hasCookie=${Boolean(rawCredential)}, resolved=${Boolean(resolvedDevice)}, eligibleForBatch=${Boolean(remembered)}, batchId=${sessionInfo.batchId}`);
+      if (!remembered && !phone) {
+        return res.status(400).json({ success: false, error: "Vui lòng nhập số điện thoại đã đăng ký." });
+      }
+
+      const result = await QRAttendanceService.checkin(
+        token,
+        phone,
+        fingerprint || "",
+        fileBuffer,
+        fileMimeType,
+        lat,
+        lng,
+        remembered?.studentId
+      );
+
+      if (!remembered) {
+        if (resolvedDevice) await StudentDeviceService.revoke(rawCredential, "replaced_by_new_student");
+        try {
+          const issued = await StudentDeviceService.issue({
+            ownerId: batch.ownerId,
+            branchId: batch.branchId,
+            studentId: result.studentId,
+            batchId: sessionInfo.batchId,
+            userAgent: req.get("user-agent") || "",
+            fingerprint: fingerprint || "",
+          });
+          res.cookie(STUDENT_DEVICE_COOKIE_NAME, issued.credential, studentDeviceCookieOptions(issued.expiresAt));
+          logger.info(`[QR-Attendance] device cookie set: mode=new, studentId=${result.studentId}, batchId=${sessionInfo.batchId}`);
+        } catch (error) {
+          // Attendance is already valid; a temporary credential-store failure must
+          // not turn a successful check-in into an apparent failure/retry.
+          logger.error("[QR-Attendance] Device credential could not be persisted", error);
+        }
+      } else {
+        res.cookie(STUDENT_DEVICE_COOKIE_NAME, rawCredential, studentDeviceCookieOptions(remembered.expiresAt));
+        logger.info(`[QR-Attendance] device cookie renewed: studentId=${remembered.studentId}, batchId=${sessionInfo.batchId}`);
       }
       res.json(result);
     } catch (error: any) {
@@ -140,6 +221,16 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: error.message, reasonCode: error.reasonCode });
       }
       res.status(400).json({ success: false, error: error.message || "Điểm danh không thành công." });
+    }
+  }
+
+  static async forgetDevice(req: Request, res: Response) {
+    try {
+      await StudentDeviceService.revoke(req.cookies?.[STUDENT_DEVICE_COOKIE_NAME]);
+      res.clearCookie(STUDENT_DEVICE_COOKIE_NAME, studentDeviceClearCookieOptions);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message || "Không thể quên thiết bị này." });
     }
   }
 }

@@ -127,7 +127,7 @@ export default function SettingsTab() {
             <p className="text-xs text-slate-500 font-medium">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
           </div>
         </div>
-        <button type="button" aria-label="Cuộn tab cài đặt sang trái" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab cài đặt sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
         <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto select-none">
           {[
             { id: "profile", label: "Hồ sơ cá nhân", icon: User },
@@ -157,7 +157,7 @@ export default function SettingsTab() {
             );
           })}
         </div>
-        <button type="button" aria-label="Cuộn tab cài đặt sang phải" onClick={() => scrollSubTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" aria-label="Cuộn tab cài đặt sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       {/* Main Settings Body Grid */}

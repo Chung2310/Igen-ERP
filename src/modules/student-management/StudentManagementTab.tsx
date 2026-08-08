@@ -196,7 +196,7 @@ export default function StudentManagementTab() {
       {/* Sub Tabs switcher navigation bar */}
       <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="student_sub_tabs_bar">
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronLeft className="h-4 w-4" /></button>
           <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
           {subTabRoutes.map((item) => {
             const isActive = activeSubTab === item.value;
@@ -218,7 +218,7 @@ export default function StudentManagementTab() {
             );
           })}
           </div>
-          <button type="button" title="Mục sau" onClick={() => scrollSubTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" title="Mục sau" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronRight className="h-4 w-4" /></button>
         </div>
 
         {userProfile?.role === "superadmin" && (
