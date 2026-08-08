@@ -28,7 +28,7 @@ import learningRoadmapRoutes from "./routes/learning-roadmap.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
-import { requireModule } from "../../middleware/require-module";
+import { requireModule, getModuleStateForCompany, resolveModuleAccess } from "../../middleware/require-module";
 import { requireAnyPermission, requirePermission } from "../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "./permissions";
 
@@ -43,15 +43,29 @@ const requireStudentModule: RequestHandler = (req, res, next) => {
   return guard(req, res, next);
 };
 /**
- * Trường tùy chỉnh dùng chung cho cả hai loại hình doanh nghiệp: tenant giáo dục cấu hình
- * cho students/courses/..., tenant lao động cấu hình cho workers. Phân giải guard theo
- * `:moduleKey` trên URL, vì đường dẫn nằm dưới tiền tố /student-management nên
- * resolveBusinessModuleKey luôn trả về "student" và sẽ chặn nhầm tenant lao động.
+ * Trường tùy chỉnh là hạ tầng dùng chung cho cả hai loại hình doanh nghiệp: tenant giáo dục
+ * cấu hình cho hồ sơ học viên, tenant lao động cấu hình cho hồ sơ lao động (popup "Thêm lao
+ * động" dùng lại chính component này). Đường dẫn nằm dưới tiền tố /student-management nên
+ * resolveBusinessModuleKey luôn trả về "student"; nếu gác bằng đúng module student thì tenant
+ * lao động — vốn bị filterModulesForBusinessType loại bỏ module student — luôn nhận 403.
+ * Vì vậy chỉ cần một trong hai phân hệ được bật là cho qua.
  */
-const requireCustomFieldModule: RequestHandler = (req, res, next) => {
-  const moduleKey = String(req.path || "").split("/").filter(Boolean)[0];
-  const guard = moduleKey === "workers" ? workerModuleGuard : studentModuleGuard;
-  return guard(req, res, next);
+const requireCustomFieldModule: RequestHandler = async (req, res, next) => {
+  try {
+    const user = (req as { user?: { role?: string; companyCode?: string } }).user;
+    if (user?.role === "superadmin") return next();
+    if (!user?.companyCode) {
+      return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
+    }
+    const state = await getModuleStateForCompany(user.companyCode);
+    const allowed = (["student", "worker"] as const).some((key) =>
+      resolveModuleAccess(user, key, state.modules, state.exists, state.businessType),
+    );
+    if (allowed) return next();
+    return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
+  } catch (error) {
+    return next(error);
+  }
 };
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
 const requirePartnerRead = requirePermission("partner:read") as RequestHandler;

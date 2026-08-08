@@ -75,17 +75,7 @@ const DEFAULT_STANDARD_FIELDS: Record<ModuleKey, StandardFieldConfig[]> = {
     { key: "email", label: "Địa chỉ Email", placeholder: "Nhập địa chỉ email...", type: "email", isRequired: false, isVisible: true, isArchived: false },
     { key: "commissionRate", label: "Tỷ lệ chiết khấu (%)", placeholder: "Nhập tỷ lệ chiết khấu...", type: "number", isRequired: false, isVisible: true, isArchived: false },
   ],
-  // Trường chuẩn của hồ sơ lao động — khớp với defaultFields trong AddWorkerModal.
-  workers: [
-    { key: "fullName", label: "Họ và tên", placeholder: "Nhập họ và tên...", type: "text", isRequired: true, isVisible: true, isArchived: false },
-    { key: "phone", label: "Số điện thoại", placeholder: "Nhập số điện thoại...", type: "phone", isRequired: false, isVisible: true, isArchived: false },
-    { key: "email", label: "Email", placeholder: "Nhập địa chỉ email...", type: "email", isRequired: false, isVisible: true, isArchived: false },
-    { key: "idCard", label: "CCCD / CMND", placeholder: "Nhập số CCCD (12 số)...", type: "text", isRequired: false, isVisible: true, isArchived: false },
-    { key: "birthday", label: "Ngày sinh", type: "dateTime", isRequired: false, isVisible: true, isArchived: false },
-    { key: "registrationDate", label: "Ngày tiếp nhận", type: "text", isRequired: false, isVisible: true, isArchived: false },
-    { key: "address", label: "Địa chỉ", placeholder: "Nhập địa chỉ...", type: "text", isRequired: false, isVisible: true, isArchived: false },
-    { key: "note", label: "Ghi chú", type: "text", isRequired: false, isVisible: true, isArchived: false },
-  ],
+
 };
 
 /**

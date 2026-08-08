@@ -311,7 +311,7 @@ export function AddWorkerModal({
       )}
 
       <CustomFieldsSection
-        moduleKey="workers"
+        moduleKey="students"
         mode="create"
         tenantId={tenantId}
         disabled={submitting}
