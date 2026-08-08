@@ -26,6 +26,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 import { EmailService, SmtpSettings } from "./email.service";
 import { companyEmailService } from "../../../service/company-email.service";
 import { CompanyModel } from "../../../model/company.model";
@@ -415,6 +416,7 @@ export class BatchService {
 
     const batch = new Batch({ ...normalizeInstructorFields(writeData), ownerId, branchId: actor.branchId });
     const saved = await batch.save();
+    if (context) await customFieldResourceService.finalizeEntity(context, saved);
     await Promise.all(
       saved.learnerIds.map((studentId) => StudentBatchEnrollmentService.activate({
         ownerId: saved.ownerId,
@@ -550,6 +552,7 @@ export class BatchService {
       batch.set(persistData);
       saved = await batch.save();
     }
+    if (context) await customFieldResourceService.finalizeEntity(context, saved);
     const enriched = (await enrichBatches([saved]))[0];
 
     // Thông báo cho giáo viên khi được phân công vào lớp (mới gán hoặc đổi giáo viên).

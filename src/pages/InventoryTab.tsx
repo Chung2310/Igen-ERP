@@ -21,6 +21,7 @@ import { useBranch } from "../context/BranchContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
+import { authService } from "../services/authService";
 import { ViewToggle } from "../components/inventory/ViewToggle";
 
 // Lazy-loaded subcomponents
@@ -505,6 +506,7 @@ export default function InventoryTab() {
         toast.error("File Excel không có dòng sản phẩm hợp lệ.");
         return;
       }
+      const importUpload = await authService.uploadManagedFile(file, "import.inventory-product");
 
       const existingSkus = new Set(products.map((product) => product.sku.toUpperCase()));
       const importedSkus = new Set<string>();
@@ -597,6 +599,14 @@ export default function InventoryTab() {
         return;
       }
 
+      await authService.completeManagedImport({
+        sourceType: "import.inventory-product",
+        uploadToken: importUpload.uploadToken,
+        fileName: file.name,
+        importedCount: createdCount,
+        skippedCount,
+      });
+
       if (skippedCount > 0) {
         toast.success(`Đã nhập ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng có mã sản phẩm trùng.`);
       } else {
@@ -635,6 +645,7 @@ export default function InventoryTab() {
         toast.error("File Excel không có phiếu nhập xuất hợp lệ.");
         return;
       }
+      const importUpload = await authService.uploadManagedFile(file, "import.inventory-stock");
 
       const existingIds = new Set(stockLogs.map((log) => log.id));
       const nextLogs = importedLogs.filter((log) => !existingIds.has(log.id));
@@ -705,6 +716,14 @@ export default function InventoryTab() {
 
         addedCount += 1;
       }
+
+      await authService.completeManagedImport({
+        sourceType: "import.inventory-stock",
+        uploadToken: importUpload.uploadToken,
+        fileName: file.name,
+        importedCount: addedCount,
+        skippedCount: importedLogs.length - addedCount,
+      });
 
       toast.success(`Đã nhập ${addedCount} phiếu nhập/xuất kho từ Excel.`);
     } catch (error) {

@@ -11,8 +11,8 @@ export const DYNAMIC_FIELD_TYPES = [
 export type DynamicFieldType = typeof DYNAMIC_FIELD_TYPES[number];
 
 export type CustomFieldValue = string | number | boolean | string[] |
-  { url: string; fileName: string; mimeType?: string; size?: number; reference?: string } |
-  Array<{ url: string; fileName: string; mimeType?: string; size?: number; reference?: string }> | null;
+  { url: string; fileName: string; mimeType?: string; size?: number; reference?: string; uploadToken?: string } |
+  Array<{ url: string; fileName: string; mimeType?: string; size?: number; reference?: string; uploadToken?: string }> | null;
 export type CustomFieldValues = Record<string, CustomFieldValue>;
 
 export interface IFieldDefinition extends Document {

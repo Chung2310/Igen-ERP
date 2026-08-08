@@ -376,6 +376,7 @@ export default function OrgChartTab({
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager" | "branch_owner" | "admin">("user");
   const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
+  const [addJobDescriptionUploadToken, setAddJobDescriptionUploadToken] = useState("");
   const [addQualification, setAddQualification] = useState("");
   const [addMonthlySalary, setAddMonthlySalary] = useState("");
   const [uploadingAddJobDescription, setUploadingAddJobDescription] = useState(false);
@@ -393,6 +394,7 @@ export default function OrgChartTab({
   const [editLevel, setEditLevel] = useState<number>(4);
   const [editParentId, setEditParentId] = useState("");
   const [editJobDescriptionLink, setEditJobDescriptionLink] = useState("");
+  const [editJobDescriptionUploadToken, setEditJobDescriptionUploadToken] = useState("");
   const [editMonthlySalary, setEditMonthlySalary] = useState("");
   const [uploadingEditJobDescription, setUploadingEditJobDescription] = useState(false);
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = useState(false);
@@ -418,6 +420,7 @@ export default function OrgChartTab({
     setEditLevel(selectedEmp.level || 4);
     setEditParentId(selectedEmp.parentId || "");
     setEditJobDescriptionLink(selectedEmp.jobDescriptionLink || "");
+    setEditJobDescriptionUploadToken("");
     setIsEditing(true);
   };
 
@@ -449,11 +452,13 @@ export default function OrgChartTab({
 
     const setUploading = target === "add" ? setUploadingAddJobDescription : setUploadingEditJobDescription;
     const setLink = target === "add" ? setAddJobDescriptionLink : setEditJobDescriptionLink;
+    const setToken = target === "add" ? setAddJobDescriptionUploadToken : setEditJobDescriptionUploadToken;
 
     setUploading(true);
     try {
-      const url = await authService.uploadFile(file);
-      setLink(url);
+      const uploaded = await authService.uploadManagedFile(file, "hr.org-chart", selectedCompanyCode || userProfile?.companyCode);
+      setLink(uploaded.url);
+      setToken(uploaded.uploadToken);
       toast.success("Đã tải lên mô tả công việc.");
     } catch (error: any) {
       toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");
@@ -500,6 +505,7 @@ export default function OrgChartTab({
         phone: editPhone.trim() || "",
         parentId: editParentId || null,
         jobDescriptionLink: editJobDescriptionLink.trim() || "",
+        jobDescriptionUploadToken: editJobDescriptionUploadToken || undefined,
         monthlySalary: editMonthlySalary === "" ? undefined : Number(editMonthlySalary),
       };
 
@@ -705,6 +711,7 @@ export default function OrgChartTab({
     if (!isAddModalOpen) {
       setAddDepartment("Phòng Kỹ Thuật");
       setAddJobDescriptionLink("");
+      setAddJobDescriptionUploadToken("");
     }
   }, [isAddModalOpen]);
 
@@ -829,7 +836,8 @@ export default function OrgChartTab({
         activeBranchId || undefined,
         undefined,
         addQualification.trim() || undefined,
-        addMonthlySalary.trim() === "" ? undefined : Number(addMonthlySalary)
+        addMonthlySalary.trim() === "" ? undefined : Number(addMonthlySalary),
+        addJobDescriptionUploadToken || undefined,
       );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
@@ -848,6 +856,7 @@ export default function OrgChartTab({
       setAddRole("user");
       setAddDepartment("Phòng Kỹ Thuật");
       setAddJobDescriptionLink("");
+      setAddJobDescriptionUploadToken("");
       setAddQualification("");
       setAddMonthlySalary("");
 

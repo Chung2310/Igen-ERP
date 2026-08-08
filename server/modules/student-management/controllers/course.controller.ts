@@ -3,6 +3,7 @@ import { CourseService } from "../services/course.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 export class CourseController {
   static async create(req: AuthRequest, res: Response) {
@@ -18,6 +19,7 @@ export class CourseController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "courses",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       res.status(201).json({ success: true, data: course });
     } catch (error: unknown) {
@@ -56,6 +58,7 @@ export class CourseController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "courses",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, req.user!.branchId);
       if (!course) {
         return res.status(404).json({ success: false, error: "Không tìm thấy khóa học để cập nhật." });
@@ -77,6 +80,7 @@ export class CourseController {
       if (!course) {
         return res.status(404).json({ success: false, error: "Không tìm thấy khóa học để xóa." });
       }
+      await resourceIndexingService.trashSourceRecordResources(req.user!.companyCode || req.user!.centerId, "student.custom-field", String(course._id));
       res.json({ success: true, data: course });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";

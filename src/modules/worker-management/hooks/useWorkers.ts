@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { workerApi } from "../api/workers.api";
 import type { BulkWorkerInput, Worker, WorkerInput, WorkerScope } from "../types";
+import { authService } from "../../../services/authService";
 
 export function useWorkers(scope?: WorkerScope) {
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -65,12 +66,16 @@ export function useWorkers(scope?: WorkerScope) {
   );
 
   const importWorkers = useCallback(
-    async (rows: BulkWorkerInput[], projectId?: string) => {
+    async (rows: BulkWorkerInput[], projectId?: string, sourceFile?: File) => {
       if (!companyCode) throw new Error("Vui lòng chọn công ty.");
+      const importUpload = sourceFile
+        ? { ...(await authService.uploadManagedFile(sourceFile, "import.worker", companyCode)), fileName: sourceFile.name }
+        : undefined;
       const result = await workerApi.bulkCreate(
         rows,
         { companyCode, ...(branchId ? { branchId } : {}) },
         projectId,
+        importUpload,
       );
       await reload();
       return result;

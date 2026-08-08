@@ -5,9 +5,12 @@ import {
   HRContractModel,
 } from "../model/hr-contract.model";
 import { UserModel } from "../model/user.model";
-import { ResourceItemModel } from "../model/resource-item.model";
-import { cloudinaryService } from "../service/cloudinary.service";
-import { resourceService } from "../service/resource.service";
+import {
+  managedUploadService,
+  type FinalizeManagedUploadInput,
+  type ManagedUploadActor,
+} from "../service/managed-upload.service";
+import type { ResourceIndexingRecord } from "../service/resource-indexing.service";
 
 const tenant = (req: AuthenticatedRequest) =>
   req.user?.role === "superadmin" && req.query.companyCode
@@ -16,44 +19,101 @@ const tenant = (req: AuthenticatedRequest) =>
 const canViewAll = (req: AuthenticatedRequest) =>
   ["superadmin", "admin", "manager"].includes(req.user?.role || "");
 
+type FinalizeUpload = (
+  token: string,
+  actor: ManagedUploadActor,
+  source: FinalizeManagedUploadInput,
+) => Promise<ResourceIndexingRecord>;
+
+export async function finalizeContractPendingUploads(input: {
+  contract: { _id: unknown; employeeId: string; employeeName: string };
+  body: { contractFileUploadToken?: string; signedImageUploadToken?: string };
+  actor: ManagedUploadActor;
+  finalizeManagedUpload?: FinalizeUpload;
+}) {
+  const finalize = input.finalizeManagedUpload || managedUploadService.finalizeManagedUpload;
+  const sourceBase = {
+    entityType: "employee",
+    entityId: String(input.contract.employeeId),
+    entityLabel: input.contract.employeeName,
+    sourceRecordId: String(input.contract._id),
+  };
+  const patch: { contractResourceId?: string; signedImageResourceId?: string } = {};
+  if (input.body.contractFileUploadToken) {
+    const resource = await finalize(input.body.contractFileUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "contractFile",
+    });
+    patch.contractResourceId = resource._id;
+  }
+  if (input.body.signedImageUploadToken) {
+    const resource = await finalize(input.body.signedImageUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "signedImage",
+    });
+    patch.signedImageResourceId = resource._id;
+  }
+  return patch;
+}
+
+export async function finalizeExtensionPendingUploads(input: {
+  extension: { _id: unknown; employeeId: string; employeeName: string };
+  body: { extensionFileUploadToken?: string; extensionSignedImageUploadToken?: string };
+  actor: ManagedUploadActor;
+  finalizeManagedUpload?: FinalizeUpload;
+}) {
+  const finalize = input.finalizeManagedUpload || managedUploadService.finalizeManagedUpload;
+  const sourceBase = {
+    entityType: "employee",
+    entityId: String(input.extension.employeeId),
+    entityLabel: input.extension.employeeName,
+    sourceRecordId: String(input.extension._id),
+  };
+  const patch: { extensionResourceId?: string; signedImageResourceId?: string } = {};
+  if (input.body.extensionFileUploadToken) {
+    const resource = await finalize(input.body.extensionFileUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "extensionFile",
+    });
+    patch.extensionResourceId = resource._id;
+  }
+  if (input.body.extensionSignedImageUploadToken) {
+    const resource = await finalize(input.body.extensionSignedImageUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "extensionSignedImage",
+    });
+    patch.signedImageResourceId = resource._id;
+  }
+  return patch;
+}
+
+function uploadActor(req: AuthenticatedRequest, companyCode: string): ManagedUploadActor {
+  return {
+    companyCode,
+    branchId: req.user?.branchId,
+    actorId: req.user!.id,
+    actorName: req.user!.email,
+  };
+}
+
 export const hrContractController = {
   async uploadResource(req: AuthenticatedRequest, res: Response) {
     try {
       const companyCode = tenant(req);
       const { file, name, mimeType, size, kind } = req.body;
-      const isSigned = kind === "signed" || kind === "extensionSigned";
-      const fileUrl = await cloudinaryService.uploadMedia(
-        file,
-        isSigned
-          ? "igen_erp/hr-contracts/signed"
-          : "igen_erp/hr-contracts/documents",
-      );
-      let folder = await ResourceItemModel.findOne({
-        companyCode,
-        section: "local",
-        type: "folder",
-        parentId: null,
-        name: "HỢP ĐỒNG NHÂN SỰ",
-        isDeleted: { $ne: true },
-      });
-      if (!folder)
-        folder = await ResourceItemModel.create({
+      void kind;
+      const pending = await managedUploadService.createPendingUpload(
+        {
           companyCode,
-          section: "local",
-          type: "folder",
-          name: "HỢP ĐỒNG NHÂN SỰ",
-          parentId: null,
-          creatorUid: req.user!.id,
-          creatorName: req.user!.email,
-        });
-      const resource = await resourceService.createFile(
-        companyCode,
-        { name, fileUrl, parentId: String(folder._id), mimeType, size },
-        { uid: req.user!.id, name: req.user!.email },
+          branchId: req.user?.branchId,
+          actorId: req.user!.id,
+          actorName: req.user!.email,
+        },
+        { sourceType: "hr.contract", file, fileName: name, mimeType, size },
       );
       return res
         .status(201)
-        .json({ status: "success", data: { url: fileUrl, resource } });
+        .json({ status: "success", data: { url: pending.fileUrl, uploadToken: pending.token } });
     } catch (error: any) {
       return res.status(500).json({
         status: "error",
@@ -118,6 +178,20 @@ export const hrContractController = {
         employeeName: employee.displayName || employee.email,
         createdBy: req.user!.id,
       });
+      try {
+        const resourcePatch = await finalizeContractPendingUploads({
+          contract: data,
+          body: req.body,
+          actor: uploadActor(req, companyCode),
+        });
+        if (Object.keys(resourcePatch).length > 0) {
+          data.set(resourcePatch);
+          await data.save();
+        }
+      } catch (error) {
+        await HRContractModel.deleteOne({ _id: data._id, companyCode }).catch(() => undefined);
+        throw error;
+      }
       return res.status(201).json({ status: "success", data });
     } catch (error: any) {
       return res.status(500).json({
@@ -171,6 +245,17 @@ export const hrContractController = {
         { $set: patch },
         { new: true, runValidators: true },
       );
+      if (data) {
+        const resourcePatch = await finalizeContractPendingUploads({
+          contract: data,
+          body: req.body,
+          actor: uploadActor(req, companyCode),
+        });
+        if (Object.keys(resourcePatch).length > 0) {
+          data.set(resourcePatch);
+          await data.save();
+        }
+      }
       return res.json({ status: "success", data });
     } catch (error: any) {
       return res.status(500).json({
@@ -230,6 +315,20 @@ export const hrContractController = {
         previousEndDate,
         createdBy: req.user!.id,
       });
+      try {
+        const resourcePatch = await finalizeExtensionPendingUploads({
+          extension,
+          body: req.body,
+          actor: uploadActor(req, companyCode),
+        });
+        if (Object.keys(resourcePatch).length > 0) {
+          extension.set(resourcePatch);
+          await extension.save();
+        }
+      } catch (error) {
+        await HRContractExtensionModel.deleteOne({ _id: extension._id, companyCode }).catch(() => undefined);
+        throw error;
+      }
       contract.endDate = newEndDate;
       if (contract.status === "expired") contract.status = "active";
       contract.updatedBy = req.user!.id;

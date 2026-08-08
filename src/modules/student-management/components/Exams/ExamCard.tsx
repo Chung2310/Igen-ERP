@@ -14,6 +14,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './ExcelImportPreviewModal';
 import { CustomFieldDetails } from '../../../shared/custom-fields/CustomFieldDetails';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { authService } from '../../../../services/authService';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
   try {
@@ -81,6 +82,7 @@ const formatExcelPhone = (phoneVal: unknown): string => {
 
 export interface ExamCardProps {
   exam: ExamSession;
+  resourceCompanyCode?: string;
   assignedStudents: DrivingStudent[];
   onDelete: () => void | Promise<unknown>;
   onEdit: () => void | Promise<unknown>;
@@ -93,6 +95,7 @@ export interface ExamCardProps {
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
   exam, 
+  resourceCompanyCode,
   assignedStudents, 
   onDelete, 
   onEdit, 
@@ -111,6 +114,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   const [validPreviewList, setValidPreviewList] = useState<PreviewStudent[]>([]);
   const [invalidPreviewList, setInvalidPreviewList] = useState<InvalidStudent[]>([]);
   const [rawResults, setRawResults] = useState<{ phone: string; overallResult: 'Đậu' | 'Trượt' | 'Chưa có' }[]>([]);
+  const [importSourceFile, setImportSourceFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [draftScores, setDraftScores] = useState<Record<string, string>>(() => Object.fromEntries((exam.results || []).filter((item) => typeof item.score === "number").map((item) => [item.studentId, String(item.score)])));
   const [isSavingScores, setIsSavingScores] = useState(false);
@@ -236,6 +240,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             setValidPreviewList(res.valid || []);
             setInvalidPreviewList([...(res.invalid || []), ...clientInvalid]);
             setRawResults(resultsList);
+            setImportSourceFile(file);
             setIsPreviewOpen(true);
           } else {
             toast.error(res.error || "Không thể kiểm tra dữ liệu Excel.");
@@ -266,9 +271,20 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         successCount?: number;
         failedCount?: number;
       }
+      if (!importSourceFile) throw new Error('Không tìm thấy file Excel nguồn để nhập.');
+      if (user?.role === 'superadmin' && !resourceCompanyCode) {
+        throw new Error('Vui lòng chọn một công ty trước khi nhập kết quả kỳ thi.');
+      }
+      const uploadCompanyCode = resourceCompanyCode || user?.companyCode;
+      const uploaded = await authService.uploadManagedFile(importSourceFile, 'import.exam', uploadCompanyCode);
       const res = await apiFetch<ConfirmImportResponse>(`/exams/${exam.id}/import-results`, {
         method: 'POST',
-        body: JSON.stringify({ results: rawResults, preview: false })
+        body: JSON.stringify({
+          results: rawResults,
+          preview: false,
+          companyCode: uploadCompanyCode,
+          importUpload: { uploadToken: uploaded.uploadToken, fileName: importSourceFile.name },
+        })
       });
 
       if (res.success) {
@@ -277,6 +293,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         window.dispatchEvent(new Event("exam-mutation"));
         window.dispatchEvent(new Event("batch-mutation"));
         setIsPreviewOpen(false);
+        setImportSourceFile(null);
       } else {
         toast.error(res.error || "Nhập kết quả thi từ Excel thất bại.");
       }

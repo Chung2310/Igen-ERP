@@ -10,6 +10,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 
 interface CourseFilters {
   page?: number | string;
@@ -54,6 +55,7 @@ export class CourseService {
     }
     const course = new Course({ ...writeData, fee: normalizeCourseFee(writeData.fee), ownerId });
     const saved = await course.save();
+    await customFieldResourceService.finalizeEntity(context, saved);
     logger.info(`[Course] Course created: id=${saved._id}, code=${saved.code}`);
     return saved;
   }
@@ -122,6 +124,7 @@ export class CourseService {
       { new: true, runValidators: true }
     );
     if (!updated) throw new CustomFieldWriteConflictError();
+    await customFieldResourceService.finalizeEntity(targetContext, updated);
     return updated;
   }
 

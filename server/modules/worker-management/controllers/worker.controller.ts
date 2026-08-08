@@ -4,6 +4,7 @@ import {
   workerScopeFromRequest,
 } from "../contracts";
 import { WorkerService } from "../services/worker.service";
+import { importResourceService } from "../../../service/import-resource.service";
 
 /** Guard against a runaway spreadsheet blocking the event loop on insertMany. */
 const MAX_BULK_ROWS = 2000;
@@ -59,13 +60,28 @@ export const workerController = {
           message: `Chỉ nhập tối đa ${MAX_BULK_ROWS} lao động mỗi lần. File hiện có ${rows.length} dòng.`,
         });
       }
-      return res.status(201).json(
-        await WorkerService.bulkCreate(
-          scopeFromRequest(req),
-          rows,
-          typeof body.projectId === "string" ? body.projectId : undefined,
-        ),
+      const scope = scopeFromRequest(req);
+      const result = await WorkerService.bulkCreate(
+        scope,
+        rows,
+        typeof body.projectId === "string" ? body.projectId : undefined,
       );
+      if (body.importUpload?.uploadToken && body.importUpload?.fileName) {
+        const actor = (req as any).user || {};
+        await importResourceService.recordSuccessfulImport({
+          companyCode: scope.companyCode,
+          branchId: scope.branchId,
+          actorId: String(actor.id || actor._id || ""),
+          actorName: actor.email,
+        }, {
+          sourceType: "import.worker",
+          uploadToken: String(body.importUpload.uploadToken),
+          fileName: String(body.importUpload.fileName),
+          importedCount: result.importedCount,
+          skippedCount: result.skippedCount,
+        });
+      }
+      return res.status(201).json(result);
     }),
 
   update: async (req: Request, res: Response) =>

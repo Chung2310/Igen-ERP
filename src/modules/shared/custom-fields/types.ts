@@ -9,7 +9,7 @@ export const DYNAMIC_FIELD_TYPES = [
 export type DynamicFieldType = typeof DYNAMIC_FIELD_TYPES[number];
 
 export type FieldOption = { label: string; value: string };
-export type FileMetadata = { url: string; fileName: string; mimeType?: string; size?: number; reference?: string };
+export type FileMetadata = { url: string; fileName: string; mimeType?: string; size?: number; reference?: string; uploadToken?: string };
 export type CustomFieldValue = string | number | boolean | string[] | FileMetadata | FileMetadata[] | null;
 export type CustomFieldValues = Record<string, CustomFieldValue>;
 

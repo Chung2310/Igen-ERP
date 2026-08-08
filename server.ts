@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
 import { startCelebrationScheduler } from "./server/service/celebration-scheduler.service";
+import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
@@ -219,6 +220,7 @@ async function startServer() {
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
   startCelebrationScheduler();
+  startResourceRetentionScheduler();
 
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo

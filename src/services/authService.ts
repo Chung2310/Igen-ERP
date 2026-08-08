@@ -369,7 +369,8 @@ export const authService = {
     branchId?: string,
     birthDate?: string,
     qualification?: string,
-    monthlySalary?: number
+    monthlySalary?: number,
+    jobDescriptionUploadToken?: string
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -395,6 +396,7 @@ export const authService = {
         birthDate,
         qualification,
         monthlySalary,
+        jobDescriptionUploadToken,
       }),
     });
 
@@ -557,7 +559,7 @@ export const authService = {
   },
 
   // Tải ảnh đại diện lên Cloudinary thông qua Relay API trên server
-  async uploadAvatar(uid: string, file: File): Promise<string> {
+  async uploadAvatar(uid: string, file: File): Promise<{ url: string; uploadToken: string }> {
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -574,7 +576,10 @@ export const authService = {
         },
         body: JSON.stringify({
           file: base64Data,
-          folder: `igen_erp/avatars`,
+          sourceType: "settings.profile",
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size,
         }),
       });
 
@@ -584,7 +589,8 @@ export const authService = {
       }
 
       const data = await response.json();
-      return data.url;
+      if (!data.url || !data.uploadToken) throw new Error("Upload ảnh đại diện không trả về token quản lý tài nguyên.");
+      return { url: data.url, uploadToken: data.uploadToken };
     } catch (e) {
       console.error("[authService.uploadAvatar] Error:", e);
       throw e;
@@ -623,6 +629,59 @@ export const authService = {
     } catch (e) {
       console.error("[authService.uploadFile] Error:", e);
       throw e;
+    }
+  },
+
+  async uploadManagedFile(file: File, sourceType: string, companyCode?: string): Promise<{ url: string; uploadToken: string }> {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+    const response = await fetch("/api/v1/media/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        file: base64Data,
+        sourceType,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        ...(companyCode ? { companyCode } : {}),
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Lỗi tải lên Cloudinary: ${response.statusText}`);
+    }
+    const data = await response.json();
+    if (!data.url || !data.uploadToken) throw new Error("Upload không trả về token quản lý tài nguyên.");
+    return { url: data.url, uploadToken: data.uploadToken };
+  },
+
+  async completeManagedImport(input: {
+    sourceType: string;
+    uploadToken: string;
+    fileName: string;
+    importedCount: number;
+    skippedCount?: number;
+    companyCode?: string;
+  }): Promise<void> {
+    const response = await fetch("/api/v1/resource-imports/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || data.message || "Không thể ghi nhận file import vào quản lý tài nguyên.");
     }
   }
 };

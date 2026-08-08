@@ -4,7 +4,7 @@ import { companyEmailApi } from "../../services/companyEmailService";
 import { toast } from "../../pages/Toast";
 import { authService } from "../../services/authService";
 
-function RichTextEditor({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+function RichTextEditor({ value, onChange, onUpload }: { value: string; onChange: (val: string) => void; onUpload?: (token: string) => void }) {
   const editorRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -44,9 +44,10 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (val: st
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const url = await authService.uploadFile(file);
+      const uploaded = await authService.uploadManagedFile(file, "hr.celebration");
       editorRef.current?.focus();
-      execCmd("insertHTML", `<img src="${url}" class="max-w-full my-2 rounded-lg" style="max-height: 250px; object-fit: contain;" />`);
+      execCmd("insertHTML", `<img src="${uploaded.url}" class="max-w-full my-2 rounded-lg" style="max-height: 250px; object-fit: contain;" />`);
+      onUpload?.(uploaded.uploadToken);
       toast.success("Đã chèn hình ảnh.");
     } catch (err: any) {
       toast.error(err.message || "Tải hình ảnh thất bại");
@@ -165,6 +166,7 @@ export default function CelebrationEmailTab() {
   const [history, setHistory] = React.useState<any[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [preview, setPreview] = React.useState<any>(null);
+  const [uploadTokens, setUploadTokens] = React.useState<string[]>([]);
 
   const load = React.useCallback(() => Promise.all([
     companyEmailApi.getCelebration(),
@@ -182,7 +184,8 @@ export default function CelebrationEmailTab() {
   const save = async () => {
     setBusy(true);
     try {
-      await companyEmailApi.saveCelebration(config);
+      await companyEmailApi.saveCelebration({ ...config, uploadTokens });
+      setUploadTokens([]);
       toast.success("Đã lưu cấu hình email chúc mừng.");
     } catch (e: any) {
       toast.error(e.message);
@@ -237,12 +240,14 @@ export default function CelebrationEmailTab() {
           value={config.birthdayTemplate}
           onChange={(f: any, v: string) => template("birthdayTemplate", f, v)}
           onPreview={() => showPreview(config.birthdayTemplate)}
+          onUpload={(token: string) => setUploadTokens((current) => [...current, token])}
         />
         <Template
           title="Mẫu thư chúc mừng lễ/Tết"
           value={config.holidayTemplate}
           onChange={(f: any, v: string) => template("holidayTemplate", f, v)}
           onPreview={() => showPreview({ ...config.holidayTemplate, holidayName: "Ngày lễ" })}
+          onUpload={(token: string) => setUploadTokens((current) => [...current, token])}
         />
       </div>
 
@@ -356,7 +361,7 @@ function Toggle({ label, checked, onChange }: any) {
   );
 }
 
-function Template({ title, value, onChange, onPreview }: any) {
+function Template({ title, value, onChange, onPreview, onUpload }: any) {
   return (
     <section className="border border-slate-200 rounded-xl p-4 space-y-4 bg-white shadow-2xs">
       <h3 className="font-bold text-sm text-slate-800">{title}</h3>
@@ -374,6 +379,7 @@ function Template({ title, value, onChange, onPreview }: any) {
         <RichTextEditor
           value={value.html}
           onChange={(val: string) => onChange("html", val)}
+          onUpload={onUpload}
         />
       </div>
       <div className="flex justify-end pt-1">

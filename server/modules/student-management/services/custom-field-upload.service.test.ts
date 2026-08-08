@@ -21,12 +21,14 @@ test("authenticated custom-field upload lookup stays tenant/module/field scoped 
   const filters: unknown[] = [];
   const service = new CustomFieldUploadService({
     async findOne(filter) { filters.push(filter); return definition as any; },
-  }, async () => ({ secure_url: "https://cdn.example/photo.png", public_id: "tenant-a/students/photo/asset" }));
-  const result = await service.upload("tenant-a", "students", "field-1", file());
+  }, async () => ({ secure_url: "https://cdn.example/photo.png", public_id: "tenant-a/students/photo/asset", bytes: png.length, resource_type: "image" }), {
+    recordPendingStoredAsset: async () => ({ token: "custom-token" }) as any,
+  });
+  const result = await service.upload("tenant-a", "students", "field-1", file(), { actorId: "actor-1", branchId: "branch-a" });
   assert.deepEqual(filters, [{ _id: "field-1", tenantId: "tenant-a", moduleKey: "students", isArchived: false, isVisible: true, type: { $in: ["file", "image", "multiImage"] } }]);
   assert.deepEqual(result, {
     url: "https://cdn.example/photo.png", fileName: "photo.png", mimeType: "image/png", size: png.length,
-    reference: "tenant-a/students/photo/asset",
+    reference: "tenant-a/students/photo/asset", uploadToken: "custom-token",
   });
 });
 
@@ -47,7 +49,7 @@ test("accepts docx and doc matching rules", async () => {
   };
   const docxService = new CustomFieldUploadService(
     { async findOne() { return docxField as any; } },
-    async () => ({ secure_url: "https://cdn.example/doc.docx", public_id: "tenant-a/students/doc/asset" })
+    async () => ({ secure_url: "https://cdn.example/doc.docx", public_id: "tenant-a/students/doc/asset", bytes: 7, resource_type: "raw" })
   );
   // docx magic bytes is ZIP: [0x50, 0x4b, 0x03, 0x04]
   const docxFile = {
@@ -66,7 +68,7 @@ test("accepts docx and doc matching rules", async () => {
   };
   const docService = new CustomFieldUploadService(
     { async findOne() { return docField as any; } },
-    async () => ({ secure_url: "https://cdn.example/doc.doc", public_id: "tenant-a/students/doc/asset" })
+    async () => ({ secure_url: "https://cdn.example/doc.doc", public_id: "tenant-a/students/doc/asset", bytes: 8, resource_type: "raw" })
   );
   // doc magic bytes is OLE: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
   const docFile = {

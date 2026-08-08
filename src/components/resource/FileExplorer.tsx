@@ -37,6 +37,10 @@ const FilePreviewModal = React.lazy(() => import("./FilePreviewModal").then((m) 
 import { formatBytes, formatDate, getFileIcon } from "./resourceHelpers";
 import UploadProgressPanel, { type UploadQueueItem } from "./UploadProgressPanel";
 import { useAuth } from "../../context/AuthContext";
+import {
+  SystemManagedResourceBadge,
+  canMutateResourceItem,
+} from "./SystemManagedResource";
 
 const GoogleDriveLogo: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
   <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -913,6 +917,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   {/* Render Folders */}
                   {pagedFolders.map((item) => {
                     const isFolder = item.type === "folder";
+                    const canMutate = canMutateResourceItem(item);
                     const iconDetails = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
                     const Icon = iconDetails.Icon;
 
@@ -963,7 +968,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                 className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-[999] py-1"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {showTrash ? (
+                                {showTrash ? (canMutate ? (
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleRestore(item); setMenuOpenId(null); }}
@@ -972,32 +977,32 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                     <RefreshCw className="h-3.5 w-3.5" />
                                     Khôi phục
                                   </button>
-                                ) : (
+                                ) : null) : (
                                   <>
-                                    <button
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setRenameTarget(item); setRenameValue(item.name); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                       Đổi tên
-                                    </button>
-                                    <button
+                                    </button>}
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setLocalMoveTarget(item); setMoveModalFolder(null); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <ArrowRightLeft className="h-3.5 w-3.5" />
                                       Di chuyển
-                                    </button>
-                                    <button
+                                    </button>}
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setSharingItem(item); setShowShareModal(true); void fetchShares(item._id); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <Share2 className="h-3.5 w-3.5" />
                                       Chia sẻ
-                                    </button>
+                                    </button>}
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setSendToChatItem(item); setShowSendToChatModal(true); setMenuOpenId(null); }}
@@ -1022,15 +1027,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                     </button>
                                   </>
                                 )}
-                                <div className="border-t border-slate-100 my-0.5"></div>
-                                <button
+                                {canMutate && <div className="border-t border-slate-100 my-0.5"></div>}
+                                {canMutate && <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); setMenuOpenId(null); }}
                                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                   {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
-                                </button>
+                                </button>}
                               </div>
                             )}
                           </div>
@@ -1043,6 +1048,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   {pagedFiles.map((item) => {
                     const iconDetails = getFileIcon(item.mimeType, item.name);
                     const Icon = iconDetails.Icon;
+                    const canMutate = canMutateResourceItem(item);
 
                     return (
                       <div
@@ -1101,7 +1107,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                 className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-[999] py-1"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {showTrash ? (
+                                {showTrash ? (canMutate ? (
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleRestore(item); setMenuOpenId(null); }}
@@ -1110,32 +1116,32 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                     <RefreshCw className="h-3.5 w-3.5" />
                                     Khôi phục
                                   </button>
-                                ) : (
+                                ) : null) : (
                                   <>
-                                    <button
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setRenameTarget(item); setRenameValue(item.name); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                       Đổi tên
-                                    </button>
-                                    <button
+                                    </button>}
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setLocalMoveTarget(item); setMoveModalFolder(null); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <ArrowRightLeft className="h-3.5 w-3.5" />
                                       Di chuyển
-                                    </button>
-                                    <button
+                                    </button>}
+                                    {canMutate && <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setSharingItem(item); setShowShareModal(true); void fetchShares(item._id); setMenuOpenId(null); }}
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
                                     >
                                       <Share2 className="h-3.5 w-3.5" />
                                       Chia sẻ
-                                    </button>
+                                    </button>}
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setSendToChatItem(item); setShowSendToChatModal(true); setMenuOpenId(null); }}
@@ -1162,15 +1168,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                     )}
                                   </>
                                 )}
-                                <div className="border-t border-slate-100 my-0.5"></div>
-                                <button
+                                {canMutate && <div className="border-t border-slate-100 my-0.5"></div>}
+                                {canMutate && <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); setMenuOpenId(null); }}
                                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                   {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
-                                </button>
+                                </button>}
                               </div>
                             )}
                           </div>
@@ -1429,6 +1435,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               <h4 className="text-sm font-bold text-slate-800 break-all px-2" title={infoItem.name}>
                 {infoItem.name}
               </h4>
+              <div className="mt-3 flex justify-center">
+                <SystemManagedResourceBadge item={infoItem} showSourceLink />
+              </div>
             </div>
 
             {/* Danh sách thông tin chi tiết */}
@@ -2373,12 +2382,13 @@ const ResourceCard: React.FC<{
   onSendToChat,
 }) => {
   const isFolder = item.type === "folder";
+  const canMutate = canMutateResourceItem(item);
   const { Icon, color } = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
 
   return (
     <div
       onDoubleClick={onOpen}
-      draggable={!item.isFixed && !showTrash}
+      draggable={canMutate && !showTrash}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
@@ -2454,7 +2464,7 @@ const ResourceCard: React.FC<{
                 </button>
 
                 {/* Đổi tên */}
-                {!item.isFixed && (
+                {canMutate && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2468,7 +2478,7 @@ const ResourceCard: React.FC<{
                 )}
 
                 {/* Di chuyển đến thư mục */}
-                <button
+                {canMutate && <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onMoveClick?.();
@@ -2477,10 +2487,10 @@ const ResourceCard: React.FC<{
                 >
                   <ArrowRightLeft className="h-4 w-4 text-slate-500" />
                   <span>Di chuyển đến thư mục</span>
-                </button>
+                </button>}
 
                 {/* Sao chép đường dẫn */}
-                <button
+                {canMutate && <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggleMenu(e); // Close menu
@@ -2498,7 +2508,7 @@ const ResourceCard: React.FC<{
                 >
                   <Copy className="h-4 w-4 text-slate-500" />
                   <span>Sao chép đường dẫn</span>
-                </button>
+                </button>}
 
                 {/* Chia sẻ */}
                 <button
@@ -2548,7 +2558,7 @@ const ResourceCard: React.FC<{
                 <div className="border-t border-slate-100 my-1"></div>
 
                 {/* Chuyển vào thùng rác */}
-                {!item.isFixed && (
+                {canMutate && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2609,6 +2619,9 @@ const ResourceCard: React.FC<{
         <p className="truncate text-xs font-bold text-slate-800 px-0.5" title={item.name}>
           {item.name}
         </p>
+        <div className="mt-1">
+          <SystemManagedResourceBadge item={item} compact />
+        </div>
         <p className="truncate text-[10px] text-slate-400 font-semibold mt-1">
           {showTrash ? (
             (() => {

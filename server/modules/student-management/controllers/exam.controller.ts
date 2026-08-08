@@ -3,6 +3,8 @@ import { ExamService } from "../services/exam.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { importResourceService } from "../../../service/import-resource.service";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 export class ExamController {
   static async create(req: AuthRequest, res: Response) {
@@ -18,6 +20,7 @@ export class ExamController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "exams",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       res.status(201).json({ success: true, data: exam });
     } catch (error: unknown) {
@@ -56,6 +59,7 @@ export class ExamController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "exams",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, req.user!.branchId);
       if (!exam) {
         return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi để cập nhật." });
@@ -77,6 +81,7 @@ export class ExamController {
       if (!exam) {
         return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi để xóa." });
       }
+      await resourceIndexingService.trashSourceRecordResources(req.user!.companyCode || req.user!.centerId, "student.custom-field", String(exam._id));
       res.json({ success: true, data: exam });
     } catch (error: unknown) {
       next(error);
@@ -158,7 +163,31 @@ export class ExamController {
         return res.status(400).json({ success: false, error: "Dữ liệu kết quả không hợp lệ." });
       }
 
+      const hasImportUpload = !preview && req.body.importUpload?.uploadToken && req.body.importUpload?.fileName;
+      const resourceCompanyCode = hasImportUpload
+        ? (req.user!.role === "superadmin"
+          ? String(req.body.companyCode || "").trim().toUpperCase()
+          : req.user!.companyCode)
+        : undefined;
+      if (hasImportUpload && !resourceCompanyCode) {
+        throw new Error("Vui lòng chọn công ty trước khi lưu tài liệu nhập kỳ thi.");
+      }
+
       const outcome = await ExamService.importResults(ownerId, examId, results, !!preview, req.user!.branchId);
+      if (hasImportUpload && resourceCompanyCode) {
+        await importResourceService.recordSuccessfulImport({
+          companyCode: resourceCompanyCode,
+          branchId: req.user!.branchId,
+          actorId: req.user!.uid,
+          actorName: req.user!.email,
+        }, {
+          sourceType: "import.exam",
+          uploadToken: String(req.body.importUpload.uploadToken),
+          fileName: String(req.body.importUpload.fileName),
+          importedCount: outcome.successCount || 0,
+          skippedCount: outcome.failedCount || 0,
+        });
+      }
       res.json({ 
         success: true, 
         message: preview ? "Xem trước kết quả nhập thành công." : "Nhập kết quả thi hàng loạt thành công.",

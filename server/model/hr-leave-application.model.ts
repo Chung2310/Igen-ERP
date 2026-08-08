@@ -14,7 +14,7 @@ const HRLeaveApplicationSchema = new Schema<IHRLeaveApplication>(
     reason: { type: String, required: true },
     uploadedFileUrl: { type: String },
     uploadedFileName: { type: String },
-    attachments: { type: [{ url: String, name: String, mimeType: String, size: Number }], default: [] },
+    attachments: { type: [{ url: String, name: String, mimeType: String, size: Number, uploadToken: String }], default: [] },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
     rejectReason: { type: String },
     note: { type: String },

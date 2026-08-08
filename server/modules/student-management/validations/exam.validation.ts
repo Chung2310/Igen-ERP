@@ -92,4 +92,8 @@ export const importResultsSchema = Joi.object({
     "any.required": "Danh sách kết quả cập nhật là bắt buộc.",
   }),
   preview: Joi.boolean().optional(),
+  importUpload: Joi.object({
+    uploadToken: Joi.string().trim().required(),
+    fileName: Joi.string().trim().required(),
+  }).optional(),
 });

@@ -7,6 +7,7 @@ import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
+import { sourceUploadFinalizer } from "../service/source-upload-finalizer.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
@@ -105,7 +106,26 @@ function sanitizeAttachments(value: unknown) {
       url: String(a.url).trim(),
       type: ATTACHMENT_TYPES.has(a.type) ? a.type : "file",
       ...(Number.isFinite(Number(a.size)) && Number(a.size) > 0 ? { size: Number(a.size) } : {}),
+      ...(typeof a.uploadToken === "string" && a.uploadToken.trim() ? { uploadToken: a.uploadToken.trim() } : {}),
     }));
+}
+
+async function finalizeTaskAttachments(req: AuthenticatedRequest, task: any) {
+  await sourceUploadFinalizer.finalize({
+    companyCode: task.companyCode,
+    branchId: task.branchId || req.user?.branchId,
+    actorId: req.user?.id || "",
+    actorName: req.user?.email,
+  }, {
+    entityType: "kanban-task",
+    entityId: String(task._id),
+    entityLabel: task.title,
+    sourceRecordId: String(task._id),
+    uploads: (task.attachments || []).map((attachment: any, index: number) => ({
+      uploadToken: attachment.uploadToken,
+      sourceField: `attachments.${index}`,
+    })),
+  });
 }
 
 function changesFor(oldTask: any, update: any) {
@@ -217,6 +237,7 @@ kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (re
       attachments: sanitizeAttachments(req.body.attachments) || [],
       history: [{ time: now.toISOString(), user: await actorName(req), action: "Tạo công việc mới" }],
     });
+    await finalizeTaskAttachments(req, task);
     await kanbanAuditService.recordTaskMutation({
       action: "created",
       actorId: req.user?.id || "",
@@ -294,6 +315,7 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     );
     if (!updated) throw httpError(409, "Công việc vừa được thay đổi. Vui lòng tải lại.");
 
+    await finalizeTaskAttachments(req, updated);
     await kanbanAuditService.recordTaskMutation({
       action: "updated",
       actorId: req.user?.id || "",

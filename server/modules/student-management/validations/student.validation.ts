@@ -29,6 +29,7 @@ const uploadedFileSchema = Joi.object({
   name: Joi.string().required(),
   url: Joi.string().required(),
   type: Joi.string().required(),
+  uploadToken: Joi.string().trim().optional(),
   uploadedAt: Joi.any().optional(),
 });
 
