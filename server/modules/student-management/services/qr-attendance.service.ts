@@ -471,21 +471,14 @@ export class QRAttendanceService {
       throw new Error("Không tìm thấy lớp học để lưu điểm danh.");
     }
 
-    // Build danh sách điểm danh
-    // Học viên nào checkin trong session -> present hoặc late, còn lại -> absent
+    // Build danh sách điểm danh. QR xác nhận học viên đã có mặt; thời điểm
+    // quét muộn không được biến thành vắng (trạng thái late vẫn có thể được
+    // giáo viên chọn thủ công ở màn hình chỉnh sửa nếu cần theo dõi riêng).
     const records = batch.learnerIds.map(studentId => {
       const checkedIn = session.checkins.has(studentId);
-      let isLate = false;
-      if (checkedIn && batch.startTime) {
-        const checkinTime = session.checkins.get(studentId)?.checkinAt;
-        const startDateTime = new Date(`${session.date}T${batch.startTime.padStart(5, "0")}:00`);
-        if (checkinTime && !isNaN(startDateTime.getTime())) {
-          isLate = checkinTime > startDateTime.getTime();
-        }
-      }
       return {
         studentId,
-        status: (checkedIn ? (isLate ? "late" : "present") : "absent") as "present" | "absent" | "excused" | "late"
+        status: (checkedIn ? "present" : "absent") as "present" | "absent" | "excused" | "late"
       };
     });
 

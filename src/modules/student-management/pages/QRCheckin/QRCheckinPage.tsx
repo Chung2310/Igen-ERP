@@ -79,6 +79,22 @@ function isEmbeddedWebView(): boolean {
   return knownEmbeddedApp || iosWebView;
 }
 
+function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+}
+
+function hasBrowserHandoffFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("browser") === "1") return true;
+  try {
+    return window.localStorage.getItem("igen_qr_browser_ready") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function QRCheckinPage() {
   const [token] = useState<string>(() => {
     const parts = window.location.pathname.split("/");
@@ -106,9 +122,20 @@ export default function QRCheckinPage() {
     if (!t || t === "checkin") return "Không tìm thấy mã QR điểm danh trong liên kết.";
     return null;
   });
-  const [requiresBrowser] = useState<boolean>(() => isEmbeddedWebView());
+  const [embeddedWebView] = useState<boolean>(() => isEmbeddedWebView());
+  const [iosDevice] = useState<boolean>(() => isIosDevice());
+  const [browserReady, setBrowserReady] = useState<boolean>(() => hasBrowserHandoffFlag());
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
   const [browserHint, setBrowserHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!browserReady) return;
+    try {
+      window.localStorage.setItem("igen_qr_browser_ready", "1");
+    } catch {
+      // Some private/webview contexts reject localStorage; the URL flag still works.
+    }
+  }, [browserReady]);
 
   const [phone, setPhone] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -318,7 +345,9 @@ export default function QRCheckinPage() {
 
   const handleOpenInBrowser = () => {
     setBrowserHint(null);
-    const openedWindow = window.open(window.location.href, "_blank", "noopener,noreferrer");
+    const browserUrl = new URL(window.location.href);
+    browserUrl.searchParams.set("browser", "1");
+    const openedWindow = window.open(browserUrl.toString(), "_blank", "noopener,noreferrer");
     if (!openedWindow) {
       setBrowserHint("Nếu trang chưa mở, hãy bấm Chia sẻ → Mở trong Safari/Chrome.");
     }
@@ -326,7 +355,9 @@ export default function QRCheckinPage() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const browserUrl = new URL(window.location.href);
+      browserUrl.searchParams.set("browser", "1");
+      await navigator.clipboard.writeText(browserUrl.toString());
       setLinkCopied(true);
       setBrowserHint("Đã sao chép link. Dán link vào Safari/Chrome để tiếp tục.");
       window.setTimeout(() => setLinkCopied(false), 2500);
@@ -345,6 +376,13 @@ export default function QRCheckinPage() {
       </div>
     );
   }
+
+  // iPhone Camera/scanners can report a Safari-like User-Agent even though
+  // they are running an ephemeral webview. Android normally opens Chrome
+  // directly, so keep its existing automatic-recognition flow.
+  const requiresBrowser = !browserReady && (
+    embeddedWebView || (iosDevice && sessionInfo?.device?.recognized !== true)
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 px-3 py-5 font-sans text-slate-800 sm:px-4 sm:py-8">
