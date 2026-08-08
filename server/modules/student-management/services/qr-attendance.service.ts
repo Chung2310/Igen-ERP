@@ -132,11 +132,14 @@ export class QRAttendanceService {
     const createdAt = Date.now();
     const expiresAt = createdAt + durationMinutes * 60 * 1000;
     
-    // QR dùng chung phải sống đúng bằng phiên: ảnh đã gửi vào nhóm chat không
-    // thể xoay token, nếu không người quét sau sẽ nhận mã hết hạn.
+    // QR token sống đúng bằng phiên: người dùng có thể chuyển từ trình quét tạm
+    // sang Safari/Chrome mà không gặp mã hết hạn giữa chừng.
     const shared = options.shared === true;
     const mode = options.mode ?? "class";
-    const tokenTtlSeconds = shared ? Math.ceil((expiresAt - createdAt) / 1000) : 30;
+    // Keep the QR token valid for the configured attendance session. This lets
+    // a user move from an ephemeral scanner webview to Safari/Chrome without
+    // losing the link after 30 seconds. The session expiry still invalidates it.
+    const tokenTtlSeconds = Math.max(1, Math.ceil((expiresAt - createdAt) / 1000));
     const { token, expiresAt: tokenExpiresAt } = generateToken(sessionId, batchId, tokenTtlSeconds);
 
     const session: QRSession = {
@@ -191,7 +194,8 @@ export class QRAttendanceService {
     };
   }
 
-  // 2. Lấy token hiện tại, nếu hết hạn 30s thì tự xoay token mới
+  // 2. Lấy token hiện tại. Token dùng chung vòng đời với phiên điểm danh;
+  // không xoay trong thời gian phiên còn hiệu lực.
   static getCurrentToken(sessionId: string): {
     token: string;
     tokenExpiresAt: number;
@@ -203,13 +207,6 @@ export class QRAttendanceService {
     }
 
     // Phiên dùng chung giữ nguyên token cho tới khi hết phiên
-    if (!session.shared && Date.now() >= session.tokenExpiresAt - 5000) {
-      const { token, expiresAt } = generateToken(sessionId, session.batchId);
-      session.currentToken = token;
-      session.tokenExpiresAt = expiresAt;
-      logger.info(`[QR-Attendance] Rotated token for session=${sessionId}`);
-    }
-
     return {
       token: session.currentToken,
       tokenExpiresAt: session.tokenExpiresAt,
