@@ -4,6 +4,8 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { importResourceService } from "../../../service/import-resource.service";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 export class PartnerController {
   static async create(req: AuthRequest, res: Response, next: NextFunction) {
@@ -24,6 +26,7 @@ export class PartnerController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "partners",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       res.status(201).json({ success: true, data: partner });
     } catch (error: unknown) {
@@ -36,12 +39,14 @@ export class PartnerController {
       const creatorId = req.user!.uid;
       const ownerId = await getAllowedOwnerIds(req.user!);
       let targetOwnerId: string | undefined;
+      let resourceCompanyCode = req.user!.companyCode;
 
       if (req.user!.role === "superadmin") {
         const companyCode = req.query.centerId || req.body.centerId || req.query.companyCode || req.body.companyCode;
         if (!companyCode || typeof companyCode !== "string") {
           throw new ValidationError("TENANT_REQUIRED", "Vui lòng chọn công ty quản lý.", { field: "companyCode" });
         }
+        resourceCompanyCode = companyCode.trim().toUpperCase();
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
       }
 
@@ -51,6 +56,20 @@ export class PartnerController {
       }
 
       const result = await PartnerService.bulkCreatePartners(creatorId, ownerId, partners, targetOwnerId, req.user!.branchId);
+      if (req.body.importUpload?.uploadToken && req.body.importUpload?.fileName) {
+        await importResourceService.recordSuccessfulImport({
+          companyCode: resourceCompanyCode,
+          branchId: req.user!.branchId,
+          actorId: creatorId,
+          actorName: req.user!.email,
+        }, {
+          sourceType: "import.partner",
+          uploadToken: String(req.body.importUpload.uploadToken),
+          fileName: String(req.body.importUpload.fileName),
+          importedCount: result.importedCount,
+          skippedCount: result.skippedCount,
+        });
+      }
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -87,6 +106,7 @@ export class PartnerController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "partners",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       if (!partner) {
         throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để cập nhật.");
@@ -104,6 +124,7 @@ export class PartnerController {
       if (!partner) {
         throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để xóa.");
       }
+      await resourceIndexingService.trashSourceRecordResources(req.user!.companyCode || req.user!.centerId, "student.custom-field", String(partner._id));
       res.json({ success: true, data: partner });
     } catch (error: unknown) {
       next(error);

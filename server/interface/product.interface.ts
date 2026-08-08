@@ -14,6 +14,7 @@ export interface IProduct extends Document {
   status: "Active" | "Inactive";
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";
   imageUrl: string;
+  uploadToken?: string;
   companyCode: string;
   branchId?: string;
 }

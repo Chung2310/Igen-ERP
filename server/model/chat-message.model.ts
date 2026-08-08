@@ -7,6 +7,7 @@ const ChatAttachmentSchema = new Schema(
     name: { type: String, required: true },
     type: { type: String, required: true },
     size: { type: Number },
+    uploadToken: { type: String },
   },
   { _id: false }
 );

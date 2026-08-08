@@ -22,6 +22,12 @@ export interface PrivateImageAsset {
 
 export type PrivateRawAsset = PrivateImageAsset;
 export type PublicRawAsset = { publicId: string; secureUrl: string; bytes: number };
+export interface PublicMediaAsset {
+  secureUrl: string;
+  publicId: string;
+  resourceType: string;
+  bytes: number;
+}
 
 export const cloudinaryService = {
   /**
@@ -30,7 +36,7 @@ export const cloudinaryService = {
    * @param folder Thư mục lưu trữ trên Cloudinary
    * @returns URL công khai bảo mật (secure_url)
    */
-  async uploadMedia(fileStr: string, folder: string): Promise<string> {
+  async uploadMediaAsset(fileStr: string, folder: string): Promise<PublicMediaAsset> {
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
       !process.env.CLOUDINARY_API_KEY ||
@@ -47,11 +53,29 @@ export const cloudinaryService = {
         resource_type: "auto", // Tự động nhận diện ảnh/video
         timeout: 600000, // Tăng timeout lên 10 phút cho video dung lượng lớn
       });
-      return response.secure_url;
+      return {
+        secureUrl: response.secure_url,
+        publicId: response.public_id,
+        resourceType: response.resource_type,
+        bytes: response.bytes,
+      };
     } catch (error: any) {
       console.error("[cloudinaryService.uploadMedia] Error:", error);
       throw new Error(`Tải lên Cloudinary thất bại: ${error.message || error}`);
     }
+  },
+
+  async uploadMedia(fileStr: string, folder: string): Promise<string> {
+    return (await this.uploadMediaAsset(fileStr, folder)).secureUrl;
+  },
+
+  async deletePublicMedia(publicId: string, resourceType = "image"): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+      type: "upload",
+      invalidate: true,
+    });
   },
 
   /**

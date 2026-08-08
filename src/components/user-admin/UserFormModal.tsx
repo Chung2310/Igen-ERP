@@ -35,6 +35,7 @@ export interface UserFormModalProps {
   userMonthlySalary: string;
   setUserMonthlySalary: (val: string) => void;
   setUserJobDescriptionLink: (val: string) => void;
+  setUserJobDescriptionUploadToken: (val: string) => void;
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
   companies: CompanyProfile[];
@@ -74,6 +75,7 @@ export function UserFormModal({
   userMonthlySalary,
   setUserMonthlySalary,
   setUserJobDescriptionLink,
+  setUserJobDescriptionUploadToken,
   getAvailableRoles,
   userProfile,
   companies,
@@ -95,8 +97,9 @@ export function UserFormModal({
 
     setUploadingJobDescription(true);
     try {
-      const url = await authService.uploadFile(file);
-      setUserJobDescriptionLink(url);
+      const uploaded = await authService.uploadManagedFile(file, "hr.employee", userCompanyCode === "SYSTEM" ? undefined : userCompanyCode);
+      setUserJobDescriptionLink(uploaded.url);
+      setUserJobDescriptionUploadToken(uploaded.uploadToken);
       toast.success("Đã tải lên mô tả công việc.");
     } catch (error: any) {
       toast.error(error?.message || "Tải file mô tả công việc lên Cloudinary thất bại.");

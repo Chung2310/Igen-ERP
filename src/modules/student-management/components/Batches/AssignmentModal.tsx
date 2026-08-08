@@ -22,11 +22,13 @@ import { Batch, Student } from "../../types";
 import { getBatchPageCopy } from "../../config/workerRecruitmentCopy";
 import { getStudentQualityThresholds } from "../../api/studentQuality.api";
 import { FilePreviewModal } from "../../../../components/resource/FilePreviewModal";
+import { authService } from "../../../../services/authService";
 
 interface IAttachment {
   name: string;
   url: string;
   type: string;
+  uploadToken?: string;
 }
 
 const DUE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
@@ -179,26 +181,14 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           return;
         }
 
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-        });
-
-        const data = await apiFetch("/media/upload", {
-          method: "POST",
-          body: JSON.stringify({ file: base64, folder: "igen_erp/assignments" }),
-        });
-        if (!data?.url) {
-          throw new Error(data?.message || "Không thể tải tệp lên server.");
-        }
+        const data = await authService.uploadManagedFile(file, "student.assignment");
         setNewAttachments((prev) => [
           ...prev,
           {
             name: file.name,
             url: data.url,
             type: file.type,
+            uploadToken: data.uploadToken,
           },
         ]);
         toast.success(`Tải lên thành công: ${file.name}`);
@@ -217,10 +207,8 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     setUploading(true);
     try {
       if (file.size > 20 * 1024 * 1024) throw new Error("Dung lượng tệp đính kèm không vượt quá 20MB.");
-      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; });
-      const data = await apiFetch("/media/upload", { method: "POST", body: JSON.stringify({ file: base64, folder: "igen_erp/assignments/submissions" }) });
-      if (!data?.url) throw new Error(data?.message || "Không thể tải tệp lên server.");
-      setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type }]);
+      const data = await authService.uploadManagedFile(file, "student.submission");
+      setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type, uploadToken: data.uploadToken }]);
     } catch (err: any) { toast.error(err.message || "Lỗi tải minh chứng."); }
     finally { setUploading(false); if (manualFileInputRef.current) manualFileInputRef.current.value = ""; }
   };

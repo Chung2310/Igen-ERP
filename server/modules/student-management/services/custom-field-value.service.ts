@@ -37,7 +37,7 @@ export type ValidateCustomFieldValuesInput = {
 };
 
 const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-const FILE_KEYS = new Set(["url", "fileName", "mimeType", "size", "reference"]);
+const FILE_KEYS = new Set(["url", "fileName", "mimeType", "size", "reference", "uploadToken"]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -195,7 +195,7 @@ function multiSelectValue(value: unknown, definition: CustomFieldValueDefinition
   return normalized;
 }
 
-type FileValue = { url: string; fileName: string; mimeType?: string; size?: number; reference?: string };
+type FileValue = { url: string; fileName: string; mimeType?: string; size?: number; reference?: string; uploadToken?: string };
 
 function mimeMatches(allowed: string, actual: string): boolean {
   if (allowed === actual) return true;
@@ -223,10 +223,14 @@ function fileValue(value: unknown, definition: CustomFieldValueDefinition): File
   if (value.reference !== undefined && (typeof value.reference !== "string" || !value.reference.trim())) {
     fail(definition.label, "tham chiếu tệp không hợp lệ.");
   }
+  if (value.uploadToken !== undefined && (typeof value.uploadToken !== "string" || !value.uploadToken.trim())) {
+    fail(definition.label, "mã upload không hợp lệ.");
+  }
   const normalized: FileValue = { url: value.url.trim(), fileName: value.fileName.trim() };
   if (typeof value.mimeType === "string") normalized.mimeType = value.mimeType.trim();
   if (typeof value.size === "number") normalized.size = value.size;
   if (typeof value.reference === "string") normalized.reference = value.reference.trim();
+  if (typeof value.uploadToken === "string") normalized.uploadToken = value.uploadToken.trim();
 
   const validation = definition.validation ?? {};
   const allowedMimeTypes = validation.allowedMimeTypes;

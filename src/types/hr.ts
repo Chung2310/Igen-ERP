@@ -7,6 +7,7 @@ export interface TaskAttachment {
   url: string;
   type: "image" | "video" | "audio" | "file" | "link";
   size?: number;
+  uploadToken?: string;
 }
 
 export interface WorkflowSubTask {
@@ -147,6 +148,7 @@ export interface Lesson {
   type: "youtube" | "document" | "other" | "text" | "video";
   content?: string;
   fileName?: string;
+  uploadToken?: string;
 }
 
 export interface QuizQuestion {

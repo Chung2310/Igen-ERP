@@ -13,6 +13,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 
 interface StudentFilters {
   page?: number | string;
@@ -176,6 +177,7 @@ export class StudentService {
       createdByName: creator?.name || "",
     });
     const savedStudent = await student.save();
+    if (context) await customFieldResourceService.finalizeEntity(context, savedStudent);
     logger.info(`[Student] Student created successfully: id=${savedStudent._id}, phone=${savedStudent.phone}`);
     return savedStudent;
   }
@@ -319,6 +321,7 @@ export class StudentService {
       { new: true, runValidators: true }
     );
     if (!updatedStudent) throw new CustomFieldWriteConflictError();
+    await customFieldResourceService.finalizeEntity(targetContext, updatedStudent);
 
     if (writeData.paymentHistory && Array.isArray(writeData.paymentHistory)) {
       try {

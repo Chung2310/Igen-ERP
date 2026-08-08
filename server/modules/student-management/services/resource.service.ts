@@ -8,6 +8,7 @@ import {
   expectedVersionOf,
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
+import { customFieldResourceService } from "./custom-field-resource.service";
 
 interface ResourceFilters {
   page?: number | string;
@@ -44,6 +45,7 @@ export class ResourceService {
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
     const resource = new Resource({ ...writeData, ownerId });
     const saved = await resource.save();
+    await customFieldResourceService.finalizeEntity(context, saved);
     logger.info(`[Resource] Resource created: id=${saved._id}, name=${saved.name}`);
     return saved;
   }
@@ -96,6 +98,7 @@ export class ResourceService {
       { new: true, runValidators: true }
     );
     if (!updated) throw new CustomFieldWriteConflictError();
+    await customFieldResourceService.finalizeEntity(targetContext, updated);
     return updated;
   }
 

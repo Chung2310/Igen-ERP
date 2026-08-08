@@ -22,7 +22,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  onImport: (rows: BulkWorkerInput[], projectId?: string) => Promise<WorkerBulkImportResult>;
+  onImport: (rows: BulkWorkerInput[], projectId?: string, sourceFile?: File) => Promise<WorkerBulkImportResult>;
   projects?: WorkerProjectSummary[];
 };
 
@@ -152,6 +152,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [fileName, setFileName] = React.useState("");
+  const [sourceFile, setSourceFile] = React.useState<File | null>(null);
   const [rows, setRows] = React.useState<WorkerImportRow[]>([]);
   const [projectId, setProjectId] = React.useState("");
   const [uploading, setUploading] = React.useState(false);
@@ -207,6 +208,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
       return;
     }
     setFileName(file.name);
+    setSourceFile(file);
     setError(null);
     setResult(null);
 
@@ -241,7 +243,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
     setUploading(true);
     setError(null);
     try {
-      const imported = await onImport(valid, projectId || undefined);
+      const imported = await onImport(valid, projectId || undefined, sourceFile || undefined);
       setResult(imported);
       toast.success(`Đã nhập thành công ${imported.importedCount} lao động.`);
       onSuccess();

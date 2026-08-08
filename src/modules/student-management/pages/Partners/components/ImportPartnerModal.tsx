@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
 import { useAuth } from '../../../../../context/AuthContext';
+import { authService } from '../../../../../services/authService';
 
 interface ImportPartnerModalProps {
   isOpen: boolean;
@@ -60,6 +61,7 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{
     success: boolean;
     importedCount: number;
@@ -144,6 +146,7 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
     }
 
     setFileName(file.name);
+    setSourceFile(file);
     setErrorMsg(null);
     setImportResult(null);
 
@@ -245,9 +248,12 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
     setErrorMsg(null);
     try {
       const centerQuery = user?.role === 'superadmin' ? '?centerId=' + (validData[0]?.centerId || '') : '';
+      if (!sourceFile) throw new Error('Không tìm thấy file nguồn để nhập.');
+      const selectedCompanyCode = user?.role === 'superadmin' ? validData[0]?.centerId : undefined;
+      const uploaded = await authService.uploadManagedFile(sourceFile, 'import.partner', selectedCompanyCode);
       const res = await apiFetch(`/partners/bulk${centerQuery}`, {
         method: 'POST',
-        body: JSON.stringify({ partners: validData }),
+        body: JSON.stringify({ partners: validData, importUpload: { uploadToken: uploaded.uploadToken, fileName: sourceFile.name } }),
       });
 
       if (res.success) {
@@ -279,6 +285,7 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
   const handleReset = () => {
     setValidationRows([]);
     setFileName('');
+    setSourceFile(null);
     setErrorMsg(null);
     setImportResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';

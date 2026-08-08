@@ -17,6 +17,7 @@ export interface IHRLeaveTemplate extends Document {
   fileUrl: string;
   fileName: string;
   uploadedBy: string;
+  uploadToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +27,7 @@ export interface ILeaveAttachment {
   name: string;
   mimeType?: string;
   size?: number;
+  uploadToken?: string;
 }
 
 export interface IHRLeaveApplication extends Document {

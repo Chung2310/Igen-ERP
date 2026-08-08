@@ -17,6 +17,7 @@ interface IAttachment {
   name: string;
   url: string;
   type: string;
+  uploadToken?: string;
 }
 
 interface IAssignment {
@@ -141,7 +142,12 @@ export default function SubmitProofPage() {
         const response = await fetch(`/api/v1/assignments/public/upload?token=${encodeURIComponent(token || "")}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ file: base64 }),
+          body: JSON.stringify({
+            file: base64,
+            fileName: file.name,
+            mimeType: file.type,
+            size: file.size,
+          }),
         });
 
         const data = await response.json();
@@ -154,6 +160,7 @@ export default function SubmitProofPage() {
             name: file.name,
             url: data.url,
             type: file.type,
+            uploadToken: data.uploadToken,
           },
         ]);
         toast.success(`Đã tải lên "${file.name}" thành công.`);

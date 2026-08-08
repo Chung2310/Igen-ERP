@@ -104,8 +104,12 @@ export class AssignmentController {
         return res.status(400).json({ success: false, error: "Thiếu liên kết mã hóa bài tập." });
       }
       const decoded = await AssignmentService.verifySubmissionToken(token);
-      const url = await AssignmentService.uploadProofFile(decoded, req.body.file);
-      res.json({ success: true, url });
+      const uploaded = await AssignmentService.uploadProofFile(decoded, req.body.file, {
+        fileName: req.body.fileName,
+        mimeType: req.body.mimeType,
+        size: req.body.size,
+      });
+      res.json({ success: true, ...uploaded });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi tải tệp minh chứng lên.";
       res.status(400).json({ success: false, error: msg });

@@ -689,9 +689,9 @@ export default function TrainingTab({
     if (!file) return;
     setUploadingLessonFileIndex(index);
     try {
-      const url = await authService.uploadFile(file);
+      const { url, uploadToken } = await authService.uploadManagedFile(file, "hr.training");
       setCourseFormLessons(prev => prev.map((les, idx) =>
-        idx === index ? { ...les, url, fileName: file.name } : les
+        idx === index ? { ...les, url, fileName: file.name, uploadToken } : les
       ));
       toast.success(`Đã tải lên tài liệu "${file.name}" thành công!`);
     } catch (err: any) {

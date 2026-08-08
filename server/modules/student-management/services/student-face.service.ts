@@ -6,11 +6,13 @@ import {
   InsightFaceClient,
   InsightFaceUnavailableError,
 } from "../../../service/insightface.service";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 export interface StudentFaceDependencies {
   insightFace: Pick<InsightFaceClient, "getRegistrationStatus" | "registerFace" | "deleteRegistration">;
   cloudinary: Pick<typeof cloudinaryService, "uploadPrivateImage" | "deleteAsset">;
   audit: { create(value: Record<string, unknown>): Promise<unknown> };
+  indexer: Pick<typeof resourceIndexingService, "registerUploadedResource" | "replaceSourceResource" | "trashSourceRecordResources">;
 }
 
 export function buildInsightFaceUserId(ownerId: string, studentId: string): string {
@@ -36,7 +38,12 @@ export function createStudentFaceService(deps: StudentFaceDependencies) {
       };
     },
 
-    async register(actorId: string, student: InstanceType<typeof Student>, file: { buffer: Buffer; mimetype: string }) {
+    async register(
+      actorId: string,
+      student: InstanceType<typeof Student>,
+      file: { buffer: Buffer; mimetype: string },
+      context: { companyCode: string; branchId?: string },
+    ) {
       const insightFaceUserId = student.faceEnrollment?.insightFaceUserId || buildInsightFaceUserId(student.ownerId, student.id);
       const previousEvidencePublicId = student.faceEnrollment?.lastEvidencePublicId;
       let evidence: Awaited<ReturnType<typeof deps.cloudinary.uploadPrivateImage>> | undefined;
@@ -54,8 +61,35 @@ export function createStudentFaceService(deps: StudentFaceDependencies) {
         };
         await student.save();
 
+        const resourceInput = {
+          companyCode: context.companyCode,
+          branchId: context.branchId,
+          sourceType: "student.face",
+          entityType: "student",
+          entityId: student.id,
+          entityLabel: student.fullName || student.id,
+          sourceRecordId: student.id,
+          sourceField: "faceEnrollment.lastEvidencePublicId",
+          sourceKey: `student.face:${student.id}:evidence:${evidence.publicId}`,
+          fileName: `face-enrollment-${student.id}.${evidence.format || "jpg"}`,
+          fileUrl: "",
+          mimeType: file.mimetype,
+          size: evidence.bytes,
+          storageProvider: "cloudinary",
+          storagePublicId: evidence.publicId,
+          storageResourceType: evidence.resourceType,
+          storageAccess: "authenticated",
+          uploaderId: actorId,
+        } as const;
+
         if (previousEvidencePublicId && previousEvidencePublicId !== evidence.publicId) {
-          await deps.cloudinary.deleteAsset(previousEvidencePublicId).catch(() => undefined);
+          await deps.indexer.replaceSourceResource(
+            context.companyCode,
+            `student.face:${student.id}:evidence:${previousEvidencePublicId}`,
+            resourceInput,
+          );
+        } else {
+          await deps.indexer.registerUploadedResource(resourceInput);
         }
 
         await deps.audit.create({
@@ -63,7 +97,7 @@ export function createStudentFaceService(deps: StudentFaceDependencies) {
           action,
           outcome: "success",
           evidence,
-        });
+        }).catch(() => undefined);
 
         return result;
       } catch (error) {
@@ -75,28 +109,25 @@ export function createStudentFaceService(deps: StudentFaceDependencies) {
           action,
           outcome: rejected ? "rejected" : "error",
           reasonCode,
-        });
+        }).catch(() => undefined);
         throw error;
       }
     },
 
-    async remove(actorId: string, student: InstanceType<typeof Student>) {
+    async remove(actorId: string, student: InstanceType<typeof Student>, context: { companyCode: string }) {
       const insightFaceUserId = student.faceEnrollment?.insightFaceUserId;
       try {
         if (insightFaceUserId) {
           await deps.insightFace.deleteRegistration(insightFaceUserId);
         }
-        const evidencePublicId = student.faceEnrollment?.lastEvidencePublicId;
         student.faceEnrollment = { registered: false };
         await student.save();
-        if (evidencePublicId) {
-          await deps.cloudinary.deleteAsset(evidencePublicId).catch(() => undefined);
-        }
+        await deps.indexer.trashSourceRecordResources(context.companyCode, "student.face", student.id);
         await deps.audit.create({
           ...auditBase(actorId, student.id, student.ownerId),
           action: "delete",
           outcome: "success",
-        });
+        }).catch(() => undefined);
       } catch (error) {
         const rejected = error instanceof InsightFaceBusinessError;
         const reasonCode = rejected ? error.reasonCode : "model_unavailable";
@@ -105,7 +136,7 @@ export function createStudentFaceService(deps: StudentFaceDependencies) {
           action: "delete",
           outcome: rejected ? "rejected" : "error",
           reasonCode,
-        });
+        }).catch(() => undefined);
         throw error;
       }
     },
@@ -122,6 +153,7 @@ export const studentFaceService = createStudentFaceService({
   insightFace: lazyInsightFace,
   cloudinary: cloudinaryService,
   audit: StudentFaceEnrollmentAuditModel,
+  indexer: resourceIndexingService,
 });
 
 export { InsightFaceBusinessError, InsightFaceUnavailableError };

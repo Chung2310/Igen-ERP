@@ -5,6 +5,7 @@ import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TrainingCourseModel } from "../model/training-course.model";
+import { crudResourceFinalizationService } from "../service/crud-resource-finalization.service";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { LEAVE_REQUEST_KINDS, LeaveRequestKind } from "../interface/hr-leave.interface";
@@ -273,6 +274,12 @@ export const crudController = {
       }
 
       const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
+      await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item }, {
+        companyCode,
+        branchId: req.user?.branchId,
+        actorId: req.user?.id || "",
+        actorName: req.user?.email,
+      });
       return res.status(201).json({
         status: "success",
         data: item,
@@ -454,6 +461,12 @@ export const crudController = {
       }
 
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId);
+      await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item, _id: (item as any)?._id || id }, {
+        companyCode,
+        branchId: req.user?.branchId,
+        actorId: req.user?.id || "",
+        actorName: req.user?.email,
+      });
 
       if (modelName === "timekeeping-logs" && attendanceBefore && item) {
         const periodKey = attendanceBefore.date.slice(0, 7);
@@ -570,6 +583,13 @@ export const crudController = {
       }
 
       const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
+      await crudResourceFinalizationService.trash(modelName, { ...item, _id: (item as any)?._id || id }, {
+        companyCode,
+        branchId: req.user?.branchId,
+        actorId: req.user?.id || "",
+        actorName: req.user?.email,
+        trusted: true,
+      });
       return res.status(200).json({
         status: "success",
         message: "Xóa tài nguyên thành công",

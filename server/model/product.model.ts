@@ -15,6 +15,7 @@ const ProductSchema = new Schema<IProduct>({
   status: { type: String, enum: ["Active", "Inactive"], default: "Active", required: true },
   demandForecast: { type: String, enum: ["Tăng mạnh", "Ổn định", "Giảm nhẹ"], default: "Ổn định" },
   imageUrl: { type: String, default: "" },
+  uploadToken: { type: String },
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
 });

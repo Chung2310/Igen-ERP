@@ -3,6 +3,7 @@ import { BatchService, listBatchEnrollments, updateEnrollmentStatus } from "../s
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 import { BatchProgressSettingService } from "../services/batch-progress-setting.service";
 
 export class BatchController {
@@ -33,6 +34,7 @@ export class BatchController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "batches",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       res.status(201).json({ success: true, data: batch });
     } catch (error: unknown) {
@@ -87,6 +89,7 @@ export class BatchController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "batches",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, req.user!.branchId);
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học để cập nhật." });
@@ -108,6 +111,7 @@ export class BatchController {
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học để xóa." });
       }
+      await resourceIndexingService.trashSourceRecordResources(req.user!.companyCode || req.user!.centerId, "student.custom-field", String(batch._id));
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       next(error);

@@ -99,6 +99,7 @@ export default function UserAdminTab() {
   const [userDepartment, setUserDepartment] = useState("");
   const [userQualification, setUserQualification] = useState("");
   const [userJobDescriptionLink, setUserJobDescriptionLink] = useState("");
+  const [userJobDescriptionUploadToken, setUserJobDescriptionUploadToken] = useState("");
   const [userMonthlySalary, setUserMonthlySalary] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
@@ -115,6 +116,7 @@ export default function UserAdminTab() {
     setUserDepartment("");
     setUserQualification("");
     setUserJobDescriptionLink("");
+    setUserJobDescriptionUploadToken("");
     setUserMonthlySalary("");
   };
   const companyFormState: CompanyFormState = {
@@ -568,6 +570,7 @@ export default function UserAdminTab() {
           birthDate: userBirthDate || null,
           qualification: userQualification.trim(),
           jobDescriptionLink: userJobDescriptionLink.trim() || "",
+          jobDescriptionUploadToken: userJobDescriptionUploadToken || undefined,
           monthlySalary: userMonthlySalary === "" ? undefined : Number(userMonthlySalary),
           branchId: userBranchId || null,
         });
@@ -591,6 +594,8 @@ export default function UserAdminTab() {
           userBranchId || undefined,
           userBirthDate || undefined,
           userQualification.trim() || undefined,
+          undefined,
+          userJobDescriptionUploadToken || undefined,
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -978,6 +983,7 @@ export default function UserAdminTab() {
         userMonthlySalary={userMonthlySalary}
         setUserMonthlySalary={setUserMonthlySalary}
         setUserJobDescriptionLink={setUserJobDescriptionLink}
+        setUserJobDescriptionUploadToken={setUserJobDescriptionUploadToken}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}

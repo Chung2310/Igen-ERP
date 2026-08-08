@@ -6,6 +6,10 @@ import { AuthService } from "../services/auth.service";
 import { getAllowedOwnerIds, getCenterOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import { ModuleSettingsService } from "../services/module-settings.service";
+import { importResourceService } from "../../../service/import-resource.service";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
+import { managedUploadService } from "../../../service/managed-upload.service";
+import { sourceUploadFinalizer } from "../../../service/source-upload-finalizer.service";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -56,6 +60,7 @@ export class StudentController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "students",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, {
         uid: req.user!.uid,
         name: await resolveActorName(req.user!.uid, req.user!.email),
@@ -126,6 +131,7 @@ export class StudentController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "students",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, req.user!.branchId);
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de cap nhat." });
@@ -147,6 +153,13 @@ export class StudentController {
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de xoa." });
       }
+      const companyCode = req.user!.companyCode || req.user!.centerId;
+      await Promise.all([
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", String(student._id)),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", String(student._id)),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", String(student._id)),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", String(student._id)),
+      ]);
       res.json({ success: true, data: student });
     } catch (error: unknown) {
       next(error);
@@ -161,6 +174,13 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
       }
       const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
+      const companyCode = req.user!.companyCode || req.user!.centerId;
+      await Promise.all(ids.flatMap((id: string) => [
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", id),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", id),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", id),
+        resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", id),
+      ]));
       res.json({ success: true, message: `Da xoa thanh cong ${deletedCount} hoc vien.`, deletedCount });
     } catch (error: unknown) {
       next(error);
@@ -172,12 +192,14 @@ export class StudentController {
       const creatorId = req.user!.uid;
       let ownerId: string | string[];
       let targetOwnerId: string | undefined;
+      let resourceCompanyCode = req.user!.companyCode;
 
       if (req.user!.role === "superadmin") {
         const companyCode = req.query.companyCode || req.query.centerId || req.body.companyCode || req.body.centerId;
         if (!companyCode || typeof companyCode !== "string") {
           return res.status(400).json({ success: false, error: "Vui long chon cong ty." });
         }
+        resourceCompanyCode = companyCode.trim().toUpperCase();
         // Student.ownerId stores the actual owner user id, not the company code.
         // Keep bulk import consistent with manual creation and with owner filters.
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
@@ -194,6 +216,20 @@ export class StudentController {
 
       const creatorName = await resolveActorName(creatorId, req.user!.email);
       const result = await StudentService.bulkCreateStudents(creatorId, ownerId, students, targetOwnerId, req.user!.branchId, creatorName);
+      if (req.body.importUpload?.uploadToken && req.body.importUpload?.fileName) {
+        await importResourceService.recordSuccessfulImport({
+          companyCode: resourceCompanyCode,
+          branchId: req.user!.branchId,
+          actorId: creatorId,
+          actorName: creatorName,
+        }, {
+          sourceType: "import.student",
+          uploadToken: String(req.body.importUpload.uploadToken),
+          fileName: String(req.body.importUpload.fileName),
+          importedCount: result.importedCount,
+          skippedCount: result.skippedCount,
+        });
+      }
       res.status(200).json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -230,14 +266,33 @@ export class StudentController {
     if (!file) {
       return res.status(400).json({ success: false, error: "Không tìm thấy tệp tin nào được gửi." });
     }
-    res.status(200).json({
-      success: true,
-      data: {
-        url: file.path,
-        name: Buffer.from(file.originalname, "latin1").toString("utf8"),
-        type: file.mimetype,
-      },
-    });
+    try {
+      const teacherId = String(req.query.teacherId || "");
+      const teacher = await AuthService.getUserProfile(teacherId);
+      if (!teacher) throw new Error("Giáo viên không hợp lệ.");
+      const pending = await managedUploadService.recordPendingStoredAsset({
+        companyCode: teacher.companyCode || teacher.centerId,
+        branchId: teacher.branchId,
+        actorId: teacherId,
+        actorName: teacher.displayName || teacher.email,
+        trusted: true,
+      }, {
+        sourceType: "public.registration",
+        fileName: Buffer.from(file.originalname, "latin1").toString("utf8"),
+        fileUrl: file.path,
+        mimeType: file.mimetype,
+        size: file.size,
+        storageProvider: "cloudinary",
+        storagePublicId: String((file as any).filename || ""),
+        storageResourceType: file.mimetype === "application/pdf" ? "raw" : "image",
+      });
+      res.status(200).json({
+        success: true,
+        data: { url: file.path, name: pending.fileName, type: file.mimetype, uploadToken: pending.token },
+      });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : "Không thể ghi nhận tệp tải lên." });
+    }
   }
 
   /**
@@ -311,6 +366,22 @@ export class StudentController {
         undefined,
         { uid: teacherId, name: teacher.displayName || teacher.email || "" },
       );
+      await sourceUploadFinalizer.finalize({
+        companyCode: teacher.companyCode || teacher.centerId,
+        branchId: teacher.branchId,
+        actorId: teacherId,
+        actorName: teacher.displayName || teacher.email,
+        trusted: true,
+      }, {
+        entityType: "student",
+        entityId: String(student._id),
+        entityLabel: student.fullName || String(student._id),
+        sourceRecordId: String(student._id),
+        uploads: ["idCardFrontFile", "idCardBackFile", "portraitFile"].map((field) => ({
+          uploadToken: (studentData as any)[field]?.uploadToken,
+          sourceField: field,
+        })),
+      });
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";

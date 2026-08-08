@@ -120,7 +120,7 @@ export default function LeaveRequestsTab({
     return `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || "don-xin-phep")}&token=${encodeURIComponent(token)}`;
   };
 
-  const uploadFileToCloudinary = async (file: File): Promise<string> => {
+  const uploadFileToCloudinary = async (file: File): Promise<{ url: string; uploadToken: string }> => {
     const reader = new FileReader();
     const fileBase64 = await new Promise<string>((resolve, reject) => {
       reader.onload = () => resolve(reader.result as string);
@@ -134,7 +134,13 @@ export default function LeaveRequestsTab({
         "Content-Type": "application/json",
         Authorization: `Bearer ${getAccessToken()}`,
       },
-      body: JSON.stringify({ file: fileBase64, folder: "hr_leaves" }),
+      body: JSON.stringify({
+        file: fileBase64,
+        sourceType: "hr.leave",
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+      }),
     });
 
     if (!res.ok) {
@@ -149,7 +155,8 @@ export default function LeaveRequestsTab({
     }
 
     const json = await res.json();
-    return json.url;
+    if (!json.url || !json.uploadToken) throw new Error("Upload không trả về token quản lý tài nguyên.");
+    return { url: json.url, uploadToken: json.uploadToken };
   };
 
   const fetchLeaveBalance = async (employeeId = appEmployeeId, leaveYear = Number(appStartDate.slice(0, 4))) => {
@@ -222,7 +229,7 @@ export default function LeaveRequestsTab({
 
     setIsFileUploading(true);
     try {
-      const fileUrl = await uploadFileToCloudinary(tplFile);
+      const { url: fileUrl, uploadToken } = await uploadFileToCloudinary(tplFile);
       const res = await fetch("/api/v1/crud/hr-leave-templates", {
         method: "POST",
         headers: {
@@ -235,6 +242,7 @@ export default function LeaveRequestsTab({
           fileUrl,
           fileName: tplFile.name,
           uploadedBy: userProfile?.uid || "unknown",
+          uploadToken,
         }),
       });
 
@@ -291,12 +299,16 @@ export default function LeaveRequestsTab({
     setIsFileUploading(true);
     try {
       const attachments = await Promise.all(
-        appFiles.map(async (file) => ({
-          url: await uploadFileToCloudinary(file),
-          name: file.name,
-          mimeType: file.type,
-          size: file.size,
-        }))
+        appFiles.map(async (file) => {
+          const uploaded = await uploadFileToCloudinary(file);
+          return {
+            url: uploaded.url,
+            uploadToken: uploaded.uploadToken,
+            name: file.name,
+            mimeType: file.type,
+            size: file.size,
+          };
+        })
       );
       const fileUrl = attachments[0]?.url || "";
       const targetEmp = usersList.find((u) => u.uid === appEmployeeId);

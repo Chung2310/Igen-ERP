@@ -3,6 +3,7 @@ import { ResourceService } from "../services/resource.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 export class ResourceController {
   static async create(req: AuthRequest, res: Response) {
@@ -18,6 +19,7 @@ export class ResourceController {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "resources",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       });
       res.status(201).json({ success: true, data: resource });
     } catch (error: unknown) {
@@ -56,6 +58,7 @@ export class ResourceController {
         tenantId: req.user!.companyCode || req.user!.centerId,
         moduleKey: "resources",
         actorRole: req.user!.role,
+        actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
       }, req.user!.branchId);
       if (!resource) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài nguyên để cập nhật." });
@@ -77,6 +80,7 @@ export class ResourceController {
       if (!resource) {
         return res.status(404).json({ success: false, error: "Không tìm thấy tài nguyên để xóa." });
       }
+      await resourceIndexingService.trashSourceRecordResources(req.user!.companyCode || req.user!.centerId, "student.custom-field", String(resource._id));
       res.json({ success: true, data: resource });
     } catch (error: unknown) {
       next(error);

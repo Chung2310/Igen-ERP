@@ -8,18 +8,41 @@ import { EmailService, SmtpSettings } from "./email.service";
 import jwt from "jsonwebtoken";
 import { getJwtAccessSecret } from "../../../config/env";
 import { emitToUser } from "../../../socket";
-import { cloudinaryService } from "../../../service/cloudinary.service";
+import { managedUploadService } from "../../../service/managed-upload.service";
 import { logger } from "../config/logger";
 import { IAssignment, IAttachment } from "../interfaces/assignment.interface";
 import { companyEmailService } from "../../../service/company-email.service";
 import { CompanyModel } from "../../../model/company.model";
 import { StudentQualityThreshold } from "../models/student-quality-threshold.model";
+import { assignmentResourceService } from "./assignment-resource.service";
+import { resourceIndexingService } from "../../../service/resource-indexing.service";
 
 type OwnerScope = string | string[];
 
 function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
   if (ownerId === "ALL") return {};
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+}
+
+async function resolveCompanyCodeForOwner(ownerId: string): Promise<string> {
+  let companyCode = "";
+  let ownerEmail = "";
+  if (mongoose.Types.ObjectId.isValid(ownerId)) {
+    const owner = await User.findById(ownerId).select("companyCode email").lean();
+    companyCode = String(owner?.companyCode || "");
+    ownerEmail = String(owner?.email || "");
+  }
+  if (!companyCode) {
+    const owner = await User.findOne({ $or: [{ companyCode: ownerId }, { uid: ownerId }] }).select("companyCode email").lean();
+    companyCode = String(owner?.companyCode || ownerId);
+    ownerEmail = String(owner?.email || ownerEmail);
+  }
+  if ((!companyCode || companyCode === ownerId) && ownerEmail) {
+    const company = await CompanyModel.findOne({ ownerEmail }).select("code").lean();
+    companyCode = String(company?.code || companyCode);
+  }
+  if (!companyCode) throw new Error("Không xác định được công ty của bài tập.");
+  return companyCode;
 }
 
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
@@ -72,6 +95,12 @@ export class AssignmentService {
       ownerId: assignmentOwnerId,
       branchId: batch.branchId,
     });
+
+    await assignmentResourceService.finalizeAssignment({
+      companyCode: smtpCompanyCode || await resolveCompanyCodeForOwner(assignmentOwnerId),
+      branchId: batch.branchId,
+      actorId: instructorId,
+    }, assignment, batch);
 
     // Bắt đầu gửi email bất đồng bộ cho học viên trong lớp
     void this.notifyStudents(assignment, batch, assignmentOwnerId, smtpCompanyCode);
@@ -206,10 +235,27 @@ export class AssignmentService {
     return { assignment, student, submission };
   }
 
-  static async uploadProofFile(decodedToken: any, fileBase64: string): Promise<string> {
+  static async uploadProofFile(
+    decodedToken: any,
+    fileBase64: string,
+    metadata: { fileName?: string; mimeType?: string; size?: number } = {},
+  ): Promise<{ url: string; uploadToken: string }> {
     // Xác thực token gắn đúng học viên/lớp/bài tập trước khi cho upload minh chứng
-    await this.validateSubmissionContext(decodedToken);
-    return cloudinaryService.uploadMedia(fileBase64, "igen_erp/assignments/submissions");
+    const assignment = await this.validateSubmissionContext(decodedToken);
+    const companyCode = await resolveCompanyCodeForOwner(String(assignment.ownerId));
+    const pending = await managedUploadService.createPendingUpload({
+      companyCode,
+      branchId: assignment.branchId,
+      actorId: String(decodedToken.studentId),
+      trusted: true,
+    }, {
+      sourceType: "student.submission",
+      file: fileBase64,
+      fileName: metadata.fileName || "submission-file",
+      mimeType: metadata.mimeType,
+      size: metadata.size,
+    });
+    return { url: pending.fileUrl, uploadToken: pending.token };
   }
 
   static async submitProof(decodedToken: any, data: any): Promise<any> {
@@ -237,6 +283,15 @@ export class AssignmentService {
       { new: true, upsert: true }
     );
 
+    const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId });
+    if (!student) throw new Error("Invalid submission link.");
+    await assignmentResourceService.finalizeSubmission({
+      companyCode: await resolveCompanyCodeForOwner(String(assignment.ownerId)),
+      branchId: assignment.branchId,
+      actorId: String(studentId),
+      trusted: true,
+    }, submission, student);
+
     // Phát Socket.IO thông báo cho giảng viên biết có học sinh nộp/cập nhật minh chứng
     emitToUser(assignment.instructorId, "submission_updated", {
       assignmentId,
@@ -253,8 +308,16 @@ export class AssignmentService {
 
     const assignment = await this.validateSubmissionContext(decodedToken);
 
+    const submission = await SubmissionModel.findOne({ assignmentId, studentId }).select("_id").lean();
     // Delete Submission record to allow clean resubmission
     await SubmissionModel.deleteOne({ assignmentId, studentId });
+    if (submission) {
+      await resourceIndexingService.trashSourceRecordResources(
+        await resolveCompanyCodeForOwner(String(assignment.ownerId)),
+        "student.submission",
+        String(submission._id),
+      );
+    }
 
     // Thông báo cho giảng viên qua Socket
     emitToUser(assignment.instructorId, "submission_updated", {
@@ -272,11 +335,19 @@ export class AssignmentService {
     const batch = await Batch.findOne({ _id: assignment.batchId, ...buildOwnerQuery(ownerScope), learnerIds: studentId }).select("_id");
     if (!batch) throw new Error("Học viên không thuộc lớp nhận bài tập này.");
     const status = assignment.dueDate && new Date() > new Date(assignment.dueDate) ? "late" : "submitted";
-    return SubmissionModel.findOneAndUpdate(
+    const submission = await SubmissionModel.findOneAndUpdate(
       { assignmentId, studentId },
       { $set: { attachments: data.attachments, studentNotes: data.studentNotes || "", status, submittedAt: new Date(), submissionSource: "staff", submittedByUserId: actorId } },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     );
+    const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId }).select("_id fullName");
+    if (!student) throw new Error("Học viên không tồn tại.");
+    await assignmentResourceService.finalizeSubmission({
+      companyCode: await resolveCompanyCodeForOwner(String(assignment.ownerId)),
+      branchId: assignment.branchId,
+      actorId,
+    }, submission, student);
+    return submission;
   }
 
   static async gradeSubmission(

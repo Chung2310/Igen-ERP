@@ -45,6 +45,9 @@ export class StudentFaceController {
       const result = await studentFaceService.register(req.user!.id, student, {
         buffer: req.file.buffer,
         mimetype: req.file.mimetype,
+      }, {
+        companyCode: req.user!.companyCode || req.user!.centerId,
+        branchId: req.user!.branchId,
       });
       res.json({ success: true, ...result });
     } catch (error) {
@@ -64,7 +67,9 @@ export class StudentFaceController {
       if (!student) {
         return res.status(404).json({ success: false, error: "Không tìm thấy học viên hoặc bạn không có quyền." });
       }
-      await studentFaceService.remove(req.user!.id, student);
+      await studentFaceService.remove(req.user!.id, student, {
+        companyCode: req.user!.companyCode || req.user!.centerId,
+      });
       res.json({ success: true });
     } catch (error) {
       if (error instanceof InsightFaceBusinessError) {

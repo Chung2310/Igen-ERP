@@ -3,6 +3,12 @@ import { ResourceItemModel, IResourceItem } from "../model/resource-item.model";
 import { CompanyModel } from "../model/company.model";
 import { googleDriveService, DriveFile } from "./google-drive.service";
 import { googleOAuthService } from "./google-oauth.service";
+import {
+  assertResourceMutable,
+  assertResourceReadable,
+  filterReadableResourceItems,
+  type ResourceAccessContext,
+} from "./resource-access.service";
 
 export interface ResourceCreator {
   uid?: string;
@@ -17,7 +23,7 @@ export const resourceService = {
   /**
    * Liệt kê các mục trong một thư mục (folder trước, file sau, sắp theo tên).
    */
-  async list(companyCode: string, section: "local" | "drive", parentId: string | null, userId?: string, roomId?: string | null, requesterId?: string) {
+  async list(companyCode: string, section: "local" | "drive", parentId: string | null, userId?: string, roomId?: string | null, requesterId?: string, accessContext?: ResourceAccessContext) {
     console.log('[DEBUG resourceService.list] INPUTS:', { companyCode, section, parentId, userId, roomId, requesterId });
     const normalizedParent = parentId && parentId !== "root" ? parentId : null;
 
@@ -131,6 +137,7 @@ export const resourceService = {
           baseQuery.$or = [
             { creatorUid: userId, roomId: null },
             { "shares.targetId": effectiveRequesterId, "shares.targetType": "user", roomId: null },
+            { managedType: "system", roomId: null },
           ];
         } else {
           // Đang xem không gian của người khác (admin view), chỉ lấy item của họ
@@ -147,12 +154,15 @@ export const resourceService = {
 
     // Đánh dấu item nào là được chia sẻ (không phải do user tạo)
     const effectiveRequesterId = requesterId || userId;
-    const items: any[] = rawItems.map(item => {
+    const mappedItems: any[] = rawItems.map(item => {
       const isShared = item.creatorUid !== effectiveRequesterId &&
         Array.isArray(item.shares) &&
         item.shares.some((s: any) => s.targetId === effectiveRequesterId && s.targetType === "user");
       return isShared ? { ...item, isShared: true } : item;
     });
+    const items = accessContext
+      ? filterReadableResourceItems(mappedItems, accessContext)
+      : mappedItems;
 
     console.log('[DEBUG resourceService.list] RESULT length:', items.length, 'names:', items.map((i: any) => i.name));
 
@@ -166,27 +176,6 @@ export const resourceService = {
       let uniqueIndex = 1;
       
       for (const msg of messages) {
-        if (msg.attachments && Array.isArray(msg.attachments)) {
-          for (const att of msg.attachments) {
-            virtualItems.push({
-              _id: `chat-att-${msg._id}-${uniqueIndex++}`,
-              companyCode,
-              section: "local",
-              type: "file",
-              name: att.name || "Tệp đính kèm",
-              parentId: null,
-              fileUrl: att.url,
-              mimeType: att.type || "",
-              size: att.size || 0,
-              creatorUid: String(msg.senderId),
-              creatorName: msg.senderName,
-              isFixed: true,
-              createdAt: msg.createdAt,
-              updatedAt: msg.createdAt,
-            });
-          }
-        }
-        
         if (msg.content) {
           const urlRegex = /(https?:\/\/[^\s]+)/g;
           const urls = msg.content.match(urlRegex);
@@ -230,7 +219,7 @@ export const resourceService = {
   /**
    * Đường dẫn breadcrumb từ gốc → thư mục hiện tại.
    */
-  async breadcrumb(companyCode: string, folderId: string | null, userId?: string, roomId?: string | null) {
+  async breadcrumb(companyCode: string, folderId: string | null, userId?: string, roomId?: string | null, accessContext?: ResourceAccessContext) {
 
     const trail: Array<{ _id: string; name: string; isFixed?: boolean }> = [];
     let currentId = folderId && folderId !== "root" ? folderId : null;
@@ -287,6 +276,7 @@ export const resourceService = {
         companyCode,
       }).lean();
       if (!folder) break;
+      if (accessContext) assertResourceReadable(folder, accessContext);
 
       trail.unshift({ _id: String(folder._id), name: folder.name, isFixed: folder.isFixed });
       currentId = folder.parentId;
@@ -307,6 +297,7 @@ export const resourceService = {
     if (!parent) throw new Error("Không tìm thấy thư mục cha.");
     if (parent.section !== section) throw new Error("Thư mục cha không thuộc cùng khu vực tài nguyên.");
     if (parent.type !== "folder") throw new Error("Chỉ có thể tạo mục bên trong thư mục.");
+    assertResourceMutable(parent);
     return parentId;
   },
 
@@ -427,6 +418,7 @@ export const resourceService = {
 
     const item = await ResourceItemModel.findOne(query).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
+    assertResourceMutable(item);
     if (item.isFixed) {
       throw new Error("Không thể đổi tên thư mục hệ thống cố định.");
     }
@@ -454,6 +446,7 @@ export const resourceService = {
 
     const item = await ResourceItemModel.findOne(query).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
+    assertResourceMutable(item);
     if (item.isFixed) {
       throw new Error("Không thể xóa thư mục hệ thống cố định.");
     }
@@ -494,7 +487,7 @@ export const resourceService = {
   /**
    * Liệt kê các mục bị xóa trong Thùng rác.
    */
-  async listTrash(companyCode: string, userId?: string, userRole?: string, roomId?: string | null) {
+  async listTrash(companyCode: string, userId?: string, userRole?: string, roomId?: string | null, accessContext?: ResourceAccessContext) {
     const query: any = {
       companyCode,
       section: "local",
@@ -527,7 +520,9 @@ export const resourceService = {
       return a.name.localeCompare(b.name);
     });
 
-    return rootDeletedItems;
+    return accessContext
+      ? filterReadableResourceItems(rootDeletedItems, accessContext)
+      : rootDeletedItems;
   },
 
   /**
@@ -544,6 +539,7 @@ export const resourceService = {
 
     const item = await ResourceItemModel.findOne(query).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên trong Thùng rác.");
+    assertResourceMutable(item);
 
     const idsToRestore: string[] = [String(item._id)];
     if (item.type === "folder") {
@@ -582,6 +578,7 @@ export const resourceService = {
 
     const item = await ResourceItemModel.findOne(query).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa vĩnh viễn.");
+    assertResourceMutable(item);
 
     let deletedCount = 0;
 
@@ -625,6 +622,7 @@ export const resourceService = {
     // 1. Tìm mục cần di chuyển
     const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên cần di chuyển.");
+    assertResourceMutable(item);
     if (item.isFixed) throw new Error("Không thể di chuyển thư mục hệ thống cố định.");
     
     // Kiểm tra quyền (nếu không phải admin và không phải người tạo)
@@ -734,6 +732,7 @@ export const resourceService = {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
     const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên.");
+    assertResourceMutable(item);
 
     // Quyền truy cập: Admin hoặc người tạo
     const isAdmin = userRole === "admin" || userRole === "superadmin";
@@ -754,6 +753,7 @@ export const resourceService = {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
     const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên.");
+    assertResourceMutable(item);
 
     const isAdmin = userRole === "admin" || userRole === "superadmin";
     if (!isAdmin && userId && item.creatorUid !== userId) {

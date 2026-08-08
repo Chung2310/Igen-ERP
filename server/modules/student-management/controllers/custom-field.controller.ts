@@ -141,6 +141,7 @@ export class CustomFieldController {
         req.params.moduleKey as ModuleKey,
         req.params.id,
         req.file,
+        { actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId },
       );
       res.status(201).json({ success: true, data });
     } catch (error) {

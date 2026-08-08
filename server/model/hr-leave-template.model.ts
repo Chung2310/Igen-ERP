@@ -10,6 +10,7 @@ const HRLeaveTemplateSchema = new Schema<IHRLeaveTemplate>(
     fileUrl: { type: String, required: true },
     fileName: { type: String, required: true },
     uploadedBy: { type: String, required: true, index: true },
+    uploadToken: { type: String },
   },
   {
     timestamps: true,

@@ -81,6 +81,7 @@ const updateProfileSchema = {
     photoURL: Joi.string().uri().optional().allow("").messages({
       "string.uri": "Ảnh đại diện phải là một đường dẫn URL hợp lệ.",
     }),
+    photoUploadToken: Joi.string().trim().optional(),
     facebookIntegration: Joi.object({
       isConnected: Joi.boolean().required(),
       pageId: Joi.string().allow(""),
@@ -235,6 +236,7 @@ const registerUserSchema = {
     }),
     branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
     jobDescriptionLink: Joi.string().uri().optional().allow(""),
+    jobDescriptionUploadToken: Joi.string().trim().optional(),
     qualification: Joi.string().max(200).optional().allow(""),
   }),
 };
@@ -378,6 +380,8 @@ const updateUserSchema = {
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
+    jobDescriptionLink: Joi.string().uri().optional().allow(""),
+    jobDescriptionUploadToken: Joi.string().trim().optional(),
   }),
 };
 

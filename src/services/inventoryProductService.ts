@@ -22,7 +22,7 @@ type ProductMutationResult = {
   productId?: string;
 };
 
-async function uploadProductImage(file: File, sku: string): Promise<{ url: string | null; error?: string }> {
+async function uploadProductImage(file: File, sku: string): Promise<{ url: string | null; uploadToken?: string; error?: string }> {
   try {
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -39,7 +39,10 @@ async function uploadProductImage(file: File, sku: string): Promise<{ url: strin
       },
       body: JSON.stringify({
         file: base64Data,
-        folder: 'igen_erp/products',
+        sourceType: "inventory.product",
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
       }),
     });
 
@@ -49,7 +52,7 @@ async function uploadProductImage(file: File, sku: string): Promise<{ url: strin
     }
 
     const data = await response.json();
-    return { url: data.url };
+    return { url: data.url, uploadToken: data.uploadToken };
   } catch (error) {
     return {
       url: null,
@@ -154,6 +157,7 @@ export const inventoryProductService = {
           status: input.status || "Active",
           demandForecast: "Ổn định",
           imageUrl: uploadedImageUrl || input.imageUrl || "",
+          uploadToken: uploadResult.uploadToken,
         }),
       });
 
@@ -199,6 +203,7 @@ export const inventoryProductService = {
           description: input.description || "",
           status: input.status || "Active",
           imageUrl: uploadedImageUrl || input.imageUrl || "",
+          uploadToken: uploadResult.uploadToken,
         }),
       });
 

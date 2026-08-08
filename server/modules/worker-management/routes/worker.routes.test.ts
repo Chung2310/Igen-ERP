@@ -16,6 +16,7 @@ vi.mock("../../../middleware/auth", () => ({
 }));
 
 import { WorkerService } from "../services/worker.service";
+import { importResourceService } from "../../../service/import-resource.service";
 import { workerRoutes } from "./worker.routes";
 
 async function withServer(run: (base: string) => Promise<void>) {
@@ -23,6 +24,7 @@ async function withServer(run: (base: string) => Promise<void>) {
   app.use(express.json());
   app.use((req: any, _res, next) => {
     req.user = {
+      id: String(req.headers["x-user"] || "user-1"),
       role: String(req.headers["x-role"] || "admin"),
       companyCode: String(req.headers["x-company"] || "ACME"),
       branchId: req.headers["x-branch"],
@@ -131,6 +133,28 @@ describe("bulk import route", () => {
       expect(response.status).toBe(201);
       expect(await response.json()).toEqual({ importedCount: 1, skippedCount: 0, errors: [] });
       expect(bulk).toHaveBeenCalledWith({ companyCode: "ACME" }, [{ fullName: "A", phone: "0912345678" }], "p1");
+    });
+  });
+
+  it("records the uploaded spreadsheet after workers are persisted", async () => {
+    vi.spyOn(WorkerService, "bulkCreate").mockResolvedValue({ importedCount: 2, skippedCount: 1, errors: [] });
+    const record = vi.spyOn(importResourceService, "recordSuccessfulImport").mockResolvedValue({ _id: "run-1" } as any);
+    await withServer(async (base) => {
+      const response = await post(base, {
+        workers: [{ fullName: "A", phone: "0912345678" }],
+        importUpload: { uploadToken: "token-1", fileName: "workers.xlsx" },
+      });
+      expect(response.status).toBe(201);
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({ companyCode: "ACME", actorId: "user-1" }),
+        expect.objectContaining({
+          sourceType: "import.worker",
+          uploadToken: "token-1",
+          fileName: "workers.xlsx",
+          importedCount: 2,
+          skippedCount: 1,
+        }),
+      );
     });
   });
 

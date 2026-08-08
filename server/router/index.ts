@@ -30,6 +30,7 @@ import { companyEmailRouter } from "./company-email.router";
 import { companyPaymentRouter } from "./company-payment.router";
 import { recruitmentRouter } from "./recruitment.router";
 import { webhookRouter } from "./webhook.router";
+import { resourceImportRouter } from "./resource-import.router";
 export const apiRouter = Router();
 
 // Webhooks
@@ -55,6 +56,7 @@ apiRouter.use("/integrations/google-drive", googleDriveRouter);
 
 // Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
 apiRouter.use("/resources", requireAuth as any, requireModule("resource"), resourceRouter);
+apiRouter.use("/resource-imports", requireAuth as any, requireModule("inventory"), resourceImportRouter);
 
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);

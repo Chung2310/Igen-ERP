@@ -37,10 +37,11 @@ export const workerApi = {
     workers: BulkWorkerInput[],
     scope: WorkerScope,
     projectId?: string,
+    importUpload?: { uploadToken: string; fileName: string },
   ) {
     return workerApiFetch<WorkerBulkImportResult>(`${WORKER_BASE}/bulk`, {
       method: "POST",
-      body: JSON.stringify({ workers, ...(projectId ? { projectId } : {}) }),
+      body: JSON.stringify({ workers, ...(projectId ? { projectId } : {}), ...(importUpload ? { importUpload } : {}) }),
       params: scopeParams(scope),
     });
   },
