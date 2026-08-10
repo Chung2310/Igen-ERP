@@ -121,6 +121,29 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("parses persisted filters without mutating history during render", async () => {
+    window.history.replaceState(null, "", "/erp?sub=bao-cao&keep=1&reportFrom=2026-08-11&reportTo=2026-08-10");
+    let searchObservedBySiblingRender = "";
+    function RenderPhaseProbe() {
+      searchObservedBySiblingRender = window.location.search;
+      return null;
+    }
+
+    render(<><RetailReportsPage /><RenderPhaseProbe /></>);
+
+    expect(searchObservedBySiblingRender).toContain("reportFrom=2026-08-11");
+    expect(searchObservedBySiblingRender).toContain("reportTo=2026-08-10");
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      {},
+    ));
+    const canonical = new URLSearchParams(window.location.search);
+    expect(canonical.get("sub")).toBe("bao-cao");
+    expect(canonical.get("keep")).toBe("1");
+    expect(canonical.get("reportFrom")).toBeNull();
+    expect(canonical.get("reportTo")).toBeNull();
+  });
+
   it("falls back to today and canonicalizes invalid persisted report ranges", async () => {
     const invalidUrls = [
       "/erp?sub=bao-cao&reportFrom=2026-08-11&reportTo=2026-08-10",
@@ -405,6 +428,37 @@ describe("RetailReportsPage", () => {
     staleSuccess.resolve();
     await waitFor(() => expect(screen.getByRole("button", { name: "Xuất Excel" })).toBeTruthy());
     expect(screen.queryByRole("alert", { name: /export/i })).toBeNull();
+  });
+
+  it("aborts a stale export in commit phase before parent layout work can finish its download", async () => {
+    const downloadClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    let finishExport = () => undefined;
+    vi.mocked(retailReportsApi.export).mockImplementationOnce((_scope, _filters, signal) => new Promise<void>((resolve) => {
+      finishExport = () => {
+        if (!signal?.aborted) document.createElement("a").click();
+        resolve();
+      };
+    }));
+
+    function CommitRaceHarness({ commitToken }: { commitToken: number }) {
+      React.useLayoutEffect(() => {
+        if (commitToken > 0) finishExport();
+      }, [commitToken]);
+      return <RetailReportsPage />;
+    }
+
+    const view = render(<CommitRaceHarness commitToken={0} />);
+    expect((await screen.findAllByText("Nguyễn An")).length).toBe(2);
+    await userEvent.click(screen.getByRole("button", { name: "Xuất Excel" }));
+    const staleSignal = vi.mocked(retailReportsApi.export).mock.calls[0]?.[2] as AbortSignal;
+    expect(staleSignal.aborted).toBe(false);
+
+    retailScopeState.scope = { companyCode: "ACME", branchId: "B2" };
+    view.rerender(<CommitRaceHarness commitToken={1} />);
+
+    expect(staleSignal.aborted).toBe(true);
+    expect(downloadClick).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Xuất Excel" })).toBeTruthy();
   });
 
   it("does not display or restore data from the previously active branch", async () => {

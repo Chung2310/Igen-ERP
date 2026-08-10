@@ -188,3 +188,75 @@ No Critical, Important, or Minor review findings remain. No dependencies or back
 ### Follow-up concerns
 
 - Summary requests still use sequence invalidation rather than transport abort because the existing shared `apiFetch` summary contract does not accept a signal. Both stale success and stale rejection are prevented from changing visible state.
+
+---
+
+## Commit-phase race follow-up
+
+### Root cause
+
+The first review fix aborted pending exports in a passive `useEffect`. A newly committed scope/filter could therefore exist while the old controller remained live until passive effects ran. Because the export API performs the final anchor click synchronously after its last abort check, an old export completing inside another layout effect could still download. The same implementation also canonicalized the URL from the lazy state initializer and assigned the export context ref directly during render.
+
+### RED evidence
+
+Command:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx -t "without mutating history|in commit phase"
+```
+
+Result: exit 1; 1 test file failed; 2 tests failed and 12 were skipped by the name filter.
+
+- The sibling render probe observed `?sub=bao-cao&keep=1` instead of the original invalid `reportFrom`/`reportTo`, proving the lazy initializer mutated history during render.
+- The commit-race harness changed branch and synchronously completed the old export from a parent layout effect. The old signal was eventually aborted, but the anchor click spy had already recorded one download before passive cleanup.
+
+### GREEN evidence
+
+Targeted commit-window regressions:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx -t "without mutating history|in commit phase"
+```
+
+Result: exit 0; 1 test file passed; 2 tests passed and 12 were skipped by the name filter.
+
+Focused Task 6 page/component/API tests:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx src/modules/retail/components/reports/RetailSalesCharts.test.tsx src/modules/retail/api/retailReports.api.test.ts
+```
+
+Result: exit 0; 3 test files passed, 23/23 tests passed.
+
+Expanded Retail frontend regression:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail src/config/retail-default-modules.test.ts src/modules/shared/lib/apiFetch.test.ts src/router/business-module-routes.test.tsx src/modules/business-module-isolation.test.ts
+```
+
+Result: exit 0; 17 test files passed, 53/53 tests passed.
+
+TypeScript:
+
+```powershell
+..\..\node_modules\.bin\tsc.cmd --noEmit
+```
+
+Result: exit 0 with no diagnostics.
+
+### Files
+
+- `src/modules/retail/pages/RetailReportsPage.tsx`
+- `src/modules/retail/pages/RetailReportsPage.test.tsx`
+- `.superpowers/sdd/task-6-report.md`
+
+### Self-review
+
+- `readFiltersFromUrl` only parses and returns state; it no longer writes history.
+- URL canonicalization runs in `useLayoutEffect` after commit and the URL writer deletes only the three report keys, preserving `sub` and unrelated keys such as the tested `keep=1`.
+- Filter changes no longer write history from the event handler; the committed filter state is the single source for URL canonicalization.
+- Export sequence invalidation, controller abort, and committed context-ref update execute together in a layout effect. Cleanup aborts the old controller before layout work for the new tree can finish a stale download.
+- The export context ref is never assigned during render. Export completion compares against the context last recorded in commit phase.
+- The race test uses a controlled adapter boundary to perform the same synchronous click side effect as the real API, from a parent layout effect before passive effects can run. The new code aborts first and records zero clicks.
+
+No remaining Task 6 review concern was found. The unrelated pre-existing `.superpowers/sdd/task-3-report.md` modification remains excluded.

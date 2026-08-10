@@ -18,7 +18,6 @@ function readFiltersFromUrl(): RetailReportFilterValue {
   const preset = params.get(REPORT_PRESET_PARAM);
   const from = params.get(REPORT_FROM_PARAM);
   const to = params.get(REPORT_TO_PARAM);
-  const hasPersistedFilter = params.has(REPORT_PRESET_PARAM) || params.has(REPORT_FROM_PARAM) || params.has(REPORT_TO_PARAM);
   let filters: RetailReportFilterValue = {};
 
   if ((preset === "7d" || preset === "30d") && !from && !to) {
@@ -27,7 +26,6 @@ function readFiltersFromUrl(): RetailReportFilterValue {
     filters = { from, to };
   }
 
-  if (hasPersistedFilter) writeFiltersToUrl(filters);
   return filters;
 }
 
@@ -101,15 +99,19 @@ export default function RetailReportsPage() {
   const exportController = React.useRef<AbortController | null>(null);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId}` : "";
   const exportContextKey = `${scopeKey}|${filterKey(filters)}`;
-  const exportContextKeyRef = React.useRef(exportContextKey);
-  exportContextKeyRef.current = exportContextKey;
+  const exportContextKeyRef = React.useRef("");
   const visibleReport = scopeKey && reportScopeKey === scopeKey ? report : null;
   const visibleLoadError = loadError?.scopeKey === scopeKey ? loadError.message : "";
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    writeFiltersToUrl(filters);
+  }, [filters]);
+
+  React.useLayoutEffect(() => {
     exportSequence.current += 1;
     exportController.current?.abort();
     exportController.current = null;
+    exportContextKeyRef.current = exportContextKey;
     setExporting(false);
     setExportError("");
 
@@ -151,7 +153,6 @@ export default function RetailReportsPage() {
   }, [scope?.companyCode, scope?.branchId, filters, reloadToken]);
 
   const changeFilters = (nextFilters: RetailReportFilterValue) => {
-    writeFiltersToUrl(nextFilters);
     setFilters(nextFilters);
   };
 
@@ -161,7 +162,7 @@ export default function RetailReportsPage() {
     const controller = new AbortController();
     exportController.current = controller;
     const requestId = ++exportSequence.current;
-    const requestedContextKey = exportContextKey;
+    const requestedContextKey = exportContextKeyRef.current;
     setExporting(true);
     setExportError("");
     try {
