@@ -50,6 +50,11 @@ function exportFilename(contentDisposition: string | null): string {
   return sanitizeFilename((plain?.[1] || plain?.[2] || DEFAULT_EXPORT_FILENAME).trim());
 }
 
+function throwIfExportAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
 export const retailReportsApi = {
   async summary(scope: RetailScope, filters: RetailReportFilters): Promise<RetailReport> {
     const response = await apiFetch<{ success: true; data: RetailReport }>("/retail/reports/summary", {
@@ -58,13 +63,21 @@ export const retailReportsApi = {
     return response.data;
   },
 
-  async export(scope: RetailScope, filters: RetailReportFilters): Promise<void> {
+  async export(scope: RetailScope, filters: RetailReportFilters, signal?: AbortSignal): Promise<void> {
+    throwIfExportAborted(signal);
     const response = await fetch(buildExportUrl(scope, filters), {
       headers: { Authorization: `Bearer ${getAccessToken()}` },
+      signal,
     });
-    if (!response.ok) throw await parseApiErrorResponse(response);
+    throwIfExportAborted(signal);
+    if (!response.ok) {
+      const apiError = await parseApiErrorResponse(response);
+      throwIfExportAborted(signal);
+      throw apiError;
+    }
 
     const blob = await response.blob();
+    throwIfExportAborted(signal);
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;

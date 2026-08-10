@@ -86,3 +86,105 @@ No Critical or Important self-review findings remained.
 
 - `retailReportsApi.summary` does not currently accept an `AbortSignal`; this task prevents stale writes through request-sequence invalidation, but superseded HTTP requests may still finish in the background.
 - Full production build and the complete backend Retail suite remain the Phase 4 Task 7 completion gate; Task 6 ran the requested focused page suite, expanded Retail frontend regression, and TypeScript typecheck.
+
+---
+
+## Review fix follow-up
+
+### Status and files
+
+Addressed all review findings in a separate fix commit. The follow-up changes:
+
+- `src/modules/retail/components/reports/retailReportRange.ts` — one calendar/inclusive-range validator shared by persisted URL parsing and the custom filter form.
+- `src/modules/retail/components/reports/RetailReportFilters.tsx` — shared validation plus an accessible preset group and linked invalid-input error semantics.
+- `src/modules/retail/pages/RetailReportsPage.tsx` — canonical persisted-filter parsing and export context sequencing/cancellation.
+- `src/modules/retail/api/retailReports.api.ts` — optional export `AbortSignal` and abort guards before fetch, after fetch/error parsing, and after blob loading before any download side effect.
+- `src/modules/retail/components/reports/RetailSalesCharts.tsx` — separate actual rendered-series maximum from the safe SVG denominator.
+- `src/modules/retail/pages/RetailReportsPage.test.tsx` — invalid persisted URL, stale summary rejection, stale export filter/branch, and accessibility regressions.
+- `src/modules/retail/api/retailReports.api.test.ts` — abort-during-blob regression proving no object URL or anchor click.
+- `src/modules/retail/components/reports/RetailSalesCharts.test.tsx` — rendered-series maximum and zero-maximum regressions.
+- `.superpowers/sdd/task-6-report.md` — this review evidence.
+
+The unrelated pre-existing `.superpowers/sdd/task-3-report.md` modification remains outside this work.
+
+### RED evidence
+
+Command:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx src/modules/retail/components/reports/RetailSalesCharts.test.tsx src/modules/retail/api/retailReports.api.test.ts
+```
+
+Result: exit 1; 3 test files failed; 7 failed and 14 passed. Failures reproduced all missing review behavior: reversed persisted ranges were sent to the API instead of falling back, report URL keys remained non-canonical, the preset wrapper had no `group` role, custom inputs lacked linked invalid state, export accepted no signal and downloaded after abort, page exports had no context invalidation, chart maximum included unrendered gross sales, and the zero chart displayed a synthetic maximum of 1. The newly added stale summary rejection regression already passed, confirming the existing summary sequence guard handled both late resolution and rejection.
+
+### Targeted GREEN evidence
+
+Shared URL validation and accessibility:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx -t "falls back|validates reversed"
+```
+
+Result: exit 0; 2 tests passed and 10 were skipped by the name filter.
+
+Chart presentation scale:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/components/reports/RetailSalesCharts.test.tsx
+```
+
+Result: exit 0; 1 test file passed, 2/2 tests passed.
+
+Export API cancellation:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/api/retailReports.api.test.ts
+```
+
+Result: exit 0; 1 test file passed, 7/7 tests passed.
+
+Page export sequencing:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx -t "refresh or export|invalidates pending exports"
+```
+
+Result: exit 0; 2 tests passed and 10 were skipped by the name filter.
+
+Integrated focused suite:
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail/pages/RetailReportsPage.test.tsx src/modules/retail/components/reports/RetailSalesCharts.test.tsx src/modules/retail/api/retailReports.api.test.ts
+```
+
+Result: exit 0; 3 test files passed, 21/21 tests passed.
+
+### Regression and type verification
+
+```powershell
+..\..\node_modules\.bin\vitest.cmd run src/modules/retail src/config/retail-default-modules.test.ts src/modules/shared/lib/apiFetch.test.ts src/router/business-module-routes.test.tsx src/modules/business-module-isolation.test.ts
+```
+
+Result: exit 0; 17 test files passed, 51/51 tests passed.
+
+```powershell
+..\..\node_modules\.bin\tsc.cmd --noEmit
+```
+
+Result: exit 0 with no diagnostics.
+
+### Review self-check
+
+- Invalid, reversed, over-366-day, incomplete, ambiguous, or unknown persisted report filters now become `{}` and the URL is rewritten to the canonical today form while preserving unrelated parameters.
+- Valid preset and custom shapes use the same canonical writer; custom UI and URL initialization call the same validation function.
+- Filter/branch changes invalidate the active export sequence, abort the controller, clear current export state, and make late success/failure unable to update the new context.
+- The API passes the signal to `fetch` and checks it after `blob()` before creating an object URL, so a superseded workbook cannot click-download even when a mocked or already-completed response ignores transport cancellation.
+- Trend labels and paths use only net sales, collected amount, and refunds. The actual maximum may be zero; only the private coordinate denominator is clamped to one.
+- Stale summary success and rejection paths are both covered.
+- Presets expose a labeled `group`; both custom date inputs expose `aria-invalid` and reference the rendered alert through `aria-describedby`.
+
+No Critical, Important, or Minor review findings remain. No dependencies or backend files changed.
+
+### Follow-up concerns
+
+- Summary requests still use sequence invalidation rather than transport abort because the existing shared `apiFetch` summary contract does not accept a signal. Both stale success and stale rejection are prevented from changing visible state.

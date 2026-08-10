@@ -36,7 +36,8 @@ function linePath(values: number[], maxValue: number): string {
 }
 
 export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
-  const trendMaximum = Math.max(1, ...report.timeSeries.flatMap((row) => [row.grossSales, row.netSales, row.collectedAmount, row.refunds]));
+  const actualTrendMaximum = Math.max(0, ...report.timeSeries.flatMap((row) => [row.netSales, row.collectedAmount, row.refunds]));
+  const trendScaleMaximum = Math.max(1, actualTrendMaximum);
   const paymentMaximum = Math.max(1, ...report.paymentMix.map((row) => row.amount));
   const firstDay = report.timeSeries[0]?.businessDate || report.range.from;
   const lastDay = report.timeSeries.at(-1)?.businessDate || report.range.to;
@@ -69,13 +70,13 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               {[10, 52.5, 95, 137.5, 180].map((y) => (
                 <line key={y} x1="0" x2="700" y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />
               ))}
-              <path d={linePath(report.timeSeries.map((row) => row.netSales), trendMaximum)} fill="none" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-              <path d={linePath(report.timeSeries.map((row) => row.collectedAmount), trendMaximum)} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-              <path d={linePath(report.timeSeries.map((row) => row.refunds), trendMaximum)} fill="none" stroke="#fb7185" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <path d={linePath(report.timeSeries.map((row) => row.netSales), trendScaleMaximum)} fill="none" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <path d={linePath(report.timeSeries.map((row) => row.collectedAmount), trendScaleMaximum)} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <path d={linePath(report.timeSeries.map((row) => row.refunds), trendScaleMaximum)} fill="none" stroke="#fb7185" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </svg>
             <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
               <span>{formatDate(firstDay)}</span>
-              <span className="font-semibold text-slate-600">Cao nhất: {compactMoneyFormatter.format(trendMaximum)} ₫</span>
+              <span className="font-semibold text-slate-600">Cao nhất: {compactMoneyFormatter.format(actualTrendMaximum)} ₫</span>
               <span>{formatDate(lastDay)}</span>
             </div>
           </div>

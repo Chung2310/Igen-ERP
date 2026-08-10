@@ -92,6 +92,32 @@ describe("retailReportsApi", () => {
     expect(document.querySelector("a")).toBeNull();
   });
 
+  it("passes an abort signal to fetch and does not download a superseded export", async () => {
+    let resolveBlob!: (blob: Blob) => void;
+    const blobPromise = new Promise<Blob>((resolve) => { resolveBlob = resolve; });
+    const response = {
+      ok: true,
+      headers: new Headers({ "Content-Disposition": "attachment; filename=stale.xlsx" }),
+      blob: vi.fn(() => blobPromise),
+    } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(response);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const createObjectURL = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+    const controller = new AbortController();
+
+    const exportPromise = retailReportsApi.export(scope, { preset: "7d" }, controller.signal);
+    await vi.waitFor(() => expect(response.blob).toHaveBeenCalledOnce());
+    controller.abort();
+    resolveBlob(new Blob(["stale workbook"]));
+
+    await expect(exportPromise).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+  });
+
   it("does not let extra export filter keys override scope or request profit", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(new Blob(["workbook"]), { status: 200 }));
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);

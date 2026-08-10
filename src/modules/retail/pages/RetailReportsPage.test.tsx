@@ -121,6 +121,36 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("falls back to today and canonicalizes invalid persisted report ranges", async () => {
+    const invalidUrls = [
+      "/erp?sub=bao-cao&reportFrom=2026-08-11&reportTo=2026-08-10",
+      "/erp?sub=bao-cao&reportFrom=2025-08-09&reportTo=2026-08-10",
+      "/erp?sub=bao-cao&reportFrom=2026-02-30&reportTo=2026-03-01",
+      "/erp?sub=bao-cao&reportFrom=2026-08-10",
+      "/erp?sub=bao-cao&reportPreset=7d&reportFrom=2026-08-04&reportTo=2026-08-10",
+      "/erp?sub=bao-cao&reportPreset=90d",
+    ];
+
+    for (const url of invalidUrls) {
+      cleanup();
+      vi.mocked(retailReportsApi.summary).mockClear();
+      window.history.replaceState(null, "", url);
+
+      render(<RetailReportsPage />);
+
+      await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledWith(
+        { companyCode: "ACME", branchId: "B1" },
+        {},
+      ));
+      const canonical = new URLSearchParams(window.location.search);
+      expect(canonical.get("sub")).toBe("bao-cao");
+      expect(canonical.get("reportPreset")).toBeNull();
+      expect(canonical.get("reportFrom")).toBeNull();
+      expect(canonical.get("reportTo")).toBeNull();
+      expect(screen.getByRole("button", { name: "Hôm nay" }).getAttribute("aria-pressed")).toBe("true");
+    }
+  });
+
   it("loads today by default and keeps preset and custom filters across reloads", async () => {
     const firstView = render(<RetailReportsPage />);
 
@@ -184,11 +214,18 @@ describe("RetailReportsPage", () => {
     await screen.findAllByText("Nguyễn An");
     const callsBeforeCustom = vi.mocked(retailReportsApi.summary).mock.calls.length;
 
+    expect(screen.getByRole("group", { name: "Chọn khoảng báo cáo" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Tùy chọn" }));
     fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-08-11" } });
     fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-08-10" } });
     await userEvent.click(screen.getByRole("button", { name: "Áp dụng khoảng ngày" }));
-    expect(await screen.findByText("Ngày bắt đầu không được sau ngày kết thúc.")).toBeTruthy();
+    const rangeError = await screen.findByText("Ngày bắt đầu không được sau ngày kết thúc.");
+    const fromInput = screen.getByLabelText("Từ ngày");
+    const toInput = screen.getByLabelText("Đến ngày");
+    expect(fromInput.getAttribute("aria-invalid")).toBe("true");
+    expect(toInput.getAttribute("aria-invalid")).toBe("true");
+    expect(fromInput.getAttribute("aria-describedby")).toBe(rangeError.id);
+    expect(toInput.getAttribute("aria-describedby")).toBe(rangeError.id);
     expect(retailReportsApi.summary).toHaveBeenCalledTimes(callsBeforeCustom);
 
     fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2025-08-09" } });
@@ -202,6 +239,8 @@ describe("RetailReportsPage", () => {
       { companyCode: "ACME", branchId: "B1" },
       { from: "2025-08-10", to: "2026-08-10" },
     ));
+    expect(fromInput.getAttribute("aria-invalid")).toBe("false");
+    expect(toInput.getAttribute("aria-invalid")).toBe("false");
   });
 
   it("renders backend metrics, charts and tables without exposing absent profit fields", async () => {
@@ -268,7 +307,11 @@ describe("RetailReportsPage", () => {
     vi.mocked(retailReportsApi.export).mockRejectedValueOnce(new Error("Không xuất được Excel"));
     await userEvent.click(screen.getByRole("button", { name: "Xuất Excel" }));
     expect(await screen.findByText("Không xuất được Excel")).toBeTruthy();
-    expect(retailReportsApi.export).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, {});
+    expect(retailReportsApi.export).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      {},
+      expect.any(AbortSignal),
+    );
     expect(screen.getAllByText("Nguyễn An").length).toBe(2);
 
     vi.mocked(retailReportsApi.summary).mockResolvedValueOnce(emptyReport);
@@ -303,6 +346,65 @@ describe("RetailReportsPage", () => {
     await Promise.resolve();
     expect(screen.queryByText("Dữ liệu cũ")).toBeNull();
     expect(screen.getByText("Dữ liệu mới")).toBeTruthy();
+  });
+
+  it("ignores an older summary rejection after a newer filter response succeeds", async () => {
+    render(<RetailReportsPage />);
+    expect((await screen.findAllByText("Nguyễn An")).length).toBe(2);
+
+    const oldRequest = deferred<RetailReport>();
+    const newRequest = deferred<RetailReport>();
+    vi.mocked(retailReportsApi.summary)
+      .mockImplementationOnce(() => oldRequest.promise)
+      .mockImplementationOnce(() => newRequest.promise);
+
+    await userEvent.click(screen.getByRole("button", { name: "7 ngày" }));
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenLastCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      { preset: "7d" },
+    ));
+    await userEvent.click(screen.getByRole("button", { name: "30 ngày" }));
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenLastCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      { preset: "30d" },
+    ));
+
+    newRequest.resolve(report({ cashiers: [{ ...report().cashiers[0], cashierName: "Kết quả mới" }] }));
+    expect(await screen.findByText("Kết quả mới")).toBeTruthy();
+    oldRequest.reject(new Error("Lỗi request cũ"));
+    await Promise.resolve();
+    expect(screen.queryByText("Lỗi request cũ")).toBeNull();
+    expect(screen.getByText("Kết quả mới")).toBeTruthy();
+  });
+
+  it("invalidates pending exports when the filter or branch changes", async () => {
+    const view = render(<RetailReportsPage />);
+    expect((await screen.findAllByText("Nguyễn An")).length).toBe(2);
+
+    const staleFailure = deferred<void>();
+    vi.mocked(retailReportsApi.export).mockImplementationOnce(() => staleFailure.promise);
+    await userEvent.click(screen.getByRole("button", { name: "Xuất Excel" }));
+    const filterSignal = vi.mocked(retailReportsApi.export).mock.calls[0]?.[2] as AbortSignal | undefined;
+    expect(filterSignal?.aborted).toBe(false);
+
+    await userEvent.click(screen.getByRole("button", { name: "7 ngày" }));
+    await waitFor(() => expect(filterSignal?.aborted).toBe(true));
+    staleFailure.reject(new Error("Lỗi export của bộ lọc cũ"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Xuất Excel" })).toBeTruthy());
+    expect(screen.queryByText("Lỗi export của bộ lọc cũ")).toBeNull();
+
+    const staleSuccess = deferred<void>();
+    vi.mocked(retailReportsApi.export).mockImplementationOnce(() => staleSuccess.promise);
+    await userEvent.click(screen.getByRole("button", { name: "Xuất Excel" }));
+    const branchSignal = vi.mocked(retailReportsApi.export).mock.calls[1]?.[2] as AbortSignal | undefined;
+    expect(branchSignal?.aborted).toBe(false);
+
+    retailScopeState.scope = { companyCode: "ACME", branchId: "B2" };
+    view.rerender(<RetailReportsPage />);
+    await waitFor(() => expect(branchSignal?.aborted).toBe(true));
+    staleSuccess.resolve();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Xuất Excel" })).toBeTruthy());
+    expect(screen.queryByRole("alert", { name: /export/i })).toBeNull();
   });
 
   it("does not display or restore data from the previously active branch", async () => {

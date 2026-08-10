@@ -1,6 +1,7 @@
 import React from "react";
 import { CalendarDays } from "lucide-react";
 import type { RetailReportFilters } from "../../types";
+import { validateRetailReportRange } from "./retailReportRange";
 
 type RetailReportFiltersProps = {
   filters: RetailReportFilters;
@@ -12,25 +13,13 @@ type RetailReportFiltersProps = {
 
 const buttonClass = "rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
-function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
-function inclusiveDayCount(from: string, to: string): number {
-  const [fromYear, fromMonth, fromDay] = from.split("-").map(Number);
-  const [toYear, toMonth, toDay] = to.split("-").map(Number);
-  return Math.floor((Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) / 86_400_000) + 1;
-}
-
 export default function RetailReportFilters({ filters, currentRange, today, disabled, onChange }: RetailReportFiltersProps) {
   const isCustomFilter = "from" in filters && typeof filters.from === "string";
   const [showCustom, setShowCustom] = React.useState(isCustomFilter);
   const [from, setFrom] = React.useState(isCustomFilter ? filters.from : currentRange?.from || today);
   const [to, setTo] = React.useState(isCustomFilter ? filters.to : currentRange?.to || today);
   const [validationError, setValidationError] = React.useState("");
+  const validationErrorId = React.useId();
 
   React.useEffect(() => {
     if (!isCustomFilter) return;
@@ -55,17 +44,9 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
   };
 
   const applyCustom = () => {
-    if (!isCalendarDate(from) || !isCalendarDate(to)) {
-      setValidationError("Vui lòng chọn đầy đủ khoảng ngày hợp lệ.");
-      return;
-    }
-    const days = inclusiveDayCount(from, to);
-    if (days < 1) {
-      setValidationError("Ngày bắt đầu không được sau ngày kết thúc.");
-      return;
-    }
-    if (days > 366) {
-      setValidationError("Khoảng báo cáo tối đa 366 ngày.");
+    const nextError = validateRetailReportRange(from, to);
+    if (nextError) {
+      setValidationError(nextError);
       return;
     }
     setValidationError("");
@@ -79,7 +60,7 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
           <CalendarDays aria-hidden="true" className="h-4 w-4 text-cyan-600" />
           Khoảng báo cáo
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Chọn khoảng báo cáo">
+        <div role="group" className="flex flex-wrap gap-2" aria-label="Chọn khoảng báo cáo">
           <button
             type="button"
             aria-pressed={!showCustom && filters.preset === undefined}
@@ -128,6 +109,8 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
                 type="date"
                 value={from}
                 disabled={disabled}
+                aria-invalid={Boolean(validationError)}
+                aria-describedby={validationError ? validationErrorId : undefined}
                 onChange={(event) => setFrom(event.target.value)}
                 className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50"
               />
@@ -138,6 +121,8 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
                 type="date"
                 value={to}
                 disabled={disabled}
+                aria-invalid={Boolean(validationError)}
+                aria-describedby={validationError ? validationErrorId : undefined}
                 onChange={(event) => setTo(event.target.value)}
                 className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50"
               />
@@ -151,7 +136,7 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
               Áp dụng khoảng ngày
             </button>
           </div>
-          {validationError && <p role="alert" className="mt-2 text-sm font-medium text-red-600">{validationError}</p>}
+          {validationError && <p id={validationErrorId} role="alert" className="mt-2 text-sm font-medium text-red-600">{validationError}</p>}
         </div>
       )}
     </div>

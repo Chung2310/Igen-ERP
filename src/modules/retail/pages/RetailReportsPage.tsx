@@ -5,6 +5,7 @@ import RetailKpiGrid from "../components/reports/RetailKpiGrid";
 import RetailReportFilters from "../components/reports/RetailReportFilters";
 import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
+import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailReport, RetailReportFilters as RetailReportFilterValue } from "../types";
 
@@ -12,22 +13,22 @@ const REPORT_PRESET_PARAM = "reportPreset";
 const REPORT_FROM_PARAM = "reportFrom";
 const REPORT_TO_PARAM = "reportTo";
 
-function isCalendarDate(value: string | null): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
 function readFiltersFromUrl(): RetailReportFilterValue {
   const params = new URLSearchParams(window.location.search);
   const preset = params.get(REPORT_PRESET_PARAM);
-  if (preset === "7d" || preset === "30d") return { preset };
-
   const from = params.get(REPORT_FROM_PARAM);
   const to = params.get(REPORT_TO_PARAM);
-  if (isCalendarDate(from) && isCalendarDate(to)) return { from, to };
-  return {};
+  const hasPersistedFilter = params.has(REPORT_PRESET_PARAM) || params.has(REPORT_FROM_PARAM) || params.has(REPORT_TO_PARAM);
+  let filters: RetailReportFilterValue = {};
+
+  if ((preset === "7d" || preset === "30d") && !from && !to) {
+    filters = { preset };
+  } else if (!preset && from && to && !validateRetailReportRange(from, to)) {
+    filters = { from, to };
+  }
+
+  if (hasPersistedFilter) writeFiltersToUrl(filters);
+  return filters;
 }
 
 function writeFiltersToUrl(filters: RetailReportFilterValue) {
@@ -61,6 +62,12 @@ function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
+function filterKey(filters: RetailReportFilterValue): string {
+  if (filters.preset === "7d" || filters.preset === "30d") return filters.preset;
+  if ("from" in filters && filters.from && filters.to) return `${filters.from}:${filters.to}`;
+  return "today";
+}
+
 function RetailReportsSkeleton() {
   return (
     <div role="status" aria-label="Đang tải báo cáo" className="space-y-4" aria-live="polite">
@@ -90,23 +97,40 @@ export default function RetailReportsPage() {
   const [exporting, setExporting] = React.useState(false);
   const [reloadToken, setReloadToken] = React.useState(0);
   const requestSequence = React.useRef(0);
+  const exportSequence = React.useRef(0);
+  const exportController = React.useRef<AbortController | null>(null);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId}` : "";
+  const exportContextKey = `${scopeKey}|${filterKey(filters)}`;
+  const exportContextKeyRef = React.useRef(exportContextKey);
+  exportContextKeyRef.current = exportContextKey;
   const visibleReport = scopeKey && reportScopeKey === scopeKey ? report : null;
   const visibleLoadError = loadError?.scopeKey === scopeKey ? loadError.message : "";
+
+  React.useEffect(() => {
+    exportSequence.current += 1;
+    exportController.current?.abort();
+    exportController.current = null;
+    setExporting(false);
+    setExportError("");
+
+    return () => {
+      exportSequence.current += 1;
+      exportController.current?.abort();
+      exportController.current = null;
+    };
+  }, [exportContextKey]);
 
   React.useEffect(() => {
     const requestId = ++requestSequence.current;
     if (!scope) {
       setLoading(false);
       setLoadError(null);
-      setExportError("");
       return undefined;
     }
 
     const requestedScopeKey = `${scope.companyCode}:${scope.branchId}`;
     setLoading(true);
     setLoadError(null);
-    setExportError("");
     void retailReportsApi.summary(scope, filters)
       .then((nextReport) => {
         if (requestSequence.current !== requestId) return;
@@ -133,14 +157,23 @@ export default function RetailReportsPage() {
 
   const exportReport = async () => {
     if (!scope || exporting) return;
+    exportController.current?.abort();
+    const controller = new AbortController();
+    exportController.current = controller;
+    const requestId = ++exportSequence.current;
+    const requestedContextKey = exportContextKey;
     setExporting(true);
     setExportError("");
     try {
-      await retailReportsApi.export(scope, filters);
+      await retailReportsApi.export(scope, filters, controller.signal);
     } catch (cause) {
+      if (exportSequence.current !== requestId || exportContextKeyRef.current !== requestedContextKey || controller.signal.aborted) return;
       setExportError(errorMessage(cause, "Không xuất được báo cáo Excel."));
     } finally {
-      setExporting(false);
+      if (exportSequence.current === requestId && exportContextKeyRef.current === requestedContextKey) {
+        if (exportController.current === controller) exportController.current = null;
+        setExporting(false);
+      }
     }
   };
 
