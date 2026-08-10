@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatRetailDocumentCode, normalizePayments, paymentStatusFor, serializeRetailOrder } from "./retail-order.service";
+import {
+  assertHeldDraftAccess,
+  assertHeldDraftCapacity,
+  formatRetailDocumentCode,
+  isHeldDraftExpired,
+  normalizePayments,
+  paymentStatusFor,
+  serializeRetailOrder,
+} from "./retail-order.service";
 
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
@@ -37,4 +45,23 @@ test("operators never receive unit cost while managers do", () => {
 
 test("document codes use branch code rather than Mongo branch id", () => {
   assert.equal(formatRetailDocumentCode("dh", "cn01", "202608", 12), "DH-CN01-202608-000012");
+});
+
+test("cashier can hold at most five active drafts", () => {
+  assert.doesNotThrow(() => assertHeldDraftCapacity(4));
+  assert.throws(() => assertHeldDraftCapacity(5), (error: any) => error.code === "HELD_DRAFT_LIMIT");
+});
+
+test("only creator or manager can edit a held draft", () => {
+  assert.doesNotThrow(() => assertHeldDraftAccess("cashier-1", "cashier-1", false));
+  assert.doesNotThrow(() => assertHeldDraftAccess("cashier-1", "cashier-2", true));
+  assert.throws(
+    () => assertHeldDraftAccess("cashier-1", "cashier-2", false),
+    (error: any) => error.code === "HELD_DRAFT_FORBIDDEN",
+  );
+});
+
+test("held draft expires after its business date", () => {
+  assert.equal(isHeldDraftExpired("2026-08-10", "2026-08-10"), false);
+  assert.equal(isHeldDraftExpired("2026-08-09", "2026-08-10"), true);
 });

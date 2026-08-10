@@ -1,0 +1,3 @@
+import { apiFetch } from "../../shared/lib/apiFetch";
+import type { RetailInvoice, RetailScope } from "../types";
+export const retailInvoicesApi = { async list(scope: RetailScope, query: Record<string, string | number | undefined> = {}) { const response = await apiFetch<{ success: true; data: { items: RetailInvoice[]; total: number; page: number; limit: number } }>("/retail/invoices", { params: { ...scope, ...query } }); return response.data; }, async detail(scope: RetailScope, id: string) { const response = await apiFetch<{ success: true; data: RetailInvoice }>(`/retail/invoices/${id}`, { params: scope }); return response.data; } };

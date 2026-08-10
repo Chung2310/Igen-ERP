@@ -2,6 +2,7 @@ import { Document } from "mongoose";
 
 export interface IProduct extends Document {
   sku: string;
+  barcode?: string;
   name: string;
   category: string;
   brand?: string;
