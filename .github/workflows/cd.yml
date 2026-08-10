@@ -85,6 +85,13 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache,mode=max
 
+      # Dọn dẹp dung lượng Docker ngay sau khi build/push image xong
+      - name: Cleanup build cache
+        if: always()
+        run: |
+          docker builder prune -f
+          docker image prune -f
+
   # BƯỚC 3: DEPLOY VPS (Chỉ chạy khi Step 2 thành công)
   deploy:
     name: Step 3 - Deploy to VPS
