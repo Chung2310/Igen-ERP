@@ -1,43 +1,8 @@
-import { ApiClientError, parseApiErrorResponse } from "../../../services/apiClientError";
+import { apiFetch, getAccessToken, setAccessToken } from "../../shared/lib/apiFetch";
 
-export function getWorkerAccessToken() { return localStorage.getItem("accessToken"); }
-export function setWorkerAccessToken(token: string | null) {
-  if (token) localStorage.setItem("accessToken", token);
-  else localStorage.removeItem("accessToken");
-}
+export const getWorkerAccessToken = getAccessToken;
+export const setWorkerAccessToken = setAccessToken;
 
 type WorkerFetchOptions = RequestInit & { params?: Record<string, string | number | boolean | null | undefined> };
 
-export async function workerApiFetch<T>(endpoint: string, options: WorkerFetchOptions = {}): Promise<T> {
-  const url = new URL(`/api/v1${endpoint}`, window.location.origin);
-  Object.entries(options.params || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") url.searchParams.append(key, String(value));
-  });
-  const headers = new Headers(options.headers || {});
-  const token = getWorkerAccessToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const send = () => fetch(url.toString(), { ...options, headers });
-  let response = await send();
-  if (response.status === 401 && endpoint !== "/auth/refresh-token" && endpoint !== "/auth/login") {
-    try {
-      const refresh = await fetch("/api/v1/auth/refresh-token", { method: "POST" });
-      if (refresh.ok) {
-        const body = await refresh.json() as { accessToken?: string; data?: { accessToken?: string } };
-        const refreshedToken = body.accessToken || body.data?.accessToken;
-        if (refreshedToken) {
-          setWorkerAccessToken(refreshedToken);
-          headers.set("Authorization", `Bearer ${refreshedToken}`);
-          response = await send();
-        }
-      }
-    } catch (error) { console.error("Lỗi tự động làm mới token:", error); }
-    if (response.status === 401) {
-      setWorkerAccessToken(null);
-      window.dispatchEvent(new Event("unauthorized"));
-      throw new ApiClientError({ status: 401, code: "AUTH_SESSION_EXPIRED", message: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại." });
-    }
-  }
-  if (!response.ok) throw await parseApiErrorResponse(response);
-  return await response.json() as T;
-}
+export const workerApiFetch: typeof apiFetch = apiFetch;

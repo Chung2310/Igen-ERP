@@ -31,6 +31,7 @@ import { companyPaymentRouter } from "./company-payment.router";
 import { recruitmentRouter } from "./recruitment.router";
 import { webhookRouter } from "./webhook.router";
 import { resourceImportRouter } from "./resource-import.router";
+import { retailRouter } from "../modules/retail/router";
 export const apiRouter = Router();
 
 // Webhooks
@@ -108,6 +109,10 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
+
+// Module Bán lẻ & POS
+apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
+
 
 // Public QR attendance routes cho lao động (không yêu cầu đăng nhập)
 // Lao động quét mã QR từ điện thoại cá nhân — không có session đăng nhập.

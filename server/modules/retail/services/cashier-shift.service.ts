@@ -1,0 +1,64 @@
+import { Types } from "mongoose";
+import type { RetailBranchScope } from "../contracts";
+import type { ICashierShift } from "../interfaces/cashier-shift.interface";
+import { CashierShiftModel } from "../models/cashier-shift.model";
+import { getResolvedRetailSettings } from "./retail-settings.service";
+import { RetailOrderModel } from "../models/retail-order.model";
+
+type CashInputs = { openingFloat: number; cashCollected: number; cashRefunded: number; movementsIn: number; movementsOut: number };
+export function calculateExpectedCash(input: CashInputs) { return input.openingFloat + input.cashCollected + input.movementsIn - input.movementsOut - input.cashRefunded; }
+export function varianceNeedsReason(variance: number, threshold: number) { return Math.abs(variance) > threshold; }
+export function serializeCashierShift(shift: ICashierShift | Record<string, any>, canManage: boolean) {
+  const value = typeof (shift as any).toObject === "function" ? (shift as any).toObject() : { ...shift };
+  if (value.status !== "open" || value.countedCash != null || canManage) return value;
+  const { expectedCash: _expectedCash, grossSales: _grossSales, collectedAmount: _collectedAmount, newDebtAmount: _newDebtAmount, refundedAmount: _refundedAmount, netCollectedAmount: _netCollectedAmount, ...safe } = value;
+  return { ...safe, methodTotals: (value.methodTotals || []).map((item: any) => ({ method: item.method })) };
+}
+export function businessDateInVietnam(at: Date) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(at); }
+const actorId = (actor: any) => String(actor.id || actor.uid || "");
+const actorName = (actor: any) => String(actor.displayName || actor.email || "");
+
+export const CashierShiftService = {
+  current: (scope: RetailBranchScope, actor: any) => CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }),
+  async list(scope: RetailBranchScope, query: any) {
+    const page = Math.max(1, Number(query.page) || 1); const limit = Math.min(100, Math.max(1, Number(query.limit) || 20)); const filter: any = { ...scope };
+    for (const key of ["businessDate", "cashierId", "status"]) if (query[key]) filter[key] = query[key];
+    const [items, total] = await Promise.all([CashierShiftModel.find(filter).sort({ openedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), CashierShiftModel.countDocuments(filter)]); return { items, total, page, limit };
+  },
+  async detail(scope: RetailBranchScope, id: string) {
+    if (!Types.ObjectId.isValid(id)) throw new Error("Mã ca không hợp lệ."); const shift = await CashierShiftModel.findOne({ _id: id, ...scope }).lean(); if (!shift) throw new Error("Không tìm thấy ca bán hàng."); const orders = await RetailOrderModel.find({ ...scope, $or: [{ shiftId: id }, { "payments.shiftId": id }, { "refunds.shiftId": id }] }).sort({ createdAt: -1 }).lean(); return { shift, orders };
+  },
+  async open(scope: RetailBranchScope, input: any, actor: any) {
+    const openingFloat = Number(input.openingFloat);
+    if (!Number.isSafeInteger(openingFloat) || openingFloat < 0) throw new Error("Quỹ đầu ca không hợp lệ.");
+    const now = new Date(); const terminalId = String(input.terminalId || "").trim() || undefined;
+    return CashierShiftModel.create({ ...scope, terminalId, shiftCode: `CA-${scope.branchId}-${now.getTime()}`, cashierId: actorId(actor), cashierName: actorName(actor), openingFloat, openedAt: now, openedBy: actorId(actor), cashMovements: [], grossSales: 0, collectedAmount: 0, newDebtAmount: 0, refundedAmount: 0, netCollectedAmount: 0, methodTotals: [], expectedCash: openingFloat, status: "open", businessDate: businessDateInVietnam(now) });
+  },
+  async addMovement(scope: RetailBranchScope, id: string, input: any, actor: any) {
+    const amount = Number(input.amount); const type = input.type; const reason = String(input.reason || "").trim();
+    if (!Types.ObjectId.isValid(id) || !["in", "out"].includes(type) || !Number.isSafeInteger(amount) || amount <= 0 || !reason) throw new Error("Giao dịch thu/chi không hợp lệ.");
+    const shift = await CashierShiftModel.findOneAndUpdate({ _id: id, ...scope, cashierId: actorId(actor), status: "open" }, { $push: { cashMovements: { type, amount, reason, at: new Date(), by: actorId(actor), byName: actorName(actor) } } }, { new: true });
+    if (!shift) throw new Error("Ca bán hàng không còn mở."); return shift;
+  },
+  async close(scope: RetailBranchScope, id: string, input: any, actor: any) {
+    const countedCash = Number(input.countedCash); if (!Number.isSafeInteger(countedCash) || countedCash < 0) throw new Error("Tiền thực đếm không hợp lệ.");
+    const shift = await CashierShiftModel.findOne({ _id: id, ...scope, cashierId: actorId(actor), status: "open" }); if (!shift) throw new Error("Ca bán hàng không còn mở.");
+    const orders: any[] = await RetailOrderModel.find({ ...scope, $or: [{ shiftId: id }, { "payments.shiftId": id }, { "refunds.shiftId": id }] }).lean();
+    const sold = orders.filter((order) => order.shiftId === id && order.status !== "cancelled");
+    shift.grossSales = sold.reduce((sum, order) => sum + order.grandTotal, 0);
+    shift.newDebtAmount = sold.reduce((sum, order) => sum + order.dueAmount, 0);
+    const methodMap = new Map<string, { method: any; collectedAmount: number; refundedAmount: number }>();
+    for (const order of orders) {
+      for (const payment of order.payments || []) if (payment.shiftId === id) { const row = methodMap.get(payment.method) || { method: payment.method, collectedAmount: 0, refundedAmount: 0 }; row.collectedAmount += payment.amount; methodMap.set(payment.method, row); }
+      for (const refund of order.refunds || []) if (refund.shiftId === id) { const row = methodMap.get(refund.method) || { method: refund.method, collectedAmount: 0, refundedAmount: 0 }; row.refundedAmount += refund.amount; methodMap.set(refund.method, row); }
+    }
+    shift.methodTotals = [...methodMap.values()]; shift.collectedAmount = shift.methodTotals.reduce((sum, row) => sum + row.collectedAmount, 0); shift.refundedAmount = shift.methodTotals.reduce((sum, row) => sum + row.refundedAmount, 0); shift.netCollectedAmount = shift.collectedAmount - shift.refundedAmount;
+    const movementsIn = shift.cashMovements.filter((m) => m.type === "in").reduce((sum, m) => sum + m.amount, 0); const movementsOut = shift.cashMovements.filter((m) => m.type === "out").reduce((sum, m) => sum + m.amount, 0);
+    const cash = shift.methodTotals.find((item) => item.method === "cash"); shift.expectedCash = calculateExpectedCash({ openingFloat: shift.openingFloat, cashCollected: cash?.collectedAmount || 0, cashRefunded: cash?.refundedAmount || 0, movementsIn, movementsOut }); shift.countedCash = countedCash; shift.varianceAmount = countedCash - shift.expectedCash;
+    const settings = await getResolvedRetailSettings(scope); const reason = String(input.varianceReason || "").trim(); if (varianceNeedsReason(shift.varianceAmount, settings.varianceReasonThreshold) && !reason) throw new Error("Vui lòng nhập lý do chênh lệch ca.");
+    shift.varianceReason = reason || undefined; shift.status = "closed"; shift.closedAt = new Date(); shift.closedBy = actorId(actor); await shift.save(); return shift;
+  },
+  async approve(scope: RetailBranchScope, id: string, actor: any) {
+    const shift = await CashierShiftModel.findOneAndUpdate({ _id: id, ...scope, status: "closed" }, { $set: { status: "reconciled", approvedBy: actorId(actor), approvedByName: actorName(actor), approvedAt: new Date() } }, { new: true }); if (!shift) throw new Error("Ca không ở trạng thái chờ duyệt."); return shift;
+  },
+};

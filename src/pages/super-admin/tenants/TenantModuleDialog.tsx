@@ -1,6 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
-import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
 
@@ -34,7 +34,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
         setBusinessType(nextBusinessType);
         const modules = Array.isArray(result.tenant.enabledModules)
           ? result.tenant.enabledModules.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey))
-          : [...MODULE_KEYS];
+          : [...DEFAULT_MODULE_KEYS];
         const allowed = modules.filter((key) => isModuleAllowedForBusinessType(key, nextBusinessType));
         const required = getRequiredBusinessModule(nextBusinessType);
         setSelected(required && !allowed.includes(required) ? [required, ...allowed] : allowed);
