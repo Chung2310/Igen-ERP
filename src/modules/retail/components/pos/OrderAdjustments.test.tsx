@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RetailDiscountInput } from "../../types";
@@ -16,9 +16,12 @@ describe("OrderAdjustments", () => {
       return <OrderAdjustments {...value} onChange={(next) => { onChange(next); setValue(next); }} />;
     }
     render(<Harness />);
-    await userEvent.selectOptions(screen.getByLabelText("Loại giảm giá đơn"), "percent");
-    await userEvent.clear(screen.getByLabelText("Giảm giá đơn"));
-    await userEvent.type(screen.getByLabelText("Giảm giá đơn"), "5");
+    const discountGroup = screen.getByRole("group", { name: "Giảm giá đơn" });
+    const discountType = within(discountGroup).getByRole("combobox", { name: "Loại giảm giá đơn" });
+    const discountValue = within(discountGroup).getByRole("spinbutton", { name: "Giảm giá đơn" });
+    await userEvent.selectOptions(discountType, "percent");
+    await userEvent.clear(discountValue);
+    await userEvent.type(discountValue, "5");
     await userEvent.clear(screen.getByLabelText("Thuế suất"));
     await userEvent.type(screen.getByLabelText("Thuế suất"), "8.25");
     await userEvent.clear(screen.getByLabelText("Phí vận chuyển"));
