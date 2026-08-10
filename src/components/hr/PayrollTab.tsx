@@ -163,6 +163,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         baseSalary: originalResult?.monthlySalary || line.calculation?.monthlySalary || 0,
         adjustedBase: line.calculation?.adjustedBase || 0,
         overtime: line.calculation?.overtime || 0,
+        adjustments: Number(line.calculation?.adjustments ?? details.adjustments ?? 0),
         net: line.calculation?.net || 0,
         socialInsurance: details.deductionBreakdown.socialInsurance,
         healthInsurance: details.deductionBreakdown.healthInsurance,
@@ -483,6 +484,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <SortHeader label="Lương cơ bản" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Lương điều chỉnh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Tăng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  <SortHeader label="Thưởng phạt" sortKey="adjustments" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="BHXH" sortKey="socialInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="BHYT" sortKey="healthInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="BHTN" sortKey="unemploymentInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
@@ -495,7 +497,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={12}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={13}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-700">
@@ -512,6 +514,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
+                    <td className={`p-3 text-right font-semibold ${line.adjustments > 0 ? "text-emerald-700" : line.adjustments < 0 ? "text-rose-700" : "text-slate-600"}`}>{Number(line.adjustments) > 0 ? "+" : ""}{Number(line.adjustments).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600">{Number(line.socialInsurance).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600">{Number(line.healthInsurance).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600">{Number(line.unemploymentInsurance).toLocaleString()} đ</td>
@@ -530,6 +533,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} đ</td>
+                    <td className={`p-3 text-right ${filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustments, 0) < 0 ? "text-rose-700" : "text-emerald-700"}`}>{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustments, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.socialInsurance, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.healthInsurance, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.unemploymentInsurance, 0).toLocaleString()} đ</td>
