@@ -428,8 +428,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
                 <Lock size={15} /> Khóa công
               </button>
-              <button onClick={() => void action(() => payrollService.createRun(period), "Đã tạo bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700">
-                <Play size={15} /> Tính lương
+              <button
+                onClick={() => void action(() => payrollService.createRun(period), run ? "Đã tính lại bảng lương" : "Đã tạo bảng lương")}
+                title={run ? "Tính lại bảng lương theo các điều chỉnh mới nhất" : undefined}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700"
+              >
+                <Play size={15} /> {run ? "Tính lại lương" : "Tính lương"}
               </button>
               {run && (
                 <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">

@@ -399,7 +399,14 @@ export const payrollController = {
     if (!rows.length) return res.status(409).json({ status: "error", message: "Chua co ket qua cong da khoa." });
     if (rows.some((row) => row.needsRecalculation)) return res.status(409).json({ status: "error", message: "Dữ liệu công đã thay đổi. Hãy đồng bộ và khóa công lại." });
     const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
-    if (existing) return res.status(409).json({ status: "error", message: "Ky luong da ton tai." });
+    // Kỳ đã tính nhưng chưa duyệt thì cho tính lại, để điều chỉnh phát sinh sau
+    // khi bấm tính lương vẫn được cộng vào bảng lương.
+    if (existing && existing.status !== "calculated") {
+      return res.status(409).json({
+        status: "error",
+        message: existing.status === "closed" ? "Kỳ lương đã chốt. Hãy reset kỳ trước khi tính lại." : "Bảng lương đã được duyệt. Hãy mở lại bảng lương trước khi tính lại.",
+      });
+    }
     // Bảo hiểm và thuế TNCN cần chính sách lương + hồ sơ payroll của từng nhân viên.
     // Thiếu bước này thì mọi khoản khấu trừ ra 0 đ dù lương bao nhiêu.
     const periodKey = req.params.periodKey;
@@ -486,6 +493,11 @@ export const payrollController = {
         warnings: vietnam.warnings.map((warning) => warning.code),
       };
     });
+    if (existing) {
+      const run = await PayrollRunModel.findOneAndUpdate({ _id: existing._id }, { $set: { lines } }, { new: true }).lean();
+      await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length, recalculated: true });
+      return res.json({ status: "success", data: run });
+    }
     const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "calculated", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
     return res.status(201).json({ status: "success", data: run });
