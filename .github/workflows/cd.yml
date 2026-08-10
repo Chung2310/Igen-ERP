@@ -19,6 +19,8 @@ jobs:
     name: Step 1 - Lint & Type Check
     runs-on: self-hosted
     timeout-minutes: 15
+    env:
+      NODE_OPTIONS: --max-old-space-size=1536
     steps:
       - uses: actions/checkout@v4
 
