@@ -71,11 +71,19 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       dependentCount: input.vietnam.dependentCount,
       hasWithholdingCommitment: input.vietnam.hasWithholdingCommitment,
     });
+    // Echo the prorated adjustment inputs back into the snapshot so the payroll
+    // table can show thưởng/phạt per employee without re-reading adjustments.
+    const adjustmentEcho = {
+      allowances: Math.round(input.allowances * ratio),
+      bonuses: Math.round(input.bonuses * ratio),
+      otherDeductions: Math.round(input.deductions * ratio),
+      adjustments: Math.round(input.adjustments * ratio),
+    };
     return {
       employeeId: input.employeeId,
       calculation: vietnam
-        ? { ...calculation, gross: vietnam.income.totalIncome, deductions: vietnam.deductions.total, net: vietnam.netPay, monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) }
-        : { ...calculation, deductions: Math.round(input.deductions * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
+        ? { ...calculation, ...adjustmentEcho, gross: vietnam.income.totalIncome, deductions: vietnam.deductions.total, net: vietnam.netPay, monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) }
+        : { ...calculation, ...adjustmentEcho, deductions: Math.round(input.deductions * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
       ...(vietnam ? { vietnam } : {}),
       sourceIds: [segment.sourceId],
       effectiveSegments: [{ sourceId: segment.sourceId, start: segment.start, end: segment.end }],
