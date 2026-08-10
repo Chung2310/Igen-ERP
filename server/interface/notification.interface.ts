@@ -8,6 +8,7 @@ export interface INotification extends Document {
   type: NotifType;
   companyCode: string;
   recipientUid: string;
+  idempotencyKey?: string;
   read: boolean;
   action?: {
     tab: string;

@@ -3,6 +3,7 @@ export type RetailScope = { companyCode: string; branchId: string };
 export interface RetailSettings {
   companyCode: string;
   branchId: string;
+  customerTiers: Array<{ code: string; name: string; minSpend: number }>;
   allowNegativeStock: boolean;
   maxDiscountPercent: number;
   defaultTaxRate: number;
@@ -21,11 +22,13 @@ export interface RetailCustomer {
   email?: string;
   address?: string;
   notes?: string;
+  tier?: { code: string; name: string; minSpend: number };
 }
 
 export interface RetailCustomerDetail {
   customer: RetailCustomer;
-  summary: { totalSales: number; totalCollected: number; currentDebt: number };
+  summary: { totalSales: number; totalCollected: number; currentDebt: number; tier: { code: string; name: string; minSpend: number } };
+  tierHistory: Array<{ _id: string; fromTierName?: string; toTierName: string; totalSales: number; changedAt: string }>;
   orders: unknown[];
   payments: unknown[];
 }

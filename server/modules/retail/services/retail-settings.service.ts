@@ -3,6 +3,12 @@ import type { IRetailSettings, RetailSettingsValues } from "../interfaces/retail
 import { RetailSettingsModel } from "../models/retail-settings.model";
 
 export const DEFAULT_RETAIL_SETTINGS: RetailSettingsValues = Object.freeze({
+  customerTiers: [
+    { code: "standard", name: "Thành viên", minSpend: 0 },
+    { code: "silver", name: "Bạc", minSpend: 5_000_000 },
+    { code: "gold", name: "Vàng", minSpend: 20_000_000 },
+    { code: "vip", name: "VIP", minSpend: 50_000_000 },
+  ],
   allowNegativeStock: false,
   maxDiscountPercent: 0,
   defaultTaxRate: 0,
@@ -27,6 +33,19 @@ const prefix = (value: unknown, field: string): string => {
 
 export function validateRetailSettingsInput(input: Partial<RetailSettingsValues>): Partial<RetailSettingsValues> {
   const output: Partial<RetailSettingsValues> = {};
+  if (input.customerTiers !== undefined) {
+    if (!Array.isArray(input.customerTiers) || input.customerTiers.length < 1 || input.customerTiers.length > 10) throw new Error("customerTiers must contain 1 to 10 tiers");
+    const seen = new Set<string>();
+    output.customerTiers = input.customerTiers.map((tier) => {
+      const code = String(tier.code || "").trim().toLowerCase();
+      const name = String(tier.name || "").trim();
+      const minSpend = Number(tier.minSpend);
+      if (!/^[a-z0-9-]{1,30}$/.test(code) || seen.has(code) || !name || name.length > 50 || !Number.isSafeInteger(minSpend) || minSpend < 0) throw new Error("customerTiers is invalid");
+      seen.add(code);
+      return { code, name, minSpend };
+    }).sort((left, right) => left.minSpend - right.minSpend);
+    if (output.customerTiers[0].minSpend !== 0) throw new Error("customerTiers must start at zero");
+  }
   if (input.allowNegativeStock !== undefined) {
     if (typeof input.allowNegativeStock !== "boolean") throw new Error("allowNegativeStock must be boolean");
     output.allowNegativeStock = input.allowNegativeStock;

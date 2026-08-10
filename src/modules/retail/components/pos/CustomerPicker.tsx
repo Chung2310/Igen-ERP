@@ -31,7 +31,7 @@ export default function CustomerPicker({ scope, value, onChange }: Props) {
 
   if (value) return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 p-3">
-      <div><p className="font-semibold">{value.name}</p><p className="text-xs text-slate-500">{value.customerCode}{value.phone ? ` · ${value.phone}` : ""}</p></div>
+      <div><div className="flex items-center gap-2"><p className="font-semibold">{value.name}</p>{value.tier && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">{value.tier.name}</span>}</div><p className="text-xs text-slate-500">{value.customerCode}{value.phone ? ` · ${value.phone}` : ""}</p></div>
       <button type="button" aria-label="Bỏ chọn khách hàng" onClick={() => { setQuery(""); onChange(null); }}><X className="h-4 w-4" /></button>
     </div>
   );
@@ -42,6 +42,6 @@ export default function CustomerPicker({ scope, value, onChange }: Props) {
     {loading && <p className="mt-1 text-xs text-slate-500">Đang tìm khách hàng...</p>}
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     {!loading && query.trim() && !error && items.length === 0 && <p className="mt-1 text-xs text-slate-500">Không có kết quả.</p>}
-    {items.length > 0 && <div role="listbox" className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border bg-white p-1 shadow-lg">{items.map((customer) => <button type="button" role="option" aria-selected="false" aria-label={`${customer.name} ${customer.customerCode} ${customer.phone || ""}`} key={customer._id} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-cyan-50" onClick={() => { onChange(customer); setItems([]); setQuery(""); }}><p className="font-medium">{customer.name}</p><p className="text-xs text-slate-500">{customer.customerCode}{customer.phone ? ` · ${customer.phone}` : ""}</p></button>)}</div>}
+    {items.length > 0 && <div role="listbox" className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border bg-white p-1 shadow-lg">{items.map((customer) => <button type="button" role="option" aria-selected="false" aria-label={`${customer.name} ${customer.customerCode} ${customer.phone || ""}`} key={customer._id} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-cyan-50" onClick={() => { onChange(customer); setItems([]); setQuery(""); }}><div className="flex items-center gap-2"><p className="font-medium">{customer.name}</p>{customer.tier && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">{customer.tier.name}</span>}</div><p className="text-xs text-slate-500">{customer.customerCode}{customer.phone ? ` · ${customer.phone}` : ""}</p></button>)}</div>}
   </div>;
 }

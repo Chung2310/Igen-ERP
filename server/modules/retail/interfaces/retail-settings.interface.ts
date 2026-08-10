@@ -1,4 +1,5 @@
 export interface RetailSettingsValues {
+  customerTiers: Array<{ code: string; name: string; minSpend: number }>;
   allowNegativeStock: boolean;
   maxDiscountPercent: number;
   defaultTaxRate: number;

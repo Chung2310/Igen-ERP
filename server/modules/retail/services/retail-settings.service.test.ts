@@ -61,3 +61,12 @@ test("settings validation rejects unsafe values", () => {
     assert.throws(() => validateRetailSettingsInput(input));
   }
 });
+
+test("tier settings normalize order and reject duplicate or non-zero starting tiers", () => {
+  assert.deepEqual(validateRetailSettingsInput({ customerTiers: [
+    { code: "VIP", name: "VIP", minSpend: 50_000_000 },
+    { code: "member", name: "Thành viên", minSpend: 0 },
+  ] }).customerTiers?.map((tier) => tier.code), ["member", "vip"]);
+  assert.throws(() => validateRetailSettingsInput({ customerTiers: [{ code: "vip", name: "VIP", minSpend: 1 }] }));
+  assert.throws(() => validateRetailSettingsInput({ customerTiers: [{ code: "vip", name: "VIP", minSpend: 0 }, { code: "VIP", name: "Khác", minSpend: 1 }] }));
+});

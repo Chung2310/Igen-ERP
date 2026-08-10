@@ -3,6 +3,8 @@ import type { RetailScope, RetailBranchScope } from "../contracts";
 import { RetailCustomerCounterModel } from "../models/retail-customer-counter.model";
 import { RetailCustomerModel } from "../models/retail-customer.model";
 import { RetailOrderModel } from "../models/retail-order.model";
+import { RetailCustomerTierHistoryModel } from "../models/retail-customer-tier-history.model";
+import { DEFAULT_RETAIL_SETTINGS, getResolvedRetailSettings } from "./retail-settings.service";
 
 type CustomerInput = { name?: unknown; phone?: unknown; email?: unknown; address?: unknown; notes?: unknown; [key: string]: unknown };
 type CustomerActor = { id?: unknown; uid?: unknown; displayName?: unknown; email?: unknown };
@@ -35,6 +37,11 @@ export function customerCompanyFilter(scope: RetailScope): { companyCode: string
   return { companyCode: scope.companyCode };
 }
 
+export function resolveCustomerTier(totalSales: number, tiers = DEFAULT_RETAIL_SETTINGS.customerTiers) {
+  const spend = Math.max(0, Number(totalSales) || 0);
+  return [...tiers].sort((left, right) => left.minSpend - right.minSpend).reduce((selected, tier) => spend >= tier.minSpend ? tier : selected, tiers[0]);
+}
+
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const RetailCustomerService = {
@@ -51,7 +58,15 @@ export const RetailCustomerService = {
       RetailCustomerModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       RetailCustomerModel.countDocuments(filter),
     ]);
-    return { items, total, page, limit };
+    if (!scope.branchId || items.length === 0) return { items, total, page, limit };
+    const customerIds = items.map((customer) => String(customer._id));
+    const sales = await RetailOrderModel.aggregate<{ _id: string; totalSales: number }>([
+      { $match: { companyCode: scope.companyCode, branchId: scope.branchId, customerId: { $in: customerIds }, status: { $in: ["confirmed", "completed"] } } },
+      { $group: { _id: "$customerId", totalSales: { $sum: { $max: [0, { $subtract: ["$grandTotal", "$refundedAmount"] }] } } } },
+    ]);
+    const settings = await getResolvedRetailSettings({ companyCode: scope.companyCode, branchId: scope.branchId });
+    const salesByCustomer = new Map(sales.map((row) => [String(row._id), row.totalSales]));
+    return { items: items.map((customer) => ({ ...customer, tier: resolveCustomerTier(salesByCustomer.get(String(customer._id)) || 0, settings.customerTiers) })), total, page, limit };
   },
 
   async create(scope: RetailBranchScope, input: CustomerInput, actor: CustomerActor) {
@@ -86,11 +101,23 @@ export const RetailCustomerService = {
     if (transactionBranchId) orderFilter.branchId = transactionBranchId;
     const orders = await RetailOrderModel.find(orderFilter).sort({ createdAt: -1 }).lean();
     const valid = orders.filter((order) => order.status !== "cancelled");
-    const summary = valid.reduce((acc, order) => ({ totalSales: acc.totalSales + order.grandTotal, totalCollected: acc.totalCollected + order.paidAmount - order.refundedAmount, currentDebt: acc.currentDebt + order.dueAmount }), { totalSales: 0, totalCollected: 0, currentDebt: 0 });
+    const summary = valid.reduce((acc, order) => ({ totalSales: acc.totalSales + Math.max(0, order.grandTotal - order.refundedAmount), totalCollected: acc.totalCollected + order.paidAmount - order.refundedAmount, currentDebt: acc.currentDebt + order.dueAmount }), { totalSales: 0, totalCollected: 0, currentDebt: 0 });
+    const settingsBranchId = transactionBranchId || scope.branchId;
+    const tiers = settingsBranchId ? (await getResolvedRetailSettings({ companyCode: scope.companyCode, branchId: settingsBranchId })).customerTiers : DEFAULT_RETAIL_SETTINGS.customerTiers;
+    const tier = resolveCustomerTier(summary.totalSales, tiers);
+    let tierHistory: unknown[] = [];
+    if (settingsBranchId) {
+      const historyFilter = { companyCode: scope.companyCode, branchId: settingsBranchId, customerId: id };
+      const latest = await RetailCustomerTierHistoryModel.findOne(historyFilter).sort({ changedAt: -1 }).lean();
+      if (!latest || latest.toTierCode !== tier.code) {
+        await RetailCustomerTierHistoryModel.create({ ...historyFilter, fromTierCode: latest?.toTierCode, fromTierName: latest?.toTierName, toTierCode: tier.code, toTierName: tier.name, totalSales: summary.totalSales, reason: "automatic-sales-recalculation", changedAt: new Date() });
+      }
+      tierHistory = await RetailCustomerTierHistoryModel.find(historyFilter).sort({ changedAt: -1 }).limit(50).lean();
+    }
     const payments = orders.flatMap((order: any) => [
       ...(order.payments || []).map((payment: any) => ({ ...payment, orderId: String(order._id), orderCode: order.orderCode, direction: "collection" })),
       ...(order.refunds || []).map((refund: any) => ({ ...refund, orderId: String(order._id), orderCode: order.orderCode, direction: "refund" })),
     ]).sort((a: any, b: any) => new Date(b.paidAt || b.refundedAt).getTime() - new Date(a.paidAt || a.refundedAt).getTime());
-    return { customer, summary, orders, payments };
+    return { customer, summary: { ...summary, tier }, tierHistory, orders, payments };
   },
 };

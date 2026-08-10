@@ -4,6 +4,7 @@ import { requireRetailBranch, retailScopeFromRequest, type RetailBranchScope } f
 import { hasEffectiveRetailCapability } from "../permissions";
 import { buildRetailReportWorkbook } from "../services/retail-report-export.service";
 import { RetailReportService } from "../services/retail-report.service";
+import { RetailDebtReminderService } from "../services/retail-debt-reminder.service";
 
 type BranchLookup = {
   findOne(filter: { _id: string; companyCode: string }): {
@@ -81,3 +82,11 @@ export const retailReportController = createRetailReportController({
   findBranchCode: loadRetailReportBranchCode,
   buildWorkbook: buildRetailReportWorkbook,
 });
+
+export async function remindOverdueRetailDebt(req: Request, res: Response, next: NextFunction) {
+  try {
+    return res.json({ success: true, data: await RetailDebtReminderService.run(scope(req)) });
+  } catch (error) {
+    return next(error);
+  }
+}
