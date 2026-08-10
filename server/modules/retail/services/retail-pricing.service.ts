@@ -11,6 +11,7 @@ const integerMoney = (value: number, name: string) => {
 const discountAmount = (discount: DiscountInput | undefined, base: number, name: string) => {
   if (!discount) return 0;
   const value = Number(discount.value);
+  if (isNaN(value) || value < 0) throw new Error(`${name} không được là số âm.`);
   const amount = discount.type === "percent" ? Math.round(base * percentage(value, name) / 100) : integerMoney(value, name);
   if (amount > base) throw new Error(`${name} không được vượt giá trị gốc.`);
   return amount;
@@ -39,7 +40,9 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
   const orderDiscount = discountAmount(input.orderDiscount, subtotal, "Giảm giá đơn");
   const lineDiscount = merchandiseBase - subtotal;
   const totalDiscount = lineDiscount + orderDiscount;
-  if (merchandiseBase > 0 && totalDiscount * 100 > merchandiseBase * maxDiscountPercent + 0.000001) throw new Error("Tổng giảm giá vượt hạn mức của chi nhánh.");
+  if (merchandiseBase > 0 && totalDiscount * 100 > merchandiseBase * maxDiscountPercent + 0.000001) {
+    throw new Error(`Tổng giảm giá (${totalDiscount.toLocaleString()} VNĐ) vượt quá hạn mức cho phép của chi nhánh (${maxDiscountPercent}%).`);
+  }
   const taxable = subtotal - orderDiscount;
   const taxAmount = Math.round(taxable * taxRate / 100);
   return { lines, subtotal, orderDiscount, taxRate, taxAmount, shippingFee, grandTotal: taxable + taxAmount + shippingFee, totalCost, totalDiscount };
