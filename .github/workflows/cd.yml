@@ -24,15 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install dependencies
-        run: |
-          corepack enable
-          yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile
 
       - name: Type check
         run: yarn typecheck
