@@ -467,6 +467,11 @@ export const payrollController = {
         employeeName: row.employeeName,
         calculation: {
           ...calculation,
+          // Lưu lại các khoản điều chỉnh để bảng lương hiển thị cột thưởng/phạt.
+          allowances: empAdjustments.allowances,
+          bonuses: empAdjustments.bonuses,
+          otherDeductions: empAdjustments.deductions,
+          adjustments: empAdjustments.adjustments,
           gross: vietnam.income.totalIncome,
           deductions: vietnam.deductions.total,
           net: vietnam.netPay,
@@ -664,6 +669,11 @@ export const payrollController = {
               employeeName: row.employeeName,
               calculation: {
                 ...calculation,
+                // Lưu lại các khoản điều chỉnh để bảng lương hiển thị cột thưởng/phạt.
+                allowances: empAdjustments.allowances,
+                bonuses: empAdjustments.bonuses,
+                otherDeductions: empAdjustments.deductions,
+                adjustments: empAdjustments.adjustments,
                 gross: vietnam.income.totalIncome,
                 deductions: vietnam.deductions.total,
                 net: vietnam.netPay,
@@ -766,6 +776,11 @@ export const payrollController = {
               employeeName: row.employeeName,
               calculation: {
                 ...calculation,
+                // Lưu lại các khoản điều chỉnh để bảng lương hiển thị cột thưởng/phạt.
+                allowances: empAdjustments.allowances,
+                bonuses: empAdjustments.bonuses,
+                otherDeductions: empAdjustments.deductions,
+                adjustments: empAdjustments.adjustments,
                 gross: vietnam.income.totalIncome,
                 deductions: vietnam.deductions.total,
                 net: vietnam.netPay,
