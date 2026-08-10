@@ -185,7 +185,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
     .map(({ activeGrossSales: _activeGrossSales, ...row }) => row)
     .sort((left, right) => right.netSales - left.netSales || left.cashierName.localeCompare(right.cashierName));
 
-  const debtOrders = orders.filter((order) => order.status === "confirmed" && order.dueAmount > 0);
+  const debtOrders = activeOrders.filter((order) => order.dueAmount > 0);
   const debtCustomers = new Map<string, RetailReportModel["debt"]["customers"][number]>();
   let overdueDebt = 0;
   let dueTodayDebt = 0;
@@ -221,7 +221,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       orderCount: activeOrders.length,
       averageOrderValue: activeOrders.length ? activeGrossSales / activeOrders.length : 0,
       collectedAmount: sum(orders.map(collectedFor)),
-      dueAmount: sum(activeOrders.filter((order) => order.status === "confirmed" && order.dueAmount > 0).map((order) => order.dueAmount)),
+      dueAmount: sum(debtOrders.map((order) => order.dueAmount)),
       totalCost,
       grossProfit,
       grossMarginPercent: netSales ? (grossProfit / netSales) * 100 : 0,

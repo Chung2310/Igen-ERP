@@ -160,13 +160,13 @@ test("uses payment amount, fills empty days, copies shifts, and sorts cashiers b
   });
 });
 
-test("groups debt by customer and classifies due dates using the Vietnam business date", () => {
+test("groups active confirmed and completed debt by customer and Vietnam business date", () => {
   const model = buildRetailReportModel({
     orders: [
       order({ orderCode: "DH-001", status: "confirmed", customerId: "customer-one", customerName: "Customer One", customerPhone: "0901", dueAmount: 50, dueDate: "2026-08-09T00:00:00.000Z" }),
       order({ orderCode: "DH-002", status: "confirmed", customerId: "customer-one", customerName: "Customer One", customerPhone: "0901", dueAmount: 100, dueDate: new Date("2026-08-09T17:00:00.000Z") }),
       order({ orderCode: "DH-003", status: "confirmed", customerId: "customer-two", customerName: "Customer Two", dueAmount: 30, dueDate: "2026-08-11" }),
-      order({ orderCode: "DH-004", status: "completed", customerId: "ignored", customerName: "Ignored", dueAmount: 90, dueDate: "2026-08-08" }),
+      order({ orderCode: "DH-004", status: "completed", customerId: "customer-three", customerName: "Customer Three", dueAmount: 90, dueDate: "2026-08-08" }),
       order({ orderCode: "DH-005", status: "cancelled", customerId: "ignored", customerName: "Ignored", dueAmount: 90, dueDate: "2026-08-08" }),
     ],
     shifts: [shift()],
@@ -175,9 +175,10 @@ test("groups debt by customer and classifies due dates using the Vietnam busines
     includeProfit: false,
   });
 
+  assert.equal(model.summary.dueAmount, 270);
   assert.deepEqual(model.debt, {
-    totalDebt: 180,
-    overdueDebt: 50,
+    totalDebt: 270,
+    overdueDebt: 140,
     dueTodayDebt: 100,
     upcomingDebt: 30,
     customers: [
@@ -189,6 +190,14 @@ test("groups debt by customer and classifies due dates using the Vietnam busines
         overdueDebt: 50,
         nearestDueDate: "2026-08-09",
         orderCount: 2,
+      },
+      {
+        customerId: "customer-three",
+        customerName: "Customer Three",
+        totalDebt: 90,
+        overdueDebt: 90,
+        nearestDueDate: "2026-08-08",
+        orderCount: 1,
       },
       {
         customerId: "customer-two",
