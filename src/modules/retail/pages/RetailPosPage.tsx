@@ -1,6 +1,7 @@
 import React from "react";
 import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
+import CheckoutSuccessDialog from "../components/pos/CheckoutSuccessDialog";
 import CustomerPicker from "../components/pos/CustomerPicker";
 import DiscountInput from "../components/pos/DiscountInput";
 import HeldDraftsBar from "../components/pos/HeldDraftsBar";
@@ -13,7 +14,7 @@ import { initialRetailCart, retailCartReducer, type RetailCartState } from "../h
 import { buildRetailOrderInput } from "../hooks/retailOrderInput";
 import { buildPaymentSummary } from "../hooks/retailPayment";
 import { useRetailScope } from "../hooks/useRetailScope";
-import type { RetailOrder, RetailPaymentInput, RetailProduct, RetailScope, RetailShift } from "../types";
+import type { RetailOrder, RetailOrderResult, RetailPaymentInput, RetailProduct, RetailScope, RetailShift } from "../types";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -29,6 +30,7 @@ export default function RetailPosPage() {
   const [busy, setBusy] = React.useState(false);
   const [paying, setPaying] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
+  const [completed, setCompleted] = React.useState<RetailOrderResult | null>(null);
 
   const show = React.useCallback((cause: unknown) => setMessage(cause instanceof Error ? cause.message : "Không xử lý được yêu cầu."), []);
   const refreshDrafts = React.useCallback(() => { if (scope) void retailOrdersApi.list(scope, { heldOnly: true, limit: 5 }).then((data) => setDrafts(data.items)).catch(show); }, [scope?.companyCode, scope?.branchId, show]);
@@ -51,14 +53,16 @@ export default function RetailPosPage() {
     setMessage(`Đang xử lý đơn treo #${value._id.slice(-6)}`);
   };
   const saveDraft = async () => { if (!cart.lines.length) return; setBusy(true); try { const input = buildRetailOrderInput(cart); if (draft) await retailOrdersApi.updateDraft(scope, draft._id, { ...input, version: draft.version }); else await retailOrdersApi.createDraft(scope, input); dispatch({ type: "reset" }); setDraft(null); refreshDrafts(); setMessage("Đã treo đơn. Đơn không giữ tồn kho."); } catch (error) { show(error); } finally { setBusy(false); } };
-  const checkout = async (payments: RetailPaymentInput[], dueDate?: string) => { if (!cart.quote) return; const customerId = cart.customer?._id; buildPaymentSummary(cart.quote.grandTotal, payments, { customerId, dueDate }); setBusy(true); const key = crypto.randomUUID(); try { const input = { ...buildRetailOrderInput(cart), dueDate }; const saved = draft ? await retailOrdersApi.updateDraft(scope, draft._id, { ...input, version: draft.version }) : await retailOrdersApi.createDraft(scope, input); await retailOrdersApi.confirm(scope, saved._id, { expectedGrandTotal: cart.quote.grandTotal, payments, idempotencyKey: key }); finish("Thanh toán thành công."); } catch (error) { const attempt = await retailOrdersApi.idempotency(scope, key).catch(() => null); if (attempt?.status === "completed") finish("Giao dịch đã hoàn tất."); else show(error); } finally { setBusy(false); } };
-  const finish = (text: string) => { dispatch({ type: "reset" }); setDraft(null); setPaying(false); refreshDrafts(); setMessage(text); };
+  const checkout = async (payments: RetailPaymentInput[], dueDate?: string) => { if (!cart.quote) return; const customerId = cart.customer?._id; buildPaymentSummary(cart.quote.grandTotal, payments, { customerId, dueDate }); setBusy(true); const key = crypto.randomUUID(); try { const input = { ...buildRetailOrderInput(cart), dueDate }; const saved = draft ? await retailOrdersApi.updateDraft(scope, draft._id, { ...input, version: draft.version }) : await retailOrdersApi.createDraft(scope, input); const result = await retailOrdersApi.confirm(scope, saved._id, { expectedGrandTotal: cart.quote.grandTotal, payments, idempotencyKey: key }); finish(result); } catch (error) { const attempt = await retailOrdersApi.idempotency(scope, key).catch(() => null); if (attempt?.status === "completed" && attempt.order && attempt.invoice) finish({ order: attempt.order, invoice: attempt.invoice }); else show(error); } finally { setBusy(false); } };
+  const finish = (result: RetailOrderResult) => { setCompleted(result); setDraft(null); setPaying(false); refreshDrafts(); setMessage(""); };
+  const newOrder = () => { dispatch({ type: "reset" }); setCompleted(null); setDraft(null); setMessage(""); };
 
   return <section className="grid min-h-[65vh] gap-4 lg:grid-cols-[1fr_440px]">
     <main className="space-y-4"><header className="flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-xl font-bold">Bán hàng</h1><p className="text-sm text-slate-500">{shift ? `${shift.shiftCode} · ${shift.businessDate}` : "Chưa mở ca bán hàng"}</p></div><button className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm" onClick={() => setScanning(true)}><Camera className="h-4 w-4" />Quét bằng camera</button></header><HeldDraftsBar drafts={drafts} activeId={draft?._id} onOpen={openDraft} /><label className="relative block"><Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" /><input autoFocus aria-label="Tìm hoặc quét sản phẩm" className="w-full rounded-xl border py-3 pl-10 pr-4" placeholder="Tên, SKU hoặc mã vạch" value={q} onChange={(event) => setQ(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && q.trim()) void scan(q.trim()); }} /></label><ProductGrid products={products} onAdd={(product) => dispatch({ type: "add", product })} /></main>
     <CartPanel scope={scope} cart={cart} message={message} busy={busy} canPay={Boolean(shift)} dispatch={dispatch} onHold={saveDraft} onPay={() => setPaying(true)} />
     {paying && cart.quote && <PaymentDialog total={cart.quote.grandTotal} busy={busy} customerId={cart.customer?._id} onClose={() => setPaying(false)} onSubmit={checkout} />}
     {scanning && <BarcodeScannerDialog onScan={(value) => void scan(value)} onClose={() => setScanning(false)} />}
+    {completed && <CheckoutSuccessDialog result={completed} onNewOrder={newOrder} onClose={() => setCompleted(null)} />}
   </section>;
 }
 
