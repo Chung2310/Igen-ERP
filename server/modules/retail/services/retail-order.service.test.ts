@@ -9,6 +9,7 @@ import {
   paymentStatusFor,
   serializeRetailOrder,
 } from "./retail-order.service";
+import * as orderService from "./retail-order.service";
 
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
@@ -64,4 +65,13 @@ test("only creator or manager can edit a held draft", () => {
 test("held draft expires after its business date", () => {
   assert.equal(isHeldDraftExpired("2026-08-10", "2026-08-10"), false);
   assert.equal(isHeldDraftExpired("2026-08-09", "2026-08-10"), true);
+});
+
+test("selected customer lookup is always company-wide, including fully paid orders", () => {
+  const customerLookupFilter = (orderService as any).customerLookupFilter;
+  assert.equal(typeof customerLookupFilter, "function");
+  assert.deepEqual(customerLookupFilter({ companyCode: "ACME", branchId: "branch-1" }, "customer-1"), {
+    _id: "customer-1",
+    companyCode: "ACME",
+  });
 });

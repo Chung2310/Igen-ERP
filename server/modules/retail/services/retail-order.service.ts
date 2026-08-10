@@ -97,6 +97,20 @@ async function priceInput(scope: RetailBranchScope, input: any) {
 
 function snapshotPayment(item: any, shift: any, actor: any) { return { ...item, paidAt: new Date(), receivedBy: actorId(actor), receivedByName: actorName(actor), shiftId: String(shift._id), businessDate: shift.businessDate }; }
 
+export function customerLookupFilter(scope: RetailBranchScope, customerId: string) {
+  return { _id: customerId, companyCode: scope.companyCode };
+}
+
+async function resolveOrderCustomer(scope: RetailBranchScope, customerId: unknown, session?: any) {
+  const id = String(customerId || "").trim();
+  if (!id) return null;
+  const query = RetailCustomerModel.findOne(customerLookupFilter(scope, id));
+  if (session) query.session(session);
+  const customer = await query.lean();
+  if (!customer) throw new Error("Không tìm thấy khách hàng.");
+  return customer;
+}
+
 export const RetailOrderService = {
   async quote(scope: RetailBranchScope, input: any) { return (await priceInput(scope, input)).pricing; },
   async list(scope: RetailBranchScope, query: any) {
@@ -118,11 +132,11 @@ export const RetailOrderService = {
     const used = await RetailOrderModel.find({ ...scope, status: "draft", createdBy: creator }).select("heldSlot").lean();
     assertHeldDraftCapacity(used.length);
     const occupied = new Set(used.map((item: any) => Number(item.heldSlot)));
-    const { pricing } = await priceInput(scope, input);
+    const [{ pricing }, customer] = await Promise.all([priceInput(scope, input), resolveOrderCustomer(scope, input.customerId)]);
     for (let slot = 1; slot <= 5; slot += 1) {
       if (occupied.has(slot)) continue;
       try {
-        return await RetailOrderModel.create({ ...scope, items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, payments: [], refunds: [], paidAmount: 0, refundedAmount: 0, dueAmount: pricing.grandTotal, paymentStatus: "unpaid", status: "draft", businessDate: currentBusinessDate, heldAt: new Date(), heldSlot: slot, salespersonId: String(input.salespersonId || creator), salespersonName: String(input.salespersonName || actorName(actor)), createdBy: creator, createdByName: actorName(actor), stockApplied: false, version: 0, customerId: input.customerId, dueDate: input.dueDate });
+        return await RetailOrderModel.create({ ...scope, items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, payments: [], refunds: [], paidAmount: 0, refundedAmount: 0, dueAmount: pricing.grandTotal, paymentStatus: "unpaid", status: "draft", businessDate: currentBusinessDate, heldAt: new Date(), heldSlot: slot, salespersonId: String(input.salespersonId || creator), salespersonName: String(input.salespersonName || actorName(actor)), createdBy: creator, createdByName: actorName(actor), stockApplied: false, version: 0, customerId: customer ? String(customer._id) : undefined, customerName: customer?.name, customerPhone: customer?.phone, dueDate: input.dueDate });
       } catch (error) {
         if (!duplicate(error)) throw error;
       }
@@ -137,7 +151,7 @@ export const RetailOrderService = {
     assertHeldDraftAccess(String(existing.createdBy), actorId(actor), canManage);
     const expectedVersion = Number(input.version);
     if (!Number.isSafeInteger(expectedVersion)) throw retailError("Phiên bản đơn hàng là bắt buộc.", "ORDER_VERSION_CONFLICT");
-    const { pricing } = await priceInput(scope, input); const order = await RetailOrderModel.findOneAndUpdate({ _id: id, ...scope, status: "draft", version: expectedVersion }, { $set: { items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, dueAmount: pricing.grandTotal, customerId: input.customerId, dueDate: input.dueDate }, $inc: { version: 1 } }, { new: true }); if (!order) throw retailError("Đơn đã được thay đổi ở màn hình khác.", "ORDER_VERSION_CONFLICT"); return order;
+    const [{ pricing }, customer] = await Promise.all([priceInput(scope, input), resolveOrderCustomer(scope, input.customerId)]); const order = await RetailOrderModel.findOneAndUpdate({ _id: id, ...scope, status: "draft", version: expectedVersion }, { $set: { items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, dueAmount: pricing.grandTotal, customerId: customer ? String(customer._id) : undefined, customerName: customer?.name, customerPhone: customer?.phone, dueDate: input.dueDate }, $inc: { version: 1 } }, { new: true }); if (!order) throw retailError("Đơn đã được thay đổi ở màn hình khác.", "ORDER_VERSION_CONFLICT"); return order;
   },
   async confirm(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any, canManage = false) {
     const key = String(input.idempotencyKey || "").trim(); if (!key) throw new Error("Idempotency key là bắt buộc.");
@@ -149,7 +163,8 @@ export const RetailOrderService = {
       assertHeldDraftAccess(String(draft.createdBy), actorId(actor), canManage);
       const { settings, pricing } = await priceInput(scope, draft.toObject()); if (Number(input.expectedGrandTotal) !== pricing.grandTotal) throw Object.assign(new Error("Tổng tiền đã thay đổi."), { code: "ORDER_TOTAL_MISMATCH", status: 409, details: { expected: Number(input.expectedGrandTotal), actual: pricing.grandTotal } });
       const normalized = normalizePayments(input.payments || [], pricing.grandTotal); const dueAmount = pricing.grandTotal - normalized.total;
-      let customer: any = null; if (dueAmount > 0) { if (!draft.customerId || !draft.dueDate) throw new Error("Bán nợ cần khách hàng và hạn thanh toán."); customer = await RetailCustomerModel.findOne({ _id: draft.customerId, companyCode: scope.companyCode }).session(session); if (!customer) throw new Error("Không tìm thấy khách hàng."); }
+      if (dueAmount > 0 && (!draft.customerId || !draft.dueDate)) throw new Error("Bán nợ cần khách hàng và hạn thanh toán.");
+      const customer: any = await resolveOrderCustomer(scope, draft.customerId, session);
       const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).session(session).lean(); if (!branch) throw new Error("Chi nhánh bán hàng không hợp lệ.");
       const scopeKey = monthlyScope(shift.businessDate); const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { new: true, upsert: true, session }); const orderCode = formatRetailDocumentCode(settings.orderPrefix, branch.code, scopeKey, counter!.seq);
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
