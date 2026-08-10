@@ -17,8 +17,10 @@ jobs:
   # BƯỚC 1: KIỂM TRA CHẤT LƯỢNG CODE (Chạy cho cả Push và Pull Request)
   ci-checks:
     name: Step 1 - Lint & Type Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 15
+    env:
+      NODE_OPTIONS: --max-old-space-size=1536
     steps:
       - uses: actions/checkout@v4
 
@@ -26,10 +28,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
 
       - name: Type check
         run: yarn typecheck
@@ -43,7 +46,7 @@ jobs:
   # BƯỚC 2: BUILD DOCKER IMAGE (Chỉ chạy khi push/merge và Step 1 thành công)
   build-image:
     name: Step 2 - Build & Push Docker Image
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: ci-checks
     if: github.event_name == 'push'
     timeout-minutes: 30
@@ -99,7 +102,7 @@ jobs:
   # BƯỚC 3: DEPLOY VPS (Chỉ chạy khi Step 2 thành công)
   deploy:
     name: Step 3 - Deploy to VPS
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-image
     if: github.event_name == 'push'
     timeout-minutes: 15
