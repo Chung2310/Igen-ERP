@@ -19,6 +19,10 @@ const settings = {
   companyCode: "ACME", branchId: "B1", allowNegativeStock: false,
   maxDiscountPercent: 0, defaultTaxRate: 0, varianceReasonThreshold: 0,
   orderPrefix: "DH", invoicePrefix: "HD",
+  customerTiers: [
+    { code: "standard", name: "Thành viên", minSpend: 0 },
+    { code: "vip", name: "VIP", minSpend: 50_000_000 },
+  ],
 };
 
 afterEach(cleanup);
