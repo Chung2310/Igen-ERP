@@ -1,14 +1,22 @@
 import { lazy, Suspense } from "react";
-import { Settings, Users } from "lucide-react";
+import { FileText, ListOrdered, MonitorSmartphone, Settings, Store, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 
 const CustomersPage = lazy(() => import("./pages/RetailCustomersPage"));
 const SettingsPage = lazy(() => import("./pages/RetailSettingsPage"));
+const PosPage = lazy(() => import("./pages/RetailPosPage"));
+const OrdersPage = lazy(() => import("./pages/RetailOrdersPage"));
+const ShiftsPage = lazy(() => import("./pages/RetailShiftsPage"));
+const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPage"));
 
-type RetailSubTab = "KHÁCH HÀNG" | "CÀI ĐẶT";
+type RetailSubTab = "BÁN HÀNG" | "ĐƠN HÀNG" | "CA BÁN HÀNG" | "HÓA ĐƠN" | "KHÁCH HÀNG" | "CÀI ĐẶT";
 const SUB_TABS = [
+  { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Bán hàng", icon: Store },
+  { slug: "don-hang", value: "ĐƠN HÀNG" as const, label: "Đơn hàng", icon: ListOrdered },
+  { slug: "ca-ban-hang", value: "CA BÁN HÀNG" as const, label: "Ca bán hàng", icon: MonitorSmartphone },
+  { slug: "hoa-don", value: "HÓA ĐƠN" as const, label: "Hóa đơn", icon: FileText },
   { slug: "khach-hang", value: "KHÁCH HÀNG" as const, label: "Khách hàng", icon: Users },
   { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
 ];
@@ -21,7 +29,7 @@ export default function RetailWorkspace() {
       : userProfile?.permissions || [],
   );
   const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
-  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "KHÁCH HÀNG");
+  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "BÁN HÀNG");
 
   if (!tabs.length) {
     return <div className="p-6 text-sm font-semibold text-amber-800">Bạn chưa được cấp quyền sử dụng chức năng này.</div>;
@@ -42,7 +50,12 @@ export default function RetailWorkspace() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <Suspense fallback={<div className="text-sm text-slate-500">Đang tải phân hệ bán lẻ...</div>}>
-          {activeTab === "CÀI ĐẶT" ? <SettingsPage /> : <CustomersPage />}
+          {activeTab === "BÁN HÀNG" && <PosPage />}
+          {activeTab === "ĐƠN HÀNG" && <OrdersPage />}
+          {activeTab === "CA BÁN HÀNG" && <ShiftsPage />}
+          {activeTab === "HÓA ĐƠN" && <InvoicesPage />}
+          {activeTab === "KHÁCH HÀNG" && <CustomersPage />}
+          {activeTab === "CÀI ĐẶT" && <SettingsPage />}
         </Suspense>
       </div>
     </div>

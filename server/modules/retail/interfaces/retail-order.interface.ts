@@ -8,7 +8,7 @@ export interface IRetailOrder {
   orderCode?: string; companyCode: string; branchId: string; shiftId?: string; customerId?: string; customerName?: string; customerPhone?: string;
   items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; totalCost: number;
   payments: RetailOrderPayment[]; refunds: RetailOrderRefund[]; paidAmount: number; refundedAmount: number; dueAmount: number; paymentStatus: RetailPaymentStatus; dueDate?: Date;
-  status: RetailOrderStatus; businessDate?: string; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string;
+  status: RetailOrderStatus; businessDate?: string; heldAt?: Date; heldSlot?: number; expiredBySystem?: boolean; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string;
   salespersonId: string; salespersonName: string; createdBy: string; createdByName: string; stockApplied: boolean; stockRevertedAt?: Date; version: number;
   createdAt?: Date; updatedAt?: Date;
 }

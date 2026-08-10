@@ -3,6 +3,7 @@ import { IProduct } from "../interface/product.interface";
 
 const ProductSchema = new Schema<IProduct>({
   sku: { type: String, required: true, index: true },
+  barcode: { type: String, trim: true, index: true },
   name: { type: String, required: true, index: true },
   category: { type: String, required: true, index: true },
   brand: { type: String, default: "" },
