@@ -5,7 +5,19 @@ import type { RetailReport, RetailReportFilters, RetailScope } from "../types";
 const DEFAULT_EXPORT_FILENAME = "bao-cao-ban-le.xlsx";
 
 function reportParams(scope: RetailScope, filters: RetailReportFilters) {
-  return { ...scope, ...filters };
+  const params: Record<string, string> = {
+    companyCode: scope.companyCode,
+    branchId: scope.branchId,
+  };
+
+  if ((filters.preset === "7d" || filters.preset === "30d") && filters.from === undefined && filters.to === undefined) {
+    params.preset = filters.preset;
+  } else if (filters.preset === undefined && typeof filters.from === "string" && typeof filters.to === "string") {
+    params.from = filters.from;
+    params.to = filters.to;
+  }
+
+  return params;
 }
 
 function buildExportUrl(scope: RetailScope, filters: RetailReportFilters): string {

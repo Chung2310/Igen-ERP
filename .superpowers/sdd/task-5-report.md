@@ -44,3 +44,36 @@ Implemented the Retail report types, scoped summary/export client, `bao-cao` per
 
 - `RetailReportsPage.tsx` is intentionally a minimal compile placeholder. Task 6 owns the complete dashboard and will replace it.
 - The worktree relies on the parent repository dependencies; use `node ../../node_modules/typescript/bin/tsc --noEmit` for typechecking unless dependencies are installed inside the worktree.
+
+## Review fix — runtime query allowlist
+
+### RED
+
+- Command: `npx vitest run src/modules/retail/api/retailReports.api.test.ts`
+- Outcome: exit 1; 1 file failed, 2 tests failed and 4 passed.
+- Expected failure evidence:
+  - Summary received `companyCode: "OTHER"`, `branchId: "B2"`, and `includeProfit: true` from extra runtime filter keys.
+  - Export requested `companyCode=OTHER&branchId=B2&preset=30d&includeProfit=true`.
+
+### GREEN and verification
+
+- Command: `npx vitest run src/modules/retail/api/retailReports.api.test.ts`
+  - Outcome: exit 0; 1 file passed, 6 tests passed.
+- Command: `npx vitest run src/modules/retail/api/retailReports.api.test.ts src/modules/retail/retailTabPermissions.test.ts`
+  - Outcome: exit 0; 2 files passed, 9 tests passed.
+- Command: `node ../../node_modules/typescript/bin/tsc --noEmit`
+  - Outcome: exit 0; no diagnostics.
+
+### Files
+
+- `src/modules/retail/api/retailReports.api.ts`
+- `src/modules/retail/api/retailReports.api.test.ts`
+- `.superpowers/sdd/task-5-report.md`
+
+### Self-review
+
+- Scope and filters are no longer spread into request params.
+- `companyCode` and `branchId` are copied explicitly and exclusively from the `scope` argument.
+- Runtime filter serialization accepts only `7d`/`30d` preset without date keys, or a complete `from`/`to` pair without preset; all unrelated enumerable keys are ignored.
+- Regression tests pass hostile runtime filters through casts and prove both summary and export preserve scope and omit `includeProfit`.
+- Existing API error parsing, authenticated blob download, filename handling, anchor cleanup, and object URL revocation tests remain green.

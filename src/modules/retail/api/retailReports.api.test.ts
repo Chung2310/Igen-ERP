@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiClientError } from "../../../services/apiClientError";
 import { apiFetch, getAccessToken } from "../../shared/lib/apiFetch";
+import type { RetailReportFilters } from "../types";
 import { retailReportsApi } from "./retailReports.api";
 
 vi.mock("../../shared/lib/apiFetch", () => ({
@@ -51,6 +52,22 @@ describe("retailReportsApi", () => {
     expect(vi.mocked(apiFetch).mock.calls[0]?.[1]?.params).not.toHaveProperty("includeProfit");
   });
 
+  it("does not let extra summary filter keys override scope or request profit", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: report });
+    const unsafeFilters = {
+      preset: "7d",
+      includeProfit: true,
+      companyCode: "OTHER",
+      branchId: "B2",
+    } as unknown as RetailReportFilters;
+
+    await retailReportsApi.summary(scope, unsafeFilters);
+
+    expect(apiFetch).toHaveBeenCalledWith("/retail/reports/summary", {
+      params: { companyCode: "ACME", branchId: "B1", preset: "7d" },
+    });
+  });
+
   it("exports a preset with authentication and cleans up its object URL", async () => {
     const blob = new Blob(["workbook"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const fetchMock = vi.fn().mockResolvedValue(new Response(blob, {
@@ -73,6 +90,29 @@ describe("retailReportsApi", () => {
     expect(createObjectURL).toHaveBeenCalledWith(blob);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:retail-report");
     expect(document.querySelector("a")).toBeNull();
+  });
+
+  it("does not let extra export filter keys override scope or request profit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Blob(["workbook"]), { status: 200 }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", Object.assign(URL, {
+      createObjectURL: vi.fn().mockReturnValue("blob:retail-report"),
+      revokeObjectURL: vi.fn(),
+    }));
+    const unsafeFilters = {
+      preset: "30d",
+      includeProfit: true,
+      companyCode: "OTHER",
+      branchId: "B2",
+    } as unknown as RetailReportFilters;
+
+    await retailReportsApi.export(scope, unsafeFilters);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/retail/reports/export?companyCode=ACME&branchId=B1&preset=30d",
+      expect.any(Object),
+    );
   });
 
   it("sanitizes an unsafe attachment filename", async () => {
