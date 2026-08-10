@@ -1,6 +1,6 @@
 import { Schema, model } from "mongoose";
 import { ICompany } from "../interface/company.interface";
-import { MODULE_KEYS } from "../config/module-keys";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/module-keys";
 
 const CompanyDriveOAuthSchema = new Schema(
   {
@@ -64,7 +64,7 @@ const CompanySchema = new Schema<ICompany>({
   createdAt: { type: Date, default: Date.now },
   ownerEmail: { type: String, required: true },
   businessType: { type: String, enum: ["education", "labor", "service", "recruitment", "general"], default: "general", index: true },
-  enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...MODULE_KEYS] },
+  enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...DEFAULT_MODULE_KEYS] },
   driveFolderLink: { type: String, default: "" },
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },

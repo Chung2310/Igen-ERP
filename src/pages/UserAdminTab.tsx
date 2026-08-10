@@ -23,7 +23,7 @@ import { CompanyEditFormState, CompanyFormState } from "../components/user-admin
 import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
-import { MODULE_KEYS } from "../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 
 export default function UserAdminTab() {
@@ -82,7 +82,7 @@ export default function UserAdminTab() {
   const [submittingCompany, setSubmittingCompany] = useState(false);
   const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyEditFormState | null>(null);
-  const [selectedModules, setSelectedModules] = useState<string[]>([...MODULE_KEYS]);
+  const [selectedModules, setSelectedModules] = useState<string[]>([...DEFAULT_MODULE_KEYS]);
 
   // Register User Modal States
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -454,7 +454,7 @@ export default function UserAdminTab() {
       setOwnerName("");
       setOwnerEmail("");
       setOwnerPassword("");
-      setSelectedModules([...MODULE_KEYS]);
+      setSelectedModules([...DEFAULT_MODULE_KEYS]);
       // Refresh lists
       await fetchUsers();
       await fetchCompanies();
@@ -491,7 +491,7 @@ export default function UserAdminTab() {
       name: targetCompany.name,
       code: targetCompany.code,
       ownerEmail: targetCompany.ownerEmail,
-      enabledModules: targetCompany.enabledModules?.length ? targetCompany.enabledModules : [...MODULE_KEYS],
+      enabledModules: targetCompany.enabledModules?.length ? targetCompany.enabledModules : [...DEFAULT_MODULE_KEYS],
     });
     setIsEditCompanyModalOpen(true);
   };
@@ -942,7 +942,7 @@ export default function UserAdminTab() {
       <CompanyModal
         mode="edit"
         open={isEditCompanyModalOpen && !!editingCompany}
-        form={editingCompany || { id: "", name: "", code: "", ownerEmail: "", enabledModules: [...MODULE_KEYS] }}
+        form={editingCompany || { id: "", name: "", code: "", ownerEmail: "", enabledModules: [...DEFAULT_MODULE_KEYS] }}
         submitting={submittingCompany}
         onClose={() => setIsEditCompanyModalOpen(false)}
         onChange={(field, value) => handleEditCompanyFormChange(field as keyof CompanyEditFormState, value)}

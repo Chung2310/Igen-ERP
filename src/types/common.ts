@@ -3,6 +3,7 @@ export type TabType =
   | "QUẢN LÝ LAO ĐỘNG"
   | "QUẢN LÝ KHÁCH HÀNG"
   | "QUẢN LÝ ỨNG VIÊN"
+  | "BÁN LẺ"
   | "TỔNG QUAN"
   | "NHÂN SỰ"
   | "ĐỐI TÁC"

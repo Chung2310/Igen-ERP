@@ -1,7 +1,7 @@
 import React from "react";
 import { X } from "lucide-react";
 import { superAdminTenantService } from "../../../services/superAdminTenantService";
-import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, type BusinessType } from "../../../config/businessTypes";
 
 export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
@@ -10,7 +10,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
   const [ownerName, setOwnerName] = React.useState("");
   const [ownerEmail, setOwnerEmail] = React.useState("");
   const [ownerPassword, setOwnerPassword] = React.useState("");
-  const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>(MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, "education")));
+  const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>(DEFAULT_MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, "education")));
   const [businessType, setBusinessType] = React.useState<BusinessType>("education");
   const [error, setError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
