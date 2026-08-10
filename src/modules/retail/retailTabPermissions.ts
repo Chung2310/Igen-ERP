@@ -1,6 +1,6 @@
-export type RetailTabSlug = "ban-hang" | "don-hang" | "ca-ban-hang" | "hoa-don" | "khach-hang" | "cai-dat";
+export type RetailTabSlug = "ban-hang" | "don-hang" | "ca-ban-hang" | "hoa-don" | "bao-cao" | "khach-hang" | "cai-dat";
 
-const OPERATIONAL_TABS: RetailTabSlug[] = ["ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "khach-hang"];
+const OPERATIONAL_TABS: RetailTabSlug[] = ["ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang"];
 
 export function getAllowedRetailTabSlugs(permissions: readonly string[] = []): RetailTabSlug[] {
   const granted = new Set(permissions);

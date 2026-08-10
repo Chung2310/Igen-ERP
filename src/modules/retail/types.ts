@@ -40,3 +40,69 @@ export interface RetailOrder { _id: string; orderCode?: string; status: "draft" 
 export interface RetailInvoice { _id: string; invoiceNo: string; orderId: string; orderCode: string; issuedAt: string; status: "issued" | "void"; snapshot: { customerName: string; customerPhone?: string; cashierName: string; businessDate?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; payments: Array<{ method: string; amount: number; tenderedAmount?: number; changeAmount?: number; reference?: string }>; amountInWords: string } }
 export interface RetailOrderResult { order: RetailOrder; invoice: RetailInvoice }
 export interface RetailShift { _id: string; shiftCode: string; cashierId: string; cashierName: string; openingFloat: number; businessDate: string; status: "open" | "closed" | "reconciled"; expectedCash?: number; countedCash?: number; varianceAmount?: number; varianceReason?: string; grossSales?: number; collectedAmount?: number; refundedAmount?: number }
+
+export type RetailReportFilters =
+  | { preset: "7d" | "30d"; from?: never; to?: never }
+  | { preset?: never; from: string; to: string }
+  | { preset?: never; from?: never; to?: never };
+
+export interface RetailReport {
+  range: { from: string; to: string };
+  summary: {
+    grossSales: number;
+    refunds: number;
+    netSales: number;
+    orderCount: number;
+    averageOrderValue: number;
+    collectedAmount: number;
+    dueAmount: number;
+    totalCost?: number;
+    grossProfit?: number;
+    grossMarginPercent?: number;
+  };
+  timeSeries: Array<{
+    businessDate: string;
+    grossSales: number;
+    refunds: number;
+    netSales: number;
+    collectedAmount: number;
+    orderCount: number;
+  }>;
+  paymentMix: Array<{ method: RetailPaymentInput["method"]; amount: number }>;
+  cashiers: Array<{
+    cashierId: string;
+    cashierName: string;
+    orderCount: number;
+    grossSales: number;
+    refunds: number;
+    netSales: number;
+    averageOrderValue: number;
+  }>;
+  shifts: Array<{
+    shiftId: string;
+    shiftCode: string;
+    businessDate: string;
+    cashierId: string;
+    cashierName: string;
+    status: string;
+    grossSales: number;
+    collectedAmount: number;
+    refundedAmount: number;
+    varianceAmount?: number;
+  }>;
+  debt: {
+    totalDebt: number;
+    overdueDebt: number;
+    dueTodayDebt: number;
+    upcomingDebt: number;
+    customers: Array<{
+      customerId: string;
+      customerName: string;
+      customerPhone?: string;
+      totalDebt: number;
+      overdueDebt: number;
+      nearestDueDate?: string;
+      orderCount: number;
+    }>;
+  };
+}
