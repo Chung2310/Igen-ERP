@@ -7,3 +7,4 @@ export const retailReportRoutes = Router();
 const operate = requirePermission([RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any;
 
 retailReportRoutes.get("/summary", operate, retailReportController.summary as any);
+retailReportRoutes.get("/export", operate, retailReportController.export as any);
