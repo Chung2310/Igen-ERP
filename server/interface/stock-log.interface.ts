@@ -12,7 +12,7 @@ export interface IStockLogItem {
 }
 
 export type StockLogPurpose = "bán" | "nội bộ" | "hủy" | "chuyển kho";
-export type StockLogRefType = "retail-order" | "sales-return" | "supplier-return";
+export type StockLogRefType = "retail-order" | "goods-receipt" | "sales-return" | "supplier-return";
 
 export interface IStockLog extends Document {
   type: "nhập" | "xuất";
