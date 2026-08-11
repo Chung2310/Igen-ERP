@@ -13,6 +13,7 @@ const NotificationSchema = new Schema<INotification>(
     },
     companyCode: { type: String, required: true, index: true },
     recipientUid: { type: String, required: true, index: true },
+    idempotencyKey: { type: String },
     read: { type: Boolean, default: false, index: true },
     action: {
       tab: { type: String },
@@ -20,6 +21,11 @@ const NotificationSchema = new Schema<INotification>(
     },
     createdAt: { type: Date, default: Date.now, index: true },
   }
+);
+
+NotificationSchema.index(
+  { companyCode: 1, recipientUid: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
 );
 
 // Tên "Notification" đã được module Quản lý Học viên đăng ký (collection "notifications"),

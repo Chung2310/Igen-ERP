@@ -4,6 +4,7 @@ import type { IRetailSettings } from "../interfaces/retail-settings.interface";
 const RetailSettingsSchema = new Schema<IRetailSettings>({
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, required: true, index: true },
+  customerTiers: { type: [{ code: { type: String, required: true }, name: { type: String, required: true }, minSpend: { type: Number, required: true, min: 0 } }], _id: false, default: undefined },
   allowNegativeStock: { type: Boolean, default: false },
   maxDiscountPercent: { type: Number, min: 0, max: 100, default: 0 },
   defaultTaxRate: { type: Number, min: 0, max: 100, default: 0 },

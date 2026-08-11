@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatRetailCustomerCode, normalizeCustomerInput, customerCompanyFilter } from "./retail-customer.service";
+import { formatRetailCustomerCode, normalizeCustomerInput, customerCompanyFilter, resolveCustomerTier } from "./retail-customer.service";
 
 test("customer codes use a permanent company-wide sequence", () => {
   assert.equal(formatRetailCustomerCode("acme", 1), "KH-ACME-000001");
@@ -26,4 +26,15 @@ test("customer requires a name and rejects empty normalized phone", () => {
     name: "Khách không SĐT", phone: undefined, normalizedPhone: undefined,
     email: undefined, address: undefined, notes: undefined,
   });
+});
+
+test("customer tier follows configured cumulative net sales thresholds", () => {
+  const tiers = [
+    { code: "member", name: "Thành viên", minSpend: 0 },
+    { code: "gold", name: "Vàng", minSpend: 20_000_000 },
+    { code: "vip", name: "VIP", minSpend: 50_000_000 },
+  ];
+  assert.equal(resolveCustomerTier(19_999_999, tiers).code, "member");
+  assert.equal(resolveCustomerTier(20_000_000, tiers).code, "gold");
+  assert.equal(resolveCustomerTier(70_000_000, tiers).code, "vip");
 });
