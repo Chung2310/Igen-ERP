@@ -36,6 +36,13 @@ describe("payroll policy version operations", () => {
     expect(mocks.create.mock.calls[0][0]).not.toHaveProperty("activatedBy");
   });
 
+  it("applies reviewed form values atomically when cloning", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "p1", status: "active", version: 7, ...definition }));
+    mocks.create.mockImplementation(async (value: any) => ({ _id: "p2", ...value }));
+    await clonePayrollPolicy("ACME", "p1", "manager", { code: "vn-copy", name: "Reviewed copy", definition: { ...definition, code: "vn-copy", name: "Reviewed copy", baseSalary: 2 } } as any);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ code: "vn-copy", name: "Reviewed copy", baseSalary: 2, status: "draft" }));
+  });
+
   it("blocks deletion when a finalized run references the policy", async () => {
     mocks.findOne.mockReturnValue(lean({ _id: "p1", status: "retired", ...definition }));
     mocks.runFind.mockReturnValue(selectLean([{ periodKey: "2026-07", lines: [{ policyId: "p1" }] }]));
