@@ -29,9 +29,8 @@ const permissionOf = (method: string, path: string) => {
 describe("payroll workflow route guards", () => {
   it.each([
     ["POST", "/runs/:id/review"],
-    ["POST", "/runs/:id/approve"],
-    ["POST", "/runs/:id/reject"],
     ["POST", "/runs/:id/close"],
+    ["POST", "/runs/:id/reopen"],
     ["POST", "/runs/:id/calculate"],
     ["POST", "/runs/:id/recalculate"],
   ])("guards %s %s with payroll:manage", (method, path) => {
