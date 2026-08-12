@@ -8,8 +8,8 @@ export function createPayrollRevisionRepositories(scope: { companyCode: string; 
       get: async () => PayrollRunModel.findOne({ _id: runId, ...scope }).lean(),
       activateRevision: async (revisionId: string, expectedVersion: number, checksum: string) =>
         PayrollRunModel.findOneAndUpdate(
-          { _id: runId, ...scope, version: expectedVersion, status: { $in: ["attendance_locked", "calculated"] } },
-          { $set: { activeRevisionId: revisionId, activeRevisionChecksum: checksum, status: "calculated" }, $inc: { version: 1 } },
+          { _id: runId, ...scope, version: expectedVersion, status: "draft" },
+          { $set: { activeRevisionId: revisionId, activeRevisionChecksum: checksum }, $inc: { version: 1 } },
           { new: true },
         ).lean(),
     },

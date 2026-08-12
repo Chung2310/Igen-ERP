@@ -121,8 +121,8 @@ describe("payrollController.createRun branch scope", () => {
   });
 
   it.each([
-    ["approveRun", "calculated", "approved"],
-    ["closeRun", "approved", "closed"],
+    ["approveRun", "draft", "review"],
+    ["closeRun", "review", "closed"],
   ] as const)("%s mutates only the deterministic regular run in the authenticated branch", async (method, fromStatus, toStatus) => {
     mocks.payrollFindOneAndUpdate.mockResolvedValue({ _id: "branch-a-regular", status: toStatus });
     const res = response();

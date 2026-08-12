@@ -40,7 +40,7 @@ describe("calculateDetailedPayrollBatch", () => {
 describe("calculateRun for a whole run", () => {
   const repositories = (overrides: any = {}) => ({
     run: {
-      get: async () => ({ id: "run-1", status: "attendance_locked", version: 1 }),
+      get: async () => ({ id: "run-1", status: "draft", version: 1 }),
       activateRevision: vi.fn(async () => ({ version: 2 })),
       ...overrides.run,
     },

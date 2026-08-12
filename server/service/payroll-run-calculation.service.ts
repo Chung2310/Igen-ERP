@@ -152,7 +152,7 @@ export async function calculateRun(args: {
   const run = await args.run.get();
   if (!run) return { code: "PAYROLL_RUN_NOT_FOUND" };
   if (run.version !== args.expectedVersion) return { code: "PAYROLL_VERSION_CONFLICT", currentVersion: run.version };
-  if (!["attendance_locked", "calculated"].includes(run.status)) return { code: "PAYROLL_RUN_STATE_INVALID", status: run.status };
+  if (run.status !== "draft") return { code: "PAYROLL_RUN_STATE_INVALID", status: run.status };
   const runId = run.id ?? (run._id === undefined ? undefined : String(run._id));
   const revision = await args.revision.nextRevision(runId);
   const started = await args.revision.create({ runId, revision, status: "running", lines: [], totals: { grossPay: 0, deductions: 0, netPay: 0 }, issues: [] });
