@@ -224,7 +224,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const hasPayrollPolicy = policiesLoaded && hasActivePolicyForMonth(payrollPolicies, period);
   const processingAction = getPayrollProcessingAction(run?.status, processingPayroll, hasPayrollPolicy);
 
-  const processPeriod = async () => {
+  const processPeriod = async (propagateError = false) => {
     if (processingPayroll) return;
     setProcessingPayroll(true);
     try {
@@ -233,6 +233,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       await reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xử lý bảng lương");
+      if (propagateError) throw error;
     } finally {
       setProcessingPayroll(false);
     }
@@ -297,7 +298,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
-    {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} />}
+    {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">

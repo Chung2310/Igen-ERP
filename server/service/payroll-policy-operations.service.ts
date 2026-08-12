@@ -132,11 +132,11 @@ export async function updatePayrollPolicy(companyCode: string, policyId: string,
   if (invalid) raise(invalid);
   try {
     const updated: any = await PayrollPolicyModel.findOneAndUpdate(
-      { _id: policyId, companyCode, status: "draft", version: expectedVersion },
+      { _id: policyId, companyCode, status: { $in: ["draft", "active"] }, version: expectedVersion },
       { $set: input, $inc: { version: 1 } },
       { new: true, runValidators: true },
     ).lean();
-    if (!updated) raise({ code: "PAYROLL_POLICY_VERSION_CONFLICT", message: "Only the current draft policy can be edited", status: 409 });
+    if (!updated) raise({ code: "PAYROLL_POLICY_VERSION_CONFLICT", message: "Only the current draft or active policy version can be edited", status: 409 });
     await auditPolicy(companyCode, actorId, { operation: "update_policy", policyId, code: updated.code, expectedVersion });
     return updated;
   } catch (error: any) {

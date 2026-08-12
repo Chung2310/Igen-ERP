@@ -63,7 +63,17 @@ describe("payroll policy version operations", () => {
     mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "p1", status: "draft", version: 3, ...definition }));
     await updatePayrollPolicy("ACME", "p1", "manager", 2, definition);
     expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: "draft", version: 2 }),
+      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 2 }),
+      { $set: definition, $inc: { version: 1 } },
+      { new: true, runValidators: true },
+    );
+  });
+
+  it("updates an active policy at the expected version without changing its status", async () => {
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "p1", status: "active", version: 4, ...definition }));
+    await updatePayrollPolicy("ACME", "p1", "manager", 3, definition);
+    expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 3 }),
       { $set: definition, $inc: { version: 1 } },
       { new: true, runValidators: true },
     );
