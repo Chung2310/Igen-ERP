@@ -136,6 +136,16 @@ test("replaying a settling payment does not publish settled twice", async () => 
   assert.equal(memory.snapshot().entries.length, 2);
 });
 
+test("reminder suspension updates only an active scoped receivable", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const opened = await ledger.openFromEvent(scope, openInput, actor);
+  const until = new Date("2026-08-30T00:00:00.000Z");
+  const suspended = await ledger.suspend(scope, opened._id, { until, reason: "Chờ đối soát" }, actor);
+  assert.equal(suspended.reminderSuspendedUntil.toISOString(), until.toISOString());
+  assert.equal(suspended.reminderSuspendReason, "Chờ đối soát");
+});
+
 test("header balance equals the sum of entries after every operation in a deterministic 20-step sequence", async () => {
   const memory = memoryRepository();
   const ledger = createReceivableLedgerService(memory.repository);

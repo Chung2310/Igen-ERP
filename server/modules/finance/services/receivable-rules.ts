@@ -3,6 +3,7 @@ import type {
   ReceivableStatus,
   ReceivableTerminalStatus,
 } from "../interfaces/receivable.interface";
+import { ValidationError } from "../../../errors/app-error";
 
 type AmountOptions = {
   direction?: "increase" | "decrease";
@@ -11,7 +12,7 @@ type AmountOptions = {
 
 function assertIntegerVnd(amount: number, allowZero = false): void {
   if (!Number.isSafeInteger(amount) || (allowZero ? amount < 0 : amount <= 0)) {
-    throw new Error("INVALID_VND_AMOUNT");
+    throw new ValidationError("VALIDATION_FAILED", "INVALID_VND_AMOUNT");
   }
 }
 
@@ -19,7 +20,7 @@ export function signedReceivableAmount(type: ReceivableEntryType, amount: number
   assertIntegerVnd(amount);
   if (type === "reversal") {
     const original = options.originalSignedAmount;
-    if (!Number.isSafeInteger(original) || original === 0) throw new Error("REVERSAL_ORIGINAL_AMOUNT_REQUIRED");
+    if (!Number.isSafeInteger(original) || original === 0) throw new ValidationError("VALIDATION_FAILED", "REVERSAL_ORIGINAL_AMOUNT_REQUIRED");
     return -original;
   }
   if (type === "payment" || type === "refund" || type === "write_off") return -amount;
@@ -38,10 +39,10 @@ export function assertReceivableOperation(input: OperationInput): number {
   assertIntegerVnd(input.balance, true);
   const reason = String(input.reason || "").trim();
   if (["adjustment", "write_off", "reversal"].includes(input.type) && !reason) {
-    throw new Error("REASON_REQUIRED");
+    throw new ValidationError(input.type === "adjustment" ? "ADJUSTMENT_REASON_REQUIRED" : "VALIDATION_FAILED", "REASON_REQUIRED");
   }
   if ((input.type === "payment" || input.type === "refund" || input.type === "write_off") && input.amount > input.balance) {
-    throw new Error("PAYMENT_EXCEEDS_BALANCE");
+    throw new ValidationError("PAYMENT_EXCEEDS_BALANCE", "PAYMENT_EXCEEDS_BALANCE");
   }
   return signedReceivableAmount(input.type, input.amount, input);
 }

@@ -5,6 +5,7 @@ import { ReceivableEntryModel } from "../models/receivable-entry.model";
 import { ReceivableModel } from "../models/receivable.model";
 import { assertReceivableOperation, deriveReceivableStatus } from "./receivable-rules";
 import { publishReceivableSettled } from "../consumers/receivable.consumer";
+import { ConflictError, NotFoundError, ValidationError } from "../../../errors/app-error";
 
 type Session = unknown;
 type Actor = { id?: string; uid?: string; name?: string; displayName?: string };
@@ -61,14 +62,14 @@ export function createReceivableLedgerService(
         return { receivable: existing, entry: prior, settledTransition: false };
       }
       const receivable = await repository.findById(scope, receivableId, session);
-      if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
-      if (["settled", "void", "written_off"].includes(receivable.status)) throw new Error("RECEIVABLE_ALREADY_SETTLED");
+      if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+      if (["settled", "void", "written_off"].includes(receivable.status)) throw new ConflictError("RECEIVABLE_ALREADY_SETTLED", "RECEIVABLE_ALREADY_SETTLED");
       const amount = assertReceivableOperation({
         type: input.type, balance: receivable.balance, amount: input.amount, reason: input.reason,
         direction: input.direction, originalSignedAmount: input.originalSignedAmount,
       });
       const balance = receivable.balance + amount;
-      if (balance < 0) throw new Error("PAYMENT_EXCEEDS_BALANCE");
+      if (balance < 0) throw new ValidationError("PAYMENT_EXCEEDS_BALANCE", "PAYMENT_EXCEEDS_BALANCE");
       const paidAmount = receivable.paidAmount + (input.type === "payment" ? input.amount : input.type === "reversal" && input.originalType === "payment" ? -Math.abs(input.originalSignedAmount || 0) : 0);
       const adjustedAmount = receivable.adjustedAmount + (input.type === "adjustment" ? amount : input.type === "reversal" && input.originalType === "adjustment" ? amount : 0);
       const entry = await repository.createEntry({
@@ -111,12 +112,12 @@ export function createReceivableLedgerService(
     },
     async writeOff(scope: FinanceBranchScope, id: string, input: Omit<CommandInput, "amount">, actor: Actor) {
       const current = await repository.transaction((session) => repository.findById(scope, id, session));
-      if (!current) throw new Error("RECEIVABLE_NOT_FOUND");
+      if (!current) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
       return append(scope, id, { ...input, amount: current.balance, type: "write_off", terminal: "written_off" }, actor);
     },
     async reverse(scope: FinanceBranchScope, id: string, entryId: string, input: ReverseInput, actor: Actor) {
       const original = await repository.transaction(async (session) => {
-        if (await repository.findReversal(scope, id, entryId, session)) throw new Error("ENTRY_ALREADY_REVERSED");
+        if (await repository.findReversal(scope, id, entryId, session)) throw new ConflictError("ENTRY_ALREADY_REVERSED", "ENTRY_ALREADY_REVERSED");
         const found = await repository.findEntry(scope, id, entryId, session);
         if (!found) throw new Error("ENTRY_NOT_FOUND");
         return found;
@@ -128,17 +129,25 @@ export function createReceivableLedgerService(
     },
     async settleFromEvent(scope: FinanceBranchScope, sourceType: string, sourceId: string, input: CommandInput, actor: Actor) {
       const receivable = await repository.transaction((session) => repository.findBySource(scope, sourceType, sourceId, session));
-      if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
+      if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
       return append(scope, String(receivable._id), { ...input, type: "payment" }, actor);
     },
     async voidFromEvent(scope: FinanceBranchScope, sourceType: string, sourceId: string, input: { remainingDebt: number; refundedAmount: number; reason: string; idempotencyKey: string }, actor: Actor) {
       const receivable = await repository.transaction((session) => repository.findBySource(scope, sourceType, sourceId, session));
-      if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
+      if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
       if (Number(input.remainingDebt) !== receivable.balance) throw new Error("RECEIVABLE_SOURCE_BALANCE_MISMATCH");
       return append(scope, String(receivable._id), {
         type: "reversal", amount: receivable.balance, originalSignedAmount: receivable.balance,
         reason: input.reason, idempotencyKey: input.idempotencyKey, terminal: "void",
       }, actor);
+    },
+    async suspend(scope: FinanceBranchScope, id: string, input: { until: Date; reason: string }, _actor: Actor) {
+      return repository.transaction(async (session) => {
+        const receivable = await repository.findById(scope, id, session);
+        if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+        if (["settled", "void", "written_off"].includes(receivable.status)) throw new ConflictError("RECEIVABLE_ALREADY_SETTLED", "RECEIVABLE_ALREADY_SETTLED");
+        return repository.updateReceivable(scope, id, { reminderSuspendedUntil: input.until, reminderSuspendReason: input.reason }, session);
+      });
     },
   };
 }
