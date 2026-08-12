@@ -15,6 +15,16 @@ Nút `Áp dụng` trước tiên gửi yêu cầu áp dụng thông thường. N
 
 Hủy xác nhận không thay đổi dữ liệu. Xác nhận gửi yêu cầu kích hoạt với cờ thay thế rõ ràng; giao diện không tự gọi tuần tự API ngưng và áp dụng.
 
+### Popup xác nhận chuẩn
+
+Thay các hộp thoại `window.confirm` hiện tại bằng một component popup xác nhận dùng chung cho ba tình huống:
+
+- `Thay thế công thức đang áp dụng`: hiển thị các công thức bị ảnh hưởng và thay đổi khoảng hiệu lực dự kiến; nút chính là `Xác nhận thay thế`.
+- `Ngưng áp dụng`: hiển thị tên/mã công thức và cảnh báo công thức sẽ không còn được chọn cho kỳ lương mới; nút chính là `Ngưng áp dụng`.
+- `Xóa công thức`: dùng kiểu cảnh báo nguy hiểm, hiển thị tên/mã công thức và giải thích chỉ phiên bản không bị khóa mới có thể xóa; nút chính là `Xóa công thức`.
+
+Popup có tiêu đề, mô tả, nội dung tác động, nút `Hủy` và nút xác nhận theo từng tình huống. Nút xác nhận bị vô hiệu hóa khi API đang xử lý. Nếu API thất bại, popup giữ nguyên trạng thái và hiển thị lỗi ngay trong popup thay vì tự đóng. Thành công mới đóng popup và tải lại danh sách.
+
 ## Quy tắc nghiệp vụ
 
 - Không có thời gian chồng lấn: kích hoạt công thức mới như hiện tại.
@@ -50,6 +60,7 @@ Trong cùng transaction, ghi:
 - Nếu phiên bản active đã thay đổi trước khi transaction cập nhật, hủy transaction và trả conflict để người dùng tải lại.
 - Lỗi API được hiển thị bằng tiếng Việt; danh sách được tải lại sau thao tác thành công hoặc conflict.
 - Nút xác nhận bị vô hiệu hóa trong lúc gửi yêu cầu để tránh kích hoạt lặp.
+- Các thao tác thay thế, ngưng áp dụng và xóa không sử dụng `window.confirm` hoặc `window.prompt`.
 
 ## Kiểm thử
 
@@ -62,6 +73,7 @@ Trong cùng transaction, ghi:
 - Service test rollback khi một cập nhật hoặc audit thất bại.
 - Controller/schema test payload `replaceOverlaps` và metadata conflict.
 - Component test popup xác nhận, hủy, xác nhận thay thế và trạng thái đang xử lý.
+- Component test popup ngưng áp dụng và xóa, bao gồm giữ popup khi API lỗi và đóng sau khi thành công.
 - Chạy lại kiểm thử vòng đời công thức lương và typecheck toàn dự án.
 
 ## Tiêu chí hoàn thành
