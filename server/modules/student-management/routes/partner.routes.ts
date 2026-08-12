@@ -13,6 +13,7 @@ router.use(authMiddleware);
 
 router.get("/commission-levels", PartnerController.getCommissionLevels);
 router.post("/commission-levels", requireManage, validate(createCommissionLevelSchema), PartnerController.createCommissionLevel);
+router.patch("/commission-levels/:id", requireManage, validate(idParamSchema, "params"), validate(createCommissionLevelSchema), PartnerController.updateCommissionLevel);
 router.delete("/commission-levels/:id", requireManage, validate(idParamSchema, "params"), PartnerController.deleteCommissionLevel);
 
 router.post("/bulk", requireManage, PartnerController.bulkCreate);

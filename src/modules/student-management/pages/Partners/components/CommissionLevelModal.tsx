@@ -5,7 +5,7 @@ import { useAdminCenters } from '../../../hooks/useAdminCenters';
 import { apiFetch } from '../../../lib/api';
 import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
 import { formatVND } from '../../../lib/utils';
-import { Loader2, Trash2, Milestone, Landmark } from 'lucide-react';
+import { Loader2, Trash2, Milestone, Landmark, Pencil, X } from 'lucide-react';
 import { CommissionLevel } from '../../../types';
 import { useEntityLabel } from '../../../hooks/useEntityLabel';
 
@@ -23,6 +23,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
   const [loading, setLoading] = useState(false);
   const latestFetchId = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [activeCenterId, setActiveCenterId] = useState('');
   const [formData, setFormData] = useState({
@@ -103,8 +104,8 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
 
     setIsSubmitting(true);
     try {
-      const res = await apiFetch('/partners/commission-levels', {
-        method: 'POST',
+      const res = await apiFetch(editingId ? `/partners/commission-levels/${editingId}` : '/partners/commission-levels', {
+        method: editingId ? 'PATCH' : 'POST',
         body: JSON.stringify({
           name: formData.name,
           minTuition: minTuitionNum,
@@ -114,7 +115,8 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
       });
 
       if (res.success) {
-        toast.success('Đã thêm cấp bậc hoa hồng mới thành công!');
+        toast.success(editingId ? 'Đã cập nhật cấp bậc hoa hồng.' : 'Đã thêm cấp bậc hoa hồng mới thành công!');
+        setEditingId(null);
         setFormData({ name: '', minTuition: '', commissionRate: '' });
         await fetchLevels();
         // Emit mutation event to refresh partners page lists
@@ -127,6 +129,13 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
       setIsSubmitting(false);
     }
   };
+
+  const handleEdit = (level: CommissionLevel) => {
+    setEditingId(level._id);
+    setFormData({ name: level.name, minTuition: formatVND(String(level.minTuition)), commissionRate: String(level.commissionRate) });
+  };
+
+  const cancelEdit = () => { setEditingId(null); setFormData({ name: '', minTuition: '', commissionRate: '' }); };
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa cấp bậc hoa hồng "${name}" không?`)) return;
@@ -173,7 +182,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
           <div className="lg:col-span-2 bg-slate-50/50 p-5 rounded-2xl border border-slate-100/80 space-y-4">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
               <Milestone className="w-4 h-4 text-brand-primary" />
-              Thêm Level mới
+              {editingId ? 'Chỉnh sửa cấp bậc' : 'Thêm Level mới'}
             </h4>
             
             <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -216,9 +225,10 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                     Đang lưu...
                   </span>
                 ) : (
-                  'Lưu cấp bậc'
+                  editingId ? 'Cập nhật cấp bậc' : 'Lưu cấp bậc'
                 )}
               </ErpSubmitButton>
+              {editingId ? <button type="button" onClick={cancelEdit} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 transition hover:bg-slate-50"><X className="h-4 w-4" /> Hủy chỉnh sửa</button> : null}
             </form>
           </div>
 
@@ -249,7 +259,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                       <th className="py-3 px-4">Tên cấp</th>
                       <th className="py-3 px-4 text-right">Doanh số tối thiểu</th>
                       <th className="py-3 px-4 text-center">Hoa hồng (%)</th>
-                      <th className="py-3 px-4 text-center">Xóa</th>
+                      <th className="py-3 px-4 text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -263,6 +273,7 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                           {lvl.commissionRate}%
                         </td>
                         <td className="py-3 px-4 text-center">
+                          <button onClick={() => handleEdit(lvl)} title="Chỉnh sửa cấp bậc" className="mr-1 p-1 rounded hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-all cursor-pointer"><Pencil className="w-3.5 h-3.5" /></button>
                           <button
                             onClick={() => handleDelete(lvl._id, lvl.name)}
                             className="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"

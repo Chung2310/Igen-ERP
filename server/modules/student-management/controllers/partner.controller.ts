@@ -194,4 +194,18 @@ export class PartnerController {
       next(error);
     }
   }
+
+  static async updateCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) requireStudentBranch(req.user!);
+      const ownerId = req.user!.role === "superadmin"
+        ? await resolveCreateOwnerId(req.user!, req.body.companyCode || req.body.centerId)
+        : ["admin", "manager"].includes(req.user!.role)
+          ? await resolveCreateOwnerId(req.user!)
+          : req.user!.uid;
+      const level = await PartnerService.updateCommissionLevel(ownerId, req.params.id, { ...req.body, branchId: req.user!.branchId });
+      if (!level) throw new NotFoundError("COMMISSION_LEVEL_NOT_FOUND", "Không tìm thấy cấp bậc hoa hồng để cập nhật.");
+      res.json({ success: true, data: level });
+    } catch (error: unknown) { next(error); }
+  }
 }

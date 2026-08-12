@@ -398,9 +398,10 @@ export class BatchService {
     // Lưu một dạng mã thống nhất để unique index chặn được cả khác biệt hoa/thường,
     // khoảng trắng đầu/cuối hoặc nhiều khoảng trắng liên tiếp.
     writeData.code = String(writeData.code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
-    // Mã lớp có unique index theo ownerId + code, nên cần kiểm tra cùng phạm vi
-    // để trả lỗi nghiệp vụ rõ ràng thay vì rơi vào Mongo duplicate-key (500).
-    const existing = await Batch.findOne({ ownerId, code: writeData.code });
+    // Kiểm tra chi nhánh trước để báo đúng phạm vi thao tác; sau đó kiểm tra toàn
+    // doanh nghiệp vì unique index của dữ liệu hiện tại là ownerId + code.
+    const existingInBranch = await Batch.findOne({ ownerId, branchId: actor.branchId, code: writeData.code });
+    const existing = existingInBranch || await Batch.findOne({ ownerId, code: writeData.code });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
@@ -409,7 +410,10 @@ export class BatchService {
     // Khóa học có thể là dữ liệu cũ được tạo bởi một tài khoản khác trong cùng
     // công ty/chi nhánh. Danh sách khóa học đã cho phép người thao tác nhìn thấy
     // các owner này, nên lúc tạo lớp cũng phải xác minh theo cùng phạm vi.
-    const course = await Course.findOne({
+    // Ưu tiên khóa học của chính đơn vị/chi nhánh đang tạo lớp. Với dữ liệu
+    // dùng chung trong cùng công ty mới mở rộng sang owner scope được phép.
+    const courseInBranch = await Course.findOne({ _id: writeData.courseId, ownerId, branchId: actor.branchId });
+    const course = courseInBranch || await Course.findOne({
       _id: writeData.courseId,
       ...buildOwnerQuery(courseOwnerScope),
       ...buildBranchScopeQuery(actor.branchId),
@@ -535,7 +539,7 @@ export class BatchService {
     const nextRoadmapId = writeData.roadmapId === undefined ? batch.roadmapId : String(writeData.roadmapId || "");
     const nextRoadmapStepId = writeData.roadmapStepId === undefined ? batch.roadmapStepId : String(writeData.roadmapStepId || "");
     const nextCourseId = String(writeData.courseId || batch.courseId);
-    if ((nextRoadmapId !== (batch.roadmapId || "") || nextRoadmapStepId !== (batch.roadmapStepId || "")) && batch.learnerIds.length > 0) {
+    if ((nextRoadmapId !== (batch.roadmapId || "") || nextRoadmapStepId !== (batch.roadmapStepId || "")) && (batch.learnerIds || []).length > 0) {
       throw new Error("Không thể đổi lộ trình của lớp đã có học viên.");
     }
     await assertRoadmapAssignment({ ownerScope: ownerId, branchId: batch.branchId, courseId: nextCourseId, roadmapId: nextRoadmapId, roadmapStepId: nextRoadmapStepId });
