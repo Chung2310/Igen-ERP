@@ -1,0 +1,11 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const mocks=vi.hoisted(()=>({runFindOne:vi.fn(),runUpdateOne:vi.fn(),inputFindOneAndUpdate:vi.fn(),auditCreate:vi.fn()}));
+vi.mock("../model/payroll-run.model",()=>({PayrollRunModel:{findOne:mocks.runFindOne,updateOne:mocks.runUpdateOne}}));
+vi.mock("../model/payroll-period-input.model",()=>({PayrollPeriodInputModel:{findOneAndUpdate:mocks.inputFindOneAndUpdate}}));
+vi.mock("../model/payroll-audit.model",()=>({PayrollAuditModel:{create:mocks.auditCreate}}));
+import { savePayrollPeriodInput } from "./payroll-period-input-operations.service";
+const sortLean=(value:any)=>({sort:()=>({lean:async()=>value})}); const lean=(value:any)=>({lean:async()=>value});
+describe("payroll period input operations",()=>{beforeEach(()=>vi.resetAllMocks());
+it("rejects writes outside a draft period",async()=>{mocks.runFindOne.mockReturnValue(sortLean({status:"review"}));await expect(savePayrollPeriodInput({companyCode:"A",branchId:"B"},"2026-08","e1","manager",{reason:"reconcile",expectedVersion:0,agreedSalary:1})).rejects.toMatchObject({code:"PAYROLL_PERIOD_INPUT_LOCKED"});});
+it("requires a reason",async()=>{mocks.runFindOne.mockReturnValue(sortLean(null));await expect(savePayrollPeriodInput({companyCode:"A",branchId:"B"},"2026-08","e1","manager",{reason:"",expectedVersion:0})).rejects.toMatchObject({code:"PAYROLL_PERIOD_INPUT_REASON_REQUIRED"});});
+it("upserts an explicit zero with optimistic version and audit",async()=>{mocks.runFindOne.mockReturnValue(sortLean({status:"draft"}));mocks.inputFindOneAndUpdate.mockReturnValue(lean({employeeId:"e1",version:1,bonus:0}));await savePayrollPeriodInput({companyCode:"A",branchId:"B"},"2026-08","e1","manager",{reason:"reconcile",expectedVersion:0,bonus:0});expect(mocks.inputFindOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({version:0}),expect.objectContaining({$set:expect.objectContaining({bonus:0})}),expect.any(Object));expect(mocks.auditCreate).toHaveBeenCalled();});});
