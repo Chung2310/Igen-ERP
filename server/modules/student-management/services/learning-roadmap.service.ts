@@ -43,9 +43,9 @@ export class LearningRoadmapService {
     return LearningRoadmap.find({ ...ownerQuery(ownerId), ...branchQuery(branchId) }).sort({ status: 1, name: 1 }).lean();
   }
 
-  static async createRoadmap(ownerId: string, branchId: string | undefined, data: Pick<ILearningRoadmap, "code" | "name" | "description" | "status" | "steps">) {
+  static async createRoadmap(ownerId: string, branchId: string | undefined, data: Pick<ILearningRoadmap, "code" | "name" | "description" | "status" | "steps">, courseOwnerScope: OwnerScope = ownerId) {
     this.assertSteps(data.steps || []);
-    await this.assertCoursesExist(data.steps || [], ownerId, branchId);
+    await this.assertCoursesExist(data.steps || [], courseOwnerScope, branchId);
     return LearningRoadmap.create({ ...data, ownerId, branchId });
   }
 
