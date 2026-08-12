@@ -1,11 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import { requireRetailBranch, retailScopeFromRequest } from "../contracts";
-import { RetailReceivableLedgerService } from "../services/retail-receivable-ledger.service";
-import { RetailReceivableQueryService } from "../services/retail-receivable-query.service";
+import { RetailReceivableLedgerService as LegacyLedger } from "../services/retail-receivable-ledger.service";
+import { RetailReceivableQueryService as LegacyQuery } from "../services/retail-receivable-query.service";
 import { RetailReceivableReconciliationService } from "../services/retail-receivable-reconciliation.service";
+import { createFinanceRetailAdapter, FinanceRetailCompatibilityService } from "../../finance/services/finance-retail-adapter";
 
 const scope = (req: Request) => requireRetailBranch(retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }));
-type Dependencies = { history: typeof RetailReceivableQueryService.history; adjust: typeof RetailReceivableLedgerService.adjust; reverse: typeof RetailReceivableLedgerService.reverse; reconcile?: typeof RetailReceivableReconciliationService.run; latestReconciliation?: typeof RetailReceivableReconciliationService.latest };
+type Dependencies = { history: typeof LegacyQuery.history; adjust: typeof LegacyLedger.adjust; reverse: typeof LegacyLedger.reverse; reconcile?: typeof RetailReceivableReconciliationService.run; latestReconciliation?: typeof RetailReceivableReconciliationService.latest };
 
 export function createRetailReceivableController(dependencies: Dependencies) {
   const run = (handler: (req: Request) => Promise<unknown>) => async (req: Request, res: Response, next: NextFunction) => {
@@ -20,4 +21,8 @@ export function createRetailReceivableController(dependencies: Dependencies) {
   };
 }
 
-export const retailReceivableController = createRetailReceivableController({ history: RetailReceivableQueryService.history, adjust: RetailReceivableLedgerService.adjust, reverse: RetailReceivableLedgerService.reverse, reconcile: RetailReceivableReconciliationService.run, latestReconciliation: RetailReceivableReconciliationService.latest });
+export const FinanceRetailCompatibilityAdapter = createFinanceRetailAdapter({
+  finance: FinanceRetailCompatibilityService,
+  legacy: { history: LegacyQuery.history, adjust: LegacyLedger.adjust, reverse: LegacyLedger.reverse },
+});
+export const retailReceivableController = createRetailReceivableController({ history: FinanceRetailCompatibilityAdapter.history, adjust: FinanceRetailCompatibilityAdapter.adjust, reverse: FinanceRetailCompatibilityAdapter.reverse, reconcile: RetailReceivableReconciliationService.run, latestReconciliation: RetailReceivableReconciliationService.latest });

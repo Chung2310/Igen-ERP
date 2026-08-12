@@ -146,6 +146,25 @@ test("reminder suspension updates only an active scoped receivable", async () =>
   assert.equal(suspended.reminderSuspendReason, "Chờ đối soát");
 });
 
+test("legacy import writes header and chronological entries atomically and replays safely", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const candidate: any = {
+    ...scope, receivableCode: "CN-LEGACY-DH1", sourceType: "retail_order", sourceId: "o1", sourceCode: "DH1",
+    sourceEventId: "legacy:retail-order:o1", customerId: "c1", customerName: "Khách", occurredAt: new Date("2026-08-01"),
+    dueDate: new Date("2026-08-20"), originalAmount: 100, paidAmount: 30, adjustedAmount: 0, balance: 70, status: "partially_paid",
+    entries: [
+      { type: "charge", amount: 100, idempotencyKey: "legacy:e1", createdBy: "u1", createdByName: "A" },
+      { type: "payment", amount: -30, idempotencyKey: "legacy:e2", createdBy: "u1", createdByName: "A" },
+    ],
+  };
+  const imported = await ledger.importLegacy(candidate);
+  const replay = await ledger.importLegacy(candidate);
+  assert.equal(replay._id, imported._id);
+  assert.equal(memory.snapshot().receivables.length, 1);
+  assert.deepEqual(memory.snapshot().entries.map((entry) => entry.balanceAfter), [100, 70]);
+});
+
 test("header balance equals the sum of entries after every operation in a deterministic 20-step sequence", async () => {
   const memory = memoryRepository();
   const ledger = createReceivableLedgerService(memory.repository);

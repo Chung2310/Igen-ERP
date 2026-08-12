@@ -149,6 +149,31 @@ export function createReceivableLedgerService(
         return repository.updateReceivable(scope, id, { reminderSuspendedUntil: input.until, reminderSuspendReason: input.reason }, session);
       });
     },
+    async importLegacy(candidate: any) {
+      const scope = { companyCode: String(candidate.companyCode), branchId: String(candidate.branchId) };
+      return repository.transaction(async (session) => {
+        const replay = await repository.findBySourceEvent(scope, String(candidate.sourceEventId), session);
+        if (replay) return replay;
+        const { entries, ...header } = candidate;
+        const receivable = await repository.createReceivable({ ...header, daysOverdue: 0, reminderCount: 0 }, session);
+        let runningBalance = 0;
+        const importedEntryIds = new Map<string, string>();
+        for (const legacy of entries) {
+          runningBalance += Number(legacy.amount);
+          const reversalOfEntryId = legacy.reversalOfLegacyId ? importedEntryIds.get(String(legacy.reversalOfLegacyId)) : undefined;
+          if (legacy.reversalOfLegacyId && !reversalOfEntryId) throw new Error("LEGACY_REVERSAL_TARGET_MISSING");
+          const entry = await repository.createEntry({
+            ...scope, receivableId: String(receivable._id), customerId: header.customerId, type: legacy.type,
+            amount: legacy.amount, balanceAfter: runningBalance, reason: legacy.reason,
+            idempotencyKey: legacy.idempotencyKey, reversalOfEntryId,
+            createdBy: legacy.createdBy, createdByName: legacy.createdByName, createdAt: legacy.createdAt,
+          }, session);
+          importedEntryIds.set(String(legacy.legacyId), String(entry._id));
+        }
+        if (runningBalance !== Number(header.balance)) throw new Error("LEGACY_BALANCE_MISMATCH");
+        return receivable;
+      });
+    },
   };
 }
 
