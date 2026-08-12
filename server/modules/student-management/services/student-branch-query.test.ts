@@ -32,7 +32,7 @@ it('forwards the authenticated selected branch to every scoped student action', 
   const getStudentById = vi.spyOn(StudentService, 'getStudentById').mockResolvedValue({ _id: 'student-a' } as any);
   const updateStudent = vi.spyOn(StudentService, 'updateStudent').mockResolvedValue({ _id: 'student-a' } as any);
   const deleteStudent = vi.spyOn(StudentService, 'deleteStudent').mockResolvedValue({ _id: 'student-a' } as any);
-  const bulkDeleteStudents = vi.spyOn(StudentService, 'bulkDeleteStudents').mockResolvedValue(1);
+  const bulkDeleteStudents = vi.spyOn(StudentService, 'bulkDeleteStudents').mockResolvedValue({ deletedCount: 1, deletedIds: ['student-a'], blocked: [] });
   const markInstallmentPaid = vi.spyOn(StudentService, 'markInstallmentPaid').mockResolvedValue({ success: true });
   const response: any = { status: () => response, json: () => response };
   const user = { uid: 'shared-owner', role: 'admin', centerId: 'acme', companyCode: 'acme', branchId: branchA };
