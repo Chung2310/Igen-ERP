@@ -1,7 +1,7 @@
 import type { PayrollRunStatus } from "../interface/payroll-operations.interface";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 
-export type PayrollWorkflowAction = "review" | "approve" | "reject" | "close";
+export type PayrollWorkflowAction = "review" | "close" | "reopen";
 
 export type PayrollWorkflowFailure = {
   code: string;
@@ -10,12 +10,10 @@ export type PayrollWorkflowFailure = {
   currentVersion?: number;
 };
 
-const IMMUTABLE_STATUSES: PayrollRunStatus[] = ["closed", "partially_paid", "paid"];
-
 const RULES: Record<PayrollWorkflowAction, {
   from: PayrollRunStatus[];
   to: PayrollRunStatus;
-  auditAction: "review" | "approve" | "reject" | "close";
+  auditAction: "review" | "close" | "reopen";
   requiresReason?: boolean;
   verifiesChecksum?: boolean;
   separatesDuties?: boolean;
@@ -23,34 +21,25 @@ const RULES: Record<PayrollWorkflowAction, {
   fields: (context: { actorId: string; reason?: string; now: Date }) => Record<string, unknown>;
 }> = {
   review: {
-    from: ["calculated"],
-    to: "reviewed",
+    from: ["draft"],
+    to: "review",
     auditAction: "review",
     blockedByIssues: true,
     fields: ({ actorId }) => ({ reviewedBy: actorId }),
   },
-  approve: {
-    from: ["reviewed"],
-    to: "approved",
-    auditAction: "approve",
-    verifiesChecksum: true,
-    separatesDuties: true,
-    blockedByIssues: true,
-    fields: ({ actorId }) => ({ approvedBy: actorId }),
-  },
-  reject: {
-    from: ["reviewed", "approved"],
-    to: "calculated",
-    auditAction: "reject",
-    requiresReason: true,
-    fields: ({ actorId, reason }) => ({ rejectedBy: actorId, rejectionReason: reason, reviewedBy: null, approvedBy: null }),
-  },
   close: {
-    from: ["approved"],
+    from: ["review"],
     to: "closed",
     auditAction: "close",
     verifiesChecksum: true,
     fields: ({ actorId, now }) => ({ closedBy: actorId, closedAt: now }),
+  },
+  reopen: {
+    from: ["review", "closed"],
+    to: "draft",
+    auditAction: "reopen",
+    requiresReason: true,
+    fields: () => ({ closedBy: null, closedAt: null }),
   },
 };
 
@@ -74,11 +63,11 @@ export async function transitionPayrollRun(args: {
     apply: (expectedVersion: number, from: PayrollRunStatus, to: PayrollRunStatus, fields: Record<string, unknown>) => Promise<any>;
   };
   revision: { getActive: (revisionId: string) => Promise<any> };
-  audit: (entry: { action: "review" | "approve" | "reject" | "close"; metadata: Record<string, unknown> }) => Promise<unknown>;
+  audit: (entry: { action: "review" | "close" | "reopen"; metadata: Record<string, unknown> }) => Promise<unknown>;
 }): Promise<{ run: any } | PayrollWorkflowFailure> {
   const rule = RULES[args.action];
   if (rule.requiresReason && !args.reason?.trim()) {
-    return failure("PAYROLL_REASON_REQUIRED", `A reason is required to ${args.action} a payroll run`, 400);
+    return failure("PAYROLL_REOPEN_REASON_REQUIRED", "A reason is required to reopen a payroll run", 400);
   }
 
   const run = await args.run.get();
@@ -86,8 +75,8 @@ export async function transitionPayrollRun(args: {
   if (run.version !== args.expectedVersion) {
     return failure("PAYROLL_VERSION_CONFLICT", "Payroll run version conflict", 409, run.version);
   }
-  if (IMMUTABLE_STATUSES.includes(run.status) && rule.to !== run.status) {
-    return failure("PAYROLL_RUN_CLOSED", "A closed payroll run can no longer be changed", 409, run.version);
+  if (run.status === "paid") {
+    return failure("PAYROLL_PAID_RUN_IMMUTABLE", "A paid payroll run can no longer be changed", 409, run.version);
   }
   if (!rule.from.includes(run.status)) {
     return failure("PAYROLL_INVALID_TRANSITION", `Cannot ${args.action} a payroll run in status ${run.status}`, 409, run.version);
