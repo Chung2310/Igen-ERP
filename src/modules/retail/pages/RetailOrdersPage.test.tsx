@@ -4,12 +4,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailOrdersApi } from "../api/retailOrders.api";
+import type { RetailOrder } from "../types";
 import RetailOrdersPage from "./RetailOrdersPage";
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
 vi.mock("../api/retailOrders.api", () => ({ retailOrdersApi: { list: vi.fn(), detail: vi.fn(), collect: vi.fn(), cancel: vi.fn() } }));
 
-const outstandingOrder = (customerId?: string) => ({
+const outstandingOrder = (customerId?: string): RetailOrder => ({
   _id: "o1", orderCode: "DH-01", status: "confirmed", paymentStatus: "partial", customerName: "Nguyễn Văn A", items: [], subtotal: 500_000,
   orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 500_000, paidAmount: 0, dueAmount: 500_000, version: 1, createdBy: "u1", createdByName: "Thu ngân",
   ...(customerId ? { customerId } : {}),
