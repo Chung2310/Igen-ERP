@@ -5,8 +5,10 @@ import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
-import { PayrollPaymentsPanel } from "./payroll/PayrollPaymentsPanel";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
+import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
+import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
+import { getPayrollProcessingAction } from "./payroll/payrollProcessingAction";
 
 type SortDir = "asc" | "desc";
 
@@ -68,11 +70,10 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
 }
 
 const STEPS = [
-  { key: "synced", label: "Đồng bộ công" },
-  { key: "locked", label: "Khóa công" },
-  { key: "calculated", label: "Tính lương" },
-  { key: "approved", label: "Duyệt" },
-  { key: "closed", label: "Chốt kỳ" },
+  { key: "draft", label: "Nháp" },
+  { key: "review", label: "Kiểm tra" },
+  { key: "closed", label: "Chốt" },
+  { key: "paid", label: "Đã thanh toán" },
 ] as const;
 
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
@@ -80,7 +81,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [run, setRun] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
   const [adjustments, setAdjustments] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -88,6 +88,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [formulaLoading, setFormulaLoading] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [markPaidConfirmOpen, setMarkPaidConfirmOpen] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const [processingPayroll, setProcessingPayroll] = useState(false);
 
   // States for creating adjustments
   const [isAdjOpen, setIsAdjOpen] = useState(false);
@@ -97,13 +102,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [adjReason, setAdjReason] = useState("");
   const [adjSaving, setAdjSaving] = useState(false);
 
-  // States for creating payments
-  const [isPayOpen, setIsPayOpen] = useState(false);
-  const [payLines, setPayLines] = useState<{ employeeId: string; amount: number; name: string; balance: number; selected: boolean }[]>([]);
-  const [payNote, setPayNote] = useState("");
-  const [paySaving, setPaySaving] = useState(false);
-
-  const reload = async () => { let nextRun: any = null; try { nextRun = await payrollService.getRun(period); setRun(nextRun); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } try { setPayments(nextRun?._id ? await payrollService.getPayments(String(nextRun._id)) : []); } catch { setPayments([]); } };
+  const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
   useEffect(() => { void reload(); }, [period]);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); }, [period]);
 
@@ -145,11 +144,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
 
   const allLocked = results.length > 0 && results.every((r) => r.status === "locked");
-  const currentStepIndex = run?.status === "closed" ? 4
-    : run?.status === "approved" ? 3
-    : run ? 2
-    : allLocked ? 1
-    : results.length > 0 ? 0
+  const currentStepIndex = run?.status === "paid" ? 3
+    : run?.status === "closed" ? 2
+    : run?.status === "review" ? 1
+    : run || allLocked || results.length > 0 ? 0
     : -1;
 
   const runRows = useMemo(() => {
@@ -218,7 +216,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const totalBase = runRows.reduce((sum: number, r: any) => sum + r.baseSalary, 0);
   const headcount = run ? runRows.length : draftRows.length;
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
-  const needsRecalculation = results.some((row: any) => row.needsRecalculation);
+  const processingAction = getPayrollProcessingAction(run?.status, processingPayroll);
+
+  const processPeriod = async () => {
+    if (processingPayroll) return;
+    setProcessingPayroll(true);
+    try {
+      await payrollService.processPeriod(period);
+      toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
+      await reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xử lý bảng lương");
+    } finally {
+      setProcessingPayroll(false);
+    }
+  };
 
   const openFormulaRow = async (line: any) => {
     setFormulaRow(line); setFormulaLoading(Boolean(run?._id));
@@ -241,13 +253,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
   };
   const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
-  const getEmployeeBalance = (employeeId: string, netPay: number) => {
-    const paid = payments
-      .filter((p: any) => p.status === "confirmed")
-      .reduce((sum: number, p: any) => sum + (p.lines?.find((pl: any) => pl.employeeId === employeeId)?.amount ?? 0), 0);
-    return netPay - paid;
-  };
-
   const handleCreateAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjEmployeeId || !adjAmount || !adjReason.trim()) {
@@ -272,33 +277,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
   };
 
-  const handleCreatePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const selectedLines = payLines.filter((l) => l.selected && l.amount > 0);
-    if (selectedLines.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một nhân viên và nhập số tiền thanh toán.");
-      return;
-    }
-    setPaySaving(true);
-    try {
-      const totalAmount = selectedLines.reduce((sum, l) => sum + l.amount, 0);
-      const idempotencyKey = `pay-${run._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      await payrollService.createPayment(String(run._id), {
-        amount: totalAmount,
-        idempotencyKey,
-        lines: selectedLines.map((l) => ({ employeeId: l.employeeId, amount: l.amount })),
-        note: payNote || undefined,
-      });
-      toast.success("Đã tạo đợt thanh toán.");
-      setIsPayOpen(false);
-      await reload();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tạo đợt thanh toán.");
-    } finally {
-      setPaySaving(false);
-    }
-  };
-
   const canSeeTable = canManage || !!run;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
@@ -313,34 +291,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
-    {canManage && run?._id && (
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex justify-between items-center">
-          <div className="text-sm font-bold text-slate-800">Thanh toán bảng lương</div>
-          <button
-            onClick={() => {
-              const initialLines = runRows.map((r: any) => {
-                const balance = getEmployeeBalance(r.employeeId, r.net);
-                return {
-                  employeeId: r.employeeId,
-                  name: r.employeeName,
-                  balance: balance,
-                  amount: balance,
-                  selected: balance > 0
-                };
-              });
-              setPayLines(initialLines);
-              setPayNote("");
-              setIsPayOpen(true);
-            }}
-            className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
-          >
-            + Tạo đợt thanh toán
-          </button>
-        </div>
-        <PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} />
-      </div>
-    )}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">
@@ -362,8 +312,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
       </div>
     )}
-    {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
-
     {/* Quy trình xử lý kỳ lương */}
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
@@ -417,40 +365,40 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     )}
 
-    {canManage && (!run || run.status !== "closed") && (
+    {canManage && run?.status !== "paid" && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {(!run || run.status === "calculated") && (
+          {(!run || run.status === "draft") && (
             <>
-              <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-                <RefreshCw size={15} /> Đồng bộ công
-              </button>
-              <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
-                <Lock size={15} /> Khóa công
-              </button>
-              <button
-                onClick={() => void action(() => payrollService.createRun(period), run ? "Đã tính lại bảng lương" : "Đã tạo bảng lương")}
-                title={run ? "Tính lại bảng lương theo các điều chỉnh mới nhất" : undefined}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700"
+              {processingAction.visible && <button
+                onClick={() => void processPeriod()}
+                disabled={processingAction.disabled}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Play size={15} /> {run ? "Tính lại lương" : "Tính lương"}
-              </button>
+                {processingPayroll ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
+                {processingAction.label}
+              </button>}
               {run && (
-                <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
-                  <CheckCircle2 size={15} /> Duyệt
+                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                  <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
-          {run?.status === "approved" && (
+          {run?.status === "review" && (
             <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
+          {canMarkPayrollPaid(canManage, run?.status) && (
+            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+              <CheckCircle2 size={15} /> Đánh dấu đã thanh toán
+            </button>
+          )}
         </div>
-        {run?.status !== "approved" && (
-          <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100">
-            <Trash2 size={15} /> Xóa kỳ lương
+        {(run?.status === "review" || run?.status === "closed") && (
+          <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100">
+            <RefreshCw size={15} /> Mở lại kỳ
           </button>
         )}
       </div>
@@ -472,10 +420,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </div>
           )}
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-            run?.status === "approved" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
-            run?.status === "calculated" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
+            run?.status === "paid" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+            run?.status === "review" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
           }`}>
-            {run?.status === "approved" ? "Đã duyệt" : run?.status === "closed" ? "Đã chốt" : run?.status === "calculated" ? "Đã tính lương" : "Chưa tạo"}
+            {run?.status === "paid" ? "Đã thanh toán" : run?.status === "closed" ? "Đã chốt" : run?.status === "review" ? "Kiểm tra" : "Nháp"}
           </span>
         </div>
       </div>
@@ -571,7 +519,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
                   <tr><td colSpan={4}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
@@ -608,6 +556,36 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         await action(() => payrollService.reset(period), "Đã xóa kỳ lương");
         setResetting(false);
         setResetConfirmOpen(false);
+      }}
+    />
+    <PayrollReopenModal
+      open={reopenOpen}
+      loading={reopening}
+      onCancel={() => setReopenOpen(false)}
+      onConfirm={async (reason) => {
+        if (!run?._id) return;
+        setReopening(true);
+        await action(() => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }), "Đã mở lại kỳ lương về Nháp");
+        setReopening(false);
+        setReopenOpen(false);
+      }}
+    />
+    <ConfirmModal
+      open={markPaidConfirmOpen}
+      title="Đánh dấu đã thanh toán?"
+      description={`Kỳ lương ${period} sẽ chuyển sang Đã thanh toán và không thể mở lại.`}
+      confirmLabel="Đánh dấu đã thanh toán"
+      loading={markingPaid}
+      onCancel={() => setMarkPaidConfirmOpen(false)}
+      onConfirm={async () => {
+        if (!run?._id) return;
+        setMarkingPaid(true);
+        await action(
+          () => payrollService.markPaid(String(run._id), { expectedVersion: Number(run.version) }),
+          "Đã chuyển kỳ lương sang Đã thanh toán",
+        );
+        setMarkingPaid(false);
+        setMarkPaidConfirmOpen(false);
       }}
     />
     {formulaRow && (
@@ -703,79 +681,5 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     )}
 
-    {/* Modal Tạo Đợt Thanh Toán */}
-    {isPayOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsPayOpen(false)}>
-        <form onSubmit={handleCreatePayment} className="flex w-full max-w-lg max-h-[90dvh] flex-col rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center gap-3 border-b pb-2">
-            <h3 className="font-bold text-slate-900">Khởi tạo đợt chi trả lương</h3>
-            <button type="button" onClick={() => setIsPayOpen(false)} className="shrink-0 cursor-pointer text-slate-500"><X size={17} /></button>
-          </div>
-          <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-4 text-sm">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ghi chú đợt thanh toán</label>
-              <input
-                type="text"
-                value={payNote}
-                onChange={(e) => setPayNote(e.target.value)}
-                placeholder="Ví dụ: Chi lương đợt 1 tháng này"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Chọn nhân sự chi trả</label>
-              <div className="max-h-60 overflow-y-auto border rounded-lg divide-y">
-                {payLines.map((line, idx) => (
-                  <div key={line.employeeId} className="flex items-center justify-between gap-2 p-3 hover:bg-slate-50/50">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={line.selected}
-                        onChange={(e) => {
-                          const next = [...payLines];
-                          next[idx].selected = e.target.checked;
-                          setPayLines(next);
-                        }}
-                        className="rounded border-slate-300 text-indigo-600"
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-700">{line.name || line.employeeId}</p>
-                        <p className="truncate text-xs text-slate-400">Còn lại: {line.balance.toLocaleString()} đ</p>
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <input
-                        type="number"
-                        min="1"
-                        disabled={!line.selected}
-                        value={line.amount}
-                        onChange={(e) => {
-                          const next = [...payLines];
-                          next[idx].amount = Number(e.target.value);
-                          setPayLines(next);
-                        }}
-                        className="w-24 sm:w-28 text-right rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 disabled:opacity-40"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-lg flex flex-wrap gap-x-3 gap-y-1 justify-between items-center text-sm font-bold text-slate-700">
-              <span>Tổng số tiền giải ngân:</span>
-              <span className="text-cyan-700 text-base">
-                {payLines.filter(l => l.selected).reduce((sum, l) => sum + l.amount, 0).toLocaleString()} đ
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col-reverse gap-2 pt-3 border-t sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setIsPayOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
-            <button type="submit" disabled={paySaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
-              {paySaving ? "Đang khởi tạo..." : "Khởi tạo đợt chi"}
-            </button>
-          </div>
-        </form>
-      </div>
-    )}
   </section>;
 }

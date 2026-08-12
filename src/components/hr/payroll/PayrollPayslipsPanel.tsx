@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
 
-const ALLOWED_RUN_STATUSES = new Set(["calculated", "approved", "closed", "partially_paid", "paid"]);
+const ALLOWED_RUN_STATUSES = new Set(["closed", "paid"]);
 
 export function PayrollPayslipsPanel({
   runStatus,

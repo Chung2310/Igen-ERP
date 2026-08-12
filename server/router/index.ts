@@ -32,6 +32,9 @@ import { recruitmentRouter } from "./recruitment.router";
 import { webhookRouter } from "./webhook.router";
 import { resourceImportRouter } from "./resource-import.router";
 import { retailRouter } from "../modules/retail/router";
+import { productCatalogRouter } from "../modules/inventory/product-catalog/router";
+import { receivingRouter } from "../modules/inventory/receiving/router";
+import { warehouseRouter } from "../modules/inventory/warehouse/router";
 export const apiRouter = Router();
 
 // Webhooks
@@ -111,6 +114,9 @@ apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireMo
 apiRouter.use("/", studentManagementRouter);
 
 // Module Bán lẻ & POS
+apiRouter.use("/inventory/catalog", requireAuth as any, requireModule("inventory"), productCatalogRouter);
+apiRouter.use("/inventory/receiving", requireAuth as any, requireModule("inventory"), receivingRouter);
+apiRouter.use("/inventory/warehouses", requireAuth as any, requireModule("inventory"), warehouseRouter);
 apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
 
 

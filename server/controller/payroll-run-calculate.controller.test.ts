@@ -65,7 +65,7 @@ const response = () => {
   return res;
 };
 
-const lockedRun = (version = 1, status = "attendance_locked") => ({
+const lockedRun = (version = 1, status = "draft") => ({
   _id: "run-a", ...scope, periodKey: "2026-07", status, version,
   startDate: new Date("2026-07-01T00:00:00.000Z"), endDate: new Date("2026-07-31T23:59:59.999Z"),
 });
@@ -88,7 +88,7 @@ const arrangeHappyPath = () => {
   mocks.revisionFindOne.mockReturnValue(sortSelectLean({ revision: 1 }));
   mocks.revisionCreate.mockImplementation(async (value: any) => ({ id: "revision-2", ...value }));
   mocks.revisionFindOneAndUpdate.mockReturnValue(lean({ id: "revision-2", status: "completed", lines: [{ employeeId: "employee-a" }] }));
-  mocks.runFindOneAndUpdate.mockReturnValue(lean({ _id: "run-a", status: "calculated", version: 2 }));
+  mocks.runFindOneAndUpdate.mockReturnValue(lean({ _id: "run-a", status: "draft", version: 2 }));
   mocks.jobCreate.mockResolvedValue({});
   mocks.auditCreate.mockResolvedValue({});
 };
@@ -105,8 +105,8 @@ describe("payroll calculate endpoint", () => {
     expect(mocks.snapshotFindOne).toHaveBeenCalledWith({ ...scope, runId: "run-a" });
     expect(mocks.revisionCreate).toHaveBeenCalledWith(expect.objectContaining({ ...scope, runId: "run-a", revision: 2, status: "running" }));
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: "run-a", ...scope, version: 1, status: { $in: ["attendance_locked", "calculated"] } },
-      { $set: { activeRevisionId: "revision-2", activeRevisionChecksum: expect.stringMatching(/^[0-9a-f]{64}$/), status: "calculated" }, $inc: { version: 1 } },
+      { _id: "run-a", ...scope, version: 1, status: "draft" },
+      { $set: { activeRevisionId: "revision-2", activeRevisionChecksum: expect.stringMatching(/^[0-9a-f]{64}$/) }, $inc: { version: 1 } },
       { new: true },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ action: "calculate", branchId: "branch-a" }));
@@ -216,9 +216,9 @@ describe("payroll calculate endpoint", () => {
     expect(mocks.revisionCreate).not.toHaveBeenCalled();
   });
 
-  it("refuses to calculate a run whose attendance is still draft", async () => {
+  it("refuses to calculate a run already in review", async () => {
     mocks.jobFindOne.mockReturnValue(lean(null));
-    mocks.runFindOne.mockReturnValue(lean(lockedRun(1, "draft")));
+    mocks.runFindOne.mockReturnValue(lean(lockedRun(1, "review")));
     const res = response();
 
     await payrollController.calculateRun(request({ expectedVersion: 1 }, { "idempotency-key": "calc-1" }), res);

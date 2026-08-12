@@ -7,7 +7,7 @@ export type PayrollSettlementLine = { employeeId: string; netPay: number; confir
 export type PayrollPaymentFailure = { code: string; message: string; status: number };
 
 /** Runs must be closed before money moves; a fully paid run has nothing left to pay. */
-const PAYABLE_RUN_STATUSES: PayrollRunStatus[] = ["closed", "partially_paid"];
+const PAYABLE_RUN_STATUSES: PayrollRunStatus[] = ["closed"];
 
 export type PayrollPaymentStatus = "draft" | "confirmed" | "cancelled" | "reversed";
 
@@ -47,11 +47,10 @@ export function buildSettlementLines(
   }));
 }
 
-export function deriveRunSettlementStatus(lines: PayrollSettlementLine[]): "closed" | "partially_paid" | "paid" {
+export function deriveRunSettlementStatus(lines: PayrollSettlementLine[]): "closed" | "paid" {
   const netPay = lines.reduce((sum, line) => sum + line.netPay, 0);
   const paid = lines.reduce((sum, line) => sum + Math.min(line.netPay, line.confirmedPaid), 0);
-  if (paid <= 0) return "closed";
-  return paid >= netPay ? "paid" : "partially_paid";
+  return netPay > 0 && paid >= netPay ? "paid" : "closed";
 }
 
 export function validatePaymentRequest(
@@ -83,7 +82,7 @@ export function validatePaymentRequest(
   for (const [employeeId, requested] of requestedByEmployee) {
     const source = byEmployee.get(employeeId)!;
     if (requested > source.netPay - source.confirmedPaid) {
-      return failure("PAYROLL_PAYMENT_EXCEEDS_BALANCE", "Payment amount exceeds the remaining payroll balance", 409);
+      return failure("PAYROLL_PAYMENT_EXCEEDS_NET", "Payment amount exceeds the remaining payroll balance", 409);
     }
   }
   if (request.lines.reduce((sum, line) => sum + line.amount, 0) !== request.amount) {

@@ -45,6 +45,7 @@ import { buildPayslip } from "../service/payroll-payslip.service";
 import { buildPayrollWorkbook, workbookBuffer } from "../service/payroll-export.service";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
 import type { PayrollWorkflowAction } from "../service/payroll-run-workflow.service";
+import { PayrollPeriodProcessingError, processPayrollPeriod } from "../service/payroll-period-processing.service";
 import {
   auditQuerySchema,
   calculateRunSchema,
@@ -52,7 +53,7 @@ import {
   createPaymentSchema,
   createPolicySchema,
   paymentTransitionSchema,
-  rejectRunSchema,
+  reopenRunSchema,
   workflowTransitionSchema,
   lockAttendanceSchema,
   syncAttendanceHeadersSchema,
@@ -109,6 +110,23 @@ const legacyRegularRunFilter = (req: AuthenticatedRequest) => ({
   type: "regular" as const,
 });
 const LEGACY_RUN_ORDER = { createdAt: 1 as const, _id: 1 as const };
+
+const runPayrollControllerStep = async (
+  handler: (req: AuthenticatedRequest, res: Response) => Promise<unknown>,
+  req: AuthenticatedRequest,
+) => {
+  let statusCode = 200;
+  let body: any;
+  const stepResponse = {
+    status(code: number) { statusCode = code; return this; },
+    json(payload: unknown) { body = payload; return this; },
+  } as unknown as Response;
+  await handler(req, stepResponse);
+  if (statusCode >= 400) {
+    throw Object.assign(new Error(body?.message || "Payroll processing step failed"), { status: statusCode });
+  }
+  return body?.data ?? body;
+};
 // Revision-backed runs must go through the operational workflow so approval and
 // close stay behind the checksum, separation-of-duties, and audit guarantees.
 const LEGACY_RUN_ONLY = { activeRevisionId: { $exists: false } };
@@ -144,7 +162,7 @@ const paymentTransitionHandler = (action: PayrollPaymentAction) => async (req: A
 const workflowHandler = (action: PayrollWorkflowAction) => async (req: AuthenticatedRequest, res: Response) => {
   const scope = operationalScope(req);
   if (!scope) return validationFailure(res, "Authenticated company and branch are required");
-  const schema = action === "reject" ? rejectRunSchema : workflowTransitionSchema;
+  const schema = action === "reopen" ? reopenRunSchema : workflowTransitionSchema;
   const { error, value } = schema.validate(req.body, { abortEarly: false, stripUnknown: true });
   if (error) return validationFailure(res, error.message);
   try {
@@ -175,6 +193,34 @@ const operationFailure = (res: Response, error: unknown) => {
 };
 
 export const payrollController = {
+  async processPeriod(req: AuthenticatedRequest, res: Response) {
+    const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+    if (existing && existing.status !== "draft") {
+      return res.status(409).json({
+        status: "error",
+        code: "PAYROLL_INVALID_TRANSITION",
+        message: "Chỉ có thể cập nhật bảng lương khi kỳ đang ở trạng thái Nháp.",
+      });
+    }
+    try {
+      const run = await processPayrollPeriod({
+        syncAttendance: () => runPayrollControllerStep(payrollController.createSnapshot, req),
+        lockAttendance: () => runPayrollControllerStep(payrollController.lockResults, req),
+        calculatePayroll: () => runPayrollControllerStep(payrollController.createRun, req),
+      });
+      return res.json({ status: "success", data: run });
+    } catch (error) {
+      if (error instanceof PayrollPeriodProcessingError) {
+        return res.status(error.status).json({
+          status: "error",
+          code: "PAYROLL_PROCESSING_FAILED",
+          stage: error.stage,
+          message: error.message,
+        });
+      }
+      return operationFailure(res, error);
+    }
+  },
   async createOperationalRun(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
@@ -276,9 +322,9 @@ export const payrollController = {
     }
   },
   reviewOperationalRun: workflowHandler("review"),
-  approveOperationalRun: workflowHandler("approve"),
-  rejectOperationalRun: workflowHandler("reject"),
   closeOperationalRun: workflowHandler("close"),
+  reopenOperationalRun: workflowHandler("reopen"),
+  markOperationalRunPaid: workflowHandler("markPaid"),
   async listRunAudit(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
@@ -401,7 +447,7 @@ export const payrollController = {
     const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     // Kỳ đã tính nhưng chưa duyệt thì cho tính lại, để điều chỉnh phát sinh sau
     // khi bấm tính lương vẫn được cộng vào bảng lương.
-    if (existing && existing.status !== "calculated") {
+    if (existing && existing.status !== "draft") {
       return res.status(409).json({
         status: "error",
         message: existing.status === "closed" ? "Kỳ lương đã chốt. Hãy reset kỳ trước khi tính lại." : "Bảng lương đã được duyệt. Hãy mở lại bảng lương trước khi tính lại.",
@@ -498,7 +544,7 @@ export const payrollController = {
       await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length, recalculated: true });
       return res.json({ status: "success", data: run });
     }
-    const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "calculated", createdBy: req.user!.id, lines });
+    const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "draft", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
     return res.status(201).json({ status: "success", data: run });
   },
@@ -529,7 +575,7 @@ export const payrollController = {
   async publishPayslips(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
-    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
     const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
     const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
     if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
@@ -579,7 +625,7 @@ export const payrollController = {
     const type = req.body?.type; if (!["detailed", "insurance", "pit", "bank_transfer"].includes(type)) return validationFailure(res, "Invalid export type");
     if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll:pay")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll:pay" }); }
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
-    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
     const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
     const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
     if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
@@ -613,7 +659,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "calculated") {
+    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
@@ -720,7 +766,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "calculated") {
+    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
@@ -819,8 +865,8 @@ export const payrollController = {
   },  async approveRun(req: AuthenticatedRequest, res: Response) {
     if (await hasRevisionBackedRun(req)) return revisionBackedRunFailure(res);
     const run = await PayrollRunModel.findOneAndUpdate(
-      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "calculated" },
-      { $set: { status: "approved", approvedBy: req.user!.id }, $inc: { version: 1 } },
+      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "draft" },
+      { $set: { status: "review", reviewedBy: req.user!.id }, $inc: { version: 1 } },
       { new: true, sort: LEGACY_RUN_ORDER },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
@@ -846,7 +892,7 @@ export const payrollController = {
   async closeRun(req: AuthenticatedRequest, res: Response) {
     if (await hasRevisionBackedRun(req)) return revisionBackedRunFailure(res);
     const run = await PayrollRunModel.findOneAndUpdate(
-      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "approved" },
+      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "review" },
       { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date() } },
       { new: true, sort: LEGACY_RUN_ORDER },
     );

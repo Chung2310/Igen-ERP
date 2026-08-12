@@ -1,12 +1,4 @@
-export type PayrollRunStatus =
-  | "draft"
-  | "attendance_locked"
-  | "calculated"
-  | "reviewed"
-  | "approved"
-  | "closed"
-  | "partially_paid"
-  | "paid";
+export type PayrollRunStatus = "draft" | "review" | "closed" | "paid";
 
 export type PayrollRunType = "regular" | "supplemental";
 

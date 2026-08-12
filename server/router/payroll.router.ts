@@ -11,9 +11,9 @@ payrollRouter.post("/policies", requirePermission("payroll:manage") as any, payr
 payrollRouter.post("/policies/:id/activate", requirePermission("payroll:manage") as any, payrollController.activatePolicy as any);
 payrollRouter.post("/policies/:id/retire", requirePermission("payroll:manage") as any, payrollController.retirePolicy as any);
 payrollRouter.post("/runs/:id/review", requirePermission("payroll:manage") as any, payrollController.reviewOperationalRun as any);
-payrollRouter.post("/runs/:id/approve", requirePermission("payroll:manage") as any, payrollController.approveOperationalRun as any);
-payrollRouter.post("/runs/:id/reject", requirePermission("payroll:manage") as any, payrollController.rejectOperationalRun as any);
 payrollRouter.post("/runs/:id/close", requirePermission("payroll:manage") as any, payrollController.closeOperationalRun as any);
+payrollRouter.post("/runs/:id/reopen", requirePermission("payroll:manage") as any, payrollController.reopenOperationalRun as any);
+payrollRouter.post("/runs/:id/mark-paid", requirePermission("payroll:manage") as any, payrollController.markOperationalRunPaid as any);
 payrollRouter.get("/runs/:id/audit", requirePermission("payroll:read") as any, payrollController.listRunAudit as any);
 payrollRouter.post("/runs/:id/calculate", requirePermission("payroll:manage") as any, payrollController.calculateRun as any);
 payrollRouter.post("/runs/:id/recalculate", requirePermission("payroll:manage") as any, payrollController.calculateRun as any);
@@ -33,6 +33,7 @@ payrollRouter.get("/periods/:periodKey/results", requirePermission("payroll:read
 payrollRouter.post("/periods/:periodKey/snapshot", requirePermission("payroll:manage") as any, payrollController.createSnapshot as any);
 payrollRouter.post("/periods/:periodKey/lock", requirePermission("payroll:manage") as any, payrollController.lockResults as any);
 payrollRouter.post("/periods/:periodKey/run", requirePermission("payroll:manage") as any, payrollController.createRun as any);
+payrollRouter.post("/periods/:periodKey/process", requirePermission("payroll:manage") as any, payrollController.processPeriod as any);
 payrollRouter.get("/periods/:periodKey/run", requirePermission("payroll:read") as any, payrollController.getRun as any);
 payrollRouter.delete("/periods/:periodKey", requirePermission("payroll:manage") as any, payrollController.resetPeriod as any);
 payrollRouter.post("/periods/:periodKey/adjustments/:adjustmentId/approve", requirePermission("payroll:manage") as any, payrollController.approveAdjustment as any);

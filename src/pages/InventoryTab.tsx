@@ -9,12 +9,9 @@ import { getApiErrorMessage } from "../utils/errorMessage";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { inventoryTabs } from "../components/inventory/data";
-import { ProductCard, formatCurrencyCompact } from "../components/inventory/ProductCard";
 import { Pagination } from "../components/common/Pagination";
-import { ProductModal } from "../components/inventory/ProductModal";
 import { CategoryManagementSection } from "../components/inventory/CategoryManagementSection";
 import { InventoryTabHeader } from "../components/inventory/InventoryTabHeader";
-import { ProductCatalogSection } from "../components/inventory/ProductCatalogSection";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -23,6 +20,9 @@ import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { authService } from "../services/authService";
 import { ViewToggle } from "../components/inventory/ViewToggle";
+import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV2Section";
+import { WarehouseSection } from "../components/inventory/WarehouseSection";
+import { ReceivingSection } from "../components/inventory/ReceivingSection";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -45,7 +45,6 @@ function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
 type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
 
 type DeleteTarget =
-  | { type: "product"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" }
   | { type: "category"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" }
   | { type: "log"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" };
 
@@ -69,39 +68,17 @@ function getStockLogItems(log: StockLog) {
 export default function InventoryTab() {
   const subTabsRef = useRef<HTMLDivElement>(null);
   const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const { activeBranchId, loading: branchLoading } = useBranch();
-  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "DANH MỤC");
+  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
   const [categoryLoading, setCategoryLoading] = useState(true);
-  const [productLoading, setProductLoading] = useState(true);
   const [stockLogLoading, setStockLogLoading] = useState(true);
-  const [productSubmitting, setProductSubmitting] = useState(false);
-
-  const [searchProduct, setSearchProduct] = useState("");
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("Tất cả");
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
-  const [productExcelImporting, setProductExcelImporting] = useState(false);
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
-  const [productPage, setProductPage] = useState(1);
-
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [newProdName, setNewProdName] = useState("");
-  const [newProdCategory, setNewProdCategory] = useState("");
-  const [newProdStock, setNewProdStock] = useState("");
-  const [newProdPrice, setNewProdPrice] = useState("");
-  const [newProdCostPrice, setNewProdCostPrice] = useState("");
-  const [newProdSKU, setNewProdSKU] = useState("");
-  const [newProdBrand, setNewProdBrand] = useState("");
-  const [newProdUnit, setNewProdUnit] = useState("Cái");
-  const [newProdDescription, setNewProdDescription] = useState("");
-  const [newProdStatus, setNewProdStatus] = useState("Active");
-  const [newProdImageFile, setNewProdImageFile] = useState<File | null>(null);
-  const [newProdImagePreview, setNewProdImagePreview] = useState("");
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -110,9 +87,7 @@ export default function InventoryTab() {
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [productViewMode, setProductViewMode] = useState<"grid" | "list">("grid");
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
-  const productImportInputRef = useRef<HTMLInputElement | null>(null);
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -122,7 +97,6 @@ export default function InventoryTab() {
 
     if (!user) {
       setCategoryLoading(false);
-      setProductLoading(false);
       setStockLogLoading(false);
       return;
     }
@@ -130,14 +104,12 @@ export default function InventoryTab() {
     if (branchLoading || !activeBranchId) {
       if (!branchLoading) {
         setCategoryLoading(false);
-        setProductLoading(false);
         setStockLogLoading(false);
       }
       return;
     }
 
     setCategoryLoading(true);
-    setProductLoading(true);
     setStockLogLoading(true);
 
     unsubscribeCategories = inventoryCategoryService.subscribe(
@@ -156,10 +128,8 @@ export default function InventoryTab() {
       activeBranchId,
       (nextProducts) => {
         setProducts(nextProducts);
-        setProductLoading(false);
       },
       () => {
-        setProductLoading(false);
         toast.error("Không thể tải danh mục sản phẩm.");
       }
     );
@@ -183,16 +153,6 @@ export default function InventoryTab() {
     };
   }, [user, activeBranchId, branchLoading]);
 
-  useEffect(() => {
-    if (!categories.length || newProdCategory) return;
-    const activeCategory = categories.find((category) => category.status === "Đang dùng");
-    setNewProdCategory(activeCategory?.name || categories[0].name);
-  }, [categories, newProdCategory]);
-
-  useEffect(() => {
-    setProductPage(1);
-  }, [searchProduct, selectedCategoryFilter]);
-
   const forecastSummary = useMemo<InventoryForecastSummary>(
     () => buildInventoryForecast(products, stockLogs),
     [products, stockLogs]
@@ -203,184 +163,6 @@ export default function InventoryTab() {
     category.name.toLowerCase().includes(searchCategory.toLowerCase()) ||
     category.code.toLowerCase().includes(searchCategory.toLowerCase())
   );
-
-  const filteredProducts = products.filter((product) => {
-    const query = searchProduct.toLowerCase();
-    const matchesSearch = product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query);
-    const matchesCategory = selectedCategoryFilter === "Tất cả" || product.category === selectedCategoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-  const productsPerPage = 8;
-  const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
-  const paginatedProducts = filteredProducts.slice((productPage - 1) * productsPerPage, productPage * productsPerPage);
-
-  useEffect(() => {
-    if (productPage > totalProductPages) {
-      setProductPage(totalProductPages);
-    }
-  }, [productPage, totalProductPages]);
-
-  const resetProductForm = () => {
-    setEditingProductId(null);
-    setShowProductModal(false);
-    setNewProdName("");
-    setNewProdStock("");
-    setNewProdPrice("");
-    setNewProdCostPrice("");
-    setNewProdSKU("");
-    setNewProdBrand("");
-    setNewProdUnit("Cái");
-    setNewProdDescription("");
-    setNewProdStatus("Active");
-    setNewProdImageFile(null);
-    setNewProdImagePreview("");
-    const activeCategory = categories.find((category) => category.status === "Đang dùng");
-    setNewProdCategory(activeCategory?.name || categories[0]?.name || "");
-  };
-
-  const openCreateProductModal = () => {
-    resetProductForm();
-    setShowProductModal(true);
-  };
-
-  const openEditProductModal = (product: ProductItem) => {
-    setEditingProductId(product.id);
-    setNewProdName(product.name);
-    setNewProdCategory(product.category);
-    setNewProdStock(String(product.stock));
-    setNewProdPrice(String(product.price));
-    setNewProdCostPrice(product.costPrice === undefined ? "" : String(product.costPrice));
-    setNewProdSKU(product.sku);
-    setNewProdBrand(product.brand || "");
-    setNewProdUnit(product.unit || "Cái");
-    setNewProdDescription(product.description || "");
-    setNewProdStatus(product.status || "Active");
-    setNewProdImageFile(null);
-    setNewProdImagePreview(product.imageUrl);
-    setShowProductModal(true);
-  };
-
-  const handleProductImageChange = (file: File | null) => {
-    setNewProdImageFile(file);
-    if (!file) {
-      if (!editingProductId) setNewProdImagePreview("");
-      return;
-    }
-
-    const nextPreview = URL.createObjectURL(file);
-    setNewProdImagePreview(nextPreview);
-  };
-
-  const handleSaveProduct = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!newProdName.trim() || !newProdSKU.trim()) return;
-
-    const sku = newProdSKU.trim().toUpperCase();
-    const name = newProdName.trim();
-    const stock = parseInt(newProdStock, 10) || 0;
-    const price = parseInt(newProdPrice, 10) || 0;
-    const costPrice = newProdCostPrice === "" ? undefined : Math.max(0, Number(newProdCostPrice));
-    const category = newProdCategory || "Chưa phân loại";
-    const brand = newProdBrand.trim();
-    const unit = newProdUnit.trim() || "Cái";
-    const description = newProdDescription.trim();
-    const status = (newProdStatus || "Active") as "Active" | "Inactive";
-
-    setProductSubmitting(true);
-
-    try {
-      const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined, activeBranchId);
-      if (!isSkuAvailable) {
-        toast.error("Mã sản phẩm này đã tồn tại trong kho.");
-        setProductSubmitting(false);
-        return;
-      }
-
-      if (editingProductId) {
-        const currentProduct = products.find((product) => product.id === editingProductId);
-        const result = await inventoryProductService.updateProduct(editingProductId, {
-          sku,
-          name,
-          category,
-          brand,
-          unit,
-          stock,
-          price,
-          costPrice,
-          description,
-          status,
-          imageFile: newProdImageFile,
-          imageUrl: currentProduct?.imageUrl || "",
-        }, activeBranchId);
-
-        if (result?.imageUploadFailed) {
-          const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
-          toast.success(`Đã cập nhật sản phẩm, nhưng không thể tải lên hình ảnh (${uploadErrMsg})`);
-        } else {
-          toast.success("Đã cập nhật sản phẩm.");
-        }
-      } else {
-        const result = await inventoryProductService.createProduct({
-          sku,
-          name,
-          category,
-          brand,
-          unit,
-          stock,
-          price,
-          costPrice,
-          description,
-          status,
-          imageFile: newProdImageFile,
-        }, activeBranchId);
-
-        try {
-          await inventoryStockLogService.createLog({
-            type: "nhập",
-            title: `Nhập hàng khởi tạo: ${name}`,
-            sku,
-            productName: name,
-            quantity: stock,
-            operatorName: userProfile?.displayName || "iGen Admin System",
-            notes: "Khởi tạo sản phẩm mới trong danh mục",
-            status: "Hoàn thành",
-            items: [{ productId: result.productId || "", sku, productName: name, quantity: stock }],
-          }, activeBranchId);
-        } catch (logErr) {
-          console.error("Lỗi tạo phiếu nhập kho khởi tạo:", logErr);
-        }
-
-        if (result?.imageUploadFailed) {
-          const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
-          toast.success(`Đã tạo sản phẩm mới, nhưng không thể tải lên hình ảnh (${uploadErrMsg})`);
-        } else {
-          toast.success("Đã tạo sản phẩm mới.");
-        }
-      }
-
-      resetProductForm();
-    } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể lưu sản phẩm. Vui lòng thử lại."));
-    } finally {
-      setProductSubmitting(false);
-    }
-  };
-
-  const handleDeleteProduct = async (product: ProductItem) => {
-    setDeleteTarget({
-      type: "product",
-      id: product.id,
-      title: "Xóa sản phẩm",
-      description: `Bạn có chắc muốn xóa sản phẩm "${product.name}" khỏi danh mục kho không?`,
-      confirmLabel: "Xóa sản phẩm",
-      tone: "danger",
-    });
-  };
-
-  const deleteProductById = async (productId: string) => {
-    await inventoryProductService.deleteProduct(productId, activeBranchId);
-    toast.success("Đã xóa sản phẩm.");
-  };
 
   const resetCategoryForm = () => {
     setEditingCategoryId(null);
@@ -429,7 +211,6 @@ export default function InventoryTab() {
 
         if (currentCategory && currentCategory.name !== cleanName) {
           await inventoryProductService.updateProductsCategoryName(currentCategory.name, cleanName, activeBranchId);
-          if (selectedCategoryFilter === currentCategory.name) setSelectedCategoryFilter(cleanName);
         }
 
         toast.success("Đã cập nhật phân loại sản phẩm.");
@@ -439,7 +220,6 @@ export default function InventoryTab() {
           code: cleanCode,
           description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
         }, activeBranchId);
-        setNewProdCategory(cleanName);
         toast.success("Đã tạo phân loại sản phẩm.");
       }
 
@@ -476,147 +256,7 @@ export default function InventoryTab() {
     }
 
     await inventoryCategoryService.deleteCategory(categoryId, activeBranchId);
-    if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
     toast.success("Đã xóa phân loại sản phẩm.");
-  };
-
-  const handleExportProductsExcel = async () => {
-    const { exportProductsToExcel } = await import("../utils/inventoryExcel");
-    exportProductsToExcel(filteredProducts);
-    toast.success("Đã xuất danh mục sản phẩm ra Excel.");
-  };
-
-  const handleOpenProductImport = () => {
-    productImportInputRef.current?.click();
-  };
-
-  const handleImportProductsExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-
-    setProductExcelImporting(true);
-
-    try {
-      const { importProductsFromExcel } = await import("../utils/inventoryExcel");
-      const importedRows = await importProductsFromExcel(file);
-
-      if (importedRows.length === 0) {
-        toast.error("File Excel không có dòng sản phẩm hợp lệ.");
-        return;
-      }
-      const importUpload = await authService.uploadManagedFile(file, "import.inventory-product");
-
-      const existingSkus = new Set(products.map((product) => product.sku.toUpperCase()));
-      const importedSkus = new Set<string>();
-      const existingCategoryNames = new Set(categories.map((c) => c.name.trim().toLowerCase()));
-      const existingCodes = new Set(categories.map((c) => c.code.toUpperCase()));
-      const createdCategoryNames = new Set<string>();
-      let createdCount = 0;
-      let skippedCount = 0;
-
-      for (const row of importedRows) {
-        if (existingSkus.has(row.sku) || importedSkus.has(row.sku)) {
-          skippedCount += 1;
-          continue;
-        }
-
-        // Auto-create category if it does not exist
-        const catName = (row.category || "Chưa phân loại").trim();
-        const catNameLower = catName.toLowerCase();
-        if (catNameLower !== "chưa phân loại" && !existingCategoryNames.has(catNameLower) && !createdCategoryNames.has(catNameLower)) {
-          let codeBase = catName
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[đĐ]/g, "d")
-            .split(/\s+/)
-            .map((word) => word[0])
-            .join("")
-            .toUpperCase()
-            .replace(/[^A-Z0-9]/g, "");
-          if (!codeBase) {
-            codeBase = "CAT";
-          }
-          let code = codeBase;
-          let counter = 1;
-          while (existingCodes.has(code)) {
-            code = `${codeBase}${counter}`;
-            counter++;
-          }
-
-          try {
-            await inventoryCategoryService.createCategory({
-              name: catName,
-              code: code,
-              description: `Danh mục được tạo tự động khi nhập sản phẩm từ Excel.`,
-            }, activeBranchId);
-            createdCategoryNames.add(catNameLower);
-            existingCodes.add(code);
-          } catch (err) {
-            console.error("Lỗi khi tạo danh mục tự động:", err);
-          }
-        }
-
-        await inventoryProductService.createProduct({
-          sku: row.sku,
-          name: row.name,
-          category: row.category,
-          brand: row.brand || "",
-          unit: row.unit || "Cái",
-          stock: row.stock,
-          price: row.price,
-          description: row.description || "",
-          status: row.status || "Active",
-          imageUrl: row.imageUrl || "",
-        }, activeBranchId);
-
-        importedSkus.add(row.sku);
-        createdCount += 1;
-      }
-
-      if (createdCount > 0) {
-        setStockLogs((currentLogs) => [
-          ...importedRows
-            .filter((row) => importedSkus.has(row.sku))
-            .map((row, index) => ({
-              id: `NK-IMPORT-${Date.now()}-${index}`,
-              type: "nhập" as const,
-              sku: row.sku,
-              productName: row.name,
-              quantity: row.stock,
-              operatorName: "Excel Import",
-              createdAt: "Import tu Excel",
-              notes: "Tao san pham tu file Excel",
-              status: "Thành công" as const,
-            })),
-          ...currentLogs,
-        ]);
-      }
-
-      if (createdCount === 0) {
-        toast.error("Không có sản phẩm mới nào được nhập. Kiểm tra mã sản phẩm bị trùng.");
-        return;
-      }
-
-      await authService.completeManagedImport({
-        sourceType: "import.inventory-product",
-        uploadToken: importUpload.uploadToken,
-        fileName: file.name,
-        importedCount: createdCount,
-        skippedCount,
-      });
-
-      if (skippedCount > 0) {
-        toast.success(`Đã nhập ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng có mã sản phẩm trùng.`);
-      } else {
-        toast.success(`Đã nhập ${createdCount} sản phẩm từ Excel.`);
-      }
-    } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể nhập sản phẩm từ Excel."));
-    } finally {
-      setProductExcelImporting(false);
-    }
   };
 
   const handleExportStockLogsExcel = async () => {
@@ -940,9 +580,7 @@ export default function InventoryTab() {
     setDeleteSubmitting(true);
 
     try {
-      if (deleteTarget.type === "product") {
-        await deleteProductById(deleteTarget.id);
-      } else if (deleteTarget.type === "category") {
+      if (deleteTarget.type === "category") {
         await deleteCategoryById(deleteTarget.id);
       } else {
         await deleteLogById(deleteTarget.id);
@@ -951,11 +589,9 @@ export default function InventoryTab() {
       setDeleteTarget(null);
     } catch (error) {
       const fallbackMessage =
-        deleteTarget.type === "product"
-          ? "Không thể xóa sản phẩm. Vui lòng thử lại."
-          : deleteTarget.type === "category"
-            ? "Không thể xóa phân loại sản phẩm. Vui lòng thử lại."
-            : "Không thể xóa phiếu. Vui lòng thử lại.";
+        deleteTarget.type === "category"
+          ? "Không thể xóa phân loại sản phẩm. Vui lòng thử lại."
+          : "Không thể xóa phiếu. Vui lòng thử lại.";
 
       toast.error(getInventoryErrorMessage(error, fallbackMessage));
     } finally {
@@ -964,8 +600,7 @@ export default function InventoryTab() {
   };
 
   const handleNavigateToCreateProduct = () => {
-    setSubTab("DANH MỤC");
-    openCreateProductModal();
+    setSubTab("SẢN PHẨM");
   };
 
   return (
@@ -976,10 +611,11 @@ export default function InventoryTab() {
           <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
           <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
             {[
-              { id: "DANH MỤC", label: "Danh mục sản phẩm", icon: Package },
-              { id: "PHÂN LOẠI SẢN PHẨM", label: "Phân loại kho", icon: Tags },
-              { id: "NHẬP / XUẤT KHO", label: "Nhập / Xuất kho", icon: ArrowLeftRight },
-              { id: "DỰ BÁO AI", label: "Dự báo AI", icon: Sparkles },
+              { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
+              { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
+              { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
+              { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
+              { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
             ].map((tab) => {
               const isActive = subTab === tab.id;
               const Icon = tab.icon;
@@ -1004,248 +640,14 @@ export default function InventoryTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
-        {subTab === "DANH MỤC" && (
+        {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
-            <input
-              ref={productImportInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImportProductsExcel}
-            />
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center" id="catalog_filters">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative w-full sm:w-72">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Search className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Tìm theo tên hoặc mã sản phẩm..."
-                    className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
-                    value={searchProduct}
-                    onChange={(event) => setSearchProduct(event.target.value)}
-                    id="product_search_filter"
-                  />
-                </div>
-                <select
-                  className="w-full rounded-lg border border-gray-200 bg-slate-50/50 px-3 py-2 text-xs sm:w-52"
-                  value={selectedCategoryFilter}
-                  onChange={(event) => setSelectedCategoryFilter(event.target.value)}
-                >
-                  <option value="Tất cả">Tất cả phân loại</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <ViewToggle mode={productViewMode} onChange={setProductViewMode} />
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleOpenProductImport}
-                  disabled={productExcelImporting}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Upload className="h-4 w-4" />
-                  {productExcelImporting ? "Đang nhập Excel..." : "Nhập Excel"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportProductsExcel}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100"
-                >
-                  <Download className="h-4 w-4" />
-                  Xuất Excel
-                </button>
-                <button
-                  onClick={openCreateProductModal}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700"
-                  id="open_add_product_modal"
-                >
-                  <Plus className="h-4 w-4" />
-                  Khai báo sản phẩm mới
-                </button>
-              </div>
-            </div>
-
-            {productLoading ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
-                <p className="font-bold text-gray-700">Đang tải danh mục sản phẩm...</p>
-                <p className="mt-1 text-xs text-gray-500">Dữ liệu đang được đồng bộ từ Firebase.</p>
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
-                <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {productViewMode === "grid" ? (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
-                    {paginatedProducts.map((product) => (
-                      <div key={product.id}>
-                        <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-gray-150 bg-white shadow-2xs">
-                    <table className="w-full border-collapse text-left text-xs text-slate-600">
-                      <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-gray-150">
-                        <tr>
-                          <th className="px-4 py-3">Ảnh</th>
-                          <th className="px-4 py-3">Mã sản phẩm</th>
-                          <th className="px-4 py-3">Tên sản phẩm</th>
-                          <th className="px-4 py-3">Phân loại</th>
-                          <th className="px-4 py-3">Đơn giá</th>
-                          <th className="px-4 py-3">Tồn kho</th>
-                          <th className="px-4 py-3">Dự báo AI</th>
-                          <th className="px-4 py-3">Trạng thái</th>
-                          <th className="px-4 py-3 text-right">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {paginatedProducts.map((product) => {
-                          const alertState = product.stock <= product.minStockAlert;
-                          const formattedPrice = product.price.toLocaleString("vi-VN");
-                          const compactPrice = formatCurrencyCompact(product.price);
-                          const formattedStock = product.stock.toLocaleString("vi-VN");
-                          return (
-                            <tr key={product.id} className={`hover:bg-slate-50/55 transition-colors ${product.status === "Inactive" ? "opacity-60" : ""}`}>
-                              <td className="px-4 py-2.5">
-                                {product.imageUrl ? (
-                                  <img src={product.imageUrl} alt={product.name} className="h-8 w-8 rounded-md object-cover border border-slate-150" />
-                                ) : (
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[9px] font-semibold text-slate-400 border border-slate-150">
-                                    No img
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono text-[10px] tracking-wide text-gray-400">{product.sku}</td>
-                              <td className="px-4 py-2.5">
-                                <div>
-                                  <div className="font-bold text-slate-800" title={product.name}>{product.name}</div>
-                                  {product.brand && (
-                                    <div className="text-[10px] text-gray-450 font-medium">Hiệu: {product.brand}</div>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-4 py-2.5">
-                                <span className="inline-flex rounded-md bg-blue-50 border border-blue-100/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
-                                  {product.category}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 font-mono font-semibold text-indigo-600 whitespace-nowrap" title={`${formattedPrice} đ`}>
-                                {compactPrice} đ
-                              </td>
-                              <td className="px-4 py-2.5">
-                                <span className={`font-mono font-semibold ${alertState && product.status !== "Inactive" ? "text-red-500" : "text-slate-700"}`}>
-                                  {formattedStock} {product.unit || "chiếc"}
-                                </span>
-                                {alertState && product.status !== "Inactive" && (
-                                  <span className="ml-1.5 rounded-full bg-red-50 px-1 py-0.5 text-[8px] font-bold text-red-500 border border-red-100">
-                                    Thiếu
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5">
-                                <span
-                                  className={`inline-flex items-center gap-1 font-semibold text-[10px] ${
-                                    product.demandForecast === "Tăng mạnh"
-                                      ? "text-red-500"
-                                      : product.demandForecast === "Ổn định"
-                                        ? "text-green-600"
-                                        : "text-amber-600"
-                                  }`}
-                                >
-                                  {product.demandForecast === "Giảm nhẹ" ? (
-                                    <ArrowDownRight className="h-3 w-3" />
-                                  ) : product.demandForecast === "Ổn định" ? (
-                                    <CheckCircle className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowUpRight className="h-3 w-3" />
-                                  )}
-                                  {product.demandForecast}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5">
-                                {product.status === "Inactive" ? (
-                                  <span className="rounded-full border border-gray-250 bg-gray-50 px-2 py-0.5 text-[9px] font-bold text-gray-500">
-                                    Ngừng bán
-                                  </span>
-                                ) : (
-                                  <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
-                                    Đang bán
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => openEditProductModal(product)}
-                                    className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition-colors"
-                                    title="Sửa"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteProduct(product)}
-                                    className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                    title="Xóa"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <Pagination currentPage={productPage} totalPages={totalProductPages} onPageChange={setProductPage} />
-              </div>
-            )}
-
-            {showProductModal && (
-              <ProductModal
-                categories={categories}
-                imagePreview={newProdImagePreview}
-                isEditing={Boolean(editingProductId)}
-                isSubmitting={productSubmitting}
-                newProdCategory={newProdCategory}
-                newProdName={newProdName}
-                newProdPrice={newProdPrice}
-                newProdCostPrice={newProdCostPrice}
-                newProdSKU={newProdSKU}
-                newProdStock={newProdStock}
-                newProdBrand={newProdBrand}
-                newProdUnit={newProdUnit}
-                newProdDescription={newProdDescription}
-                newProdStatus={newProdStatus}
-                onClose={resetProductForm}
-                onCreateCategory={openCreateCategoryModal}
-                onImageChange={handleProductImageChange}
-                onSubmit={handleSaveProduct}
-                setNewProdCategory={setNewProdCategory}
-                setNewProdName={setNewProdName}
-                setNewProdPrice={setNewProdPrice}
-                setNewProdCostPrice={setNewProdCostPrice}
-                setNewProdSKU={setNewProdSKU}
-                setNewProdStock={setNewProdStock}
-                setNewProdBrand={setNewProdBrand}
-                setNewProdUnit={setNewProdUnit}
-                setNewProdDescription={setNewProdDescription}
-                setNewProdStatus={setNewProdStatus}
-              />
-            )}
+            <ProductCatalogV2Section />
           </div>
         )}
+
+        {subTab === "KHO HÀNG" && <WarehouseSection />}
+        {subTab === "NHẬP HÀNG" && <ReceivingSection />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
@@ -1396,7 +798,7 @@ export default function InventoryTab() {
         )}
 
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu kho..." />}>
-          {subTab === "NHẬP / XUẤT KHO" && (
+          {subTab === "GIAO DỊCH KHO" && (
             <>
               <input
                 ref={stockLogImportInputRef}
@@ -1419,10 +821,11 @@ export default function InventoryTab() {
                 onUpdateTransaction={handleUpdateTransaction}
                 onUpdateStatus={handleQuickUpdateTransactionStatus}
                 onDeleteTransaction={handleDeleteTransaction}
+                readOnly
               />
             </>
           )}
-          {subTab === "DỰ BÁO AI" && <AiForecastPanel forecast={forecastSummary} />}
+          {subTab === "DỰ BÁO" && <AiForecastPanel forecast={forecastSummary} />}
         </Suspense>
       </div>
 

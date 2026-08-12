@@ -4,6 +4,19 @@ import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
 import { Batch } from "../models/batch.model";
+import { Exam } from "../models/exam.model";
+import { BatchMiniTest } from "../models/batch-mini-test.model";
+import { BatchEnrollment } from "../models/batch-enrollment.model";
+import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
+import { SubmissionModel } from "../models/submission.model";
+import { StudentQualityRecord } from "../models/student-quality.model";
+import { ClassWaitlistEntry } from "../models/class-waitlist.model";
+import { StudentProgressionDecision } from "../models/student-progression.model";
+import { StudentDeviceModel } from "../models/student-device.model";
+import { StudentVerificationCodeModel } from "../models/student-verification-code.model";
+import { StudentAttendanceAttemptModel } from "../models/student-attendance-attempt.model";
+import { StudentFaceEnrollmentAuditModel } from "../models/student-face-enrollment-audit.model";
+import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 import { BranchModel } from "../../../model/branch.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
@@ -35,6 +48,7 @@ interface StudentUpdateData {
 }
 
 interface BulkStudentInput {
+  sourceRow?: number;
   fullName?: string;
   phone?: string;
   rank?: string;
@@ -51,6 +65,26 @@ interface BulkStudentInput {
   batchCode?: string;
 }
 
+export interface BulkStudentValidationError {
+  index: number;
+  row: number;
+  name: string;
+  phone: string;
+  reason: string;
+}
+
+export interface StudentDeletionImpactItem {
+  studentId: string;
+  name: string;
+  reasons: Array<{ key: string; label: string; count: number; details?: string[] }>;
+}
+
+export interface StudentDeletionImpact {
+  items: StudentDeletionImpactItem[];
+  deletableIds: string[];
+  blockedIds: string[];
+}
+
 function normalizeIdCard(idCard: string): string {
   return String(idCard || "").replace(/\D/g, "");
 }
@@ -61,6 +95,10 @@ function normalizeEmail(email: string): string {
 
 function normalizePhone(phone: string): string {
   return String(phone || "").replace(/\D/g, "");
+}
+
+function normalizeBatchCode(code: unknown): string {
+  return String(code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
 }
 
 function normalizeFee(fee: unknown): string {
@@ -360,6 +398,14 @@ export class StudentService {
 
   static async deleteStudent(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
     logger.info(`[Student] Deleting student: id=${id}, ownerId=${ownerId}`);
+    const impact = await this.getDeletionImpact(ownerId, [id], branchId);
+    const blocked = impact.items.find(item => item.studentId === id && item.reasons.length > 0);
+    if (blocked) {
+      const error = new Error(`Không thể xóa ${blocked.name} vì đang có ${blocked.reasons.map(reason => reason.label).join(", ")}.`);
+      (error as Error & { status: number; code: string }).status = 409;
+      (error as Error & { status: number; code: string }).code = "STUDENT_IN_USE";
+      throw error;
+    }
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
@@ -380,32 +426,102 @@ export class StudentService {
     return deletedStudent;
   }
 
-  static async bulkDeleteStudents(ownerId: string | string[], ids: string[], branchId?: string): Promise<number> {
+  static async getDeletionImpact(ownerId: string | string[], ids: string[], branchId?: string): Promise<StudentDeletionImpact> {
     const validIds = ids.filter(id => Types.ObjectId.isValid(id));
-    if (validIds.length === 0) return 0;
+    if (validIds.length === 0) return { items: [], deletableIds: [], blockedIds: [] };
 
     const query: Record<string, unknown> = {
       _id: { $in: validIds },
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const studentsToDelete = await Student.find(query).select("_id");
-    const resolvedIds = studentsToDelete.map(s => s._id.toString());
-    if (resolvedIds.length === 0) return 0;
+    const students = await Student.find(query).select("_id fullName paymentHistory exams");
+    const resolvedIds = students.map(student => student._id.toString());
+    if (resolvedIds.length === 0) return { items: [], deletableIds: [], blockedIds: [] };
 
-    try {
-      await Payment.deleteMany({ studentId: { $in: resolvedIds } });
-      await Batch.updateMany({ learnerIds: { $in: resolvedIds } }, { $pull: { learnerIds: { $in: resolvedIds } } });
-    } catch (err) {
-      logger.error(`[Student] Failed to clean up associated records for bulk deleted students: %o`, err);
-    }
+    const [payments, batches, exams, miniTests, enrollments, canonicalEnrollments, submissions, qualityRecords, waitlistEntries, progressionDecisions, devices, verificationCodes, attendanceAttempts, faceAudits] = await Promise.all([
+      Payment.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      Batch.find({ $or: [{ learnerIds: { $in: resolvedIds } }, { "attendanceSessions.records.studentId": { $in: resolvedIds } }] }).select("code name learnerIds attendanceSessions.records.studentId"),
+      Exam.find({ "results.studentId": { $in: resolvedIds } }).select("name results.studentId"),
+      BatchMiniTest.find({ "results.studentId": { $in: resolvedIds } }).select("title results.studentId"),
+      BatchEnrollment.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentBatchEnrollment.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      SubmissionModel.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentQualityRecord.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      ClassWaitlistEntry.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentProgressionDecision.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentDeviceModel.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentVerificationCodeModel.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentAttendanceAttemptModel.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+      StudentFaceEnrollmentAuditModel.find({ studentId: { $in: resolvedIds } }).select("studentId"),
+    ]);
+
+    const items: StudentDeletionImpactItem[] = students.map(student => ({ studentId: student._id.toString(), name: student.fullName, reasons: [] }));
+    const byId = new Map(items.map(item => [item.studentId, item]));
+    const add = (studentId: string, key: string, label: string, detail?: string) => {
+      const item = byId.get(studentId);
+      if (!item) return;
+      let reason = item.reasons.find(entry => entry.key === key);
+      if (!reason) {
+        reason = { key, label, count: 0, details: detail ? [] : undefined };
+        item.reasons.push(reason);
+      }
+      reason.count++;
+      if (detail && reason.details && !reason.details.includes(detail)) reason.details.push(detail);
+    };
+    const addDirect = (records: Array<{ studentId?: unknown }>, key: string, label: string) => {
+      records.forEach(record => add(String(record.studentId || ""), key, label));
+    };
+
+    students.forEach(student => {
+      const id = student._id.toString();
+      (student.paymentHistory || []).forEach(() => add(id, "payment-history", "lịch sử thanh toán"));
+      (student.exams || []).forEach(() => add(id, "student-exams", "lịch sử kỳ thi"));
+    });
+    addDirect(payments as any, "payments", "phiếu thu/hóa đơn");
+    addDirect(enrollments as any, "enrollments", "đăng ký và lịch sử lớp");
+    addDirect(canonicalEnrollments as any, "canonical-enrollments", "sổ buổi học");
+    addDirect(submissions as any, "submissions", "bài nộp");
+    addDirect(qualityRecords as any, "quality", "đánh giá chất lượng");
+    addDirect(waitlistEntries as any, "waitlist", "danh sách chờ lớp");
+    addDirect(progressionDecisions as any, "progression", "lộ trình học tập");
+    addDirect(devices as any, "devices", "thiết bị đăng nhập");
+    addDirect(verificationCodes as any, "verification", "mã xác thực điểm danh");
+    addDirect(attendanceAttempts as any, "attendance-attempts", "lịch sử điểm danh");
+    addDirect(faceAudits as any, "face-audits", "lịch sử nhận diện khuôn mặt");
+
+    batches.forEach(batch => {
+      const detail = batch.code || batch.name || String(batch._id);
+      resolvedIds.forEach(studentId => {
+        if ((batch.learnerIds || []).includes(studentId)) add(studentId, "classes", "lớp học", detail);
+        const attendanceCount = (batch.attendanceSessions || []).filter(session => (session.records || []).some(record => record.studentId === studentId)).length;
+        for (let index = 0; index < attendanceCount; index++) add(studentId, "attendance", "buổi điểm danh", detail);
+      });
+    });
+    exams.forEach(exam => (exam.results || []).forEach(result => {
+      if (resolvedIds.includes(result.studentId)) add(result.studentId, "exam-results", "kết quả thi", exam.name);
+    }));
+    miniTests.forEach(test => (test.results || []).forEach(result => {
+      if (resolvedIds.includes(result.studentId)) add(result.studentId, "mini-tests", "bài kiểm tra", test.title);
+    }));
+
+    const deletableIds = items.filter(item => item.reasons.length === 0).map(item => item.studentId);
+    const blockedIds = items.filter(item => item.reasons.length > 0).map(item => item.studentId);
+    return { items, deletableIds, blockedIds };
+  }
+
+  static async bulkDeleteStudents(ownerId: string | string[], ids: string[], branchId?: string): Promise<{ deletedCount: number; deletedIds: string[]; blocked: StudentDeletionImpactItem[] }> {
+    const impact = await this.getDeletionImpact(ownerId, ids, branchId);
+    const resolvedIds = impact.deletableIds;
+    const blocked = impact.items.filter(item => item.reasons.length > 0);
+    if (resolvedIds.length === 0) return { deletedCount: 0, deletedIds: [], blocked };
 
     const result = await Student.deleteMany({
       _id: { $in: resolvedIds },
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     });
-    return result.deletedCount || 0;
+    return { deletedCount: result.deletedCount || 0, deletedIds: resolvedIds, blocked };
   }
 
   static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string, creatorName?: string) {
@@ -423,6 +539,8 @@ export class StudentService {
     const validStudents: Partial<IStudent>[] = [];
 
     const seenPhonesInBatch = new Set<string>();
+    const seenEmailsInBatch = new Set<string>();
+    const seenIdCardsInBatch = new Set<string>();
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerId),
@@ -433,12 +551,18 @@ export class StudentService {
     const existingEmails = new Set(existingStudents.map((s) => normalizeEmail(s.email || "")).filter(Boolean));
     const existingIdCards = new Set(existingStudents.map((s) => normalizeIdCard(s.idCard || "")).filter(Boolean));
 
+    const availableBatches = await Batch.find(query).select("code ownerId branchId startDate endDate daysOfWeek learnerIds");
+    const batchesByCode = new Map(availableBatches.map((batch) => [normalizeBatchCode(batch.code), batch]));
+
     for (let i = 0; i < studentsData.length; i++) {
-      const rowNum = i + 1;
+      const rowNum = Number.isInteger(studentsData[i]?.sourceRow) && Number(studentsData[i]?.sourceRow) > 0
+        ? Number(studentsData[i].sourceRow)
+        : i + 1;
       const data = studentsData[i];
       const fullName = String(data.fullName || "").trim();
       const phone = normalizePhone(String(data.phone || ""));
       const rank = String(data.rank || "").trim().toUpperCase();
+      const batchCode = normalizeBatchCode(data.batchCode);
 
       if (!fullName) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Họ và tên không được để trống." });
@@ -474,11 +598,31 @@ export class StudentService {
       const defaultStatus = businessType === "driving" ? "Chờ KSK" : "Đang học";
       const status = String(data.status || defaultStatus).trim();
 
+      if (email && seenEmailsInBatch.has(email)) {
+        errors.push({ row: rowNum, name: fullName, phone, reason: "Email bị trùng lặp trong file import." });
+        skippedCount++;
+        continue;
+      }
+
+      if (batchCode && !batchesByCode.has(batchCode)) {
+        errors.push({ row: rowNum, name: fullName, phone, reason: `Mã lớp "${String(data.batchCode || "").trim()}" không tồn tại trong chi nhánh hiện tại.` });
+        skippedCount++;
+        continue;
+      }
+      if (email) seenEmailsInBatch.add(email);
+
       if (email && existingEmails.has(email)) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Email đã tồn tại trong trung tâm hiện tại." });
         skippedCount++;
         continue;
       }
+
+      if (idCard && seenIdCardsInBatch.has(idCard)) {
+        errors.push({ row: rowNum, name: fullName, phone, reason: "CCCD/CMND bị trùng lặp trong file import." });
+        skippedCount++;
+        continue;
+      }
+      if (idCard) seenIdCardsInBatch.add(idCard);
 
       if (idCard && existingIdCards.has(idCard)) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "CCCD/CMND đã tồn tại trong trung tâm hiện tại." });
@@ -524,8 +668,6 @@ export class StudentService {
       });
 
       existingPhones.add(phone);
-      if (email) existingEmails.add(email);
-      if (idCard) existingIdCards.add(idCard);
     }
 
     if (validStudents.length > 0) {
@@ -538,18 +680,22 @@ export class StudentService {
         const savedStudent = results[j];
         const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone));
         if (matchingInput && matchingInput.batchCode) {
-          const code = String(matchingInput.batchCode).trim();
+          const code = normalizeBatchCode(matchingInput.batchCode);
           if (code) {
-            const batch = await Batch.findOne({
-              code,
-              ...buildOwnerScopeQuery(ownerId),
-              ...buildBranchScopeQuery(branchId)
-            });
+            const batch = batchesByCode.get(code);
             if (batch) {
               const studentIdStr = savedStudent._id.toString();
               if (!batch.learnerIds.includes(studentIdStr)) {
                 batch.learnerIds.push(studentIdStr);
                 await batch.save();
+                await StudentBatchEnrollmentService.activate({
+                  ownerId: String(batch.ownerId),
+                  branchId: batch.branchId,
+                  batchId: String(batch._id),
+                  studentId: studentIdStr,
+                  actorId: creatorId,
+                  allowedSessions: getPlannedSessionCount(batch),
+                });
                 logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${batch.code}`);
               }
             } else {
@@ -567,6 +713,55 @@ export class StudentService {
       skippedCount,
       errors,
     };
+  }
+
+  static async previewBulkStudents(ownerId: string | string[], studentsData: BulkStudentInput[], branchId?: string) {
+    const query: Record<string, unknown> = {
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    };
+    const existingStudents = await Student.find(query).select("phone email idCard");
+    const existingPhones = new Set(existingStudents.map((student) => normalizePhone(student.phone)));
+    const existingEmails = new Set(existingStudents.map((student) => normalizeEmail(student.email || "")).filter(Boolean));
+    const existingIdCards = new Set(existingStudents.map((student) => normalizeIdCard(student.idCard || "")).filter(Boolean));
+    const seenPhones = new Set<string>();
+    const seenEmails = new Set<string>();
+    const seenIdCards = new Set<string>();
+    const errors: BulkStudentValidationError[] = [];
+
+    const addError = (index: number, data: BulkStudentInput, reason: string) => {
+      errors.push({
+        index,
+        row: Number.isInteger(data.sourceRow) && Number(data.sourceRow) > 0 ? Number(data.sourceRow) : index + 1,
+        name: String(data.fullName || "").trim(),
+        phone: normalizePhone(String(data.phone || "")),
+        reason,
+      });
+    };
+
+    studentsData.forEach((data, index) => {
+      const phone = normalizePhone(String(data.phone || ""));
+      const email = normalizeEmail(String(data.email || ""));
+      const idCard = normalizeIdCard(String(data.idCard || ""));
+
+      if (phone) {
+        if (seenPhones.has(phone)) addError(index, data, "Số điện thoại bị trùng lặp trong file import.");
+        else if (existingPhones.has(phone)) addError(index, data, "Số điện thoại đã tồn tại trong trung tâm hiện tại.");
+        seenPhones.add(phone);
+      }
+      if (email) {
+        if (seenEmails.has(email)) addError(index, data, "Email bị trùng lặp trong file import.");
+        else if (existingEmails.has(email)) addError(index, data, "Email đã tồn tại trong trung tâm hiện tại.");
+        seenEmails.add(email);
+      }
+      if (idCard) {
+        if (seenIdCards.has(idCard)) addError(index, data, "CCCD/CMND bị trùng lặp trong file import.");
+        else if (existingIdCards.has(idCard)) addError(index, data, "CCCD/CMND đã tồn tại trong trung tâm hiện tại.");
+        seenIdCards.add(idCard);
+      }
+    });
+
+    return { errors };
   }
 
   static async markInstallmentPaid(

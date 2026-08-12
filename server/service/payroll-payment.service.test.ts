@@ -29,11 +29,11 @@ describe("confirmedPaidByEmployee", () => {
 });
 
 describe("deriveRunSettlementStatus", () => {
-  it("reports closed, partially paid, and paid from the confirmed totals", () => {
+  it("keeps partial payments closed and reports paid only at full settlement", () => {
     const lines = (paid1: number, paid2: number) => buildSettlementLines(revisionLines, new Map([["emp-1", paid1], ["emp-2", paid2]]));
 
     expect(deriveRunSettlementStatus(lines(0, 0))).toBe("closed");
-    expect(deriveRunSettlementStatus(lines(10_000_000, 0))).toBe("partially_paid");
+    expect(deriveRunSettlementStatus(lines(10_000_000, 0))).toBe("closed");
     expect(deriveRunSettlementStatus(lines(10_000_000, 6_000_000))).toBe("paid");
   });
 });
@@ -52,14 +52,14 @@ describe("validatePaymentRequest", () => {
     expect(validatePaymentRequest(closedRun, settlement, {
       amount: 6_000_001,
       lines: [{ employeeId: "emp-1", amount: 6_000_001 }],
-    })).toEqual(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_BALANCE", status: 409 }));
+    })).toEqual(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_NET", status: 409 }));
   });
 
   it("sums repeated employee lines before checking the balance", () => {
     expect(validatePaymentRequest(closedRun, settlement, {
       amount: 6_000_002,
       lines: [{ employeeId: "emp-1", amount: 6_000_000 }, { employeeId: "emp-1", amount: 2 }],
-    })).toEqual(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_BALANCE" }));
+    })).toEqual(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_NET" }));
   });
 
   it("requires the allocation to add up to the requested amount", () => {
@@ -82,17 +82,12 @@ describe("validatePaymentRequest", () => {
     })).toEqual(expect.objectContaining({ code: "PAYROLL_PAYMENT_UNKNOWN_EMPLOYEE" }));
   });
 
-  it.each(["draft", "calculated", "reviewed", "approved", "paid"])("refuses to pay a run in status %s", (status) => {
+  it.each(["draft", "review", "paid"])("refuses to pay a run in status %s", (status) => {
     expect(validatePaymentRequest({ status }, settlement, {
       amount: 1_000, lines: [{ employeeId: "emp-1", amount: 1_000 }],
     })).toEqual(expect.objectContaining({ code: "PAYROLL_RUN_NOT_PAYABLE", status: 409 }));
   });
 
-  it("allows paying the rest of a partially paid run", () => {
-    expect(validatePaymentRequest({ status: "partially_paid" }, settlement, {
-      amount: 1_000, lines: [{ employeeId: "emp-1", amount: 1_000 }],
-    })).toBeNull();
-  });
 });
 
 describe("validatePaymentTransition", () => {

@@ -34,6 +34,20 @@ interface StudentsPageProps {
 
 type StatusFilter = 'Tất cả' | 'KSK' | 'Đã KSK' | 'Nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học';
 
+interface StudentDeleteImpactItem {
+  studentId: string;
+  name: string;
+  reasons: Array<{ key: string; label: string; count: number; details?: string[] }>;
+}
+
+interface BulkDeletePreview {
+  items: StudentDeleteImpactItem[];
+  deletableIds: string[];
+  blockedIds: string[];
+  deletableCount: number;
+  blockedCount: number;
+}
+
 // Tab phân loại ảo, luôn có bên cạnh các phân loại khóa học động
 const TAB_ALL = 'Tất cả';
 const TAB_UNASSIGNED = 'Chưa xếp lớp';
@@ -80,6 +94,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
 
   // Nếu phân loại đang chọn bị xóa khỏi danh mục thì quay về "Tất cả"
   React.useEffect(() => {
@@ -243,22 +258,33 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
   const handleBulkDelete = async () => {
     if (selectedStudentIds.length === 0) return;
-    const relatedDataWarning = operationalCopy.isWorker
-      ? "Hành động này sẽ dọn dẹp các dữ liệu tuyển dụng liên quan và không thể hoàn tác."
-      : operationalCopy.isCustomer
-        ? "Hành động này sẽ dọn dẹp các dữ liệu dịch vụ liên quan và không thể hoàn tác."
-        : "Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.";
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} ${entityLabel.singular} đã chọn? ${relatedDataWarning}`)) {
-      return;
-    }
     setIsBulkDeleting(true);
     try {
-      await apiFetch('/students/bulk-delete', {
+      const preview = await apiFetch('/students/bulk-delete-preview', {
         method: 'POST',
-        body: JSON.stringify({ studentIds: selectedStudentIds }),
+        body: JSON.stringify({ ids: selectedStudentIds }),
       });
-      toast.success(`Đã xóa hàng loạt ${entityLabel.singular} thành công!`);
-      setSelectedStudentIds([]);
+      setBulkDeletePreview(preview);
+    } catch (error) {
+      console.error("Error previewing bulk student deletion:", error);
+      toast.error(`Không thể kiểm tra dữ liệu liên quan của ${entityLabel.singular}.`);
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (!bulkDeletePreview || bulkDeletePreview.deletableIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const result = await apiFetch('/students/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ ids: bulkDeletePreview.deletableIds }),
+      });
+      if (result.deletedCount > 0) toast.success(`Đã xóa ${result.deletedCount} ${entityLabel.singular} không có dữ liệu liên quan.`);
+      if (result.blocked?.length > 0) toast.warning(`${result.blocked.length} ${entityLabel.singular} vừa phát sinh dữ liệu nên không được xóa.`);
+      setSelectedStudentIds(bulkDeletePreview.blockedIds);
+      setBulkDeletePreview(null);
       window.dispatchEvent(new Event("student-mutation"));
     } catch (error) {
       console.error("Error bulk deleting students:", error);
@@ -276,7 +302,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       setConfirmDeleteId(null);
     } catch (error) {
       console.error("Error deleting student:", error);
-      toast.error(`Có lỗi xảy ra khi xóa ${entityLabel.singular}.`);
+      toast.error(error instanceof Error ? error.message : `Có lỗi xảy ra khi xóa ${entityLabel.singular}.`);
     } finally {
       setIsDeleting(null);
     }
@@ -861,6 +887,70 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           className="pagination-bar"
         />
       </div>
+
+      {bulkDeletePreview && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Đóng"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+            onClick={() => !isBulkDeleting && setBulkDeletePreview(null)}
+          />
+          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Kiểm tra trước khi xóa</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Có thể xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong>, bị chặn <strong className="text-rose-600">{bulkDeletePreview.blockedCount}</strong> {entityLabel.singular}.
+                </p>
+              </div>
+              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-50">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {bulkDeletePreview.blockedCount > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-bold text-rose-700">Không thể xóa vì đang được sử dụng</h3>
+                  <div className="space-y-2">
+                    {bulkDeletePreview.items.filter(item => item.reasons.length > 0).map(item => (
+                      <div key={item.studentId} className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
+                        <p className="text-xs font-bold text-slate-800">{item.name}</p>
+                        <ul className="mt-1.5 space-y-1 text-[11px] text-rose-700">
+                          {item.reasons.map(reason => (
+                            <li key={reason.key}>
+                              • {reason.label}: {reason.count}{reason.details?.length ? ` (${reason.details.join(', ')})` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {bulkDeletePreview.deletableCount > 0 && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
+                  <h3 className="text-xs font-bold text-emerald-700">Có thể xóa</h3>
+                  <p className="mt-1 text-[11px] text-slate-600">
+                    {bulkDeletePreview.items.filter(item => item.reasons.length === 0).map(item => item.name).join(', ')}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Hủy</button>
+              {bulkDeletePreview.deletableCount > 0 && (
+                <button disabled={isBulkDeleting} onClick={confirmBulkDelete} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">
+                  {isBulkDeleting ? 'Đang xóa...' : `Xóa ${bulkDeletePreview.deletableCount} ${entityLabel.singular}`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
