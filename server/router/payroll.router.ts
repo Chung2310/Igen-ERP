@@ -1,8 +1,15 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { payrollController } from "../controller/payroll.controller";
+import { payrollFormulaController } from "../controller/payroll-formula.controller";
 export const payrollRouter = Router();
 payrollRouter.use(requireAuth as any);
+payrollRouter.get("/formulas", requirePermission("payroll:read") as any, payrollFormulaController.list as any);
+payrollRouter.post("/formulas", requirePermission("payroll:manage") as any, payrollFormulaController.create as any);
+payrollRouter.patch("/formulas/:id", requirePermission("payroll:manage") as any, payrollFormulaController.update as any);
+payrollRouter.post("/formulas/:id/activate", requirePermission("payroll:manage") as any, payrollFormulaController.activate as any);
+payrollRouter.post("/formulas/:id/retire", requirePermission("payroll:manage") as any, payrollFormulaController.retire as any);
+payrollRouter.post("/formulas/:id/clone", requirePermission("payroll:manage") as any, payrollFormulaController.clone as any);
 payrollRouter.post("/runs", requirePermission("payroll:prepare") as any, payrollController.createOperationalRun as any);
 payrollRouter.post("/runs/:id/sync-attendance", requirePermission("payroll:prepare") as any, payrollController.syncAttendance as any);
 payrollRouter.post("/runs/:id/lock-attendance", requirePermission("payroll:prepare") as any, payrollController.lockAttendance as any);

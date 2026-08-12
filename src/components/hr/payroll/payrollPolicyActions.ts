@@ -3,7 +3,7 @@ export type PayrollPolicyAction = "edit" | "clone" | "activate" | "retire" | "de
 export function getPayrollPolicyActions(canManage: boolean, status: string): PayrollPolicyAction[] {
   if (!canManage) return [];
   if (status === "draft") return ["edit", "clone", "activate", "delete"];
-  if (status === "active") return ["clone", "retire"];
+  if (status === "active") return ["edit", "clone", "retire"];
   if (status === "retired") return ["clone", "activate", "delete"];
   return [];
 }

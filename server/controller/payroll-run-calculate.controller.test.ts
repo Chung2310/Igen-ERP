@@ -74,6 +74,7 @@ const snapshotEmployees = [{
   employeeId: "employee-a", standardDays: 23, standardHours: 184,
   workedMinutes: 11040, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [],
 }];
+const activePolicy = { _id: "policy-default", code: "vn", name: "Việt Nam", status: "active", effectiveFrom: new Date("2026-01-01"), version: 1, baseSalary: 2_340_000, regionalMinimumWage: 4_960_000, socialCapMultiplier: 20, unemploymentCapMultiplier: 20, funds: [], personalDeduction: 11_000_000, dependentDeduction: 4_400_000, taxBrackets: [{ rate: .1 }], shortTermWithholdingRate: .1, shortTermWithholdingThreshold: 2_000_000, nonResidentRate: .2, overtime: { weekday: 1.5, restDay: 2, holiday: 3, nightPremium: .3, nightOvertimeBonus: .2 }, roundingUnit: 1 };
 
 const arrangeHappyPath = () => {
   mocks.jobFindOne.mockReturnValue(lean(null));
@@ -81,7 +82,7 @@ const arrangeHappyPath = () => {
   mocks.snapshotFindOne.mockReturnValue(lean({ runId: "run-a", employees: snapshotEmployees }));
   mocks.userFind.mockReturnValue(selectLean([{ _id: "employee-a", monthlySalary: 12_000_000 }]));
   mocks.contractFind.mockReturnValue(selectLean([]));
-  mocks.policyFind.mockReturnValue(lean([]));
+  mocks.policyFind.mockReturnValue(lean([activePolicy]));
   mocks.profileFind.mockReturnValue(lean([]));
   mocks.dependentFind.mockReturnValue(lean([]));
   mocks.adjustmentFind.mockReturnValue(selectLean([{ employeeId: "employee-a", kind: "bonus", amount: 500_000 }]));
