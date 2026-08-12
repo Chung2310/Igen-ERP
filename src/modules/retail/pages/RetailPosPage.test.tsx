@@ -7,7 +7,7 @@ import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import RetailPosPage from "./RetailPosPage";
 
-vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" } }) }));
+vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
 vi.mock("../api/retailProducts.api", () => ({ retailProductsApi: { list: vi.fn() } }));
 vi.mock("../api/retailShifts.api", () => ({ retailShiftsApi: { current: vi.fn().mockResolvedValue({ _id: "s1", shiftCode: "CA-1", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open" }) } }));
 vi.mock("../api/retailOrders.api", () => ({ retailOrdersApi: { list: vi.fn(), quote: vi.fn(), createDraft: vi.fn(), updateDraft: vi.fn(), confirm: vi.fn(), idempotency: vi.fn() } }));
@@ -48,5 +48,17 @@ describe("RetailPosPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Gửi thanh toán" }));
     expect(await screen.findByRole("dialog", { name: "Thanh toán thành công" })).toBeTruthy();
     expect(screen.getByText("HD-1")).toBeTruthy();
+  });
+
+  it("queues a fixed checkout after network failure without showing success", async () => {
+    vi.mocked(retailOrdersApi.confirm).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    vi.mocked(retailOrdersApi.idempotency).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<RetailPosPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Thanh toán" }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gửi thanh toán" }));
+    expect(await screen.findByText("Chờ đồng bộ")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Thanh toÃ¡n thÃ nh cÃ´ng" })).toBeNull();
   });
 });

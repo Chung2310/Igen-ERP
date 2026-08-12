@@ -34,7 +34,15 @@ vi.mock("../model/stock-log.model", () => ({
   StockLogModel: { countDocuments: async () => 0 },
 }));
 
-const { analyticsService } = await import("./analytics.service");
+const { analyticsService, reconcileRetailAnalyticsRevenue } = await import("./analytics.service");
+
+it("returns a read-only Retail and Analytics revenue reconciliation", () => {
+  const retail = { netSales: 120 };
+  const analytics = { goodsTotal: 100 };
+  expect(reconcileRetailAnalyticsRevenue(retail, analytics)).toEqual({ retailNetSales: 120, analyticsNetSales: 100, difference: 20, matched: false });
+  expect(retail).toEqual({ netSales: 120 });
+  expect(analytics).toEqual({ goodsTotal: 100 });
+});
 
 const RANGE = {
   from: new Date("2026-07-01T00:00:00.000Z"),

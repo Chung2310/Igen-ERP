@@ -1,4 +1,5 @@
 export type RetailScope = { companyCode: string; branchId: string };
+export interface RetailOfflineSyncResult { itemId: string; status: "synced" | "failed"; orderId?: string; invoiceId?: string; error?: string }
 
 export interface RetailSettings {
   companyCode: string;
@@ -10,6 +11,8 @@ export interface RetailSettings {
   varianceReasonThreshold: number;
   orderPrefix: string;
   invoicePrefix: string;
+  invoicePaperSize: "A4" | "A5" | "80mm";
+  invoiceTemplate: "standard";
 }
 
 export interface RetailCustomer {
@@ -40,14 +43,19 @@ export interface RetailOrderInput { items: RetailOrderItemInput[]; customerId?: 
 export interface RetailOrderItem { productId: string; sku: string; productName: string; unit: string; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number }
 export interface RetailPaymentInput { method: "cash" | "card" | "transfer" | "ewallet"; amount: number; tenderedAmount?: number; reference?: string }
 export interface RetailOrder { _id: string; orderCode?: string; status: "draft" | "confirmed" | "completed" | "cancelled"; paymentStatus: "unpaid" | "partial" | "paid" | "refunded"; businessDate?: string; customerId?: string; customerName?: string; customerPhone?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount: number; refundedAmount?: number; dueAmount: number; version: number; createdBy: string; createdByName: string }
-export interface RetailInvoice { _id: string; invoiceNo: string; orderId: string; orderCode: string; issuedAt: string; status: "issued" | "void"; snapshot: { customerName: string; customerPhone?: string; cashierName: string; businessDate?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; payments: Array<{ method: string; amount: number; tenderedAmount?: number; changeAmount?: number; reference?: string }>; amountInWords: string } }
+export interface RetailStoreSnapshot { legalName: string; taxCode?: string; storeName: string; branchCode: string; branchName: string; branchAddress?: string; branchPhone?: string }
+export interface RetailInvoice { _id: string; invoiceNo: string; orderId: string; orderCode: string; issuedAt: string; status: "issued" | "void"; snapshot: { store?: RetailStoreSnapshot; customerName: string; customerPhone?: string; cashierName: string; businessDate?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; payments: Array<{ method: string; amount: number; tenderedAmount?: number; changeAmount?: number; reference?: string }>; amountInWords: string } }
 export interface RetailOrderResult { order: RetailOrder; invoice: RetailInvoice }
+export interface RetailReceivableEntry { _id: string; type: "charge" | "payment" | "adjustment" | "reversal"; amount: number; signedAmount: number; runningBalance: number; reason?: string; orderId?: string; reversesEntryId?: string; createdAt: string; createdByName?: string }
 export interface RetailShift { _id: string; shiftCode: string; cashierId: string; cashierName: string; openingFloat: number; businessDate: string; status: "open" | "closed" | "reconciled"; expectedCash?: number; countedCash?: number; varianceAmount?: number; varianceReason?: string; grossSales?: number; collectedAmount?: number; refundedAmount?: number }
 
-export type RetailReportFilters =
+type RetailReportRangeFilters =
   | { preset: "7d" | "30d"; from?: never; to?: never }
   | { preset?: never; from: string; to: string }
   | { preset?: never; from?: never; to?: never };
+export type RetailReportFilters = RetailReportRangeFilters & { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
+export interface RetailProductReportRow { productId: string; sku: string; productName: string; category?: string; brand?: string; netQuantity: number; netSales: number; profit?: number }
+export interface RetailAnalyticsReconciliation { retailNetSales: number; analyticsNetSales: number; difference: number; matched: boolean }
 
 export interface RetailReport {
   range: { from: string; to: string };
@@ -108,4 +116,8 @@ export interface RetailReport {
       orderCount: number;
     }>;
   };
+  products: RetailProductReportRow[];
+  slowProducts: RetailProductReportRow[];
+  analyticsReconciliation?: RetailAnalyticsReconciliation;
 }
+export interface RetailCustomerTierHistory { _id: string; fromTierName?: string; toTierName: string; toTierCode?: string; totalSales: number; source?: "automatic" | "manual"; reason?: string; effectiveFrom?: string; effectiveTo?: string; actorName?: string; changedAt: string }

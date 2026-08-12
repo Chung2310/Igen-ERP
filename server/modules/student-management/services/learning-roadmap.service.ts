@@ -196,7 +196,9 @@ export class LearningRoadmapService {
         const roadmap = await LearningRoadmap.findOne({ _id: entries[0].roadmapId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
         if (!roadmap || entries.some((entry) => entry.roadmapId !== idOf(roadmap._id) || entry.targetStepId !== entries[0].targetStepId)) throw new Error("Chỉ có thể xếp các học viên cùng một mốc lộ trình.");
         const targetStep = roadmap.steps.find((step) => step.id === entries[0].targetStepId);
-        if (!targetStep || batch.courseId !== targetStep.courseId) throw new Error("Lớp đích không thuộc đúng mốc lộ trình kế tiếp.");
+        if (!targetStep || batch.courseId !== targetStep.courseId || batch.roadmapId !== idOf(roadmap._id) || batch.roadmapStepId !== targetStep.id) {
+          throw new Error("Lớp đích không thuộc đúng lộ trình và mốc lộ trình kế tiếp.");
+        }
         const course = await Course.findById(batch.courseId).session(session);
         const capacity = targetStep.maxClassSize || resolveQuota(batch.quota, course?.maxLearners);
         if (capacity > 0 && batch.learnerIds.length + entries.length > capacity) throw new Error(`Lớp đích vượt sĩ số tối đa (${capacity} học viên).`);

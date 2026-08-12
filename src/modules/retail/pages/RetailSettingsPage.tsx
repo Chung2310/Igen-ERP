@@ -51,6 +51,8 @@ export default function RetailSettingsPage() {
         <NumberField label="Ngưỡng chênh lệch cần giải trình (VNĐ)" value={settings.varianceReasonThreshold} step="1" onChange={(value) => update("varianceReasonThreshold", value)} />
         <TextField label="Prefix mã đơn" value={settings.orderPrefix} onChange={(value) => update("orderPrefix", value.toUpperCase())} />
         <TextField label="Prefix hóa đơn" value={settings.invoicePrefix} onChange={(value) => update("invoicePrefix", value.toUpperCase())} />
+        <SelectField label="Khổ giấy hóa đơn" value={settings.invoicePaperSize} options={[{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }, { value: "80mm", label: "80 mm" }]} onChange={(value) => update("invoicePaperSize", value as RetailSettings["invoicePaperSize"])} />
+        <SelectField label="Mẫu hóa đơn" value={settings.invoiceTemplate} options={[{ value: "standard", label: "Tiêu chuẩn" }]} onChange={(value) => update("invoiceTemplate", value as RetailSettings["invoiceTemplate"])} />
       </div>
       <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
         <div><h2 className="font-bold text-slate-900">Phân hạng khách hàng</h2><p className="text-xs text-slate-500">Hạng được tính theo doanh số thuần sau hoàn tiền.</p></div>
@@ -71,4 +73,8 @@ function NumberField({ label, value, step, onChange }: { label: string; value: n
 
 function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <label className="space-y-1 text-sm font-semibold text-slate-700"><span>{label}</span><input aria-label={label} className="w-full rounded-xl border border-slate-200 px-3 py-2 uppercase" maxLength={8} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) {
+  return <label className="space-y-1 text-sm font-semibold text-slate-700"><span>{label}</span><select aria-label={label} className="w-full rounded-xl border border-slate-200 px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
