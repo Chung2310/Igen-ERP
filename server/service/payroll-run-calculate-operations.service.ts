@@ -107,7 +107,7 @@ export async function buildRunCalculationInputs(
       paidLeaveMinutesByRate: employee.paidLeaveMinutesByRate ?? [],
       overtime: employee.overtime ?? [],
       ...employeeAdjustments,
-      ...(usesDefaultPolicy ? {} : { policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0) } }),
+      ...(usesDefaultPolicy ? {} : { policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0), code: policy.code, name: policy.name } }),
       ...({
         vietnam: {
           policy,

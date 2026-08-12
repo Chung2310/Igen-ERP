@@ -10,6 +10,9 @@ payrollRouter.get("/policies", requirePermission("payroll:read") as any, payroll
 payrollRouter.post("/policies", requirePermission("payroll:manage") as any, payrollController.createPolicy as any);
 payrollRouter.post("/policies/:id/activate", requirePermission("payroll:manage") as any, payrollController.activatePolicy as any);
 payrollRouter.post("/policies/:id/retire", requirePermission("payroll:manage") as any, payrollController.retirePolicy as any);
+payrollRouter.patch("/policies/:id", requirePermission("payroll:manage") as any, payrollController.updatePolicy as any);
+payrollRouter.post("/policies/:id/clone", requirePermission("payroll:manage") as any, payrollController.clonePolicy as any);
+payrollRouter.delete("/policies/:id", requirePermission("payroll:manage") as any, payrollController.deletePolicy as any);
 payrollRouter.post("/runs/:id/review", requirePermission("payroll:manage") as any, payrollController.reviewOperationalRun as any);
 payrollRouter.post("/runs/:id/close", requirePermission("payroll:manage") as any, payrollController.closeOperationalRun as any);
 payrollRouter.post("/runs/:id/reopen", requirePermission("payroll:manage") as any, payrollController.reopenOperationalRun as any);

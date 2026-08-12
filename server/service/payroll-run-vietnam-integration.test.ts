@@ -45,6 +45,8 @@ describe("run calculation with an active policy", () => {
 
     const line = lines[0];
     expect(line.formulaVersion).toBe("vietnam-payroll-2");
+    expect(line.policyCode).toBe("vn-2026");
+    expect(line.policyName).toBe("2026");
     expect((line.vietnam as any).insurance.employeeTotal).toBe(2_100_000);
     expect((line.vietnam as any).tax.deductions.dependents).toBe(4_400_000);
     expect((line.vietnam as any).employerCost).toBeGreaterThan(line.calculation.gross);
