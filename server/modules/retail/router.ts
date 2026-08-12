@@ -6,6 +6,7 @@ import { retailOrderRoutes } from "./routes/retail-order.routes";
 import { retailInvoiceRoutes } from "./routes/retail-invoice.routes";
 import { retailReportRoutes } from "./routes/retail-report.routes";
 import { retailReceivableRoutes } from "./routes/retail-receivable.routes";
+import { retailDebtReminderRoutes } from "./routes/retail-debt-reminder.routes";
 
 export const retailRouter = Router();
 retailRouter.use("/retail/settings", retailSettingsRoutes);
@@ -15,3 +16,4 @@ retailRouter.use("/retail/orders", retailOrderRoutes);
 retailRouter.use("/retail/invoices", retailInvoiceRoutes);
 retailRouter.use("/retail/reports", retailReportRoutes);
 retailRouter.use("/retail/receivables", retailReceivableRoutes);
+retailRouter.use("/retail/debt-reminders", retailDebtReminderRoutes);
