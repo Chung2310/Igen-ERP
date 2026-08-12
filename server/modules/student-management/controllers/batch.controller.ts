@@ -30,12 +30,13 @@ export class BatchController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
+      const courseOwnerScope = await getAllowedOwnerIds(req.user!);
       const batch = await BatchService.createBatch(ownerId, req.user!, { ...req.body, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "batches",
         actorRole: req.user!.role,
         actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
-      });
+      }, courseOwnerScope);
       res.status(201).json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
