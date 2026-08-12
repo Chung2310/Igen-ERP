@@ -474,6 +474,21 @@ export class PartnerService {
     return await level.save();
   }
 
+  static async updateCommissionLevel(
+    ownerId: string | string[],
+    id: string,
+    data: { name: string; minTuition: number; commissionRate: number; branchId?: string },
+  ): Promise<ICommissionLevel | null> {
+    logger.info(`[PartnerService] Updating commission level id: ${id}`);
+    const existing = await CommissionLevel.findOne({ name: data.name, _id: { $ne: id }, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(data.branchId) });
+    if (existing) throw new ConflictError("COMMISSION_LEVEL_ALREADY_EXISTS", "Cấp bậc hoa hồng đã tồn tại.", { field: "name" });
+    return CommissionLevel.findOneAndUpdate(
+      { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(data.branchId) },
+      { $set: { name: data.name.trim(), minTuition: data.minTuition, commissionRate: data.commissionRate } },
+      { new: true, runValidators: true },
+    );
+  }
+
   static async deleteCommissionLevel(ownerId: string | string[], id: string, branchId?: string): Promise<ICommissionLevel | null> {
     logger.info(`[PartnerService] Deleting commission level id: ${id}`);
     return await CommissionLevel.findOneAndDelete({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
