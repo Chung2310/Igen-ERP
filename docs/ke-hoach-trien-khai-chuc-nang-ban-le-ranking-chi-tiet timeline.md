@@ -8,6 +8,90 @@ Phiên bản này mở rộng từ `ke-hoach-trien-khai-chuc-nang-ban-le.md`, b�
 
 > **Giữ nguyên quyết định tạm hoãn:** B5 — Camera AI đo traffic và C9 — Tích hợp VNeID không nằm trong roadmap triển khai hiện tại.
 
+> **Cập nhật hiện trạng 12/08/2026:** đối chiếu nhánh `feature/retail-completion-final`, commit `377ab319`. Frontend Retail đạt 69/69 test, backend Retail đạt 128/128 test, typecheck và production build đạt.
+
+## 0. Hiện trạng triển khai
+
+Quy ước trạng thái:
+
+- **Hoàn thành:** đã có luồng phần mềm, quy tắc nghiệp vụ và kiểm thử phù hợp.
+- **Hoàn thành phần mềm:** phần mềm đã có nhưng còn nghiệm thu thiết bị/vận hành thực tế.
+- **Một phần:** có nền tảng hoặc một phần luồng nhưng chưa đủ điều kiện nghiệm thu.
+- **Chưa làm:** chưa có chức năng chuyên biệt đủ model/service/API/UI.
+- **Để sau:** phụ thuộc API, hợp đồng, SDK, thiết bị, pháp lý hoặc business case bên ngoài.
+
+### 0.1. Nhóm A — Thuần phần mềm
+
+| ID | Trạng thái | Phần đã làm | Phần còn thiếu |
+|---|---|---|---|
+| **A1** | **Hoàn thành** | Đơn nháp/treo, định giá server, giảm giá/thuế, split payment, bán nợ, xác nhận, thu thêm, hủy/hoàn tiền toàn đơn, scope và idempotency. | Theo dõi hồi quy khi A13 bổ sung trả từng dòng hàng. |
+| **A2** | **Hoàn thành** | Snapshot hóa đơn bất biến, thông tin cửa hàng, mẫu A4/A5/80mm, in lại và PDF Unicode. | Hóa đơn điện tử pháp lý thuộc C1. |
+| **A3** | **Hoàn thành** | Trừ/hoàn tồn theo đơn, stock log tham chiếu, chống áp dụng lặp và tích hợp inventory movement. | Mở rộng movement cho A10/A13. |
+| **A4** | **Hoàn thành** | Bán nợ, thu từng phần, ledger append-only, điều chỉnh/đảo bút toán, lịch sử số dư và đối soát `dueAmount`. | Mở rộng tác động của phiếu trả A13. |
+| **A5** | **Hoàn thành** | KPI, báo cáo theo nhân viên/sản phẩm/SKU/nhóm/thương hiệu, top/bán chậm, Excel, lợi nhuận theo quyền và đối soát Analytics. | Lợi nhuận ròng sau chi phí phụ thuộc A7. |
+| **A6** | **Hoàn thành** | Mở/đóng ca, dòng tiền, tổng theo phương thức, blind count, tiền kỳ vọng/thực đếm/chênh lệch và lý do. | Nghiệm thu quy trình tiền mặt tại cửa hàng. |
+| **A7** | **Một phần** | ERP có operating expense cơ bản; Retail có shipping fee. | Chưa liên kết chứng từ chi phí với Retail, phân bổ/audit và lợi nhuận ròng chi nhánh. |
+| **A8** | **Hoàn thành** | Tier theo doanh số thuần, nhiều kỳ xét, timeline, lọc/thống kê, override có hạn/audit và refresh sau giao dịch. | Điểm thưởng/đổi quà không thuộc MVP hiện tại. |
+| **A9** | **Chưa làm** | Chưa có chức năng Retail chuyên biệt. | Nguồn CTV/đại lý trên đơn, chính sách, ledger, đảo hoa hồng và đối soát theo kỳ. |
+| **A10** | **Chưa làm** | `develop` đã có supplier, receiving, warehouse và inventory movement nền tảng. | Phiếu trả NCC, liên kết phiếu nhập, tồn khả dụng, lý do, dòng 0 đồng và movement xuất trả. |
+| **A11** | **Chưa làm** | Chưa có chức năng Retail chuyên biệt. | Danh mục, ghi tăng/giảm, điều chuyển, trạng thái và khấu hao đường thẳng. |
+| **A12** | **Hoàn thành** | Scheduler/chạy tay, cấu hình, in-app/SMTP, run/delivery log, chống trùng, retry/backoff và màn hình lịch sử. | SMS/Zalo thuộc C2/C3. |
+| **A13** | **Chưa làm** | A1 mới hỗ trợ hủy/hoàn tiền toàn đơn, chưa phải trả hàng. | Phiếu trả theo đơn/dòng/số lượng, chặn trả vượt, hoàn/đổi, nhập tồn và audit bất biến đơn gốc. |
+
+### 0.2. Nhóm B — Thiết bị và vận hành tại quầy
+
+| ID | Trạng thái | Phần đã làm | Phần còn thiếu |
+|---|---|---|---|
+| **B1** | **Hoàn thành phần mềm** | POS responsive, giỏ hàng, khách hàng, điều chỉnh, thanh toán, đơn treo, phím tắt và IndexedDB offline queue idempotent. | Pilot trên máy POS/tablet và mạng thực tế. |
+| **B2** | **Hoàn thành phần mềm** | Barcode/SKU, HID kết thúc Enter, camera scan và phản hồi thành công/trùng/không tìm thấy. | Nghiệm thu máy quét HID USB/Bluetooth thật. |
+| **B3** | **Một phần** | Mẫu 80mm, preview/in trình duyệt và PDF. | Driver/SDK ESC/POS, trạng thái thiết bị và nghiệm thu máy in thật. |
+| **B4** | **Chưa làm** | Chưa có điều khiển thiết bị. | Mở ngăn kéo qua máy in/SDK, kiểm soát quyền và audit. |
+| **B5** | **Để sau** | Không triển khai. | Cần business case, quyền riêng tư, thiết bị và tiêu chí pilot. |
+| **B6** | **Chưa làm** | Chưa có workflow sửa chữa làm nguồn phiếu. | Làm sau D1–D4; QR, phản hồi một lần và báo cáo kỹ thuật viên. |
+| **B7** | **Để sau** | Chưa có captive portal. | Nhà cung cấp, consent, lưu/xóa dữ liệu và pilot một chi nhánh. |
+| **B8** | **Chưa làm** | Có nền tảng sản phẩm/kho/movement, chưa có registry serial. | IMEI/serial duy nhất, trạng thái, liên kết chứng từ và timeline dịch chuyển. |
+| **B9** | **Để sau** | Không triển khai trong Retail. | Consent sinh trắc học, thiết bị/SDK, ngưỡng nhận diện và quy trình xóa. |
+
+### 0.3. Nhóm C — Đối tác, API và điều kiện ngoài
+
+| ID | Trạng thái | Hiện trạng / điều kiện tiếp tục |
+|---|---|---|
+| **C1** | **Để sau** | A2 là hóa đơn nội bộ; cần hợp đồng, sandbox/API nhà cung cấp và nghiệm thu kế toán/pháp lý. |
+| **C2** | **Để sau** | Cần SMS Brandname, template, callback, consent, hạn mức và chống gửi trùng. |
+| **C3** | **Để sau** | Cần Zalo OA, template duyệt, token, sandbox/rate-limit và retry. |
+| **C4** | **Để sau** | Cần quyền nền tảng và một use case TikTok/Messenger pilot rõ ràng. |
+| **C5** | **Để sau** | Chưa có adapter sàn; cần chọn một sàn, sandbox, webhook và tiêu chí đối soát. |
+| **C6** | **Để sau** | Phụ thuộc C5 và quyết định nguồn giá chuẩn, version/hàng đợi/xử lý xung đột. |
+| **C7** | **Để sau** | A12 chưa phải engine chiến dịch; cần ít nhất một kênh C2/C3 và chính sách consent/frequency cap. |
+| **C8** | **Chưa làm** | Chưa có AI hỏi đáp chuyên biệt trong Retail; cần tài liệu duyệt, phân quyền, trích nguồn và bộ câu hỏi nghiệm thu. |
+| **C9** | **Để sau** | Chỉ mở lại khi có quyền pháp lý, đầu mối và tài liệu/sandbox VNeID chính thức. |
+| **C10** | **Chưa làm** | Có scope/permission cơ bản nhưng chưa có masking, watermark và audit export chuyên biệt; web không thể chặn screenshot tuyệt đối. |
+| **C11** | **Để sau** | Phụ thuộc dữ liệu và mapping danh tính từ các kênh C2–C5. |
+
+### 0.4. Nhóm D — Sửa chữa/bảo hành bổ sung
+
+| ID | Tính năng | Trạng thái | Phạm vi chưa làm |
+|---|---|---|---|
+| **D1** | Tiếp nhận sửa chữa/bảo hành | **Chưa làm** | Phiếu tiếp nhận, khách/thiết bị/IMEI, tình trạng, phụ kiện, hình ảnh và hẹn trả. |
+| **D2** | Workflow kỹ thuật | **Chưa làm** | Chẩn đoán, báo giá/duyệt, phân công, sửa, QC, bàn giao và timeline audit. |
+| **D3** | Kho linh kiện sửa chữa | **Chưa làm** | Xuất/hoàn linh kiện theo phiếu, movement, giá vốn và liên kết B8. |
+| **D4** | Doanh thu/báo cáo dịch vụ | **Chưa làm** | Tiền công/linh kiện, công nợ, hóa đơn, hiệu suất, thời gian xử lý và lợi nhuận. |
+
+### 0.5. Tổng hợp và thứ tự tiếp theo
+
+| Trạng thái | Số lượng |
+|---|---:|
+| Hoàn thành | 8 |
+| Hoàn thành phần mềm, còn nghiệm thu thiết bị | 2 |
+| Một phần | 2 |
+| Chưa làm | 13 |
+| Để sau | 12 |
+| **Tổng** | **37** |
+
+Thứ tự triển khai được đề xuất: **A13 → A10 → B8 → A9 → A7 → A11 → D1–D4 → B6 → thiết bị B1–B4 → tích hợp ngoài khi đủ điều kiện**.
+
+Mỗi mục chỉ được chuyển sang hoàn thành khi đã có scope theo actor/guard, idempotency cho tài chính/tồn kho, audit phù hợp, unit/API/UI test quan trọng, typecheck, production build và migration/backfill nếu đổi schema vận hành.
+
 ## 1. Cách đọc ranking
 
 ### 1.1. Mức nhu cầu
