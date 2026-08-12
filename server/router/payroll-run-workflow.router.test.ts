@@ -52,6 +52,9 @@ describe("payroll workflow route guards", () => {
     ["POST", "/policies"],
     ["POST", "/policies/:id/activate"],
     ["POST", "/policies/:id/retire"],
+    ["PATCH", "/policies/:id"],
+    ["POST", "/policies/:id/clone"],
+    ["DELETE", "/policies/:id"],
   ])("guards %s %s with payroll:manage", (method, path) => {
     expect(permissionOf(method, path)).toBe("payroll:manage");
   });

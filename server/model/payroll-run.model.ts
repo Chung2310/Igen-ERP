@@ -42,6 +42,10 @@ const schema = new Schema<PayrollRunDocument>({
     calculation: { type: Schema.Types.Mixed, required: true },
     vietnam: { type: Schema.Types.Mixed },
     formulaVersion: { type: String },
+    policyId: String,
+    policyVersion: Number,
+    policyCode: String,
+    policyName: String,
     warnings: { type: [String], default: [] },
   }],
   issues: [{

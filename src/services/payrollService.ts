@@ -8,6 +8,13 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export const payrollService = {
+  getPolicies: () => request("/policies"),
+  createPolicy: (payload: unknown) => request("/policies", { method: "POST", body: JSON.stringify(payload) }),
+  updatePolicy: (id: string, payload: unknown) => request(`/policies/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  clonePolicy: (id: string, payload: { code: string; name?: string }) => request(`/policies/${id}/clone`, { method: "POST", body: JSON.stringify(payload) }),
+  activatePolicy: (id: string) => request(`/policies/${id}/activate`, { method: "POST" }),
+  retirePolicy: (id: string) => request(`/policies/${id}/retire`, { method: "POST" }),
+  deletePolicy: (id: string) => request(`/policies/${id}`, { method: "DELETE" }),
   getRun: (periodKey: string) => request(`/periods/${periodKey}/run`),
   getLineDetail: (runId: string, employeeId: string) => request(`/runs/${runId}/lines/${employeeId}`),
   getResults: (periodKey: string) => request(`/periods/${periodKey}/results`),

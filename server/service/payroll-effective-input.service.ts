@@ -17,7 +17,7 @@ export type PayrollSalaryTerm = {
 export type DetailedPayrollInput = {
   employeeId: string;
   period?: { start: string; end: string };
-  policy?: { id: string; version: number };
+  policy?: { id: string; version: number; code?: string; name?: string };
   activeDependents?: string[];
   segments: Array<{
     sourceId: string;
