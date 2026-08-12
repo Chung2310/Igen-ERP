@@ -395,7 +395,12 @@ export class BatchService {
   ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
     const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
-    const existing = await Batch.findOne({ ownerId, branchId: actor.branchId, code: String(writeData.code || "").toUpperCase() });
+    // Lưu một dạng mã thống nhất để unique index chặn được cả khác biệt hoa/thường,
+    // khoảng trắng đầu/cuối hoặc nhiều khoảng trắng liên tiếp.
+    writeData.code = String(writeData.code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+    // Mã lớp có unique index theo ownerId + code, nên cần kiểm tra cùng phạm vi
+    // để trả lỗi nghiệp vụ rõ ràng thay vì rơi vào Mongo duplicate-key (500).
+    const existing = await Batch.findOne({ ownerId, code: writeData.code });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
