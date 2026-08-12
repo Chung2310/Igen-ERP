@@ -278,6 +278,7 @@ export const payrollController = {
   reviewOperationalRun: workflowHandler("review"),
   closeOperationalRun: workflowHandler("close"),
   reopenOperationalRun: workflowHandler("reopen"),
+  markOperationalRunPaid: workflowHandler("markPaid"),
   async listRunAudit(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
