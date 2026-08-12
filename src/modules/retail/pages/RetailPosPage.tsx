@@ -7,6 +7,8 @@ import DiscountInput from "../components/pos/DiscountInput";
 import HeldDraftsBar from "../components/pos/HeldDraftsBar";
 import OrderAdjustments from "../components/pos/OrderAdjustments";
 import PaymentDialog from "../components/pos/PaymentDialog";
+import PosShortcutHelp from "../components/pos/PosShortcutHelp";
+import ScanFeedback, { playScanTone, type ScanFeedbackKind } from "../components/pos/ScanFeedback";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -14,6 +16,8 @@ import { initialRetailCart, retailCartReducer, type RetailCartState } from "../h
 import { buildRetailOrderInput } from "../hooks/retailOrderInput";
 import { buildPaymentSummary } from "../hooks/retailPayment";
 import { useRetailScope } from "../hooks/useRetailScope";
+import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
+import { createHidScannerBuffer } from "../hooks/retailScannerInput";
 import type { RetailOrder, RetailOrderResult, RetailPaymentInput, RetailProduct, RetailScope, RetailShift } from "../types";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
@@ -31,6 +35,10 @@ export default function RetailPosPage() {
   const [paying, setPaying] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
   const [completed, setCompleted] = React.useState<RetailOrderResult | null>(null);
+  const [help, setHelp] = React.useState(false);
+  const [scanFeedback, setScanFeedback] = React.useState<{ kind: ScanFeedbackKind; text: string } | null>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  useRetailPosShortcuts(React.useMemo(() => ({ focusSearch: () => searchRef.current?.focus(), openPayment: () => setPaying(true), holdDraft: () => (Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.includes("Treo đơn")) as HTMLButtonElement | undefined)?.click(), openScanner: () => setScanning(true), openHelp: () => setHelp(true) }), []));
 
   const show = React.useCallback((cause: unknown) => setMessage(cause instanceof Error ? cause.message : "Không xử lý được yêu cầu."), []);
   const refreshDrafts = React.useCallback(() => { if (scope) void retailOrdersApi.list(scope, { heldOnly: true, limit: 5 }).then((data) => setDrafts(data.items)).catch(show); }, [scope?.companyCode, scope?.branchId, show]);
@@ -41,7 +49,7 @@ export default function RetailPosPage() {
 
   if (!scope) return <Notice />;
 
-  const scan = async (barcode: string) => { try { const result = await retailProductsApi.list(scope, { barcode, limit: 1 }); if (!result.items[0]) throw new Error("Không tìm thấy sản phẩm theo mã vừa quét."); dispatch({ type: "add", product: result.items[0] }); setQ(""); } catch (error) { show(error); } };
+  const scan = async (barcode: string) => { try { const result = await retailProductsApi.list(scope, { barcode, limit: 1 }); const product = result.items[0]; if (!product) { setScanFeedback({ kind: "not-found", text: "Không tìm thấy sản phẩm" }); playScanTone("not-found"); return; } const duplicate = cart.lines.some((line) => line.product._id === product._id); dispatch({ type: "add", product }); setQ(""); const kind = duplicate ? "duplicate" : "success"; setScanFeedback({ kind, text: duplicate ? `Đã tăng số lượng ${product.name}` : `Đã thêm ${product.name}` }); playScanTone(kind); } catch (error) { show(error); } };
   const openDraft = (value: RetailOrder) => {
     setDraft(value);
     dispatch({
@@ -58,15 +66,19 @@ export default function RetailPosPage() {
   const newOrder = () => { dispatch({ type: "reset" }); setCompleted(null); setDraft(null); setMessage(""); };
 
   return <section className="grid min-h-[65vh] gap-4 lg:grid-cols-[1fr_440px]">
-    <main className="space-y-4"><header className="flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-xl font-bold">Bán hàng</h1><p className="text-sm text-slate-500">{shift ? `${shift.shiftCode} · ${shift.businessDate}` : "Chưa mở ca bán hàng"}</p></div><button className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm" onClick={() => setScanning(true)}><Camera className="h-4 w-4" />Quét bằng camera</button></header><HeldDraftsBar drafts={drafts} activeId={draft?._id} onOpen={openDraft} /><label className="relative block"><Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" /><input autoFocus aria-label="Tìm hoặc quét sản phẩm" className="w-full rounded-xl border py-3 pl-10 pr-4" placeholder="Tên, SKU hoặc mã vạch" value={q} onChange={(event) => setQ(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && q.trim()) void scan(q.trim()); }} /></label><ProductGrid products={products} onAdd={(product) => dispatch({ type: "add", product })} /></main>
+    <HidScannerListener onScan={(value) => void scan(value)} />
+    <main className="space-y-4"><header className="flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-xl font-bold">Bán hàng</h1><p className="text-sm text-slate-500">{shift ? `${shift.shiftCode} · ${shift.businessDate}` : "Chưa mở ca bán hàng"}</p></div><button className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm" onClick={() => setScanning(true)}><Camera className="h-4 w-4" />Quét bằng camera</button></header><HeldDraftsBar drafts={drafts} activeId={draft?._id} onOpen={openDraft} /><label className="relative block"><Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" /><input ref={searchRef} autoFocus aria-label="Tìm hoặc quét sản phẩm" className="w-full rounded-xl border py-3 pl-10 pr-4" placeholder="Tên, SKU hoặc mã vạch" value={q} onChange={(event) => setQ(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && q.trim()) void scan(q.trim()); }} /></label>{scanFeedback && <ScanFeedback {...scanFeedback} />}<ProductGrid products={products} onAdd={(product) => dispatch({ type: "add", product })} /></main>
     <CartPanel scope={scope} cart={cart} message={message} busy={busy} canPay={Boolean(shift)} dispatch={dispatch} onHold={saveDraft} onPay={() => setPaying(true)} />
     {paying && cart.quote && <PaymentDialog total={cart.quote.grandTotal} busy={busy} customerId={cart.customer?._id} onClose={() => setPaying(false)} onSubmit={checkout} />}
     {scanning && <BarcodeScannerDialog onScan={(value) => void scan(value)} onClose={() => setScanning(false)} />}
     {completed && <CheckoutSuccessDialog result={completed} onNewOrder={newOrder} onClose={() => setCompleted(null)} />}
+    {help && <PosShortcutHelp onClose={() => setHelp(false)} />}
   </section>;
 }
 
 function ProductGrid({ products, onAdd }: { products: RetailProduct[]; onAdd: (product: RetailProduct) => void }) { return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <button key={product._id} className="rounded-2xl border bg-white p-4 text-left hover:border-cyan-500" onClick={() => onAdd(product)}><p className="font-bold">{product.name}</p><p className="text-xs text-slate-500">{product.sku} · Tồn {product.stock}</p><p className="mt-2 font-bold text-cyan-700">{money(product.price)}</p></button>)}</div>; }
+
+function HidScannerListener({ onScan }: { onScan(value: string): void }) { const callback = React.useRef(onScan); callback.current = onScan; React.useEffect(() => { const scanner = createHidScannerBuffer({ timeoutMs: 50, minLength: 3, onScan: (value) => callback.current(value) }); const handler = (event: KeyboardEvent) => { const target = event.target as HTMLElement | null; if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) scanner.keydown(event); }; window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler); }, []); return null; }
 
 function CartPanel({ scope, cart, message, busy, canPay, dispatch, onHold, onPay }: { scope: RetailScope; cart: RetailCartState; message: string; busy: boolean; canPay: boolean; dispatch: React.Dispatch<any>; onHold: () => Promise<void>; onPay: () => void }) {
   return <aside className="flex flex-col rounded-2xl border bg-white p-4"><h2 className="flex items-center gap-2 font-bold"><ShoppingCart className="h-5 w-5" />Giỏ hàng ({cart.lines.reduce((sum, line) => sum + line.quantity, 0)})</h2><div className="mt-3"><CustomerPicker scope={scope} value={cart.customer} onChange={(customer) => dispatch({ type: "customer", customer })} /></div><div className="my-4 flex-1 space-y-3">{cart.lines.map((line) => <div key={line.product._id} className="space-y-2 border-b pb-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate font-medium">{line.product.name}</p><p className="text-xs text-slate-500">{money(line.product.price)}</p></div><input aria-label={`Số lượng ${line.product.name}`} className="w-16 rounded-lg border px-2 py-1" type="number" min="0" value={line.quantity} onChange={(event) => dispatch({ type: "quantity", productId: line.product._id, quantity: Number(event.target.value) })} /><button aria-label={`Xóa ${line.product.name}`} onClick={() => dispatch({ type: "remove", productId: line.product._id })}><X className="h-4 w-4" /></button></div><DiscountInput label={`Giảm giá ${line.product.name}`} value={line.discount} onChange={(discount) => dispatch({ type: "lineDiscount", productId: line.product._id, discount })} /></div>)}</div><OrderAdjustments orderDiscount={cart.orderDiscount} taxRate={cart.taxRate} shippingFee={cart.shippingFee} onChange={(value) => dispatch({ type: "orderAdjustments", ...value })} />{message && <p className="my-3 text-sm text-cyan-700">{message}</p>}<div className="border-t pt-4"><div className="flex justify-between text-lg font-bold"><span>Tổng tiền</span><span>{money(cart.quote?.grandTotal || 0)}</span></div><div className="mt-4 grid grid-cols-2 gap-2"><button disabled={!cart.lines.length || busy} className="flex items-center justify-center gap-2 rounded-xl border px-3 py-3 font-bold disabled:opacity-40" onClick={() => void onHold()}><Pause className="h-4 w-4" />Treo đơn</button><button disabled={!cart.lines.length || !cart.quote || !canPay || busy} className="rounded-xl bg-cyan-600 px-3 py-3 font-bold text-white disabled:opacity-40" onClick={onPay}>Thanh toán</button></div></div></aside>;
