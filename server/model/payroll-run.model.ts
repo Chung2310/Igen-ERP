@@ -33,7 +33,7 @@ const schema = new Schema<PayrollRunDocument>({
   activeRevisionId: String,
   activeRevisionChecksum: String,
   supplementalReason: String,
-  status: { type: String, enum: ["draft", "attendance_locked", "calculated", "reviewed", "approved", "closed", "partially_paid", "paid"], default: "draft", index: true },
+  status: { type: String, enum: ["draft", "review", "closed", "paid"], default: "draft", index: true },
   // vietnam giữ nguyên khối bảo hiểm/thuế; thiếu khai báo ở đây Mongoose sẽ cắt bỏ
   // và bảng lương mất toàn bộ chi tiết khấu trừ.
   lines: [{

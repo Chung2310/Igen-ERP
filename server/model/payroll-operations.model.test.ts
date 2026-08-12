@@ -55,16 +55,7 @@ test("versions payroll runs with operational totals and issues", () => {
     assert.ok(schema.path(path), path);
   }
   assert.deepEqual(schema.path("type")?.options.enum, ["regular", "supplemental"]);
-  assert.deepEqual(schema.path("status")?.options.enum, [
-    "draft",
-    "attendance_locked",
-    "calculated",
-    "reviewed",
-    "approved",
-    "closed",
-    "partially_paid",
-    "paid",
-  ]);
+  assert.deepEqual(schema.path("status")?.options.enum, ["draft", "review", "closed", "paid"]);
   for (const path of ["grossPay", "deductions", "netPay"]) {
     assert.ok(schema.path(`totals.${path}`), path);
   }
