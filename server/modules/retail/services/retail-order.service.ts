@@ -52,6 +52,12 @@ export function scheduleOrderTierRefreshAfterCommit(
 }
 
 type PaymentInput = { method: unknown; amount: unknown; tenderedAmount?: unknown; reference?: unknown };
+
+export function requireRetailPaymentCustomer(customerId: unknown) {
+  if (!String(customerId || "").trim()) {
+    throw new Error("Vui lòng chọn khách hàng trước khi thanh toán.");
+  }
+}
 export function normalizePayments(input: PaymentInput[], remaining: number) {
   if (!Array.isArray(input)) throw new Error("Danh sách thanh toán không hợp lệ.");
   let total = 0;
@@ -205,10 +211,11 @@ export const RetailOrderService = {
     try { await session.withTransaction(async () => {
       await RetailIdempotencyModel.create([{ companyCode: scope.companyCode, key, operation: "confirm-order", status: "processing" }], { session });
       const draft: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "draft" }).session(session); if (!draft) throw Object.assign(new Error("Đơn hàng không thể xác nhận."), { code: "ORDER_NOT_EDITABLE", status: 409 });
+      requireRetailPaymentCustomer(draft.customerId);
       assertHeldDraftAccess(String(draft.createdBy), actorId(actor), canManage);
       const { settings, pricing } = await priceInput(scope, draft.toObject()); if (Number(input.expectedGrandTotal) !== pricing.grandTotal) throw Object.assign(new Error("Tổng tiền đã thay đổi."), { code: "ORDER_TOTAL_MISMATCH", status: 409, details: { expected: Number(input.expectedGrandTotal), actual: pricing.grandTotal } });
       const normalized = normalizePayments(input.payments || [], pricing.grandTotal); const dueAmount = pricing.grandTotal - normalized.total;
-      if (dueAmount > 0 && (!draft.customerId || !draft.dueDate)) throw new Error("Bán nợ cần khách hàng và hạn thanh toán.");
+      if (dueAmount > 0 && !draft.dueDate) throw new Error("Bán nợ cần khách hàng và hạn thanh toán.");
       const customer: any = await resolveOrderCustomer(scope, draft.customerId, session);
       const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).session(session).lean(); if (!branch) throw new Error("Chi nhánh bán hàng không hợp lệ.");
       const scopeKey = monthlyScope(shift.businessDate); const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { new: true, upsert: true, session }); const orderCode = formatRetailDocumentCode(settings.orderPrefix, branch.code, scopeKey, counter!.seq);

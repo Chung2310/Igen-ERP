@@ -7,10 +7,18 @@ import {
   isHeldDraftExpired,
   normalizePayments,
   paymentStatusFor,
+  requireRetailPaymentCustomer,
   serializeRetailOrder,
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
 import { readFileSync } from "node:fs";
+
+test("retail payment confirmation requires a selected customer", () => {
+  const error = "Vui lòng chọn khách hàng trước khi thanh toán.";
+  assert.throws(() => requireRetailPaymentCustomer(undefined), new Error(error));
+  assert.throws(() => requireRetailPaymentCustomer("   "), new Error(error));
+  assert.doesNotThrow(() => requireRetailPaymentCustomer(" customer-1 "));
+});
 
 test("order debt ledger inputs use deterministic keys for the same transaction", () => {
   const receivableEntriesForOrderChange = (orderService as any).receivableEntriesForOrderChange;
