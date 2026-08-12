@@ -10,8 +10,9 @@ describe("retail payment composer", () => {
   });
 
   it("requires exact collection in full mode", () => {
-    expect(buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full" })).toEqual({ collected: 500_000, due: 0, change: 0 });
-    expect(() => buildPaymentSummary(500_000, [{ method: "cash", amount: 100_000 }], { mode: "full" })).toThrow(/đủ/i);
+    expect(buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full", customerId: "c1" })).toEqual({ collected: 500_000, due: 0, change: 0 });
+    expect(() => buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full" })).toThrow("Vui lòng chọn khách hàng trước khi thanh toán.");
+    expect(() => buildPaymentSummary(500_000, [{ method: "cash", amount: 100_000 }], { mode: "full", customerId: "c1" })).toThrow(/đủ/i);
   });
 
   it("requires a customer, due date and a strict partial collection", () => {
