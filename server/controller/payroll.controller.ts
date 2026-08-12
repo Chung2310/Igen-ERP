@@ -19,6 +19,8 @@ import { calculatePayroll } from "../service/payroll-calculation.service";
 import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
 import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
+import { PayrollFormulaModel } from "../model/payroll-formula.model";
+import { evaluatePayrollFormulas } from "../service/payroll-formula-engine.service";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
 import { countDependents, resolveTaxMethod, selectProfileForPeriod } from "../service/payroll-employee-input.service";
 import { evaluateWorkingDate } from "../service/company-work-calendar.service";
@@ -489,11 +491,12 @@ export const payrollController = {
     const periodKey = req.params.periodKey;
     const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
     const employeeIds = rows.map((row) => row.employeeId);
-    const [policies, profiles, dependents, adjustmentsData] = await Promise.all([
+    const [policies, profiles, dependents, adjustmentsData, formulas] = await Promise.all([
       PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean(),
       PayrollProfileModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
+      PayrollFormulaModel.find({ companyCode: tenant(req), status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean(),
     ]);
     const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
     if (!policy) return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
@@ -519,6 +522,10 @@ export const payrollController = {
     const lines = rows.map((row) => {
       const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
       const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      const dailyMinutes = row.standardDays > 0 ? row.standardHours * 60 / row.standardDays : 0;
+      const overtimeHours = (category: string) => (row.overtime ?? []).filter((item: any) => item.category === category).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / 60;
+      const library = evaluatePayrollFormulas(formulas as any[], { monthlySalary: row.monthlySalary, attendanceSalary: row.standardDays > 0 ? row.monthlySalary * (workedMinutes / Math.max(1, dailyMinutes)) / row.standardDays : 0, standardWorkDays: row.standardDays, actualWorkDays: dailyMinutes > 0 ? workedMinutes / dailyMinutes : 0, standardWorkHours: row.standardHours, actualWorkHours: workedMinutes / 60, shortageMinutes: row.shortageMinutes ?? 0, lateMinutes: Number((row as any).lateMinutes || 0), earlyLeaveMinutes: Number((row as any).earlyLeaveMinutes || 0), paidLeaveDays: (row.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths: 0 });
+      const appliedAdjustments = { allowances: empAdjustments.allowances + library.totals.allowance, bonuses: empAdjustments.bonuses + library.totals.bonus, deductions: empAdjustments.deductions + library.totals.deduction, adjustments: empAdjustments.adjustments + library.totals.adjustment };
       const calculation = calculatePayroll({
         monthlySalary: row.monthlySalary,
         standardDays: row.standardDays,
@@ -527,19 +534,19 @@ export const payrollController = {
         shortageMinutes: row.shortageMinutes,
         paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
         overtime: row.overtime,
-        allowances: empAdjustments.allowances,
-        bonuses: empAdjustments.bonuses,
-        deductions: empAdjustments.deductions,
-        adjustments: empAdjustments.adjustments,
+        allowances: appliedAdjustments.allowances,
+        bonuses: appliedAdjustments.bonuses,
+        deductions: appliedAdjustments.deductions,
+        adjustments: appliedAdjustments.adjustments,
       });
       const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
       const vietnam = calculateVietnamPayroll(policy, {
         workPay: calculation.adjustedBase,
         hourlyRate: calculation.hourlyRate,
         overtime: (row.overtime ?? []) as any,
-        taxableAllowances: empAdjustments.allowances,
-        bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
-        otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
+        taxableAllowances: appliedAdjustments.allowances,
+        bonuses: appliedAdjustments.bonuses + (appliedAdjustments.adjustments > 0 ? appliedAdjustments.adjustments : 0),
+        otherDeductions: appliedAdjustments.deductions + (appliedAdjustments.adjustments < 0 ? -appliedAdjustments.adjustments : 0),
         // Chưa khai báo mức đóng riêng thì lấy lương tháng; trần đóng vẫn được áp.
         insuranceSalary: row.monthlySalary,
         participatesInsurance: profile?.participatesInsurance ?? true,
@@ -553,10 +560,10 @@ export const payrollController = {
         calculation: {
           ...calculation,
           // Lưu lại các khoản điều chỉnh để bảng lương hiển thị cột thưởng/phạt.
-          allowances: empAdjustments.allowances,
-          bonuses: empAdjustments.bonuses,
-          otherDeductions: empAdjustments.deductions,
-          adjustments: empAdjustments.adjustments,
+          allowances: appliedAdjustments.allowances,
+          bonuses: appliedAdjustments.bonuses,
+          otherDeductions: appliedAdjustments.deductions,
+          adjustments: appliedAdjustments.adjustments,
           gross: vietnam.income.totalIncome,
           deductions: vietnam.deductions.total,
           net: vietnam.netPay,
@@ -571,6 +578,7 @@ export const payrollController = {
         policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
         policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
         warnings: vietnam.warnings.map((warning) => warning.code),
+        formulaApplications: library.applications,
       };
     });
     if (existing) {

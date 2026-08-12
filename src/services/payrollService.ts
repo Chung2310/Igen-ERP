@@ -8,6 +8,12 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export const payrollService = {
+  getFormulas: () => request("/formulas"),
+  createFormula: (payload: unknown) => request("/formulas", { method: "POST", body: JSON.stringify(payload) }),
+  updateFormula: (id: string, payload: unknown) => request(`/formulas/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  cloneFormula: (id: string, code: string) => request(`/formulas/${id}/clone`, { method: "POST", body: JSON.stringify({ code }) }),
+  activateFormula: (id: string) => request(`/formulas/${id}/activate`, { method: "POST" }),
+  retireFormula: (id: string) => request(`/formulas/${id}/retire`, { method: "POST" }),
   getPolicies: () => request("/policies"),
   createPolicy: (payload: unknown) => request("/policies", { method: "POST", body: JSON.stringify(payload) }),
   updatePolicy: (id: string, payload: unknown) => request(`/policies/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
