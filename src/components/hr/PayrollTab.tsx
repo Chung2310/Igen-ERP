@@ -8,6 +8,7 @@ import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
+import { getPayrollProcessingAction } from "./payroll/payrollProcessingAction";
 
 type SortDir = "asc" | "desc";
 
@@ -91,6 +92,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [reopening, setReopening] = useState(false);
   const [markPaidConfirmOpen, setMarkPaidConfirmOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [processingPayroll, setProcessingPayroll] = useState(false);
 
   // States for creating adjustments
   const [isAdjOpen, setIsAdjOpen] = useState(false);
@@ -214,7 +216,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const totalBase = runRows.reduce((sum: number, r: any) => sum + r.baseSalary, 0);
   const headcount = run ? runRows.length : draftRows.length;
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
-  const needsRecalculation = results.some((row: any) => row.needsRecalculation);
+  const processingAction = getPayrollProcessingAction(run?.status, processingPayroll);
+
+  const processPeriod = async () => {
+    if (processingPayroll) return;
+    setProcessingPayroll(true);
+    try {
+      await payrollService.processPeriod(period);
+      toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
+      await reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xử lý bảng lương");
+    } finally {
+      setProcessingPayroll(false);
+    }
+  };
 
   const openFormulaRow = async (line: any) => {
     setFormulaRow(line); setFormulaLoading(Boolean(run?._id));
@@ -296,8 +312,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
       </div>
     )}
-    {needsRecalculation && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Lịch sử chấm công đã thay đổi. Hãy “Đồng bộ công” trước khi khóa hoặc tính lương lại.</div>}
-
     {/* Quy trình xử lý kỳ lương */}
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
@@ -356,19 +370,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         <div className="flex flex-wrap gap-2">
           {(!run || run.status === "draft") && (
             <>
-              <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
-                <RefreshCw size={15} /> Đồng bộ công
-              </button>
-              <button disabled={needsRecalculation} onClick={() => void action(() => payrollService.lock(period), "Đã khóa kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-850 disabled:opacity-40">
-                <Lock size={15} /> Khóa công
-              </button>
-              <button
-                onClick={() => void action(() => payrollService.createRun(period), run ? "Đã tính lại bảng lương" : "Đã tạo bảng lương")}
-                title={run ? "Tính lại bảng lương theo các điều chỉnh mới nhất" : undefined}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700"
+              {processingAction.visible && <button
+                onClick={() => void processPeriod()}
+                disabled={processingAction.disabled}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Play size={15} /> {run ? "Tính lại lương" : "Tính lương"}
-              </button>
+                {processingPayroll ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
+                {processingAction.label}
+              </button>}
               {run && (
                 <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
@@ -510,7 +519,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Đồng bộ công" để tải danh sách nhân viên.' /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
                   <tr><td colSpan={4}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
