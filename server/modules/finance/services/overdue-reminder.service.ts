@@ -126,10 +126,10 @@ const mongoDependencies: Dependencies = {
 
 export const OverdueReminderService = createOverdueReminderService(mongoDependencies);
 
-export function retryReminderDelivery(id: string, now = new Date()) {
+export function retryReminderDelivery(id: string, now = new Date(), scope?: FinanceBranchScope) {
   return retryReminderDeliveryWith(id, now, {
     claim: (deliveryId) => ReminderDeliveryModel.findOneAndUpdate(
-      { _id: deliveryId, status: "failed", failureType: "temporary", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
+      { _id: deliveryId, ...(scope || {}), status: "failed", failureType: "temporary", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
       { $set: { status: "sending" }, $inc: { attempt: 1 } }, { new: true },
     ).lean(),
     send: (delivery) => delivery.channel === "in_app"
