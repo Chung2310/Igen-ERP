@@ -27,6 +27,15 @@ export function buildReceivableListQuery(scope: FinanceBranchScope, input: Query
     filter.status = status;
   }
   if (input.customerId) filter.customerId = String(input.customerId).trim();
+  if (input.agingBucket) {
+    const bucket = String(input.agingBucket);
+    const ranges: Record<string, Record<string, number>> = {
+      "0-30": { $gte: 0, $lte: 30 }, "31-60": { $gte: 31, $lte: 60 },
+      "61-90": { $gte: 61, $lte: 90 }, over90: { $gte: 91 },
+    };
+    if (!ranges[bucket]) throw new Error("INVALID_AGING_BUCKET");
+    filter.daysOverdue = ranges[bucket];
+  }
   if (input.from || input.to) {
     filter.occurredAt = {};
     if (input.from) filter.occurredAt.$gte = dateBoundary(input.from, false);

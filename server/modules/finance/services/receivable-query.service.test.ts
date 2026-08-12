@@ -23,6 +23,14 @@ test("list query preserves actor scope and validates filters and pagination", ()
   assert.throws(() => buildReceivableListQuery(scope, { from: "12-08-2026" }), /INVALID_DATE/);
 });
 
+test("list query maps exact aging buckets to overdue day ranges", () => {
+  assert.deepEqual(buildReceivableListQuery({ companyCode: "ACME", branchId: "B1" }, { agingBucket: "0-30" }).filter.daysOverdue, { $gte: 0, $lte: 30 });
+  assert.deepEqual(buildReceivableListQuery({ companyCode: "ACME", branchId: "B1" }, { agingBucket: "31-60" }).filter.daysOverdue, { $gte: 31, $lte: 60 });
+  assert.deepEqual(buildReceivableListQuery({ companyCode: "ACME", branchId: "B1" }, { agingBucket: "61-90" }).filter.daysOverdue, { $gte: 61, $lte: 90 });
+  assert.deepEqual(buildReceivableListQuery({ companyCode: "ACME", branchId: "B1" }, { agingBucket: "over90" }).filter.daysOverdue, { $gte: 91 });
+  assert.throws(() => buildReceivableListQuery({ companyCode: "ACME", branchId: "B1" }, { agingBucket: "invalid" }), /INVALID_AGING_BUCKET/);
+});
+
 test("running balances are chronological even when entries arrive newest first", () => {
   const entries = withRunningReceivableBalance([
     { _id: "e3", createdAt: "2026-08-03", amount: -20 },
