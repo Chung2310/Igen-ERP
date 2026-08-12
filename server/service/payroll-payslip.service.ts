@@ -19,7 +19,7 @@ export type PayrollPayslipView = {
 };
 
 export function buildPayslip(run: PayslipRun, line: PayrollLineSnapshot, payments: Payment[]): PayrollPayslipView {
-  if (run.status !== "closed" && run.status !== "partially_paid" && run.status !== "paid") {
+  if (run.status !== "closed" && run.status !== "paid") {
     throw new Error("Payslip requires a closed payroll run");
   }
   const runId = String(run._id ?? run.id ?? "");

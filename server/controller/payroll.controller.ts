@@ -528,7 +528,7 @@ export const payrollController = {
   async publishPayslips(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
-    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
     const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
     const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
     if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
@@ -578,7 +578,7 @@ export const payrollController = {
     const type = req.body?.type; if (!["detailed", "insurance", "pit", "bank_transfer"].includes(type)) return validationFailure(res, "Invalid export type");
     if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll:pay")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll:pay" }); }
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
-    if (!run || !["calculated", "approved", "closed", "partially_paid", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
     const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
     const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
     if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
@@ -612,7 +612,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "calculated") {
+    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
@@ -719,7 +719,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "calculated") {
+    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
