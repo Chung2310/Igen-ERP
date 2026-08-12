@@ -7,6 +7,7 @@ import { buildInvoiceListQuery } from "./retail-query.service";
 import type { RetailStoreSnapshot } from "../interfaces/retail-invoice.interface";
 import { BranchModel } from "../../../model/branch.model";
 import { CompanyModel } from "../../../model/company.model";
+export { invoicePdfFilename, invoicePdfPageSize, renderRetailInvoicePdf } from "./retail-invoice-pdf.service";
 
 export function buildRetailInvoiceSnapshot(order: any, actor: any, store: RetailStoreSnapshot) {
   return {
