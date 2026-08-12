@@ -12,11 +12,11 @@ Quy ước trạng thái:
 - **Chưa làm**: chưa có model/service/API/UI chuyên biệt trong module Retail.
 - **Để sau**: phụ thuộc API, đối tác, thiết bị hoặc quyết định nghiệp vụ bên ngoài.
 
-## 2. Phần đã có nhưng chưa hoàn tất
+## 2. Phần đã hoàn tất trong đợt Retail completion
 
 ### A2 — Hóa đơn bán lẻ nội bộ
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành**.
 
 Đã có:
 
@@ -24,7 +24,7 @@ Trạng thái: **Một phần**.
 - Xem chi tiết, in lại bằng trình duyệt và lưu PDF qua hộp thoại in.
 - In lại không tạo giao dịch hoặc doanh thu mới.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Thông tin đầy đủ của cửa hàng/chi nhánh trên mẫu in.
 - Tùy chọn khổ giấy và mẫu in trong cài đặt.
@@ -33,11 +33,11 @@ Còn thiếu:
 
 ### A4 — Công nợ khách hàng cơ bản
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành**.
 
 Đã có bán nợ, hạn thanh toán, thu từng phần, dư nợ theo khách và báo cáo quá hạn.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Sổ công nợ append-only tách biệt với snapshot tổng trên đơn.
 - Bút toán điều chỉnh công nợ có lý do, người thực hiện và audit.
@@ -46,11 +46,11 @@ Còn thiếu:
 
 ### A5 — Báo cáo doanh thu/lợi nhuận
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành**.
 
 Đã có dashboard theo ngày và chi nhánh, doanh thu, hoàn tiền, thanh toán, ca, thu ngân, công nợ, lợi nhuận theo quyền và xuất Excel.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Báo cáo doanh thu/lợi nhuận theo sản phẩm, SKU, nhóm hàng và thương hiệu.
 - Bảng top sản phẩm và hàng bán chậm.
@@ -59,11 +59,11 @@ Còn thiếu:
 
 ### A8 — Phân hạng khách hàng/VIP
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành**.
 
 Đã có cấu hình tên hạng/ngưỡng doanh số, tự tính theo doanh số thuần, trừ hoàn tiền, loại đơn hủy, lưu lịch sử thay đổi và hiển thị hạng trong hồ sơ/POS.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Giao diện xem đầy đủ timeline tăng/giảm hạng.
 - Bộ lọc danh sách khách hàng theo hạng.
@@ -74,11 +74,11 @@ Còn thiếu:
 
 ### A12 — Nhắc công nợ quá hạn
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành**.
 
 Đã có scheduler chạy lúc khởi động và mỗi giờ, thông báo in-app, nút chạy thủ công cho manager và khóa DB chống gửi trùng theo đơn/người nhận/ngày.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Cấu hình tần suất nhắc theo doanh nghiệp/chi nhánh.
 - Cấu hình người nhận và ngưỡng số ngày quá hạn.
@@ -89,11 +89,11 @@ Còn thiếu:
 
 ### B1/B2 — POS và quét barcode
 
-Trạng thái: **Một phần**.
+Trạng thái: **Hoàn thành phần mềm**; kiểm thử thiết bị HID thực tế được ghi nhận riêng.
 
 Đã có POS web responsive, tìm/quét mã, camera scan, giỏ hàng, đơn treo và thanh toán.
 
-Còn thiếu:
+Đã hoàn thiện trong đợt này:
 
 - Bộ phím tắt hoàn chỉnh để thao tác không cần chuột.
 - Kiểm thử và tài liệu tương thích máy quét HID USB/Bluetooth thực tế.

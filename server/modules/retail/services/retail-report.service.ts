@@ -4,8 +4,10 @@ import { CashierShiftModel } from "../models/cashier-shift.model";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { buildRetailReportModel } from "./retail-report-metrics";
 import { parseRetailReportRange } from "./retail-report-range";
+import { analyticsService, reconcileRetailAnalyticsRevenue } from "../../../service/analytics.service";
 
 type ReportRange = { from: string; to: string };
+type ReportFilters = { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
 type ReportInput = Parameters<typeof buildRetailReportModel>[0];
 type ReportOrder = ReportInput["orders"][number];
 type ReportShift = ReportInput["shifts"][number];
@@ -13,15 +15,23 @@ type ReportShift = ReportInput["shifts"][number];
 type RetailReportRepository = {
   loadOrders(pipeline: PipelineStage[]): Promise<ReportOrder[]>;
   loadShifts(pipeline: PipelineStage[]): Promise<ReportShift[]>;
+  loadAnalyticsNetSales?(scope: RetailBranchScope, range: ReportRange): Promise<number>;
 };
 
-export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: ReportRange): PipelineStage[] {
+export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: ReportRange, filters: ReportFilters = {}): PipelineStage[] {
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const itemFilters = Object.fromEntries(["productId", "sku", "category", "brand"].filter((key) => filters[key as keyof ReportFilters]).map((key) => {
+    const value = filters[key as keyof ReportFilters] as string;
+    return [key, key === "category" || key === "brand" ? { $regex: `^${escape(value)}$`, $options: "i" } : value];
+  }));
   return [
     {
       $match: {
         companyCode: scope.companyCode,
         branchId: scope.branchId,
         businessDate: { $gte: range.from, $lte: range.to },
+        ...(filters.salespersonId ? { salespersonId: filters.salespersonId } : {}),
+        ...(Object.keys(itemFilters).length ? { items: { $elemMatch: itemFilters } } : {}),
       },
     },
     {
@@ -41,6 +51,8 @@ export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: 
         customerName: 1,
         customerPhone: 1,
         dueDate: 1,
+        salespersonId: 1,
+        items: 1,
       },
     },
   ];
@@ -75,18 +87,23 @@ export function createRetailReportService(repository: RetailReportRepository) {
   return {
     async summary(scope: RetailBranchScope, query: unknown, includeProfit: boolean) {
       const range = parseRetailReportRange((query || {}) as Record<string, unknown>);
+      const raw = (query || {}) as Record<string, unknown>;
+      const filters = Object.fromEntries(["salespersonId", "productId", "sku", "category", "brand"].map((key) => [key, String(raw[key] || "").trim()]).filter(([, value]) => value)) as ReportFilters;
       const [orders, shifts] = await Promise.all([
-        repository.loadOrders(buildRetailReportOrderPipeline(scope, range)),
+        repository.loadOrders(buildRetailReportOrderPipeline(scope, range, filters)),
         repository.loadShifts(buildRetailReportShiftPipeline(scope, range)),
       ]);
 
-      return buildRetailReportModel({
+      const model = buildRetailReportModel({
         orders,
         shifts,
         days: range.days,
         today: parseRetailReportRange({}).to,
         includeProfit,
+        filters,
       });
+      const analyticsNetSales = await repository.loadAnalyticsNetSales?.(scope, range);
+      return analyticsNetSales === undefined ? model : { ...model, analyticsReconciliation: reconcileRetailAnalyticsRevenue({ netSales: model.summary.netSales }, { goodsTotal: analyticsNetSales }) };
     },
   };
 }
@@ -94,4 +111,5 @@ export function createRetailReportService(repository: RetailReportRepository) {
 export const RetailReportService = createRetailReportService({
   loadOrders: (pipeline) => RetailOrderModel.aggregate<ReportOrder>(pipeline),
   loadShifts: (pipeline) => CashierShiftModel.aggregate<ReportShift>(pipeline),
+  loadAnalyticsNetSales: async (scope, range) => (await analyticsService.getCombinedRevenue(scope, { from: new Date(`${range.from}T00:00:00.000Z`), to: new Date(`${range.to}T23:59:59.999Z`), granularity: "day" })).goodsTotal,
 });

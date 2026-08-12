@@ -482,7 +482,9 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                       {assignedStudents.map((student) => {
                         const examEntry = student.exams?.find(e => e.id === exam.id);
                         const scoreEntry = exam.results?.find((item) => item.studentId === student.id);
-                        const resultText = scoreEntry?.outcome || (typeof scoreEntry?.score === "number" ? (scoreEntry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? 'Đậu' : 'Trượt') : examEntry?.result?.overall || 'Chưa có');
+                        const resultText = scoreEntry?.outcome === "Đậu" || scoreEntry?.outcome === "Trượt"
+                          ? scoreEntry.outcome
+                          : (typeof scoreEntry?.score === "number" ? (scoreEntry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? 'Đậu' : 'Trượt') : examEntry?.result?.overall || 'Chưa có');
                         
                         return (
                           <tr key={student.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">

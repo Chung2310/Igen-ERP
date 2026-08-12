@@ -1,0 +1,31 @@
+import { RetailDebtReminderDeliveryModel } from "../models/retail-debt-reminder-delivery.model";
+import { classifyReminderFailure } from "./retail-debt-reminder.service";
+import { createRetailReminderMailer, type RetailReminderMailer } from "./retail-reminder-mailer";
+
+export function nextReminderAttemptAt(attempt: number, now: Date) { return new Date(now.getTime() + Math.min(24 * 60, 5 * 2 ** Math.max(0, attempt - 1)) * 60_000); }
+export function reminderRetryDecision(failureType: "temporary" | "permanent", attempt: number, maxAttempts: number) { return { retry: failureType === "temporary" && attempt < maxAttempts }; }
+
+export async function processRetailReminderDeliveries(now = new Date(), mailer?: RetailReminderMailer) {
+  let sent = 0, failed = 0;
+  for (;;) {
+    const delivery: any = await RetailDebtReminderDeliveryModel.findOneAndUpdate(
+      { channel: "email", $or: [{ status: "queued" }, { status: "failed", failureType: "temporary", nextAttemptAt: { $lte: now } }], $expr: { $lt: ["$attempt", "$maxAttempts"] } },
+      { $set: { status: "sending" }, $inc: { attempt: 1 } }, { new: true },
+    ).lean();
+    if (!delivery) break;
+    try {
+      const sender = mailer || createRetailReminderMailer();
+      const result = await sender.send({ to: delivery.payload.to, subject: delivery.payload.title, text: delivery.payload.body });
+      await RetailDebtReminderDeliveryModel.updateOne({ _id: delivery._id, status: "sending" }, { $set: { status: "sent", sentAt: now, messageId: result.messageId }, $unset: { error: 1, failureType: 1, nextAttemptAt: 1 } }); sent++;
+    } catch (error: any) {
+      const failureType = classifyReminderFailure(error), decision = reminderRetryDecision(failureType, delivery.attempt, delivery.maxAttempts);
+      await RetailDebtReminderDeliveryModel.updateOne({ _id: delivery._id, status: "sending" }, { $set: { status: "failed", failureType, error: String(error?.message || error), nextAttemptAt: decision.retry ? nextReminderAttemptAt(delivery.attempt, now) : undefined } }); failed++;
+    }
+  }
+  return { sent, failed };
+}
+
+export function startRetailReminderRetryScheduler(intervalMs = 60 * 60 * 1000) {
+  const run = () => void processRetailReminderDeliveries().catch((error) => console.error("[retail-reminder-retry]", error));
+  run(); const timer = setInterval(run, intervalMs); timer.unref?.(); return timer;
+}

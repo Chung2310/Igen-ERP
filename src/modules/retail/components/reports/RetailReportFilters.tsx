@@ -19,6 +19,7 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
   const [from, setFrom] = React.useState(isCustomFilter ? filters.from : currentRange?.from || today);
   const [to, setTo] = React.useState(isCustomFilter ? filters.to : currentRange?.to || today);
   const [validationError, setValidationError] = React.useState("");
+  const [dimensions, setDimensions] = React.useState({ salespersonId: filters.salespersonId || "", productId: filters.productId || "", sku: filters.sku || "", category: filters.category || "", brand: filters.brand || "" });
   const validationErrorId = React.useId();
 
   React.useEffect(() => {
@@ -31,7 +32,7 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
   const choosePreset = (next: RetailReportFilters) => {
     setShowCustom(false);
     setValidationError("");
-    onChange(next);
+    onChange({ ...next, ...Object.fromEntries(Object.entries(dimensions).filter(([, value]) => value.trim())) } as RetailReportFilters);
   };
 
   const openCustom = () => {
@@ -50,7 +51,12 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
       return;
     }
     setValidationError("");
-    onChange({ from, to });
+    onChange({ from, to, ...Object.fromEntries(Object.entries(dimensions).filter(([, value]) => value.trim())) } as RetailReportFilters);
+  };
+
+  const applyDimensions = () => {
+    const { salespersonId: _salespersonId, productId: _productId, sku: _sku, category: _category, brand: _brand, ...range } = filters;
+    onChange({ ...range, ...Object.fromEntries(Object.entries(dimensions).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value)) } as RetailReportFilters);
   };
 
   return (
@@ -139,6 +145,10 @@ export default function RetailReportFilters({ filters, currentRange, today, disa
           {validationError && <p id={validationErrorId} role="alert" className="mt-2 text-sm font-medium text-red-600">{validationError}</p>}
         </div>
       )}
+      <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-5">
+        {([['salespersonId', 'Nhân viên bán hàng'], ['productId', 'Mã sản phẩm'], ['sku', 'SKU'], ['category', 'Danh mục'], ['brand', 'Thương hiệu']] as const).map(([key, label]) => <label key={key} className="text-sm font-semibold text-slate-700"><span>{label}</span><input aria-label={label} value={dimensions[key]} disabled={disabled} onChange={(event) => setDimensions((value) => ({ ...value, [key]: event.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" /></label>)}
+      </div>
+      <button type="button" disabled={disabled} onClick={applyDimensions} className="mt-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Áp dụng bộ lọc</button>
     </div>
   );
 }

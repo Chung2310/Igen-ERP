@@ -23,6 +23,12 @@ test("invoice snapshot schema never defines unitCost", () => {
   assert.equal(RetailInvoiceModel.schema.path("snapshot.items.unitCost"), undefined);
 });
 
+test("invoice schema stores immutable store identity fields", () => {
+  for (const path of ["snapshot.store.legalName", "snapshot.store.storeName", "snapshot.store.branchCode", "snapshot.store.branchName", "snapshot.store.branchAddress", "snapshot.store.branchPhone"]) {
+    assert.ok(RetailInvoiceModel.schema.path(path), `${path} must exist`);
+  }
+});
+
 test("order payment snapshots carry shift date tender and change", () => {
   for (const path of ["payments.shiftId", "payments.businessDate", "payments.tenderedAmount", "payments.changeAmount", "refunds.shiftId", "refunds.businessDate"]) {
     assert.ok(RetailOrderModel.schema.path(path), `${path} must exist`);

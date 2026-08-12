@@ -52,6 +52,13 @@ describe("retailReportsApi", () => {
     expect(vi.mocked(apiFetch).mock.calls[0]?.[1]?.params).not.toHaveProperty("includeProfit");
   });
 
+  it("whitelists product dimensions for summary URLs", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: report });
+    const filters = { from: "2026-08-04", to: "2026-08-10", salespersonId: "u1", productId: "p1", sku: "S-1", category: "Drinks", brand: "North" };
+    await retailReportsApi.summary(scope, filters);
+    expect(apiFetch).toHaveBeenCalledWith("/retail/reports/summary", { params: { companyCode: "ACME", branchId: "B1", ...filters } });
+  });
+
   it("does not let extra summary filter keys override scope or request profit", async () => {
     vi.mocked(apiFetch).mockResolvedValue({ success: true, data: report });
     const unsafeFilters = {

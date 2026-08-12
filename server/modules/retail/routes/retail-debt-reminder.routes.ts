@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { requirePermission } from "../../../middleware/auth";
+import { RETAIL_MANAGER_PERMISSION } from "../permissions";
+import { retailDebtReminderController } from "../controllers/retail-debt-reminder.controller";
+export const retailDebtReminderRoutes = Router();
+const manage = requirePermission([RETAIL_MANAGER_PERMISSION]) as any;
+retailDebtReminderRoutes.get("/runs", manage, retailDebtReminderController.listRuns as any);
+retailDebtReminderRoutes.get("/runs/:id", manage, retailDebtReminderController.getRun as any);
+retailDebtReminderRoutes.post("/run", manage, retailDebtReminderController.runNow as any);
+retailDebtReminderRoutes.post("/deliveries/:id/retry", manage, retailDebtReminderController.retry as any);

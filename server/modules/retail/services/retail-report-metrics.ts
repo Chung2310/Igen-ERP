@@ -14,7 +14,12 @@ type RetailReportOrder = {
   customerName?: string;
   customerPhone?: string;
   dueDate?: Date | string;
+  salespersonId?: string;
+  items?: Array<{ productId: string; sku: string; productName: string; category?: string; brand?: string; quantity: number; unitPrice?: number; unitCost: number; discountAmount?: number; lineTotal: number }>;
 };
+
+export interface RetailProductReportRow { productId: string; sku: string; productName: string; category?: string; brand?: string; netQuantity: number; netSales: number; profit?: number }
+type RetailProductFilters = { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
 
 type RetailReportShift = {
   _id?: unknown;
@@ -36,6 +41,7 @@ type RetailReportInput = {
   days: string[];
   today: string;
   includeProfit: boolean;
+  filters?: RetailProductFilters;
 };
 
 export type RetailReportModel = {
@@ -97,6 +103,9 @@ export type RetailReportModel = {
       orderCount: number;
     }>;
   };
+  products: RetailProductReportRow[];
+  slowProducts: RetailProductReportRow[];
+  analyticsReconciliation?: { retailNetSales: number; analyticsNetSales: number; difference: number; matched: boolean };
 };
 
 const PAYMENT_METHODS: RetailPaymentMethod[] = ["cash", "card", "transfer", "ewallet"];
@@ -124,11 +133,14 @@ function vietnamBusinessDate(value: Date | string | undefined): string | undefin
 export function projectRetailReportForCapability(model: RetailReportModel, includeProfit: boolean): RetailReportModel {
   if (includeProfit) return model;
   const { totalCost: _totalCost, grossProfit: _grossProfit, grossMarginPercent: _grossMarginPercent, ...summary } = model.summary;
-  return { ...model, summary };
+  const redact = (rows: RetailProductReportRow[]) => rows.map(({ profit: _profit, ...row }) => row);
+  return { ...model, summary, products: redact(model.products), slowProducts: redact(model.slowProducts) };
 }
 
 export function buildRetailReportModel(input: RetailReportInput): RetailReportModel {
-  const orders = input.orders.filter((order) => Boolean(order.orderCode));
+  const filters = input.filters || {};
+  const same = (value: unknown, expected: string | undefined) => !expected || String(value || "").toLocaleLowerCase() === expected.toLocaleLowerCase();
+  const orders = input.orders.filter((order) => Boolean(order.orderCode) && same(order.salespersonId, filters.salespersonId));
   const activeOrders = orders.filter(isActive);
   const grossSales = sum(orders.map((order) => order.grandTotal));
   const refunds = sum(orders.map((order) => order.refundedAmount));
@@ -136,6 +148,17 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
   const activeGrossSales = sum(activeOrders.map((order) => order.grandTotal));
   const totalCost = sum(activeOrders.map((order) => order.totalCost));
   const grossProfit = netSales - totalCost;
+  const productMap = new Map<string, RetailProductReportRow>();
+  for (const order of activeOrders) for (const item of order.items || []) {
+    if (!same(item.productId, filters.productId) || !same(item.sku, filters.sku) || !same(item.category, filters.category) || !same(item.brand, filters.brand)) continue;
+    const row = productMap.get(item.productId) || { productId: item.productId, sku: item.sku, productName: item.productName, ...(item.category ? { category: item.category } : {}), ...(item.brand ? { brand: item.brand } : {}), netQuantity: 0, netSales: 0, profit: 0 };
+    row.netQuantity += item.quantity;
+    row.netSales += item.lineTotal;
+    row.profit = (row.profit || 0) + item.lineTotal - item.quantity * item.unitCost;
+    productMap.set(item.productId, row);
+  }
+  const products = [...productMap.values()].sort((left, right) => right.netSales - left.netSales || left.sku.localeCompare(right.sku));
+  const slowProducts = [...products].sort((left, right) => left.netQuantity - right.netQuantity || left.sku.localeCompare(right.sku));
 
   const timeSeries = input.days.map((businessDate) => {
     const dayOrders = orders.filter((order) => order.businessDate === businessDate);
@@ -250,6 +273,8 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
         (left, right) => right.totalDebt - left.totalDebt || left.customerName.localeCompare(right.customerName),
       ),
     },
+    products,
+    slowProducts,
   };
 
   return projectRetailReportForCapability(model, input.includeProfit);

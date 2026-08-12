@@ -225,6 +225,15 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
       return;
     }
 
+    // `datetime-local` không có múi giờ. Chuyển thành ISO trước khi gửi để API
+    // nhận đúng thời điểm người dùng đã chọn, đồng thời báo rõ thay vì để Joi trả
+    // về lỗi chung "Dữ liệu không hợp lệ" khi hạn đã qua.
+    const dueDate = newDueDate ? new Date(newDueDate) : null;
+    if (dueDate && (!Number.isFinite(dueDate.getTime()) || dueDate.getTime() <= Date.now())) {
+      toast.error("Hạn nộp phải là thời gian trong tương lai. Hãy chọn lại ngày hoặc giờ hạn nộp.");
+      return;
+    }
+
     setCreating(true);
     try {
       const res = await apiFetch("/assignments", {
@@ -232,7 +241,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
         body: JSON.stringify({
           title: newTitle,
           description: newDescription,
-          dueDate: newDueDate || undefined,
+          dueDate: dueDate?.toISOString(),
           maxScore: Number(newMaxScore),
           attachments: newAttachments,
           batchId: batch.id,

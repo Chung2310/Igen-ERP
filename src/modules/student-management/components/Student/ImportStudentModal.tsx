@@ -60,6 +60,11 @@ const formatExcelPhone = (phoneVal: unknown): string => {
   return clean;
 };
 
+const normalizeBatchCode = (value: unknown): string => String(value || "")
+  .trim()
+  .replace(/\s+/g, " ")
+  .toLocaleUpperCase("vi-VN");
+
 export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter }: ImportStudentModalProps) {
   const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
@@ -130,6 +135,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     row.forEach((cell, idx) => {
       if (!cell) return;
       const val = String(cell).trim().toLowerCase();
+      const normalizedHeader = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
       if (val.includes('họ và tên') || val.includes('họ tên') || val === 'tên') map.fullName = idx;
       else if (val.includes('số điện thoại') || val.includes('điện thoại') || val === 'sdt') map.phone = idx;
       else if (val.includes('hạng bằng') || val.includes('hạng') || val === 'hang' || val.includes('khóa học') || val.includes('khoa hoc')) map.rank = idx;
@@ -141,7 +147,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       else if (val.includes('người giới thiệu') || val.includes('giới thiệu')) map.referral = idx;
       else if (val.includes('địa chỉ') || val.includes('dia chi') || val.includes('nơi ở')) map.address = idx;
       else if (val.includes('ngày nhập học') || val.includes('ngay nhap hoc') || val.includes('nhập học')) map.enrollmentDate = idx;
-      else if (val.includes('mã lớp') || val.includes('lớp') || val.includes('mã lớp học') || val.includes('lop') || val.includes('batch')) map.batchCode = idx;
+      else if (normalizedHeader.includes('ma lop') || normalizedHeader.includes('lop hoc') || normalizedHeader.includes('lop / du an') || normalizedHeader.includes('class code') || normalizedHeader.includes('batch')) map.batchCode = idx;
     });
     return map;
   };
@@ -244,7 +250,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           }
 
           if (studentData.batchCode) {
-            const exists = batches.some(b => b.code.trim().toLowerCase() === studentData.batchCode!.trim().toLowerCase());
+            const exists = batches.some(b => normalizeBatchCode(b.code) === normalizeBatchCode(studentData.batchCode));
             if (!exists) {
               errors.push(`Mã lớp "${studentData.batchCode}" không tồn tại trong hệ thống`);
             }
