@@ -478,17 +478,17 @@ export class StudentService {
       (student.paymentHistory || []).forEach(() => add(id, "payment-history", "lịch sử thanh toán"));
       (student.exams || []).forEach(() => add(id, "student-exams", "lịch sử kỳ thi"));
     });
-    addDirect(payments as any, "payments", "phiếu thu/hóa đơn");
-    addDirect(enrollments as any, "enrollments", "đăng ký và lịch sử lớp");
-    addDirect(canonicalEnrollments as any, "canonical-enrollments", "sổ buổi học");
-    addDirect(submissions as any, "submissions", "bài nộp");
-    addDirect(qualityRecords as any, "quality", "đánh giá chất lượng");
-    addDirect(waitlistEntries as any, "waitlist", "danh sách chờ lớp");
-    addDirect(progressionDecisions as any, "progression", "lộ trình học tập");
-    addDirect(devices as any, "devices", "thiết bị đăng nhập");
-    addDirect(verificationCodes as any, "verification", "mã xác thực điểm danh");
-    addDirect(attendanceAttempts as any, "attendance-attempts", "lịch sử điểm danh");
-    addDirect(faceAudits as any, "face-audits", "lịch sử nhận diện khuôn mặt");
+    addDirect(payments as Array<{ studentId?: unknown }>, "payments", "phiếu thu/hóa đơn");
+    addDirect(enrollments as Array<{ studentId?: unknown }>, "enrollments", "đăng ký và lịch sử lớp");
+    addDirect(canonicalEnrollments as Array<{ studentId?: unknown }>, "canonical-enrollments", "sổ buổi học");
+    addDirect(submissions as Array<{ studentId?: unknown }>, "submissions", "bài nộp");
+    addDirect(qualityRecords as Array<{ studentId?: unknown }>, "quality", "đánh giá chất lượng");
+    addDirect(waitlistEntries as Array<{ studentId?: unknown }>, "waitlist", "danh sách chờ lớp");
+    addDirect(progressionDecisions as Array<{ studentId?: unknown }>, "progression", "lộ trình học tập");
+    addDirect(devices as Array<{ studentId?: unknown }>, "devices", "thiết bị đăng nhập");
+    addDirect(verificationCodes as Array<{ studentId?: unknown }>, "verification", "mã xác thực điểm danh");
+    addDirect(attendanceAttempts as Array<{ studentId?: unknown }>, "attendance-attempts", "lịch sử điểm danh");
+    addDirect(faceAudits as Array<{ studentId?: unknown }>, "face-audits", "lịch sử nhận diện khuôn mặt");
 
     batches.forEach(batch => {
       const detail = batch.code || batch.name || String(batch._id);
@@ -551,7 +551,10 @@ export class StudentService {
     const existingEmails = new Set(existingStudents.map((s) => normalizeEmail(s.email || "")).filter(Boolean));
     const existingIdCards = new Set(existingStudents.map((s) => normalizeIdCard(s.idCard || "")).filter(Boolean));
 
-    const availableBatches = await Batch.find(query).select("code ownerId branchId startDate endDate daysOfWeek learnerIds");
+    // Chỉ truy vấn lớp khi file thực sự có cột/mã lớp. Nhập học viên thuần túy
+    // không cần phụ thuộc vào collection lớp (và tránh một truy vấn không cần thiết).
+    const hasBatchCode = studentsData.some((student) => Boolean(normalizeBatchCode(student.batchCode)));
+    const availableBatches = hasBatchCode ? await Batch.find(query).select("code ownerId branchId startDate endDate daysOfWeek learnerIds") : [];
     const batchesByCode = new Map(availableBatches.map((batch) => [normalizeBatchCode(batch.code), batch]));
 
     for (let i = 0; i < studentsData.length; i++) {
@@ -633,7 +636,7 @@ export class StudentService {
       const feeNum = parseInt(fee.replace(/\D/g, ""), 10) || 0;
       const paidAmount = parseInt(String(data.paidAmount || "0").replace(/\D/g, ""), 10) || 0;
 
-      const paymentHistory = [];
+      const paymentHistory: NonNullable<IStudent["paymentHistory"]> = [];
       if (paidAmount > 0) {
         paymentHistory.push({
           id: new Types.ObjectId().toString(),
@@ -678,7 +681,7 @@ export class StudentService {
       // Link students to their respective batches/classes if batchCode is provided
       for (let j = 0; j < results.length; j++) {
         const savedStudent = results[j];
-        const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone));
+        const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone || ""));
         if (matchingInput && matchingInput.batchCode) {
           const code = normalizeBatchCode(matchingInput.batchCode);
           if (code) {
