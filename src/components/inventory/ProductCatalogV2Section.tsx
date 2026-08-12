@@ -13,6 +13,7 @@ import {
   type ProductTemplateField,
   type ProductTrackingMode,
   type ProductVariant,
+  type VariantInput,
   productCatalogService,
 } from "../../services/productCatalogService";
 import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../../hooks/useVariantMatrix";
