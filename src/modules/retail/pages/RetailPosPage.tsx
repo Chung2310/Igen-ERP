@@ -22,7 +22,6 @@ import {
   type RetailCartState,
 } from "../hooks/retailCart";
 import { buildRetailOrderInput } from "../hooks/retailOrderInput";
-import { buildPaymentSummary } from "../hooks/retailPayment";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
 import { createHidScannerBuffer } from "../hooks/retailScannerInput";
@@ -217,10 +216,6 @@ export default function RetailPosPage() {
   const checkout = async (payments: RetailPaymentInput[], dueDate?: string) => {
     if (!cart.quote) return;
     const customerId = cart.customer?._id;
-    buildPaymentSummary(cart.quote.grandTotal, payments, {
-      customerId,
-      dueDate,
-    });
     setBusy(true);
     const key = crypto.randomUUID();
     const input = { ...buildRetailOrderInput(cart), dueDate };
