@@ -14,6 +14,7 @@ import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
+import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
   if (!payload || typeof payload !== "object") {
@@ -229,6 +230,7 @@ function assertWritable(modelName: string) {
   }
 }
 
+
 function sanitizeCrudResult(modelName: string, item: any) {
   const inventoryItem = sanitizeInventoryResult(modelName, item);
   return sanitizeUserResult(modelName, inventoryItem);
@@ -368,6 +370,7 @@ export const crudService = {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
     }
     assertWritable(modelName);
+    assertNoLegacyInventoryMutation(modelName, data);
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
     const inventoryBranch = requireInventoryBranch(modelName, branchId);
@@ -436,6 +439,7 @@ export const crudService = {
     }
 
     assertWritable(modelName);
+    assertNoLegacyInventoryMutation(modelName, data);
 
     const query: any = { _id: id };
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
