@@ -5,6 +5,7 @@ import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { PERMISSION_CATALOG, RETIRED_STUDENT_PERMISSIONS } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
+import { migrateLegacyPayrollRunStatuses } from "../model/payroll-run-status-migration";
 import {
   dropLegacyAttendancePeriodResultUniqueIndex,
   dropLegacyPayrollOperationJobIdempotencyIndex,
@@ -200,6 +201,10 @@ export async function connectDB() {
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
     await dropLegacyPayrollRunPeriodKeyUniqueIndex();
+    const payrollStatusMigration = await migrateLegacyPayrollRunStatuses();
+    if (payrollStatusMigration.overpaidAnomalies) {
+      console.warn(`[Backend Database] Payroll status migration found ${payrollStatusMigration.overpaidAnomalies} overpaid run(s) requiring manual review.`);
+    }
     await dropLegacyPayrollOperationJobIdempotencyIndex();
     await dropLegacyAttendancePeriodResultUniqueIndex();
     await dropLegacyStudentAttendanceUniqueIndex();
