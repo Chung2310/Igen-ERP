@@ -46,4 +46,22 @@ describe("canonical payroll workflow", () => {
   it("never reopens paid", async () => {
     expect((await act("reopen", "paid", "Sửa lại")).result).toMatchObject({ code: "PAYROLL_PAID_RUN_IMMUTABLE", status: 409 });
   });
+  it("marks only a closed run as paid and audits the final transition", async () => {
+    const { result, applied, audits } = await act("markPaid", "closed");
+
+    expect(result.run.status).toBe("paid");
+    expect(applied[0]).toMatchObject({ from: "closed", to: "paid", fields: { paidBy: "manager" } });
+    expect(applied[0].fields.paidAt).toBeInstanceOf(Date);
+    expect(audits[0]).toEqual(expect.objectContaining({
+      action: "mark_paid",
+      metadata: expect.objectContaining({ operation: "markPaid" }),
+    }));
+  });
+
+  it.each(["draft", "review"])("does not mark a %s run as paid", async (status) => {
+    const { result, applied, audits } = await act("markPaid", status);
+    expect(result).toMatchObject({ code: "PAYROLL_INVALID_TRANSITION", status: 409 });
+    expect(applied).toHaveLength(0);
+    expect(audits).toHaveLength(0);
+  });
 });

@@ -17,6 +17,7 @@ export const payrollService = {
   review: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
   reopen: (runId: string, payload: { expectedVersion: number; reason: string }) => request(`/runs/${runId}/reopen`, { method: "POST", body: JSON.stringify(payload) }),
+  markPaid: (runId: string, payload: { expectedVersion: number }) => request(`/runs/${runId}/mark-paid`, { method: "POST", body: JSON.stringify(payload) }),
   reset: (periodKey: string) => request(`/periods/${periodKey}`, { method: "DELETE" }),
   getAdjustments: (periodKey: string) => request(`/periods/${periodKey}/adjustments`),
   createAdjustment: (periodKey: string, payload: any) => request(`/periods/${periodKey}/adjustments`, { method: "POST", body: JSON.stringify(payload) }),

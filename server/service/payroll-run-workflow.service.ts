@@ -1,7 +1,7 @@
 import type { PayrollRunStatus } from "../interface/payroll-operations.interface";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 
-export type PayrollWorkflowAction = "review" | "close" | "reopen";
+export type PayrollWorkflowAction = "review" | "close" | "reopen" | "markPaid";
 
 export type PayrollWorkflowFailure = {
   code: string;
@@ -13,7 +13,7 @@ export type PayrollWorkflowFailure = {
 const RULES: Record<PayrollWorkflowAction, {
   from: PayrollRunStatus[];
   to: PayrollRunStatus;
-  auditAction: "review" | "close" | "reopen";
+  auditAction: "review" | "close" | "reopen" | "mark_paid";
   requiresReason?: boolean;
   verifiesChecksum?: boolean;
   separatesDuties?: boolean;
@@ -41,6 +41,12 @@ const RULES: Record<PayrollWorkflowAction, {
     requiresReason: true,
     fields: () => ({ closedBy: null, closedAt: null }),
   },
+  markPaid: {
+    from: ["closed"],
+    to: "paid",
+    auditAction: "mark_paid",
+    fields: ({ actorId, now }) => ({ paidBy: actorId, paidAt: now }),
+  },
 };
 
 const failure = (code: string, message: string, status: number, currentVersion?: number): PayrollWorkflowFailure => ({
@@ -63,7 +69,7 @@ export async function transitionPayrollRun(args: {
     apply: (expectedVersion: number, from: PayrollRunStatus, to: PayrollRunStatus, fields: Record<string, unknown>) => Promise<any>;
   };
   revision: { getActive: (revisionId: string) => Promise<any> };
-  audit: (entry: { action: "review" | "close" | "reopen"; metadata: Record<string, unknown> }) => Promise<unknown>;
+  audit: (entry: { action: "review" | "close" | "reopen" | "mark_paid"; metadata: Record<string, unknown> }) => Promise<unknown>;
 }): Promise<{ run: any } | PayrollWorkflowFailure> {
   const rule = RULES[args.action];
   if (rule.requiresReason && !args.reason?.trim()) {
