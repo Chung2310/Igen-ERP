@@ -14,6 +14,7 @@ const RetailSettingsSchema = new Schema<IRetailSettings>({
   invoicePrefix: { type: String, required: true, default: "HD", trim: true, uppercase: true },
   invoicePaperSize: { type: String, enum: ["A4", "A5", "80mm"], required: true, default: "A4" },
   invoiceTemplate: { type: String, enum: ["standard"], required: true, default: "standard" },
+  debtReminders: { type: { enabled: { type: Boolean, required: true }, frequencyHours: { type: Number, required: true, min: 1, max: 24 }, overdueDays: { type: Number, required: true, min: 0, max: 365 }, recipientUserIds: { type: [String], default: [] }, recipientRoles: { type: [String], default: [] }, emailEnabled: { type: Boolean, required: true }, maxAttempts: { type: Number, required: true, min: 1, max: 10 } }, _id: false, default: () => ({ enabled: false, frequencyHours: 24, overdueDays: 0, recipientUserIds: [], recipientRoles: ["manager", "admin"], emailEnabled: false, maxAttempts: 3 }) },
 }, { timestamps: true });
 
 RetailSettingsSchema.index({ companyCode: 1, branchId: 1 }, { unique: true });

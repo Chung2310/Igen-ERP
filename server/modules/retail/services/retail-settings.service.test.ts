@@ -88,3 +88,16 @@ test("tier evaluation settings accept lifetime, rolling 12 months and valid cust
   assert.deepEqual(validateRetailSettingsInput({ tierEvaluationWindow: { type: "custom", from: "2026-01-01", to: "2026-12-31" } } as any).tierEvaluationWindow, { type: "custom", from: "2026-01-01", to: "2026-12-31" });
   assert.throws(() => validateRetailSettingsInput({ tierEvaluationWindow: { type: "custom", from: "2026-12-31", to: "2026-01-01" } } as any));
 });
+
+test("debt reminder settings normalize recipients and reject unsafe schedules", () => {
+  assert.deepEqual(validateRetailSettingsInput({ debtReminders: {
+    enabled: true, frequencyHours: 6, overdueDays: 2,
+    recipientUserIds: [" u2 ", "u1", "u1"], recipientRoles: ["manager", "admin", "manager"],
+    emailEnabled: true, maxAttempts: 4,
+  } } as any).debtReminders, {
+    enabled: true, frequencyHours: 6, overdueDays: 2,
+    recipientUserIds: ["u1", "u2"], recipientRoles: ["admin", "manager"],
+    emailEnabled: true, maxAttempts: 4,
+  });
+  for (const frequencyHours of [0, 25, 1.5]) assert.throws(() => validateRetailSettingsInput({ debtReminders: { enabled: true, frequencyHours, overdueDays: 0, recipientUserIds: [], recipientRoles: [], emailEnabled: false, maxAttempts: 3 } } as any));
+});

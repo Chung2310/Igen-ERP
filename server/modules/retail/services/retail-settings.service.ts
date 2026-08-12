@@ -18,6 +18,7 @@ export const DEFAULT_RETAIL_SETTINGS: RetailSettingsValues = Object.freeze({
   invoicePrefix: "HD",
   invoicePaperSize: "A4",
   invoiceTemplate: "standard",
+  debtReminders: { enabled: false, frequencyHours: 24, overdueDays: 0, recipientUserIds: [], recipientRoles: ["admin", "manager"], emailEnabled: false, maxAttempts: 3 },
 });
 
 const percent = (value: unknown, field: string): number => {
@@ -36,6 +37,15 @@ const prefix = (value: unknown, field: string): string => {
 
 export function validateRetailSettingsInput(input: Partial<RetailSettingsValues>): Partial<RetailSettingsValues> {
   const output: Partial<RetailSettingsValues> = {};
+  if (input.debtReminders !== undefined) {
+    const value = input.debtReminders;
+    const frequencyHours = Number(value.frequencyHours), overdueDays = Number(value.overdueDays), maxAttempts = Number(value.maxAttempts);
+    if (typeof value.enabled !== "boolean" || typeof value.emailEnabled !== "boolean" || !Number.isSafeInteger(frequencyHours) || frequencyHours < 1 || frequencyHours > 24 || !Number.isSafeInteger(overdueDays) || overdueDays < 0 || overdueDays > 365 || !Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10 || !Array.isArray(value.recipientUserIds) || !Array.isArray(value.recipientRoles)) throw new Error("debtReminders is invalid");
+    const recipientUserIds = [...new Set(value.recipientUserIds.map((item) => String(item).trim()).filter(Boolean))].sort();
+    const recipientRoles = [...new Set(value.recipientRoles.map((item) => String(item).trim().toLowerCase()).filter(Boolean))].sort();
+    if (recipientUserIds.length > 100 || recipientRoles.length > 20 || recipientRoles.some((role) => !/^[a-z0-9:_-]{1,50}$/.test(role))) throw new Error("debtReminders recipients are invalid");
+    output.debtReminders = { enabled: value.enabled, frequencyHours, overdueDays, recipientUserIds, recipientRoles, emailEnabled: value.emailEnabled, maxAttempts };
+  }
   if (input.tierEvaluationWindow !== undefined) {
     const window = input.tierEvaluationWindow;
     if (window.type === "lifetime" || window.type === "rolling12Months") output.tierEvaluationWindow = { type: window.type };
