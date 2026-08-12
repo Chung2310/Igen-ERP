@@ -45,6 +45,7 @@ import { buildPayslip } from "../service/payroll-payslip.service";
 import { buildPayrollWorkbook, workbookBuffer } from "../service/payroll-export.service";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
 import type { PayrollWorkflowAction } from "../service/payroll-run-workflow.service";
+import { PayrollPeriodProcessingError, processPayrollPeriod } from "../service/payroll-period-processing.service";
 import {
   auditQuerySchema,
   calculateRunSchema,
@@ -109,6 +110,23 @@ const legacyRegularRunFilter = (req: AuthenticatedRequest) => ({
   type: "regular" as const,
 });
 const LEGACY_RUN_ORDER = { createdAt: 1 as const, _id: 1 as const };
+
+const runPayrollControllerStep = async (
+  handler: (req: AuthenticatedRequest, res: Response) => Promise<unknown>,
+  req: AuthenticatedRequest,
+) => {
+  let statusCode = 200;
+  let body: any;
+  const stepResponse = {
+    status(code: number) { statusCode = code; return this; },
+    json(payload: unknown) { body = payload; return this; },
+  } as unknown as Response;
+  await handler(req, stepResponse);
+  if (statusCode >= 400) {
+    throw Object.assign(new Error(body?.message || "Payroll processing step failed"), { status: statusCode });
+  }
+  return body?.data ?? body;
+};
 // Revision-backed runs must go through the operational workflow so approval and
 // close stay behind the checksum, separation-of-duties, and audit guarantees.
 const LEGACY_RUN_ONLY = { activeRevisionId: { $exists: false } };
@@ -175,6 +193,34 @@ const operationFailure = (res: Response, error: unknown) => {
 };
 
 export const payrollController = {
+  async processPeriod(req: AuthenticatedRequest, res: Response) {
+    const existing = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+    if (existing && existing.status !== "draft") {
+      return res.status(409).json({
+        status: "error",
+        code: "PAYROLL_INVALID_TRANSITION",
+        message: "Chỉ có thể cập nhật bảng lương khi kỳ đang ở trạng thái Nháp.",
+      });
+    }
+    try {
+      const run = await processPayrollPeriod({
+        syncAttendance: () => runPayrollControllerStep(payrollController.createSnapshot, req),
+        lockAttendance: () => runPayrollControllerStep(payrollController.lockResults, req),
+        calculatePayroll: () => runPayrollControllerStep(payrollController.createRun, req),
+      });
+      return res.json({ status: "success", data: run });
+    } catch (error) {
+      if (error instanceof PayrollPeriodProcessingError) {
+        return res.status(error.status).json({
+          status: "error",
+          code: "PAYROLL_PROCESSING_FAILED",
+          stage: error.stage,
+          message: error.message,
+        });
+      }
+      return operationFailure(res, error);
+    }
+  },
   async createOperationalRun(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");

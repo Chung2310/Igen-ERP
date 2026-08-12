@@ -14,6 +14,7 @@ export const payrollService = {
   snapshot: (periodKey: string) => request(`/periods/${periodKey}/snapshot`, { method: "POST" }),
   lock: (periodKey: string) => request(`/periods/${periodKey}/lock`, { method: "POST" }),
   createRun: (periodKey: string) => request(`/periods/${periodKey}/run`, { method: "POST" }),
+  processPeriod: (periodKey: string) => request(`/periods/${periodKey}/process`, { method: "POST" }),
   review: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
   reopen: (runId: string, payload: { expectedVersion: number; reason: string }) => request(`/runs/${runId}/reopen`, { method: "POST", body: JSON.stringify(payload) }),
