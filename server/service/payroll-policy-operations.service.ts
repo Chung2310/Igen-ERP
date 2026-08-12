@@ -85,13 +85,16 @@ export async function updatePayrollPolicy(companyCode: string, policyId: string,
   }
 }
 
-export async function clonePayrollPolicy(companyCode: string, policyId: string, actorId: string, input: { code: string; name?: string }) {
+export async function clonePayrollPolicy(companyCode: string, policyId: string, actorId: string, input: { code: string; name?: string; definition?: Record<string, any> }) {
   const source: any = await PayrollPolicyModel.findOne({ _id: policyId, companyCode }).lean();
   if (!source) raise({ code: "PAYROLL_POLICY_NOT_FOUND", message: "Payroll policy not found", status: 404 });
   const { _id, companyCode: _company, status, createdBy, activatedBy, activatedAt, retiredBy, createdAt, updatedAt, version, __v, ...definition } = source;
+  const reviewedDefinition = input.definition ? { ...definition, ...input.definition, code: input.code, name: input.name?.trim() || input.definition.name } : definition;
+  const invalid = validatePolicyDefinition(reviewedDefinition as any);
+  if (invalid) raise(invalid);
   try {
     const cloned: any = await PayrollPolicyModel.create({
-      ...definition,
+      ...reviewedDefinition,
       code: input.code,
       name: input.name?.trim() || `${source.name} Bản sao`,
       companyCode,

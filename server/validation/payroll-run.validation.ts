@@ -86,6 +86,7 @@ export const updatePolicySchema = createPolicySchema.keys({ expectedVersion });
 export const clonePolicySchema = Joi.object({
   code: Joi.string().trim().min(1).max(64).required(),
   name: Joi.string().trim().min(1).max(200).optional(),
+  definition: createPolicySchema.optional(),
 });
 
 export const createPaymentSchema = Joi.object({
