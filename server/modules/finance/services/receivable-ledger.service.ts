@@ -4,6 +4,7 @@ import type { ReceivableEntryType } from "../interfaces/receivable.interface";
 import { ReceivableEntryModel } from "../models/receivable-entry.model";
 import { ReceivableModel } from "../models/receivable.model";
 import { assertReceivableOperation, deriveReceivableStatus } from "./receivable-rules";
+import { publishReceivableSettled } from "../consumers/receivable.consumer";
 
 type Session = unknown;
 type Actor = { id?: string; uid?: string; name?: string; displayName?: string };
@@ -12,6 +13,7 @@ export interface ReceivableLedgerRepository {
   transaction<T>(work: (session: Session) => Promise<T>): Promise<T>;
   findBySourceEvent(scope: FinanceBranchScope, sourceEventId: string, session: Session): Promise<any | null>;
   findById(scope: FinanceBranchScope, id: string, session: Session): Promise<any | null>;
+  findBySource(scope: FinanceBranchScope, sourceType: string, sourceId: string, session: Session): Promise<any | null>;
   createReceivable(values: any, session: Session): Promise<any>;
   updateReceivable(scope: FinanceBranchScope, id: string, values: any, session: Session): Promise<any>;
   createEntry(values: any, session: Session): Promise<any>;
@@ -56,7 +58,7 @@ export function createReceivableLedgerService(
         : null;
       if (prior) {
         const existing = await repository.findById(scope, receivableId, session);
-        return { receivable: existing, entry: prior };
+        return { receivable: existing, entry: prior, settledTransition: false };
       }
       const receivable = await repository.findById(scope, receivableId, session);
       if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
@@ -76,10 +78,11 @@ export function createReceivableLedgerService(
       }, session);
       const status = deriveReceivableStatus({ originalAmount: receivable.originalAmount, paidAmount, balance, terminal: input.terminal });
       const updated = await repository.updateReceivable(scope, receivableId, { balance, paidAmount, adjustedAmount, status }, session);
-      return { receivable: updated, entry };
+      return { receivable: updated, entry, settledTransition: receivable.status !== "settled" && status === "settled" };
     });
-    if (result.receivable?.status === "settled" && afterSettled) await afterSettled(result.receivable);
-    return result;
+    if (result.settledTransition && afterSettled) await afterSettled(result.receivable);
+    const { settledTransition: _settledTransition, ...response } = result;
+    return response;
   }
 
   return {
@@ -123,6 +126,20 @@ export function createReceivableLedgerService(
         reversalOfEntryId: entryId,
       }, actor);
     },
+    async settleFromEvent(scope: FinanceBranchScope, sourceType: string, sourceId: string, input: CommandInput, actor: Actor) {
+      const receivable = await repository.transaction((session) => repository.findBySource(scope, sourceType, sourceId, session));
+      if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
+      return append(scope, String(receivable._id), { ...input, type: "payment" }, actor);
+    },
+    async voidFromEvent(scope: FinanceBranchScope, sourceType: string, sourceId: string, input: { remainingDebt: number; refundedAmount: number; reason: string; idempotencyKey: string }, actor: Actor) {
+      const receivable = await repository.transaction((session) => repository.findBySource(scope, sourceType, sourceId, session));
+      if (!receivable) throw new Error("RECEIVABLE_NOT_FOUND");
+      if (Number(input.remainingDebt) !== receivable.balance) throw new Error("RECEIVABLE_SOURCE_BALANCE_MISMATCH");
+      return append(scope, String(receivable._id), {
+        type: "reversal", amount: receivable.balance, originalSignedAmount: receivable.balance,
+        reason: input.reason, idempotencyKey: input.idempotencyKey, terminal: "void",
+      }, actor);
+    },
   };
 }
 
@@ -134,6 +151,7 @@ const mongooseRepository: ReceivableLedgerRepository = {
   },
   findBySourceEvent: (scope, sourceEventId, session) => ReceivableModel.findOne({ ...scope, sourceEventId }).session(session as ClientSession).lean(),
   findById: (scope, id, session) => ReceivableModel.findOne({ ...scope, _id: id }).session(session as ClientSession).lean(),
+  findBySource: (scope, sourceType, sourceId, session) => ReceivableModel.findOne({ ...scope, sourceType, sourceId }).session(session as ClientSession).lean(),
   async createReceivable(values, session) { const [item] = await ReceivableModel.create([values], { session: session as ClientSession }); return item.toObject(); },
   async updateReceivable(scope, id, values, session) { return ReceivableModel.findOneAndUpdate({ ...scope, _id: id }, { $set: values }, { new: true, session: session as ClientSession }).lean(); },
   async createEntry(values, session) { const [item] = await ReceivableEntryModel.create([values], { session: session as ClientSession }); return item.toObject(); },
@@ -142,4 +160,4 @@ const mongooseRepository: ReceivableLedgerRepository = {
   findByIdempotency: (scope, idempotencyKey, session) => ReceivableEntryModel.findOne({ ...scope, idempotencyKey }).session(session as ClientSession).lean(),
 };
 
-export const ReceivableLedgerService = createReceivableLedgerService(mongooseRepository);
+export const ReceivableLedgerService = createReceivableLedgerService(mongooseRepository, publishReceivableSettled);

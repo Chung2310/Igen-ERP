@@ -20,6 +20,9 @@ function memoryRepository(initial?: State) {
     async findById(scope, id) {
       return state.receivables.find((item) => item._id === id && item.companyCode === scope.companyCode && item.branchId === scope.branchId) || null;
     },
+    async findBySource(scope, sourceType, sourceId) {
+      return state.receivables.find((item) => item.companyCode === scope.companyCode && item.branchId === scope.branchId && item.sourceType === sourceType && item.sourceId === sourceId) || null;
+    },
     async createReceivable(values) {
       const item = { _id: `r${++sequence}`, ...structuredClone(values) };
       state.receivables.push(item); return item;
@@ -39,6 +42,9 @@ function memoryRepository(initial?: State) {
     },
     async findReversal(scope, receivableId, entryId) {
       return state.entries.find((item) => item.receivableId === receivableId && item.reversalOfEntryId === entryId && item.companyCode === scope.companyCode) || null;
+    },
+    async findByIdempotency(scope, idempotencyKey) {
+      return state.entries.find((item) => item.companyCode === scope.companyCode && item.branchId === scope.branchId && item.idempotencyKey === idempotencyKey) || null;
     },
   };
   return {
@@ -104,6 +110,30 @@ test("reversing a payment restores paid cache without changing adjusted cache", 
   assert.equal(reversed.receivable.paidAmount, 0);
   assert.equal(reversed.receivable.adjustedAmount, 0);
   assert.equal(reversed.receivable.status, "open");
+});
+
+test("source event commands collect and void without deleting ledger history", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  await ledger.openFromEvent(scope, openInput, actor);
+  const paid = await ledger.settleFromEvent(scope, "retail_order", "o1", { amount: 30_000, paymentMethod: "retail", idempotencyKey: "evt-paid" }, actor);
+  assert.equal(paid.receivable.balance, 70_000);
+  const voided = await ledger.voidFromEvent(scope, "retail_order", "o1", { remainingDebt: 70_000, refundedAmount: 30_000, reason: "Hủy đơn", idempotencyKey: "evt-cancel" }, actor);
+  assert.equal(voided.receivable.balance, 0);
+  assert.equal(voided.receivable.status, "void");
+  assert.deepEqual(memory.snapshot().entries.map((entry) => entry.type), ["charge", "payment", "reversal"]);
+});
+
+test("replaying a settling payment does not publish settled twice", async () => {
+  const memory = memoryRepository();
+  const settled: any[] = [];
+  const ledger = createReceivableLedgerService(memory.repository, async (receivable) => { settled.push(receivable); });
+  const opened = await ledger.openFromEvent(scope, openInput, actor);
+  const command = { amount: 100_000, paymentMethod: "retail", idempotencyKey: "settle-once" };
+  await ledger.collect(scope, opened._id, command, actor);
+  await ledger.collect(scope, opened._id, command, actor);
+  assert.equal(settled.length, 1);
+  assert.equal(memory.snapshot().entries.length, 2);
 });
 
 test("header balance equals the sum of entries after every operation in a deterministic 20-step sequence", async () => {
