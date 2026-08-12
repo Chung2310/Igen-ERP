@@ -7,6 +7,7 @@ import { buildPayrollDetails } from "./payrollDetails";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPaymentsPanel } from "./payroll/PayrollPaymentsPanel";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
+import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 
 type SortDir = "asc" | "desc";
 
@@ -68,11 +69,10 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
 }
 
 const STEPS = [
-  { key: "synced", label: "Đồng bộ công" },
-  { key: "locked", label: "Khóa công" },
-  { key: "calculated", label: "Tính lương" },
-  { key: "approved", label: "Duyệt" },
-  { key: "closed", label: "Chốt kỳ" },
+  { key: "draft", label: "Nháp" },
+  { key: "review", label: "Kiểm tra" },
+  { key: "closed", label: "Chốt" },
+  { key: "paid", label: "Đã thanh toán" },
 ] as const;
 
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
@@ -88,6 +88,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [formulaLoading, setFormulaLoading] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   // States for creating adjustments
   const [isAdjOpen, setIsAdjOpen] = useState(false);
@@ -145,11 +147,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
 
   const allLocked = results.length > 0 && results.every((r) => r.status === "locked");
-  const currentStepIndex = run?.status === "closed" ? 4
-    : run?.status === "approved" ? 3
-    : run ? 2
-    : allLocked ? 1
-    : results.length > 0 ? 0
+  const currentStepIndex = run?.status === "paid" ? 3
+    : run?.status === "closed" ? 2
+    : run?.status === "review" ? 1
+    : run || allLocked || results.length > 0 ? 0
     : -1;
 
   const runRows = useMemo(() => {
@@ -313,11 +314,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
-    {canManage && run?._id && (
+    {canManage && run?._id && (run.status === "closed" || run.status === "paid") && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">
           <div className="text-sm font-bold text-slate-800">Thanh toán bảng lương</div>
-          <button
+          {run.status === "closed" && <button
             onClick={() => {
               const initialLines = runRows.map((r: any) => {
                 const balance = getEmployeeBalance(r.employeeId, r.net);
@@ -336,7 +337,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
           >
             + Tạo đợt thanh toán
-          </button>
+          </button>}
         </div>
         <PayrollPaymentsPanel payments={payments} onConfirm={(item) => void action(() => payrollService.confirmPayment(item._id), "Đã xác nhận thanh toán")} onCancel={(item) => void action(() => payrollService.cancelPayment(item._id), "Đã hủy thanh toán")} onReverse={(item) => void action(() => payrollService.reversePayment(item._id), "Đã hoàn tác thanh toán")} />
       </div>
@@ -417,10 +418,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     )}
 
-    {canManage && (!run || run.status !== "closed") && (
+    {canManage && run?.status !== "paid" && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {(!run || run.status === "calculated") && (
+          {(!run || run.status === "draft") && (
             <>
               <button onClick={() => void action(() => payrollService.snapshot(period), "Đã đồng bộ kết quả công")} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
                 <RefreshCw size={15} /> Đồng bộ công
@@ -436,21 +437,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 <Play size={15} /> {run ? "Tính lại lương" : "Tính lương"}
               </button>
               {run && (
-                <button onClick={() => void action(() => payrollService.approve(period), "Đã duyệt bảng lương")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
-                  <CheckCircle2 size={15} /> Duyệt
+                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                  <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
-          {run?.status === "approved" && (
+          {run?.status === "review" && (
             <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
         </div>
-        {run?.status !== "approved" && (
-          <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100">
-            <Trash2 size={15} /> Xóa kỳ lương
+        {(run?.status === "review" || run?.status === "closed") && (
+          <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100">
+            <RefreshCw size={15} /> Mở lại kỳ
           </button>
         )}
       </div>
@@ -472,10 +473,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </div>
           )}
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-            run?.status === "approved" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
-            run?.status === "calculated" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
+            run?.status === "paid" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+            run?.status === "review" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
           }`}>
-            {run?.status === "approved" ? "Đã duyệt" : run?.status === "closed" ? "Đã chốt" : run?.status === "calculated" ? "Đã tính lương" : "Chưa tạo"}
+            {run?.status === "paid" ? "Đã thanh toán" : run?.status === "closed" ? "Đã chốt" : run?.status === "review" ? "Kiểm tra" : "Nháp"}
           </span>
         </div>
       </div>
@@ -608,6 +609,18 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         await action(() => payrollService.reset(period), "Đã xóa kỳ lương");
         setResetting(false);
         setResetConfirmOpen(false);
+      }}
+    />
+    <PayrollReopenModal
+      open={reopenOpen}
+      loading={reopening}
+      onCancel={() => setReopenOpen(false)}
+      onConfirm={async (reason) => {
+        if (!run?._id) return;
+        setReopening(true);
+        await action(() => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }), "Đã mở lại kỳ lương về Nháp");
+        setReopening(false);
+        setReopenOpen(false);
       }}
     />
     {formulaRow && (
