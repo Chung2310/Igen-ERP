@@ -105,6 +105,7 @@ export type RetailReportModel = {
   };
   products: RetailProductReportRow[];
   slowProducts: RetailProductReportRow[];
+  analyticsReconciliation?: { retailNetSales: number; analyticsNetSales: number; difference: number; matched: boolean };
 };
 
 const PAYMENT_METHODS: RetailPaymentMethod[] = ["cash", "card", "transfer", "ewallet"];

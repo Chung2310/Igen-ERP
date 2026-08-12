@@ -7,6 +7,8 @@ import RetailSalesCharts from "./RetailSalesCharts";
 
 function chartReport(timeSeries: RetailReport["timeSeries"]): RetailReport {
   return {
+    products: [],
+    slowProducts: [],
     range: { from: "2026-08-10", to: "2026-08-10" },
     summary: { grossSales: 0, refunds: 0, netSales: 0, orderCount: 0, averageOrderValue: 0, collectedAmount: 0, dueAmount: 0 },
     timeSeries,

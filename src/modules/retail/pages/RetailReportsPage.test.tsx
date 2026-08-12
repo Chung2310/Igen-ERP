@@ -75,6 +75,8 @@ function report(overrides: Partial<RetailReport> = {}): RetailReport {
         orderCount: 2,
       }],
     },
+    products: [{ productId: "p1", sku: "A", productName: "Tea", netQuantity: 2, netSales: 100_000 }],
+    slowProducts: [{ productId: "p2", sku: "B", productName: "Cake", netQuantity: 1, netSales: 20_000 }],
     ...overrides,
   };
 }

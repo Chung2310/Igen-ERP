@@ -4,6 +4,7 @@ import { CashierShiftModel } from "../models/cashier-shift.model";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { buildRetailReportModel } from "./retail-report-metrics";
 import { parseRetailReportRange } from "./retail-report-range";
+import { analyticsService, reconcileRetailAnalyticsRevenue } from "../../../service/analytics.service";
 
 type ReportRange = { from: string; to: string };
 type ReportFilters = { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
@@ -14,6 +15,7 @@ type ReportShift = ReportInput["shifts"][number];
 type RetailReportRepository = {
   loadOrders(pipeline: PipelineStage[]): Promise<ReportOrder[]>;
   loadShifts(pipeline: PipelineStage[]): Promise<ReportShift[]>;
+  loadAnalyticsNetSales?(scope: RetailBranchScope, range: ReportRange): Promise<number>;
 };
 
 export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: ReportRange, filters: ReportFilters = {}): PipelineStage[] {
@@ -92,7 +94,7 @@ export function createRetailReportService(repository: RetailReportRepository) {
         repository.loadShifts(buildRetailReportShiftPipeline(scope, range)),
       ]);
 
-      return buildRetailReportModel({
+      const model = buildRetailReportModel({
         orders,
         shifts,
         days: range.days,
@@ -100,6 +102,8 @@ export function createRetailReportService(repository: RetailReportRepository) {
         includeProfit,
         filters,
       });
+      const analyticsNetSales = await repository.loadAnalyticsNetSales?.(scope, range);
+      return analyticsNetSales === undefined ? model : { ...model, analyticsReconciliation: reconcileRetailAnalyticsRevenue({ netSales: model.summary.netSales }, { goodsTotal: analyticsNetSales }) };
     },
   };
 }
@@ -107,4 +111,5 @@ export function createRetailReportService(repository: RetailReportRepository) {
 export const RetailReportService = createRetailReportService({
   loadOrders: (pipeline) => RetailOrderModel.aggregate<ReportOrder>(pipeline),
   loadShifts: (pipeline) => CashierShiftModel.aggregate<ReportShift>(pipeline),
+  loadAnalyticsNetSales: async (scope, range) => (await analyticsService.getCombinedRevenue(scope, { from: new Date(`${range.from}T00:00:00.000Z`), to: new Date(`${range.to}T23:59:59.999Z`), granularity: "day" })).goodsTotal,
 });

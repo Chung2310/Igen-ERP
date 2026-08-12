@@ -48,10 +48,13 @@ export interface RetailOrderResult { order: RetailOrder; invoice: RetailInvoice 
 export interface RetailReceivableEntry { _id: string; type: "charge" | "payment" | "adjustment" | "reversal"; amount: number; signedAmount: number; runningBalance: number; reason?: string; orderId?: string; reversesEntryId?: string; createdAt: string; createdByName?: string }
 export interface RetailShift { _id: string; shiftCode: string; cashierId: string; cashierName: string; openingFloat: number; businessDate: string; status: "open" | "closed" | "reconciled"; expectedCash?: number; countedCash?: number; varianceAmount?: number; varianceReason?: string; grossSales?: number; collectedAmount?: number; refundedAmount?: number }
 
-export type RetailReportFilters =
+type RetailReportRangeFilters =
   | { preset: "7d" | "30d"; from?: never; to?: never }
   | { preset?: never; from: string; to: string }
   | { preset?: never; from?: never; to?: never };
+export type RetailReportFilters = RetailReportRangeFilters & { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
+export interface RetailProductReportRow { productId: string; sku: string; productName: string; category?: string; brand?: string; netQuantity: number; netSales: number; profit?: number }
+export interface RetailAnalyticsReconciliation { retailNetSales: number; analyticsNetSales: number; difference: number; matched: boolean }
 
 export interface RetailReport {
   range: { from: string; to: string };
@@ -112,4 +115,7 @@ export interface RetailReport {
       orderCount: number;
     }>;
   };
+  products: RetailProductReportRow[];
+  slowProducts: RetailProductReportRow[];
+  analyticsReconciliation?: RetailAnalyticsReconciliation;
 }
