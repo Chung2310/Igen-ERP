@@ -387,6 +387,8 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                 onAssignClick={() => handleAssignStudent(exam)}
                 onProgressRoute={exam.batchId ? async () => {
                   if ((exam.results || []).some((item) => typeof item.score !== 'number')) { toast.warning('Hãy nhập đủ điểm thi trước khi chuyển lộ trình.'); return; }
+                  const sourceBatch = batches.find((batch) => batch.id === exam.batchId);
+                  if (!sourceBatch?.roadmapId || !sourceBatch.roadmapStepId) { toast.warning('Lớp nguồn chưa được gắn chặng lộ trình. Hãy cập nhật lớp trước khi chuyển tiếp.'); return; }
                   setProgressingExam(exam);
                 } : undefined}
                 onUnassignStudent={async (studentId) => {
@@ -584,16 +586,21 @@ function ExamProgressionModal({ exam, students, batches, onClose }: { exam: Exam
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [targetBatchId, setTargetBatchId] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [showQuickCreate, setShowQuickCreate] = React.useState(false);
+  const sourceBatch = batches.find((batch) => batch.id === exam.batchId);
+  const [quickClass, setQuickClass] = React.useState({ code: "", startDate: "", endDate: "", startTime: sourceBatch?.startTime || "18:00", endTime: sourceBatch?.endTime || "20:00", daysOfWeek: sourceBatch?.daysOfWeek || [], location: sourceBatch?.location || "" });
+  const [creatingClass, setCreatingClass] = React.useState(false);
   const resultFor = (studentId: string) => {
     const entry = exam.results?.find((result) => result.studentId === studentId);
-    if (entry?.outcome) return entry.outcome;
+    // "Chưa có" là giá trị khởi tạo của kỳ thi, không được che mất điểm vừa lưu.
+    if (entry?.outcome === "Đậu" || entry?.outcome === "Trượt") return entry.outcome;
     if (typeof entry?.score === "number") return entry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? "Đậu" : "Trượt";
     return students.find((student) => student.id === studentId)?.exams?.find((entry) => entry.id === exam.id)?.result?.overall || "Chưa có";
   };
   const passedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Đậu");
   const failedIds = (exam.results || []).map((result) => result.studentId).filter((studentId) => resultFor(studentId) === "Trượt");
   const passedStudents = students.filter((student) => passedIds.includes(student.id));
-  const targetBatches = progression?.targetStep ? batches.filter((batch) => batch.courseId === progression.targetStep!.courseId && batch.status === "Sắp khai giảng") : [];
+  const targetBatches = progression?.targetStep ? batches.filter((batch) => batch.courseId === progression.targetStep!.courseId && batch.roadmapId === progression.selectedRoadmapId && batch.roadmapStepId === progression.targetStep!.id && batch.status === "Sắp khai giảng") : [];
 
   React.useEffect(() => {
     let active = true;
@@ -623,12 +630,33 @@ function ExamProgressionModal({ exam, students, batches, onClose }: { exam: Exam
     finally { setSaving(false); }
   };
 
+  const createTargetClass = async () => {
+    if (!progression?.targetStep || !progression.selectedRoadmapId) return;
+    if (!quickClass.code.trim() || !quickClass.startDate || !quickClass.endDate || !quickClass.daysOfWeek.length) { toast.warning("Hãy nhập mã lớp, ngày bắt đầu/kết thúc và ít nhất một ngày học."); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quickClass.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(quickClass.endDate)) { toast.warning("Ngày học không hợp lệ."); return; }
+    if (quickClass.startDate > quickClass.endDate) { toast.warning("Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."); return; }
+    if (quickClass.startTime >= quickClass.endTime) { toast.warning("Giờ bắt đầu phải trước giờ kết thúc."); return; }
+    const normalizedCode = quickClass.code.trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+    if (normalizedCode.length < 2 || normalizedCode.length > 50) { toast.warning("Mã lớp cần từ 2 đến 50 ký tự."); return; }
+    if (batches.some((batch) => batch.code.trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN") === normalizedCode)) { toast.warning(`Mã lớp "${normalizedCode}" đã tồn tại. Hãy dùng mã khác.`); return; }
+    setCreatingClass(true);
+    try {
+      const response = await apiFetch<{ success: boolean; data: { id?: string; _id?: string } }>("/batches", { method: "POST", body: JSON.stringify({ code: normalizedCode, name: quickClass.code.trim(), courseId: progression.targetStep.courseId, roadmapId: progression.selectedRoadmapId, roadmapStepId: progression.targetStep.id, status: "Sắp khai giảng", quota: 0, daysOfWeek: quickClass.daysOfWeek, startTime: quickClass.startTime, endTime: quickClass.endTime, startDate: quickClass.startDate, endDate: quickClass.endDate, location: quickClass.location }) });
+      const newBatchId = response.data?.id || response.data?._id;
+      if (!newBatchId) throw new Error("Không nhận được mã lớp vừa tạo.");
+      setTargetBatchId(newBatchId); setShowQuickCreate(false); window.dispatchEvent(new Event("batch-mutation")); toast.success("Đã tạo lớp chặng tiếp theo.");
+    } catch (error) { toast.error(getApiErrorMessage(error, "Không thể tạo lớp chặng tiếp theo.")); }
+    finally { setCreatingClass(false); }
+  };
+  const scoredCount = (exam.results || []).filter((result) => typeof result.score === "number" || result.outcome === "Đậu" || result.outcome === "Trượt").length;
   return <ErpModal title="Chuyển lộ trình tiếp theo" onClose={onClose} maxWidth="max-w-3xl">
     <p className="text-sm text-slate-500">Lớp nguồn vẫn giữ nguyên trạng thái hoạt động. Chỉ các học viên được chọn mới được xếp vào lớp của khóa học kế tiếp.</p>
-    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{exam.results?.length || 0}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
+    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{scoredCount}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
     {loading ? <p className="py-6 text-center text-sm text-slate-500">Đang kiểm tra lộ trình...</p> : !progression?.targetStep ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Lớp này chưa được gắn lộ trình hoặc đang ở chặng cuối nên chưa có khóa học tiếp theo.</p> : <>
       <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800">Chặng kế tiếp: <b>{progression.targetStep.order}</b>. Chọn lớp mở cho khóa học này và các học viên đậu cần chuyển.</div>
       <select value={targetBatchId} onChange={(event) => setTargetBatchId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Chọn lớp khóa học tiếp theo</option>{targetBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} · {batch.courseTitle} ({batch.learnerIds.length}/{batch.maxLearners || "∞"})</option>)}</select>
+      <button type="button" onClick={() => setShowQuickCreate((current) => !current)} className="w-fit text-xs font-bold text-cyan-700 hover:underline">{showQuickCreate ? "Ẩn tạo nhanh" : "+ Tạo lớp chặng tiếp theo"}</button>
+      {showQuickCreate ? <section className="grid gap-2 rounded-lg border border-cyan-200 bg-cyan-50/40 p-3 md:grid-cols-2"><p className="md:col-span-2 text-xs text-cyan-900">Lớp mới tự gắn đúng chặng {progression.targetStep.order} và ở trạng thái Sắp khai giảng.</p><input value={quickClass.code} onChange={(event) => setQuickClass((current) => ({ ...current, code: event.target.value }))} placeholder="Mã lớp, VD: HSK2-08" className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><input value={quickClass.location} onChange={(event) => setQuickClass((current) => ({ ...current, location: event.target.value }))} placeholder="Phòng học (tùy chọn)" className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><input type="date" value={quickClass.startDate} onChange={(event) => setQuickClass((current) => ({ ...current, startDate: event.target.value }))} className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><input type="date" value={quickClass.endDate} onChange={(event) => setQuickClass((current) => ({ ...current, endDate: event.target.value }))} className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><input type="time" value={quickClass.startTime} onChange={(event) => setQuickClass((current) => ({ ...current, startTime: event.target.value }))} className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><input type="time" value={quickClass.endTime} onChange={(event) => setQuickClass((current) => ({ ...current, endTime: event.target.value }))} className="h-9 rounded border border-slate-200 bg-white px-3 text-sm" /><div className="flex flex-wrap gap-1 md:col-span-2">{["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((label, day) => <button type="button" key={label} onClick={() => setQuickClass((current) => ({ ...current, daysOfWeek: current.daysOfWeek.includes(day) ? current.daysOfWeek.filter((item) => item !== day) : [...current.daysOfWeek, day] }))} className={`h-8 rounded border px-2 text-xs font-bold ${quickClass.daysOfWeek.includes(day) ? "border-cyan-700 bg-cyan-700 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{label}</button>)}</div><button type="button" disabled={creatingClass} onClick={() => void createTargetClass()} className="h-9 justify-self-end rounded bg-cyan-700 px-3 text-xs font-bold text-white disabled:opacity-50 md:col-span-2">{creatingClass ? "Đang tạo..." : "Tạo lớp này"}</button></section> : null}
       {!targetBatches.length ? <p className="text-xs text-amber-700">Chưa có lớp “Sắp khai giảng” cho khóa học kế tiếp.</p> : null}
       <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200"><label className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2 text-sm font-bold"><input type="checkbox" checked={passedStudents.length > 0 && selectedIds.length === passedStudents.length} onChange={(event) => setSelectedIds(event.target.checked ? passedStudents.map((student) => student.id) : [])} />Chọn tất cả học viên đậu ({passedStudents.length})</label>{passedStudents.map((student) => <label key={student.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-0"><input type="checkbox" checked={selectedIds.includes(student.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span className="flex-1 font-medium">{student.fullName}</span><span className="text-xs text-slate-400">{student.phone}</span><span className="text-xs font-bold text-emerald-600">Đậu</span></label>)}</div>
       <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-600">Hủy</button><button type="button" disabled={saving || !targetBatchId || !selectedIds.length} onClick={() => void promote()} className="h-10 rounded-lg bg-cyan-700 px-4 text-sm font-bold text-white disabled:opacity-50">{saving ? "Đang chuyển..." : `Chuyển ${selectedIds.length} học viên`}</button></div>

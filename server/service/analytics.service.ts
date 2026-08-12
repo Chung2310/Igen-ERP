@@ -87,6 +87,14 @@ export interface RevenueSourceStatus {
   excludedRecords?: number;
 }
 
+export interface RetailAnalyticsReconciliation { retailNetSales: number; analyticsNetSales: number; difference: number; matched: boolean }
+export function reconcileRetailAnalyticsRevenue(retail: { netSales: number }, analytics: { goodsTotal: number }): RetailAnalyticsReconciliation {
+  const retailNetSales = Number(retail.netSales || 0);
+  const analyticsNetSales = Number(analytics.goodsTotal || 0);
+  const difference = retailNetSales - analyticsNetSales;
+  return { retailNetSales, analyticsNetSales, difference, matched: difference === 0 };
+}
+
 export const analyticsService = {
   /**
    * Doanh thu học phí theo thời gian, kèm tổng của kỳ liền trước để tính tăng trưởng.

@@ -19,6 +19,7 @@ const settings = {
   companyCode: "ACME", branchId: "B1", allowNegativeStock: false,
   maxDiscountPercent: 0, defaultTaxRate: 0, varianceReasonThreshold: 0,
   orderPrefix: "DH", invoicePrefix: "HD",
+  invoicePaperSize: "A4" as const, invoiceTemplate: "standard" as const,
   customerTiers: [
     { code: "standard", name: "Thành viên", minSpend: 0 },
     { code: "vip", name: "VIP", minSpend: 50_000_000 },
@@ -38,9 +39,10 @@ describe("RetailSettingsPage", () => {
     const toggle = await screen.findByRole("checkbox", { name: "Cho phép bán âm kho" });
     expect((toggle as HTMLInputElement).checked).toBe(false);
     fireEvent.click(toggle);
+    fireEvent.change(screen.getByRole("combobox", { name: "Khổ giấy hóa đơn" }), { target: { value: "80mm" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu cài đặt" }));
     await waitFor(() => expect(retailSettingsApi.update).toHaveBeenCalledWith(
-      expect.objectContaining({ allowNegativeStock: true }),
+      expect.objectContaining({ allowNegativeStock: true, invoicePaperSize: "80mm", invoiceTemplate: "standard" }),
       { companyCode: "ACME", branchId: "B1" },
     ));
   });

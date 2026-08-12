@@ -24,8 +24,11 @@ const headingClass = "whitespace-nowrap px-4 py-3 text-left text-xs font-bold up
 const cellClass = "whitespace-nowrap px-4 py-3 text-sm text-slate-700";
 
 export default function RetailReportTables({ report }: RetailReportTablesProps) {
+  const rangeLabel = `${formatDate(report.range.from)} – ${formatDate(report.range.to)}`;
+  const productTable = (title: string, rows: RetailReport["products"]) => <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-4 py-4"><h2 className="font-bold text-slate-900">{title}</h2><p className="text-sm text-slate-500">{rangeLabel}</p></div><div className="overflow-x-auto"><table aria-label={title} className="w-full min-w-[760px]"><thead className="bg-slate-50"><tr><th className={headingClass}>SKU</th><th className={headingClass}>Sản phẩm</th><th className={headingClass}>Danh mục</th><th className={headingClass}>Thương hiệu</th><th className={`${headingClass} text-right`}>Số lượng</th><th className={`${headingClass} text-right`}>Doanh thu</th>{rows.some((row) => row.profit !== undefined) && <th className={`${headingClass} text-right`}>Lợi nhuận</th>}</tr></thead><tbody>{rows.map((row) => <tr key={row.productId}><td className={cellClass}>{row.sku}</td><td className={cellClass}>{row.productName}</td><td className={cellClass}>{row.category || "—"}</td><td className={cellClass}>{row.brand || "—"}</td><td className={`${cellClass} text-right`}>{numberFormatter.format(row.netQuantity)}</td><td className={`${cellClass} text-right`}>{moneyFormatter.format(row.netSales)}</td>{row.profit !== undefined && <td className={`${cellClass} text-right`}>{moneyFormatter.format(row.profit)}</td>}</tr>)}</tbody></table></div></article>;
   return (
     <section className="space-y-4">
+      {report.analyticsReconciliation && <article className={`rounded-2xl border p-4 ${report.analyticsReconciliation.matched ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}><h2 className="font-bold">Chênh lệch Retail – Analytics</h2><div className="mt-2 grid gap-2 text-sm sm:grid-cols-3"><span>Retail: <b>{moneyFormatter.format(report.analyticsReconciliation.retailNetSales)}</b></span><span>Analytics: <b>{moneyFormatter.format(report.analyticsReconciliation.analyticsNetSales)}</b></span><span>Chênh lệch: <b>{moneyFormatter.format(report.analyticsReconciliation.difference)}</b></span></div></article>}
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
           <h2 className="font-bold text-slate-900">Hiệu suất thu ngân</h2>
@@ -149,6 +152,8 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
           </table>
         </div>
       </article>
+      {productTable("Sản phẩm bán chạy", report.products || [])}
+      {productTable("Sản phẩm bán chậm", report.slowProducts || [])}
     </section>
   );
 }

@@ -12,6 +12,7 @@ import type { RetailReport, RetailReportFilters as RetailReportFilterValue } fro
 const REPORT_PRESET_PARAM = "reportPreset";
 const REPORT_FROM_PARAM = "reportFrom";
 const REPORT_TO_PARAM = "reportTo";
+const DIMENSION_PARAMS = { salespersonId: "reportSalesperson", productId: "reportProduct", sku: "reportSku", category: "reportCategory", brand: "reportBrand" } as const;
 
 function readFiltersFromUrl(): RetailReportFilterValue {
   const params = new URLSearchParams(window.location.search);
@@ -26,6 +27,10 @@ function readFiltersFromUrl(): RetailReportFilterValue {
     filters = { from, to };
   }
 
+  for (const [key, param] of Object.entries(DIMENSION_PARAMS) as Array<[keyof typeof DIMENSION_PARAMS, string]>) {
+    const value = params.get(param)?.trim();
+    if (value) (filters as any)[key] = value;
+  }
   return filters;
 }
 
@@ -34,12 +39,17 @@ function writeFiltersToUrl(filters: RetailReportFilterValue) {
   url.searchParams.delete(REPORT_PRESET_PARAM);
   url.searchParams.delete(REPORT_FROM_PARAM);
   url.searchParams.delete(REPORT_TO_PARAM);
+  for (const param of Object.values(DIMENSION_PARAMS)) url.searchParams.delete(param);
 
   if (filters.preset === "7d" || filters.preset === "30d") {
     url.searchParams.set(REPORT_PRESET_PARAM, filters.preset);
   } else if ("from" in filters && typeof filters.from === "string" && typeof filters.to === "string") {
     url.searchParams.set(REPORT_FROM_PARAM, filters.from);
     url.searchParams.set(REPORT_TO_PARAM, filters.to);
+  }
+  for (const [key, param] of Object.entries(DIMENSION_PARAMS) as Array<[keyof typeof DIMENSION_PARAMS, string]>) {
+    const value = filters[key]?.trim();
+    if (value) url.searchParams.set(param, value);
   }
 
   window.history.replaceState(window.history.state, "", url.toString());
@@ -61,9 +71,7 @@ function errorMessage(cause: unknown, fallback: string): string {
 }
 
 function filterKey(filters: RetailReportFilterValue): string {
-  if (filters.preset === "7d" || filters.preset === "30d") return filters.preset;
-  if ("from" in filters && filters.from && filters.to) return `${filters.from}:${filters.to}`;
-  return "today";
+  return JSON.stringify(filters);
 }
 
 function RetailReportsSkeleton() {

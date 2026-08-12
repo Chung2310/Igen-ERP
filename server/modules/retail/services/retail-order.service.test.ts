@@ -11,6 +11,47 @@ import {
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
 
+test("order debt ledger inputs use deterministic keys for the same transaction", () => {
+  const receivableEntriesForOrderChange = (orderService as any).receivableEntriesForOrderChange;
+  assert.equal(typeof receivableEntriesForOrderChange, "function");
+  assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o1", customerId: "c1", dueAmount: 70_000 }, 0), [{
+    type: "charge", customerId: "c1", orderId: "o1", amount: 70_000, idempotencyKey: "retail-order:o1:debt-charge",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("collect", { _id: "o1", customerId: "c1", dueAmount: 20_000 }, 50_000), [{
+    type: "payment", customerId: "c1", orderId: "o1", amount: 50_000, idempotencyKey: "retail-order:o1:debt-payment:50000:20000",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("cancel", { _id: "o1", customerId: "c1", dueAmount: 20_000 }, 0), [{
+    type: "reversal", customerId: "c1", orderId: "o1", amount: 20_000, reason: "Hủy số dư công nợ của đơn", idempotencyKey: "retail-order:o1:debt-cancel",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o2", dueAmount: 0 }, 0), []);
+});
+
+test("order item snapshots keep brand and normalized category", () => {
+  const snapshot = (orderService as any).snapshotRetailProductForPricing;
+  assert.equal(typeof snapshot, "function");
+  assert.deepEqual(snapshot({ _id: "p1", sku: " S-1 ", name: " Tea ", unit: " bottle ", category: "  Drinks  ", brand: " North " }, { productId: "p1", quantity: 2 }), {
+    productId: "p1", sku: "S-1", productName: "Tea", unit: "bottle", category: "Drinks", brand: "North", quantity: 2, unitPrice: 0, unitCost: 0, discount: undefined, note: undefined,
+  });
+});
+
+test("tier refresh inputs are deterministic for sale and cancellation", () => {
+  const refresh = (orderService as any).tierRefreshForOrderChange;
+  assert.deepEqual(refresh("confirm", { _id: "o1", customerId: "c1" }), { customerId: "c1", sourceKey: "retail-order:o1:tier-confirm" });
+  assert.deepEqual(refresh("cancel", { _id: "o1", customerId: "c1" }), { customerId: "c1", sourceKey: "retail-order:o1:tier-cancel" });
+  assert.equal(refresh("confirm", { _id: "o2" }), null);
+});
+
+test("tier refresh is processed asynchronously after an order commit", async () => {
+  const calls: any[] = [];
+  const scheduled = (orderService as any).scheduleOrderTierRefreshAfterCommit(
+    { companyCode: "ACME", branchId: "B1" }, "confirm", { _id: "o1", customerId: "c1" },
+    async (...args: any[]) => { calls.push(args); },
+  );
+  assert.equal(scheduled, true);
+  assert.deepEqual(calls, []);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [["ACME", "retail-order:o1:tier-confirm"]]);
+});
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
     { method: "cash", amount: 300_000, tenderedAmount: 350_000 },

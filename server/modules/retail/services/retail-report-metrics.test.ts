@@ -240,3 +240,32 @@ test("removes profit fields from operator projections without mutating the manag
   });
   assert.equal(managerModel.summary.totalCost, 125);
 });
+
+test("builds deterministic top and slow product rows with manager-only profit", () => {
+  const orders = [order({
+    salespersonId: "seller-1",
+    items: [
+      { productId: "p2", sku: "B", productName: "Beta", category: "Drinks", brand: "North", quantity: 1, unitPrice: 50, unitCost: 30, discountAmount: 0, lineTotal: 50 },
+      { productId: "p1", sku: "A", productName: "Alpha", category: "Drinks", brand: "South", quantity: 2, unitPrice: 50, unitCost: 20, discountAmount: 10, lineTotal: 90 },
+    ],
+  })];
+  const manager = buildRetailReportModel({ orders, shifts: [shift()], days: ["2026-08-10"], today: "2026-08-10", includeProfit: true });
+  assert.deepEqual(manager.products, [
+    { productId: "p1", sku: "A", productName: "Alpha", category: "Drinks", brand: "South", netQuantity: 2, netSales: 90, profit: 50 },
+    { productId: "p2", sku: "B", productName: "Beta", category: "Drinks", brand: "North", netQuantity: 1, netSales: 50, profit: 20 },
+  ]);
+  assert.deepEqual(manager.slowProducts.map((row) => row.sku), ["B", "A"]);
+  const operator = buildRetailReportModel({ orders, shifts: [], days: ["2026-08-10"], today: "2026-08-10", includeProfit: false });
+  assert.equal(operator.products.some((row) => "profit" in row), false);
+});
+
+test("product metrics honor product, SKU, category, brand and salesperson filters", () => {
+  const model = buildRetailReportModel({
+    orders: [
+      order({ salespersonId: "seller-1", items: [{ productId: "p1", sku: "A", productName: "Alpha", category: "Drinks", brand: "North", quantity: 1, unitPrice: 100, unitCost: 50, discountAmount: 0, lineTotal: 100 }] }),
+      order({ orderCode: "DH-2", salespersonId: "seller-2", items: [{ productId: "p2", sku: "B", productName: "Beta", category: "Food", brand: "South", quantity: 1, unitPrice: 200, unitCost: 100, discountAmount: 0, lineTotal: 200 }] }),
+    ], shifts: [], days: ["2026-08-10"], today: "2026-08-10", includeProfit: true,
+    filters: { salespersonId: "seller-1", productId: "p1", sku: "A", category: "drinks", brand: "north" },
+  });
+  assert.deepEqual(model.products.map((row) => row.productId), ["p1"]);
+});

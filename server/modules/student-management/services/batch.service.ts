@@ -110,12 +110,18 @@ function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
   return branchId ? { branchId } : {};
 }
 
-async function assertRoadmapAssignment(input: { ownerId: string; branchId?: string; courseId: string; roadmapId?: unknown; roadmapStepId?: unknown; }) {
+async function assertRoadmapAssignment(input: { ownerScope: string | string[]; branchId?: string; courseId: string; roadmapId?: unknown; roadmapStepId?: unknown; }) {
   const roadmapId = String(input.roadmapId || "");
   const roadmapStepId = String(input.roadmapStepId || "");
   if (!roadmapId && !roadmapStepId) return;
   if (!roadmapId || !roadmapStepId) throw new Error("Lớp theo lộ trình cần chọn đủ lộ trình và chặng học.");
-  const roadmap = await LearningRoadmap.findOne({ _id: roadmapId, ownerId: input.ownerId, ...buildBranchScopeQuery(input.branchId), status: "active" }).lean();
+  const roadmap = await LearningRoadmap.findOne({
+    _id: roadmapId,
+    ...buildOwnerQuery(input.ownerScope),
+    ...buildBranchScopeQuery(input.branchId),
+    status: "active",
+  }).lean();
+  if (!roadmap) throw new Error("Không tìm thấy lộ trình đang hoạt động trong chi nhánh hiện tại.");
   const step = roadmap?.steps.find((item) => item.id === roadmapStepId);
   if (!step || step.courseId !== input.courseId) throw new Error("Chặng lộ trình không khớp với khóa học của lớp.");
 }
@@ -385,20 +391,33 @@ export class BatchService {
     actor: BatchActor,
     data: BatchData,
     context?: CustomFieldWriteContext,
+    courseOwnerScope: string | string[] = ownerId,
   ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
     const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
-    const existing = await Batch.findOne({ ownerId, branchId: actor.branchId, code: String(writeData.code || "").toUpperCase() });
+    // Lưu một dạng mã thống nhất để unique index chặn được cả khác biệt hoa/thường,
+    // khoảng trắng đầu/cuối hoặc nhiều khoảng trắng liên tiếp.
+    writeData.code = String(writeData.code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+    // Mã lớp có unique index theo ownerId + code, nên cần kiểm tra cùng phạm vi
+    // để trả lỗi nghiệp vụ rõ ràng thay vì rơi vào Mongo duplicate-key (500).
+    const existing = await Batch.findOne({ ownerId, code: writeData.code });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
     assertScheduleValid(writeData);
 
-    const course = await Course.findOne({ _id: writeData.courseId, ownerId, branchId: actor.branchId });
+    // Khóa học có thể là dữ liệu cũ được tạo bởi một tài khoản khác trong cùng
+    // công ty/chi nhánh. Danh sách khóa học đã cho phép người thao tác nhìn thấy
+    // các owner này, nên lúc tạo lớp cũng phải xác minh theo cùng phạm vi.
+    const course = await Course.findOne({
+      _id: writeData.courseId,
+      ...buildOwnerQuery(courseOwnerScope),
+      ...buildBranchScopeQuery(actor.branchId),
+    });
     if (!course) {
       throw new Error("Không tìm thấy khóa học của lớp.");
     }
-    await assertRoadmapAssignment({ ownerId, branchId: actor.branchId, courseId: String(writeData.courseId), roadmapId: writeData.roadmapId, roadmapStepId: writeData.roadmapStepId });
+    await assertRoadmapAssignment({ ownerScope: courseOwnerScope, branchId: actor.branchId, courseId: String(writeData.courseId), roadmapId: writeData.roadmapId, roadmapStepId: writeData.roadmapStepId });
 
     await assertInstructorAssignable(actor, writeData.instructorId);
 
@@ -519,7 +538,7 @@ export class BatchService {
     if ((nextRoadmapId !== (batch.roadmapId || "") || nextRoadmapStepId !== (batch.roadmapStepId || "")) && batch.learnerIds.length > 0) {
       throw new Error("Không thể đổi lộ trình của lớp đã có học viên.");
     }
-    await assertRoadmapAssignment({ ownerId: batch.ownerId, branchId: batch.branchId, courseId: nextCourseId, roadmapId: nextRoadmapId, roadmapStepId: nextRoadmapStepId });
+    await assertRoadmapAssignment({ ownerScope: ownerId, branchId: batch.branchId, courseId: nextCourseId, roadmapId: nextRoadmapId, roadmapStepId: nextRoadmapStepId });
 
     if (writeData.instructorId && writeData.instructorId !== batch.instructorId) {
       await assertInstructorAssignable(actor, writeData.instructorId);

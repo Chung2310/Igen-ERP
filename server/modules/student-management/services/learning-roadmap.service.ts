@@ -43,9 +43,9 @@ export class LearningRoadmapService {
     return LearningRoadmap.find({ ...ownerQuery(ownerId), ...branchQuery(branchId) }).sort({ status: 1, name: 1 }).lean();
   }
 
-  static async createRoadmap(ownerId: string, branchId: string | undefined, data: Pick<ILearningRoadmap, "code" | "name" | "description" | "status" | "steps">) {
+  static async createRoadmap(ownerId: string, branchId: string | undefined, data: Pick<ILearningRoadmap, "code" | "name" | "description" | "status" | "steps">, courseOwnerScope: OwnerScope = ownerId) {
     this.assertSteps(data.steps || []);
-    await this.assertCoursesExist(data.steps || [], ownerId, branchId);
+    await this.assertCoursesExist(data.steps || [], courseOwnerScope, branchId);
     return LearningRoadmap.create({ ...data, ownerId, branchId });
   }
 
@@ -57,6 +57,15 @@ export class LearningRoadmapService {
     const roadmap = await LearningRoadmap.findOne({ _id: roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) });
     if (!roadmap) throw new Error("Không tìm thấy lộ trình.");
     if (data.steps && roadmap.steps.length > 0) {
+      const linkedBatches = await Batch.find({ roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) }).select("roadmapStepId courseId").lean();
+      const incomingSteps = new Map(data.steps.map((step) => [step.id, step]));
+      for (const batch of linkedBatches) {
+        const currentStep = roadmap.steps.find((step) => step.id === batch.roadmapStepId) || roadmap.steps.find((step) => step.courseId === batch.courseId);
+        const nextStep = currentStep ? incomingSteps.get(currentStep.id) : undefined;
+        if (!currentStep || !nextStep || nextStep.courseId !== currentStep.courseId || nextStep.order !== currentStep.order) {
+          throw new Error("Không thể đổi khóa học, thứ tự hoặc xóa chặng đã được dùng để mở lớp. Bạn vẫn có thể chỉnh điều kiện và sĩ số của chặng đó.");
+        }
+      }
       const used = await BatchEnrollment.exists({ ...ownerQuery(ownerId), roadmapId });
       if (used) {
         const knownStepIds = new Set(data.steps.map((step) => step.id));
@@ -187,7 +196,9 @@ export class LearningRoadmapService {
         const roadmap = await LearningRoadmap.findOne({ _id: entries[0].roadmapId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
         if (!roadmap || entries.some((entry) => entry.roadmapId !== idOf(roadmap._id) || entry.targetStepId !== entries[0].targetStepId)) throw new Error("Chỉ có thể xếp các học viên cùng một mốc lộ trình.");
         const targetStep = roadmap.steps.find((step) => step.id === entries[0].targetStepId);
-        if (!targetStep || batch.courseId !== targetStep.courseId) throw new Error("Lớp đích không thuộc đúng mốc lộ trình kế tiếp.");
+        if (!targetStep || batch.courseId !== targetStep.courseId || batch.roadmapId !== idOf(roadmap._id) || batch.roadmapStepId !== targetStep.id) {
+          throw new Error("Lớp đích không thuộc đúng lộ trình và mốc lộ trình kế tiếp.");
+        }
         const course = await Course.findById(batch.courseId).session(session);
         const capacity = targetStep.maxClassSize || resolveQuota(batch.quota, course?.maxLearners);
         if (capacity > 0 && batch.learnerIds.length + entries.length > capacity) throw new Error(`Lớp đích vượt sĩ số tối đa (${capacity} học viên).`);

@@ -5,6 +5,15 @@ const objectIdSchema = Joi.string().pattern(objectIdPattern).messages({
   "string.pattern.base": "Định dạng ID không hợp lệ.",
 });
 
+// Tệp tải lên trước khi tạo bài tập cần mang token để service hoàn tất gắn tệp
+// vào bản ghi bài tập sau khi lưu thành công.
+const assignmentAttachmentSchema = Joi.object({
+  name: Joi.string().required(),
+  url: Joi.string().required(),
+  type: Joi.string().required(),
+  uploadToken: Joi.string().optional(),
+});
+
 export const createAssignmentSchema = Joi.object({
   title: Joi.string().required().messages({
     "any.required": "Tiêu đề bài tập là bắt buộc.",
@@ -18,13 +27,7 @@ export const createAssignmentSchema = Joi.object({
     "date.greater": "Hạn nộp bài phải là thời gian trong tương lai.",
   }),
   maxScore: Joi.number().min(1).max(10000).optional(),
-  attachments: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required(),
-      url: Joi.string().required(),
-      type: Joi.string().required()
-    })
-  ).optional()
+  attachments: Joi.array().items(assignmentAttachmentSchema).optional()
 });
 
 export const updateAssignmentSchema = Joi.object({
@@ -35,24 +38,12 @@ export const updateAssignmentSchema = Joi.object({
   dueDate: Joi.date().iso().greater("now").optional().messages({
     "date.greater": "Hạn nộp bài phải là thời gian trong tương lai.",
   }),
-  attachments: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required(),
-      url: Joi.string().required(),
-      type: Joi.string().required()
-    })
-  ).optional()
+  attachments: Joi.array().items(assignmentAttachmentSchema).optional()
 });
 
 export const submitProofSchema = Joi.object({
   studentNotes: Joi.string().allow("").optional(),
-  attachments: Joi.array().min(1).items(
-    Joi.object({
-      name: Joi.string().required(),
-      url: Joi.string().required(),
-      type: Joi.string().required()
-    })
-  ).required().messages({
+  attachments: Joi.array().min(1).items(assignmentAttachmentSchema).required().messages({
     "any.required": "Vui lòng đính kèm tệp minh chứng bài làm.",
     "array.min": "Cần tải lên ít nhất 1 tệp minh chứng bài làm.",
   })
@@ -80,7 +71,5 @@ export const gradeSubmissionSchema = Joi.object({
 
 export const staffSubmitProofSchema = Joi.object({
   studentNotes: Joi.string().allow("").max(4000).optional(),
-  attachments: Joi.array().min(1).items(
-    Joi.object({ name: Joi.string().required(), url: Joi.string().required(), type: Joi.string().required() })
-  ).required(),
+  attachments: Joi.array().min(1).items(assignmentAttachmentSchema).required(),
 });

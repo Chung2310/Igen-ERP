@@ -16,6 +16,7 @@ import { StudentDeviceModel } from "../models/student-device.model";
 import { StudentVerificationCodeModel } from "../models/student-verification-code.model";
 import { StudentAttendanceAttemptModel } from "../models/student-attendance-attempt.model";
 import { StudentFaceEnrollmentAuditModel } from "../models/student-face-enrollment-audit.model";
+import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
 import { BranchModel } from "../../../model/branch.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
@@ -94,6 +95,10 @@ function normalizeEmail(email: string): string {
 
 function normalizePhone(phone: string): string {
   return String(phone || "").replace(/\D/g, "");
+}
+
+function normalizeBatchCode(code: unknown): string {
+  return String(code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
 }
 
 function normalizeFee(fee: unknown): string {
@@ -546,6 +551,9 @@ export class StudentService {
     const existingEmails = new Set(existingStudents.map((s) => normalizeEmail(s.email || "")).filter(Boolean));
     const existingIdCards = new Set(existingStudents.map((s) => normalizeIdCard(s.idCard || "")).filter(Boolean));
 
+    const availableBatches = await Batch.find(query).select("code ownerId branchId startDate endDate daysOfWeek learnerIds");
+    const batchesByCode = new Map(availableBatches.map((batch) => [normalizeBatchCode(batch.code), batch]));
+
     for (let i = 0; i < studentsData.length; i++) {
       const rowNum = Number.isInteger(studentsData[i]?.sourceRow) && Number(studentsData[i]?.sourceRow) > 0
         ? Number(studentsData[i].sourceRow)
@@ -554,6 +562,7 @@ export class StudentService {
       const fullName = String(data.fullName || "").trim();
       const phone = normalizePhone(String(data.phone || ""));
       const rank = String(data.rank || "").trim().toUpperCase();
+      const batchCode = normalizeBatchCode(data.batchCode);
 
       if (!fullName) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Họ và tên không được để trống." });
@@ -591,6 +600,12 @@ export class StudentService {
 
       if (email && seenEmailsInBatch.has(email)) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Email bị trùng lặp trong file import." });
+        skippedCount++;
+        continue;
+      }
+
+      if (batchCode && !batchesByCode.has(batchCode)) {
+        errors.push({ row: rowNum, name: fullName, phone, reason: `Mã lớp "${String(data.batchCode || "").trim()}" không tồn tại trong chi nhánh hiện tại.` });
         skippedCount++;
         continue;
       }
@@ -665,18 +680,22 @@ export class StudentService {
         const savedStudent = results[j];
         const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone));
         if (matchingInput && matchingInput.batchCode) {
-          const code = String(matchingInput.batchCode).trim();
+          const code = normalizeBatchCode(matchingInput.batchCode);
           if (code) {
-            const batch = await Batch.findOne({
-              code,
-              ...buildOwnerScopeQuery(ownerId),
-              ...buildBranchScopeQuery(branchId)
-            });
+            const batch = batchesByCode.get(code);
             if (batch) {
               const studentIdStr = savedStudent._id.toString();
               if (!batch.learnerIds.includes(studentIdStr)) {
                 batch.learnerIds.push(studentIdStr);
                 await batch.save();
+                await StudentBatchEnrollmentService.activate({
+                  ownerId: String(batch.ownerId),
+                  branchId: batch.branchId,
+                  batchId: String(batch._id),
+                  studentId: studentIdStr,
+                  actorId: creatorId,
+                  allowedSessions: getPlannedSessionCount(batch),
+                });
                 logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${batch.code}`);
               }
             } else {
