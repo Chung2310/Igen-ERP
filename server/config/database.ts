@@ -191,9 +191,13 @@ export async function connectDB() {
     }
   }
 
+  if (!connectionUri.includes("retryWrites=")) {
+    connectionUri += (connectionUri.includes("?") ? "&" : "?") + "retryWrites=false";
+  }
+
   // Log URI ẩn mật khẩu để dễ debug cấu hình trên VPS
   const redactedUri = connectionUri.replace(/:([^:@]+)@/, ":******@");
-  console.log(`[Backend Database] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
+  console.log(`[Backend Database - v2] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
 
   try {
     await mongoose.connect(connectionUri);
@@ -213,5 +217,30 @@ export async function connectDB() {
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);
+  }
+}
+
+/**
+ * Helper để chạy logic trong Transaction nếu DB hỗ trợ (Replica Set),
+ * ngược lại chạy bình thường (dành cho môi trường Local DB Standalone).
+ */
+export async function runInTransaction<T>(callback: (session?: mongoose.ClientSession) => Promise<T>): Promise<T> {
+  const isReplicaSet = mongoose.connection.client?.topology?.description?.type === "ReplicaSetWithPrimary" || 
+                       mongoose.connection.client?.topology?.description?.type === "Sharded";
+  
+  if (!isReplicaSet) {
+    // Standalone fallback: chạy không có transaction
+    return callback(undefined);
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    let result: T;
+    await session.withTransaction(async (s) => {
+      result = await callback(s);
+    });
+    return result!;
+  } finally {
+    await session.endSession();
   }
 }
