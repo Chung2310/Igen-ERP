@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ValidationError } from "../../../errors/app-error";
 import { AssignmentModel } from "../models/assignment.model";
 import { Batch } from "../models/batch.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
@@ -183,31 +184,33 @@ export class LearningRoadmapService {
   }
 
   static async placeWaitlist(ownerId: OwnerScope, actor: Actor, batchId: string, entryIds: string[]) {
-    if (!entryIds.length) throw new Error("Hãy chọn ít nhất một học viên.");
+    if (!entryIds.length) throw new ValidationError("VALIDATION_FAILED", "Hãy chọn ít nhất một học viên.");
     const session = await mongoose.startSession();
     try {
       let result: { batchId: string; studentIds: string[] } | undefined;
       await session.withTransaction(async () => {
         const batch = await Batch.findOne({ _id: batchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
-        if (!batch) throw new Error("Không tìm thấy lớp đích.");
-        if (batch.status !== "Sắp khai giảng") throw new Error("Chỉ được xếp vào lớp chưa khai giảng.");
+        if (!batch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp đích.");
+        if (batch.status !== "Sắp khai giảng") throw new ValidationError("VALIDATION_FAILED", "Chỉ được xếp vào lớp chưa khai giảng.");
         const entries = await ClassWaitlistEntry.find({ _id: { $in: entryIds }, ...ownerQuery(ownerId), ...branchQuery(actor.branchId), status: "waiting" }).session(session);
-        if (entries.length !== entryIds.length) throw new Error("Một hoặc nhiều học viên không còn trong danh sách chờ.");
+        if (entries.length !== entryIds.length) throw new ValidationError("VALIDATION_FAILED", "Một hoặc nhiều học viên không còn trong danh sách chờ.");
         const roadmap = await LearningRoadmap.findOne({ _id: entries[0].roadmapId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
-        if (!roadmap || entries.some((entry) => entry.roadmapId !== idOf(roadmap._id) || entry.targetStepId !== entries[0].targetStepId)) throw new Error("Chỉ có thể xếp các học viên cùng một mốc lộ trình.");
+        if (!roadmap || entries.some((entry) => entry.roadmapId !== idOf(roadmap._id) || entry.targetStepId !== entries[0].targetStepId)) throw new ValidationError("VALIDATION_FAILED", "Chỉ có thể xếp các học viên cùng một mốc lộ trình.");
         const targetStep = roadmap.steps.find((step) => step.id === entries[0].targetStepId);
         if (!targetStep || batch.courseId !== targetStep.courseId || batch.roadmapId !== idOf(roadmap._id) || batch.roadmapStepId !== targetStep.id) {
-          throw new Error("Lớp đích không thuộc đúng lộ trình và mốc lộ trình kế tiếp.");
+          throw new ValidationError("VALIDATION_FAILED", "Lớp đích không thuộc đúng lộ trình và mốc lộ trình kế tiếp.");
         }
         const course = await Course.findById(batch.courseId).session(session);
         const capacity = targetStep.maxClassSize || resolveQuota(batch.quota, course?.maxLearners);
-        if (capacity > 0 && batch.learnerIds.length + entries.length > capacity) throw new Error(`Lớp đích vượt sĩ số tối đa (${capacity} học viên).`);
+        if (capacity > 0 && batch.learnerIds.length + entries.length > capacity) throw new ValidationError("VALIDATION_FAILED", `Lớp đích vượt sĩ số tối đa (${capacity} học viên).`);
         const studentIds = entries.map((entry) => entry.studentId);
-        if (studentIds.some((studentId) => batch.learnerIds.includes(studentId))) throw new Error("Có học viên đã thuộc lớp đích.");
+        if (studentIds.some((studentId) => batch.learnerIds.includes(studentId))) throw new ValidationError("VALIDATION_FAILED", "Có học viên đã thuộc lớp đích.");
         const duplicate = await BatchEnrollment.exists({ ...ownerQuery(ownerId), studentId: { $in: studentIds }, roadmapId: idOf(roadmap._id), roadmapStepId: targetStep.id, status: { $in: ACTIVE_ENROLLMENT_STATUSES }, batchId: { $ne: batchId } }).session(session);
-        if (duplicate) throw new Error("Có học viên đã được xếp vào một lớp khác tại cùng mốc lộ trình.");
+        if (duplicate) throw new ValidationError("VALIDATION_FAILED", "Có học viên đã được xếp vào một lớp khác tại cùng mốc lộ trình.");
         const now = new Date();
-        const enrollments = await BatchEnrollment.create(entries.map((entry) => ({ ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId: entry.studentId, allowedSessions: 0, attendedSessions: 0, status: "Đang học", joinedAt: now, roadmapId: idOf(roadmap._id), roadmapStepId: targetStep.id, sourceEnrollmentId: entry.sourceEnrollmentId || "", enrollmentReason: "promotion", history: [{ at: now, action: "promoted", actorId: actor.uid }] })), { session });
+        // Mongoose yêu cầu ordered:true khi create nhiều document trong transaction.
+        // Nếu một bản ghi không tạo được, transaction sẽ rollback toàn bộ lượt chuyển.
+        const enrollments = await BatchEnrollment.create(entries.map((entry) => ({ ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId: entry.studentId, allowedSessions: 0, attendedSessions: 0, status: "Đang học", joinedAt: now, roadmapId: idOf(roadmap._id), roadmapStepId: targetStep.id, sourceEnrollmentId: entry.sourceEnrollmentId || "", enrollmentReason: "promotion", history: [{ at: now, action: "promoted", actorId: actor.uid }] })), { session, ordered: true });
         const allowedSessions = await resolveBatchTotalSessions(batch);
         await BatchEnrollment.updateMany({ _id: { $in: enrollments.map((enrollment) => enrollment._id) } }, { $set: { allowedSessions } }, { session });
         batch.learnerIds.push(...studentIds); await batch.save({ session });
