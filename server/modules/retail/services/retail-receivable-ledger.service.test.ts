@@ -21,6 +21,14 @@ test("receivable entries require positive integer VND and adjustment reason", ()
   assert.deepEqual(normalize({ type: "adjustment", customerId: " c1 ", amount: 1, reason: " Sửa lệch ", idempotencyKey: " key " }), {
     type: "adjustment", customerId: "c1", amount: 1, signedAmount: 1, reason: "Sửa lệch", idempotencyKey: "key",
   });
+  assert.equal(normalize({ type: "adjustment", direction: "decrease", customerId: "c1", amount: 5, reason: "reduce", idempotencyKey: "key-2" }).signedAmount, -5);
+  assert.throws(() => normalize({ type: "adjustment", direction: "sideways", customerId: "c1", amount: 5, reason: "bad", idempotencyKey: "key-3" }));
+});
+
+test("manual adjustments require a caller supplied idempotency key", () => {
+  const input = (ledger as any).normalizeManualAdjustmentInput;
+  assert.equal(typeof input, "function");
+  assert.throws(() => input({ customerId: "c1", amount: 10, reason: "fix" }), /idempotency/i);
 });
 
 test("receivable model enforces company idempotency and one reversal per entry", async () => {

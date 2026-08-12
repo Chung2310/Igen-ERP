@@ -8,6 +8,7 @@ export interface PostReceivableEntryInput {
   reason?: string;
   reversesEntryId?: string;
   idempotencyKey: string;
+  direction?: "increase" | "decrease";
 }
 
 export interface IRetailReceivableEntry extends PostReceivableEntryInput {
