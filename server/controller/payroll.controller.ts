@@ -56,6 +56,7 @@ import {
   createPaymentSchema,
   createPolicySchema,
   updatePolicySchema,
+  activatePolicySchema,
   clonePolicySchema,
   paymentTransitionSchema,
   reopenRunSchema,
@@ -313,8 +314,10 @@ export const payrollController = {
     }
   },
   async activatePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = activatePolicySchema.validate(req.body ?? {}, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
     try {
-      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id) });
+      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id, value) });
     } catch (operationError) {
       return operationFailure(res, operationError);
     }

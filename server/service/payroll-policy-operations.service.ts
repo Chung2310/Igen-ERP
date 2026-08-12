@@ -3,14 +3,30 @@ import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
 import { PayrollOperationError } from "./payroll-run-operations.service";
-import { validatePolicyActivation, validatePolicyDefinition } from "./payroll-policy.service";
+import { policyWindowsOverlap, replacementForPolicy, validatePolicyActivation, validatePolicyDefinition } from "./payroll-policy.service";
 
 const raise = (failure: { code: string; message: string; status: number }) => {
   throw new PayrollOperationError(failure.code, failure.message, failure.status);
 };
 
-const auditPolicy = (companyCode: string, actorId: string, metadata: Record<string, unknown>) =>
-  PayrollAuditModel.create({ companyCode, periodKey: "policy", action: "adjustment", actorId, metadata });
+const auditPolicy = async (companyCode: string, actorId: string, metadata: Record<string, unknown>, session?: ClientSession) => {
+  const value = { companyCode, periodKey: "policy", action: "adjustment" as const, actorId, metadata };
+  if (!session) return PayrollAuditModel.create(value);
+  const [created] = await PayrollAuditModel.create([value], { session });
+  return created;
+};
+
+async function inTransaction<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
+  if (mongoose.connection.readyState !== 1) return operation();
+  const session = await mongoose.startSession();
+  try {
+    let result!: T;
+    await session.withTransaction(async () => { result = await operation(session); });
+    return result;
+  } finally { await session.endSession(); }
+}
+
+const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 
 export async function listPayrollPolicies(companyCode: string) {
   return PayrollPolicyModel.find({ companyCode }).sort({ effectiveFrom: -1 }).lean();
@@ -31,25 +47,43 @@ export async function createPayrollPolicy(companyCode: string, actorId: string, 
   }
 }
 
-export async function activatePayrollPolicy(companyCode: string, policyId: string, actorId: string) {
-  const policy: any = await PayrollPolicyModel.findOne({ _id: policyId, companyCode }).lean();
-  const active: any[] = await PayrollPolicyModel.find({ companyCode, status: "active", _id: { $ne: policyId } })
-    .select("effectiveFrom effectiveTo").lean();
-  const invalid = validatePolicyActivation(policy, active);
-  if (invalid) raise(invalid);
+export async function activatePayrollPolicy(companyCode: string, policyId: string, actorId: string, options: { replaceOverlaps?: boolean } = {}) {
+  return inTransaction(async (session) => {
+    const policy: any = await withSession(PayrollPolicyModel.findOne({ _id: policyId, companyCode }), session).lean();
+    const active: any[] = await withSession(PayrollPolicyModel.find({ companyCode, status: "active", _id: { $ne: policyId } }).select("_id code name status effectiveFrom effectiveTo"), session).lean();
+    const overlaps = policy ? active.filter((item) => policyWindowsOverlap(policy, item)) : [];
+    const invalid = validatePolicyActivation(policy, options.replaceOverlaps ? [] : active);
+    if (invalid) raise(invalid);
 
-  const activated: any = await PayrollPolicyModel.findOneAndUpdate(
-    { _id: policyId, companyCode, status: "draft" },
-    { $set: { status: "active", activatedBy: actorId, activatedAt: new Date() } },
-    { new: true },
-  ).lean();
-  if (!activated) {
-    raise({ code: "PAYROLL_POLICY_INVALID_STATE", message: "The policy changed before it could be activated", status: 409 });
-  }
-  await auditPolicy(companyCode, actorId, {
-    operation: "activate_policy", policyId, before: { status: "draft" }, after: { status: "active" },
+    const replacedPolicyIds: string[] = [];
+    for (const existing of overlaps) {
+      const replacement = replacementForPolicy(existing, policy.effectiveFrom);
+      const update = replacement.action === "truncate"
+        ? { $set: { effectiveTo: replacement.effectiveTo } }
+        : { $set: { status: "retired", retiredBy: actorId } };
+      const result = await PayrollPolicyModel.updateOne(
+        { _id: existing._id, companyCode, status: "active", effectiveFrom: existing.effectiveFrom, ...(existing.effectiveTo ? { effectiveTo: existing.effectiveTo } : { effectiveTo: { $exists: false } }) }, update, { session },
+      );
+      if (result.matchedCount !== 1) raise({ code: "PAYROLL_POLICY_VERSION_CONFLICT", message: "An active payroll policy changed before replacement", status: 409 });
+      replacedPolicyIds.push(String(existing._id));
+      await auditPolicy(companyCode, actorId, {
+        operation: replacement.action === "truncate" ? "truncate_policy" : "retire_overlapping_policy",
+        policyId: String(existing._id), before: { status: "active", effectiveTo: existing.effectiveTo },
+        after: replacement.action === "truncate" ? { status: "active", effectiveTo: replacement.effectiveTo } : { status: "retired" },
+      }, session);
+    }
+
+    const activated: any = await withSession(PayrollPolicyModel.findOneAndUpdate(
+      { _id: policyId, companyCode, status: "draft" },
+      { $set: { status: "active", activatedBy: actorId, activatedAt: new Date() } },
+      { new: true, session },
+    ), session).lean();
+    if (!activated) raise({ code: "PAYROLL_POLICY_INVALID_STATE", message: "The policy changed before it could be activated", status: 409 });
+    await auditPolicy(companyCode, actorId, {
+      operation: "activate_policy", policyId, before: { status: "draft" }, after: { status: "active" }, replacedPolicyIds,
+    }, session);
+    return activated;
   });
-  return activated;
 }
 
 export async function retirePayrollPolicy(companyCode: string, policyId: string, actorId: string) {
@@ -140,3 +174,4 @@ export async function deletePayrollPolicy(companyCode: string, policyId: string,
   if (!deleted.deletedCount) raise({ code: "PAYROLL_POLICY_VERSION_CONFLICT", message: "Payroll policy changed before deletion", status: 409 });
   return { policyId };
 }
+import mongoose, { type ClientSession } from "mongoose";
