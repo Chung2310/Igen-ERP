@@ -8,7 +8,7 @@ vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
     userProfile: {
       role: "admin",
-      enabledModules: ["student", "worker", "hr"],
+      enabledModules: ["student", "worker", "hr", "finance"],
       businessType: "labor",
       permissions: ["*"],
     },
@@ -26,5 +26,10 @@ describe("Sidebar business modules", () => {
 
     expect(screen.getByText("Lao động")).toBeTruthy();
     expect(screen.queryByText("Học viên")).toBeNull();
+  });
+
+  it("shows Finance when the tenant enables the module", () => {
+    render(<Sidebar activeTab="TỔNG QUAN" setActiveTab={vi.fn()} mobileOpen onMobileClose={vi.fn()} />);
+    expect(screen.getByText("Tài chính")).toBeTruthy();
   });
 });
