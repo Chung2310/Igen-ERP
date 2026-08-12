@@ -9,6 +9,7 @@ export const DEFAULT_RETAIL_SETTINGS: RetailSettingsValues = Object.freeze({
     { code: "gold", name: "Vàng", minSpend: 20_000_000 },
     { code: "vip", name: "VIP", minSpend: 50_000_000 },
   ],
+  tierEvaluationWindow: { type: "lifetime" as const },
   allowNegativeStock: false,
   maxDiscountPercent: 0,
   defaultTaxRate: 0,
@@ -35,6 +36,12 @@ const prefix = (value: unknown, field: string): string => {
 
 export function validateRetailSettingsInput(input: Partial<RetailSettingsValues>): Partial<RetailSettingsValues> {
   const output: Partial<RetailSettingsValues> = {};
+  if (input.tierEvaluationWindow !== undefined) {
+    const window = input.tierEvaluationWindow;
+    if (window.type === "lifetime" || window.type === "rolling12Months") output.tierEvaluationWindow = { type: window.type };
+    else if (window.type === "custom" && /^\d{4}-\d{2}-\d{2}$/.test(window.from) && /^\d{4}-\d{2}-\d{2}$/.test(window.to) && window.from <= window.to) output.tierEvaluationWindow = { type: "custom", from: window.from, to: window.to };
+    else throw new Error("tierEvaluationWindow is invalid");
+  }
   if (input.customerTiers !== undefined) {
     if (!Array.isArray(input.customerTiers) || input.customerTiers.length < 1 || input.customerTiers.length > 10) throw new Error("customerTiers must contain 1 to 10 tiers");
     const seen = new Set<string>();

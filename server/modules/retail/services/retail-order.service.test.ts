@@ -33,6 +33,13 @@ test("order item snapshots keep brand and normalized category", () => {
     productId: "p1", sku: "S-1", productName: "Tea", unit: "bottle", category: "Drinks", brand: "North", quantity: 2, unitPrice: 0, unitCost: 0, discount: undefined, note: undefined,
   });
 });
+
+test("tier refresh inputs are deterministic for sale and cancellation", () => {
+  const refresh = (orderService as any).tierRefreshForOrderChange;
+  assert.deepEqual(refresh("confirm", { _id: "o1", customerId: "c1" }), { customerId: "c1", sourceKey: "retail-order:o1:tier-confirm" });
+  assert.deepEqual(refresh("cancel", { _id: "o1", customerId: "c1" }), { customerId: "c1", sourceKey: "retail-order:o1:tier-cancel" });
+  assert.equal(refresh("confirm", { _id: "o2" }), null);
+});
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
     { method: "cash", amount: 300_000, tenderedAmount: 350_000 },

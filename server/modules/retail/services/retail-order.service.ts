@@ -17,6 +17,7 @@ import { businessDateInVietnam } from "./cashier-shift.service";
 import { buildOrderListQuery } from "./retail-query.service";
 import { postReceivableEntry } from "./retail-receivable-ledger.service";
 import type { PostReceivableEntryInput } from "../interfaces/retail-receivable.interface";
+import { enqueueTierRefresh } from "./retail-customer-tier.service";
 
 export function receivableEntriesForOrderChange(action: "confirm" | "collect" | "cancel", order: any, collectedAmount: number): PostReceivableEntryInput[] {
   const orderId = String(order._id);
@@ -26,6 +27,17 @@ export function receivableEntriesForOrderChange(action: "confirm" | "collect" | 
   if (action === "collect" && collectedAmount > 0) return [{ type: "payment", customerId, orderId, amount: collectedAmount, idempotencyKey: `retail-order:${orderId}:debt-payment:${collectedAmount}:${order.dueAmount}` }];
   if (action === "cancel" && order.dueAmount > 0) return [{ type: "reversal", customerId, orderId, amount: order.dueAmount, reason: "Hủy số dư công nợ của đơn", idempotencyKey: `retail-order:${orderId}:debt-cancel` }];
   return [];
+}
+
+export function tierRefreshForOrderChange(action: "confirm" | "cancel", order: any) {
+  const customerId = String(order.customerId || "");
+  if (!customerId) return null;
+  return { customerId, sourceKey: `retail-order:${order._id}:tier-${action}` };
+}
+
+async function enqueueOrderTierRefresh(scope: RetailBranchScope, action: "confirm" | "cancel", order: any, session: mongoose.ClientSession) {
+  const refresh = tierRefreshForOrderChange(action, order);
+  if (refresh) await enqueueTierRefresh(scope, refresh.customerId, refresh.sourceKey, session);
 }
 
 async function postOrderReceivableEntries(scope: RetailBranchScope, entries: PostReceivableEntryInput[], actor: any, session: mongoose.ClientSession) {
@@ -196,6 +208,7 @@ export const RetailOrderService = {
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
       Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 }); await draft.save({ session });
       await postOrderReceivableEntries(scope, receivableEntriesForOrderChange("confirm", draft, 0), actor, session);
+      await enqueueOrderTierRefresh(scope, "confirm", draft, session);
       const invoice = await issueRetailInvoice(draft, settings.invoicePrefix, branch.code, scopeKey, actor, session); await RetailIdempotencyModel.updateOne({ companyCode: scope.companyCode, key }, { $set: { status: "completed", orderId: String(draft._id), invoiceId: String(invoice._id) } }, { session }); result = { order: draft, invoice };
     }); } catch (error) { if (duplicate(error)) { const prior = await RetailIdempotencyModel.findOne({ companyCode: scope.companyCode, key, status: "completed" }).lean(); if (prior?.orderId) return { order: await RetailOrderModel.findById(prior.orderId).lean(), invoice: await RetailInvoiceModel.findById(prior.invoiceId).lean() }; } throw error; } finally { await session.endSession(); } return result;
   },
@@ -218,6 +231,7 @@ export const RetailOrderService = {
         if (refunds.total !== remainingRefund) throw new Error("Phải ghi nhận đủ số tiền hoàn khi hủy đơn.");
         if (order.stockApplied && !order.stockRevertedAt) { await revertOrderStock(scope, String(order._id), order.orderCode, order.items, actorName(actor), session); order.stockRevertedAt = new Date(); }
         await postOrderReceivableEntries(scope, receivableEntriesForOrderChange("cancel", order, 0), actor, session);
+        await enqueueOrderTierRefresh(scope, "cancel", order, session);
         order.refunds.push(...refunds.payments.map((item: any) => ({ method: item.method, amount: item.amount, reference: item.reference, refundedAt: new Date(), refundedBy: actorId(actor), refundedByName: actorName(actor), shiftId: String(shift?._id || ""), businessDate: shift?.businessDate || order.businessDate, reason })));
         order.refundedAmount += refunds.total; order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount); order.status = "cancelled"; order.cancelReason = reason; order.cancelledAt = new Date(); order.version += 1;
         await order.save({ session });

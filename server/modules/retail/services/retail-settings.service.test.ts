@@ -81,3 +81,10 @@ test("tier settings normalize order and reject duplicate or non-zero starting ti
   assert.throws(() => validateRetailSettingsInput({ customerTiers: [{ code: "vip", name: "VIP", minSpend: 1 }] }));
   assert.throws(() => validateRetailSettingsInput({ customerTiers: [{ code: "vip", name: "VIP", minSpend: 0 }, { code: "VIP", name: "Khác", minSpend: 1 }] }));
 });
+
+test("tier evaluation settings accept lifetime, rolling 12 months and valid custom ranges", () => {
+  assert.deepEqual(validateRetailSettingsInput({ tierEvaluationWindow: { type: "lifetime" } } as any).tierEvaluationWindow, { type: "lifetime" });
+  assert.deepEqual(validateRetailSettingsInput({ tierEvaluationWindow: { type: "rolling12Months" } } as any).tierEvaluationWindow, { type: "rolling12Months" });
+  assert.deepEqual(validateRetailSettingsInput({ tierEvaluationWindow: { type: "custom", from: "2026-01-01", to: "2026-12-31" } } as any).tierEvaluationWindow, { type: "custom", from: "2026-01-01", to: "2026-12-31" });
+  assert.throws(() => validateRetailSettingsInput({ tierEvaluationWindow: { type: "custom", from: "2026-12-31", to: "2026-01-01" } } as any));
+});
