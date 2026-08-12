@@ -29,6 +29,18 @@ test("report repository pipelines start with an inclusive company and branch dat
   }
 });
 
+test("order pipeline scopes salesperson and product dimensions", () => {
+  const pipeline = buildRetailReportOrderPipeline(
+    { companyCode: "ACME", branchId: "branch-1" },
+    { from: "2026-08-01", to: "2026-08-10" },
+    { salespersonId: "seller-1", productId: "p1", sku: "SKU-1", category: "drinks", brand: "north" },
+  );
+  assert.deepEqual((pipeline[0] as any).$match, {
+    companyCode: "ACME", branchId: "branch-1", businessDate: { $gte: "2026-08-01", $lte: "2026-08-10" }, salespersonId: "seller-1",
+    items: { $elemMatch: { productId: "p1", sku: "SKU-1", category: { $regex: "^drinks$", $options: "i" }, brand: { $regex: "^north$", $options: "i" } } },
+  });
+});
+
 test("report service loads scoped rows and delegates business semantics to the report reducer", async () => {
   type Pipeline = ReturnType<typeof buildRetailReportOrderPipeline>;
   const seen: { orders?: Pipeline; shifts?: Pipeline } = {};

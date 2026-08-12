@@ -13,6 +13,8 @@ import {
 } from "./retail-report-export.service";
 
 const model: RetailReportModel = {
+  products: [],
+  slowProducts: [],
   range: { from: "2026-08-09", to: "2026-08-10" },
   summary: {
     grossSales: 350,

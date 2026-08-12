@@ -6,6 +6,7 @@ import { buildRetailReportModel } from "./retail-report-metrics";
 import { parseRetailReportRange } from "./retail-report-range";
 
 type ReportRange = { from: string; to: string };
+type ReportFilters = { salespersonId?: string; productId?: string; sku?: string; category?: string; brand?: string };
 type ReportInput = Parameters<typeof buildRetailReportModel>[0];
 type ReportOrder = ReportInput["orders"][number];
 type ReportShift = ReportInput["shifts"][number];
@@ -15,13 +16,20 @@ type RetailReportRepository = {
   loadShifts(pipeline: PipelineStage[]): Promise<ReportShift[]>;
 };
 
-export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: ReportRange): PipelineStage[] {
+export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: ReportRange, filters: ReportFilters = {}): PipelineStage[] {
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const itemFilters = Object.fromEntries(["productId", "sku", "category", "brand"].filter((key) => filters[key as keyof ReportFilters]).map((key) => {
+    const value = filters[key as keyof ReportFilters] as string;
+    return [key, key === "category" || key === "brand" ? { $regex: `^${escape(value)}$`, $options: "i" } : value];
+  }));
   return [
     {
       $match: {
         companyCode: scope.companyCode,
         branchId: scope.branchId,
         businessDate: { $gte: range.from, $lte: range.to },
+        ...(filters.salespersonId ? { salespersonId: filters.salespersonId } : {}),
+        ...(Object.keys(itemFilters).length ? { items: { $elemMatch: itemFilters } } : {}),
       },
     },
     {
@@ -41,6 +49,8 @@ export function buildRetailReportOrderPipeline(scope: RetailBranchScope, range: 
         customerName: 1,
         customerPhone: 1,
         dueDate: 1,
+        salespersonId: 1,
+        items: 1,
       },
     },
   ];
@@ -75,8 +85,10 @@ export function createRetailReportService(repository: RetailReportRepository) {
   return {
     async summary(scope: RetailBranchScope, query: unknown, includeProfit: boolean) {
       const range = parseRetailReportRange((query || {}) as Record<string, unknown>);
+      const raw = (query || {}) as Record<string, unknown>;
+      const filters = Object.fromEntries(["salespersonId", "productId", "sku", "category", "brand"].map((key) => [key, String(raw[key] || "").trim()]).filter(([, value]) => value)) as ReportFilters;
       const [orders, shifts] = await Promise.all([
-        repository.loadOrders(buildRetailReportOrderPipeline(scope, range)),
+        repository.loadOrders(buildRetailReportOrderPipeline(scope, range, filters)),
         repository.loadShifts(buildRetailReportShiftPipeline(scope, range)),
       ]);
 
@@ -86,6 +98,7 @@ export function createRetailReportService(repository: RetailReportRepository) {
         days: range.days,
         today: parseRetailReportRange({}).to,
         includeProfit,
+        filters,
       });
     },
   };

@@ -99,6 +99,16 @@ async function expireHeldDrafts(scope: RetailBranchScope, currentBusinessDate: s
   );
 }
 
+export function snapshotRetailProductForPricing(product: any, item: any) {
+  const text = (value: unknown) => String(value || "").trim();
+  return {
+    productId: String(product._id), sku: text(product.sku), productName: text(product.name), unit: text(product.unit),
+    ...(text(product.category) ? { category: text(product.category) } : {}), ...(text(product.brand) ? { brand: text(product.brand) } : {}),
+    quantity: Number(item.quantity), unitPrice: Number(product.price || 0), unitCost: Number(product.costPrice || 0), discount: item.discount,
+    note: text(item.note) || undefined,
+  };
+}
+
 async function priceInput(scope: RetailBranchScope, input: any) {
   const settings = await getResolvedRetailSettings(scope);
   const rawItems = Array.isArray(input.items) ? input.items : [];
@@ -107,7 +117,7 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   const products = await ProductModel.find({ _id: { $in: ids }, ...scope, status: "Active" }).lean();
   const byId = new Map(products.map((product: any) => [String(product._id), product]));
   if (byId.size !== new Set(ids).size) throw new Error("Sản phẩm không thuộc chi nhánh đang bán.");
-  const items = rawItems.map((item: any) => { const product: any = byId.get(String(item.productId)); return { productId: String(product._id), sku: product.sku, productName: product.name, unit: product.unit, category: product.category, quantity: Number(item.quantity), unitPrice: Number(product.price), unitCost: Number(product.costPrice || 0), discount: item.discount, note: String(item.note || "").trim() || undefined }; });
+  const items = rawItems.map((item: any) => snapshotRetailProductForPricing(byId.get(String(item.productId)), item));
   return { settings, pricing: calculateOrderTotals({ items, orderDiscount: input.orderDiscount || { type: "amount", value: 0 }, taxRate: input.taxRate === undefined ? settings.defaultTaxRate : Number(input.taxRate), shippingFee: Number(input.shippingFee || 0), maxDiscountPercent: settings.maxDiscountPercent }) };
 }
 

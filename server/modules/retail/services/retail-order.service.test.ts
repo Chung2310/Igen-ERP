@@ -25,6 +25,14 @@ test("order debt ledger inputs use deterministic keys for the same transaction",
   }]);
   assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o2", dueAmount: 0 }, 0), []);
 });
+
+test("order item snapshots keep brand and normalized category", () => {
+  const snapshot = (orderService as any).snapshotRetailProductForPricing;
+  assert.equal(typeof snapshot, "function");
+  assert.deepEqual(snapshot({ _id: "p1", sku: " S-1 ", name: " Tea ", unit: " bottle ", category: "  Drinks  ", brand: " North " }, { productId: "p1", quantity: 2 }), {
+    productId: "p1", sku: "S-1", productName: "Tea", unit: "bottle", category: "Drinks", brand: "North", quantity: 2, unitPrice: 0, unitCost: 0, discount: undefined, note: undefined,
+  });
+});
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
     { method: "cash", amount: 300_000, tenderedAmount: 350_000 },
