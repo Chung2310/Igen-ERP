@@ -17,7 +17,7 @@ import { businessDateInVietnam } from "./cashier-shift.service";
 import { buildOrderListQuery } from "./retail-query.service";
 import { postReceivableEntry } from "./retail-receivable-ledger.service";
 import type { PostReceivableEntryInput } from "../interfaces/retail-receivable.interface";
-import { enqueueTierRefresh } from "./retail-customer-tier.service";
+import { enqueueTierRefresh, processTierRefreshBySourceKey } from "./retail-customer-tier.service";
 
 export function receivableEntriesForOrderChange(action: "confirm" | "collect" | "cancel", order: any, collectedAmount: number): PostReceivableEntryInput[] {
   const orderId = String(order._id);
@@ -38,6 +38,17 @@ export function tierRefreshForOrderChange(action: "confirm" | "cancel", order: a
 async function enqueueOrderTierRefresh(scope: RetailBranchScope, action: "confirm" | "cancel", order: any, session: mongoose.ClientSession) {
   const refresh = tierRefreshForOrderChange(action, order);
   if (refresh) await enqueueTierRefresh(scope, refresh.customerId, refresh.sourceKey, session);
+}
+export function scheduleOrderTierRefreshAfterCommit(
+  scope: RetailBranchScope,
+  action: "confirm" | "cancel",
+  order: any,
+  processor = processTierRefreshBySourceKey,
+) {
+  const refresh = tierRefreshForOrderChange(action, order);
+  if (!refresh) return false;
+  setImmediate(() => void processor(scope.companyCode, refresh.sourceKey).catch((error) => console.error("[retail-tier-refresh]", error)));
+  return true;
 }
 
 async function postOrderReceivableEntries(scope: RetailBranchScope, entries: PostReceivableEntryInput[], actor: any, session: mongoose.ClientSession) {
@@ -210,7 +221,9 @@ export const RetailOrderService = {
       await postOrderReceivableEntries(scope, receivableEntriesForOrderChange("confirm", draft, 0), actor, session);
       await enqueueOrderTierRefresh(scope, "confirm", draft, session);
       const invoice = await issueRetailInvoice(draft, settings.invoicePrefix, branch.code, scopeKey, actor, session); await RetailIdempotencyModel.updateOne({ companyCode: scope.companyCode, key }, { $set: { status: "completed", orderId: String(draft._id), invoiceId: String(invoice._id) } }, { session }); result = { order: draft, invoice };
-    }); } catch (error) { if (duplicate(error)) { const prior = await RetailIdempotencyModel.findOne({ companyCode: scope.companyCode, key, status: "completed" }).lean(); if (prior?.orderId) return { order: await RetailOrderModel.findById(prior.orderId).lean(), invoice: await RetailInvoiceModel.findById(prior.invoiceId).lean() }; } throw error; } finally { await session.endSession(); } return result;
+    }); } catch (error) { if (duplicate(error)) { const prior = await RetailIdempotencyModel.findOne({ companyCode: scope.companyCode, key, status: "completed" }).lean(); if (prior?.orderId) return { order: await RetailOrderModel.findById(prior.orderId).lean(), invoice: await RetailInvoiceModel.findById(prior.invoiceId).lean() }; } throw error; } finally { await session.endSession(); }
+    scheduleOrderTierRefreshAfterCommit(scope, "confirm", result.order);
+    return result;
   },
   async collect(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any) {
     const session = await mongoose.startSession(); let result: any; try { await session.withTransaction(async () => { const order: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session); if (!order) throw new Error("Đơn không thể thu thêm."); const normalized = normalizePayments(input.payments || [], order.dueAmount); order.payments.push(...normalized.payments.map((payment) => snapshotPayment(payment, shift, actor))); order.paidAmount += normalized.total; order.dueAmount = order.grandTotal - order.paidAmount; order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount); if (order.dueAmount === 0) { order.status = "completed"; order.completedAt = new Date(); } order.version += 1; await order.save({ session }); await postOrderReceivableEntries(scope, receivableEntriesForOrderChange("collect", order, normalized.total), actor, session); result = order; }); } finally { await session.endSession(); } return result;
@@ -239,6 +252,7 @@ export const RetailOrderService = {
         result = order;
       });
     } finally { await session.endSession(); }
+    scheduleOrderTierRefreshAfterCommit(scope, "cancel", result);
     return result;
   },
 };

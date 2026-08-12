@@ -39,3 +39,8 @@ export async function processTierRefreshJob(jobId: string): Promise<void> {
     throw error;
   }
 }
+
+export async function processTierRefreshBySourceKey(companyCode: string, sourceKey: string): Promise<void> {
+  const job = await RetailCustomerTierJobModel.findOne({ companyCode, sourceKey }).select("_id").lean();
+  if (job) await processTierRefreshJob(String(job._id));
+}

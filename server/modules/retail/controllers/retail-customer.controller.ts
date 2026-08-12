@@ -8,4 +8,7 @@ export const retailCustomerController = {
   create: async (req: Request, res: Response) => res.status(201).json({ success: true, data: await RetailCustomerService.create(requireRetailBranch(scope(req)), req.body || {}, (req as any).user || {}) }),
   detail: async (req: Request, res: Response) => res.json({ success: true, data: await RetailCustomerService.detail(scope(req), req.params.id, String(req.query.transactionBranchId || "").trim() || undefined) }),
   update: async (req: Request, res: Response) => res.json({ success: true, data: await RetailCustomerService.update(scope(req), req.params.id, req.body || {}) }),
+  tierHistory: async (req: Request, res: Response) => res.json({ success: true, data: await RetailCustomerService.tierHistory(requireRetailBranch(scope(req)), req.params.id) }),
+  overrideTier: async (req: Request, res: Response) => res.status(201).json({ success: true, data: await RetailCustomerService.overrideTier(requireRetailBranch(scope(req)), req.params.id, req.body || {}, (req as any).user || {}) }),
+  tierSummary: async (req: Request, res: Response) => res.json({ success: true, data: await RetailCustomerService.tierSummary(requireRetailBranch(scope(req)), req.query) }),
 };

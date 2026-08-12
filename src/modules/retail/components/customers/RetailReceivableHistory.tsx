@@ -1,6 +1,7 @@
 import React from "react";
 import { retailReceivablesApi } from "../../api/retailReceivables.api";
 import type { RetailReceivableEntry, RetailScope } from "../../types";
+import RetailCustomerTierPanel from "./RetailCustomerTierPanel";
 
 const money = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
 const labels: Record<RetailReceivableEntry["type"], string> = { charge: "Phát sinh nợ", payment: "Thu nợ", adjustment: "Điều chỉnh", reversal: "Đảo bút toán" };
@@ -45,5 +46,6 @@ export default function RetailReceivableHistory({ scope, customerId, canManage }
       <input aria-label="Lý do điều chỉnh" value={reason} onChange={(event) => setReason(event.target.value)} className="w-full rounded-lg border px-3 py-2" />
       <div className="flex gap-2"><button type="button" onClick={() => void submit()} className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-bold text-white">Xác nhận điều chỉnh</button><button type="button" onClick={() => setAdjusting(false)} className="rounded-lg border px-3 py-2 text-sm">Hủy</button></div>
     </div>}
+    <RetailCustomerTierPanel scope={scope} customerId={customerId} canManage={canManage} />
   </section>;
 }

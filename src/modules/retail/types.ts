@@ -119,3 +119,4 @@ export interface RetailReport {
   slowProducts: RetailProductReportRow[];
   analyticsReconciliation?: RetailAnalyticsReconciliation;
 }
+export interface RetailCustomerTierHistory { _id: string; fromTierName?: string; toTierName: string; toTierCode?: string; totalSales: number; source?: "automatic" | "manual"; reason?: string; effectiveFrom?: string; effectiveTo?: string; actorName?: string; changedAt: string }

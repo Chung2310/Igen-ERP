@@ -15,6 +15,7 @@ export default function RetailCustomersPage() {
   const { activeBranchId } = useBranch();
   const scope = { companyCode: userProfile?.companyCode || "", branchId: activeBranchId };
   const [query, setQuery] = React.useState("");
+  const [tier, setTier] = React.useState("");
   const debouncedQuery = useDebouncedValue(query, 250);
   const [page, setPage] = React.useState(1);
   const [result, setResult] = React.useState<{ items: RetailCustomer[]; total: number; page: number; limit: number }>({ items: [], total: 0, page: 1, limit: 20 });
@@ -25,9 +26,9 @@ export default function RetailCustomersPage() {
 
   const load = React.useCallback(async () => {
     if (!scope.companyCode || !scope.branchId) return;
-    try { setResult(await retailCustomersApi.list(scope, { q: debouncedQuery, page, limit: 20 })); setError(""); }
+    try { setResult(await retailCustomersApi.list(scope, { q: debouncedQuery, tier: tier || undefined, page, limit: 20 })); setError(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được khách hàng."); }
-  }, [scope.companyCode, scope.branchId, debouncedQuery, page]);
+  }, [scope.companyCode, scope.branchId, debouncedQuery, tier, page]);
   React.useEffect(() => { void load(); }, [load]);
 
   return (
@@ -37,6 +38,7 @@ export default function RetailCustomersPage() {
         <button type="button" onClick={() => setEditing("new")} className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white"><Plus className="h-4 w-4" />Thêm khách hàng</button>
       </div>
       <label className="relative block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm khách hàng" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Tìm theo mã, tên hoặc số điện thoại" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm" /></label>
+      <select aria-label="Lọc theo hạng" value={tier} onChange={(event) => { setTier(event.target.value); setPage(1); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">Tất cả hạng</option><option value="standard">Thành viên</option><option value="silver">Bạc</option><option value="gold">Vàng</option><option value="vip">VIP</option></select>
       {canManage && scope.companyCode && scope.branchId && <RetailReceivableReconciliation scope={scope} />}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Mã</th><th className="p-3">Tên khách hàng</th><th className="p-3">Điện thoại</th><th className="p-3">Email</th><th className="p-3 text-right">Thao tác</th></tr></thead><tbody>{result.items.map((customer) => <tr key={customer._id} className="border-t border-slate-100"><td className="p-3 font-semibold text-cyan-700">{customer.customerCode}</td><td className="p-3 font-semibold">{customer.name}</td><td className="p-3">{customer.phone || "—"}</td><td className="p-3">{customer.email || "—"}</td><td className="p-3 text-right"><button type="button" onClick={() => void retailCustomersApi.detail(customer._id, scope).then(setDetail)} className="mr-3 font-semibold text-cyan-700">Chi tiết</button><button type="button" onClick={() => setEditing(customer)} className="font-semibold text-slate-700">Sửa</button></td></tr>)}</tbody></table></div>

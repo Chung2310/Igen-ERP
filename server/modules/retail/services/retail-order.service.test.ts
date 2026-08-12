@@ -40,6 +40,18 @@ test("tier refresh inputs are deterministic for sale and cancellation", () => {
   assert.deepEqual(refresh("cancel", { _id: "o1", customerId: "c1" }), { customerId: "c1", sourceKey: "retail-order:o1:tier-cancel" });
   assert.equal(refresh("confirm", { _id: "o2" }), null);
 });
+
+test("tier refresh is processed asynchronously after an order commit", async () => {
+  const calls: any[] = [];
+  const scheduled = (orderService as any).scheduleOrderTierRefreshAfterCommit(
+    { companyCode: "ACME", branchId: "B1" }, "confirm", { _id: "o1", customerId: "c1" },
+    async (...args: any[]) => { calls.push(args); },
+  );
+  assert.equal(scheduled, true);
+  assert.deepEqual(calls, []);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [["ACME", "retail-order:o1:tier-confirm"]]);
+});
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
     { method: "cash", amount: 300_000, tenderedAmount: 350_000 },
