@@ -1,4 +1,5 @@
 export type RetailScope = { companyCode: string; branchId: string };
+export interface RetailOfflineSyncResult { itemId: string; status: "synced" | "failed"; orderId?: string; invoiceId?: string; error?: string }
 
 export interface RetailSettings {
   companyCode: string;

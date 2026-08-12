@@ -14,6 +14,16 @@ type Adapter = {
   check(key: string): Promise<any>;
   send(item: RetailOfflineOrder): Promise<any>;
 };
+export function isRetailNetworkFailure(error: unknown) {
+  const value = error as any;
+  if (Number(value?.status || value?.response?.status)) return false;
+  return (
+    error instanceof TypeError ||
+    /failed to fetch|network|offline|load failed/i.test(
+      String(value?.message || value || ""),
+    )
+  );
+}
 export async function syncRetailOfflineQueue(
   queue: RetailOfflineQueue,
   scope: OfflineScope,
@@ -23,7 +33,9 @@ export async function syncRetailOfflineQueue(
   for (const item of (await queue.list(scope)).filter(
     (x) => x.status === "syncing",
   )) {
-    const attempt = await adapter.check(item.idempotencyKey).catch(() => null);
+    let attempt: any;
+    try { attempt = await adapter.check(item.idempotencyKey); }
+    catch { continue; }
     if (attempt?.status === "completed") {
       await queue.update(item.id, { status: "synced" });
       results.push({

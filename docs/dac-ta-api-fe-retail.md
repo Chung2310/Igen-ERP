@@ -694,7 +694,38 @@ Tổng ~16 ngày — khớp ước lượng ~14 ngày của Giai đoạn 1 trong
 
 ---
 
-## B8. Checklist trước khi merge
+## B8. Ghi chú vận hành Retail completion
+
+### SMTP và scheduler nhắc công nợ
+
+- Biến môi trường: `RETAIL_SMTP_HOST`, `RETAIL_SMTP_PORT`, `RETAIL_SMTP_SECURE`, `RETAIL_SMTP_USER`, `RETAIL_SMTP_PASSWORD`, `RETAIL_SMTP_FROM`.
+- Scheduler tạo run/delivery trước khi gửi, chống trùng theo chu kỳ và chạy worker retry mỗi giờ.
+- Lỗi tạm thời retry theo backoff 5 phút tăng lũy tiến, tối đa 24 giờ và không vượt `maxAttempts`; lỗi SMTP vĩnh viễn không retry.
+- Không ghi `RETAIL_SMTP_PASSWORD` vào log. Việc gửi qua SMTP thật phải được xác nhận riêng tại môi trường triển khai.
+
+### PDF và thiết bị quét
+
+- PDF Unicode dùng font nhúng trong renderer. Khi thay font phải giữ lại thông tin giấy phép tương ứng trong gói tài nguyên triển khai.
+- Test tự động xác nhận giao thức bàn phím HID, timeout, Enter termination và fallback Web Audio. Tương thích máy quét USB/Bluetooth thật vẫn cần UAT riêng tại quầy.
+
+### Khôi phục queue POS offline
+
+- Queue IndexedDB cách ly theo `companyCode`, `branchId`, `userId`; payload và `idempotencyKey` không đổi qua các lần retry.
+- Khi trình duyệt online lại, hệ thống đồng bộ FIFO. Item ở trạng thái `syncing` được hỏi endpoint idempotency trước khi gửi lại.
+- Lỗi mạng tạo trạng thái `Chờ đồng bộ`; lỗi nghiệp vụ giữ trạng thái `failed` để người dùng retry hoặc xóa. Không hiển thị thanh toán thành công trước response chấp nhận của server.
+- Nếu cần khôi phục thủ công, đăng nhập đúng người dùng/chi nhánh, mở POS, kiểm tra panel đơn offline và chọn `Thử lại`. Không xóa IndexedDB trước khi đối soát idempotency trên server.
+
+### Migration sổ công nợ
+
+Chạy kiểm tra không ghi dữ liệu:
+
+```powershell
+npx tsx server/scripts/backfill-retail-receivables.ts --dry-run --company TEST --branch TEST
+```
+
+Kết quả dry-run phải có `writes: 0` cùng các số `scanned`, `convertible`, `skipped`, `errors`.
+
+## B9. Checklist trước khi merge
 
 **Backend**
 - [ ] Mọi query lọc `companyCode` — test cross-tenant theo mẫu `worker-module-isolation.test.ts`

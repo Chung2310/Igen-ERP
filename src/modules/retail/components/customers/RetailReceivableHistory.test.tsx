@@ -7,6 +7,7 @@ import { retailReceivablesApi } from "../../api/retailReceivables.api";
 import RetailReceivableHistory from "./RetailReceivableHistory";
 
 vi.mock("../../api/retailReceivables.api", () => ({ retailReceivablesApi: { history: vi.fn(), adjust: vi.fn(), reverse: vi.fn() } }));
+vi.mock("./RetailCustomerTierPanel", () => ({ default: () => null }));
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();

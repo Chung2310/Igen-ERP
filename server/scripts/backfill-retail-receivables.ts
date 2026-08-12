@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { RetailOrderModel } from "../modules/retail/models/retail-order.model";
 import { RetailReceivableEntryModel } from "../modules/retail/models/retail-receivable-entry.model";
 
-export function parseBackfillOptions(args: string[]) { return { apply: args.includes("--apply") }; }
+export function parseBackfillOptions(args: string[]) { const value = (name: string) => { const inline = args.find((arg) => arg.startsWith(`${name}=`)); if (inline) return inline.slice(name.length + 1); const index = args.indexOf(name); return index >= 0 ? String(args[index + 1] || "") : ""; }; return { apply: args.includes("--apply"), companyCode: value("--company"), branchId: value("--branch") }; }
 
 export function buildReceivableBackfillCandidates(orders: any[]) {
   return orders.filter((order) => ["confirmed", "completed"].includes(order.status) && order.customerId && Number(order.dueAmount) > 0).map((order) => ({
@@ -15,7 +15,7 @@ export async function runRetailReceivableBackfill({ apply, companyCode, branchId
   const scope = { companyCode, branchId };
   const orders = await RetailOrderModel.find({ ...scope, status: { $in: ["confirmed", "completed"] }, customerId: { $type: "string" }, dueAmount: { $gt: 0 } }).lean();
   const candidates = buildReceivableBackfillCandidates(orders);
-  if (!apply) return { mode: "dry-run", candidates: candidates.length, created: 0 };
+  if (!apply) return { mode: "dry-run", scanned: orders.length, convertible: candidates.length, skipped: orders.length - candidates.length, errors: 0, writes: 0 };
   let created = 0;
   for (const candidate of candidates) {
     const result = await RetailReceivableEntryModel.updateOne({ companyCode, idempotencyKey: candidate.idempotencyKey }, { $setOnInsert: { ...scope, ...candidate, createdBy: "system:backfill", createdByName: "Retail receivable backfill" } }, { upsert: true });
@@ -26,9 +26,9 @@ export async function runRetailReceivableBackfill({ apply, companyCode, branchId
 
 async function main() {
   const args = process.argv.slice(2);
-  const value = (prefix: string) => args.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) || "";
+  const options = parseBackfillOptions(args);
   await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI || "mongodb://127.0.0.1:27017/igen-erp");
-  try { console.log(await runRetailReceivableBackfill({ ...parseBackfillOptions(args), companyCode: value("--company="), branchId: value("--branch=") })); }
+  try { console.log(await runRetailReceivableBackfill(options)); }
   finally { await mongoose.disconnect(); }
 }
 

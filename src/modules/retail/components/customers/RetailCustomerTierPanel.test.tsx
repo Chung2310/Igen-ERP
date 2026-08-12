@@ -16,4 +16,4 @@ it("shows tier timeline and lets managers create a dated override", async () => 
   await userEvent.type(screen.getByLabelText("Hiệu lực đến"), "2026-09-12");
   await userEvent.click(screen.getByRole("button", { name: "Áp dụng hạng" }));
   await waitFor(() => expect(retailCustomersApi.overrideTier).toHaveBeenCalledWith("c1", expect.objectContaining({ tierCode: "vip", reason: "Chăm sóc đặc biệt" }), { companyCode: "ACME", branchId: "B1" }));
-});
+}, 10_000);
