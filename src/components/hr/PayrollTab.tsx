@@ -9,6 +9,7 @@ import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
 import { getPayrollProcessingAction } from "./payroll/payrollProcessingAction";
+import { PayrollPolicyManager } from "./payroll/PayrollPolicyManager";
 
 type SortDir = "asc" | "desc";
 
@@ -291,6 +292,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {canManage && <PayrollPolicyManager canManage={canManage} />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">

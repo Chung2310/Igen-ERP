@@ -39,6 +39,9 @@ import {
   createPayrollPolicy,
   listPayrollPolicies,
   retirePayrollPolicy,
+  updatePayrollPolicy,
+  clonePayrollPolicy,
+  deletePayrollPolicy,
 } from "../service/payroll-policy-operations.service";
 import { runPayrollWorkflowAction } from "../service/payroll-run-workflow-operations.service";
 import { buildPayslip } from "../service/payroll-payslip.service";
@@ -52,6 +55,8 @@ import {
   createOperationalRunSchema,
   createPaymentSchema,
   createPolicySchema,
+  updatePolicySchema,
+  clonePolicySchema,
   paymentTransitionSchema,
   reopenRunSchema,
   workflowTransitionSchema,
@@ -321,6 +326,23 @@ export const payrollController = {
       return operationFailure(res, operationError);
     }
   },
+  async updatePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = updatePolicySchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    const { expectedVersion, ...definition } = value;
+    try { return res.json({ status: "success", data: await updatePayrollPolicy(tenant(req), req.params.id, req.user!.id, expectedVersion, definition) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
+  },
+  async clonePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = clonePolicySchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    try { return res.status(201).json({ status: "success", data: await clonePayrollPolicy(tenant(req), req.params.id, req.user!.id, value) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
+  },
+  async deletePolicy(req: AuthenticatedRequest, res: Response) {
+    try { return res.json({ status: "success", data: await deletePayrollPolicy(tenant(req), req.params.id, req.user!.id) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
+  },
   reviewOperationalRun: workflowHandler("review"),
   closeOperationalRun: workflowHandler("close"),
   reopenOperationalRun: workflowHandler("reopen"),
@@ -536,6 +558,8 @@ export const payrollController = {
         },
         vietnam,
         formulaVersion: vietnam.formulaVersion,
+        policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+        policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
         warnings: vietnam.warnings.map((warning) => warning.code),
       };
     });
@@ -743,6 +767,8 @@ export const payrollController = {
               },
               vietnam,
               formulaVersion: vietnam.formulaVersion,
+              policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+              policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
             };
           });
@@ -850,6 +876,8 @@ export const payrollController = {
               },
               vietnam,
               formulaVersion: vietnam.formulaVersion,
+              policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+              policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
             };
           });
