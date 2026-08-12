@@ -18,6 +18,12 @@ export function policyWindowsOverlap(left: PolicyWindow, right: PolicyWindow): b
   return leftStart <= rightEnd && rightStart <= leftEnd;
 }
 
+export function replacementForPolicy(active: PolicyWindow, replacementStart: Date | string): { action: "truncate"; effectiveTo: Date } | { action: "retire" } {
+  const nextStart = new Date(replacementStart);
+  if (time(active.effectiveFrom, 0) >= nextStart.getTime()) return { action: "retire" };
+  return { action: "truncate", effectiveTo: new Date(Date.UTC(nextStart.getUTCFullYear(), nextStart.getUTCMonth(), nextStart.getUTCDate() - 1)) };
+}
+
 export function validatePolicyDefinition(policy: Partial<IPayrollPolicy>): PayrollPolicyFailure | null {
   if (policy.effectiveTo && time(policy.effectiveTo, 0) < time(policy.effectiveFrom, 0)) {
     return failure("PAYROLL_POLICY_INVALID_WINDOW", "effectiveTo must be on or after effectiveFrom", 400);

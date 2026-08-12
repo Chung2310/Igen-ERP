@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   policyWindowsOverlap,
+  replacementForPolicy,
   selectPolicyForDate,
   validatePolicyActivation,
   validatePolicyDefinition,
@@ -43,6 +44,17 @@ describe("policy windows", () => {
       { effectiveFrom: "2026-01-01", effectiveTo: "2026-06-30" },
       { effectiveFrom: "2026-07-01", effectiveTo: "2026-12-31" },
     )).toBe(false);
+  });
+
+  it("truncates an older policy to the preceding UTC day", () => {
+    expect(replacementForPolicy({ effectiveFrom: "2026-01-01" }, "2026-07-01")).toEqual({
+      action: "truncate", effectiveTo: new Date("2026-06-30T00:00:00.000Z"),
+    });
+  });
+
+  it("retires policies that start on or after the replacement", () => {
+    expect(replacementForPolicy({ effectiveFrom: "2026-07-01" }, "2026-07-01")).toEqual({ action: "retire" });
+    expect(replacementForPolicy({ effectiveFrom: "2026-08-01" }, "2026-07-01")).toEqual({ action: "retire" });
   });
 });
 

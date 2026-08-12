@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findOne: vi.fn(), findOneAndUpdate: vi.fn(), create: vi.fn(), deleteOne: vi.fn(),
+  find: vi.fn(), findOne: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), create: vi.fn(), deleteOne: vi.fn(),
   runFind: vi.fn(), revisionFind: vi.fn(), auditCreate: vi.fn(),
 }));
-vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { findOne: mocks.findOne, findOneAndUpdate: mocks.findOneAndUpdate, create: mocks.create, deleteOne: mocks.deleteOne } }));
+vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { find: mocks.find, findOne: mocks.findOne, findOneAndUpdate: mocks.findOneAndUpdate, updateOne: mocks.updateOne, create: mocks.create, deleteOne: mocks.deleteOne } }));
 vi.mock("../model/payroll-run.model", () => ({ PayrollRunModel: { find: mocks.runFind } }));
 vi.mock("../model/payroll-calculation-revision.model", () => ({ PayrollCalculationRevisionModel: { find: mocks.revisionFind } }));
 vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mocks.auditCreate } }));
 
-import { clonePayrollPolicy, deletePayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
+import { activatePayrollPolicy, clonePayrollPolicy, deletePayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
 
 const lean = (value: any) => ({ lean: vi.fn().mockResolvedValue(value) });
 const selectLean = (value: any) => ({ select: vi.fn().mockReturnValue(lean(value)) });
@@ -17,6 +17,33 @@ const definition = { code: "vn-2026", name: "Policy", effectiveFrom: new Date("2
 
 describe("payroll policy version operations", () => {
   beforeEach(() => { vi.resetAllMocks(); mocks.auditCreate.mockResolvedValue({}); });
+
+  it("truncates an older overlap before activating the replacement", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: new Date("2026-07-01") }));
+    mocks.find.mockReturnValue(selectLean([{ _id: "old", status: "active", effectiveFrom: new Date("2026-01-01") }]));
+    mocks.updateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "new", status: "active" }));
+
+    await activatePayrollPolicy("ACME", "new", "manager", { replaceOverlaps: true });
+
+    expect(mocks.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "old", companyCode: "ACME", status: "active" }),
+      { $set: { effectiveTo: new Date("2026-06-30T00:00:00.000Z") } },
+      expect.any(Object),
+    );
+    expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "new", status: "draft" }), expect.any(Object), expect.any(Object),
+    );
+  });
+
+  it("retires an overlap with the same start date", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: new Date("2026-07-01") }));
+    mocks.find.mockReturnValue(selectLean([{ _id: "old", status: "active", effectiveFrom: new Date("2026-07-01") }]));
+    mocks.updateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "new", status: "active" }));
+    await activatePayrollPolicy("ACME", "new", "manager", { replaceOverlaps: true });
+    expect(mocks.updateOne).toHaveBeenCalledWith(expect.any(Object), { $set: { status: "retired", retiredBy: "manager" } }, expect.any(Object));
+  });
 
   it("updates only a draft at the expected version", async () => {
     mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "p1", status: "draft", version: 3, ...definition }));
