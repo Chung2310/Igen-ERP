@@ -114,8 +114,11 @@ describe("payroll policy endpoints", () => {
 
     expect(mocks.policyFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "policy-1", companyCode: "ACME", status: "draft" },
-      { $set: expect.objectContaining({ status: "active", activatedBy: "admin" }) },
-      { new: true },
+      {
+        $set: expect.objectContaining({ status: "active", activatedBy: "admin" }),
+        $unset: { retiredBy: 1 },
+      },
+      expect.objectContaining({ new: true }),
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: "ACME",

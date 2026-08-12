@@ -8,7 +8,7 @@ import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
-import { getPayrollProcessingAction } from "./payroll/payrollProcessingAction";
+import { getPayrollProcessingAction, hasActivePolicyForMonth } from "./payroll/payrollProcessingAction";
 import { PayrollPolicyManager } from "./payroll/PayrollPolicyManager";
 
 type SortDir = "asc" | "desc";
@@ -94,6 +94,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [markPaidConfirmOpen, setMarkPaidConfirmOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [processingPayroll, setProcessingPayroll] = useState(false);
+  const [payrollPolicies, setPayrollPolicies] = useState<any[]>([]);
+  const [policiesLoaded, setPoliciesLoaded] = useState(false);
 
   // States for creating adjustments
   const [isAdjOpen, setIsAdjOpen] = useState(false);
@@ -103,8 +105,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [adjReason, setAdjReason] = useState("");
   const [adjSaving, setAdjSaving] = useState(false);
 
+  const loadPolicies = async () => { setPoliciesLoaded(false); try { setPayrollPolicies(await payrollService.getPolicies()); } catch { setPayrollPolicies([]); } finally { setPoliciesLoaded(true); } };
   const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
   useEffect(() => { void reload(); }, [period]);
+  useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); }, [period]);
 
   const exportCsv = () => { const rows = run?.lines || results; const csv = ["employeeId,adjustedBase,overtime,net", ...rows.map((line: any) => [line.employeeId, line.calculation?.adjustedBase || "", line.calculation?.overtime || "", line.calculation?.net || ""].join(","))].join("\\n"); const blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}.csv`; anchor.click(); URL.revokeObjectURL(url); };
@@ -217,7 +221,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const totalBase = runRows.reduce((sum: number, r: any) => sum + r.baseSalary, 0);
   const headcount = run ? runRows.length : draftRows.length;
   const shortageCount = draftRows.filter((r: any) => r.shortageDays > 0).length;
-  const processingAction = getPayrollProcessingAction(run?.status, processingPayroll);
+  const hasPayrollPolicy = policiesLoaded && hasActivePolicyForMonth(payrollPolicies, period);
+  const processingAction = getPayrollProcessingAction(run?.status, processingPayroll, hasPayrollPolicy);
 
   const processPeriod = async () => {
     if (processingPayroll) return;
@@ -292,7 +297,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
-    {canManage && <PayrollPolicyManager canManage={canManage} />}
+    {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">
@@ -372,14 +377,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         <div className="flex flex-wrap gap-2">
           {(!run || run.status === "draft") && (
             <>
-              {processingAction.visible && <button
+              {processingAction.visible && <div><button
                 onClick={() => void processPeriod()}
                 disabled={processingAction.disabled}
                 className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processingPayroll ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
                 {processingAction.label}
-              </button>}
+              </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
                 <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra

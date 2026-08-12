@@ -9,7 +9,7 @@ vi.mock("../model/payroll-run.model", () => ({ PayrollRunModel: { find: mocks.ru
 vi.mock("../model/payroll-calculation-revision.model", () => ({ PayrollCalculationRevisionModel: { find: mocks.revisionFind } }));
 vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mocks.auditCreate } }));
 
-import { activatePayrollPolicy, clonePayrollPolicy, deletePayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
+import { activatePayrollPolicy, clonePayrollPolicy, deletePayrollPolicy, ensureDefaultPayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
 
 const lean = (value: any) => ({ lean: vi.fn().mockResolvedValue(value) });
 const selectLean = (value: any) => ({ select: vi.fn().mockReturnValue(lean(value)) });
@@ -17,6 +17,20 @@ const definition = { code: "vn-2026", name: "Policy", effectiveFrom: new Date("2
 
 describe("payroll policy version operations", () => {
   beforeEach(() => { vi.resetAllMocks(); mocks.auditCreate.mockResolvedValue({}); });
+
+  it("creates one active default policy from the company creation day", async () => {
+    mocks.findOne.mockReturnValue(lean(null));
+    mocks.create.mockImplementation(async (value: any) => ({ _id: "default", ...value }));
+    const result: any = await ensureDefaultPayrollPolicy("ACME", "system", new Date("2026-08-12T15:30:00+07:00"));
+    expect(result).toMatchObject({ companyCode: "ACME", code: "vn-default", status: "active", createdBy: "system" });
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ effectiveFrom: new Date("2026-08-12T00:00:00.000Z") }));
+  });
+
+  it("does not seed when any company policy already exists", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "draft", status: "draft" }));
+    expect(await ensureDefaultPayrollPolicy("ACME", "system", new Date())).toMatchObject({ _id: "draft" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
 
   it("truncates an older overlap before activating the replacement", async () => {
     mocks.findOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: new Date("2026-07-01") }));

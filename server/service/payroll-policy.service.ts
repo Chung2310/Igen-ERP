@@ -52,7 +52,7 @@ export function validatePolicyActivation(
   activePolicies: PolicyWindow[],
 ): PayrollPolicyFailure | null {
   if (!policy) return failure("PAYROLL_POLICY_NOT_FOUND", "Payroll policy not found", 404);
-  if (policy.status !== "draft") {
+  if (!["draft", "retired"].includes(policy.status)) {
     return failure("PAYROLL_POLICY_INVALID_STATE", `Cannot activate a policy in status ${policy.status}`, 409);
   }
   if (activePolicies.some((active) => policyWindowsOverlap(policy, active))) {
