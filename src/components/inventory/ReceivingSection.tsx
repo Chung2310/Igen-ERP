@@ -339,85 +339,29 @@ function SupplierManagementModal({
   );
 }
 
+
 export function ReceivingSection() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [productDetails, setProductDetails] = useState<Record<string, CatalogProductDetail>>({});
-  const [supplierId, setSupplierId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [variantId, setVariantId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [unitCost, setUnitCost] = useState("0");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<DraftLine[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [supplierManagementOpen, setSupplierManagementOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [supplierManagementMode, setSupplierManagementMode] = useState<SupplierEditorMode>("create");
+  const [loading, setLoading] = useState(true);
 
-  const load = async (preferredSupplierId?: string) => {
+  const load = async () => {
+    setLoading(true);
     try {
-      const [nextSuppliers, nextReceipts, nextProducts] = await Promise.all([
-        inventoryReceivingService.listSuppliers({ status: "active" }),
-        inventoryReceivingService.listReceipts({ limit: 50 }),
-        productCatalogService.listProducts({ status: "active", limit: 100 }),
-      ]);
-      setSuppliers(nextSuppliers);
+      const nextReceipts = await inventoryReceivingService.listReceipts({ limit: 50 });
       setReceipts(nextReceipts.items);
-      setProducts(nextProducts.items);
-      const nextSupplierId = preferredSupplierId || supplierId;
-      if (!nextSupplierId || !nextSuppliers.some((supplier) => supplier._id === nextSupplierId)) setSupplierId(nextSuppliers[0]?._id || "");
-      else if (preferredSupplierId) setSupplierId(preferredSupplierId);
     } catch (error: any) {
-      toast.error(error?.message || "Không thể tải dữ liệu nhập hàng.");
-    }
-  };
-
-  useEffect(() => { void load(); }, []);
-  const selectedDetail = productId ? productDetails[productId] : undefined;
-  const variants = selectedDetail?.variants.filter((item) => item.status === "active") || [];
-  useEffect(() => {
-    if (!productId || productDetails[productId]) return;
-    void productCatalogService.getProduct(productId).then((detail) => setProductDetails((current) => ({ ...current, [productId]: detail }))).catch(() => undefined);
-  }, [productId, productDetails]);
-  useEffect(() => { setVariantId(variants[0]?._id || ""); }, [productId, variants.length]);
-  const total = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitCost, 0), [lines]);
-
-  const addLine = () => {
-    const variant = variants.find((item) => item._id === variantId);
-    const product = products.find((item) => item._id === productId);
-    const parsedQuantity = Number(quantity);
-    const parsedCost = Number(unitCost);
-    if (!product || !variant || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !Number.isFinite(parsedCost) || parsedCost < 0) {
-      toast.error("Chọn sản phẩm, SKU và nhập số lượng/giá hợp lệ.");
-      return;
-    }
-    setLines((current) => [...current, { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost }]);
-    setProductId("");
-    setVariantId("");
-    setQuantity("1");
-    setUnitCost("0");
-  };
-
-  const saveReceipt = async () => {
-    if (!supplierId || lines.length === 0) {
-      toast.error("Chọn nhà cung cấp và ít nhất một sản phẩm.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await inventoryReceivingService.createReceipt({ supplierId, notes: notes.trim() || undefined, items: lines.map(({ key: _key, displayName: _displayName, ...line }) => line) });
-      setLines([]);
-      setNotes("");
-      toast.success("Đã tạo phiếu nhập nháp.");
-      await load();
-    } catch (error: any) {
-      toast.error(error?.message || "Không thể tạo phiếu nhập.");
+      toast.error(error?.message || "Không thể tải danh sách phiếu nhập.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
+  useEffect(() => { void load(); }, []);
+
+
 
   const confirm = async (receipt: GoodsReceipt) => {
     try {
@@ -451,12 +395,17 @@ export function ReceivingSection() {
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Nhập hàng</h3>
-          <p className="mt-1 text-sm text-slate-500">Tạo phiếu nháp, kiểm tra lại rồi xác nhận để tăng tồn kho.</p>
+          <p className="mt-1 text-sm text-slate-500">Khai báo sản phẩm mua từ nhà cung cấp để tăng tồn kho thực tế.</p>
         </div>
         <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => openSupplierManagement()} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Quản lý nhà cung cấp">
             <ContactRound className="h-4 w-4" />
             Nhà cung cấp
+          </button>
+          <button type="button" onClick={() => setCreatorOpen(true)} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
+            <PackagePlus className="h-4 w-4" />
+            Tạo phiếu nhập mới
           </button>
           <button type="button" onClick={() => void load()} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" title="Làm mới" aria-label="Làm mới">
             <RefreshCw className="h-4 w-4" />
@@ -464,30 +413,272 @@ export function ReceivingSection() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="space-y-4 border border-slate-200 p-4">
-          <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-900">Phiếu nhập mới</h4><span className="text-xs text-slate-500">{lines.length} dòng</span></div>
-          <label className="block text-xs text-slate-600">Nhà cung cấp<select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"><option value="">Chọn nhà cung cấp</option>{suppliers.map((item) => <option key={item._id} value={item._id}>{item.name} ({item.code})</option>)}</select></label>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_120px_auto]">
-            <label className="text-xs text-slate-600">Sản phẩm<select value={productId} onChange={(event) => setProductId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"><option value="">Chọn sản phẩm</option>{products.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label>
-            <label className="text-xs text-slate-600">Mã SKU<select value={variantId} onChange={(event) => setVariantId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"><option value="">Chọn SKU</option>{variants.map((item) => <option key={item._id} value={item._id}>{item.sku}</option>)}</select></label>
-            <label className="text-xs text-slate-600">Số lượng<input type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" /></label>
-            <label className="text-xs text-slate-600">Giá nhập<input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" /></label>
-            <button type="button" onClick={addLine} className="mt-5 inline-flex h-9 items-center justify-center rounded-md bg-cyan-700 px-3 text-sm font-semibold text-white hover:bg-cyan-800" title="Thêm dòng"><PackagePlus className="mr-1.5 h-4 w-4" />Thêm</button>
-          </div>
-          <div className="divide-y divide-slate-100 border-y border-slate-200">{lines.length === 0 ? <p className="px-3 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</p> : lines.map((line) => <div key={line.key} className="flex items-center justify-between gap-3 px-3 py-3 text-sm"><div className="min-w-0"><p className="truncate font-medium text-slate-800">{line.productName}</p><p className="text-xs text-slate-500">{line.sku} · {line.quantity} × {money(line.unitCost)}</p></div><button type="button" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa dòng"><X className="h-4 w-4" /></button></div>)}</div>
-          <label className="block text-xs text-slate-600">Ghi chú<textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm" /></label>
-          <div className="flex items-center justify-between border-t border-slate-200 pt-3"><strong className="text-sm text-slate-900">Tạm tính: {money(total)}</strong><button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">{saving ? "Đang lưu..." : "Lưu phiếu nháp"}</button></div>
-        </div>
-        <div className="border border-slate-200 p-4">
-          <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-900">Nhà cung cấp đang dùng</h4><span className="text-xs text-slate-500">{suppliers.length}</span></div>
-          <div className="mt-3 divide-y divide-slate-100 border-y border-slate-200">{suppliers.length === 0 ? <p className="px-3 py-8 text-center text-sm text-slate-500">Chưa có nhà cung cấp.</p> : suppliers.map((item) => <div key={item._id} className="flex items-center justify-between gap-3 px-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{item.name}</p><p className="font-mono text-xs text-slate-500">{item.code}</p></div><button type="button" onClick={() => openSupplierManagement(item, "edit")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Sửa nhà cung cấp" aria-label={`Sửa ${item.name}`}><Pencil className="h-4 w-4" /></button></div>)}</div>
-        </div>
       </div>
 
-      <div className="overflow-x-auto border-y border-slate-200"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3 font-medium">Mã phiếu</th><th className="px-3 py-3 font-medium">Nhà cung cấp</th><th className="px-3 py-3 font-medium">Ngày tạo</th><th className="px-3 py-3 text-right font-medium">Giá trị</th><th className="px-3 py-3 font-medium">Trạng thái</th><th className="px-3 py-3 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">{receipts.length === 0 ? <tr><td colSpan={6} className="px-3 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id}><td className="px-3 py-3 font-mono text-xs text-slate-700">{receipt.receiptCode}</td><td className="px-3 py-3 text-slate-700">{receipt.supplierName}</td><td className="px-3 py-3 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-3 py-3 text-right tabular-nums text-slate-700">{money(receipt.subtotal)}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${receipt.status === "confirmed" ? "bg-emerald-50 text-emerald-700" : receipt.status === "draft" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{receipt.status === "confirmed" ? "Đã xác nhận" : receipt.status === "draft" ? "Nháp" : "Đã hủy"}</span></td><td className="px-3 py-3 text-right">{receipt.status === "draft" && <span className="inline-flex gap-1"><button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50" title="Xác nhận"><Check className="h-4 w-4" /></button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></span>}</td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200"><tr><th className="px-4 py-3.5 font-medium">Mã phiếu</th><th className="px-4 py-3.5 font-medium">Nhà cung cấp</th><th className="px-4 py-3.5 font-medium">Ngày tạo</th><th className="px-4 py-3.5 text-right font-medium">Giá trị</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-200">{loading ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr> : receipts.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id} className="hover:bg-slate-50"><td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-600">{receipt.receiptCode}</td><td className="px-4 py-3.5 font-medium text-slate-800">{receipt.supplierName}</td><td className="px-4 py-3.5 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-4 py-3.5 text-right tabular-nums font-semibold text-slate-900">{money(receipt.subtotal)}</td><td className="px-4 py-3.5"><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${receipt.status === "confirmed" ? "bg-emerald-50 text-emerald-700" : receipt.status === "draft" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{receipt.status === "confirmed" ? "Hoàn thành" : receipt.status === "draft" ? "Nháp" : "Đã hủy"}</span></td><td className="px-4 py-3.5 text-right">{receipt.status === "draft" && <span className="inline-flex gap-1"><button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50" title="Xác nhận"><Check className="h-4 w-4" /></button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></span>}</td></tr>)}</tbody></table></div>
 
-      {supplierManagementOpen && <SupplierManagementModal initialSupplier={editingSupplier} initialMode={supplierManagementMode} onClose={() => setSupplierManagementOpen(false)} onSaved={(supplier) => { void load(supplier.status === "active" ? supplier._id : undefined); }} onDeleted={() => { void load(); }} />}
+      {supplierManagementOpen && <SupplierManagementModal initialSupplier={editingSupplier} initialMode={supplierManagementMode} onClose={() => setSupplierManagementOpen(false)} onSaved={() => void load()} onDeleted={() => void load()} />}
+      {creatorOpen && <ReceiptCreatorModal onClose={() => setCreatorOpen(false)} onSaved={async () => { setCreatorOpen(false); await load(); }} />}
     </section>
+  );
+}
+
+function SearchableSelect({ options, value, onChange, placeholder, disabled }: { options: { value: string; label: string }[]; value: string; onChange: (val: string) => void; placeholder: string; disabled?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+
+  const selected = options.find((o) => o.value === value);
+  const inputValue = isOpen ? query : selected?.label || "";
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [isOpen]);
+
+  const matches = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase("vi");
+    if (!term) return options;
+    return options.filter((o) => o.label.toLocaleLowerCase("vi").includes(term));
+  }, [options, query]);
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <input
+        type="text"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={inputValue}
+        onFocus={() => { setQuery(""); setIsOpen(true); }}
+        onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setIsOpen(false);
+          if (e.key === "Enter" && isOpen) {
+            e.preventDefault();
+            if (matches.length > 0) { onChange(matches[0].value); setIsOpen(false); }
+          }
+        }}
+        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-50 disabled:text-slate-500"
+      />
+      {isOpen && !disabled && (
+        <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {matches.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">Không tìm thấy kết quả.</div>
+          ) : (
+            matches.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => { onChange(o.value); setIsOpen(false); }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 focus:bg-slate-50 outline-none truncate"
+              >
+                {o.label}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [productDetails, setProductDetails] = useState<Record<string, CatalogProductDetail>>({});
+  const [supplierId, setSupplierId] = useState("");
+  const [productId, setProductId] = useState("");
+  const [variantId, setVariantId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unitCost, setUnitCost] = useState("0");
+  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<DraftLine[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    try {
+      const [nextSuppliers, nextProducts] = await Promise.all([
+        inventoryReceivingService.listSuppliers({ status: "active" }),
+        productCatalogService.listProducts({ status: "active", limit: 100 }),
+      ]);
+      setSuppliers(nextSuppliers);
+      setProducts(nextProducts.items);
+      if (nextSuppliers.length > 0) setSupplierId(nextSuppliers[0]._id);
+    } catch (error: any) {
+      toast.error(error?.message || "Không thể tải dữ liệu tạo phiếu nhập.");
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const selectedDetail = productId ? productDetails[productId] : undefined;
+  const variants = selectedDetail?.variants.filter((item) => item.status === "active") || [];
+  useEffect(() => {
+    if (!productId || productDetails[productId]) return;
+    void productCatalogService.getProduct(productId).then((detail) => setProductDetails((current) => ({ ...current, [productId]: detail }))).catch(() => undefined);
+  }, [productId, productDetails]);
+  useEffect(() => { setVariantId(variants[0]?._id || ""); }, [productId, variants.length]);
+  const total = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitCost, 0), [lines]);
+
+  const addLine = () => {
+    const variant = variants.find((item) => item._id === variantId);
+    const product = products.find((item) => item._id === productId);
+    const parsedQuantity = Number(quantity);
+    const parsedCost = Number(unitCost);
+    if (!product || !variant || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !Number.isFinite(parsedCost) || parsedCost < 0) {
+      toast.error("Chọn sản phẩm, SKU và nhập số lượng/giá hợp lệ.");
+      return;
+    }
+    setLines((current) => [...current, { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost }]);
+    setProductId("");
+    setVariantId("");
+    setQuantity("1");
+    setUnitCost("0");
+  };
+
+  const saveReceipt = async () => {
+    if (!supplierId || lines.length === 0) {
+      toast.error("Chọn nhà cung cấp và ít nhất một sản phẩm.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await inventoryReceivingService.createReceipt({ supplierId, notes: notes.trim() || undefined, items: lines.map(({ key: _key, displayName: _displayName, ...line }) => line) });
+      toast.success("Đã tạo phiếu nhập và cộng tồn kho thành công.");
+      await onSaved();
+    } catch (error: any) {
+      toast.error(error?.message || "Không thể tạo phiếu nhập.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Tạo phiếu nhập mới" onClose={onClose} wide>
+      <div className="bg-slate-50/50 -m-5 p-5">
+        <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Nhà cung cấp</label>
+            <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600">
+              <option value="">Chọn nhà cung cấp</option>
+              {suppliers.map((item) => <option key={item._id} value={item._id}>{item.name} ({item.code})</option>)}
+            </select>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+            <h4 className="text-sm font-semibold text-slate-900 mb-4">Thêm sản phẩm vào phiếu</h4>
+            <div className="grid gap-4 sm:grid-cols-12 items-end">
+              <div className="sm:col-span-5">
+                <label className="mb-1.5 block text-xs font-medium text-slate-700">Sản phẩm</label>
+                <SearchableSelect
+                  placeholder="Tìm kiếm sản phẩm..."
+                  value={productId}
+                  onChange={setProductId}
+                  options={products.map((p) => ({ value: p._id, label: `${p.name} (${p.productCode})` }))}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="mb-1.5 block text-xs font-medium text-slate-700">Mã SKU</label>
+                <SearchableSelect
+                  disabled={!productId || variants.length === 0}
+                  placeholder="Chọn SKU..."
+                  value={variantId}
+                  onChange={setVariantId}
+                  options={variants.map((v) => ({ value: v._id, label: `${v.sku}${v.displayName ? ` - ${v.displayName}` : ""}` }))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-xs font-medium text-slate-700">Số lượng</label>
+                <input type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-xs font-medium text-slate-700">Giá nhập</label>
+                <input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
+              </div>
+              <div className="sm:col-span-1">
+                <button type="button" onClick={addLine} className="inline-flex h-[38px] w-full items-center justify-center rounded-md bg-cyan-700 text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-1" title="Thêm dòng"><PackagePlus className="h-5 w-5" /></button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold text-slate-900">Danh sách nhập ({lines.length} dòng)</h4>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Sản phẩm</th>
+                    <th className="px-4 py-3 font-medium">SKU</th>
+                    <th className="px-4 py-3 text-right font-medium">Số lượng</th>
+                    <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
+                    <th className="px-4 py-3 text-right font-medium">Thành tiền</th>
+                    <th className="px-4 py-3 text-right font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {lines.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => (
+                    <tr key={line.key}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900">{line.productName}</p>
+                        <p className="text-xs text-slate-500">{line.displayName}</p>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">{line.quantity}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">{money(line.unitCost)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button type="button" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa dòng"><Trash2 className="h-4 w-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Ghi chú phiếu nhập</label>
+            <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Nhập ghi chú hoặc thông tin tham chiếu..." className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" />
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-200 pt-5 mt-2">
+            <div className="flex items-center gap-2 text-lg text-slate-900">
+              <span className="font-medium text-slate-600 text-sm">Tổng cộng:</span>
+              <strong className="font-bold">{money(total)}</strong>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                Hủy bỏ
+              </button>
+              <button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-md bg-cyan-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 transition-colors disabled:opacity-50">
+                {saving ? "Đang xử lý..." : "Nhập kho"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4">
+      <div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-xl bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
   );
 }

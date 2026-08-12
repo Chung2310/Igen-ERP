@@ -1,4 +1,5 @@
 import mongoose, { Types } from "mongoose";
+import { runInTransaction } from "../../../config/database";
 import { BranchModel } from "../../../model/branch.model";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
@@ -143,29 +144,25 @@ export async function createReceipt(rawScope: Scope, input: any, actor: Actor) {
   if (!warehouse) throw new ReceivingValidationError("Không tìm thấy kho nhập.");
   const items = await resolveReceiptItems(scope.companyCode, normalizeItems(input?.items));
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-  return GoodsReceiptModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), receiptCode: await receiptCode(scope), supplierId, supplierName: supplier.name, status: "draft", receivedAt: input?.receivedAt ? new Date(input.receivedAt) : undefined, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, createdBy: actorId(actor), createdByName: actor.email || actor.id, version: 0 });
+  const receipt = await GoodsReceiptModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), receiptCode: await receiptCode(scope), supplierId, supplierName: supplier.name, status: "draft", receivedAt: input?.receivedAt ? new Date(input.receivedAt) : undefined, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, createdBy: actorId(actor), createdByName: actor.email || actor.id, version: 0 });
+  return confirmReceipt(rawScope, String(receipt._id), actor);
 }
 
 export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) {
   const scope = normalizeScope(rawScope);
   if (!Types.ObjectId.isValid(id)) throw new ReceivingValidationError("Phiếu nhập không hợp lệ.");
-  const session = await mongoose.startSession();
-  let result: any;
-  try {
-    await session.withTransaction(async () => {
-      const receipt: any = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "draft" }).session(session);
-      if (!receipt) {
-        const confirmed = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session).lean();
-        if (confirmed) { result = confirmed; return; }
-        throw new ReceivingValidationError("Phiếu nhập không thể xác nhận.");
-      }
-      const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: receipt.warehouseId, direction: "in", purpose: "purchase", sourceType: "goods-receipt", sourceId: String(receipt._id), sourceCode: receipt.receiptCode, idempotencyKey: `goods-receipt:${receipt._id}:confirm`, operatorName: actor.email || actor.id || "", items: receipt.items.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost, lineTotal: item.lineTotal })), reason: `Nhập hàng ${receipt.receiptCode}`, session, writeLegacyStockLog: true });
-      receipt.status = "confirmed"; receipt.confirmedBy = actorId(actor); receipt.confirmedByName = actor.email || actor.id; receipt.confirmedAt = new Date(); receipt.version += 1; await receipt.save({ session });
-      result = receipt.toObject();
-      void movement;
-    });
-  } finally { await session.endSession(); }
-  return result;
+  return runInTransaction(async (session) => {
+    const receipt: any = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "draft" }).session(session || null);
+    if (!receipt) {
+      const confirmed = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session || null).lean();
+      if (confirmed) return confirmed;
+      throw new ReceivingValidationError("Phiếu nhập không thể xác nhận hoặc không tồn tại.");
+    }
+    const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: receipt.warehouseId, direction: "in", purpose: "purchase", sourceType: "goods-receipt", sourceId: String(receipt._id), sourceCode: receipt.receiptCode, idempotencyKey: `goods-receipt:${receipt._id}:confirm`, operatorName: actor.email || actor.id || "", items: receipt.items.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost, lineTotal: item.lineTotal })), reason: `Nhập hàng ${receipt.receiptCode}`, session, writeLegacyStockLog: true });
+    receipt.status = "confirmed"; receipt.confirmedBy = actorId(actor); receipt.confirmedByName = actor.email || actor.id; receipt.confirmedAt = new Date(); receipt.version += 1; await receipt.save({ session });
+    void movement;
+    return receipt.toObject();
+  });
 }
 
 export async function cancelReceipt(rawScope: Scope, id: string, reason: unknown, actor: Actor) {
