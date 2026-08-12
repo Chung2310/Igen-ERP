@@ -16,6 +16,10 @@ function reportParams(scope: RetailScope, filters: RetailReportFilters) {
     params.from = filters.from;
     params.to = filters.to;
   }
+  for (const key of ["salespersonId", "productId", "sku", "category", "brand"] as const) {
+    const value = filters[key]?.trim();
+    if (value) params[key] = value;
+  }
 
   return params;
 }

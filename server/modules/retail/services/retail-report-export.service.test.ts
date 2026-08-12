@@ -13,6 +13,8 @@ import {
 } from "./retail-report-export.service";
 
 const model: RetailReportModel = {
+  products: [{ productId: "p1", sku: "=SKU", productName: "+Tea", category: "Drinks", brand: "North", netQuantity: 2, netSales: 100, profit: 40 }],
+  slowProducts: [{ productId: "p1", sku: "=SKU", productName: "+Tea", category: "Drinks", brand: "North", netQuantity: 2, netSales: 100, profit: 40 }],
   range: { from: "2026-08-09", to: "2026-08-10" },
   summary: {
     grossSales: 350,
@@ -90,7 +92,7 @@ function allSheetValues(workbook: XLSX.WorkBook): unknown[] {
   ).flat());
 }
 
-test("builds the six retail report worksheets in the required order", () => {
+test("builds the eight retail report worksheets in the required order", () => {
   const { workbook } = readWorkbook(false);
 
   assert.deepEqual(workbook.SheetNames, [
@@ -100,6 +102,8 @@ test("builds the six retail report worksheets in the required order", () => {
     "Thu ngân",
     "Ca bán hàng",
     "Công nợ",
+    "Sản phẩm bán chạy",
+    "Sản phẩm bán chậm",
   ]);
 });
 

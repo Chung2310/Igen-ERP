@@ -114,6 +114,13 @@ export function buildRetailReportWorkbook(
     ]),
   ]), "Công nợ");
 
+  const productRows = (rows: RetailReportModel["products"]): SpreadsheetCell[][] => [
+    ["Mã sản phẩm", "SKU", "Sản phẩm", "Danh mục", "Thương hiệu", "Số lượng", "Doanh thu", ...(options.includeProfit ? ["Lợi nhuận"] : [])],
+    ...rows.map((row) => [row.productId, row.sku, row.productName, row.category, row.brand, row.netQuantity, row.netSales, ...(options.includeProfit ? [row.profit] : [])]),
+  ];
+  XLSX.utils.book_append_sheet(workbook, sheet(productRows(model.products)), "Sản phẩm bán chạy");
+  XLSX.utils.book_append_sheet(workbook, sheet(productRows(model.slowProducts)), "Sản phẩm bán chậm");
+
   const branchCode = sanitizeFilenamePart(options.branchCode, "chi-nhanh");
   const from = sanitizeFilenamePart(model.range.from, "tu-ngay");
   const to = sanitizeFilenamePart(model.range.to, "den-ngay");

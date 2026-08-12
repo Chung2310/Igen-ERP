@@ -2,6 +2,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as invoiceService from "./retail-invoice.service";
 
+test("invoice PDF helpers map paper sizes and sanitize filenames", () => {
+  const invoicePdfPageSize = (invoiceService as any).invoicePdfPageSize;
+  const invoicePdfFilename = (invoiceService as any).invoicePdfFilename;
+  assert.equal(typeof invoicePdfPageSize, "function");
+  assert.equal(typeof invoicePdfFilename, "function");
+  assert.deepEqual(invoicePdfPageSize("A4"), "A4");
+  assert.deepEqual(invoicePdfPageSize("A5"), "A5");
+  assert.deepEqual(invoicePdfPageSize("80mm"), [226.77, 600]);
+  assert.equal(invoicePdfFilename('../HD-01\r\n"'), "HD-01.pdf");
+});
+
+test("invoice PDF renderer returns a Unicode PDF buffer", async () => {
+  const renderRetailInvoicePdf = (invoiceService as any).renderRetailInvoicePdf;
+  assert.equal(typeof renderRetailInvoicePdf, "function");
+  const result = await renderRetailInvoicePdf({
+    invoiceNo: "HD-HCM-202608-000001",
+    orderCode: "DH-HCM-202608-000001",
+    issuedAt: new Date("2026-08-12T01:00:00.000Z"),
+    snapshot: {
+      store: { legalName: "Công ty Igen", storeName: "Cửa hàng Igen", branchCode: "HCM", branchName: "Chi nhánh Hồ Chí Minh", branchAddress: "1 Nguyễn Huệ", branchPhone: "0901000000" },
+      customerName: "Nguyễn Văn A",
+      cashierName: "Thu ngân A",
+      items: [{ sku: "SKU-1", productName: "Áo", unit: "cái", quantity: 1, unitPrice: 100_000, discountAmount: 0, lineTotal: 100_000 }],
+      subtotal: 100_000, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 100_000,
+      payments: [{ method: "cash", amount: 100_000 }], amountInWords: "Một trăm nghìn đồng",
+    },
+  }, "A4");
+  assert.equal(result.filename, "HD-HCM-202608-000001.pdf");
+  assert.equal(result.buffer.subarray(0, 5).toString("ascii"), "%PDF-");
+  assert.ok(result.buffer.length > 1_000);
+});
+
 test("invoice snapshot contains printable transaction data without unit cost", () => {
   const buildRetailInvoiceSnapshot = (invoiceService as any).buildRetailInvoiceSnapshot;
   assert.equal(typeof buildRetailInvoiceSnapshot, "function");
@@ -17,7 +49,14 @@ test("invoice snapshot contains printable transaction data without unit cost", (
     shippingFee: 20_000,
     grandTotal: 111_800,
     payments: [{ method: "cash", amount: 111_800, tenderedAmount: 120_000, changeAmount: 8_200 }],
-  }, { id: "cashier-1", displayName: "Thu ngân A" });
+  }, { id: "cashier-1", displayName: "Thu ngân A" }, {
+    legalName: "Igen Technology Co., Ltd",
+    storeName: "Igen Store",
+    branchCode: "HCM",
+    branchName: "Ho Chi Minh",
+    branchAddress: "1 Nguyen Hue",
+    branchPhone: "0901000000",
+  });
 
   assert.equal(snapshot.taxRate, 8);
   assert.equal(snapshot.shippingFee, 20_000);
@@ -26,4 +65,12 @@ test("invoice snapshot contains printable transaction data without unit cost", (
   assert.equal(snapshot.payments[0].changeAmount, 8_200);
   assert.equal("unitCost" in snapshot.items[0], false);
   assert.equal("category" in snapshot.items[0], false);
+  assert.deepEqual(snapshot.store, {
+    legalName: "Igen Technology Co., Ltd",
+    storeName: "Igen Store",
+    branchCode: "HCM",
+    branchName: "Ho Chi Minh",
+    branchAddress: "1 Nguyen Hue",
+    branchPhone: "0901000000",
+  });
 });
