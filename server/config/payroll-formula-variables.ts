@@ -9,4 +9,4 @@ export const PAYROLL_FORMULA_VARIABLES: Record<PayrollFormulaVariableKey, { labe
   weekdayOvertimeHours: { label: "Giờ tăng ca ngày thường", unit: "hours" }, restDayOvertimeHours: { label: "Giờ tăng ca ngày nghỉ", unit: "hours" },
   holidayOvertimeHours: { label: "Giờ tăng ca ngày lễ", unit: "hours" }, tenureMonths: { label: "Thâm niên", unit: "months" },
 };
-export const isPayrollFormulaVariable = (value: string): value is PayrollFormulaVariableKey => value in PAYROLL_FORMULA_VARIABLES;
+export const isPayrollFormulaVariable = (value: string): value is PayrollFormulaVariableKey => value in PAYROLL_FORMULA_VARIABLES || /^custom\.[a-z][a-z0-9_]*$/.test(value);

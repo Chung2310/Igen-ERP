@@ -17,6 +17,7 @@ export type DetailedCalculationInput = DetailedPayrollInput & {
   deductions: number;
   adjustments: number;
   formulaApplications?: PayrollLineSnapshot["formulaApplications"];
+  periodInput?: PayrollLineSnapshot["periodInput"];
   /** Present once the company has an active payroll policy; drives the Vietnam formulas. */
   vietnam?: {
     policy: IPayrollPolicy;
@@ -95,6 +96,7 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       formulaVersion: vietnam ? vietnam.formulaVersion : "vietnam-payroll-1",
       warnings: vietnam ? vietnam.warnings.map((warning) => warning.code) : [],
       formulaApplications: input.formulaApplications,
+      periodInput: input.periodInput,
     };
   });
 
