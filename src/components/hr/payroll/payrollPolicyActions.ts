@@ -4,6 +4,6 @@ export function getPayrollPolicyActions(canManage: boolean, status: string): Pay
   if (!canManage) return [];
   if (status === "draft") return ["edit", "clone", "activate", "delete"];
   if (status === "active") return ["clone", "retire"];
-  if (status === "retired") return ["clone", "delete"];
+  if (status === "retired") return ["clone", "activate", "delete"];
   return [];
 }

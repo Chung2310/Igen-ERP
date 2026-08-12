@@ -2,6 +2,8 @@ import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
+import { DEFAULT_VIETNAM_PAYROLL_POLICY } from "../config/payroll-default-policy";
+import { CompanyModel } from "../model/company.model";
 import { PayrollOperationError } from "./payroll-run-operations.service";
 import { policyWindowsOverlap, replacementForPolicy, validatePolicyActivation, validatePolicyDefinition } from "./payroll-policy.service";
 
@@ -29,7 +31,30 @@ async function inTransaction<T>(operation: (session?: ClientSession) => Promise<
 const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 
 export async function listPayrollPolicies(companyCode: string) {
-  return PayrollPolicyModel.find({ companyCode }).sort({ effectiveFrom: -1 }).lean();
+  let policies: any[] = await PayrollPolicyModel.find({ companyCode }).sort({ effectiveFrom: -1 }).lean();
+  if (policies.length) return policies;
+  const company: any = await CompanyModel.findOne({ code: companyCode }).select("createdAt").lean();
+  if (!company) return [];
+  await ensureDefaultPayrollPolicy(companyCode, "system", company.createdAt);
+  policies = await PayrollPolicyModel.find({ companyCode }).sort({ effectiveFrom: -1 }).lean();
+  return policies;
+}
+
+export async function ensureDefaultPayrollPolicy(companyCode: string, actorId: string, effectiveFrom: Date | string) {
+  const existing: any = await PayrollPolicyModel.findOne({ companyCode }).lean();
+  if (existing) return existing;
+  const start = new Date(effectiveFrom);
+  const normalizedStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const { companyCode: _company, status: _status, createdBy: _creator, version: _version, ...definition } = DEFAULT_VIETNAM_PAYROLL_POLICY;
+  try {
+    return await PayrollPolicyModel.create({ ...definition, companyCode, status: "active", effectiveFrom: normalizedStart, createdBy: actorId, activatedBy: actorId, activatedAt: new Date() });
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      const raced: any = await PayrollPolicyModel.findOne({ companyCode }).lean();
+      if (raced) return raced;
+    }
+    throw error;
+  }
 }
 
 export async function createPayrollPolicy(companyCode: string, actorId: string, input: Record<string, any>) {
@@ -73,14 +98,15 @@ export async function activatePayrollPolicy(companyCode: string, policyId: strin
       }, session);
     }
 
+    const previousStatus = policy.status;
     const activated: any = await withSession(PayrollPolicyModel.findOneAndUpdate(
-      { _id: policyId, companyCode, status: "draft" },
-      { $set: { status: "active", activatedBy: actorId, activatedAt: new Date() } },
+      { _id: policyId, companyCode, status: previousStatus },
+      { $set: { status: "active", activatedBy: actorId, activatedAt: new Date() }, $unset: { retiredBy: 1 } },
       { new: true, session },
     ), session).lean();
     if (!activated) raise({ code: "PAYROLL_POLICY_INVALID_STATE", message: "The policy changed before it could be activated", status: 409 });
     await auditPolicy(companyCode, actorId, {
-      operation: "activate_policy", policyId, before: { status: "draft" }, after: { status: "active" }, replacedPolicyIds,
+      operation: "activate_policy", policyId, before: { status: previousStatus }, after: { status: "active" }, replacedPolicyIds,
     }, session);
     return activated;
   });

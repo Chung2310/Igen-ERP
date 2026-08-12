@@ -70,8 +70,9 @@ describe("policy activation", () => {
       .toEqual(expect.objectContaining({ code: "PAYROLL_POLICY_OVERLAP", status: 409 }));
   });
 
-  it("refuses to activate a policy that is not a draft", () => {
-    expect(validatePolicyActivation({ ...draft, status: "retired" }, [])?.code).toBe("PAYROLL_POLICY_INVALID_STATE");
+  it("allows a retired policy to be activated again", () => {
+    expect(validatePolicyActivation({ ...draft, status: "retired" }, [])).toBeNull();
+    expect(validatePolicyActivation({ ...draft, status: "active" }, [])?.code).toBe("PAYROLL_POLICY_INVALID_STATE");
   });
 
   it("reports a missing policy as not found", () => {

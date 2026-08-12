@@ -13,7 +13,7 @@ const icons = { edit: Pencil, clone: Copy, activate: Power, retire: PowerOff, de
 type Editor = { mode: "create" | "edit" | "clone"; policy?: any };
 type Confirmation = { action: "replace" | "retire" | "delete"; policy: any };
 
-export function PayrollPolicyManager({ canManage }: { canManage: boolean }) {
+export function PayrollPolicyManager({ canManage, onPoliciesChanged }: { canManage: boolean; onPoliciesChanged?: () => void | Promise<void> }) {
   const [items, setItems] = useState<any[]>([]);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [saving, setSaving] = useState(false);
@@ -30,7 +30,7 @@ export function PayrollPolicyManager({ canManage }: { canManage: boolean }) {
       else if (editor?.mode === "clone") await payrollService.clonePolicy(editor.policy._id, { code: definition.code, name: definition.name, definition });
       else await payrollService.createPolicy(definition);
       toast.success(editor?.mode === "edit" ? "Đã cập nhật bản nháp" : editor?.mode === "clone" ? "Đã nhân bản công thức" : "Đã tạo công thức nháp");
-      setEditor(null); await load();
+      setEditor(null); await load(); await onPoliciesChanged?.();
     } catch (error) { toast.error(error instanceof Error ? error.message : "Không thể lưu công thức lương"); }
     finally { setSaving(false); }
   };
@@ -41,7 +41,7 @@ export function PayrollPolicyManager({ canManage }: { canManage: boolean }) {
     if (action === "retire" || action === "delete") { setConfirmation({ action, policy }); setConfirmationError(""); return; }
     try {
       await payrollService.activatePolicy(policy._id);
-      toast.success("Đã áp dụng công thức lương"); await load();
+      toast.success("Đã áp dụng công thức lương"); await load(); await onPoliciesChanged?.();
     } catch (error) {
       if ((error as { code?: string })?.code === "PAYROLL_POLICY_OVERLAP") { setConfirmation({ action: "replace", policy }); setConfirmationError(""); return; }
       toast.error(error instanceof Error ? error.message : "Không thể áp dụng công thức lương");
@@ -56,7 +56,7 @@ export function PayrollPolicyManager({ canManage }: { canManage: boolean }) {
       else if (confirmation.action === "retire") await payrollService.retirePolicy(confirmation.policy._id);
       else await payrollService.deletePolicy(confirmation.policy._id);
       toast.success(confirmation.action === "replace" ? "Đã thay thế công thức đang áp dụng" : confirmation.action === "retire" ? "Đã ngưng áp dụng công thức" : "Đã xóa công thức");
-      setConfirmation(null); await load();
+      setConfirmation(null); await load(); await onPoliciesChanged?.();
     } catch (error) { setConfirmationError(error instanceof Error ? error.message : "Không thể cập nhật công thức lương"); }
     finally { setConfirming(false); }
   };

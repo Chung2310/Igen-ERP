@@ -17,7 +17,7 @@ import { readPayrollLine } from "../service/payroll-line-read.service";
 import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
 import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
-import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
 import { countDependents, resolveTaxMethod, selectProfileForPeriod } from "../service/payroll-employee-input.service";
@@ -207,6 +207,12 @@ export const payrollController = {
         code: "PAYROLL_INVALID_TRANSITION",
         message: "Chỉ có thể cập nhật bảng lương khi kỳ đang ở trạng thái Nháp.",
       });
+    }
+    const periodKey = req.params.periodKey;
+    const periodEnd = new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const policies: any[] = await PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean();
+    if (!resolvePersistedPayrollPolicy(policies as any[], periodEnd)) {
+      return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
     }
     try {
       const run = await processPayrollPeriod({
@@ -489,7 +495,8 @@ export const payrollController = {
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
     ]);
-    const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+    const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+    if (!policy) return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
     const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
       const key = String(item.employeeId);
       map.set(key, [...(map.get(key) ?? []), item]);
@@ -701,7 +708,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);
@@ -810,7 +818,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);
