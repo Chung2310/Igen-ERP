@@ -198,6 +198,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.2",
     changeFrequency: "weekly",
   },
+  "TÀI CHÍNH": {
+    title: "Tài chính - Quản lý công nợ và nhắc nợ",
+    description:
+      "Phân hệ tài chính trên iGen ERP hỗ trợ theo dõi công nợ phải thu, ghi nhận thanh toán và quản lý lịch nhắc nợ theo chi nhánh.",
+    keywords:
+      "quản lý công nợ, công nợ phải thu, nhắc nợ, thanh toán, ERP tài chính, iGen ERP",
+    path: "/tai-chinh",
+    robots: "noindex, nofollow",
+    priority: "0.2",
+    changeFrequency: "daily",
+  },
   "PHÂN TÍCH & BÁO CÁO": {
     title: "Phân tích & Báo cáo - Doanh thu và hiệu quả kinh doanh",
     description:

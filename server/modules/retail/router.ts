@@ -7,8 +7,10 @@ import { retailInvoiceRoutes } from "./routes/retail-invoice.routes";
 import { retailReportRoutes } from "./routes/retail-report.routes";
 import { retailReceivableRoutes } from "./routes/retail-receivable.routes";
 import { retailDebtReminderRoutes } from "./routes/retail-debt-reminder.routes";
+import { registerRetailFinanceSettlementConsumer } from "./consumers/finance-settlement.consumer";
 
 export const retailRouter = Router();
+registerRetailFinanceSettlementConsumer();
 retailRouter.use("/retail/settings", retailSettingsRoutes);
 retailRouter.use("/retail/customers", retailCustomerRoutes);
 retailRouter.use("/retail/shifts", cashierShiftRoutes);
