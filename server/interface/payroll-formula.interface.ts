@@ -1,6 +1,6 @@
 export type PayrollFormulaStatus = "draft" | "active" | "retired";
 export type PayrollFormulaBucket = "allowance" | "bonus" | "deduction" | "adjustment";
-export type PayrollFormulaVariableKey = "monthlySalary" | "attendanceSalary" | "standardWorkDays" | "actualWorkDays" | "standardWorkHours" | "actualWorkHours" | "shortageMinutes" | "lateMinutes" | "earlyLeaveMinutes" | "paidLeaveDays" | "weekdayOvertimeHours" | "restDayOvertimeHours" | "holidayOvertimeHours" | "tenureMonths";
+export type PayrollFormulaVariableKey = "monthlySalary" | "attendanceSalary" | "standardWorkDays" | "actualWorkDays" | "standardWorkHours" | "actualWorkHours" | "shortageMinutes" | "lateMinutes" | "earlyLeaveMinutes" | "paidLeaveDays" | "weekdayOvertimeHours" | "restDayOvertimeHours" | "holidayOvertimeHours" | "tenureMonths" | `custom.${string}`;
 export type PayrollFormulaExpression =
   | { type: "constant"; value: number }
   | { type: "variable"; key: PayrollFormulaVariableKey }

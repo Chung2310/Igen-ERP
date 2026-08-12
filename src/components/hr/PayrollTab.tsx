@@ -11,6 +11,8 @@ import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
 import { getPayrollProcessingAction, hasActivePolicyForMonth } from "./payroll/payrollProcessingAction";
 import { PayrollPolicyManager } from "./payroll/PayrollPolicyManager";
 import { PayrollFormulaLibrary } from "./payroll/PayrollFormulaLibrary";
+import { PayrollPeriodInputsTable } from "./payroll/PayrollPeriodInputsTable";
+import { PayrollCustomVariableManager } from "./payroll/PayrollCustomVariableManager";
 
 type SortDir = "asc" | "desc";
 
@@ -301,6 +303,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
+    {canManage && <PayrollPeriodInputsTable period={period} employees={(results.length ? results : run?.lines ?? []).map((item:any)=>({employeeId:item.employeeId,employeeName:item.employeeName,monthlySalary:item.monthlySalary??item.calculation?.monthlySalary,workedDays:item.workedDays??item.calculation?.workedDays,workedHours:(item.workedMinutes??item.calculation?.workedMinutes??0)/60,allowances:item.calculation?.allowances,bonuses:item.calculation?.bonuses,deductions:item.calculation?.otherDeductions}))} runStatus={run?.status} onChanged={()=>void reload()} />}
+    {canManage && <PayrollCustomVariableManager />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex justify-between items-center">

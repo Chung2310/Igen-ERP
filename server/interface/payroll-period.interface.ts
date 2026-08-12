@@ -36,6 +36,7 @@ export interface IPayrollRun extends Document {
   rejectionReason?: string;
   supplementalReason?: string;
   status: PayrollPeriodStatus;
+  needsInputRefresh?: boolean;
   lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];
   createdBy: string;
   approvedBy?: string;
