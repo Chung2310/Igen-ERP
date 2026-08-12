@@ -28,6 +28,7 @@ export function classifyReminderFailure(error: any): "temporary" | "permanent" {
   const responseCode = Number(error?.responseCode || 0);
   return responseCode >= 500 && responseCode < 600 ? "permanent" : "temporary";
 }
+export function reminderDeliveryChannels(emailEnabled: boolean, email: unknown): Array<"notification" | "email"> { return emailEnabled && String(email || "").trim() ? ["notification", "email"] : ["notification"]; }
 
 type OverdueOrder = { _id: unknown; orderCode?: string; customerName?: string; dueAmount: number; dueDate: Date };
 
@@ -95,6 +96,11 @@ export class RetailDebtReminderService {
           else {
             if (delivery?._id) await RetailDebtReminderDeliveryModel.updateOne({ _id: delivery._id }, { $set: { status: "failed", failureType: classifyReminderFailure(error), error: String(error?.message || error) }, $inc: { attempt: 1 } });
           }
+        }
+        if (reminderDeliveryChannels(settings.emailEnabled, (recipient as any).email).includes("email")) {
+          try {
+            await RetailDebtReminderDeliveryModel.create({ ...scope, runId: run._id, orderId: String(order._id), recipientId: String(recipient._id), channel: "email", status: "queued", maxAttempts: settings.maxAttempts, payload: deliveryPayload, nextAttemptAt: now });
+          } catch (error: any) { if (error?.code !== 11000) throw error; }
         }
       }
     }

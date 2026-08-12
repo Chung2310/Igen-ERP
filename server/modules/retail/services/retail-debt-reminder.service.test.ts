@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDebtReminder, vietnamBusinessDate, buildReminderRunSnapshot, summarizeReminderDeliveries, classifyReminderFailure, reminderCycleKey } from "./retail-debt-reminder.service";
+import { buildDebtReminder, vietnamBusinessDate, buildReminderRunSnapshot, summarizeReminderDeliveries, classifyReminderFailure, reminderCycleKey, reminderDeliveryChannels } from "./retail-debt-reminder.service";
 import { RetailDebtReminderRunModel } from "../models/retail-debt-reminder-run.model";
 import { RetailDebtReminderDeliveryModel } from "../models/retail-debt-reminder-delivery.model";
 
@@ -29,6 +29,12 @@ test("cycle key follows the configured Vietnam-hour frequency", () => {
 
 test("delivery statistics distinguish queued sent failed and duplicate", () => {
   assert.deepEqual(summarizeReminderDeliveries(["queued", "sent", "sent", "failed", "duplicate"] as any), { total: 5, queued: 1, sent: 2, failed: 1, duplicates: 1 });
+});
+
+test("email delivery is queued only when enabled and recipient has email", () => {
+  assert.deepEqual(reminderDeliveryChannels(true, "manager@example.com"), ["notification", "email"]);
+  assert.deepEqual(reminderDeliveryChannels(true, ""), ["notification"]);
+  assert.deepEqual(reminderDeliveryChannels(false, "manager@example.com"), ["notification"]);
 });
 
 test("reminder failures distinguish temporary and permanent delivery errors", () => {
