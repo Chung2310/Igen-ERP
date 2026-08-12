@@ -15,6 +15,8 @@ export const DEFAULT_RETAIL_SETTINGS: RetailSettingsValues = Object.freeze({
   varianceReasonThreshold: 0,
   orderPrefix: "DH",
   invoicePrefix: "HD",
+  invoicePaperSize: "A4",
+  invoiceTemplate: "standard",
 });
 
 const percent = (value: unknown, field: string): number => {
@@ -59,6 +61,14 @@ export function validateRetailSettingsInput(input: Partial<RetailSettingsValues>
   }
   if (input.orderPrefix !== undefined) output.orderPrefix = prefix(input.orderPrefix, "orderPrefix");
   if (input.invoicePrefix !== undefined) output.invoicePrefix = prefix(input.invoicePrefix, "invoicePrefix");
+  if (input.invoicePaperSize !== undefined) {
+    if (!["A4", "A5", "80mm"].includes(input.invoicePaperSize)) throw new Error("invoicePaperSize is invalid");
+    output.invoicePaperSize = input.invoicePaperSize;
+  }
+  if (input.invoiceTemplate !== undefined) {
+    if (input.invoiceTemplate !== "standard") throw new Error("invoiceTemplate is invalid");
+    output.invoiceTemplate = input.invoiceTemplate;
+  }
   return output;
 }
 

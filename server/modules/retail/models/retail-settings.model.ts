@@ -11,6 +11,8 @@ const RetailSettingsSchema = new Schema<IRetailSettings>({
   varianceReasonThreshold: { type: Number, min: 0, default: 0 },
   orderPrefix: { type: String, required: true, default: "DH", trim: true, uppercase: true },
   invoicePrefix: { type: String, required: true, default: "HD", trim: true, uppercase: true },
+  invoicePaperSize: { type: String, enum: ["A4", "A5", "80mm"], required: true, default: "A4" },
+  invoiceTemplate: { type: String, enum: ["standard"], required: true, default: "standard" },
 }, { timestamps: true });
 
 RetailSettingsSchema.index({ companyCode: 1, branchId: 1 }, { unique: true });

@@ -39,6 +39,8 @@ test("settings validation accepts approved boundaries and normalizes prefixes", 
     varianceReasonThreshold: 0,
     orderPrefix: " dh ",
     invoicePrefix: "hd",
+    invoicePaperSize: "80mm",
+    invoiceTemplate: "standard",
   }), {
     allowNegativeStock: true,
     maxDiscountPercent: 100,
@@ -46,7 +48,14 @@ test("settings validation accepts approved boundaries and normalizes prefixes", 
     varianceReasonThreshold: 0,
     orderPrefix: "DH",
     invoicePrefix: "HD",
+    invoicePaperSize: "80mm",
+    invoiceTemplate: "standard",
   });
+});
+
+test("invoice print settings default to A4 and the standard template", () => {
+  assert.equal(DEFAULT_RETAIL_SETTINGS.invoicePaperSize, "A4");
+  assert.equal(DEFAULT_RETAIL_SETTINGS.invoiceTemplate, "standard");
 });
 
 test("settings validation rejects unsafe values", () => {
@@ -57,8 +66,10 @@ test("settings validation rejects unsafe values", () => {
     { varianceReasonThreshold: 1.2 },
     { orderPrefix: "D H" },
     { invoicePrefix: "TOO-LONG-PREFIX" },
+    { invoicePaperSize: "letter" },
+    { invoiceTemplate: "compact" },
   ]) {
-    assert.throws(() => validateRetailSettingsInput(input));
+    assert.throws(() => validateRetailSettingsInput(input as any));
   }
 });
 

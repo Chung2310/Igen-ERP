@@ -17,7 +17,14 @@ test("invoice snapshot contains printable transaction data without unit cost", (
     shippingFee: 20_000,
     grandTotal: 111_800,
     payments: [{ method: "cash", amount: 111_800, tenderedAmount: 120_000, changeAmount: 8_200 }],
-  }, { id: "cashier-1", displayName: "Thu ngân A" });
+  }, { id: "cashier-1", displayName: "Thu ngân A" }, {
+    legalName: "Igen Technology Co., Ltd",
+    storeName: "Igen Store",
+    branchCode: "HCM",
+    branchName: "Ho Chi Minh",
+    branchAddress: "1 Nguyen Hue",
+    branchPhone: "0901000000",
+  });
 
   assert.equal(snapshot.taxRate, 8);
   assert.equal(snapshot.shippingFee, 20_000);
@@ -26,4 +33,12 @@ test("invoice snapshot contains printable transaction data without unit cost", (
   assert.equal(snapshot.payments[0].changeAmount, 8_200);
   assert.equal("unitCost" in snapshot.items[0], false);
   assert.equal("category" in snapshot.items[0], false);
+  assert.deepEqual(snapshot.store, {
+    legalName: "Igen Technology Co., Ltd",
+    storeName: "Igen Store",
+    branchCode: "HCM",
+    branchName: "Ho Chi Minh",
+    branchAddress: "1 Nguyen Hue",
+    branchPhone: "0901000000",
+  });
 });
