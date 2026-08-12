@@ -52,6 +52,9 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: "resource:manage", label: "Quản lý tài nguyên & kết nối Google Drive", group: "Tài nguyên" },
   { code: "retail:operate", label: "Vận hành bán lẻ", group: "Bán lẻ" },
   { code: "retail:manager", label: "Quản lý bán lẻ", group: "Bán lẻ" },
+  { code: "receivable:read", label: "Xem công nợ", group: "Tài chính" },
+  { code: "receivable:collect", label: "Thu tiền công nợ", group: "Tài chính" },
+  { code: "receivable:adjust", label: "Điều chỉnh công nợ", group: "Tài chính", description: "Ghi điều chỉnh, xóa nợ và đảo bút toán; mọi thao tác cần lý do và audit." },
   { code: "company-email:manage", label: "Quản lý email chúc mừng", group: "Nhân sự" },
   { code: RECRUITMENT_PERMISSION, label: "Quản lý tuyển dụng", group: "Nhân sự" },
 ];

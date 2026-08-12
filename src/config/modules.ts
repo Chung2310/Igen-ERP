@@ -2,9 +2,9 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate", "retail"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate", "retail", "finance"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail") as Exclude<ModuleKey, "retail">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   hr: "Nhân sự",
@@ -16,6 +16,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   customer: "Quản lý khách hàng",
   candidate: "Quản lý ứng viên",
   retail: "Bán lẻ & POS",
+  finance: "Tài chính",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -28,6 +29,7 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   customer: "QUẢN LÝ KHÁCH HÀNG",
   candidate: "QUẢN LÝ ỨNG VIÊN",
   retail: "BÁN LẺ",
+  finance: "TÀI CHÍNH",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
@@ -40,6 +42,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "QUẢN LÝ ỨNG VIÊN": "candidate",
   "BÁN LẺ": "retail",
+  "TÀI CHÍNH": "finance",
 };
 
 /**
@@ -58,6 +61,7 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "QUẢN LÝ ỨNG VIÊN": ["candidate:read", "candidate:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
   "BÁN LẺ": ["retail:operate", "retail:manager"],
+  "TÀI CHÍNH": ["receivable:read", "receivable:collect", "receivable:adjust"],
   "TRÒ CHUYỆN": ["chat:read"],
 };
 
@@ -94,7 +98,7 @@ export const HIDE_AI_AUTO_REPLY = true;
  * Thiếu dữ liệu (company cũ) → bật tất cả.
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
-  if (key === "retail") return Boolean(enabledModules?.includes("retail"));
+  if (key === "retail" || key === "finance") return Boolean(enabledModules?.includes(key));
   if (!enabledModules || enabledModules.length === 0) return true;
   return enabledModules.includes(key);
 }
