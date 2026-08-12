@@ -26,7 +26,9 @@ router.use(authMiddleware);
 
 router.post("/", requireManage, validate(createStudentSchema), StudentController.create);
 router.post("/bulk", requireManage, StudentController.bulkCreate);
+router.post("/bulk-preview", requireManage, StudentController.previewBulk);
 router.post("/bulk-delete", requireManage, StudentController.bulkDelete);
+router.post("/bulk-delete-preview", requireManage, StudentController.previewBulkDelete);
 router.get("/", StudentController.getList);
 router.get("/:id/learning-history", validate(idParamSchema, "params"), StudentController.getLearningHistory);
 router.get("/:id", validate(idParamSchema, "params"), StudentController.getDetail);
