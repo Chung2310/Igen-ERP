@@ -15,4 +15,21 @@ export const retailReceivablesApi = {
     const response = await apiFetch<{ success: true; data: RetailReceivableEntry }>(`/retail/receivables/${entryId}/reversal`, { method: "POST", params: params(scope), body: JSON.stringify({ reason }) });
     return response.data;
   },
+  async latestReconciliation(scope: RetailScope) {
+    const response = await apiFetch<{ success: true; data: RetailReceivableReconciliation | null }>("/retail/receivables/reconciliations/latest", { params: params(scope) });
+    return response.data;
+  },
+  async reconcile(scope: RetailScope) {
+    const response = await apiFetch<{ success: true; data: RetailReceivableReconciliation }>("/retail/receivables/reconciliations", { method: "POST", params: params(scope) });
+    return response.data;
+  },
 };
+
+export interface RetailReceivableReconciliation {
+  _id: string;
+  orderTotal: number;
+  ledgerTotal: number;
+  differenceTotal: number;
+  createdAt: string;
+  differences: Array<{ orderId: string; snapshotDue: number; ledgerDue: number; difference: number }>;
+}
