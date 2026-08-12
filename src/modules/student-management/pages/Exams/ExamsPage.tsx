@@ -586,7 +586,8 @@ function ExamProgressionModal({ exam, students, batches, onClose }: { exam: Exam
   const [saving, setSaving] = React.useState(false);
   const resultFor = (studentId: string) => {
     const entry = exam.results?.find((result) => result.studentId === studentId);
-    if (entry?.outcome) return entry.outcome;
+    // "Chưa có" là giá trị khởi tạo của kỳ thi, không được che mất điểm vừa lưu.
+    if (entry?.outcome === "Đậu" || entry?.outcome === "Trượt") return entry.outcome;
     if (typeof entry?.score === "number") return entry.score >= (exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)) ? "Đậu" : "Trượt";
     return students.find((student) => student.id === studentId)?.exams?.find((entry) => entry.id === exam.id)?.result?.overall || "Chưa có";
   };
@@ -623,9 +624,10 @@ function ExamProgressionModal({ exam, students, batches, onClose }: { exam: Exam
     finally { setSaving(false); }
   };
 
+  const scoredCount = (exam.results || []).filter((result) => typeof result.score === "number" || result.outcome === "Đậu" || result.outcome === "Trượt").length;
   return <ErpModal title="Chuyển lộ trình tiếp theo" onClose={onClose} maxWidth="max-w-3xl">
     <p className="text-sm text-slate-500">Lớp nguồn vẫn giữ nguyên trạng thái hoạt động. Chỉ các học viên được chọn mới được xếp vào lớp của khóa học kế tiếp.</p>
-    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{exam.results?.length || 0}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
+    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{scoredCount}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
     {loading ? <p className="py-6 text-center text-sm text-slate-500">Đang kiểm tra lộ trình...</p> : !progression?.targetStep ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Lớp này chưa được gắn lộ trình hoặc đang ở chặng cuối nên chưa có khóa học tiếp theo.</p> : <>
       <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800">Chặng kế tiếp: <b>{progression.targetStep.order}</b>. Chọn lớp mở cho khóa học này và các học viên đậu cần chuyển.</div>
       <select value={targetBatchId} onChange={(event) => setTargetBatchId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Chọn lớp khóa học tiếp theo</option>{targetBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} · {batch.courseTitle} ({batch.learnerIds.length}/{batch.maxLearners || "∞"})</option>)}</select>
