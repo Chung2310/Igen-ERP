@@ -11,7 +11,6 @@ import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollOperationJobModel } from "../model/payroll-operation-job.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollRunScopeReservationModel } from "../model/payroll-run-scope-reservation.model";
-import { assertPayrollTransition } from "./payroll-run-state.service";
 
 export interface PayrollOperationScope {
   companyCode: string;
@@ -370,11 +369,10 @@ export async function lockAttendance(
       throw new PayrollOperationError("PAYROLL_ATTENDANCE_NOT_SYNCED", "Synchronize attendance before locking", 409);
     }
 
-    assertPayrollTransition(run.status, "attendance_locked");
     const updateOptions = { new: true, runValidators: true, ...(session && { session }) };
     const updated: any = await PayrollRunModel.findOneAndUpdate(
       { _id: runId, ...scope, status: "draft", version: expectedVersion },
-      { $set: { status: "attendance_locked" }, $inc: { version: 1 } },
+      { $inc: { version: 1 } },
       updateOptions,
     );
     if (!updated) {

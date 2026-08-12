@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { requirePermission } from "../../../middleware/auth";
+import { cashierShiftController } from "../controllers/cashier-shift.controller";
+import { RETAIL_MANAGER_PERMISSION, RETAIL_OPERATE_PERMISSION } from "../permissions";
+export const cashierShiftRoutes = Router(); const operate = requirePermission([RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any;
+cashierShiftRoutes.get("/current", operate, cashierShiftController.current as any);
+cashierShiftRoutes.get("/", operate, cashierShiftController.list as any);
+cashierShiftRoutes.get("/:id", operate, cashierShiftController.detail as any);
+cashierShiftRoutes.post("/open", operate, cashierShiftController.open as any);
+cashierShiftRoutes.post("/:id/cash-movements", operate, cashierShiftController.movement as any);
+cashierShiftRoutes.post("/:id/close", operate, cashierShiftController.close as any);
+cashierShiftRoutes.post("/:id/approve", requirePermission(RETAIL_MANAGER_PERMISSION) as any, cashierShiftController.approve as any);

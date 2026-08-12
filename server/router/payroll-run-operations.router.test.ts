@@ -416,7 +416,7 @@ describe("payroll run operations", () => {
       }] },
     }));
     mocks.snapshotCreate.mockResolvedValue({ _id: "snapshot-a", runId: "run-a" });
-    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "attendance_locked", version: 2 });
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "draft", version: 2 });
 
     const result = await lockAttendance(scope, "run-a", "actor-a", 1);
 
@@ -426,7 +426,7 @@ describe("payroll run operations", () => {
     }));
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, status: "draft", version: 1 },
-      { $set: { status: "attendance_locked" }, $inc: { version: 1 } },
+      { $inc: { version: 1 } },
       expect.objectContaining({ new: true, runValidators: true }),
     );
     expect(result.run.version).toBe(2);
@@ -483,7 +483,7 @@ describe("payroll run operations", () => {
         }),
       };
     });
-    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "attendance_locked", version: 2 });
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "draft", version: 2 });
     mocks.snapshotCreate.mockImplementation(async (value) => ({ ...(Array.isArray(value) ? value[0] : value), _id: "snapshot-a" }));
 
     await lockAttendance(scope, "run-a", "actor-a", 1);
@@ -533,8 +533,7 @@ describe("operational payroll controller and routes", () => {
       "POST /runs/:id/calculate",
       "POST /runs/:id/recalculate",
       "POST /runs/:id/review",
-      "POST /runs/:id/approve",
-      "POST /runs/:id/reject",
+      "POST /runs/:id/reopen",
       "POST /runs/:id/close",
       "GET /runs/:id/audit",
     ]));

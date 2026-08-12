@@ -32,8 +32,15 @@ const StockLogSchema = new Schema<IStockLog>({
   status: { type: String, enum: ["Thành công", "Đang xử lý", "Đang chờ", "Hoàn thành"], default: "Thành công" },
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
+  refType: { type: String, enum: ["retail-order", "goods-receipt", "sales-return", "supplier-return"], index: true },
+  refId: { type: String, index: true },
+  idempotencyKey: { type: String, index: true },
 });
 
 StockLogSchema.index({ companyCode: 1, type: 1, createdAt: 1 });
+StockLogSchema.index(
+  { companyCode: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
+);
 
 export const StockLogModel = model<IStockLog>("StockLog", StockLogSchema);

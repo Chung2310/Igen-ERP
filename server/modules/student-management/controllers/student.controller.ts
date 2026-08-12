@@ -26,6 +26,30 @@ async function resolveActorName(uid: string, fallbackEmail?: string): Promise<st
 }
 
 export class StudentController {
+  static async previewBulk(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      let ownerId: string | string[];
+      if (req.user!.role === "superadmin") {
+        const companyCode = req.query.companyCode || req.query.centerId || req.body.companyCode || req.body.centerId;
+        if (!companyCode || typeof companyCode !== "string") {
+          return res.status(400).json({ success: false, error: "Vui long chon cong ty." });
+        }
+        ownerId = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
+      } else {
+        ownerId = await getCenterOwnerIds(req.user!);
+      }
+
+      const students = req.body.students;
+      if (!Array.isArray(students)) {
+        return res.status(400).json({ success: false, error: "Du lieu hoc vien khong hop le." });
+      }
+      const result = await StudentService.previewBulkStudents(ownerId, students, req.user!.branchId);
+      res.json({ success: true, ...result });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async getLearningHistory(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -169,19 +193,38 @@ export class StudentController {
   static async bulkDelete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const { ids } = req.body;
+      const ids = req.body.ids || req.body.studentIds;
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
       }
-      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
+      const result = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
       const companyCode = req.user!.companyCode || req.user!.centerId;
-      await Promise.all(ids.flatMap((id: string) => [
+      await Promise.all(result.deletedIds.flatMap((id: string) => [
         resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", id),
         resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", id),
         resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", id),
         resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", id),
       ]));
-      res.json({ success: true, message: `Da xoa thanh cong ${deletedCount} hoc vien.`, deletedCount });
+      res.json({ success: true, message: `Da xoa thanh cong ${result.deletedCount} hoc vien.`, ...result });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
+  static async previewBulkDelete(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const ids = req.body.ids || req.body.studentIds;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
+      }
+      const impact = await StudentService.getDeletionImpact(ownerId, ids, req.user!.branchId);
+      res.json({
+        success: true,
+        ...impact,
+        deletableCount: impact.deletableIds.length,
+        blockedCount: impact.blockedIds.length,
+      });
     } catch (error: unknown) {
       next(error);
     }

@@ -35,6 +35,7 @@ type StockLogPanelProps = {
   onUpdateTransaction: (payload: DraftPayload) => Promise<void>;
   onUpdateStatus?: (logId: string, status: TransactionStatus) => Promise<void>;
   onDeleteTransaction?: (logId: string) => Promise<void>;
+  readOnly?: boolean;
 };
 
 function formatNumber(value: number) {
@@ -98,6 +99,7 @@ export function StockLogPanel({
   onUpdateTransaction,
   onUpdateStatus,
   onDeleteTransaction,
+  readOnly = false,
 }: StockLogPanelProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -280,7 +282,7 @@ export function StockLogPanel({
 
           {/* ── Hành động ── */}
           <div className="flex shrink-0 items-center gap-2">
-            <button
+            {!readOnly && <button
               type="button"
               onClick={onImportExcel}
               disabled={isImporting}
@@ -288,15 +290,15 @@ export function StockLogPanel({
             >
               <Upload className="h-3.5 w-3.5" />
               {isImporting ? "Đang nhập..." : "Nhập Excel"}
-            </button>
-            <button
+            </button>}
+            {!readOnly && <button
               type="button"
               onClick={onExportExcel}
               className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
             >
               <Download className="h-3.5 w-3.5" />
               Xuất Excel
-            </button>
+            </button>}
             <button
               type="button"
               onClick={openCreateModal}
@@ -353,7 +355,7 @@ export function StockLogPanel({
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                       <span>{log.operatorName}</span>
                       <span>{log.createdAt}</span>
-                      {onUpdateStatus ? (
+                      {!readOnly && onUpdateStatus ? (
                         <select
                           value={status}
                           disabled={statusUpdatingId === log.id}
@@ -389,14 +391,14 @@ export function StockLogPanel({
                     <span className="ml-1 text-lg font-semibold text-gray-400">sp</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
+                    {!readOnly && <button
                       type="button"
                       onClick={() => openEditModal(log)}
                       className="flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100"
                     >
                       <Pencil className="h-4 w-4" />
                       Sửa phiếu
-                    </button>
+                    </button>}
                     <button
                       type="button"
                       onClick={() => {
@@ -408,7 +410,7 @@ export function StockLogPanel({
                       <Eye className="h-4 w-4" />
                       Xem chi tiết
                     </button>
-                    {onDeleteTransaction && (
+                    {!readOnly && onDeleteTransaction && (
                       <button
                         type="button"
                         onClick={() => onDeleteTransaction(log.id)}

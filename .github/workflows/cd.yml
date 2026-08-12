@@ -19,6 +19,8 @@ jobs:
     name: Step 1 - Lint & Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NODE_OPTIONS: --max-old-space-size=1536
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +31,7 @@ jobs:
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --prefer-offline --no-progress
 
       - name: Type check
         run: yarn typecheck
@@ -95,6 +97,13 @@ jobs:
           # lần build sau nhảy qua bước cài node_modules + có thể tái dùng layer build
           cache-from: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      # Dọn dẹp dung lượng Docker ngay sau khi build/push image xong
+      - name: Cleanup build cache
+        if: always()
+        run: |
+          docker builder prune -f
+          docker image prune -f
 
   # BƯỚC 3: DEPLOY VPS (Chỉ chạy khi Step 2 thành công)
   deploy:

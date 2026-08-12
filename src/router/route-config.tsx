@@ -62,6 +62,14 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../modules/worker-management/WorkerWorkspace")),
   },
   {
+    tab: "BÁN LẺ",
+    component: lazy(() => import("../modules/retail/RetailTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:operate" || permission === "retail:manager")),
+  },
+  {
     tab: "QUẢN LÝ KHÁCH HÀNG",
     component: lazy(() => import("../modules/customer-management/CustomerManagementTab")),
   },

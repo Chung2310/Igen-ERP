@@ -187,6 +187,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "BÁN LẺ": {
+    title: "Bán lẻ & POS - Quản lý bán hàng tại quầy",
+    description:
+      "Phân hệ bán lẻ trên iGen ERP hỗ trợ quản lý khách hàng, cấu hình bán hàng tại quầy và vận hành POS theo chi nhánh.",
+    keywords:
+      "bán lẻ, POS, quản lý bán hàng, khách hàng bán lẻ, ERP bán lẻ, iGen ERP",
+    path: "/ban-le",
+    robots: "noindex, nofollow",
+    priority: "0.2",
+    changeFrequency: "weekly",
+  },
   "PHÂN TÍCH & BÁO CÁO": {
     title: "Phân tích & Báo cáo - Doanh thu và hiệu quả kinh doanh",
     description:

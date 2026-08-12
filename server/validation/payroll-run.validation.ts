@@ -41,6 +41,10 @@ export const rejectRunSchema = workflowTransitionSchema.keys({
   reason: Joi.string().trim().min(1).max(1000).required(),
 });
 
+export const reopenRunSchema = workflowTransitionSchema.keys({
+  reason: Joi.string().trim().min(1).max(1000).required(),
+});
+
 const isoDateTime = Joi.string().isoDate();
 const rate = Joi.number().min(0).max(1);
 

@@ -20,6 +20,7 @@ interface ImportStudentModalProps {
 }
 
 interface ParsedStudent {
+  sourceRow?: number;
   fullName: string;
   phone: string;
   rank: string;
@@ -71,6 +72,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const [isDragging, setIsDragging] = useState(false);
   const [validationRows, setValidationRows] = useState<ValidationRow[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -154,9 +156,11 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     setSourceFile(file);
     setErrorMsg(null);
     setImportResult(null);
+    setValidationRows([]);
+    setIsValidating(true);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const arrayBuffer = e.target?.result;
         if (!arrayBuffer) return;
@@ -183,6 +187,8 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
         const validationResults: ValidationRow[] = [];
         const seenPhones = new Set<string>();
+        const seenEmails = new Set<string>();
+        const seenIdCards = new Set<string>();
 
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
@@ -199,6 +205,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           const feeNum = parseInt(getCellValue('fee').replace(/\D/g, ''), 10) || 0;
           const paidAmount = parseInt(getCellValue('paidAmount').replace(/\D/g, ''), 10) || 0;
           const studentData: ParsedStudent = {
+            sourceRow: i + 1,
             fullName: getCellValue('fullName'),
             phone: formatExcelPhone(getCellValue('phone')),
             rank: getCellValue('rank').toUpperCase(),
@@ -218,6 +225,16 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           if (!studentData.phone) errors.push('Số điện thoại không được trống');
           else if (seenPhones.has(studentData.phone)) errors.push('SĐT bị trùng lặp trong file');
           else seenPhones.add(studentData.phone);
+          const normalizedEmail = studentData.email?.trim().toLowerCase() || '';
+          if (normalizedEmail) {
+            if (seenEmails.has(normalizedEmail)) errors.push('Email bị trùng lặp trong file');
+            else seenEmails.add(normalizedEmail);
+          }
+          const normalizedIdCard = studentData.idCard?.replace(/\D/g, '') || '';
+          if (normalizedIdCard) {
+            if (seenIdCards.has(normalizedIdCard)) errors.push('CCCD/CMND bị trùng lặp trong file');
+            else seenIdCards.add(normalizedIdCard);
+          }
           if (paidAmount > feeNum) errors.push(`Số tiền đã đóng (${paidAmount.toLocaleString('vi-VN')}đ) không được vượt quá học phí (${studentData.fee}đ)`);
 
           // Hạng bằng là tùy chọn tự do, không cần kiểm tra thuộc danh sách cố định lái xe nữa
@@ -236,12 +253,39 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           validationResults.push({ rowNum: i + 1, data: studentData, isValid: errors.length === 0, errors });
         }
 
-        if (validationResults.length === 0) setErrorMsg(`Không tìm thấy ${entityLabel.singular} hợp lệ nào trong file.`);
-        else setValidationRows(validationResults);
+        if (validationResults.length === 0) {
+          setErrorMsg(`Không tìm thấy ${entityLabel.singular} hợp lệ nào trong file.`);
+          return;
+        }
+
+        const candidates = validationResults.filter((row) => row.isValid);
+        if (candidates.length > 0) {
+          const centerQuery = user?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all'
+            ? `?centerId=${encodeURIComponent(selectedCenter)}`
+            : '';
+          const preview = await apiFetch(`/students/bulk-preview${centerQuery}`, {
+            method: 'POST',
+            body: JSON.stringify({ students: candidates.map((row) => row.data) }),
+          });
+          for (const conflict of preview.errors || []) {
+            const target = candidates[Number(conflict.index)];
+            if (!target || !conflict.reason) continue;
+            if (!target.errors.includes(conflict.reason)) target.errors.push(conflict.reason);
+            target.isValid = false;
+          }
+        }
+        setValidationRows([...validationResults]);
       } catch (error) {
         console.error('Error parsing file:', error);
-        setErrorMsg('Lỗi khi đọc file Excel. Vui lòng kiểm tra lại cấu trúc file.');
+        setValidationRows([]);
+        setErrorMsg(error instanceof Error ? error.message : 'Lỗi khi đọc và kiểm tra file Excel. Vui lòng thử lại.');
+      } finally {
+        setIsValidating(false);
       }
+    };
+    reader.onerror = () => {
+      setIsValidating(false);
+      setErrorMsg('Không thể đọc file Excel. Vui lòng thử lại.');
     };
     reader.readAsArrayBuffer(file);
   };
@@ -319,7 +363,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => !isUploading && onClose()}
+          onClick={() => !isUploading && !isValidating && onClose()}
           className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
         />
         <motion.div
@@ -334,7 +378,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
               <h2 className="text-xl font-bold text-slate-800">Nhập danh sách {entityLabel.singular}</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Hỗ trợ định dạng file Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button onClick={onClose} disabled={isUploading} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
+            <button onClick={onClose} disabled={isUploading || isValidating} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>
@@ -350,6 +394,12 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
                 <button onClick={() => setErrorMsg(null)} className="p-1 hover:bg-rose-100 rounded-lg text-rose-400">
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+            )}
+            {isValidating && (
+              <div className="p-4 mb-6 bg-cyan-50 border border-cyan-100 rounded-2xl flex items-center gap-3 text-cyan-700">
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <p className="text-xs font-bold">Đang kiểm tra trùng SĐT, email và CCCD/CMND với dữ liệu hiện có...</p>
               </div>
             )}
 
@@ -372,6 +422,21 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
                     <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Dòng bị bỏ qua/Lỗi</p>
                   </div>
                 </div>
+                {importResult.errors.length > 0 && (
+                  <div className="max-w-2xl mx-auto text-left border border-rose-100 bg-rose-50/50 rounded-2xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-rose-100 text-xs font-bold text-rose-700">
+                      Chi tiết các dòng bị bỏ qua
+                    </div>
+                    <div className="max-h-52 overflow-y-auto divide-y divide-rose-100">
+                      {importResult.errors.map((error, index) => (
+                        <div key={`${error.row}-${index}`} className="px-4 py-3 text-xs">
+                          <div className="font-bold text-slate-700">Dòng {error.row}: {error.name || '(không có tên)'}</div>
+                          <div className="text-rose-600 mt-1">{error.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             ) : validationRows.length === 0 ? (
               <div className="space-y-6">
@@ -483,11 +548,11 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
           {!importResult && (
             <div className="flex items-center justify-end gap-4 px-8 py-5 border-t border-slate-100 flex-shrink-0">
-              <button type="button" onClick={onClose} disabled={isUploading} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Hủy</button>
+              <button type="button" onClick={onClose} disabled={isUploading || isValidating} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Hủy</button>
               {validationRows.length > 0 && (
-                <button onClick={handleImport} disabled={isUploading} className="flex items-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0">
-                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                  {isUploading ? 'Đang nhập dữ liệu...' : totalValid > 0 ? `Nhập ${totalValid} ${entityLabel.singular} hợp lệ` : 'Kiểm tra lỗi trước khi nhập'}
+                <button onClick={handleImport} disabled={isUploading || isValidating} className="flex items-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0">
+                  {isUploading || isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                  {isValidating ? 'Đang đối chiếu dữ liệu...' : isUploading ? 'Đang nhập dữ liệu...' : totalValid > 0 ? `Nhập ${totalValid} ${entityLabel.singular} hợp lệ` : 'Kiểm tra lỗi trước khi nhập'}
                 </button>
               )}
             </div>

@@ -90,7 +90,7 @@ describe("creating a payroll payment", () => {
   });
 
   it("counts earlier confirmed payments so the run cannot be overpaid", async () => {
-    arrangeRun(closedRun({ status: "partially_paid" }), [
+    arrangeRun(closedRun(), [
       { status: "confirmed", lines: [{ employeeId: "emp-1", amount: 10_000_000 }] },
     ]);
     const res = response();
@@ -99,12 +99,12 @@ describe("creating a payroll payment", () => {
 
     expect(mocks.paymentFind).toHaveBeenCalledWith({ ...scope, runId: "run-a", status: "confirmed" });
     expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_BALANCE" }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_NET" }));
     expect(mocks.paymentCreate).not.toHaveBeenCalled();
   });
 
   it("refuses to pay a run that is not closed yet", async () => {
-    arrangeRun(closedRun({ status: "approved" }));
+    arrangeRun(closedRun({ status: "review" }));
     const res = response();
 
     await payrollController.createPayment(request(validBody()), res);
@@ -200,7 +200,7 @@ describe("payment lifecycle transitions", () => {
 
   beforeEach(() => vi.resetAllMocks());
 
-  it("confirming a part of the payroll moves the run to partially_paid", async () => {
+  it("confirming a part of the payroll keeps the run closed", async () => {
     arrangeTransition(draftPayment(), closedRun(), [
       { status: "confirmed", lines: [{ employeeId: "emp-1", amount: 10_000_000 }] },
     ]);
@@ -213,15 +213,12 @@ describe("payment lifecycle transitions", () => {
       { $set: expect.objectContaining({ status: "confirmed", confirmedBy: "cashier", confirmedAt: expect.any(Date), paymentDate: expect.any(Date) }) },
       { new: true },
     );
-    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: "run-a", ...scope, status: "closed" },
-      { $set: { status: "partially_paid" }, $inc: { version: 1 } },
-    );
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success", runStatus: "partially_paid" }));
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success", runStatus: "closed" }));
   });
 
   it("confirming the last outstanding amount moves the run to paid", async () => {
-    arrangeTransition(draftPayment({ amount: 6_000_000, lines: [{ employeeId: "emp-2", amount: 6_000_000 }] }), closedRun({ status: "partially_paid" }), [
+    arrangeTransition(draftPayment({ amount: 6_000_000, lines: [{ employeeId: "emp-2", amount: 6_000_000 }] }), closedRun(), [
       { status: "confirmed", lines: [{ employeeId: "emp-1", amount: 10_000_000 }] },
       { status: "confirmed", lines: [{ employeeId: "emp-2", amount: 6_000_000 }] },
     ]);
@@ -229,7 +226,7 @@ describe("payment lifecycle transitions", () => {
     await payrollController.confirmPayment(request({}, { id: "payment-1" }), response());
 
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: "run-a", ...scope, status: "partially_paid" },
+      { _id: "run-a", ...scope, status: "closed" },
       { $set: { status: "paid" }, $inc: { version: 1 } },
     );
   });

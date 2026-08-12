@@ -1,6 +1,6 @@
 import { InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../../types";
 
-export const inventoryTabs: InventorySubTabType[] = ["DANH MỤC", "PHÂN LOẠI SẢN PHẨM", "NHẬP / XUẤT KHO", "DỰ BÁO AI"];
+export const inventoryTabs: InventorySubTabType[] = ["SẢN PHẨM", "KHO HÀNG", "NHẬP HÀNG", "GIAO DỊCH KHO", "DỰ BÁO"];
 
 export const initialProducts: ProductItem[] = [
   { id: "p1", sku: "PROD-X1", name: "Thiết bị đeo thông minh X1", category: "Thiết bị đeo", stock: 120, minStockAlert: 20, price: 1890000, demandForecast: "Tăng mạnh", imageUrl: "TB", unit: "Cái", status: "Active" },

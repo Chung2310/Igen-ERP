@@ -5,6 +5,7 @@ import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { PERMISSION_CATALOG, RETIRED_STUDENT_PERMISSIONS } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
+import { migrateLegacyPayrollRunStatuses } from "../model/payroll-run-status-migration";
 import {
   dropLegacyAttendancePeriodResultUniqueIndex,
   dropLegacyPayrollOperationJobIdempotencyIndex,
@@ -190,9 +191,13 @@ export async function connectDB() {
     }
   }
 
+  if (!connectionUri.includes("retryWrites=")) {
+    connectionUri += (connectionUri.includes("?") ? "&" : "?") + "retryWrites=false";
+  }
+
   // Log URI ẩn mật khẩu để dễ debug cấu hình trên VPS
   const redactedUri = connectionUri.replace(/:([^:@]+)@/, ":******@");
-  console.log(`[Backend Database] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
+  console.log(`[Backend Database - v2] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
 
   try {
     await mongoose.connect(connectionUri);
@@ -200,6 +205,10 @@ export async function connectDB() {
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();
     await dropLegacyPayrollRunPeriodKeyUniqueIndex();
+    const payrollStatusMigration = await migrateLegacyPayrollRunStatuses();
+    if (payrollStatusMigration.overpaidAnomalies) {
+      console.warn(`[Backend Database] Payroll status migration found ${payrollStatusMigration.overpaidAnomalies} overpaid run(s) requiring manual review.`);
+    }
     await dropLegacyPayrollOperationJobIdempotencyIndex();
     await dropLegacyAttendancePeriodResultUniqueIndex();
     await dropLegacyStudentAttendanceUniqueIndex();
@@ -208,5 +217,30 @@ export async function connectDB() {
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);
+  }
+}
+
+/**
+ * Helper để chạy logic trong Transaction nếu DB hỗ trợ (Replica Set),
+ * ngược lại chạy bình thường (dành cho môi trường Local DB Standalone).
+ */
+export async function runInTransaction<T>(callback: (session?: mongoose.ClientSession) => Promise<T>): Promise<T> {
+  const topologyInfo = await mongoose.connection.db?.admin().command({ hello: 1 });
+  const isReplicaSet = Boolean(topologyInfo?.setName) || topologyInfo?.msg === "isdbgrid";
+  
+  if (!isReplicaSet) {
+    // Standalone fallback: chạy không có transaction
+    return callback(undefined);
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    let result: T;
+    await session.withTransaction(async (s) => {
+      result = await callback(s);
+    });
+    return result!;
+  } finally {
+    await session.endSession();
   }
 }
