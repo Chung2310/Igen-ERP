@@ -137,7 +137,7 @@ git commit -m "fix: block customerless retail checkout"
 ### Task 3: Preserve customers in debt collection
 
 **Files:**
-- Modify: `src/modules/retail/pages/RetailOrdersPage.test.tsx`
+- Create: `src/modules/retail/pages/RetailOrdersPage.test.tsx`
 - Modify: `src/modules/retail/pages/RetailOrdersPage.tsx`
 
 **Interfaces:**
@@ -226,7 +226,7 @@ Write the test/import first; do not add the function until RED is observed.
 
 - [ ] **Step 2: Run the service test and verify RED**
 
-Run: `npx vitest run server/modules/retail/services/retail-order.service.test.ts`
+Run: `node --import tsx --test server/modules/retail/services/retail-order.service.test.ts`
 
 Expected: FAIL because `requireRetailPaymentCustomer` is not exported.
 
@@ -243,7 +243,7 @@ Retain the existing `dueAmount > 0` due-date validation, but remove customer pre
 
 - [ ] **Step 4: Run server tests and verify GREEN**
 
-Run: `npx vitest run server/modules/retail/services/retail-order.service.test.ts`
+Run: `node --import tsx --test server/modules/retail/services/retail-order.service.test.ts`
 
 Expected: all tests pass.
 
@@ -266,7 +266,8 @@ git commit -m "fix: reject customerless retail confirmations"
 - [ ] **Step 1: Run the complete affected test group**
 
 ```powershell
-npx vitest run src/modules/retail/hooks/retailPayment.test.ts src/modules/retail/components/pos/PaymentDialog.test.tsx src/modules/retail/pages/RetailPosPage.test.tsx src/modules/retail/pages/RetailOrdersPage.test.tsx src/modules/retail/components/pos/CreateCustomerDialog.test.tsx src/modules/retail/components/pos/CustomerPicker.test.tsx server/modules/retail/services/retail-order.service.test.ts
+npx vitest run src/modules/retail/hooks/retailPayment.test.ts src/modules/retail/components/pos/PaymentDialog.test.tsx src/modules/retail/pages/RetailPosPage.test.tsx src/modules/retail/pages/RetailOrdersPage.test.tsx src/modules/retail/components/pos/CreateCustomerDialog.test.tsx src/modules/retail/components/pos/CustomerPicker.test.tsx
+node --import tsx --test server/modules/retail/services/retail-order.service.test.ts
 ```
 
 Expected: all selected test files pass with zero failures.
