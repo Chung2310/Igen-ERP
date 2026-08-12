@@ -8,6 +8,16 @@ import PaymentDialog from "./PaymentDialog";
 afterEach(cleanup);
 
 describe("PaymentDialog", () => {
+  it("blocks full payment without a customer and exposes the guidance", async () => {
+    const onSubmit = vi.fn();
+    render(<PaymentDialog total={500_000} busy={false} onClose={vi.fn()} onSubmit={onSubmit} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Vui lòng chọn khách hàng trước khi thanh toán.");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("defaults to full payment and exposes three explicit modes", () => {
     render(<PaymentDialog total={500_000} busy={false} customerId="c1" onClose={vi.fn()} onSubmit={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Thanh toán đủ" }).getAttribute("aria-pressed")).toBe("true");
