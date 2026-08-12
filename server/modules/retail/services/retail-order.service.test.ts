@@ -11,6 +11,20 @@ import {
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
 
+test("order debt ledger inputs use deterministic keys for the same transaction", () => {
+  const receivableEntriesForOrderChange = (orderService as any).receivableEntriesForOrderChange;
+  assert.equal(typeof receivableEntriesForOrderChange, "function");
+  assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o1", customerId: "c1", dueAmount: 70_000 }, 0), [{
+    type: "charge", customerId: "c1", orderId: "o1", amount: 70_000, idempotencyKey: "retail-order:o1:debt-charge",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("collect", { _id: "o1", customerId: "c1", dueAmount: 20_000 }, 50_000), [{
+    type: "payment", customerId: "c1", orderId: "o1", amount: 50_000, idempotencyKey: "retail-order:o1:debt-payment:50000:20000",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("cancel", { _id: "o1", customerId: "c1", dueAmount: 20_000 }, 0), [{
+    type: "reversal", customerId: "c1", orderId: "o1", amount: 20_000, reason: "Hủy số dư công nợ của đơn", idempotencyKey: "retail-order:o1:debt-cancel",
+  }]);
+  assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o2", dueAmount: 0 }, 0), []);
+});
 test("split payments apply only real collected amounts", () => {
   const result = normalizePayments([
     { method: "cash", amount: 300_000, tenderedAmount: 350_000 },
