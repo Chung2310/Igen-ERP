@@ -17,7 +17,7 @@ import { readPayrollLine } from "../service/payroll-line-read.service";
 import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
 import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
-import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
 import { countDependents, resolveTaxMethod, selectProfileForPeriod } from "../service/payroll-employee-input.service";
@@ -39,6 +39,9 @@ import {
   createPayrollPolicy,
   listPayrollPolicies,
   retirePayrollPolicy,
+  updatePayrollPolicy,
+  clonePayrollPolicy,
+  deletePayrollPolicy,
 } from "../service/payroll-policy-operations.service";
 import { runPayrollWorkflowAction } from "../service/payroll-run-workflow-operations.service";
 import { buildPayslip } from "../service/payroll-payslip.service";
@@ -52,6 +55,9 @@ import {
   createOperationalRunSchema,
   createPaymentSchema,
   createPolicySchema,
+  updatePolicySchema,
+  activatePolicySchema,
+  clonePolicySchema,
   paymentTransitionSchema,
   reopenRunSchema,
   workflowTransitionSchema,
@@ -202,6 +208,12 @@ export const payrollController = {
         message: "Chỉ có thể cập nhật bảng lương khi kỳ đang ở trạng thái Nháp.",
       });
     }
+    const periodKey = req.params.periodKey;
+    const periodEnd = new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const policies: any[] = await PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean();
+    if (!resolvePersistedPayrollPolicy(policies as any[], periodEnd)) {
+      return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
+    }
     try {
       const run = await processPayrollPeriod({
         syncAttendance: () => runPayrollControllerStep(payrollController.createSnapshot, req),
@@ -308,8 +320,10 @@ export const payrollController = {
     }
   },
   async activatePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = activatePolicySchema.validate(req.body ?? {}, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
     try {
-      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id) });
+      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id, value) });
     } catch (operationError) {
       return operationFailure(res, operationError);
     }
@@ -320,6 +334,23 @@ export const payrollController = {
     } catch (operationError) {
       return operationFailure(res, operationError);
     }
+  },
+  async updatePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = updatePolicySchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    const { expectedVersion, ...definition } = value;
+    try { return res.json({ status: "success", data: await updatePayrollPolicy(tenant(req), req.params.id, req.user!.id, expectedVersion, definition) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
+  },
+  async clonePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = clonePolicySchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
+    try { return res.status(201).json({ status: "success", data: await clonePayrollPolicy(tenant(req), req.params.id, req.user!.id, value) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
+  },
+  async deletePolicy(req: AuthenticatedRequest, res: Response) {
+    try { return res.json({ status: "success", data: await deletePayrollPolicy(tenant(req), req.params.id, req.user!.id) }); }
+    catch (operationError) { return operationFailure(res, operationError); }
   },
   reviewOperationalRun: workflowHandler("review"),
   closeOperationalRun: workflowHandler("close"),
@@ -464,7 +495,8 @@ export const payrollController = {
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
     ]);
-    const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+    const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+    if (!policy) return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
     const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
       const key = String(item.employeeId);
       map.set(key, [...(map.get(key) ?? []), item]);
@@ -536,6 +568,8 @@ export const payrollController = {
         },
         vietnam,
         formulaVersion: vietnam.formulaVersion,
+        policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+        policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
         warnings: vietnam.warnings.map((warning) => warning.code),
       };
     });
@@ -674,7 +708,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);
@@ -743,6 +778,8 @@ export const payrollController = {
               },
               vietnam,
               formulaVersion: vietnam.formulaVersion,
+              policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+              policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
             };
           });
@@ -781,7 +818,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);
@@ -850,6 +888,8 @@ export const payrollController = {
               },
               vietnam,
               formulaVersion: vietnam.formulaVersion,
+              policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
+              policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
             };
           });

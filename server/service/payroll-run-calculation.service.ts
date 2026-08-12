@@ -89,6 +89,8 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       effectiveSegments: [{ sourceId: segment.sourceId, start: segment.start, end: segment.end }],
       policyId: input.policy?.id,
       policyVersion: input.policy?.version,
+      policyCode: input.policy?.code ?? input.vietnam?.policy.code ?? "builtin-default",
+      policyName: input.policy?.name ?? input.vietnam?.policy.name ?? "Công thức mặc định",
       formulaVersion: vietnam ? vietnam.formulaVersion : "vietnam-payroll-1",
       warnings: vietnam ? vietnam.warnings.map((warning) => warning.code) : [],
     };

@@ -4,6 +4,7 @@ import { ModuleKey } from "../config/module-keys";
 import { filterModulesForBusinessType, resolveBusinessType, type BusinessType } from "../config/business-types";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
 import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
+import { ensureDefaultPayrollPolicy } from "../service/payroll-policy-operations.service";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
 export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; businessType?:BusinessType; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }
@@ -31,6 +32,7 @@ export class TenantManagementService {
     const now=new Date();
     const tenant = await this.tenants.create({code:c,name,ownerEmail,createdAt:now,lifecycleStatus:"active",lifecycleChangedAt:now,deletionScheduledAt:null,retentionEndsAt:null,deletionReason:"",businessType,enabledModules});
     const admin = await createCompanyAdminUser({ companyCode:c, companyName:name, ownerName, ownerEmail, ownerPassword });
+    await ensureDefaultPayrollPolicy(c, "system", now).catch((error) => console.error("[tenant.create] Could not seed payroll policy", error));
 
     return { ...tenant, adminUserId: String(admin._id) };
   }

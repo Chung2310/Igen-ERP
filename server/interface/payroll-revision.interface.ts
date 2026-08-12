@@ -6,6 +6,8 @@ export type PayrollLineSnapshot = {
   effectiveSegments: Array<{ sourceId: string; start: string; end: string }>;
   policyId?: string;
   policyVersion?: number;
+  policyCode?: string;
+  policyName?: string;
   formulaVersion: string;
   warnings: string[];
   /** Full Vietnam breakdown (insurance funds, tax brackets, employer cost) when a policy applied. */

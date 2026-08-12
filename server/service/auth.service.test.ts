@@ -3,6 +3,7 @@ import test from "node:test";
 import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
 import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
+import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { authService } from "./auth.service";
 
 test("login allows a legacy company without lifecycleStatus", async () => {
@@ -40,7 +41,10 @@ test("register-company persists labor business type and filters stale student mo
   const originalCompanySave = CompanyModel.prototype.save;
   const originalUserFindOne = UserModel.findOne;
   const originalUserSave = UserModel.prototype.save;
+  const originalPolicyFindOne = PayrollPolicyModel.findOne;
+  const originalPolicyCreate = PayrollPolicyModel.create;
   let savedCompany: any;
+  let seededPolicy: any;
 
   (CompanyModel as any).findOne = async () => null;
   (CompanyModel.prototype as any).save = async function () {
@@ -49,6 +53,11 @@ test("register-company persists labor business type and filters stale student mo
   };
   (UserModel as any).findOne = async () => null;
   (UserModel.prototype as any).save = async function () { return this; };
+  (PayrollPolicyModel as any).findOne = () => ({ lean: async () => null });
+  (PayrollPolicyModel as any).create = async (value: any) => {
+    seededPolicy = value;
+    return value;
+  };
 
   try {
     await authService.registerCompanyAndAdmin({
@@ -62,11 +71,16 @@ test("register-company persists labor business type and filters stale student mo
     });
     assert.equal(savedCompany.businessType, "labor");
     assert.deepEqual(savedCompany.enabledModules, ["worker"]);
+    assert.equal(seededPolicy.companyCode, "LABOR");
+    assert.equal(seededPolicy.status, "active");
+    assert.equal(seededPolicy.effectiveFrom.toISOString().slice(0, 10), savedCompany.createdAt.toISOString().slice(0, 10));
   } finally {
     CompanyModel.findOne = originalCompanyFindOne;
     CompanyModel.prototype.save = originalCompanySave;
     UserModel.findOne = originalUserFindOne;
     UserModel.prototype.save = originalUserSave;
+    PayrollPolicyModel.findOne = originalPolicyFindOne;
+    PayrollPolicyModel.create = originalPolicyCreate;
   }
 });
 

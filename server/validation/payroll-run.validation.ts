@@ -82,6 +82,13 @@ export const createPolicySchema = Joi.object({
   }).default(),
   roundingUnit: Joi.number().integer().min(1).default(1),
 });
+export const updatePolicySchema = createPolicySchema.keys({ expectedVersion });
+export const activatePolicySchema = Joi.object({ replaceOverlaps: Joi.boolean().default(false) });
+export const clonePolicySchema = Joi.object({
+  code: Joi.string().trim().min(1).max(64).required(),
+  name: Joi.string().trim().min(1).max(200).optional(),
+  definition: createPolicySchema.optional(),
+});
 
 export const createPaymentSchema = Joi.object({
   amount: Joi.number().integer().min(1).required(),

@@ -10,7 +10,7 @@ import {
   resolveTaxMethod,
   selectProfileForPeriod,
 } from "./payroll-employee-input.service";
-import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
@@ -79,7 +79,8 @@ export async function buildRunCalculationInputs(
   const contractsByEmployee = groupByEmployee(contracts as any[]);
   const profilesByEmployee = groupByEmployee(profiles as any[]);
   const dependentsByEmployee = groupByEmployee(dependents as any[]);
-  const { policy, isDefault: usesDefaultPolicy } = resolvePayrollPolicy(policies as any[], period.start);
+  const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+  if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
 
   return Promise.all(snapshot.employees.map(async (employee: any) => {
     const employeeId = String(employee.employeeId);
@@ -107,7 +108,7 @@ export async function buildRunCalculationInputs(
       paidLeaveMinutesByRate: employee.paidLeaveMinutesByRate ?? [],
       overtime: employee.overtime ?? [],
       ...employeeAdjustments,
-      ...(usesDefaultPolicy ? {} : { policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0) } }),
+      policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0), code: policy.code, name: policy.name },
       ...({
         vietnam: {
           policy,

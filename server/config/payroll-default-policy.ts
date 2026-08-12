@@ -57,3 +57,11 @@ export function resolvePayrollPolicy(policies: IPayrollPolicy[], date: Date | st
   }
   return { policy: DEFAULT_VIETNAM_PAYROLL_POLICY, isDefault: true };
 }
+
+export function resolvePersistedPayrollPolicy(policies: IPayrollPolicy[], date: Date | string): IPayrollPolicy | undefined {
+  const target = new Date(date).getTime();
+  return policies.filter((policy) => policy.status === "active"
+    && new Date(policy.effectiveFrom).getTime() <= target
+    && (!policy.effectiveTo || target <= new Date(policy.effectiveTo).getTime()))
+    .sort((left, right) => new Date(right.effectiveFrom).getTime() - new Date(left.effectiveFrom).getTime())[0];
+}
