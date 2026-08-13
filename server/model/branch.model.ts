@@ -8,6 +8,7 @@ const BranchSchema = new Schema<IBranch>({
   address: { type: String, default: "" },
   phone: { type: String, default: "" },
   managerId: { type: String, default: "" },
+  pendingOwnerSetup: { type: Boolean, default: false, index: true },
   locationConfig: { type: {
     latitude: { type: Number, required: true, min: -90, max: 90 },
     longitude: { type: Number, required: true, min: -180, max: 180 },
