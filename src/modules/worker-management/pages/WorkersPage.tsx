@@ -19,8 +19,10 @@ import { AddWorkerModal } from "../components/AddWorkerModal";
 import { ImportWorkerModal } from "../components/ImportWorkerModal";
 import { WorkerDetailModal } from "../components/WorkerDetailModal";
 import { useWorkers } from "../hooks/useWorkers";
+import { workerLaborTypeLabel } from "../types";
 import type {
   Worker,
+  WorkerLaborType,
   WorkerProfileFieldConfig,
   WorkerProjectSummary,
   WorkerScope,
@@ -93,6 +95,7 @@ export default function WorkersPage({
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<WorkerStatus | "all">("all");
   const [project, setProject] = React.useState("all");
+  const [laborType, setLaborType] = React.useState<WorkerLaborType | "all">("all");
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
   const [addOpen, setAddOpen] = React.useState(false);
@@ -106,6 +109,9 @@ export default function WorkersPage({
 
   const filtered = workers.filter((worker) => {
     if (status !== "all" && worker.status !== status) return false;
+    if (laborType !== "all" && (worker.laborType || "official") !== laborType) {
+      return false;
+    }
     const projectIds = worker.projectIds || [];
     if (project === "unassigned" && projectIds.length) return false;
     if (project !== "all" && project !== "unassigned" && !projectIds.includes(project)) {
@@ -155,6 +161,10 @@ export default function WorkersPage({
       "CCCD / CMND": worker.idCard || "",
       "Ngày tiếp nhận": worker.registrationDate || "",
       "Trạng thái": statusLabel[worker.status],
+      "Loại lao động": workerLaborTypeLabel[worker.laborType || "official"],
+      "Quốc tịch": worker.nationality || "",
+      "Số GPLĐ / visa": worker.workPermitNumber || "",
+      "Ngày hết hạn GPLĐ / visa": worker.workPermitExpiry || "",
       "Địa chỉ": worker.address || "",
       Email: worker.email || "",
     }));
@@ -302,6 +312,18 @@ export default function WorkersPage({
             { value: "unassigned", label: "Chưa vào dự án" },
           ]}
         />
+        <FilterSelect
+          label="Loại lao động"
+          value={laborType}
+          onChange={(value) => setLaborType(value as WorkerLaborType | "all")}
+          options={[
+            { value: "all", label: "Tất cả loại" },
+            ...Object.entries(workerLaborTypeLabel).map(([value, label]) => ({
+              value,
+              label,
+            })),
+          ]}
+        />
         <DateFilter label="Từ ngày" value={startDate} onChange={setStartDate} />
         <DateFilter label="Đến ngày" value={endDate} onChange={setEndDate} />
         <div className="col-span-2 space-y-0.5 lg:col-span-1 lg:col-start-5">
@@ -339,6 +361,7 @@ export default function WorkersPage({
                 <TableHead>Họ và tên</TableHead>
                 <TableHead centered>Ngày tiếp nhận</TableHead>
                 <TableHead>Địa chỉ</TableHead>
+                <TableHead centered>Loại lao động</TableHead>
                 <TableHead centered>Trạng thái</TableHead>
                 <TableHead right>Thao tác</TableHead>
               </tr>
@@ -399,6 +422,8 @@ export default function WorkersPage({
         worker={selectedWorker}
         workers={workers}
         profileFields={profileFields}
+        scope={scope}
+        canManage={canManage}
         onClose={() => setSelectedWorker(null)}
         onSubmit={updateWorker}
         onSuccess={setSelectedWorker}
@@ -512,7 +537,7 @@ function StateRow({
   return (
     <tr>
       <td
-        colSpan={5}
+        colSpan={6}
         className={`px-4 py-16 text-center text-xs italic ${
           error ? "text-rose-500" : "text-slate-400"
         }`}
@@ -560,6 +585,9 @@ function WorkerRow({
       </td>
       <td className="px-3 py-1.5 text-[11px] font-medium text-slate-500">
         {worker.address || <span className="text-slate-300">Chưa cập nhật</span>}
+      </td>
+      <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
+        {workerLaborTypeLabel[worker.laborType || "official"]}
       </td>
       <td className="px-3 py-1.5 text-center">
         <span
