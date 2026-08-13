@@ -21,6 +21,24 @@ const log = (uid: string, status: string) => ({
 });
 
 describe("buildAttendanceDailyOverview", () => {
+  it("groups overlapping location, network and face errors by unique employee", () => {
+    const result = buildAttendanceDailyOverview({
+      date: "2026-08-13", today: "2026-08-13", employees: employees.slice(0, 2), logs: [],
+      attempts: [
+        { uid: "on-time", reasonCode: "outside_radius", action: "check-in", attemptedAt: "2026-08-13T01:00:00Z" },
+        { uid: "on-time", reasonCode: "network_not_allowed", action: "check-in", attemptedAt: "2026-08-13T01:01:00Z" },
+        { uid: "late", reasonCode: "face_mismatch", action: "check-in", attemptedAt: "2026-08-13T01:02:00Z" },
+      ], isWorkingDay: () => true, isHoliday: () => false,
+    });
+    expect(result.errorCounts).toMatchObject({ location: 1, network: 1, face: 1 });
+    expect(result.errors.location[0].attemptCount).toBe(1);
+  });
+
+  it("marks forgotten check-in only after today's deadline", () => {
+    const base = { date: "2026-08-13", today: "2026-08-13", employees: employees.slice(-1), logs: [], isWorkingDay: () => true, isHoliday: () => false, checkInDeadline: () => 510 };
+    expect(buildAttendanceDailyOverview({ ...base, currentMinutes: 500 }).errorCounts.forgot_checkin).toBe(0);
+    expect(buildAttendanceDailyOverview({ ...base, currentMinutes: 511 }).errorCounts.forgot_checkin).toBe(1);
+  });
   it("classifies each employee into one daily attendance category", () => {
     const result = buildAttendanceDailyOverview({
       date: "2026-08-13",

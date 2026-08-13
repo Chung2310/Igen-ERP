@@ -6,6 +6,34 @@ import { UserModel } from "../model/user.model";
 import { getDayContext, toVietnamDate } from "../service/company-work-calendar.service";
 import { resolveShift, shiftWindow, vietnamWorkDate } from "../service/work-shift.service";
 import { attendanceResourceService } from "../service/attendance-resource.service";
+import { BranchModel } from "../model/branch.model";
+import { AttendanceAttemptModel } from "../model/attendance-attempt.model";
+import { BranchAttendanceGateError, validateBranchAttendance } from "../service/branch-attendance-gate.service";
+import { getRequestPublicIp } from "../utils/request-ip";
+
+const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
+async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
+  if ((req as any).attendanceBranchGate) return (req as any).attendanceBranchGate;
+  const base = { uid: req.user!.id, companyCode: req.user?.companyCode || "SYSTEM", branchId: req.user?.branchId,
+    action: attendanceAction(req), latitude, longitude, ipAddress: getRequestPublicIp(req), attemptedAt: new Date() };
+  if (!req.user?.branchId) {
+    await AttendanceAttemptModel.create({ ...base, outcome: "rejected", reasonCode: "branch_missing" });
+    throw new BranchAttendanceGateError("branch_attendance_not_configured");
+  }
+  const branch = await BranchModel.findOne({ _id: req.user.branchId, companyCode: base.companyCode, isActive: true }).lean();
+  try {
+    const result = validateBranchAttendance({ branch, latitude, longitude, requestIp: base.ipAddress });
+    return { ...base, ...result };
+  } catch (error) {
+    const gateError = error as BranchAttendanceGateError;
+    await AttendanceAttemptModel.create({ ...base, distance: gateError.distance, outcome: "rejected", reasonCode: gateError.reasonCode });
+    throw error;
+  }
+}
+
+const gateMessage = (reasonCode: string) => reasonCode === "outside_radius" ? "Bạn đang ở ngoài khu vực chấm công của chi nhánh."
+  : reasonCode === "network_not_allowed" ? "Bạn phải kết nối đúng mạng Wi-Fi của chi nhánh để chấm công."
+  : "Chi nhánh chưa cấu hình đầy đủ vị trí và mạng chấm công. Vui lòng liên hệ quản trị viên.";
 
 async function indexAttendanceEvidence(req: AuthenticatedRequest, log: any, action: "check-in" | "check-out") {
   const evidence = (req as any).attendanceEvidence;
@@ -177,21 +205,13 @@ export const timekeepingController = {
         });
       }
 
+      let gate: Awaited<ReturnType<typeof enforceBranchAttendance>>;
+      try { gate = await enforceBranchAttendance(req, Number(latitude), Number(longitude)); }
+      catch (error) { const reasonCode = error instanceof BranchAttendanceGateError ? error.reasonCode : "branch_attendance_not_configured"; return res.status(400).json({ status: "error", reasonCode, message: gateMessage(reasonCode) }); }
+
       // 1. Get company location configuration or default fallback
       const company = await CompanyModel.findOne({ code: companyCode }).lean();
-      const officeLat = company?.locationConfig?.latitude ?? 10.7769;
-      const officeLon = company?.locationConfig?.longitude ?? 106.7009;
-      const allowedRadius = company?.locationConfig?.allowedRadius ?? 1000;
-
-      // 2. Compute distance
-      const distance = calculateHaversineDistance(latitude, longitude, officeLat, officeLon);
-
-      if (distance > allowedRadius) {
-        return res.status(400).json({
-          status: "error",
-          message: `Bạn đang ở ngoài khu vực chấm công cho phép. Khoảng cách hiện tại: ${Math.round(distance)}m (Giới hạn: ${allowedRadius}m).`,
-        });
-      }
+      const distance = gate.distance;
 
       const todayStr = vietnamWorkDate();
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
@@ -199,6 +219,7 @@ export const timekeepingController = {
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
       let log = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkIn: { $ne: null }, checkOut: null }] }).sort({ date: -1 });
       if (log && log.checkIn) {
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn đã thực hiện check-in hôm nay rồi.",
@@ -247,6 +268,7 @@ export const timekeepingController = {
 
       await log.save();
       await indexAttendanceEvidence(req, log, "check-in");
+      await AttendanceAttemptModel.create({ ...gate, outcome: "accepted", reasonCode: "verified", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
 
       return res.status(200).json({
         status: "success",
@@ -279,21 +301,13 @@ export const timekeepingController = {
         });
       }
 
+      let gate: Awaited<ReturnType<typeof enforceBranchAttendance>>;
+      try { gate = await enforceBranchAttendance(req, Number(latitude), Number(longitude)); }
+      catch (error) { const reasonCode = error instanceof BranchAttendanceGateError ? error.reasonCode : "branch_attendance_not_configured"; return res.status(400).json({ status: "error", reasonCode, message: gateMessage(reasonCode) }); }
+
       // 1. Get company location configuration or default fallback
       const company = await CompanyModel.findOne({ code: companyCode }).lean();
-      const officeLat = company?.locationConfig?.latitude ?? 10.7769;
-      const officeLon = company?.locationConfig?.longitude ?? 106.7009;
-      const allowedRadius = company?.locationConfig?.allowedRadius ?? 1000;
-
-      // 2. Compute distance
-      const distance = calculateHaversineDistance(latitude, longitude, officeLat, officeLon);
-
-      if (distance > allowedRadius) {
-        return res.status(400).json({
-          status: "error",
-          message: `Bạn đang ở ngoài khu vực chấm công cho phép. Khoảng cách hiện tại: ${Math.round(distance)}m (Giới hạn: ${allowedRadius}m).`,
-        });
-      }
+      const distance = gate.distance;
 
       const todayStr = vietnamWorkDate();
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
@@ -301,6 +315,7 @@ export const timekeepingController = {
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
       const log = await TimekeepingLogModel.findOne({ uid, companyCode, date: { $in: [todayStr, yesterday] }, checkIn: { $ne: null }, checkOut: null }).sort({ date: -1 });
       if (!log || !log.checkIn) {
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "missing_check_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn chưa thực hiện Check-in hôm nay. Không thể Check-out.",
@@ -308,6 +323,7 @@ export const timekeepingController = {
       }
 
       if (log.checkOut) {
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "already_checked_out", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn đã thực hiện check-out hôm nay rồi.",
@@ -344,6 +360,7 @@ export const timekeepingController = {
 
       await log.save();
       await indexAttendanceEvidence(req, log, "check-out");
+      await AttendanceAttemptModel.create({ ...gate, outcome: "accepted", reasonCode: "verified", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
 
       return res.status(200).json({
         status: "success",
