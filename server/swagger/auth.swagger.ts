@@ -15,7 +15,7 @@ export const authSwagger = {
                   password: { type: "string", example: "123456" },
                   displayName: { type: "string", example: "Nguyễn Văn A" },
                   photoURL: { type: "string", example: "https://example.com/avatar.jpg" },
-                  role: { type: "string", enum: ["user", "manager", "admin", "superadmin"], example: "user" },
+                  role: { type: "string", enum: ["user", "teacher", "manager", "admin", "superadmin"], example: "user" },
                   companyCode: { type: "string", example: "COMPA" },
                   companyName: { type: "string", example: "Công ty A" },
                   jobTitle: { type: "string", example: "Nhân viên" },
@@ -249,7 +249,7 @@ export const authSwagger = {
                   displayName: { type: "string", example: "Nguyễn Văn Nhân Viên" },
                   email: { type: "string", example: "staff@abc.com" },
                   password: { type: "string", example: "123456" },
-                  role: { type: "string", enum: ["user", "manager", "admin"], example: "user" },
+                  role: { type: "string", enum: ["user", "teacher", "manager", "admin"], example: "user" },
                   companyCode: { type: "string", example: "ABC" },
                   companyName: { type: "string", example: "Tập đoàn ABC" },
                   parentId: { type: "string", example: "admin_user_id" },
@@ -361,7 +361,7 @@ export const authSwagger = {
               schema: {
                 type: "object",
                 properties: {
-                  role: { type: "string", enum: ["user", "manager", "admin", "superadmin"] },
+                  role: { type: "string", enum: ["user", "teacher", "manager", "admin", "superadmin"] },
                   parentId: { type: "string", nullable: true },
                   level: { type: "integer" },
                   department: { type: "string" },

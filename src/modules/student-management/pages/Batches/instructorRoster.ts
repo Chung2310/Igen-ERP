@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<string, string> = {
   manager: "Quản lý",
   branch_owner: "Chủ chi nhánh",
   user: "Nhân viên",
+  teacher: "Giảng viên",
 };
 
 export function buildInstructorOptions(users: InstructorRosterUser[]) {

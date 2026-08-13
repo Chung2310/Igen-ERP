@@ -5,7 +5,7 @@
  */
 // Shared workflow internals accept the permission of the active module. Module guards
 // still isolate student and worker tenants before these permissions are evaluated.
-const STUDENT_READ = ["student:read", "student:manage", "worker:read", "worker:manage"];
+const STUDENT_READ = ["student:read", "student:manage", "worker:read", "worker:manage", "teacher:operate"];
 const STUDENT_MANAGE = ["student:manage", "worker:manage"];
 
 export const STUDENT_AREA_PERMISSIONS = {

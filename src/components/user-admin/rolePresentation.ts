@@ -5,7 +5,7 @@ const SYSTEM_ROLE_TITLES: Record<string, string> = {
   manager: "Quản lý",
   user: "Nhân viên",
   staff: "Nhân viên",
-  teacher: "Giáo viên",
+  teacher: "Giảng viên",
   accountant: "Kế toán",
 };
 
