@@ -7,6 +7,17 @@ import { toast } from "../../pages/Toast";
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
 
+function geolocationErrorMessage(reason: unknown) {
+  const code = typeof reason === "object" && reason !== null && "code" in reason
+    ? Number((reason as { code: unknown }).code)
+    : 0;
+  if (code === 1) return "Trình duyệt đang chặn quyền truy cập vị trí. Hãy cho phép Vị trí cho trang này rồi thử lại.";
+  if (code === 2) return "Thiết bị chưa xác định được vị trí. Hãy bật GPS/Dịch vụ vị trí rồi thử lại.";
+  if (code === 3) return "Lấy vị trí quá lâu. Hãy đứng ở nơi có tín hiệu GPS tốt hơn rồi thử lại.";
+  if (reason instanceof Error) return reason.message;
+  return "Không thể lấy vị trí hiện tại. Hãy kiểm tra quyền Vị trí của trình duyệt rồi thử lại.";
+}
+
 export default function BranchManagementTab() {
   const { userProfile } = useAuth();
   const [branches, setBranches] = useState<BranchRecord[]>([]);
@@ -54,7 +65,17 @@ export default function BranchManagementTab() {
   };
   const captureLocationAndIp = async () => {
     setLocating(true);
-    const positionPromise = new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation?.getCurrentPosition(resolve, reject, { enableHighAccuracy: true }) ?? reject(new Error("Trình duyệt không hỗ trợ định vị.")));
+    const positionPromise = new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Trình duyệt không hỗ trợ định vị."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+    });
     const [position, ipResult] = await Promise.allSettled([positionPromise, branchService.currentIp()]);
     setForm((current) => ({
       ...current,
@@ -62,7 +83,7 @@ export default function BranchManagementTab() {
       longitude: position.status === "fulfilled" ? String(position.value.coords.longitude) : current.longitude,
       allowedPublicIps: ipResult.status === "fulfilled" ? [...new Set([...current.allowedPublicIps.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), ipResult.value.ip])].join("\n") : current.allowedPublicIps,
     }));
-    if (position.status === "rejected") toast.error("Không thể lấy vị trí hiện tại.");
+    if (position.status === "rejected") toast.error(geolocationErrorMessage(position.reason));
     if (ipResult.status === "rejected") toast.error("Không thể lấy IP mạng hiện tại.");
     setLocating(false);
   };
@@ -91,7 +112,7 @@ export default function BranchManagementTab() {
         <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-bold text-slate-600">Địa chỉ<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /></label><label className="block text-xs font-bold text-slate-600">Số điện thoại<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /></label></div>
         <div className="rounded-xl border border-cyan-100 bg-cyan-50/50 p-4"><div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-black text-slate-700">Cấu hình chấm công</h4><p className="text-[10px] text-slate-500">Bắt buộc để nhân viên chấm công.</p></div><button type="button" onClick={() => void captureLocationAndIp()} disabled={locating} className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><LocateFixed className="h-3.5 w-3.5" />{locating ? "Đang lấy..." : "Lấy vị trí & IP hiện tại"}</button></div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="text-[11px] font-bold text-slate-600">Vĩ độ<input aria-label="Vĩ độ" type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label><label className="text-[11px] font-bold text-slate-600">Kinh độ<input aria-label="Kinh độ" type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label><label className="text-[11px] font-bold text-slate-600">Bán kính (m)<input aria-label="Bán kính" type="number" min="1" value={form.allowedRadius} onChange={(e) => setForm({ ...form, allowedRadius: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label></div>
-          <label className="mt-3 block text-[11px] font-bold text-slate-600">IP công cộng được phép<textarea aria-label="IP công cộng được phép" rows={3} value={form.allowedPublicIps} onChange={(e) => setForm({ ...form, allowedPublicIps: e.target.value })} placeholder="Mỗi IP một dòng" className="mt-1 w-full rounded-lg border p-2 font-mono text-xs" /></label>
+          <label className="mt-3 block text-[11px] font-bold text-slate-600">IP công cộng được phép<textarea aria-label="IP công cộng được phép" rows={3} value={form.allowedPublicIps} onChange={(e) => setForm({ ...form, allowedPublicIps: e.target.value })} placeholder="Mỗi IP một dòng" className="mt-1 w-full rounded-lg border p-2 font-mono text-xs" /><span className="mt-1 block font-normal text-slate-500">Hỗ trợ cả IPv4 và IPv6. Địa chỉ dạng 2405:... là IPv6 hợp lệ.</span></label>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={closeForm} className="rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-bold text-slate-600">Hủy</button><button type="submit" disabled={saving} className="rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "Đang lưu..." : editing ? "Lưu cập nhật" : "Tạo chi nhánh"}</button></div>
