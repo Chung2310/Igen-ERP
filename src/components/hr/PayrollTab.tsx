@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
+import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlags";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
@@ -378,7 +379,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
-    {canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
+    {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">

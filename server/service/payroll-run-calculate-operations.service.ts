@@ -4,6 +4,7 @@ import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import mongoose from "mongoose";
 import { PayrollFormulaModel } from "../model/payroll-formula.model";
 import { evaluatePayrollFormulas } from "./payroll-formula-engine.service";
+import { PAYROLL_FORMULA_LIBRARY_ENABLED, emptyPayrollFormulaLibraryResult } from "../../src/config/payrollFeatureFlags";
 import { PayrollPeriodInputModel } from "../model/payroll-period-input.model";
 import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
 import { resolvePayrollPeriodInputs } from "./payroll-period-input-resolver.service";
@@ -75,7 +76,7 @@ export async function buildRunCalculationInputs(
     PayrollDependentModel.find({ companyCode: scope.companyCode, employeeId: { $in: employeeIds } }).lean(),
     PayrollPolicyModel.find({ companyCode: scope.companyCode, status: "active" }).lean(),
     loadAdjustmentTotals(scope, run.periodKey),
-    mongoose.connection.readyState === 1 ? PayrollFormulaModel.find({ companyCode: scope.companyCode, status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean() : Promise.resolve([]),
+    PAYROLL_FORMULA_LIBRARY_ENABLED && mongoose.connection.readyState === 1 ? PayrollFormulaModel.find({ companyCode: scope.companyCode, status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean() : Promise.resolve([]),
     mongoose.connection.readyState === 1 ? PayrollPeriodInputModel.find({ ...scope, periodKey: run.periodKey, employeeId: { $in: employeeIds } }).lean() : Promise.resolve([]),
     mongoose.connection.readyState === 1 ? PayrollCustomVariableModel.find({ companyCode: scope.companyCode, status: "active" }).lean() : Promise.resolve([]),
   ]);
@@ -117,7 +118,8 @@ export async function buildRunCalculationInputs(
     const earliestContract = (contractsByEmployee.get(employeeId) ?? []).map((item: any) => new Date(item.startDate).getTime()).filter(Number.isFinite).sort((a, b) => a - b)[0];
     const tenureMonths = earliestContract ? Math.max(0, Math.floor((new Date(period.end).getTime() - earliestContract) / (30.4375 * 86400000))) : 0;
     const customContext = Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.value]));
-    const library = evaluatePayrollFormulas(formulas as any[], { monthlySalary, attendanceSalary: monthlySalary, standardWorkDays: employee.standardDays, actualWorkDays, standardWorkHours: employee.standardHours, actualWorkHours: standardHours, shortageMinutes: employee.shortageMinutes, lateMinutes: Number(employee.lateMinutes || 0), earlyLeaveMinutes: Number(employee.earlyLeaveMinutes || 0), paidLeaveDays: (employee.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths, ...customContext });
+    const formulaContext = { monthlySalary, attendanceSalary: monthlySalary, standardWorkDays: employee.standardDays, actualWorkDays, standardWorkHours: employee.standardHours, actualWorkHours: standardHours, shortageMinutes: employee.shortageMinutes, lateMinutes: Number(employee.lateMinutes || 0), earlyLeaveMinutes: Number(employee.earlyLeaveMinutes || 0), paidLeaveDays: (employee.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths, ...customContext };
+    const library = PAYROLL_FORMULA_LIBRARY_ENABLED ? evaluatePayrollFormulas(formulas as any[], formulaContext) : emptyPayrollFormulaLibraryResult();
     return {
       ...resolved,
       issues: [
