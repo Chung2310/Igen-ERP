@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, calculateExpectedCash, isRetailShiftOperational, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
+import { normalizeError } from "../../../errors/normalize-error";
+import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
 
 test("expected cash uses actual cash flows only", () => {
   assert.equal(calculateExpectedCash({ openingFloat: 500_000, cashCollected: 1_200_000, cashRefunded: 100_000, movementsIn: 50_000, movementsOut: 200_000 }), 1_450_000);
@@ -28,6 +29,13 @@ test("variance reason threshold is strict greater-than and defaults to zero", ()
   assert.equal(varianceNeedsReason(-1, 0), true);
   assert.equal(varianceNeedsReason(100, 100), false);
   assert.equal(varianceNeedsReason(101, 100), true);
+});
+
+test("missing variance reason is a public validation error", () => {
+  const normalized = normalizeError(missingVarianceReasonError());
+  assert.equal(normalized.status, 400);
+  assert.equal(normalized.code, "SHIFT_VARIANCE_REASON_REQUIRED");
+  assert.equal(normalized.message, "Vui lòng nhập lý do chênh lệch ca.");
 });
 
 test("daytime retail shifts remain operational until Vietnam day-end", () => {

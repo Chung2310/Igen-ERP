@@ -5,10 +5,15 @@ import { CashierShiftModel } from "../models/cashier-shift.model";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { resolveShift, scheduledAt, shiftWindow, vietnamWorkDate, weekdayOf } from "../../../service/work-shift.service";
+import { ValidationError } from "../../../errors/app-error";
 
 type CashInputs = { openingFloat: number; cashCollected: number; cashRefunded: number; movementsIn: number; movementsOut: number };
 export function calculateExpectedCash(input: CashInputs) { return input.openingFloat + input.cashCollected + input.movementsIn - input.movementsOut - input.cashRefunded; }
 export function varianceNeedsReason(variance: number, threshold: number) { return Math.abs(variance) > threshold; }
+export const missingVarianceReasonError = () => new ValidationError(
+  "SHIFT_VARIANCE_REASON_REQUIRED",
+  "Vui lòng nhập lý do chênh lệch ca.",
+);
 export function retailShiftOperationalEndsAt(input: { businessDate: string; scheduledEndAt: Date; crossesMidnight: boolean }) {
   if (input.crossesMidnight) return input.scheduledEndAt;
   return new Date(scheduledAt(input.businessDate, "00:00", true).getTime() - 1);
@@ -108,7 +113,7 @@ export const CashierShiftService = {
     shift.methodTotals = [...methodMap.values()]; shift.collectedAmount = shift.methodTotals.reduce((sum, row) => sum + row.collectedAmount, 0); shift.refundedAmount = shift.methodTotals.reduce((sum, row) => sum + row.refundedAmount, 0); shift.netCollectedAmount = shift.collectedAmount - shift.refundedAmount;
     const movementsIn = shift.cashMovements.filter((m) => m.type === "in").reduce((sum, m) => sum + m.amount, 0); const movementsOut = shift.cashMovements.filter((m) => m.type === "out").reduce((sum, m) => sum + m.amount, 0);
     const cash = shift.methodTotals.find((item) => item.method === "cash"); shift.expectedCash = calculateExpectedCash({ openingFloat: shift.openingFloat, cashCollected: cash?.collectedAmount || 0, cashRefunded: cash?.refundedAmount || 0, movementsIn, movementsOut }); shift.countedCash = countedCash; shift.varianceAmount = countedCash - shift.expectedCash;
-    const settings = await getResolvedRetailSettings(scope); const reason = String(input.varianceReason || "").trim(); if (varianceNeedsReason(shift.varianceAmount, settings.varianceReasonThreshold) && !reason) throw new Error("Vui lòng nhập lý do chênh lệch ca.");
+    const settings = await getResolvedRetailSettings(scope); const reason = String(input.varianceReason || "").trim(); if (varianceNeedsReason(shift.varianceAmount, settings.varianceReasonThreshold) && !reason) throw missingVarianceReasonError();
     shift.varianceReason = reason || undefined; shift.status = "closed"; shift.closedAt = new Date(); shift.closedBy = actorId(actor); await shift.save(); return shift;
   },
   async approve(scope: RetailBranchScope, id: string, actor: any) {
