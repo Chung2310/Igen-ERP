@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { ExternalLink, X } from "lucide-react";
 import {
   financeReceivablesApi,
@@ -13,6 +14,16 @@ const money = new Intl.NumberFormat("vi-VN", {
 const today = new Date().toISOString().slice(0, 10);
 const permitted = (permissions: readonly string[], code: string) =>
   permissions.includes("*") || permissions.includes(code);
+
+function CommandField({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
+  return (
+    <label className="block text-sm font-semibold text-slate-700">
+      <span>{label}</span>
+      {description && <span className="mt-0.5 block text-xs font-normal text-slate-500">{description}</span>}
+      {children}
+    </label>
+  );
+}
 
 export default function ReceivableDetailDrawer({
   id,
@@ -122,20 +133,24 @@ export default function ReceivableDetailDrawer({
             className="space-y-2 rounded-xl border p-3"
           >
             <h3 className="font-bold">Thu tiền</h3>
-            <input
-              required
-              aria-label="Số tiền thu"
-              name="amount"
-              type="number"
-              min={1}
-              max={receivable.balance}
-              className="w-full rounded-lg border p-2"
-            />
-            <input
-              aria-label="Mã tham chiếu"
-              name="reference"
-              className="w-full rounded-lg border p-2"
-            />
+            <CommandField label="Số tiền thu">
+              <input
+                required
+                aria-label="Số tiền thu"
+                name="amount"
+                type="number"
+                min={1}
+                max={receivable.balance}
+                className="mt-1 w-full rounded-lg border p-2"
+              />
+            </CommandField>
+            <CommandField label="Mã tham chiếu" description="Không bắt buộc, dùng để đối soát giao dịch.">
+              <input
+                aria-label="Mã tham chiếu"
+                name="reference"
+                className="mt-1 w-full rounded-lg border p-2"
+              />
+            </CommandField>
             <button
               disabled={busy}
               className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-bold text-white"
@@ -163,23 +178,18 @@ export default function ReceivableDetailDrawer({
               className="space-y-2 rounded-xl border p-3"
             >
               <h3 className="font-bold">Điều chỉnh</h3>
-              <input
-                required
-                name="amount"
-                type="number"
-                min={1}
-                className="w-full rounded-lg border p-2"
-              />
-              <select name="direction" className="w-full rounded-lg border p-2">
-                <option value="increase">Tăng nợ</option>
-                <option value="decrease">Giảm nợ</option>
-              </select>
-              <input
-                required
-                aria-label="Lý do điều chỉnh"
-                name="reason"
-                className="w-full rounded-lg border p-2"
-              />
+              <CommandField label="Số tiền điều chỉnh">
+                <input required aria-label="Số tiền điều chỉnh" name="amount" type="number" min={1} className="mt-1 w-full rounded-lg border p-2" />
+              </CommandField>
+              <CommandField label="Hướng điều chỉnh">
+                <select aria-label="Hướng điều chỉnh" name="direction" className="mt-1 w-full rounded-lg border p-2">
+                  <option value="increase">Tăng nợ</option>
+                  <option value="decrease">Giảm nợ</option>
+                </select>
+              </CommandField>
+              <CommandField label="Lý do điều chỉnh">
+                <input required aria-label="Lý do điều chỉnh" name="reason" className="mt-1 w-full rounded-lg border p-2" />
+              </CommandField>
               <button
                 disabled={busy}
                 className="rounded-lg border px-3 py-2 text-sm font-bold"
@@ -203,20 +213,12 @@ export default function ReceivableDetailDrawer({
               className="space-y-2 rounded-xl border p-3"
             >
               <h3 className="font-bold">Tạm dừng nhắc nợ</h3>
-              <input
-                required
-                aria-label="Tạm dừng đến ngày"
-                name="until"
-                type="date"
-                min={today}
-                className="w-full rounded-lg border p-2"
-              />
-              <input
-                required
-                name="reason"
-                placeholder="Lý do"
-                className="w-full rounded-lg border p-2"
-              />
+              <CommandField label="Tạm dừng đến ngày">
+                <input required aria-label="Tạm dừng đến ngày" name="until" type="date" min={today} className="mt-1 w-full rounded-lg border p-2" />
+              </CommandField>
+              <CommandField label="Lý do tạm dừng">
+                <input required aria-label="Lý do tạm dừng" name="reason" className="mt-1 w-full rounded-lg border p-2" />
+              </CommandField>
               <button
                 disabled={busy}
                 className="rounded-lg border px-3 py-2 text-sm font-bold"
@@ -235,12 +237,9 @@ export default function ReceivableDetailDrawer({
               className="space-y-2 rounded-xl border p-3"
             >
               <h3 className="font-bold">Xóa nợ</h3>
-              <input
-                required
-                name="reason"
-                placeholder="Lý do xóa nợ"
-                className="w-full rounded-lg border p-2"
-              />
+              <CommandField label="Lý do xóa nợ" description="Bắt buộc để lưu vết thao tác xóa nợ.">
+                <input required aria-label="Lý do xóa nợ" name="reason" className="mt-1 w-full rounded-lg border p-2" />
+              </CommandField>
               <button
                 disabled={busy}
                 className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700"
@@ -295,12 +294,9 @@ function LedgerRow({
           }}
           className="flex gap-2"
         >
-          <input
-            required
-            name="reason"
-            aria-label="Lý do đảo bút toán"
-            className="w-32 rounded-lg border px-2"
-          />
+          <CommandField label="Lý do đảo bút toán" description="Được lưu vào lịch sử kiểm toán.">
+            <input required name="reason" aria-label="Lý do đảo bút toán" className="mt-1 w-40 rounded-lg border px-2 py-1" />
+          </CommandField>
           <button
             className="text-xs font-bold text-amber-700"
             aria-label={`Đảo bút toán ${entry._id}`}

@@ -27,4 +27,24 @@ describe("ReceivableDetailDrawer", () => {
     expect(screen.getByLabelText("Tạm dừng đến ngày").getAttribute("min")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(screen.getByRole("button", { name: /đảo bút toán/i })).toBeTruthy();
   });
+
+  it("shows a visible label for every receivable command field", async () => {
+    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    await screen.findByRole("button", { name: "Thu tiền" });
+
+    for (const name of [
+      "Số tiền thu",
+      "Mã tham chiếu",
+      "Số tiền điều chỉnh",
+      "Hướng điều chỉnh",
+      "Lý do điều chỉnh",
+      "Tạm dừng đến ngày",
+      "Lý do tạm dừng",
+      "Lý do xóa nợ",
+      "Lý do đảo bút toán",
+    ]) {
+      const control = screen.getByLabelText(name);
+      expect(control.closest("label")?.textContent).toContain(name);
+    }
+  });
 });
