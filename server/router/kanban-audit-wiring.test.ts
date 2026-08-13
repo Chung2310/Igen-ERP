@@ -7,5 +7,6 @@ const source = readFileSync(new URL("./kanban.router.ts", import.meta.url), "utf
 test("kanban mutation routes emit traceable audit events", () => {
   assert.match(source, /X-Correlation-Id/);
   assert.equal((source.match(/recordTaskMutation\(/g) || []).length, 3);
-  assert.equal((source.match(/recordProjectMutation\(/g) || []).length, 2);
+  assert.equal((source.match(/recordProjectMutation\(/g) || []).length, 3);
+  assert.match(source, /action: "updated"/);
 });
