@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeError } from "../../../errors/normalize-error";
-import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
+import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, parseOpeningFloat, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
 
 test("expected cash uses actual cash flows only", () => {
   assert.equal(calculateExpectedCash({ openingFloat: 500_000, cashCollected: 1_200_000, cashRefunded: 100_000, movementsIn: 50_000, movementsOut: 200_000 }), 1_450_000);
@@ -36,6 +36,19 @@ test("missing variance reason is a public validation error", () => {
   assert.equal(normalized.status, 400);
   assert.equal(normalized.code, "SHIFT_VARIANCE_REASON_REQUIRED");
   assert.equal(normalized.message, "Vui lòng nhập lý do chênh lệch ca.");
+});
+
+test("zero opening cash is a public validation error", () => {
+  let normalized;
+  try {
+    parseOpeningFloat(0);
+    assert.fail("Expected zero opening cash to be rejected");
+  } catch (error) {
+    normalized = normalizeError(error);
+  }
+  assert.equal(normalized.status, 400);
+  assert.equal(normalized.code, "SHIFT_OPENING_FLOAT_INVALID");
+  assert.equal(normalized.message, "Quỹ đầu ca phải lớn hơn 0.");
 });
 
 test("daytime retail shifts remain operational until Vietnam day-end", () => {
