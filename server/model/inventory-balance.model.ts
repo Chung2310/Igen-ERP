@@ -11,6 +11,8 @@ const InventoryBalanceSchema = new Schema<IInventoryBalance>(
     sku: { type: String, required: true, trim: true, uppercase: true, index: true },
     quantity: { type: Number, required: true, default: 0 },
     reservedQuantity: { type: Number, required: true, default: 0, min: 0 },
+    minStock: { type: Number, required: true, default: 0, min: 0 },
+    maxStock: { type: Number, min: 0 },
     averageCost: { type: Number, required: true, default: 0, min: 0 },
     version: { type: Number, required: true, default: 0, min: 0 },
   },

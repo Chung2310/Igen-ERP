@@ -7,6 +7,7 @@ export const productCatalogRouter = Router();
 productCatalogRouter.get("/resources/:kind", requirePermission("stock:read") as any, productCatalogController.listResources);
 productCatalogRouter.post("/resources/:kind", requirePermission("stock:manage") as any, productCatalogController.createResource);
 productCatalogRouter.patch("/resources/:kind/:id", requirePermission("stock:manage") as any, productCatalogController.updateResource);
+productCatalogRouter.delete("/resources/:kind/:id", requirePermission("stock:manage") as any, productCatalogController.deleteResource);
 productCatalogRouter.get("/templates", requirePermission("stock:read") as any, productCatalogController.listTemplates);
 productCatalogRouter.post("/templates", requirePermission("stock:manage") as any, productCatalogController.createTemplate);
 productCatalogRouter.patch("/templates/:id", requirePermission("stock:manage") as any, productCatalogController.updateTemplate);
