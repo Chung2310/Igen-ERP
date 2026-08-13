@@ -30,3 +30,11 @@
 ## Commit
 
 `test(payroll): verify inline input bulk save`
+
+## Review follow-up
+
+- Scoped the exact partial-failure message assertion to e2's closest table row and asserted e1's row does not contain that message.
+- Replaced the text-substring/index save-button helper with accessible role queries; the dialog submit is resolved with `within()` on the existing modal container. Production markup was not changed.
+- Re-ran `npx vitest run src/components/hr/PayrollTab.test.tsx src/components/hr/payroll/payrollInlineInputs.test.ts`: passed (2 files, 12 tests).
+- `npx tsc --noEmit --pretty false` passed after narrowing the existing modal container to `HTMLElement` for Testing Library's `within()` type contract.
+- `git diff --check` passed with no whitespace errors.

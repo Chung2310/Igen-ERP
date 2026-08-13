@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PayrollTab from "./PayrollTab";
@@ -67,8 +67,10 @@ function saveReasonInput() {
   return input;
 }
 
-function saveButtons() {
-  return screen.getAllByRole("button").filter(button => button.textContent?.includes("thay"));
+function saveDialog() {
+  const dialog = saveReasonInput().closest("div.fixed");
+  if (!(dialog instanceof HTMLElement)) throw new Error("Save dialog is not present");
+  return within(dialog);
 }
 
 describe("PayrollTab formula library feature flag", () => {
@@ -118,16 +120,16 @@ describe("PayrollTab formula library feature flag", () => {
     await user.type(deduction, "250000");
 
     expect(await screen.findByText(/2 .*thay/)).toBeTruthy();
-    await user.click(saveButtons()[0]);
-    expect(saveButtons()).toHaveLength(2);
-    expect((saveButtons()[1] as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole("button", { name: /thay/ }));
+    const submit = saveDialog().getByRole("button", { name: /thay/ }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
 
     const reason = saveReasonInput();
     await user.type(reason, "   ");
-    expect((saveButtons()[1] as HTMLButtonElement).disabled).toBe(true);
+    expect(submit.disabled).toBe(true);
     await user.clear(reason);
     await user.type(reason, ` ${reasonText} `);
-    await user.click(saveButtons()[1]);
+    await user.click(submit);
 
     await waitFor(() => expect(bulkSavePeriodInputs).toHaveBeenCalledTimes(1));
     expect(bulkSavePeriodInputs).toHaveBeenCalledWith(expect.any(String), [
@@ -135,7 +137,7 @@ describe("PayrollTab formula library feature flag", () => {
       { employeeId: "e2", expectedVersion: 7, reason: reasonText, deduction: 250_000, clearFields: [] },
     ]);
     expect(calculate).not.toHaveBeenCalled();
-    await waitFor(() => expect(saveButtons()).toHaveLength(0));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /thay/ })).toBeNull());
   });
 
   it("retains only failed drafts and keeps the save dialog open for retry after a partial save failure", async () => {
@@ -168,16 +170,19 @@ describe("PayrollTab formula library feature flag", () => {
     await user.type(agreedSalary, "15000000");
     await user.clear(deduction);
     await user.type(deduction, "250000");
-    await user.click(saveButtons()[0]);
+    await user.click(screen.getByRole("button", { name: /thay/ }));
     const reason = saveReasonInput();
     await user.type(reason, "\u0110\u1ed1i so\u00e1t th\u00e1ng 8");
-    await user.click(saveButtons()[1]);
+    await user.click(saveDialog().getByRole("button", { name: /thay/ }));
 
-    await screen.findByText(conflict);
-    expect((screen.getByLabelText("deduction-e2") as HTMLInputElement).value).toBe("250000");
+    const e1Row = screen.getByLabelText("agreedSalary-e1").closest("tr");
+    const e2Row = screen.getByLabelText("deduction-e2").closest("tr");
+    if (!e1Row || !e2Row) throw new Error("Payroll employee row is not present");
+    await waitFor(() => expect(within(e2Row).getByText(conflict)).toBeTruthy());
+    expect(within(e1Row).queryByText(conflict)).toBeNull();
+    expect((within(e2Row).getByLabelText("deduction-e2") as HTMLInputElement).value).toBe("250000");
     expect(screen.getByText(/1 .*thay/)).toBeTruthy();
-    expect(saveButtons()).toHaveLength(2);
-    expect(saveReasonInput()).toBeTruthy();
+    expect(saveDialog().getByRole("button", { name: /thay/ })).toBeTruthy();
     expect(getPeriodInputs).toHaveBeenCalledTimes(2);
     expect(getResults).toHaveBeenCalledTimes(2);
   });
