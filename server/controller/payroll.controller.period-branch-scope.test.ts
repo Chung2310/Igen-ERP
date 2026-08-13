@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
+  runCreate: vi.fn(),
   companyFindOne: vi.fn(),
   timekeepingFind: vi.fn(),
   leaveFind: vi.fn(),
@@ -12,11 +13,29 @@ const mocks = vi.hoisted(() => ({
   attendanceUpdateMany: vi.fn(),
   auditFind: vi.fn(),
   auditCreate: vi.fn(),
+  policyFind: vi.fn(),
+  profileFind: vi.fn(),
+  dependentFind: vi.fn(),
+  adjustmentFind: vi.fn(),
+  formulaFind: vi.fn(),
+  periodInputFind: vi.fn(),
+  customVariableFind: vi.fn(),
+  evaluatePayrollFormulas: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
-  PayrollRunModel: { findOne: mocks.runFindOne },
+  PayrollRunModel: { findOne: mocks.runFindOne, create: mocks.runCreate },
 }));
+vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { find: mocks.policyFind } }));
+vi.mock("../model/payroll-profile.model", () => ({
+  PayrollProfileModel: { find: mocks.profileFind },
+  PayrollDependentModel: { find: mocks.dependentFind },
+}));
+vi.mock("../model/payroll-adjustment.model", () => ({ PayrollAdjustmentModel: { find: mocks.adjustmentFind } }));
+vi.mock("../model/payroll-formula.model", () => ({ PayrollFormulaModel: { find: mocks.formulaFind } }));
+vi.mock("../model/payroll-period-input.model", () => ({ PayrollPeriodInputModel: { find: mocks.periodInputFind } }));
+vi.mock("../model/payroll-custom-variable.model", () => ({ PayrollCustomVariableModel: { find: mocks.customVariableFind } }));
+vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
 vi.mock("../model/company.model", () => ({
   CompanyModel: { findOne: mocks.companyFindOne },
 }));
@@ -42,6 +61,7 @@ vi.mock("../model/payroll-audit.model", () => ({
 }));
 
 import { payrollController } from "./payroll.controller";
+import { DEFAULT_VIETNAM_PAYROLL_POLICY } from "../config/payroll-default-policy";
 
 const branchRequest = (overrides: Record<string, unknown> = {}) => ({
   user: { id: "actor-a", role: "superadmin", companyCode: "ACME", branchId: "branch-a" },
@@ -76,6 +96,17 @@ describe("legacy payroll period branch scope", () => {
     mocks.attendanceUpdateMany.mockResolvedValue({ modifiedCount: 1 });
     mocks.auditFind.mockReturnValue({ sort: vi.fn().mockReturnValue(lean([{ _id: "audit-a" }])) });
     mocks.auditCreate.mockResolvedValue({});
+    mocks.policyFind.mockReturnValue(lean([DEFAULT_VIETNAM_PAYROLL_POLICY]));
+    mocks.profileFind.mockReturnValue(lean([]));
+    mocks.dependentFind.mockReturnValue(lean([]));
+    mocks.adjustmentFind.mockReturnValue(lean([]));
+    mocks.formulaFind.mockReturnValue(sortedLean([]));
+    mocks.evaluatePayrollFormulas.mockReturnValue({
+      applications: [{ code: "legacy-formula" }],
+      totals: { allowance: 0, bonus: 0, deduction: 0, adjustment: 0 },
+    });
+    mocks.periodInputFind.mockReturnValue(lean([]));
+    mocks.customVariableFind.mockReturnValue(lean([]));
   });
 
   it("scopes snapshot source reads and attendance upserts to the authenticated branch", async () => {
@@ -169,5 +200,32 @@ describe("legacy payroll period branch scope", () => {
 
     expect(closedResponse.status).toHaveBeenCalledWith(409);
     expect(mocks.attendanceUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("skips formula-library queries and preserves ordinary adjustments in legacy runs", async () => {
+    mocks.attendanceFind.mockReturnValue(lean([{
+      employeeId: "employee-a", employeeName: "Employee A", monthlySalary: 12_000_000,
+      standardDays: 23, standardHours: 184, workedDays: 23, workedMinutes: 11_040,
+      shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [], status: "locked",
+    }]));
+    mocks.adjustmentFind.mockReturnValue(lean([
+      { employeeId: "employee-a", kind: "allowance", amount: 100_000 },
+      { employeeId: "employee-a", kind: "bonus", amount: 200_000 },
+      { employeeId: "employee-a", kind: "deduction", amount: 300_000 },
+      { employeeId: "employee-a", kind: "correction", amount: 400_000 },
+    ]));
+    mocks.runCreate.mockImplementation(async (value) => value);
+    const res = response();
+
+    await payrollController.createRun(branchRequest(), res);
+
+    expect(mocks.formulaFind).not.toHaveBeenCalled();
+    expect(mocks.evaluatePayrollFormulas).not.toHaveBeenCalled();
+    const line = mocks.runCreate.mock.calls[0][0].lines[0];
+    expect(line.formulaApplications).toEqual([]);
+    expect(line.calculation).toMatchObject({
+      allowances: 100_000, bonuses: 200_000, otherDeductions: 300_000, adjustments: 400_000,
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 });
