@@ -1,7 +1,7 @@
 import { model, Schema } from "mongoose";
 import { RECEIVABLE_ENTRY_TYPES, type IReceivableEntry } from "../interfaces/receivable.interface";
 
-const signedInteger = { validator: (value: number) => Number.isSafeInteger(value) && value !== 0, message: "Amount must be a non-zero integer VND value." };
+const signedInteger = { validator(this: any, value: number) { return Number.isSafeInteger(value) && (value !== 0 || this.type === "due_date_extension"); }, message: "Amount must be a valid integer VND value." };
 const integer = { validator: Number.isSafeInteger, message: "Balance must be an integer VND value." };
 
 const schema = new Schema<IReceivableEntry>({
@@ -18,6 +18,8 @@ const schema = new Schema<IReceivableEntry>({
   sourceEventId: String,
   idempotencyKey: { type: String, required: true },
   reversalOfEntryId: String,
+  previousDueDate: Date,
+  newDueDate: Date,
   createdBy: { type: String, required: true },
   createdByName: { type: String, required: true },
 }, { timestamps: true });

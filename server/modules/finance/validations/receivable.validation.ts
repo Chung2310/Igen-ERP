@@ -38,4 +38,13 @@ export function validateSuspension(input: any) {
   if (Number.isNaN(until.valueOf())) throw new ValidationError("VALIDATION_FAILED", "INVALID_DATE");
   return { until, reason: text(input?.reason, "REASON_REQUIRED") };
 }
+
+export function validateExtension(input: any) {
+  const raw = String(input?.dueDate || "");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(raw)) throw new ValidationError("VALIDATION_FAILED", "INVALID_DATE");
+  const dueDate = new Date(raw);
+  const normalizedInput = raw.includes(".") ? raw : raw.replace("Z", ".000Z");
+  if (Number.isNaN(dueDate.valueOf()) || dueDate.toISOString() !== normalizedInput) throw new ValidationError("VALIDATION_FAILED", "INVALID_DATE");
+  return { dueDate, reason: text(input?.reason, "REASON_REQUIRED"), idempotencyKey: text(input?.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED") };
+}
 import { ValidationError } from "../../../errors/app-error";
