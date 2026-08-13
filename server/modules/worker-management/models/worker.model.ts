@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Model } from "mongoose";
-import type { IWorker } from "../interfaces/worker.interface";
+import { WORKER_LABOR_TYPES, type IWorker } from "../interfaces/worker.interface";
 
 const workerSchema = new Schema<IWorker>({
   companyCode: { type: String, required: true, trim: true, index: true },
@@ -8,6 +8,10 @@ const workerSchema = new Schema<IWorker>({
   phone: { type: String, trim: true },
   email: { type: String, trim: true, lowercase: true },
   status: { type: String, enum: ["active", "inactive", "placed"], default: "active", required: true },
+  laborType: { type: String, enum: WORKER_LABOR_TYPES, default: "official" },
+  nationality: { type: String, trim: true },
+  workPermitNumber: { type: String, trim: true },
+  workPermitExpiry: { type: String, trim: true },
   note: { type: String, trim: true },
   address: { type: String, trim: true },
   birthday: { type: String, trim: true },

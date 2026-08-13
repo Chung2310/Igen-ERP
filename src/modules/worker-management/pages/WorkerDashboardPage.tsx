@@ -11,6 +11,7 @@ import {
   UserCheck,
   TrendingUp,
   UserX,
+  AlertTriangle,
   FileCheck2
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ export function WorkerDashboardPage({
   formattedDate,
   onSelectStudent,
   onSelectWorker,
+  onNavigate,
   selectedCenter
 }: {
   formattedDate: string;
@@ -34,6 +36,7 @@ export function WorkerDashboardPage({
     projectsByStatus: { planned: 0, active: 0, completed: 0 },
     monthlyRegistrations: Array(12).fill(0),
     topProjects: [] as Array<{ name: string; allocated: number; quota: number }>,
+    contractAlerts: { alertDays: 30, expiringCount: 0, expiredCount: 0 },
   });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -95,6 +98,34 @@ export function WorkerDashboardPage({
       {error && (
         <div role="alert" className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
           {error}
+        </div>
+      )}
+
+      {(stats.contractAlerts.expiredCount > 0 || stats.contractAlerts.expiringCount > 0) && (
+        <div
+          role="alert"
+          className={`flex flex-wrap items-center gap-2 rounded-xl border p-4 text-xs font-semibold ${
+            stats.contractAlerts.expiredCount > 0
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            {stats.contractAlerts.expiredCount > 0 &&
+              `${stats.contractAlerts.expiredCount} hợp đồng lao động đã hết hạn. `}
+            {stats.contractAlerts.expiringCount > 0 &&
+              `${stats.contractAlerts.expiringCount} hợp đồng sẽ hết hạn trong ${stats.contractAlerts.alertDays} ngày tới.`}
+          </span>
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("hop-dong")}
+              className="rounded-lg border border-current bg-white/70 px-2.5 py-1 text-[11px] font-bold"
+            >
+              Xem hợp đồng
+            </button>
+          )}
         </div>
       )}
 

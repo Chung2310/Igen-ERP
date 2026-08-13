@@ -14,6 +14,7 @@ import * as XLSX from "xlsx";
 import { toast } from "../../../pages/Toast";
 import type {
   BulkWorkerInput,
+  WorkerLaborType,
   WorkerBulkImportResult,
   WorkerProjectSummary,
 } from "../types";
@@ -43,8 +44,21 @@ const TEMPLATE_HEADERS = [
   "Email",
   "Địa chỉ",
   "Ngày tiếp nhận",
+  "Loại lao động",
+  "Quốc tịch",
+  "Số GPLĐ / visa",
+  "Ngày hết hạn GPLĐ / visa",
   "Ghi chú",
 ];
+
+/** Cùng quy tắc với normalizeLaborType phía server, để xem trước khớp dữ liệu lưu. */
+export function normalizeImportLaborType(value: unknown): WorkerLaborType {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "official" || raw === "seasonal" || raw === "foreign") return raw;
+  if (raw.includes("thời vụ") || raw.includes("thoi vu")) return "seasonal";
+  if (raw.includes("nước ngoài") || raw.includes("nuoc ngoai")) return "foreign";
+  return "official";
+}
 
 /**
  * Mirror the server's normalizeWorkerPhone so the preview shows exactly what
@@ -71,6 +85,10 @@ function mapHeaders(row: unknown[]): Record<string, number> {
     else if (value.includes("email")) map.email = index;
     else if (value.includes("địa chỉ") || value.includes("dia chi") || value.includes("nơi ở")) map.address = index;
     else if (value.includes("ngày tiếp nhận") || value.includes("ngay tiep nhan") || value.includes("tiếp nhận")) map.registrationDate = index;
+    else if (value.includes("loại lao động") || value.includes("loai lao dong")) map.laborType = index;
+    else if (value.includes("quốc tịch") || value.includes("quoc tich")) map.nationality = index;
+    else if (value.includes("hết hạn") || value.includes("het han")) map.workPermitExpiry = index;
+    else if (value.includes("gplđ") || value.includes("gpld") || value.includes("giấy phép") || value.includes("giay phep") || value.includes("visa")) map.workPermitNumber = index;
     else if (value.includes("ghi chú") || value.includes("ghi chu")) map.note = index;
   });
   return map;
@@ -116,6 +134,10 @@ export function parseWorkerSheet(sheet: unknown[][]): { rows: WorkerImportRow[];
       email: cell("email"),
       address: cell("address"),
       registrationDate: cell("registrationDate"),
+      laborType: normalizeImportLaborType(cell("laborType")),
+      nationality: cell("nationality"),
+      workPermitNumber: cell("workPermitNumber"),
+      workPermitExpiry: cell("workPermitExpiry"),
       note: cell("note"),
     };
 
@@ -138,6 +160,9 @@ export function parseWorkerSheet(sheet: unknown[][]): { rows: WorkerImportRow[];
       }
       if (data.registrationDate && !DATE_PATTERN.test(data.registrationDate)) {
         errors.push("Ngày tiếp nhận không đúng định dạng DD/MM/YYYY");
+      }
+      if (data.workPermitExpiry && !DATE_PATTERN.test(data.workPermitExpiry)) {
+        errors.push("Ngày hết hạn GPLĐ / visa không đúng định dạng DD/MM/YYYY");
       }
     }
 
@@ -176,12 +201,13 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
     try {
       const worksheet = XLSX.utils.aoa_to_sheet([
         TEMPLATE_HEADERS,
-        ["Nguyễn Văn A", "0912345678", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", ""],
-        ["Trần Thị B", "0987654321", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Biết tiếng Nhật"],
+        ["Nguyễn Văn A", "0912345678", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", "Chính thức", "Việt Nam", "", "", ""],
+        ["Trần Thị B", "0987654321", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Người nước ngoài", "Nhật Bản", "GPLD-2026-001", "31/12/2027", "Biết tiếng Nhật"],
       ]);
       worksheet["!cols"] = [
         { wch: 22 }, { wch: 16 }, { wch: 13 }, { wch: 18 },
-        { wch: 24 }, { wch: 32 }, { wch: 16 }, { wch: 24 },
+        { wch: 24 }, { wch: 32 }, { wch: 16 }, { wch: 18 },
+        { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 24 },
       ];
       const guide = XLSX.utils.aoa_to_sheet([
         ["Lưu ý"],
@@ -189,6 +215,8 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
         ["Ngày sinh và Ngày tiếp nhận dùng định dạng DD/MM/YYYY, ví dụ 25/12/1995."],
         ["Không cần nhập mã công ty hay chi nhánh — hệ thống tự gán theo phạm vi bạn đang xem."],
         ["Số điện thoại trùng với lao động đã có trong hệ thống sẽ bị bỏ qua và báo lại ở bước cuối."],
+        ["Loại lao động nhận: Chính thức, Thời vụ, Người nước ngoài. Bỏ trống sẽ hiểu là Chính thức."],
+        ["Số GPLĐ / visa và ngày hết hạn chỉ áp dụng cho loại Người nước ngoài, các loại khác sẽ bỏ qua."],
       ]);
       guide["!cols"] = [{ wch: 110 }];
 
