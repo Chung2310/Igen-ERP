@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BrainCircuit, PackageSearch, RefreshCw, TrendingUp } from "lucide-react";
-import { InventoryForecastItem, InventoryForecastRecommendation, InventoryForecastSummary } from "../../types";
+import { InventoryForecastItem, InventoryForecastRecommendation, InventoryForecastSummary, StockLog } from "../../types";
 import { toast } from "../../pages/Toast";
+import { inventoryReceivingService, type InventoryBalance } from "../../services/inventoryReceivingService";
+import { buildWarehouseInventoryForecast } from "../../utils/inventoryForecast";
 
 type AiForecastPanelProps = {
   forecast: InventoryForecastSummary;
+  stockLogs?: StockLog[];
 };
 
 function formatNumber(value: number) {
@@ -15,35 +18,27 @@ function formatDemand(value: number) {
   return value.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
 }
 
-function getRiskStyles(level: InventoryForecastItem["riskLevel"]) {
-  if (level === "high") {
-    return {
-      badge: "border-red-200 bg-red-50 text-red-700",
-      card: "border-red-150 bg-red-50/35",
-      line: "#DC2626",
-    };
-  }
-
-  if (level === "medium") {
-    return {
-      badge: "border-orange-200 bg-orange-50 text-orange-700",
-      card: "border-orange-150 bg-orange-50/35",
-      line: "#F97316",
-    };
-  }
-
-  return {
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    card: "border-emerald-150 bg-emerald-50/35",
-    line: "#10B981",
-  };
-}
-
 function getRecommendationStyles(tone: InventoryForecastRecommendation["tone"]) {
   if (tone === "danger") return "border-red-100 bg-red-50";
   if (tone === "warning") return "border-orange-100 bg-orange-50";
   return "border-blue-100 bg-blue-50";
 }
+
+type AdjustmentLevel = "out" | "shortage" | "excess" | "overstock";
+function getAdjustment(item: InventoryForecastItem): { level: AdjustmentLevel; label: string; action: string } | null {
+  if (item.currentStock === 0) return { level: "out", label: "Hết hàng", action: "Ưu tiên tạo phiếu nhập hoặc điều chuyển về kho." };
+  if (item.currentStock < item.minStockAlert || (item.daysOfCover !== null && item.daysOfCover <= 7)) return { level: "shortage", label: "Thiếu hàng", action: `Nên bổ sung ${formatNumber(item.suggestedReorderQty)} để bảo đảm mức tồn an toàn.` };
+  const noDemandButHighStock = item.forecast30Days === 0 && item.currentStock > Math.max(item.minStockAlert * 2, 1);
+  if (noDemandButHighStock || (item.overstockDays !== null && item.overstockDays > 30)) return { level: "overstock", label: "Dư tồn cao", action: "Cân nhắc điều chuyển, khuyến mãi hoặc tạm dừng nhập thêm." };
+  if (item.overstockDays !== null && item.overstockDays > 14) return { level: "excess", label: "Tồn cao", action: "Theo dõi tốc độ bán; ưu tiên giảm kế hoạch nhập tiếp theo." };
+  return null;
+}
+const adjustmentStyles: Record<AdjustmentLevel, { badge: string; card: string }> = {
+  out: { badge: "border-rose-200 bg-rose-50 text-rose-700", card: "border-rose-150 bg-rose-50/35" },
+  shortage: { badge: "border-orange-200 bg-orange-50 text-orange-700", card: "border-orange-150 bg-orange-50/35" },
+  excess: { badge: "border-amber-200 bg-amber-50 text-amber-700", card: "border-amber-150 bg-amber-50/35" },
+  overstock: { badge: "border-violet-200 bg-violet-50 text-violet-700", card: "border-violet-150 bg-violet-50/35" },
+};
 
 function buildLinePath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return "";
@@ -145,24 +140,33 @@ function RecommendationCard({ recommendation }: { recommendation: InventoryForec
   );
 }
 
-export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-
-  const selectedItem = useMemo(
-    () => forecast.items.find((item) => item.productId === selectedProductId) || forecast.items[0] || null,
-    [forecast.items, selectedProductId]
-  );
+export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelProps) {
+  const [warehouseBalances, setWarehouseBalances] = useState<InventoryBalance[] | null>(null);
+  const [warehouseForecastLoading, setWarehouseForecastLoading] = useState(true);
 
   useEffect(() => {
-    if (!forecast.items.length) {
-      setSelectedProductId("");
-      return;
-    }
+    let active = true;
+    void inventoryReceivingService.listBalances()
+      .then((balances) => { if (active) setWarehouseBalances(balances); })
+      .catch(() => { if (active) setWarehouseBalances(null); })
+      .finally(() => { if (active) setWarehouseForecastLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-    if (!selectedProductId || !forecast.items.some((item) => item.productId === selectedProductId)) {
-      setSelectedProductId(forecast.warningItems[0]?.productId || forecast.items[0].productId);
-    }
-  }, [forecast.items, forecast.warningItems, selectedProductId]);
+  const effectiveForecast = useMemo(
+    () => warehouseBalances?.length ? buildWarehouseInventoryForecast(warehouseBalances, stockLogs) : forecast,
+    [forecast, stockLogs, warehouseBalances]
+  );
+  const adjustmentItems = useMemo(
+    () => effectiveForecast.items.map((item) => ({ item, adjustment: getAdjustment(item) })).filter((entry): entry is { item: InventoryForecastItem; adjustment: NonNullable<ReturnType<typeof getAdjustment>> } => Boolean(entry.adjustment)),
+    [effectiveForecast.items]
+  );
+  const overview = useMemo(() => ({
+    skuCount: effectiveForecast.items.length,
+    shortageCount: adjustmentItems.filter(({ adjustment }) => adjustment.level === "out" || adjustment.level === "shortage").length,
+    excessCount: adjustmentItems.filter(({ adjustment }) => adjustment.level === "excess" || adjustment.level === "overstock").length,
+    demand30: effectiveForecast.items.reduce((sum, item) => sum + item.forecast30Days, 0),
+  }), [adjustmentItems, effectiveForecast.items]);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" id="ai_demand_forecast_tab">
@@ -170,37 +174,36 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
         <div>
           <h4 className="flex items-center gap-1.5 font-sans text-sm font-bold uppercase tracking-wide text-gray-800">
             <AlertTriangle className="h-4.5 w-4.5 text-red-500" />
-            Cảnh báo tồn kho tự động
+            Phân loại điều chỉnh tồn kho
           </h4>
-          <p className="mt-1 text-xs leading-snug text-gray-400">Theo dõi mã sản phẩm sắp chạm ngưỡng cảnh báo hoặc đang có tốc độ xuất cao trong 30 ngày gần nhất.</p>
+          <p className="mt-1 text-xs leading-snug text-gray-400">Xem SKU nào thiếu để bổ sung và SKU nào dư để điều chuyển, khuyến mãi hoặc giảm kế hoạch nhập.</p>
 
           <div className="mt-5 space-y-4">
-            {!forecast.hasHistoricalDemand ? (
+            {warehouseForecastLoading ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-600">Đang đồng bộ tồn kho và dữ liệu dự báo...</div>
+            ) : !effectiveForecast.hasHistoricalDemand ? (
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center text-sm font-semibold text-blue-800">
                 Chưa đủ dữ liệu phiếu xuất hoàn thành để tạo dự báo nhu cầu.
               </div>
-            ) : forecast.warningItems.length === 0 ? (
+            ) : adjustmentItems.length === 0 ? (
               <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center text-sm font-semibold text-green-800">
-                AI chưa phát hiện mã sản phẩm nào có rủi ro cạn kho trong 30 ngày tới.
+                Tồn kho đang cân bằng; chưa có SKU cần điều chỉnh ưu tiên.
               </div>
             ) : (
-              forecast.warningItems.slice(0, 6).map((item) => {
-                const styles = getRiskStyles(item.riskLevel);
+              adjustmentItems.slice(0, 6).map(({ item, adjustment }) => {
+                const styles = adjustmentStyles[adjustment.level];
                 return (
                   <button
                     key={item.productId}
                     type="button"
-                    onClick={() => setSelectedProductId(item.productId)}
-                    className={`w-full rounded-xl border p-4 text-left transition-all hover:shadow-sm ${styles.card} ${selectedItem?.productId === item.productId ? "ring-2 ring-slate-800/10" : ""}`}
+                    className={`w-full cursor-default rounded-xl border p-4 text-left ${styles.card}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h5 className="font-sans font-bold text-gray-800">{item.name}</h5>
                         <p className="mt-1 font-mono text-[10px] text-gray-400">Mã sản phẩm: {item.sku} • Tồn hiện tại {formatNumber(item.currentStock)}</p>
                       </div>
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${styles.badge}`}>
-                        {item.riskLevel === "high" ? "Nguy cơ cao" : "Theo dõi"}
-                      </span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${styles.badge}`}>{adjustment.label}</span>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
                       <div className="rounded-lg bg-white/75 px-3 py-2">
@@ -208,10 +211,11 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
                         <p className="mt-1 font-bold text-gray-800">{formatDemand(item.averageDailyDemand)}</p>
                       </div>
                       <div className="rounded-lg bg-white/75 px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-wide text-gray-400">Đủ dùng</p>
-                        <p className="mt-1 font-bold text-gray-800">{item.daysOfCover === null ? "Ổn định" : `${formatDemand(item.daysOfCover)} ngày`}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400">Điều chỉnh</p>
+                        <p className="mt-1 font-bold text-gray-800">{adjustment.level === "out" || adjustment.level === "shortage" ? `Nhập ${formatNumber(item.suggestedReorderQty)}` : "Giảm / điều chuyển"}</p>
                       </div>
                     </div>
+                    <p className="mt-2 text-[11px] leading-5 text-gray-600">{adjustment.action}</p>
                   </button>
                 );
               })
@@ -221,12 +225,12 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
 
         <button
           type="button"
-          onClick={() => toast.success(`Đã đánh dấu ${forecast.warningItems.length} cảnh báo để ưu tiên xử lý nhập hàng.`)}
+          onClick={() => toast.success(`Đã đánh dấu ${adjustmentItems.length} SKU cần điều chỉnh tồn kho.`)}
           className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-center text-xs font-bold text-white shadow-sm transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={!forecast.warningItems.length}
+          disabled={!adjustmentItems.length}
         >
           <RefreshCw className="h-4 w-4" />
-          Xử lý cảnh báo hàng loạt
+          Xem danh sách cần điều chỉnh
         </button>
       </div>
 
@@ -246,70 +250,28 @@ export function AiForecastPanel({ forecast }: AiForecastPanelProps) {
             </span>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="grid flex-1 grid-cols-2 gap-3 xl:grid-cols-4">
-              <MetricCard label="Nhu cầu 7 ngày" value={selectedItem ? formatNumber(selectedItem.last7DaysDemand) : "--"} />
-              <MetricCard label="Nhu cầu 30 ngày" value={selectedItem ? formatNumber(selectedItem.last30DaysDemand) : "--"} />
-              <MetricCard label="Dự báo 30 ngày" value={selectedItem ? formatNumber(selectedItem.forecast30Days) : "--"} />
-              <MetricCard label="Đề xuất nhập" value={selectedItem ? formatNumber(selectedItem.suggestedReorderQty) : "--"} />
-            </div>
-            <div className="w-full md:w-72">
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">Sản phẩm theo dõi</label>
-              <select
-                className="w-full rounded-xl border border-gray-200 bg-slate-50 px-3 py-2.5 text-sm text-gray-700"
-                value={selectedItem?.productId || ""}
-                onChange={(event) => setSelectedProductId(event.target.value)}
-              >
-                {forecast.items.map((item) => (
-                  <option key={item.productId} value={item.productId}>
-                    {item.sku} - {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <MetricCard label="SKU đang theo dõi" value={formatNumber(overview.skuCount)} />
+            <MetricCard label="SKU cần bổ sung" value={formatNumber(overview.shortageCount)} />
+            <MetricCard label="SKU cần giảm tồn" value={formatNumber(overview.excessCount)} />
+            <MetricCard label="Nhu cầu dự báo 30 ngày" value={formatNumber(overview.demand30)} />
           </div>
         </div>
 
-        {!forecast.items.length || !selectedItem ? (
-          <div className="my-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center text-sm font-semibold text-gray-500">
-            Chưa có sản phẩm để tạo dashboard dự báo.
-          </div>
-        ) : (
-          <>
-            <Chart item={selectedItem} />
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <InsightCard
-                icon={PackageSearch}
-                label="Mức phủ hàng"
-                value={selectedItem.daysOfCover === null ? "Ổn định" : `${formatDemand(selectedItem.daysOfCover)} ngày`}
-                hint={`Min alert: ${formatNumber(selectedItem.minStockAlert)}`}
-              />
-              <InsightCard
-                icon={TrendingUp}
-                label="Nhu cầu bình quân/ngày"
-                value={formatDemand(selectedItem.averageDailyDemand)}
-                hint={`${formatNumber(selectedItem.currentStock)} sản phẩm đang có trong kho`}
-              />
-              <InsightCard
-                icon={BrainCircuit}
-                label="Tín hiệu AI"
-                value={selectedItem.riskLevel === "high" ? "Cần xử lý sớm" : selectedItem.riskLevel === "medium" ? "Đang cần theo dõi" : "Ổn định"}
-                hint={selectedItem.overstockDays && selectedItem.overstockDays > 0 ? `Tồn dư khoảng ${formatDemand(selectedItem.overstockDays)} ngày` : "Không phát hiện dư tồn đáng kể"}
-              />
-            </div>
-          </>
-        )}
+        <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><h5 className="font-semibold text-slate-800">Danh sách điều chỉnh tồn kho</h5><p className="mt-0.5 text-xs text-slate-500">Ưu tiên các SKU thiếu hoặc dư tồn để điều chỉnh kế hoạch nhập, xuất và điều chuyển.</p></div>
+          <div className="max-h-[390px] overflow-auto"><table className="w-full min-w-[780px] text-left text-sm"><thead className="sticky top-0 bg-white text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm / SKU</th><th className="px-4 py-3 text-right">Tồn khả dụng</th><th className="px-4 py-3 text-right">Dự báo 30 ngày</th><th className="px-4 py-3 text-right">Đủ dùng</th><th className="px-4 py-3">Định hướng</th></tr></thead><tbody className="divide-y divide-slate-100">{adjustmentItems.length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Chưa có SKU cần điều chỉnh tồn kho.</td></tr> : adjustmentItems.map(({ item, adjustment }) => <tr key={item.productId} className="hover:bg-slate-50"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.name}</p><p className="font-mono text-xs text-slate-500">{item.sku}</p></td><td className="px-4 py-3 text-right font-semibold tabular-nums">{formatNumber(item.currentStock)}</td><td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.forecast30Days)}</td><td className="px-4 py-3 text-right tabular-nums">{item.daysOfCover === null ? "—" : `${formatDemand(item.daysOfCover)} ngày`}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${adjustmentStyles[adjustment.level].badge}`}>{adjustment.label}</span><p className="mt-1 text-xs text-slate-500">{adjustment.level === "out" || adjustment.level === "shortage" ? `Bổ sung ${formatNumber(item.suggestedReorderQty)}` : "Giảm nhập / điều chuyển"}</p></td></tr>)}</tbody></table></div>
+        </div>
 
         <div className="mt-6 border-t border-gray-150 pt-4" id="forecast_recommendations_grid">
           <span className="font-sans text-[10px] font-bold uppercase tracking-wide text-gray-500">Đề xuất tối ưu hóa tồn kho AI Co-pilot</span>
-          {forecast.recommendations.length === 0 ? (
+          {effectiveForecast.recommendations.length === 0 ? (
             <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
               Chưa có khuyến nghị nổi bật. Hệ thống sẽ tự động đề xuất khi phát hiện nguy cơ thiếu hoặc dư tồn từ phiếu xuất hoàn thành.
             </div>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-3.5 text-xs md:grid-cols-3">
-              {forecast.recommendations.map((recommendation) => (
+              {effectiveForecast.recommendations.map((recommendation) => (
                 <div key={recommendation.id}>
                   <RecommendationCard recommendation={recommendation} />
                 </div>

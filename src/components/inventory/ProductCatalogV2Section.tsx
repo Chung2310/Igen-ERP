@@ -284,7 +284,7 @@ export function ProductCatalogV2Section() {
       )}
 
       {viewer && <ProductViewerModal product={viewer} resources={resources} onClose={() => setViewer(null)} />}
-      {editor && <ProductEditorModal product={editor === "create" ? null : editor} resources={resources} onClose={() => setEditor(null)} onSaved={async () => { setEditor(null); await load(); }} onVariantAction={(product, mode, ids, variant) => { setEditor(null); setVariantTarget({ product, mode, ids, variant }); }} />}
+      {editor && <ProductEditorModal product={editor === "create" ? null : editor} resources={resources} onClose={() => setEditor(null)} onSaved={async () => { setEditor(null); await load(); }} onDataChanged={load} onVariantAction={(product, mode, ids, variant) => { setEditor(null); setVariantTarget({ product, mode, ids, variant }); }} />}
       {setupKind && <CatalogSetupModal kind={setupKind} items={resources[setupKind]} onClose={() => setSetupKind(null)} onSaved={async () => { await load(); }} />}
       {variantTarget && (variantTarget.mode === "single" || variantTarget.mode === "edit") && <VariantModal product={variantTarget.product} variant={variantTarget.variant} onClose={() => setVariantTarget(null)} onSaved={async () => { setVariantTarget(null); await load(); }} />}
       {variantTarget && (variantTarget.mode === "bulk-create" || variantTarget.mode === "bulk-edit") && <BulkVariantModal product={variantTarget.product} mode={variantTarget.mode} ids={variantTarget.ids || []} onClose={() => setVariantTarget(null)} onSaved={async () => { setVariantTarget(null); await load(); }} />}
@@ -372,14 +372,27 @@ function ProductViewerModal({ product, resources, onClose }: { product: CatalogP
   );
 }
 
-function ProductEditorModal({ product, resources, onClose, onSaved, onVariantAction }: { product: CatalogProductDetail | null; resources: Resources; onClose: () => void; onSaved: () => Promise<void>; onVariantAction: (product: CatalogProductDetail, mode: VariantModalMode, ids?: string[], variant?: ProductVariant) => void }) {
+function ProductEditorModal({ product, resources, onClose, onSaved, onDataChanged, onVariantAction }: { product: CatalogProductDetail | null; resources: Resources; onClose: () => void; onSaved: () => Promise<void>; onDataChanged: () => Promise<void>; onVariantAction: (product: CatalogProductDetail, mode: VariantModalMode, ids?: string[], variant?: ProductVariant) => void }) {
   const [form, setForm] = useState<ProductForm>(() => product ? {
     productCode: product.productCode, name: product.name, productType: product.productType, categoryCode: product.categoryCode, brandCode: product.brandCode || "", baseUnitCode: product.baseUnitCode, shortDescription: product.shortDescription || "", description: product.description || "", manufacturer: product.manufacturer || "", countryOfOrigin: product.countryOfOrigin || "", taxCategory: product.taxCategory || "", status: product.status, mediaIds: product.mediaIds || [],
   } : emptyProductForm());
   const [variant, setVariant] = useState<VariantInput>(() => product ? emptyVariant(product.baseUnitCode, product.productType) : emptyVariant());
   const [submitting, setSubmitting] = useState(false);
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([]);
+  const [variantImages, setVariantImages] = useState<Record<string, string | undefined>>(() => Object.fromEntries((product?.variants || []).map((item) => [item._id, item.mediaIds?.[0]])));
   const [variantQuery, setVariantQuery] = useState("");
+  const updateVariantImage = async (item: ProductVariant, url: string) => {
+    const previousUrl = variantImages[item._id] ?? item.mediaIds?.[0];
+    setVariantImages((current) => ({ ...current, [item._id]: url }));
+    try {
+      await productCatalogService.updateVariant(item._id, { mediaIds: [url] });
+      toast.success("Đã cập nhật ảnh SKU.");
+      await onDataChanged();
+    } catch (error) {
+      setVariantImages((current) => ({ ...current, [item._id]: previousUrl }));
+      toast.error(getApiErrorMessage(error, "Không thể cập nhật ảnh SKU."));
+    }
+  };
   const isEditing = Boolean(product);
 
   // Bulk Variant Matrix State
@@ -671,11 +684,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onVariantAct
                 {visibleVariants.length === 0 ? <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500 bg-slate-50/50">Không tìm thấy SKU nào phù hợp.</td></tr> : visibleVariants.map((item) => (
                   <tr key={item._id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-3 py-2.5 text-center"><input type="checkbox" className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" checked={selectedVariantIds.includes(item._id)} onChange={() => setSelectedVariantIds((current) => current.includes(item._id) ? current.filter((id) => id !== item._id) : [...current, item._id])} aria-label={`Chọn ${item.sku}`} /></td>
-                    <td className="px-3 py-2.5">
-                      <div className="h-10 w-10 overflow-hidden rounded-md border border-slate-200 bg-slate-50 flex items-center justify-center">
-                        {item.mediaIds?.[0] ? <img src={item.mediaIds[0]} alt={item.sku} className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-slate-300" />}
-                      </div>
-                    </td>
+                    <td className="px-3 py-2.5"><ImageUploadBox value={variantImages[item._id] ?? item.mediaIds?.[0]} onChange={(url) => void updateVariantImage(item, url)} className="h-10 w-10 !rounded-md" /></td>
                     <td className="px-3 py-2.5">
                       <div className="font-mono text-xs font-semibold text-slate-700">{item.sku}</div>
                       <div className="mt-0.5 font-sans text-[11px] text-slate-400">{item.barcode || "Chưa có mã vạch"}</div>
@@ -842,6 +851,21 @@ function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductRes
   };
 
   const updateField = (index: number, patch: Partial<ProductTemplateField>) => setFields((current) => current.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field));
+  const canDelete = kind === "categories" || kind === "brands";
+  const deleteItem = async (item: ProductResource | ProductTemplate) => {
+    if (!canDelete || !window.confirm(`Xóa ${kind === "categories" ? "danh mục" : "thương hiệu"} “${item.name}”?`)) return;
+    setSubmitting(true);
+    try {
+      await productCatalogService.deleteResource(kind, item._id);
+      if (editingId === item._id) resetForm();
+      toast.success("Đã xóa dữ liệu dùng chung.");
+      await onSaved();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể xóa dữ liệu dùng chung."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
@@ -878,7 +902,7 @@ function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductRes
 
       <div className="border-y border-slate-200">
         <div className="border-b border-slate-200 bg-slate-50 px-3 py-2"><span className="text-sm font-semibold text-slate-800">Danh sách đã khai báo ({items.length})</span></div>
-        {items.length === 0 ? <p className="px-3 py-5 text-sm text-slate-500">Chưa có dữ liệu.</p> : <><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-white text-xs uppercase text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã tự động</th><th className="px-3 py-2 font-medium">Tên</th>{isTemplate && <th className="px-3 py-2 font-medium">Loại</th>}<th className="px-3 py-2 font-medium">Trạng thái</th><th className="px-3 py-2" /></tr></thead><tbody className="divide-y divide-slate-100">{pageItems.map((item) => <tr key={item._id}><td className="px-3 py-2 font-mono text-xs text-slate-500">{item.code}</td><td className="px-3 py-2 text-slate-800">{item.name}</td>{isTemplate && <td className="px-3 py-2 text-slate-600">{typeLabels[(item as ProductTemplate).productType]}</td>}<td className="px-3 py-2 text-slate-600">{item.status === "active" ? "Đang dùng" : "Ngừng dùng"}</td><td className="px-3 py-2 text-right"><button type="button" onClick={() => startEdit(item)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Chỉnh sửa"><Pencil className="h-3.5 w-3.5" /></button></td></tr>)}</tbody></table></div><div className="flex items-center justify-between border-t border-slate-200 px-3 py-2"><span className="text-xs text-slate-500">Hiển thị {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, items.length)} / {items.length}</span><div className="flex items-center gap-2"><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={currentPage === 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" title="Trang trước" aria-label="Trang trước"><ChevronLeft className="h-4 w-4" /></button><span className="min-w-16 text-center text-xs text-slate-600">Trang {currentPage}/{totalPages}</span><button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={currentPage === totalPages} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" title="Trang sau" aria-label="Trang sau"><ChevronRight className="h-4 w-4" /></button></div></div></>}
+        {items.length === 0 ? <p className="px-3 py-5 text-sm text-slate-500">Chưa có dữ liệu.</p> : <><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-white text-xs uppercase text-slate-500"><tr><th className="px-3 py-2 font-medium">Mã tự động</th><th className="px-3 py-2 font-medium">Tên</th>{isTemplate && <th className="px-3 py-2 font-medium">Loại</th>}<th className="px-3 py-2 font-medium">Trạng thái</th><th className="px-3 py-2" /></tr></thead><tbody className="divide-y divide-slate-100">{pageItems.map((item) => <tr key={item._id}><td className="px-3 py-2 font-mono text-xs text-slate-500">{item.code}</td><td className="px-3 py-2 text-slate-800">{item.name}</td>{isTemplate && <td className="px-3 py-2 text-slate-600">{typeLabels[(item as ProductTemplate).productType]}</td>}<td className="px-3 py-2 text-slate-600">{item.status === "active" ? "Đang dùng" : "Ngừng dùng"}</td><td className="px-3 py-2 text-right"><button type="button" onClick={() => startEdit(item)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Chỉnh sửa"><Pencil className="h-3.5 w-3.5" /></button>{canDelete && <button type="button" disabled={submitting} onClick={() => void deleteItem(item)} className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40" title={`Xóa ${kind === "categories" ? "danh mục" : "thương hiệu"}`}><Trash2 className="h-3.5 w-3.5" /></button>}</td></tr>)}</tbody></table></div><div className="flex items-center justify-between border-t border-slate-200 px-3 py-2"><span className="text-xs text-slate-500">Hiển thị {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, items.length)} / {items.length}</span><div className="flex items-center gap-2"><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={currentPage === 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" title="Trang trước" aria-label="Trang trước"><ChevronLeft className="h-4 w-4" /></button><span className="min-w-16 text-center text-xs text-slate-600">Trang {currentPage}/{totalPages}</span><button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={currentPage === totalPages} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" title="Trang sau" aria-label="Trang sau"><ChevronRight className="h-4 w-4" /></button></div></div></>}
       </div>
     </div>
   </Modal>;

@@ -214,6 +214,11 @@ export const productCatalogService = {
     return result.data;
   },
 
+  async deleteResource(kind: "categories" | "brands", id: string) {
+    const result = await apiFetch<ApiEnvelope<{ deletedId: string }>>(`${root}/resources/${kind}/${id}`, { method: "DELETE" });
+    return result.data;
+  },
+
   async listTemplates() {
     const result = await apiFetch<ApiEnvelope<ProductTemplate[]>>(`${root}/templates`, { params: { status: "active" } });
     return result.data;
