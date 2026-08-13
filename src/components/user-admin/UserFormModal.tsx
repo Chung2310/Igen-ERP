@@ -43,6 +43,10 @@ export interface UserFormModalProps {
   usersList: UserProfile[];
   onSubmit: (e: React.FormEvent) => void;
   submittingUser: boolean;
+  lockRole?: boolean;
+  lockCompany?: boolean;
+  lockBranch?: boolean;
+  lockParent?: boolean;
 }
 
 export function UserFormModal({
@@ -83,6 +87,10 @@ export function UserFormModal({
   usersList,
   onSubmit,
   submittingUser,
+  lockRole = false,
+  lockCompany = false,
+  lockBranch = false,
+  lockParent = false,
 }: UserFormModalProps) {
   const [uploadingJobDescription, setUploadingJobDescription] = React.useState(false);
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = React.useState(false);
@@ -207,6 +215,8 @@ export function UserFormModal({
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn *</label>
                 <select
+                  aria-label="Quyền hạn"
+                  disabled={lockRole}
                   value={userRole}
                   onChange={(e) => setUserRole(e.target.value)}
                   className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
@@ -237,6 +247,7 @@ export function UserFormModal({
                   </select>
                 ) : (
                   <input
+                    aria-label="Doanh nghiệp"
                     type="text"
                     disabled
                     value={userProfile?.companyName || userProfile?.companyCode || ""}
@@ -250,7 +261,7 @@ export function UserFormModal({
             {userCompanyCode && userCompanyCode !== "SYSTEM" && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh</label>
-                <select value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none">
+                <select aria-label="Chi nhánh" disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-50">
                   <option value="">Không gán chi nhánh</option>
                   {branches.filter((branch) => branch.companyCode === userCompanyCode && branch.isActive).map((branch) => (
                     <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
@@ -259,16 +270,14 @@ export function UserFormModal({
               </div>
             )}
 
-            {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
+            {userCompanyCode && userCompanyCode !== "SYSTEM" && (userRole === "user" || lockParent) && (
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Người quản lý trực tiếp
                   <span className="ml-1.5 font-normal normal-case text-gray-400">(tự chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
                 </label>
                 {(() => {
-                  const eligibleManagers = usersList.filter(
-                    (u) => u.companyCode === userCompanyCode && u.role === "manager"
-                  );
+                  const eligibleManagers = usersList.filter((u) => u.companyCode === userCompanyCode && (lockParent ? u.uid === userParentId : u.role === "manager"));
                   return eligibleManagers.length === 0 ? (
                     <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
                       Chưa có quản lý nào trong công ty này
@@ -276,6 +285,8 @@ export function UserFormModal({
                   ) : (
                     <div>
                       <select
+                        aria-label="Người quản lý trực tiếp"
+                        disabled={lockParent}
                         value={userParentId}
                         onChange={(e) => setUserParentId(e.target.value)}
                         className="w-full p-2 pl-3.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"

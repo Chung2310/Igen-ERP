@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { branchService, type BranchInput, type BranchRecord } from "../../services/branchService";
 import { toast } from "../../pages/Toast";
 import { toAttendanceNetwork } from "../../utils/attendanceNetwork";
+import { UserFormModal } from "../user-admin/UserFormModal";
 
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
@@ -30,6 +31,18 @@ export default function BranchManagementTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [locating, setLocating] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState<BranchRecord | null>(null);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerBirthDate, setOwnerBirthDate] = useState("");
+  const [ownerQualification, setOwnerQualification] = useState("");
+  const [ownerDepartment, setOwnerDepartment] = useState("");
+  const [ownerJobDescriptionLink, setOwnerJobDescriptionLink] = useState("");
+  const [ownerJobDescriptionUploadToken, setOwnerJobDescriptionUploadToken] = useState("");
+  const [ownerMonthlySalary, setOwnerMonthlySalary] = useState("");
+  const [savingOwner, setSavingOwner] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -59,10 +72,39 @@ export default function BranchManagementTab() {
       const data = editing ? await branchService.update(editing._id, payload) : await branchService.create(payload);
       setBranches((current) => editing ? current.map((branch) => branch._id === data._id ? data : branch) : [data, ...current]);
       closeForm();
+      if (!editing) {
+        setPendingBranch(data);
+        setOwnerName(""); setOwnerEmail(""); setOwnerPassword(""); setOwnerPhone(""); setOwnerBirthDate(""); setOwnerQualification("");
+        return;
+      }
       window.dispatchEvent(new CustomEvent("branch-change", { detail: { branchId: data.isActive ? data._id : "" } }));
       toast.success(editing ? "Đã cập nhật chi nhánh." : "Đã tạo chi nhánh.");
     } catch (error: any) { toast.error(error.message || "Không thể lưu chi nhánh."); }
     finally { setSaving(false); }
+  };
+  const cancelOwner = async () => {
+    if (!pendingBranch) return;
+    setSavingOwner(true);
+    try {
+      await branchService.removePending(pendingBranch._id);
+      setBranches((current) => current.filter((branch) => branch._id !== pendingBranch._id));
+      setPendingBranch(null);
+      toast.success("Đã hủy tạo chi nhánh.");
+    } catch (error: any) { toast.error(error.message || "Không thể hủy chi nhánh mới."); }
+    finally { setSavingOwner(false); }
+  };
+  const saveOwner = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pendingBranch) return;
+    setSavingOwner(true);
+    try {
+      const result = await branchService.createOwner(pendingBranch._id, { displayName: ownerName, email: ownerEmail, password: ownerPassword, phone: ownerPhone || undefined, birthDate: ownerBirthDate || undefined, qualification: ownerQualification || undefined });
+      setBranches((current) => current.map((branch) => branch._id === result.branch._id ? result.branch : branch));
+      setPendingBranch(null);
+      window.dispatchEvent(new CustomEvent("branch-change", { detail: { branchId: result.branch._id } }));
+      toast.success("Đã tạo chi nhánh và Chủ chi nhánh.");
+    } catch (error: any) { toast.error(error.message || "Không thể tạo Chủ chi nhánh."); }
+    finally { setSavingOwner(false); }
   };
   const captureLocationAndIp = async () => {
     setLocating(true);
@@ -118,5 +160,22 @@ export default function BranchManagementTab() {
       </div>
       <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={closeForm} className="rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-bold text-slate-600">Hủy</button><button type="submit" disabled={saving} className="rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "Đang lưu..." : editing ? "Lưu cập nhật" : "Tạo chi nhánh"}</button></div>
     </form></div>}
+    <UserFormModal
+      open={!!pendingBranch} onClose={() => void cancelOwner()} editingUser={null}
+      userDisplayName={ownerName} setUserDisplayName={setOwnerName} userEmail={ownerEmail} setUserEmail={setOwnerEmail}
+      userPhone={ownerPhone} setUserPhone={setOwnerPhone} userBirthDate={ownerBirthDate} setUserBirthDate={setOwnerBirthDate}
+      userPassword={ownerPassword} setUserPassword={setOwnerPassword} userRole="branch_owner" setUserRole={() => undefined}
+      userCompanyCode={userProfile?.companyCode || ""} setUserCompanyCode={() => undefined}
+      userBranchId={pendingBranch?._id || ""} setUserBranchId={() => undefined}
+      userParentId={userProfile?.uid || ""} setUserParentId={() => undefined}
+      userDepartment={ownerDepartment} setUserDepartment={setOwnerDepartment}
+      userQualification={ownerQualification} setUserQualification={setOwnerQualification}
+      userJobDescriptionLink={ownerJobDescriptionLink} setUserJobDescriptionLink={setOwnerJobDescriptionLink}
+      setUserJobDescriptionUploadToken={setOwnerJobDescriptionUploadToken}
+      userMonthlySalary={ownerMonthlySalary} setUserMonthlySalary={setOwnerMonthlySalary}
+      getAvailableRoles={() => [{ role: "branch_owner", displayName: "Chủ chi nhánh", level: 2 }]}
+      userProfile={userProfile} companies={[]} branches={pendingBranch ? [pendingBranch] : []} usersList={userProfile ? [userProfile] : []}
+      onSubmit={saveOwner} submittingUser={savingOwner} lockRole lockCompany lockBranch lockParent
+    />
   </section>;
 }
