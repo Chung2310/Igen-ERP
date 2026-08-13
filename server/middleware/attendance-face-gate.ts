@@ -5,9 +5,12 @@ import { cloudinaryService } from "../service/cloudinary.service";
 import { InsightFaceClient } from "../service/insightface.service";
 import { verifyAttendanceFace } from "../service/attendance-face-gate.service";
 import { getRequestPublicIp } from "../utils/request-ip";
+import { ATTENDANCE_FACE_CHECK_ENABLED } from "../../src/config/attendanceFaceCheck";
 
 type UploadRequest = AuthenticatedRequest & { file?: Express.Multer.File };
 export async function attendanceFaceGate(req: UploadRequest, res: Response, next: NextFunction) {
+  if (!ATTENDANCE_FACE_CHECK_ENABLED) return next();
+
   const base = { uid: req.user!.id, companyCode: req.user!.companyCode || "SYSTEM",
     branchId: req.user?.branchId, ipAddress: getRequestPublicIp(req),
     action: req.path.includes("check-out") ? "check-out" : "check-in",
