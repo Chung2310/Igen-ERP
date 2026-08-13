@@ -28,13 +28,12 @@ function ownerQuery(ownerId: OwnerScope): Record<string, unknown> {
 function branchQuery(branchId?: string): Record<string, unknown> { return branchId ? { branchId } : {}; }
 function idOf(value: unknown): string { return String(value); }
 
-function evaluatePolicy(policy: IProgressionPolicy, input: { attendanceRate: number | null; assignmentRate: number | null; miniTestRate: number | null; examRate: number | null; teacherConfirmed: boolean; }) {
+function evaluatePolicy(policy: IProgressionPolicy, input: { attendanceRate: number | null; assignmentRate: number | null; miniTestRate: number | null; examRate: number | null; }) {
   const checks: Array<{ label: string; passed: boolean }> = [];
   if (typeof policy.minAttendanceRate === "number") checks.push({ label: `Chuyên cần dưới ${policy.minAttendanceRate}%`, passed: input.attendanceRate !== null && input.attendanceRate >= policy.minAttendanceRate });
   if (typeof policy.minAssignmentRate === "number") checks.push({ label: `Hoàn thành bài tập dưới ${policy.minAssignmentRate}%`, passed: input.assignmentRate !== null && input.assignmentRate >= policy.minAssignmentRate });
   if (typeof policy.minMiniTestRate === "number") checks.push({ label: `Điểm mini test dưới ${policy.minMiniTestRate}%`, passed: input.miniTestRate !== null && input.miniTestRate >= policy.minMiniTestRate });
   if (typeof policy.minExamRate === "number") checks.push({ label: `Điểm thi dưới ${policy.minExamRate}%`, passed: input.examRate !== null && input.examRate >= policy.minExamRate });
-  if (policy.teacherConfirmationRequired) checks.push({ label: "Chưa có xác nhận của giáo viên", passed: input.teacherConfirmed });
   const eligible = checks.length === 0 || (policy.matchMode === "any" ? checks.some((item) => item.passed) : checks.every((item) => item.passed));
   return { eligible, reasons: checks.filter((item) => !item.passed).map((item) => item.label), checks };
 }
@@ -120,13 +119,12 @@ export class LearningRoadmapService {
       const examScores = exams.flatMap((exam) => (exam.results || []).filter((result) => result.studentId === studentId && typeof result.score === "number").map((result) => ({ score: result.score as number, maxScore: exam.maxScore || 100 })));
       const examRate = examScores.length ? Math.round((examScores.reduce((sum, item) => sum + item.score, 0) / examScores.reduce((sum, item) => sum + item.maxScore, 0)) * 100) : null;
       const previous = decisionMap.get(studentId);
-      const teacherConfirmed = previous?.teacherConfirmed || false;
-      const evaluated = evaluatePolicy(sourceStep.eligibilityPolicy, { attendanceRate, assignmentRate, miniTestRate, examRate, teacherConfirmed });
+      const evaluated = evaluatePolicy(sourceStep.eligibilityPolicy, { attendanceRate, assignmentRate, miniTestRate, examRate });
       const effectiveEligible = previous?.overrideEligible ?? evaluated.eligible;
       return {
         studentId, studentName: studentMap.get(studentId)?.fullName || "Học viên không còn tồn tại", studentPhone: studentMap.get(studentId)?.phone || "",
         enrollmentId: enrollment ? idOf(enrollment._id) : "", attendanceRate, assignmentRate, miniTestRate, examRate,
-        teacherAssessment: qualityMap.get(studentId)?.teacherAssessment || "", teacherConfirmed,
+        teacherAssessment: qualityMap.get(studentId)?.teacherAssessment || "",
         eligible: effectiveEligible, eligibilityReasons: evaluated.reasons, intent: previous?.intent || "pending",
         teacherNote: previous?.teacherNote || "", overrideEligible: previous?.overrideEligible ?? null, overrideReason: previous?.overrideReason || "",
       };
@@ -134,7 +132,7 @@ export class LearningRoadmapService {
     return { batch: { id: idOf(batch._id), code: batch.code, courseId: batch.courseId }, roadmaps: roadmaps.map(this.roadmapSummary), selectedRoadmapId: idOf(roadmap._id), sourceStep, targetStep: targetStep || null, rows };
   }
 
-  static async saveDecision(ownerId: OwnerScope, actor: Actor, input: { batchId: string; roadmapId: string; studentId: string; intent: ProgressionIntent; teacherConfirmed: boolean; teacherNote?: string; overrideEligible?: boolean | null; overrideReason?: string; learningFormat?: string; preferredTimeSlot?: string; }) {
+  static async saveDecision(ownerId: OwnerScope, actor: Actor, input: { batchId: string; roadmapId: string; studentId: string; intent: ProgressionIntent; teacherNote?: string; overrideEligible?: boolean | null; overrideReason?: string; learningFormat?: string; preferredTimeSlot?: string; }) {
     const progress = await this.getBatchProgression(ownerId, input.batchId, input.roadmapId, actor.branchId);
     const row = progress.rows.find((item) => item.studentId === input.studentId);
     if (!row) throw new Error("Học viên không thuộc lớp này.");
@@ -143,12 +141,12 @@ export class LearningRoadmapService {
     const sourceBatch = await Batch.findOne({ _id: input.batchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).select("ownerId").lean();
     if (!sourceBatch) throw new Error("Không tìm thấy lớp nguồn.");
     if (!progress.targetStep && input.intent === "continue") throw new Error("Đây là mốc cuối của lộ trình, không có lớp kế tiếp để chờ xếp.");
-    const policyResult = evaluatePolicy(progress.sourceStep.eligibilityPolicy, { attendanceRate: row.attendanceRate, assignmentRate: row.assignmentRate, miniTestRate: row.miniTestRate, examRate: row.examRate, teacherConfirmed: input.teacherConfirmed });
+    const policyResult = evaluatePolicy(progress.sourceStep.eligibilityPolicy, { attendanceRate: row.attendanceRate, assignmentRate: row.assignmentRate, miniTestRate: row.miniTestRate, examRate: row.examRate });
     const effectiveEligible = input.overrideEligible ?? policyResult.eligible;
     if (input.overrideEligible !== null && input.overrideEligible !== undefined && !String(input.overrideReason || "").trim()) throw new Error("Cần ghi lý do khi duyệt ngoại lệ điều kiện lên lớp.");
     const decision = await StudentProgressionDecision.findOneAndUpdate(
       { ...ownerQuery(ownerId), ...branchQuery(actor.branchId), sourceBatchId: input.batchId, studentId: input.studentId, roadmapId: input.roadmapId },
-      { $set: { sourceStepId: progress.sourceStep.id, targetStepId: progress.targetStep?.id || "", sourceEnrollmentId: row.enrollmentId, intent: input.intent, teacherConfirmed: input.teacherConfirmed, teacherNote: input.teacherNote || "", eligible: policyResult.eligible, eligibilityReasons: policyResult.reasons, eligibilitySnapshot: { attendanceRate: row.attendanceRate, assignmentRate: row.assignmentRate, miniTestRate: row.miniTestRate, evaluatedAt: new Date() }, overrideEligible: input.overrideEligible ?? null, overrideReason: input.overrideReason || "", overrideBy: input.overrideEligible === null || input.overrideEligible === undefined ? "" : actor.uid, overrideAt: input.overrideEligible === null || input.overrideEligible === undefined ? null : new Date() },
+      { $set: { sourceStepId: progress.sourceStep.id, targetStepId: progress.targetStep?.id || "", sourceEnrollmentId: row.enrollmentId, intent: input.intent, teacherNote: input.teacherNote || "", eligible: policyResult.eligible, eligibilityReasons: policyResult.reasons, eligibilitySnapshot: { attendanceRate: row.attendanceRate, assignmentRate: row.assignmentRate, miniTestRate: row.miniTestRate, evaluatedAt: new Date() }, overrideEligible: input.overrideEligible ?? null, overrideReason: input.overrideReason || "", overrideBy: input.overrideEligible === null || input.overrideEligible === undefined ? "" : actor.uid, overrideAt: input.overrideEligible === null || input.overrideEligible === undefined ? null : new Date() },
         $setOnInsert: { ownerId: sourceBatch.ownerId, branchId: actor.branchId } },
       { upsert: true, new: true },
     );

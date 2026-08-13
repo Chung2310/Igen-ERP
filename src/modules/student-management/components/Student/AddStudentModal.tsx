@@ -105,6 +105,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
   const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    if (entityLabel.preset === 'student') return ['fullName', 'phone', 'email'].includes(fieldKey);
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
@@ -176,7 +177,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
-      if (f.isVisible && !f.isArchived && f.isRequired) {
+      const required = entityLabel.preset === 'student' ? ['fullName', 'phone', 'email'].includes(f.key) : f.isRequired;
+      if (f.isVisible && !f.isArchived && required) {
         if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
         if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
         if (f.key === 'referral' && !formData.referral && referralMode === 'custom') missingFields.push(f.label);
@@ -199,7 +201,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     const duplicateField = findDuplicateStudentField(students, {
       email: formData.email,
       phone: formData.phone,
-      idCard: formData.idCard,
     }, undefined, 'general');
     if (duplicateField) {
       const message = `${duplicateField.label} đã tồn tại trong hệ thống, không được trùng.`;
@@ -466,7 +467,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                       {isWorkerPreset ? 'Thêm vào dự án (tùy chọn)' : getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
                       {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <RoadmapPicker value={batchId} placeholder={isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'} options={batches.filter((batch) => String(batch.status) !== 'Đã kết thúc').map((batch) => ({ value: batch.id, label: `${batch.code} — ${batch.courseTitle}` }))} onChange={setBatchId} />
+                    <RoadmapPicker value={batchId} placeholder={isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'} options={batches.filter((batch) => String(batch.status) !== 'Đã kết thúc').map((batch) => ({ value: batch.id, label: `${batch.code} — ${batch.courseTitle}` }))} onChange={(value) => { setBatchId(value); const batch = batches.find((item) => item.id === value); if (!isWorkerPreset && batch?.status === 'Sắp khai giảng' && batch.startDate) setFormData((current) => ({ ...current, enrollmentDate: batch.startDate })); }} />
                   </div>
                 )}
 

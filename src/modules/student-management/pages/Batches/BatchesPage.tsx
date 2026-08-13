@@ -57,6 +57,19 @@ const DAY_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'CN' },
 ];
 
+function calculateEstimatedEndDate(startDate: string, daysOfWeek: number[], sessionCount: number): string {
+  if (!startDate || !daysOfWeek.length || !Number.isInteger(sessionCount) || sessionCount < 1) return '';
+  const date = new Date(`${startDate}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return '';
+
+  let remaining = sessionCount;
+  for (let index = 0; index < 3700; index += 1) {
+    if (daysOfWeek.includes(date.getUTCDay()) && --remaining === 0) return date.toISOString().slice(0, 10);
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+  return '';
+}
+
 const formatDays = (days: number[]) =>
   DAY_OPTIONS.filter(d => (days || []).includes(d.value)).map(d => d.label).join(', ');
 
@@ -405,12 +418,20 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     setShowFormModal(true);
   };
 
+  const withEstimatedEndDate = (nextForm: BatchForm): BatchForm => {
+    if (entityLabel.preset === 'worker') return nextForm;
+    const course = courses.find((item) => item.id === nextForm.courseId);
+    const sessionCount = Number(course?.duration);
+    const endDate = calculateEstimatedEndDate(nextForm.startDate, nextForm.daysOfWeek, sessionCount);
+    return endDate ? { ...nextForm, endDate } : nextForm;
+  };
+
   const toggleDay = (day: number) => {
-    setForm(prev => ({
-      ...prev,
-      daysOfWeek: prev.daysOfWeek.includes(day)
-        ? prev.daysOfWeek.filter(d => d !== day)
-        : [...prev.daysOfWeek, day],
+    setForm((previous) => withEstimatedEndDate({
+      ...previous,
+      daysOfWeek: previous.daysOfWeek.includes(day)
+        ? previous.daysOfWeek.filter((value) => value !== day)
+        : [...previous.daysOfWeek, day],
     }));
   };
 
@@ -972,7 +993,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     {form.learningMode === 'roadmap' && (
                       <div className="grid gap-3 md:grid-cols-2">
                         <RoadmapPicker value={form.roadmapId} placeholder="-- Chọn lộ trình --" options={roadmaps.map((roadmap) => ({ value: roadmap.id, label: roadmap.name }))} onChange={(value) => setForm((current) => ({ ...current, roadmapId: value, roadmapStepId: '', courseId: '' }))} />
-                        <RoadmapPicker value={form.roadmapStepId} disabled={!form.roadmapId} placeholder="-- Chọn chặng học --" options={(roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps || []).sort((a, b) => a.order - b.order).map((step) => ({ value: step.id, label: `Chặng ${step.order}: ${courses.find((item) => item.id === step.courseId)?.title || 'Khóa học đã xóa'}` }))} onChange={(value) => { const step = roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps.find((item) => item.id === value); setForm((current) => ({ ...current, roadmapStepId: value, courseId: step?.courseId || '' })); }} />
+                        <RoadmapPicker value={form.roadmapStepId} disabled={!form.roadmapId} placeholder="-- Chọn chặng học --" options={(roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps || []).sort((a, b) => a.order - b.order).map((step) => ({ value: step.id, label: `Chặng ${step.order}: ${courses.find((item) => item.id === step.courseId)?.title || 'Khóa học đã xóa'}` }))} onChange={(value) => { const step = roadmaps.find((roadmap) => roadmap.id === form.roadmapId)?.steps.find((item) => item.id === value); setForm((current) => withEstimatedEndDate({ ...current, roadmapStepId: value, courseId: step?.courseId || '' })); }} />
                       </div>
                     )}
                   </div>
@@ -1005,7 +1026,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                             className="pl-10 bg-slate-50"
                           />
                         ) : (
-                        <RoadmapPicker value={form.courseId} className="h-9 rounded-lg border-slate-200 bg-slate-50 px-3 pl-10 text-xs shadow-none focus:ring-brand-primary/5" placeholder={`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`} options={courses.map((course) => ({ value: course.id, label: `${course.code} — ${course.title}` }))} onChange={(value) => setForm({ ...form, courseId: value })} />
+                        <RoadmapPicker value={form.courseId} className="h-9 rounded-lg border-slate-200 bg-slate-50 px-3 pl-10 text-xs shadow-none focus:ring-brand-primary/5" placeholder={`-- Chọn ${copy.courseLabel.toLocaleLowerCase('vi')} --`} options={courses.map((course) => ({ value: course.id, label: `${course.code} — ${course.title}` }))} onChange={(value) => setForm((current) => withEstimatedEndDate({ ...current, courseId: value }))} />
                         )}
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
                           <BookOpen className="w-4 h-4" />
@@ -1131,7 +1152,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                           type="date"
                           required={isFieldRequired('startDate', true)}
                           value={form.startDate}
-                          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                          onChange={(e) => setForm((current) => withEstimatedEndDate({ ...current, startDate: e.target.value }))}
                           className="pl-10"
                         />
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
@@ -1144,7 +1165,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                 {isFieldVisible('endDate') && (
                   <div className="relative group/std">
                     {renderFieldActions('endDate')}
-                    <ErpField label={getFieldLabel('endDate', entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng')}>
+                    <ErpField label={getFieldLabel('endDate', entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng dự kiến')}>
                       <div className="relative">
                         <ErpInput
                           type="date"

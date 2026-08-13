@@ -11,7 +11,6 @@ const progressionSchema = new Schema<IStudentProgressionDecision>({
   sourceEnrollmentId: { type: String, default: "" },
   studentId: { type: String, required: true, index: true },
   intent: { type: String, enum: ["continue", "pending", "stop", "preserve", "repeat"], default: "pending" },
-  teacherConfirmed: { type: Boolean, default: false },
   teacherNote: { type: String, default: "", maxlength: 4000 },
   eligible: { type: Boolean, default: false },
   eligibilityReasons: { type: [String], default: [] },

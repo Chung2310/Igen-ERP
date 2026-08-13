@@ -7,7 +7,6 @@ const policySchema = new Schema({
   minAssignmentRate: { type: Number, min: 0, max: 100, default: null },
   minMiniTestRate: { type: Number, min: 0, max: 100, default: null },
   minExamRate: { type: Number, min: 0, max: 100, default: null },
-  teacherConfirmationRequired: { type: Boolean, default: false },
 }, { _id: false });
 
 const stepSchema = new Schema({

@@ -26,7 +26,7 @@ function mockFind(model: any, records: any[]) {
   vi.spyOn(model, "find").mockReturnValue({ select: async () => records });
 }
 
-it("blocks referenced students and only deletes records without dependencies", async () => {
+it("reports referenced records but does not block deletion because operational data is cleaned up", async () => {
   mockFind(Student, [
     { _id: { toString: () => blockedId }, fullName: "Đang học", paymentHistory: [], exams: [] },
     { _id: { toString: () => deletableId }, fullName: "Chưa sử dụng", paymentHistory: [], exams: [] },
@@ -36,15 +36,8 @@ it("blocks referenced students and only deletes records without dependencies", a
   for (const model of [Exam, BatchMiniTest, BatchEnrollment, StudentBatchEnrollment, SubmissionModel, StudentQualityRecord, ClassWaitlistEntry, StudentProgressionDecision, StudentDeviceModel, StudentVerificationCodeModel, StudentAttendanceAttemptModel, StudentFaceEnrollmentAuditModel]) {
     mockFind(model, []);
   }
-  const deleteMany = vi.spyOn(Student as any, "deleteMany").mockResolvedValue({ deletedCount: 1 });
-
   const impact = await StudentService.getDeletionImpact("owner-a", [blockedId, deletableId]);
-  assert.deepEqual(impact.blockedIds, [blockedId]);
-  assert.deepEqual(impact.deletableIds, [deletableId]);
+  assert.deepEqual(impact.blockedIds, []);
+  assert.deepEqual(impact.deletableIds, [blockedId, deletableId]);
   assert.deepEqual(impact.items[0].reasons.map(reason => reason.label), ["phiếu thu/hóa đơn", "lớp học"]);
-
-  const result = await StudentService.bulkDeleteStudents("owner-a", [blockedId, deletableId]);
-  assert.equal(result.deletedCount, 1);
-  assert.deepEqual(result.deletedIds, [deletableId]);
-  assert.deepEqual(deleteMany.mock.calls[0]?.[0], { _id: { $in: [deletableId] }, ownerId: "owner-a" });
 });
