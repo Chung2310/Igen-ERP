@@ -27,7 +27,7 @@ export type PublicRegisterFieldKey = (typeof PUBLIC_REGISTER_FIELD_KEYS)[number]
 const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<PublicRegisterFieldKey, { label: string; isRequired: boolean }> = {
   fullName: { label: "Họ và tên", isRequired: true },
   phone: { label: "Số điện thoại", isRequired: true },
-  email: { label: "Email học viên", isRequired: false },
+  email: { label: "Email học viên", isRequired: true },
   referral: { label: "Nguồn giới thiệu", isRequired: false },
   birthday: { label: "Ngày sinh", isRequired: false },
   idCard: { label: "CCCD / CMND", isRequired: false },
@@ -54,13 +54,14 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
   return PUBLIC_REGISTER_FIELD_KEYS.map((key) => {
     const base = DEFAULT_PUBLIC_REGISTER_FIELDS[key];
     const override = overrides.find((row) => row.key === key);
-    const isVisible = override ? override.isVisible && !override.isArchived : true;
+    const alwaysRequired = key === "fullName" || key === "phone" || key === "email";
+    const isVisible = alwaysRequired ? true : (override ? override.isVisible && !override.isArchived : true);
     return {
       key,
       label: override?.label || base.label,
       placeholder: override?.placeholder,
       // Trường bị ẩn thì không thể bắt buộc, nếu không học viên sẽ không bao giờ gửi được.
-      isRequired: isVisible ? (override ? override.isRequired : base.isRequired) : false,
+      isRequired: alwaysRequired || (isVisible ? (override ? override.isRequired : base.isRequired) : false),
       isVisible,
     };
   });
@@ -77,7 +78,7 @@ export async function findMissingPublicRegisterFields(
   const fields = await resolvePublicRegisterFields(tenantId);
   return fields
     .filter((field) => {
-      const alwaysRequired = field.key === "fullName" || field.key === "phone";
+      const alwaysRequired = field.key === "fullName" || field.key === "phone" || field.key === "email";
       if (!alwaysRequired && (!field.isVisible || !field.isRequired)) return false;
       const value = data[field.key];
       return typeof value !== "string" || value.trim() === "";

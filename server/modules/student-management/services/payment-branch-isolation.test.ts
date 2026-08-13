@@ -54,8 +54,11 @@ it("lists only payments in the authenticated branch when owners overlap", async 
 
   await PaymentService.getPayments(ownerScope, {}, branchA);
 
-  assert.deepEqual(countDocuments.mock.calls[0]?.[0], expectedScope());
-  assert.deepEqual(find.mock.calls[0]?.[0], expectedScope());
+  for (const query of [countDocuments.mock.calls[0]?.[0], find.mock.calls[0]?.[0]]) {
+    assert.deepEqual({ ...query, paidOn: undefined }, { ...expectedScope(), paidOn: undefined });
+    assert.ok((query as any)?.paidOn?.$gte instanceof Date);
+    assert.ok((query as any)?.paidOn?.$lte instanceof Date);
+  }
 });
 
 it("cannot create a payment for a same-owner student in another branch", async () => {

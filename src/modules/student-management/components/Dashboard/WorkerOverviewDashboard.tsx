@@ -24,6 +24,7 @@ import {
 import { ErpCard, ErpFilterTab } from '../Erp/ErpUI';
 import { useStudents } from '../../hooks/useStudents';
 import { useBatches } from '../../hooks/useBatches';
+import { useCourses } from '../../hooks/useCourses';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { DrivingStudent } from '../../types';
 import { cn } from '../../lib/utils';
@@ -41,7 +42,17 @@ export function WorkerOverviewDashboard({
 }: WorkerOverviewDashboardProps) {
   const { students, loading: studentsLoading } = useStudents(selectedCenter === 'all' ? undefined : selectedCenter);
   const { batches } = useBatches(selectedCenter === 'all' ? undefined : selectedCenter);
+  const { courses } = useCourses(selectedCenter === 'all' ? undefined : selectedCenter);
   const entityLabel = useEntityLabel();
+  const isEducation = entityLabel.preset === 'student';
+  const courseTitleById = useMemo(() => new Map(courses.map((course) => [String(course.id), course.title])), [courses]);
+  const batchCourseByStudentId = useMemo(() => {
+    const map = new Map<string, string>();
+    batches.forEach((batch) => (batch.learnerIds || []).forEach((studentId) => {
+      if (!map.has(String(studentId))) map.set(String(studentId), courseTitleById.get(String(batch.courseId)) || batch.courseTitle || 'Chưa xếp khóa học');
+    }));
+    return map;
+  }, [batches, courseTitleById]);
 
   const [timeRange, setTimeRange] = useState<'all' | 'this_year' | 'this_month'>('this_year');
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,12 +126,14 @@ export function WorkerOverviewDashboard({
     return { months, maxCount };
   }, [filteredWorkers, currentYear]);
 
-  // 2. Position / Rank Distribution Data
+  // 2. Course distribution for education; rank distribution for labor.
   const rankDistribution = useMemo(() => {
     const map = new Map<string, number>();
     filteredWorkers.forEach(s => {
-      const r = s.rank?.trim() || 'Chưa phân vị trí';
-      map.set(r, (map.get(r) || 0) + 1);
+      const label = isEducation
+        ? courseTitleById.get(String(s.courseId || '')) || batchCourseByStudentId.get(String(s.id)) || 'Chưa xếp khóa học'
+        : s.rank?.trim() || 'Chưa phân vị trí';
+      map.set(label, (map.get(label) || 0) + 1);
     });
 
     const items = Array.from(map.entries()).map(([rank, count]) => ({
@@ -130,7 +143,7 @@ export function WorkerOverviewDashboard({
     })).sort((a, b) => b.count - a.count);
 
     return items;
-  }, [filteredWorkers, totalWorkersCount]);
+  }, [filteredWorkers, totalWorkersCount, isEducation, courseTitleById, batchCourseByStudentId]);
 
   // 3. Referral Source Breakdown Data
   const referralSources = useMemo(() => {
@@ -158,13 +171,23 @@ export function WorkerOverviewDashboard({
         const q = searchTerm.toLowerCase();
         const matchName = w.fullName.toLowerCase().includes(q);
         const matchPhone = (w.phone || '').includes(q);
+        if (isEducation) {
+          return matchName || matchPhone || (w.email || '').toLowerCase().includes(q);
+        }
         const matchRank = (w.rank || '').toLowerCase().includes(q);
         const matchIdCard = (w.idCard || '').includes(q);
         return matchName || matchPhone || matchRank || matchIdCard;
       }
       return true;
     });
-  }, [filteredWorkers, statusFilter, searchTerm]);
+  }, [filteredWorkers, statusFilter, searchTerm, isEducation]);
+
+  const getStudentCourseLabel = (student: DrivingStudent) =>
+    courseTitleById.get(String(student.courseId || '')) ||
+    batchCourseByStudentId.get(String(student.id)) ||
+    'Chưa xếp khóa học';
+
+  const detailColumnCount = isEducation ? 7 : 8;
 
   const getStatusBadge = (statusList: string[]) => {
     const main = statusList[0] || 'Chưa cập nhật';
@@ -203,10 +226,10 @@ export function WorkerOverviewDashboard({
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                  Biểu đồ Cột - Đăng ký {entityLabel.titleCase} theo Tháng năm {currentYear}
+                  Đăng ký {isEducation ? 'học viên' : entityLabel.titleCase.toLocaleLowerCase('vi')} theo tháng · {currentYear}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Số lượng ứng viên ghi nhận theo từng tháng trong năm
+                  Theo dõi xu hướng {isEducation ? 'đăng ký học' : 'đăng ký'} theo từng tháng
                 </p>
               </div>
             </div>
@@ -215,55 +238,25 @@ export function WorkerOverviewDashboard({
             </span>
           </div>
 
-          {/* SVG / Pure CSS Column Chart */}
-          <div className="pt-6 pb-2 overflow-x-auto scrollbar-thin">
+          <div className="pt-5 pb-2 overflow-x-auto scrollbar-thin">
             <div className="min-w-[600px] md:min-w-0">
-              <div className="h-56 flex items-end justify-between gap-2 px-2 border-b border-slate-200 pb-2 relative">
-                {/* Background Grid Lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-                  <div className="border-b border-slate-400 w-full" />
-                  <div className="border-b border-slate-400 w-full" />
-                  <div className="border-b border-slate-400 w-full" />
+              <div className="grid grid-cols-[30px_1fr] gap-2">
+                <div className="flex h-60 flex-col justify-between pb-7 text-right text-[9px] font-bold text-slate-400">
+                  <span>{monthlyData.maxCount}</span><span>{Math.ceil(monthlyData.maxCount / 2)}</span><span>0</span>
                 </div>
-
-                {monthlyData.months.map((m, idx) => {
-                  const heightPercent = Math.max(8, Math.round((m.count / monthlyData.maxCount) * 100));
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
-                      {/* Tooltip on hover */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute -top-8 bg-slate-900 text-white text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-20">
-                        {m.fullLabel}: <strong>{m.count}</strong> {entityLabel.singular}
-                      </div>
-
-                      {/* Value Badge above column */}
-                      <span className="text-[10px] font-black text-slate-500 group-hover:text-indigo-600 transition-colors">
-                        {m.count > 0 ? m.count : ''}
-                      </span>
-
-                      {/* Column Bar */}
-                      <div className="w-full max-w-[28px] bg-slate-100 rounded-t-xl overflow-hidden flex items-end h-full">
-                        <div
-                          className={cn(
-                            "w-full rounded-t-xl transition-all duration-500 group-hover:brightness-110",
-                            m.count > 0
-                              ? "bg-gradient-to-t from-indigo-600 to-cyan-500 shadow-md"
-                              : "bg-slate-200/60"
-                          )}
-                          style={{ height: `${heightPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* X Axis Labels */}
-              <div className="flex justify-between gap-2 px-2 pt-2">
-                {monthlyData.months.map((m, idx) => (
-                  <div key={idx} className="flex-1 text-center text-[10px] font-black text-slate-400">
-                    {m.monthLabel}
+                <div>
+                  <div className="relative flex h-52 items-end gap-2 border-b border-slate-200 px-2">
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between"><div className="border-t border-dashed border-slate-200" /><div className="border-t border-dashed border-slate-200" /><div className="border-t border-dashed border-slate-200" /></div>
+                    {monthlyData.months.map((m, idx) => {
+                      const heightPercent = m.count ? Math.max(10, Math.round((m.count / monthlyData.maxCount) * 100)) : 0;
+                      return <div key={idx} className="group relative z-10 flex h-full flex-1 flex-col justify-end">
+                        {m.count > 0 && <span className="mb-1 text-center text-[10px] font-black text-indigo-700">{m.count}</span>}
+                        <div title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-all duration-500 group-hover:brightness-110", m.count ? "bg-gradient-to-t from-indigo-600 via-blue-500 to-cyan-400 shadow-[0_4px_12px_rgba(79,70,229,.22)]" : "bg-slate-100")} style={{ height: `${heightPercent}%` }} />
+                      </div>;
+                    })}
                   </div>
-                ))}
+                  <div className="flex gap-2 px-2 pt-2">{monthlyData.months.map((m, idx) => <div key={idx} className="flex-1 text-center text-[10px] font-black text-slate-400">{m.monthLabel}</div>)}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -277,10 +270,10 @@ export function WorkerOverviewDashboard({
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                Phân bổ theo Vị trí Tuyển chọn (Rank)
+                {isEducation ? 'Phân bổ theo khóa học' : 'Phân bổ theo Vị trí Tuyển chọn (Rank)'}
               </h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Cơ cấu vị trí ứng tuyển của người lao động
+                {isEducation ? 'Cơ cấu học viên theo khóa học hoặc lớp đã xếp' : 'Cơ cấu vị trí ứng tuyển của người lao động'}
               </p>
             </div>
           </div>
@@ -371,7 +364,7 @@ export function WorkerOverviewDashboard({
             <div className="relative">
               <input
                 type="text"
-                placeholder="Tìm tên, SĐT, CCCD, Vị trí..."
+                placeholder={isEducation ? 'Tìm tên, SĐT, email...' : 'Tìm tên, SĐT, CCCD, Vị trí...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-3.5 pr-8 py-1.5 text-xs font-semibold border border-slate-200 rounded-xl outline-none focus:border-indigo-500 bg-slate-50 w-44 sm:w-60"
@@ -384,9 +377,20 @@ export function WorkerOverviewDashboard({
               className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 outline-none cursor-pointer"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="Đã nộp HS">Đã nộp HS</option>
-              <option value="Đang học">Đang tuyển / Đào tạo</option>
-              <option value="Đã đậu">Đã tiếp nhận / Đi làm</option>
+              {isEducation ? (
+                <>
+                  <option value="Đang học">Đang học</option>
+                  <option value="Đang thi">Đang thi</option>
+                  <option value="Đã đậu">Đã tốt nghiệp</option>
+                  <option value="Thi lại">Thi lại</option>
+                </>
+              ) : (
+                <>
+                  <option value="Đã nộp HS">Đã nộp HS</option>
+                  <option value="Đang học">Đang tuyển / Đào tạo</option>
+                  <option value="Đã đậu">Đã tiếp nhận / Đi làm</option>
+                </>
+              )}
             </select>
 
             <button
@@ -403,26 +407,40 @@ export function WorkerOverviewDashboard({
           <table className="w-full text-left text-xs min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <th className="px-4 py-3">Họ và tên {entityLabel.singular}</th>
-                <th className="px-4 py-3">Số điện thoại</th>
-                <th className="px-4 py-3">CCCD / CMND</th>
-                <th className="px-4 py-3 text-center">Vị trí tuyển chọn (Rank)</th>
-                <th className="px-4 py-3">Nguồn giới thiệu</th>
-                <th className="px-4 py-3">Địa chỉ thường trú</th>
-                <th className="px-4 py-3 text-center">Ngày đăng ký</th>
-                <th className="px-4 py-3 text-center">Trạng thái hồ sơ</th>
+                {isEducation ? (
+                  <>
+                    <th className="px-4 py-3">Họ và tên học viên</th>
+                    <th className="px-4 py-3">Số điện thoại</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">CCCD / CMND</th>
+                    <th className="px-4 py-3">Khóa học / Lớp</th>
+                    <th className="px-4 py-3 text-center">Ngày nhập học</th>
+                    <th className="px-4 py-3 text-center">Trạng thái học</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-4 py-3">Họ và tên {entityLabel.singular}</th>
+                    <th className="px-4 py-3">Số điện thoại</th>
+                    <th className="px-4 py-3">CCCD / CMND</th>
+                    <th className="px-4 py-3 text-center">Vị trí tuyển chọn (Rank)</th>
+                    <th className="px-4 py-3">Nguồn giới thiệu</th>
+                    <th className="px-4 py-3">Địa chỉ thường trú</th>
+                    <th className="px-4 py-3 text-center">Ngày đăng ký</th>
+                    <th className="px-4 py-3 text-center">Trạng thái hồ sơ</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
               {studentsLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 text-xs italic">
+                  <td colSpan={detailColumnCount} className="py-8 text-center text-slate-400 text-xs italic">
                     Đang tải dữ liệu {entityLabel.singular}...
                   </td>
                 </tr>
               ) : tableWorkers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 text-xs italic">
+                  <td colSpan={detailColumnCount} className="py-8 text-center text-slate-400 text-xs italic">
                     Không tìm thấy thông tin {entityLabel.singular} nào khớp với bộ lọc.
                   </td>
                 </tr>
@@ -439,23 +457,26 @@ export function WorkerOverviewDashboard({
                     <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">
                       {worker.phone || '-'}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">
-                      {worker.idCard || '-'}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[10px] font-bold">
-                        {worker.rank || 'Lao động phổ thông'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-600 text-[11px]">
-                      {worker.referral || 'Trực tiếp'}
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[180px] truncate" title={worker.address}>
-                      {worker.address || '-'}
-                    </td>
-                    <td className="px-4 py-3.5 text-center text-[10px] font-bold text-slate-500">
-                      {worker.registrationDate || '-'}
-                    </td>
+                    {isEducation ? (
+                      <>
+                        <td className="px-4 py-3.5 text-slate-600 text-[11px]">{worker.email || '-'}</td>
+                        <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">{worker.idCard || '-'}</td>
+                        <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[220px] truncate" title={getStudentCourseLabel(worker)}>
+                          {getStudentCourseLabel(worker)}
+                        </td>
+                        <td className="px-4 py-3.5 text-center text-[10px] font-bold text-slate-500">
+                          {worker.enrollmentDate || worker.registrationDate || '-'}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">{worker.idCard || '-'}</td>
+                        <td className="px-4 py-3.5 text-center"><span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[10px] font-bold">{worker.rank || 'Lao động phổ thông'}</span></td>
+                        <td className="px-4 py-3.5 text-slate-600 text-[11px]">{worker.referral || 'Trực tiếp'}</td>
+                        <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[180px] truncate" title={worker.address}>{worker.address || '-'}</td>
+                        <td className="px-4 py-3.5 text-center text-[10px] font-bold text-slate-500">{worker.registrationDate || '-'}</td>
+                      </>
+                    )}
                     <td className="px-4 py-3.5 text-center">
                       {getStatusBadge(worker.status)}
                     </td>

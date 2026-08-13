@@ -16,7 +16,7 @@ export const createCourseSchema = Joi.object({
   }),
   fee: Joi.string().allow("").optional(),
   duration: Joi.string().required().messages({
-    "any.required": "Thời lượng khóa học là bắt buộc.",
+    "any.required": "Số buổi học là bắt buộc.",
   }),
   maxLearners: Joi.number().min(1).optional(),
   activeBatches: Joi.number().min(0).optional(),

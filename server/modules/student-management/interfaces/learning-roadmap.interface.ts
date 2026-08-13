@@ -8,7 +8,6 @@ export interface IProgressionPolicy {
   minAssignmentRate?: number | null;
   minMiniTestRate?: number | null;
   minExamRate?: number | null;
-  teacherConfirmationRequired: boolean;
 }
 
 export interface ILearningRoadmapStep {

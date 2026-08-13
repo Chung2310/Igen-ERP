@@ -54,15 +54,16 @@ it("reports required fields left blank, using the configured labels", async () =
   assert.deepEqual(missing, ["Email liên hệ"]);
 });
 
-it("keeps full name and phone required even when the company hides them", async () => {
+it("keeps full name, phone and email required even when the company hides them", async () => {
   mockOverrides([
     { key: "fullName", label: "Họ và tên", isRequired: false, isVisible: false, isArchived: false },
     { key: "phone", label: "Số điện thoại", isRequired: false, isVisible: false, isArchived: false },
+    { key: "email", label: "Email học viên", isRequired: false, isVisible: false, isArchived: false },
   ]);
 
   const missing = await findMissingPublicRegisterFields("ACME", {});
 
-  assert.deepEqual(missing, ["Họ và tên", "Số điện thoại"]);
+  assert.deepEqual(missing, ["Họ và tên", "Số điện thoại", "Email học viên"]);
 });
 
 it("passes when every required field is filled in", async () => {
@@ -71,6 +72,7 @@ it("passes when every required field is filled in", async () => {
   const missing = await findMissingPublicRegisterFields("ACME", {
     fullName: "Nguyen Van A",
     phone: "0901234567",
+    email: "student@example.com",
   });
 
   assert.deepEqual(missing, []);
