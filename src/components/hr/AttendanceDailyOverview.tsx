@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Home, LogIn, LogOut, ShieldAlert, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock3, Home, LogIn, LogOut, MapPin, ScanFace, ShieldAlert, UserCheck, Users, WifiOff } from "lucide-react";
 import {
   attendanceOverviewCategories,
   attendanceOverviewLabels,
+  attendanceErrorLabels,
+  type AttendanceErrorCategory,
   type AttendanceDailyOverviewResult,
   type AttendanceOverviewFilter,
 } from "../../utils/attendanceDailyOverview";
@@ -41,7 +43,8 @@ const metricStyles: Record<AttendanceOverviewFilter, { icon: React.ElementType; 
 
 export default function AttendanceDailyOverview({ date, onDateChange, result, loading }: AttendanceDailyOverviewProps) {
   const [selected, setSelected] = useState<AttendanceOverviewFilter>("all");
-  useEffect(() => setSelected("all"), [date]);
+  const [selectedError, setSelectedError] = useState<AttendanceErrorCategory | null>(null);
+  useEffect(() => { setSelected("all"); setSelectedError(null); }, [date]);
 
   const metrics: AttendanceOverviewFilter[] = ["all", ...attendanceOverviewCategories];
   const visibleEmployees = selected === "all" ? result.all : result.groups[selected];
@@ -94,6 +97,17 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
                 );
               })}
             </div>
+
+            <section>
+              <h3 className="mb-3 text-sm font-black text-slate-800">Lỗi chấm công</h3>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {(["location", "network", "face", "forgot_checkin", "forgot_checkout"] as AttendanceErrorCategory[]).map((category) => {
+                  const Icon = category === "location" ? MapPin : category === "network" ? WifiOff : category === "face" ? ScanFace : AlertTriangle;
+                  return <button key={category} type="button" aria-label={`${attendanceErrorLabels[category]}: ${result.errorCounts[category]}`} onClick={() => setSelectedError(selectedError === category ? null : category)} className={`flex items-center justify-between rounded-2xl border bg-white p-4 text-left shadow-sm cursor-pointer ${selectedError === category ? "border-red-500 ring-2 ring-red-100" : "border-slate-200"}`}><div><div className="text-[10px] font-extrabold uppercase text-slate-500">{attendanceErrorLabels[category]}</div><div className="mt-1 text-2xl font-black text-slate-800">{result.errorCounts[category]}</div></div><span className="rounded-xl bg-red-50 p-2 text-red-600"><Icon className="h-5 w-5" /></span></button>;
+                })}
+              </div>
+              {selectedError && <div className="mt-3 overflow-hidden rounded-2xl border border-red-100 bg-white">{result.errors[selectedError].length === 0 ? <div className="p-8 text-center text-sm text-slate-400">Không có lỗi thuộc nhóm này.</div> : result.errors[selectedError].map((item) => <div key={item.uid} className="grid gap-2 border-b border-slate-100 px-4 py-3 text-xs md:grid-cols-[1fr_120px_160px_120px]"><div><b className="text-slate-800">{item.displayName || "Nhân viên iGen"}</b><div className="text-slate-500">{item.email}</div></div><span>{item.action === "check-in" ? "Check-in" : "Check-out"}</span><span>{item.attemptedAt ? new Date(item.attemptedAt).toLocaleString("vi-VN") : "—"}</span><span className="font-bold text-red-600">{item.attemptCount ? `${item.attemptCount} lần thử` : attendanceErrorLabels[selectedError]}</span></div>)}</div>}
+            </section>
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 px-4 py-3">

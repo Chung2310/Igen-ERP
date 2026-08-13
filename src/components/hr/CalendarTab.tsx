@@ -135,6 +135,8 @@ export default function CalendarTab({
   const [logEndDate, setLogEndDate] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
   const [attendanceLogsLoadedSuccessfully, setAttendanceLogsLoadedSuccessfully] = useState(false);
+  const [attendanceAttempts, setAttendanceAttempts] = useState<any[]>([]);
+  const [attendanceAttemptsLoading, setAttendanceAttemptsLoading] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
   const [editCheckIn, setEditCheckIn] = useState("");
   const [editCheckOut, setEditCheckOut] = useState("");
@@ -419,6 +421,16 @@ export default function CalendarTab({
     }
   }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode, selectedMonth, selectedYear, attendanceSectionMode, attendanceOverviewDate]);
 
+  useEffect(() => {
+    if (currentSubTab !== "attendance" || attendanceSectionMode !== "overview" || !canManageAttendance) return;
+    setAttendanceAttemptsLoading(true);
+    fetch(`/api/v1/timekeeping/attempts?date=${attendanceOverviewDate}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then(async (response) => { if (!response.ok) throw new Error("Không thể tải lỗi chấm công."); return response.json(); })
+      .then((result) => setAttendanceAttempts(result.data || []))
+      .catch((error) => { setAttendanceAttempts([]); toast.error(getApiErrorMessage(error, "Không thể tải lỗi chấm công.")); })
+      .finally(() => setAttendanceAttemptsLoading(false));
+  }, [currentSubTab, attendanceSectionMode, attendanceOverviewDate, canManageAttendance, selectedCompanyCode]);
+
   const renderAttendanceTab = () => {
     const getUserDetail = (uid: string) => {
       const uDetail = usersList.find((u) => u.uid === uid || (u as any)._id === uid);
@@ -463,6 +475,10 @@ export default function CalendarTab({
       })),
       logs,
       applications,
+      attempts: attendanceAttempts,
+      currentMinutes: new Date().getHours() * 60 + new Date().getMinutes(),
+      checkInDeadline: (uid) => { const value = (workHoursByUid[uid] || companyWorkHours).checkInLimit || "08:30"; const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; },
+      checkOutDeadline: (uid) => { const value = (workHoursByUid[uid] || companyWorkHours).checkOutLimit || "17:30"; const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; },
       isWorkingDay: (uid, date) => isCustomWorkingDay(uid, new Date(`${date}T00:00:00`).getDay()),
       isHoliday: (date) => {
         const holiday = holidayByDate.get(date);
@@ -785,7 +801,7 @@ export default function CalendarTab({
             date={attendanceOverviewDate}
             onDateChange={setAttendanceOverviewDate}
             result={overviewResult}
-            loading={isLogsLoading}
+            loading={isLogsLoading || attendanceAttemptsLoading}
           />
         ) : (
         <>

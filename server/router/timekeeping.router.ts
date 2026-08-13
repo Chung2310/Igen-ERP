@@ -5,8 +5,10 @@ import { timekeepingController } from "../controller/timekeeping.controller";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { attendanceFaceGate } from "../middleware/attendance-face-gate";
+import { attendanceBranchGate } from "../middleware/attendance-branch-gate";
 import { companyWorkCalendarController } from "../controller/company-work-calendar.controller";
 import { workShiftController } from "../controller/work-shift.controller";
+import { attendanceAttemptController } from "../controller/attendance-attempt.controller";
 
 export const timekeepingRouter = Router();
 const attendanceImage = multer({
@@ -111,6 +113,7 @@ const updateWorkHoursSchema = {
 
 // Get today's checkin/checkout log for the current user
 timekeepingRouter.get("/today", requireAuth as any, timekeepingController.getTodayStatus as any);
+timekeepingRouter.get("/attempts", requireAuth as any, requirePermission("timekeeping:manage") as any, attendanceAttemptController.list as any);
 
 // Check-in
 timekeepingRouter.post(
@@ -118,6 +121,7 @@ timekeepingRouter.post(
   requireAuth as any,
   attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
+  attendanceBranchGate as any,
   attendanceFaceGate as any,
   timekeepingController.checkIn as any
 );
@@ -128,6 +132,7 @@ timekeepingRouter.post(
   requireAuth as any,
   attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
+  attendanceBranchGate as any,
   attendanceFaceGate as any,
   timekeepingController.checkOut as any
 );

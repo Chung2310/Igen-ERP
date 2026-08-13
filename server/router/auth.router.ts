@@ -19,7 +19,12 @@ const branchFields = {
   address: Joi.string().trim().max(255).allow("").optional(),
   phone: Joi.string().trim().max(32).allow("").optional(),
   managerId: Joi.string().trim().max(64).allow("").optional(),
-  locationConfig: Joi.object().unknown(true).optional(),
+  locationConfig: Joi.object({
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required(),
+    allowedRadius: Joi.number().min(1).required(),
+    allowedPublicIps: Joi.array().items(Joi.string().ip({ version: ["ipv4", "ipv6"], cidr: "forbidden" })).min(1).unique().required(),
+  }).unknown(false).optional(),
   isActive: Joi.boolean().optional(),
 };
 const createBranchSchema = { body: Joi.object(branchFields).unknown(false) };
@@ -261,6 +266,7 @@ authRouter.get("/users", requireAuth as any, requirePermission(["user:read", "hr
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
+authRouter.get("/current-ip", requireAuth as any, requirePermission("user:manage") as any, branchController.currentIp as any);
 authRouter.get("/branches", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, branchController.list as any);
 authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchSchema), branchController.create as any);
 authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, validateRequest(updateBranchSchema), branchController.update as any);

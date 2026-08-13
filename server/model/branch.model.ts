@@ -8,7 +8,12 @@ const BranchSchema = new Schema<IBranch>({
   address: { type: String, default: "" },
   phone: { type: String, default: "" },
   managerId: { type: String, default: "" },
-  locationConfig: { type: Schema.Types.Mixed, default: undefined },
+  locationConfig: { type: {
+    latitude: { type: Number, required: true, min: -90, max: 90 },
+    longitude: { type: Number, required: true, min: -180, max: 180 },
+    allowedRadius: { type: Number, required: true, min: 1 },
+    allowedPublicIps: { type: [String], required: true, validate: [(items: string[]) => items.length > 0, "At least one public IP is required"] },
+  }, default: undefined, _id: false },
   isActive: { type: Boolean, default: true, index: true },
 }, { timestamps: true });
 

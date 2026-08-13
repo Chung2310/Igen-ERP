@@ -8,11 +8,13 @@ export interface BranchRecord {
   address?: string;
   phone?: string;
   managerId?: string;
-  locationConfig?: Record<string, unknown>;
+  locationConfig?: BranchAttendanceConfig;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface BranchAttendanceConfig { latitude: number; longitude: number; allowedRadius: number; allowedPublicIps: string[]; }
 
 export interface BranchInput {
   code?: string;
@@ -20,7 +22,7 @@ export interface BranchInput {
   address?: string;
   phone?: string;
   managerId?: string;
-  locationConfig?: Record<string, unknown>;
+  locationConfig?: BranchAttendanceConfig;
   isActive?: boolean;
 }
 
@@ -35,6 +37,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const branchService = {
+  currentIp: () => request<{ ip: string }>("/api/v1/auth/current-ip"),
   list: () => request<BranchRecord[]>("/api/v1/auth/branches"),
   create: (input: Required<Pick<BranchInput, "code" | "name">> & Omit<BranchInput, "code" | "name">) => request<BranchRecord>("/api/v1/auth/branches", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: BranchInput) => request<BranchRecord>("/api/v1/auth/branches/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(input) }),
