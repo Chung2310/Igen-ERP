@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileSignature,
   LayoutDashboard,
   Users,
 } from "lucide-react";
@@ -40,13 +41,17 @@ const WORKER_PROFILE_FIELD_KEYS: WorkerProfileFieldKey[] = [
   "registrationDate",
   "address",
   "status",
+  "laborType",
+  "nationality",
+  "workPermitNumber",
+  "workPermitExpiry",
   "note",
 ];
 
 const isWorkerProfileFieldKey = (key: string): key is WorkerProfileFieldKey =>
   WORKER_PROFILE_FIELD_KEYS.includes(key as WorkerProfileFieldKey);
 
-type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "THÔNG BÁO";
+type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "HỢP ĐỒNG" | "THÔNG BÁO";
 
 const DashboardPage = lazy(() => import("./pages/WorkerDashboardPage").then((module) => ({ default: module.WorkerDashboardPage })));
 const WorkerProjectsPage = lazy(() =>
@@ -54,6 +59,7 @@ const WorkerProjectsPage = lazy(() =>
     default: module.WorkerProjectsPage,
   })),
 );
+const WorkerContractsPage = lazy(() => import("./pages/WorkerContractsPage"));
 const NotificationsPage = lazy(() => import("./pages/WorkerNotificationsPage").then((module) => ({ default: module.WorkerNotificationsPage })));
 
 const SUB_TABS = [
@@ -74,6 +80,12 @@ const SUB_TABS = [
     value: "LAO ĐỘNG" as const,
     label: "Lao động",
     icon: Users,
+  },
+  {
+    slug: "hop-dong",
+    value: "HỢP ĐỒNG" as const,
+    label: "Hợp đồng",
+    icon: FileSignature,
   },
   {
     slug: "thong-bao",
@@ -263,7 +275,9 @@ export default function WorkerWorkspace() {
       <DashboardPage
         formattedDate={formatDate()}
         onSelectStudent={openDashboardWorker}
-        onNavigate={() => {}}
+        onNavigate={(view) => {
+          if (view === "hop-dong") setActiveTab("HỢP ĐỒNG");
+        }}
         selectedCenter={center}
       />
     ) : activeTab === "LAO ĐỘNG" ? (
@@ -274,6 +288,12 @@ export default function WorkerWorkspace() {
         canManage={canManage("worker-profile")}
         projects={projects}
         profileFields={profileFields}
+      />
+    ) : activeTab === "HỢP ĐỒNG" ? (
+      <WorkerContractsPage
+        selectedCenter={center}
+        branchId={userProfile?.branchId}
+        canManage={canManage("worker-profile")}
       />
     ) : activeTab === "DỰ ÁN" ? (
       <WorkerProjectsPage
@@ -350,6 +370,8 @@ export default function WorkerWorkspace() {
         worker={selectedWorker}
         workers={workspaceWorkers}
         profileFields={profileFields}
+        scope={scope}
+        canManage={canManage("worker-profile")}
         onClose={() => setSelectedWorker(null)}
         onSubmit={async (id, input) => {
           return updateWorker(id, input);
