@@ -12,6 +12,7 @@ import { startCelebrationScheduler } from "./server/service/celebration-schedule
 import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
 import { startRetailDebtReminderScheduler } from "./server/modules/retail/services/retail-debt-reminder.service";
 import { startRetailReminderRetryScheduler } from "./server/modules/retail/services/retail-reminder-retry.service";
+import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
@@ -221,6 +222,7 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  startDomainEventWorker();
   startCelebrationScheduler();
   startResourceRetentionScheduler();
   startRetailDebtReminderScheduler();
