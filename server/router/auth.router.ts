@@ -37,12 +37,12 @@ const branchFields = {
 };
 const createBranchSchema = { body: Joi.object(branchFields).unknown(false) };
 const updateBranchSchema = { body: Joi.object({ ...branchFields, code: branchFields.code.optional(), name: branchFields.name.optional() }).min(1).unknown(false) };
-const createBranchOwnerSchema = { body: Joi.object({
+export const createBranchOwnerSchema = { body: Joi.object({
   displayName: Joi.string().trim().min(1).max(120).required(),
   email: Joi.string().pattern(emailRegex).required(),
   password: Joi.string().min(6).required(),
   phone: Joi.string().trim().max(32).allow("").optional(),
-  birthDate: Joi.date().iso().optional().allow(""),
+  birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(""),
   qualification: Joi.string().trim().max(200).allow("").optional(),
 }).unknown(false) };
 const registerSchema = {
