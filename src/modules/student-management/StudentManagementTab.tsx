@@ -79,7 +79,7 @@ export default function StudentManagementTab() {
   const entityLabel = useEntityLabel();
 
   const subTabRoutes = React.useMemo(() => {
-    const allowedSlugs = getAllowedStudentTabSlugs(userProfile?.permissions || [], entityLabel.preset);
+    const allowedSlugs = getAllowedStudentTabSlugs(userProfile?.permissions || [], entityLabel.preset, userProfile?.role);
     let routes = SUB_TAB_ROUTES.map((item) => ({
       ...item,
       label: item.slug === "hoc-vien"
@@ -98,7 +98,7 @@ export default function StudentManagementTab() {
     }
 
     return routes;
-  }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions]);
+  }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions, userProfile?.role]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
     return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
   });

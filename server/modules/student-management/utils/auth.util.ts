@@ -81,7 +81,10 @@ export async function getAllowedOwnerIds(user: StudentModuleUser): Promise<strin
   if (user.role === "admin") {
     return [...new Set([...branchOwnerIds, user.uid])];
   }
-  if (user.role === "manager") {
+  // Giảng viên cần xem danh mục và dữ liệu đào tạo của toàn trung tâm/chi nhánh
+  // để tra cứu khi đứng lớp. Các API ghi vẫn được requireTeacherOperation giới hạn
+  // theo lớp có instructorId là chính tài khoản đó.
+  if (user.role === "manager" || user.role === "teacher") {
     return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : user.uid;
   }
 

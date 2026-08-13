@@ -193,6 +193,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const copy = getBatchPageCopy(entityLabel.preset);
   const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
+  const hasTeacherOperation = Boolean(user?.permissions?.includes('*') || user?.permissions?.includes('teacher:operate'));
   const { activeBranchId } = useBranch();
   const {
     fields: stdFields,
@@ -688,31 +689,34 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             : (darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60")
   );
 
-  const renderRowActions = (b: Batch) => (
+  const renderRowActions = (b: Batch) => {
+    const canOperateAssignedBatch = canManage || (hasTeacherOperation && b.instructorId === user?.uid);
+    return (
     <div className="flex items-center gap-1.5">
       <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
         <Eye className="w-3 h-3" />
       </button>
-      <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
+      {canManage && <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
         <Pencil className="w-3 h-3" />
-      </button>
-      <button onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })} title={`Xóa ${copy.entityNameLower}`} className={actionButtonClass('danger')}>
+      </button>}
+      {canManage && <button onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })} title={`Xóa ${copy.entityNameLower}`} className={actionButtonClass('danger')}>
         <Trash2 className="w-3 h-3" />
-      </button>
-      <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
+      </button>}
+      {canManage && <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
         <Users className="w-3 h-3" />
-      </button>
-      <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
+      </button>}
+      {canOperateAssignedBatch && <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
         <ClipboardList className="w-3 h-3" />
-      </button>
-      <button onClick={() => setAttendanceBatchId(b.id)} title="Điểm danh thủ công & QR" className={actionButtonClass('emerald')}>
+      </button>}
+      {canOperateAssignedBatch && <button onClick={() => setAttendanceBatchId(b.id)} title="Điểm danh thủ công & QR" className={actionButtonClass('emerald')}>
         <CalendarCheck className="w-3 h-3" />
-      </button>
+      </button>}
       <button onClick={() => setViewAttendanceBatchId(b.id)} title="Lịch sử & Thống kê điểm danh" className={actionButtonClass('sky')}>
         <BarChart2 className="w-3 h-3" />
       </button>
     </div>
-  );
+    );
+  };
 
   const renderLearnerCountButton = (b: Batch) => (
     <button

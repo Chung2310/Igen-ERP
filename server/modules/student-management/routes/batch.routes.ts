@@ -6,6 +6,7 @@ import { createBatchSchema, updateBatchSchema, addLearnerSchema, updateEnrollmen
 import { idParamSchema, enrollmentStatusParamsSchema } from "../validations/student.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
+import { requireTeacherOperation } from "../middlewares/teacher-operation.middleware";
 
 const router = Router();
 const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.batch.manage]) as any;
@@ -23,7 +24,7 @@ router.get("/:id/enrollments", validate(idParamSchema, "params"), BatchControlle
 router.post("/:id/learners", requireManage, validate(idParamSchema, "params"), validate(addLearnerSchema), BatchController.addLearner);
 router.delete("/:id/learners/:studentId", requireManage, BatchController.removeLearner);
 router.patch("/:id/learners/:studentId/enrollment-status", requireManage, validate(enrollmentStatusParamsSchema, "params"), validate(updateEnrollmentStatusSchema), BatchController.updateEnrollmentStatus);
-router.put("/:id/attendance", requireManage, validate(idParamSchema, "params"), BatchController.saveAttendance);
-router.delete("/:id/attendance", requireManage, validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
+router.put("/:id/attendance", requireTeacherOperation, validate(idParamSchema, "params"), BatchController.saveAttendance);
+router.delete("/:id/attendance", requireTeacherOperation, validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
 
 export default router;

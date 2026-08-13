@@ -75,7 +75,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "project:read",
     "stock:read",
     "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
-  ]
+  ],
+  // Giảng viên chỉ làm việc trong khu vực học viên. Quyền teacher:operate
+  // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
+  teacher: ["student:read", "teacher:operate"]
 };
 
 /**
@@ -86,7 +89,8 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   admin: 1,
   branch_owner: 2,
   manager: 3,
-  user: 4
+  user: 4,
+  teacher: 4
 };
 
 /**
