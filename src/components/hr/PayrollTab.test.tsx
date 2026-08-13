@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PayrollTab from "./PayrollTab";
@@ -57,6 +57,20 @@ function employeeField(field: string) {
 
 const fixedInputFields = ["agreedSalary", "reconciledDays", "reconciledHours", "allowance", "bonus", "deduction"];
 
+function payrollEmployee(employeeId: string) {
+  return { ...employee, employeeId, employeeName: employeeId };
+}
+
+function saveReasonInput() {
+  const input = screen.getAllByRole("textbox").find(element => element.tagName === "TEXTAREA");
+  if (!input) throw new Error("Save reason input is not present");
+  return input;
+}
+
+function saveButtons() {
+  return screen.getAllByRole("button").filter(button => button.textContent?.includes("thay"));
+}
+
 describe("PayrollTab formula library feature flag", () => {
   afterEach(() => {
     cleanup();
@@ -68,6 +82,104 @@ describe("PayrollTab formula library feature flag", () => {
     render(<PayrollTab canManage />);
 
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
+  });
+
+  it("saves dirty input rows once with a trimmed shared reason without recalculating payroll", async () => {
+    const firstEmployee = payrollEmployee("e1");
+    const secondEmployee = payrollEmployee("e2");
+    const unrelatedEmployee = payrollEmployee("e3");
+    const inputResponse = {
+      items: [
+        { employeeId: "e1", version: 3 },
+        { employeeId: "e2", version: 7 },
+        { employeeId: "e3", version: 11 },
+      ],
+      variables: [],
+      editable: true,
+      needsRefresh: false,
+    };
+    getRun.mockResolvedValue(null);
+    getResults.mockResolvedValueOnce([firstEmployee, secondEmployee, unrelatedEmployee]).mockResolvedValueOnce([firstEmployee, secondEmployee, unrelatedEmployee]);
+    getAdjustments.mockResolvedValue([]);
+    getPeriodInputs.mockResolvedValueOnce(inputResponse).mockResolvedValueOnce(inputResponse);
+    getPolicies.mockResolvedValue([]);
+    bulkSavePeriodInputs.mockResolvedValue([{ employeeId: "e1", status: "success" }, { employeeId: "e2", status: "success" }]);
+    calculate.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    const reasonText = "\u0110\u1ed1i so\u00e1t th\u00e1ng 8";
+
+    render(<PayrollTab canManage />);
+
+    const agreedSalary = await screen.findByLabelText("agreedSalary-e1");
+    const deduction = screen.getByLabelText("deduction-e2");
+    await user.clear(agreedSalary);
+    await user.type(agreedSalary, "15000000");
+    await user.clear(deduction);
+    await user.type(deduction, "250000");
+
+    expect(await screen.findByText(/2 .*thay/)).toBeTruthy();
+    await user.click(saveButtons()[0]);
+    expect(saveButtons()).toHaveLength(2);
+    expect((saveButtons()[1] as HTMLButtonElement).disabled).toBe(true);
+
+    const reason = saveReasonInput();
+    await user.type(reason, "   ");
+    expect((saveButtons()[1] as HTMLButtonElement).disabled).toBe(true);
+    await user.clear(reason);
+    await user.type(reason, ` ${reasonText} `);
+    await user.click(saveButtons()[1]);
+
+    await waitFor(() => expect(bulkSavePeriodInputs).toHaveBeenCalledTimes(1));
+    expect(bulkSavePeriodInputs).toHaveBeenCalledWith(expect.any(String), [
+      { employeeId: "e1", expectedVersion: 3, reason: reasonText, agreedSalary: 15_000_000, clearFields: [] },
+      { employeeId: "e2", expectedVersion: 7, reason: reasonText, deduction: 250_000, clearFields: [] },
+    ]);
+    expect(calculate).not.toHaveBeenCalled();
+    await waitFor(() => expect(saveButtons()).toHaveLength(0));
+  });
+
+  it("retains only failed drafts and keeps the save dialog open for retry after a partial save failure", async () => {
+    const firstEmployee = payrollEmployee("e1");
+    const secondEmployee = payrollEmployee("e2");
+    const inputResponse = {
+      items: [{ employeeId: "e1", version: 3 }, { employeeId: "e2", version: 7 }],
+      variables: [],
+      editable: true,
+      needsRefresh: false,
+    };
+    getRun.mockResolvedValue(null);
+    getResults.mockResolvedValueOnce([firstEmployee, secondEmployee]).mockResolvedValueOnce([firstEmployee, secondEmployee]);
+    getAdjustments.mockResolvedValue([]);
+    getPeriodInputs.mockResolvedValueOnce(inputResponse).mockResolvedValueOnce(inputResponse);
+    getPolicies.mockResolvedValue([]);
+    const conflict = "D\u1eef li\u1ec7u \u0111\u00e3 thay \u0111\u1ed5i";
+    bulkSavePeriodInputs.mockResolvedValue([
+      { employeeId: "e1", status: "success" },
+      { employeeId: "e2", status: "error", message: conflict },
+    ]);
+    calculate.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(<PayrollTab canManage />);
+
+    const agreedSalary = await screen.findByLabelText("agreedSalary-e1");
+    const deduction = screen.getByLabelText("deduction-e2");
+    await user.clear(agreedSalary);
+    await user.type(agreedSalary, "15000000");
+    await user.clear(deduction);
+    await user.type(deduction, "250000");
+    await user.click(saveButtons()[0]);
+    const reason = saveReasonInput();
+    await user.type(reason, "\u0110\u1ed1i so\u00e1t th\u00e1ng 8");
+    await user.click(saveButtons()[1]);
+
+    await screen.findByText(conflict);
+    expect((screen.getByLabelText("deduction-e2") as HTMLInputElement).value).toBe("250000");
+    expect(screen.getByText(/1 .*thay/)).toBeTruthy();
+    expect(saveButtons()).toHaveLength(2);
+    expect(saveReasonInput()).toBeTruthy();
+    expect(getPeriodInputs).toHaveBeenCalledTimes(2);
+    expect(getResults).toHaveBeenCalledTimes(2);
   });
 });
 
