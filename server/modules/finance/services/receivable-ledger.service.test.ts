@@ -146,6 +146,43 @@ test("reminder suspension updates only an active scoped receivable", async () =>
   assert.equal(suspended.reminderSuspendReason, "Chờ đối soát");
 });
 
+test("extending a receivable updates its due date and appends immutable audit history", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const opened = await ledger.openFromEvent(scope, openInput, actor);
+  const newDueDate = new Date("2026-08-30T23:59:59.999Z");
+
+  await assert.rejects(() => ledger.extend(scope, opened._id, {
+    dueDate: new Date(`${openInput.dueDate.toISOString().slice(0, 10)}T23:59:59.999Z`),
+    reason: "Không được gia hạn trong cùng ngày",
+    idempotencyKey: "extend-same-day",
+  }, actor), /DUE_DATE_MUST_BE_LATER/);
+
+  const extended = await ledger.extend(scope, opened._id, {
+    dueDate: newDueDate,
+    reason: "Khách hẹn thanh toán cuối tháng",
+    idempotencyKey: "extend-1",
+  }, actor);
+
+  assert.equal(extended.receivable.dueDate.toISOString(), newDueDate.toISOString());
+  assert.equal(extended.receivable.balance, 100_000);
+  assert.equal(extended.receivable.status, "open");
+  assert.equal(extended.receivable.reminderSuspendedUntil, null);
+  const entry = memory.snapshot().entries.at(-1);
+  assert.equal(entry.type, "due_date_extension");
+  assert.equal(entry.amount, 0);
+  assert.equal(entry.balanceAfter, 100_000);
+  assert.equal(entry.previousDueDate.toISOString(), openInput.dueDate.toISOString());
+  assert.equal(entry.newDueDate.toISOString(), newDueDate.toISOString());
+  assert.equal(entry.reason, "Khách hẹn thanh toán cuối tháng");
+  assert.equal(entry.createdByName, "Kế toán");
+  await assert.rejects(() => ledger.extend(scope, opened._id, {
+    dueDate: openInput.dueDate,
+    reason: "Không hợp lệ",
+    idempotencyKey: "extend-2",
+  }, actor), /DUE_DATE_MUST_BE_LATER/);
+});
+
 test("legacy import writes header and chronological entries atomically and replays safely", async () => {
   const memory = memoryRepository();
   const ledger = createReceivableLedgerService(memory.repository);

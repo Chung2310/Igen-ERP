@@ -4,13 +4,13 @@ import { ERROR_CODES } from "../../errors/error-codes";
 import { normalizeError } from "../../errors/normalize-error";
 import { createReceivableController } from "./controllers/receivable.controller";
 import { financeReceivableRoutes, FINANCE_RECEIVABLE_ROUTE_PERMISSIONS } from "./routes/receivable.routes";
-import { validateAdjustment, validateCollection, validateReason, validateSuspension } from "./validations/receivable.validation";
+import { validateAdjustment, validateCollection, validateExtension, validateReason, validateSuspension } from "./validations/receivable.validation";
 
 test("receivable routes expose documented endpoints with exact permission classes", () => {
   assert.deepEqual(FINANCE_RECEIVABLE_ROUTE_PERMISSIONS, {
     "GET /": "receivable:read", "GET /aging": "receivable:read", "GET /by-customer": "receivable:read", "GET /:id": "receivable:read",
     "POST /:id/payments": "receivable:collect", "POST /:id/adjustments": "receivable:adjust", "POST /:id/write-off": "receivable:adjust",
-    "POST /:id/suspend": "receivable:adjust", "POST /:id/entries/:entryId/reversal": "receivable:adjust",
+    "POST /:id/suspend": "receivable:adjust", "POST /:id/extend": "receivable:adjust", "POST /:id/entries/:entryId/reversal": "receivable:adjust",
   });
   const routes = financeReceivableRoutes.stack.filter((layer: any) => layer.route).map((layer: any) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
   assert.deepEqual(routes, Object.keys(FINANCE_RECEIVABLE_ROUTE_PERMISSIONS));
@@ -20,7 +20,7 @@ test("receivable routes expose documented endpoints with exact permission classe
 test("controller derives branch scope, ignores body scope, and forwards errors", async () => {
   const calls: any[] = [];
   const dependencies: any = {};
-  for (const name of ["list", "detail", "aging", "byCustomer", "collect", "adjust", "writeOff", "suspend", "reverse"]) dependencies[name] = async (...args: any[]) => { calls.push([name, ...args]); return { name }; };
+  for (const name of ["list", "detail", "aging", "byCustomer", "collect", "adjust", "writeOff", "suspend", "extend", "reverse"]) dependencies[name] = async (...args: any[]) => { calls.push([name, ...args]); return { name }; };
   const controller: any = createReceivableController(dependencies);
   const response = { json(value: any) { return value; } } as any;
   const actor = { id: "u1", role: "user", companyCode: "ACME", branchId: "B1" };
@@ -41,6 +41,9 @@ test("validation enforces integer VND, balance cap, payment method, reasons, and
   assert.deepEqual(validateAdjustment({ amount: 20, direction: "decrease", reason: " Sửa lệch ", idempotencyKey: " a1 " }), { amount: 20, direction: "decrease", reason: "Sửa lệch", idempotencyKey: "a1" });
   assert.deepEqual(validateSuspension({ until: "2026-08-20T00:00:00.000Z", reason: " Chờ đối soát " }), { until: new Date("2026-08-20T00:00:00.000Z"), reason: "Chờ đối soát" });
   assert.throws(() => validateSuspension({ until: "20-08-2026", reason: "x" }), /INVALID_DATE/);
+  assert.deepEqual(validateExtension({ dueDate: "2026-08-30T23:59:59.999Z", reason: " Gia hạn ", idempotencyKey: " ex-1 " }), { dueDate: new Date("2026-08-30T23:59:59.999Z"), reason: "Gia hạn", idempotencyKey: "ex-1" });
+  assert.throws(() => validateExtension({ dueDate: "30-08-2026", reason: "x", idempotencyKey: "k" }), /INVALID_DATE/);
+  assert.throws(() => validateExtension({ dueDate: "2026-02-30T23:59:59.999Z", reason: "x", idempotencyKey: "k" }), /INVALID_DATE/);
 });
 
 test("documented receivable error codes are registered", () => {

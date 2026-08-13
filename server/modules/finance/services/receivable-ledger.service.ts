@@ -149,6 +149,30 @@ export function createReceivableLedgerService(
         return repository.updateReceivable(scope, id, { reminderSuspendedUntil: input.until, reminderSuspendReason: input.reason }, session);
       });
     },
+    async extend(scope: FinanceBranchScope, id: string, input: { dueDate: Date; reason: string; idempotencyKey: string }, actor: Actor) {
+      return repository.transaction(async (session) => {
+        const key = requireText(input.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED");
+        const prior = repository.findByIdempotency ? await repository.findByIdempotency(scope, key, session) : null;
+        const receivable = await repository.findById(scope, id, session);
+        if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+        if (prior) return { receivable, entry: prior };
+        if (["settled", "void", "written_off"].includes(receivable.status)) throw new ConflictError("RECEIVABLE_ALREADY_SETTLED", "RECEIVABLE_ALREADY_SETTLED");
+        if (
+          !(input.dueDate instanceof Date)
+          || Number.isNaN(input.dueDate.valueOf())
+          || input.dueDate.toISOString().slice(0, 10) <= new Date(receivable.dueDate).toISOString().slice(0, 10)
+        ) throw new ValidationError("VALIDATION_FAILED", "DUE_DATE_MUST_BE_LATER");
+        const entry = await repository.createEntry({
+          ...scope, receivableId: id, customerId: receivable.customerId, type: "due_date_extension", amount: 0,
+          balanceAfter: receivable.balance, reason: requireText(input.reason, "REASON_REQUIRED"), idempotencyKey: key,
+          previousDueDate: receivable.dueDate, newDueDate: input.dueDate, ...actorSnapshot(actor),
+        }, session);
+        const updated = await repository.updateReceivable(scope, id, {
+          dueDate: input.dueDate, daysOverdue: 0, reminderSuspendedUntil: null, reminderSuspendReason: null,
+        }, session);
+        return { receivable: updated, entry };
+      });
+    },
     async importLegacy(candidate: any) {
       const scope = { companyCode: String(candidate.companyCode), branchId: String(candidate.branchId) };
       return repository.transaction(async (session) => {

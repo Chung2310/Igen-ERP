@@ -1,7 +1,7 @@
 export const RECEIVABLE_STATUSES = ["open", "partially_paid", "settled", "void", "written_off"] as const;
 export type ReceivableStatus = (typeof RECEIVABLE_STATUSES)[number];
 
-export const RECEIVABLE_ENTRY_TYPES = ["charge", "payment", "adjustment", "refund", "write_off", "reversal"] as const;
+export const RECEIVABLE_ENTRY_TYPES = ["charge", "payment", "adjustment", "refund", "write_off", "reversal", "due_date_extension"] as const;
 export type ReceivableEntryType = (typeof RECEIVABLE_ENTRY_TYPES)[number];
 
 export type ReceivableTerminalStatus = Extract<ReceivableStatus, "void" | "written_off">;
@@ -46,6 +46,8 @@ export interface IReceivableEntry {
   sourceEventId?: string;
   idempotencyKey: string;
   reversalOfEntryId?: string;
+  previousDueDate?: Date;
+  newDueDate?: Date;
   createdBy: string;
   createdByName: string;
   createdAt?: Date;

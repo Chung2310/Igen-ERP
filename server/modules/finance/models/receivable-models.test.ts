@@ -31,10 +31,10 @@ test("receivable header has unique identities and hot query indexes", () => {
 test("receivable entry is an append-only audit record with reversal protection", () => {
   for (const path of [
     "companyCode", "branchId", "receivableId", "customerId", "type", "amount", "balanceAfter", "reason",
-    "paymentMethod", "reference", "sourceEventId", "idempotencyKey", "reversalOfEntryId", "createdBy", "createdByName",
+    "paymentMethod", "reference", "sourceEventId", "idempotencyKey", "reversalOfEntryId", "previousDueDate", "newDueDate", "createdBy", "createdByName",
   ]) assert.ok(ReceivableEntryModel.schema.path(path), `${path} must exist`);
 
-  assert.deepEqual((ReceivableEntryModel.schema.path("type") as any).enumValues, ["charge", "payment", "adjustment", "refund", "write_off", "reversal"]);
+  assert.deepEqual((ReceivableEntryModel.schema.path("type") as any).enumValues, ["charge", "payment", "adjustment", "refund", "write_off", "reversal", "due_date_extension"]);
   assert.ok(hasIndex(ReceivableEntryModel, { companyCode: 1, idempotencyKey: 1 }, true));
   assert.ok(hasIndex(ReceivableEntryModel, { companyCode: 1, sourceEventId: 1 }, true));
   assert.ok(hasIndex(ReceivableEntryModel, { companyCode: 1, reversalOfEntryId: 1 }, true));

@@ -46,8 +46,11 @@ export interface ReceivableEntry {
   amount: number;
   runningBalance: number;
   reason?: string;
+  createdByName?: string;
   createdAt: string;
   reversalOfEntryId?: string;
+  previousDueDate?: string;
+  newDueDate?: string;
 }
 export interface ReceivableDetail {
   receivable: FinanceReceivable;
@@ -113,6 +116,15 @@ export const financeReceivablesApi = {
   },
   suspend(id: string, input: { until: string; reason: string }) {
     return request<FinanceReceivable>(`/${encodeURIComponent(id)}/suspend`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  extend(
+    id: string,
+    input: { dueDate: string; reason: string; idempotencyKey: string },
+  ) {
+    return request<FinanceReceivable>(`/${encodeURIComponent(id)}/extend`, {
       method: "POST",
       body: JSON.stringify(input),
     });
