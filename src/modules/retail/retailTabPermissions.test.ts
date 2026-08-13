@@ -10,13 +10,13 @@ describe("retail subtab permissions", () => {
 
   it("allows managers to access customers and settings", () => {
     expect(getAllowedRetailTabSlugs(["retail:manager"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "nhac-cong-no", "cai-dat",
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });
 
   it("treats wildcard permission as manager access", () => {
     expect(getAllowedRetailTabSlugs(["*"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "nhac-cong-no", "cai-dat",
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });
 });

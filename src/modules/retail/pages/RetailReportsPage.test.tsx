@@ -12,7 +12,7 @@ const retailScopeState = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks/useRetailScope", () => ({
-  useRetailScope: () => ({ scope: retailScopeState.scope }),
+  useRetailScope: () => ({ scope: retailScopeState.scope, userProfile: { role: "admin", permissions: ["retail:manager"] } }),
 }));
 
 vi.mock("../api/retailReports.api", () => ({
@@ -129,6 +129,11 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("does not expose debt reminder operations in Retail", async () => {
+    render(<RetailReportsPage />);
+    await screen.findAllByText("Nguyễn An");
+    expect(screen.queryByRole("button", { name: "Nhắc công nợ" })).toBeNull();
+  });
   it("parses persisted filters without mutating history during render", async () => {
     window.history.replaceState(null, "", "/erp?sub=bao-cao&keep=1&reportFrom=2026-08-11&reportTo=2026-08-10");
     let searchObservedBySiblingRender = "";
