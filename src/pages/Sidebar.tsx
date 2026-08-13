@@ -17,6 +17,7 @@ import {
   ContactRound,
   UserSearch,
   ShoppingCart,
+  Landmark,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -89,6 +90,12 @@ const baseMenuItems: MenuItem[] = [
     label: "BÁN LẺ",
     title: "Bán lẻ",
     icon: ShoppingCart,
+    group: "operations",
+  },
+  {
+    label: "TÀI CHÍNH",
+    title: "Tài chính",
+    icon: Landmark,
     group: "operations",
   },
   {

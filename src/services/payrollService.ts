@@ -3,16 +3,29 @@ import { getAccessToken } from "./authService";
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(`/api/v1/payroll${path}`, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}`, ...(init?.headers || {}) } });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.message || "Payroll request failed");
+  if (!response.ok) throw Object.assign(new Error(body.message || "Payroll request failed"), { code: body.code, details: body.details });
   return body.data ?? body;
 }
 
 export const payrollService = {
+  getFormulas: () => request("/formulas"),
+  createFormula: (payload: unknown) => request("/formulas", { method: "POST", body: JSON.stringify(payload) }),
+  updateFormula: (id: string, payload: unknown) => request(`/formulas/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  cloneFormula: (id: string, code: string) => request(`/formulas/${id}/clone`, { method: "POST", body: JSON.stringify({ code }) }),
+  activateFormula: (id: string) => request(`/formulas/${id}/activate`, { method: "POST" }),
+  retireFormula: (id: string) => request(`/formulas/${id}/retire`, { method: "POST" }),
+  getPeriodInputs: (periodKey: string) => request(`/periods/${periodKey}/inputs`),
+  savePeriodInput: (periodKey: string, employeeId: string, payload: unknown) => request(`/periods/${periodKey}/inputs/${employeeId}`, { method: "PUT", body: JSON.stringify(payload) }),
+  bulkSavePeriodInputs: (periodKey: string, rows: unknown[]) => request(`/periods/${periodKey}/inputs`, { method: "PUT", body: JSON.stringify({ rows }) }),
+  getPeriodInputVariables: () => request("/period-input-variables"),
+  createPeriodInputVariable: (payload: unknown) => request("/period-input-variables", { method: "POST", body: JSON.stringify(payload) }),
+  activatePeriodInputVariable: (id: string) => request(`/period-input-variables/${id}/activate`, { method: "POST" }),
+  retirePeriodInputVariable: (id: string) => request(`/period-input-variables/${id}/retire`, { method: "POST" }),
   getPolicies: () => request("/policies"),
   createPolicy: (payload: unknown) => request("/policies", { method: "POST", body: JSON.stringify(payload) }),
   updatePolicy: (id: string, payload: unknown) => request(`/policies/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  clonePolicy: (id: string, payload: { code: string; name?: string }) => request(`/policies/${id}/clone`, { method: "POST", body: JSON.stringify(payload) }),
-  activatePolicy: (id: string) => request(`/policies/${id}/activate`, { method: "POST" }),
+  clonePolicy: (id: string, payload: { code: string; name?: string; definition?: unknown }) => request(`/policies/${id}/clone`, { method: "POST", body: JSON.stringify(payload) }),
+  activatePolicy: (id: string, payload: { replaceOverlaps?: boolean } = {}) => request(`/policies/${id}/activate`, { method: "POST", body: JSON.stringify(payload) }),
   retirePolicy: (id: string) => request(`/policies/${id}/retire`, { method: "POST" }),
   deletePolicy: (id: string) => request(`/policies/${id}`, { method: "DELETE" }),
   getRun: (periodKey: string) => request(`/periods/${periodKey}/run`),

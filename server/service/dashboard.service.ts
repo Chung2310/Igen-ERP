@@ -102,6 +102,8 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
   });
   const ownerQ =
     owner === "ALL" ? {} : { ownerId: { $in: Array.isArray(owner) ? owner : [owner] } };
+  const branchQ = user.branchId ? { branchId: user.branchId } : {};
+  const studentQ = { ...ownerQ, ...branchQ };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -110,27 +112,55 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
   
   const twoWeeksFromNow = new Date(today);
   twoWeeksFromNow.setDate(today.getDate() + 14);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  const [totalStudents, newStudents, tuitionAgg, debtRows, activeCourses, activeBatches, openingTodayCount, endingSoonCount, missingInstructorCount, tuitionTodayAgg] =
+  const [totalStudents, newStudents, tuitionAgg, debtRows, activeCourses, activeBatches, openingTodayCount, endingSoonCount, missingInstructorCount, tuitionTodayAgg, dueTodayAgg, unpaidStudentCount, activeBatchRows] =
     await Promise.all([
-      Student.countDocuments(ownerQ),
-      Student.countDocuments({ ...ownerQ, createdAt: { $gte: range.start, $lte: range.end } }),
+      Student.countDocuments(studentQ),
+      Student.countDocuments({ ...studentQ, createdAt: { $gte: range.start, $lte: range.end } }),
       Payment.aggregate([
-        { $match: { ...ownerQ, createdAt: { $gte: range.start, $lte: range.end } } },
+        { $match: { ...studentQ, paidOn: { $gte: monthStart, $lte: endOfToday } } },
         { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
       ]),
       // fee là chuỗi định dạng tiền tệ nên phải parse tại Node thay vì aggregate
-      Student.find(ownerQ).select("fee paidAmount").lean(),
-      Course.countDocuments({ ...ownerQ, status: "Hoạt động" }),
-      Batch.countDocuments({ ...ownerQ, status: "Đang học" }),
-      Batch.countDocuments({ ...ownerQ, startDate: getLocalDateString() }),
-      Batch.countDocuments({ ...ownerQ, status: "Đang học", endDate: { $lte: twoWeeksFromNow.toISOString().slice(0, 10) } }),
-      Batch.countDocuments({ ...ownerQ, status: "Đang học", $or: [{ instructorId: null }, { instructorId: { $exists: false } }] }),
+      Student.find(studentQ).select("fee paidAmount").lean(),
+      Course.countDocuments({ ...ownerQ, ...branchQ, status: "Hoạt động" }),
+      Batch.countDocuments({ ...ownerQ, ...branchQ, status: "Đang học" }),
+      Batch.countDocuments({ ...ownerQ, ...branchQ, startDate: getLocalDateString() }),
+      Batch.countDocuments({ ...ownerQ, ...branchQ, status: "Đang học", endDate: { $lte: twoWeeksFromNow.toISOString().slice(0, 10) } }),
+      Batch.countDocuments({ ...ownerQ, ...branchQ, status: "Đang học", $or: [{ instructorId: null }, { instructorId: "" }, { instructorId: { $exists: false } }] }),
       Payment.aggregate([
-        { $match: { ...ownerQ, createdAt: { $gte: today, $lte: endOfToday } } },
+        { $match: { ...studentQ, paidOn: { $gte: today, $lte: endOfToday } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
+      Student.aggregate([
+        { $match: studentQ },
+        { $unwind: "$installmentStatus" },
+        { $match: { "installmentStatus.status": { $ne: "Đã thu" }, "installmentStatus.amountDue": { $gt: 0 }, "installmentStatus.dueAt": { $gte: today, $lte: endOfToday } } },
+        { $group: { _id: null, total: { $sum: "$installmentStatus.amountDue" } } },
+      ]),
+      Student.countDocuments({ ...studentQ, installmentStatus: { $elemMatch: { status: { $ne: "Đã thu" }, amountDue: { $gt: 0 } } } }),
+      Batch.find({ ...ownerQ, ...branchQ, status: "Đang học" }).select("instructorId attendanceSessions").lean(),
     ]);
+
+  const instructorIds = [...new Set(activeBatchRows.map((batch: any) => String(batch.instructorId || "")).filter(Boolean))];
+  const onLeaveToday = instructorIds.length
+    ? await HRLeaveApplicationModel.countDocuments({
+        ...buildCompanyQuery(user),
+        status: "approved",
+        employeeId: { $in: instructorIds },
+        startDate: { $lte: endOfToday },
+        endDate: { $gte: today },
+      })
+    : 0;
+  const absentCounts = new Map<string, number>();
+  for (const batch of activeBatchRows as any[]) {
+    for (const session of batch.attendanceSessions || []) {
+      for (const record of session.records || []) {
+        if (record.status === "absent") absentCounts.set(String(record.studentId), (absentCounts.get(String(record.studentId)) || 0) + 1);
+      }
+    }
+  }
 
   const outstandingDebt = debtRows.reduce((acc, s: any) => {
     const totalFee = parseFeeString(s.fee);
@@ -147,7 +177,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
     activeCourses,
     activeBatches,
     expiringStudentCount: 0, // Fallback as it requires deep batch enrollment aggregation
-    unpaidStudentCount: 0,
+    unpaidStudentCount,
   };
   
   const batches = {
@@ -155,10 +185,19 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
     openingTodayCount,
     missingInstructorCount,
     endingSoonCount,
-    frequentAbsentStudents: 0, // Placeholder
+    frequentAbsentStudents: [...absentCounts.values()].filter((count) => count >= 3).length,
   };
 
-  return { students, batches };
+  return {
+    students,
+    batches,
+    instructors: { onLeaveToday },
+    receivables: {
+      overdueAmount: 0,
+      dueTodayAmount: dueTodayAgg[0]?.total || 0,
+      collectedTodayAmount: tuitionTodayAgg?.[0]?.total || 0,
+    },
+  };
 }
 
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
@@ -322,7 +361,7 @@ export const dashboardService = {
         : Promise.resolve({ activeProjects: 0, tasks: { todo: 0, doing: 0, done: 0, total: 0 }, overdueTasks: 0 }),
       access.student
         ? getStudentStats(user, range)
-        : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 } }),
+        : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 }, instructors: { onLeaveToday: 0 }, receivables: { overdueAmount: 0, dueTodayAmount: 0, collectedTodayAmount: 0 } }),
       access.timekeeping
         ? getTimekeepingStats(user)
         : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
@@ -333,7 +372,7 @@ export const dashboardService = {
         : Promise.resolve({ totalCourses: 0, ongoingCourses: 0, enrollments: { notStarted: 0, inProgress: 0, completed: 0, total: 0 } }),
     ]);
 
-    let receivables = undefined;
+    let receivables = students.receivables;
     if (access.student) {
       try {
         const receivablesData = await analyticsService.getReceivables(
@@ -342,8 +381,8 @@ export const dashboardService = {
         );
         receivables = {
           overdueAmount: receivablesData.aging.reduce((acc, row) => (["notScheduled", "notDue"].includes(row.bucket) ? acc : acc + row.amount), 0),
-          dueTodayAmount: 0, // Simplified placeholder
-          collectedTodayAmount: 0, // Simplified placeholder
+          dueTodayAmount: students.receivables.dueTodayAmount,
+          collectedTodayAmount: students.receivables.collectedTodayAmount,
         };
         students.students.unpaidStudentCount = receivablesData.count;
       } catch (e) {
@@ -351,9 +390,7 @@ export const dashboardService = {
       }
     }
 
-    let instructors = undefined;
-    // We mock instructor leaves since it requires mapping leave users to instructor role, which is complex for now
-    instructors = { onLeaveToday: 0 };
+    const instructors = students.instructors;
 
     return {
       range: { start: range.start, end: range.end, filter: range.filter },

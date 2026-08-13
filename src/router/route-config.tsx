@@ -70,6 +70,14 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:operate" || permission === "retail:manager")),
   },
   {
+    tab: "TÀI CHÍNH",
+    component: lazy(() => import("../modules/finance/FinanceTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["receivable:read", "receivable:collect", "receivable:adjust"].includes(permission))),
+  },
+  {
     tab: "QUẢN LÝ KHÁCH HÀNG",
     component: lazy(() => import("../modules/customer-management/CustomerManagementTab")),
   },

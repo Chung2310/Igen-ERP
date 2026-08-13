@@ -77,14 +77,14 @@ describe("calculateRun for a whole run", () => {
   });
 
   it("refuses to calculate a run whose attendance is not locked yet", async () => {
-    const repos = repositories({ run: { get: async () => ({ id: "run-1", status: "draft", version: 1 }) } });
+    const repos = repositories({ run: { get: async () => ({ id: "run-1", status: "finalized", version: 1 }) } });
     const result: any = await calculateRun({
       ...repos,
       input: async () => { throw new Error("must not load"); },
       expectedVersion: 1,
     });
 
-    expect(result).toEqual({ code: "PAYROLL_RUN_STATE_INVALID", status: "draft" });
+    expect(result).toEqual({ code: "PAYROLL_RUN_STATE_INVALID", status: "finalized" });
   });
 
   it("records the idempotency result only after a successful calculation", async () => {

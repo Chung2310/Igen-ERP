@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   policyFindOne: vi.fn(),
   policyCreate: vi.fn(),
   policyFindOneAndUpdate: vi.fn(),
+  policyUpdateOne: vi.fn(),
   auditCreate: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("../model/payroll-policy.model", () => ({
     findOne: mocks.policyFindOne,
     create: mocks.policyCreate,
     findOneAndUpdate: mocks.policyFindOneAndUpdate,
+    updateOne: mocks.policyUpdateOne,
   },
 }));
 vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mocks.auditCreate } }));
@@ -112,13 +114,29 @@ describe("payroll policy endpoints", () => {
 
     expect(mocks.policyFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "policy-1", companyCode: "ACME", status: "draft" },
-      { $set: expect.objectContaining({ status: "active", activatedBy: "admin" }) },
-      { new: true },
+      {
+        $set: expect.objectContaining({ status: "active", activatedBy: "admin" }),
+        $unset: { retiredBy: 1 },
+      },
+      expect.objectContaining({ new: true }),
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: "ACME",
       metadata: expect.objectContaining({ operation: "activate_policy", before: { status: "draft" }, after: { status: "active" } }),
     }));
+  });
+
+  it("replaces an overlapping active policy only when explicitly confirmed", async () => {
+    mocks.policyFindOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: "2026-07-01" }));
+    mocks.policyFind.mockReturnValue(selectLean([{ _id: "old", status: "active", effectiveFrom: "2026-01-01" }]));
+    mocks.policyUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.policyFindOneAndUpdate.mockReturnValue(lean({ _id: "new", status: "active" }));
+    const res = response();
+
+    await payrollController.activatePolicy(request({ replaceOverlaps: true }, { id: "new" }), res);
+
+    expect(mocks.policyUpdateOne).toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success" }));
   });
 
   it("refuses to activate a policy overlapping an active one", async () => {

@@ -1,6 +1,12 @@
 import { HRContractModel } from "../model/hr-contract.model";
 import { PayrollAttendanceSnapshotModel } from "../model/payroll-attendance-snapshot.model";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
+import mongoose from "mongoose";
+import { PayrollFormulaModel } from "../model/payroll-formula.model";
+import { evaluatePayrollFormulas } from "./payroll-formula-engine.service";
+import { PayrollPeriodInputModel } from "../model/payroll-period-input.model";
+import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
+import { resolvePayrollPeriodInputs } from "./payroll-period-input-resolver.service";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
 import {
   countDependents,
@@ -10,7 +16,7 @@ import {
   resolveTaxMethod,
   selectProfileForPeriod,
 } from "./payroll-employee-input.service";
-import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
@@ -61,7 +67,7 @@ export async function buildRunCalculationInputs(
   }
   const period = { start: isoDate(run.startDate), end: isoDate(run.endDate) };
   const employeeIds = snapshot.employees.map((employee: any) => String(employee.employeeId));
-  const [users, contracts, profiles, dependents, policies, adjustments] = await Promise.all([
+  const [users, contracts, profiles, dependents, policies, adjustments, formulas, periodInputs, customVariables] = await Promise.all([
     UserModel.find({ _id: { $in: employeeIds } }).select("monthlySalary").lean(),
     HRContractModel.find({ companyCode: scope.companyCode, employeeId: { $in: employeeIds } })
       .select("employeeId startDate endDate status salaryTerms").lean(),
@@ -69,6 +75,9 @@ export async function buildRunCalculationInputs(
     PayrollDependentModel.find({ companyCode: scope.companyCode, employeeId: { $in: employeeIds } }).lean(),
     PayrollPolicyModel.find({ companyCode: scope.companyCode, status: "active" }).lean(),
     loadAdjustmentTotals(scope, run.periodKey),
+    mongoose.connection.readyState === 1 ? PayrollFormulaModel.find({ companyCode: scope.companyCode, status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean() : Promise.resolve([]),
+    mongoose.connection.readyState === 1 ? PayrollPeriodInputModel.find({ ...scope, periodKey: run.periodKey, employeeId: { $in: employeeIds } }).lean() : Promise.resolve([]),
+    mongoose.connection.readyState === 1 ? PayrollCustomVariableModel.find({ companyCode: scope.companyCode, status: "active" }).lean() : Promise.resolve([]),
   ]);
   const salaryById = new Map((users as any[]).map((user) => [String(user._id), Number(user.monthlySalary || 0)]));
   const groupByEmployee = <T extends { employeeId: unknown }>(rows: T[]) => rows.reduce((map, row) => {
@@ -79,20 +88,36 @@ export async function buildRunCalculationInputs(
   const contractsByEmployee = groupByEmployee(contracts as any[]);
   const profilesByEmployee = groupByEmployee(profiles as any[]);
   const dependentsByEmployee = groupByEmployee(dependents as any[]);
-  const { policy, isDefault: usesDefaultPolicy } = resolvePayrollPolicy(policies as any[], period.start);
+  const periodInputByEmployee = new Map((periodInputs as any[]).map((item) => [String(item.employeeId), item]));
+  const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+  if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
 
   return Promise.all(snapshot.employees.map(async (employee: any) => {
     const employeeId = String(employee.employeeId);
     const contractTerms = resolveEmployeeSalaryTerms(employeeId, contractsByEmployee.get(employeeId) ?? [], period);
     // Employees without contract salary terms still calculate from their legacy
     // monthlySalary so existing companies keep working before the data migration.
-    const salaryTerms = contractTerms.terms.length
+    const sourceSalaryTerms = contractTerms.terms.length
       ? contractTerms.terms
       : [{ id: `contract:${employeeId}`, start: period.start, end: period.end, monthlySalary: salaryById.get(employeeId) ?? 0 }];
-    const resolved = await resolveDetailedPayrollInput(employeeId, { period, salaryTerms });
-
     const profile = selectProfileForPeriod(profilesByEmployee.get(employeeId) ?? [], period);
     const employeeAdjustments = adjustments.get(employeeId) ?? emptyAdjustmentTotals();
+    const sourceSalary = sourceSalaryTerms[0]?.monthlySalary ?? salaryById.get(employeeId) ?? 0;
+    const sourceDailyMinutes = employee.standardDays > 0 ? employee.standardHours * 60 / employee.standardDays : 0;
+    const resolvedPeriod = resolvePayrollPeriodInputs({ agreedSalary: sourceSalary, reconciledDays: sourceDailyMinutes > 0 ? employee.workedMinutes / sourceDailyMinutes : 0, reconciledHours: employee.workedMinutes / 60, allowance: employeeAdjustments.allowances, bonus: employeeAdjustments.bonuses, deduction: employeeAdjustments.deductions }, periodInputByEmployee.get(employeeId) as any, customVariables as any[]);
+    const monthlySalary = resolvedPeriod.values.agreedSalary;
+    const salaryTerms = (periodInputByEmployee.get(employeeId) as any)?.agreedSalary !== undefined ? sourceSalaryTerms.map((term) => ({ ...term, monthlySalary })) : sourceSalaryTerms;
+    const resolved = await resolveDetailedPayrollInput(employeeId, { period, salaryTerms });
+    const standardDays = resolvedPeriod.values.reconciledDays;
+    const standardHours = resolvedPeriod.values.reconciledHours;
+    const workedMinutes = standardHours * 60;
+    const dailyMinutes = standardDays > 0 ? standardHours * 60 / standardDays : 0;
+    const actualWorkDays = standardDays;
+    const overtimeHours = (category: string) => (employee.overtime ?? []).filter((item: any) => item.category === category).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / 60;
+    const earliestContract = (contractsByEmployee.get(employeeId) ?? []).map((item: any) => new Date(item.startDate).getTime()).filter(Number.isFinite).sort((a, b) => a - b)[0];
+    const tenureMonths = earliestContract ? Math.max(0, Math.floor((new Date(period.end).getTime() - earliestContract) / (30.4375 * 86400000))) : 0;
+    const customContext = Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.value]));
+    const library = evaluatePayrollFormulas(formulas as any[], { monthlySalary, attendanceSalary: monthlySalary, standardWorkDays: employee.standardDays, actualWorkDays, standardWorkHours: employee.standardHours, actualWorkHours: standardHours, shortageMinutes: employee.shortageMinutes, lateMinutes: Number(employee.lateMinutes || 0), earlyLeaveMinutes: Number(employee.earlyLeaveMinutes || 0), paidLeaveDays: (employee.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths, ...customContext });
     return {
       ...resolved,
       issues: [
@@ -102,12 +127,17 @@ export async function buildRunCalculationInputs(
       ],
       standardDays: Number(employee.standardDays || 0),
       standardHours: Number(employee.standardHours || 0),
-      workedMinutes: Number(employee.workedMinutes || 0),
+      workedMinutes,
       shortageMinutes: Number(employee.shortageMinutes || 0),
       paidLeaveMinutesByRate: employee.paidLeaveMinutesByRate ?? [],
       overtime: employee.overtime ?? [],
-      ...employeeAdjustments,
-      ...(usesDefaultPolicy ? {} : { policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0), code: policy.code, name: policy.name } }),
+      allowances: resolvedPeriod.values.allowance + library.totals.allowance,
+      bonuses: resolvedPeriod.values.bonus + library.totals.bonus,
+      deductions: resolvedPeriod.values.deduction + library.totals.deduction,
+      adjustments: employeeAdjustments.adjustments + library.totals.adjustment,
+      formulaApplications: library.applications,
+      periodInput: { version: Number((periodInputByEmployee.get(employeeId) as any)?.version ?? 0), values: { ...resolvedPeriod.values, ...customContext }, provenance: { ...resolvedPeriod.provenance, ...Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.provenance])) } },
+      policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0), code: policy.code, name: policy.name },
       ...({
         vietnam: {
           policy,

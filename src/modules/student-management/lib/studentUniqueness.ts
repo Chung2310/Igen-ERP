@@ -1,11 +1,10 @@
 import { Student } from '../types';
 
-type UniqueField = 'email' | 'phone' | 'idCard';
+type UniqueField = 'email' | 'phone';
 
 const FIELD_LABELS: Record<UniqueField, string> = {
   email: 'Email',
   phone: 'Số điện thoại',
-  idCard: 'CCCD/CMND',
 };
 
 function normalizeEmail(value?: string) {
@@ -26,7 +25,7 @@ export function findDuplicateStudentField(
   excludeStudentId?: string,
   businessType: string = 'driving'
 ) {
-  const fieldsToCheck: UniqueField[] = ['email', 'phone', 'idCard'];
+  const fieldsToCheck: UniqueField[] = ['email', 'phone'];
 
   for (const field of fieldsToCheck) {
     const normalizedInput = normalizeValue(field, values[field]);

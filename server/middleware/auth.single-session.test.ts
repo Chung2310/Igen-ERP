@@ -18,7 +18,7 @@ function makeResponse() {
 function invoke(token: string, activeSessionId: string) {
   vi.spyOn(UserModel, "findById").mockReturnValue({
     select: () => ({
-      lean: async () => ({ branchId: "branch-1", activeSessionId }),
+      lean: async () => ({ branchId: "branch-1", activeSessionId, displayName: "Nguyễn An" }),
     }),
   } as any);
   const req = { headers: { authorization: `Bearer ${token}` }, method: "GET", originalUrl: "/api/v1/auth/me" } as any;
@@ -51,5 +51,6 @@ describe("requireAuth regular active session", () => {
 
     assert.equal(result.passed, true);
     assert.equal(result.req.user.sessionId, "current-session");
+    assert.equal(result.req.user.displayName, "Nguyễn An");
   });
 });

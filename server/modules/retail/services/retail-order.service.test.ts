@@ -7,9 +7,18 @@ import {
   isHeldDraftExpired,
   normalizePayments,
   paymentStatusFor,
+  requireRetailPaymentCustomer,
   serializeRetailOrder,
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
+import { readFileSync } from "node:fs";
+
+test("retail payment confirmation requires a selected customer", () => {
+  const error = "Vui lòng chọn khách hàng trước khi thanh toán.";
+  assert.throws(() => requireRetailPaymentCustomer(undefined), new Error(error));
+  assert.throws(() => requireRetailPaymentCustomer("   "), new Error(error));
+  assert.doesNotThrow(() => requireRetailPaymentCustomer(" customer-1 "));
+});
 
 test("order debt ledger inputs use deterministic keys for the same transaction", () => {
   const receivableEntriesForOrderChange = (orderService as any).receivableEntriesForOrderChange;
@@ -24,6 +33,14 @@ test("order debt ledger inputs use deterministic keys for the same transaction",
     type: "reversal", customerId: "c1", orderId: "o1", amount: 20_000, reason: "Hủy số dư công nợ của đơn", idempotencyKey: "retail-order:o1:debt-cancel",
   }]);
   assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o2", dueAmount: 0 }, 0), []);
+});
+
+test("new Retail order flow publishes Finance events instead of dual-writing the legacy ledger", () => {
+  const source = readFileSync(new URL("./retail-order.service.ts", import.meta.url), "utf8");
+  assert.equal(source.includes("postReceivableEntry"), false);
+  assert.match(source, /publishRetailOrderEvent\("confirmed"/);
+  assert.match(source, /publishRetailOrderEvent\("paid"/);
+  assert.match(source, /publishRetailOrderEvent\("cancelled"/);
 });
 
 test("order item snapshots keep brand and normalized category", () => {

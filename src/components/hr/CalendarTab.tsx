@@ -23,6 +23,8 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
 import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
+import AttendanceDailyOverview from "./AttendanceDailyOverview";
+import { buildAttendanceDailyOverview } from "../../utils/attendanceDailyOverview";
 import {
   exportAttendanceExcel,
   type AttendanceExportKind,
@@ -132,6 +134,9 @@ export default function CalendarTab({
   const [logStartDate, setLogStartDate] = useState("");
   const [logEndDate, setLogEndDate] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [attendanceLogsLoadedSuccessfully, setAttendanceLogsLoadedSuccessfully] = useState(false);
+  const [attendanceAttempts, setAttendanceAttempts] = useState<any[]>([]);
+  const [attendanceAttemptsLoading, setAttendanceAttemptsLoading] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
   const [editCheckIn, setEditCheckIn] = useState("");
   const [editCheckOut, setEditCheckOut] = useState("");
@@ -139,6 +144,11 @@ export default function CalendarTab({
   const [editAttendanceNote, setEditAttendanceNote] = useState("");
   const [editAttendanceReason, setEditAttendanceReason] = useState("");
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
+  const [attendanceSectionMode, setAttendanceSectionMode] = useState<"overview" | "detail">("overview");
+  const [attendanceOverviewDate, setAttendanceOverviewDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  });
 
   // Attendance View Mode & Week selection states
   const [attendanceViewMode, setAttendanceViewMode] = useState<"table" | "week">("table");
@@ -277,10 +287,15 @@ export default function CalendarTab({
 
   const fetchTimekeepingLogs = async () => {
     setIsLogsLoading(true);
+    setAttendanceLogsLoadedSuccessfully(false);
     try {
       const monthRange = selectedAttendanceMonthRange();
-      const startDate = logStartDate || monthRange.start;
-      const endDate = logEndDate || monthRange.end;
+      let startDate = logStartDate || monthRange.start;
+      let endDate = logEndDate || monthRange.end;
+      if (attendanceSectionMode === "overview") {
+        startDate = attendanceOverviewDate;
+        endDate = attendanceOverviewDate;
+      }
       let url = `/api/v1/crud/timekeeping-logs?companyCode=${encodeURIComponent(selectedCompanyCode)}&limit=10000&sort=date`;
 
       if (!isManager) {
@@ -299,6 +314,9 @@ export default function CalendarTab({
       if (res.ok) {
         const result = await res.json();
         setLogs(result.data || []);
+        setAttendanceLogsLoadedSuccessfully(true);
+      } else {
+        throw new Error("Không thể tải lịch sử chấm công.");
       }
     } catch (err) {
       console.error("Lỗi khi tải lịch sử chấm công:", err);
@@ -341,12 +359,16 @@ export default function CalendarTab({
 
   useEffect(() => {
     if (!selectedCompanyCode) return;
-    const activeYear = currentSubTab === "attendance" ? selectedYear : year;
+    const activeYear = currentSubTab === "attendance"
+      ? attendanceSectionMode === "overview"
+        ? Number(attendanceOverviewDate.slice(0, 4))
+        : selectedYear
+      : year;
     companyWorkCalendarService
       .list(activeYear, true)
       .then(setAppliedHolidays)
       .catch(() => setAppliedHolidays([]));
-  }, [selectedCompanyCode, year, selectedYear, currentSubTab]);
+  }, [selectedCompanyCode, year, selectedYear, currentSubTab, attendanceSectionMode, attendanceOverviewDate]);
 
   const holidayByDate = new Map(appliedHolidays.map((h) => [h.date, h]));
 
@@ -397,7 +419,17 @@ export default function CalendarTab({
     if (currentSubTab === "attendance" && selectedCompanyCode) {
       fetchTimekeepingLogs();
     }
-  }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode, selectedMonth, selectedYear]);
+  }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode, selectedMonth, selectedYear, attendanceSectionMode, attendanceOverviewDate]);
+
+  useEffect(() => {
+    if (currentSubTab !== "attendance" || attendanceSectionMode !== "overview" || !canManageAttendance) return;
+    setAttendanceAttemptsLoading(true);
+    fetch(`/api/v1/timekeeping/attempts?date=${attendanceOverviewDate}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then(async (response) => { if (!response.ok) throw new Error("Không thể tải lỗi chấm công."); return response.json(); })
+      .then((result) => setAttendanceAttempts(result.data || []))
+      .catch((error) => { setAttendanceAttempts([]); toast.error(getApiErrorMessage(error, "Không thể tải lỗi chấm công.")); })
+      .finally(() => setAttendanceAttemptsLoading(false));
+  }, [currentSubTab, attendanceSectionMode, attendanceOverviewDate, canManageAttendance, selectedCompanyCode]);
 
   const renderAttendanceTab = () => {
     const getUserDetail = (uid: string) => {
@@ -430,6 +462,28 @@ export default function CalendarTab({
         (emp.displayName || "").toLowerCase().includes(q) ||
         (emp.email || "").toLowerCase().includes(q)
       );
+    });
+
+    const overviewResult = buildAttendanceDailyOverview({
+      date: attendanceOverviewDate,
+      today: todayStr,
+      employees: (attendanceLogsLoadedSuccessfully ? targetEmployees : []).map((employee) => ({
+        uid: employee.uid,
+        displayName: employee.displayName,
+        email: employee.email,
+        photoURL: employee.photoURL,
+      })),
+      logs,
+      applications,
+      attempts: attendanceAttempts,
+      currentMinutes: new Date().getHours() * 60 + new Date().getMinutes(),
+      checkInDeadline: (uid) => { const value = (workHoursByUid[uid] || companyWorkHours).checkInLimit || "08:30"; const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; },
+      checkOutDeadline: (uid) => { const value = (workHoursByUid[uid] || companyWorkHours).checkOutLimit || "17:30"; const [hours, minutes] = value.split(":").map(Number); return hours * 60 + minutes; },
+      isWorkingDay: (uid, date) => isCustomWorkingDay(uid, new Date(`${date}T00:00:00`).getDay()),
+      isHoliday: (date) => {
+        const holiday = holidayByDate.get(date);
+        return Boolean(holiday?.isApplied && holiday.dayType !== "working_override");
+      },
     });
 
     // Tính số ngày trong tháng đã chọn
@@ -724,6 +778,33 @@ export default function CalendarTab({
 
     return (
       <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 shrink-0">
+          <div className="flex rounded-xl bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setAttendanceSectionMode("overview")}
+              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "overview" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+            >
+              Tổng quan
+            </button>
+            <button
+              type="button"
+              onClick={() => setAttendanceSectionMode("detail")}
+              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "detail" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+            >
+              Chi tiết
+            </button>
+          </div>
+        </div>
+        {attendanceSectionMode === "overview" ? (
+          <AttendanceDailyOverview
+            date={attendanceOverviewDate}
+            onDateChange={setAttendanceOverviewDate}
+            result={overviewResult}
+            loading={isLogsLoading || attendanceAttemptsLoading}
+          />
+        ) : (
+        <>
         {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
@@ -1168,6 +1249,8 @@ export default function CalendarTab({
             </div>
           )}
         </div>
+        </>
+        )}
         {editingAttendance && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setEditingAttendance(null)}>
             <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" onClick={(event) => event.stopPropagation()}>

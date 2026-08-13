@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createRetailFinanceSettlementContract,
   requireRetailBranch,
   RetailScopeError,
   retailScopeFromRequest,
@@ -52,4 +53,19 @@ test("superadmin must provide explicit company and branch scope", () => {
     )),
     { companyCode: "ACME", branchId: "B1" },
   );
+});
+
+test("Finance settlement updates Retail snapshot once by event id", async () => {
+  const orders = [{ _id: "o1", companyCode: "ACME", branchId: "B1", dueAmount: 50, status: "confirmed", version: 2 }];
+  const contract = createRetailFinanceSettlementContract({
+    async settle(filter, values) {
+      const order: any = orders.find((item: any) => item._id === filter._id && item.companyCode === filter.companyCode && item.branchId === filter.branchId && (item as any).financeSettlementEventId !== filter.financeSettlementEventId.$ne);
+      if (!order) return null;
+      Object.assign(order, values, { version: order.version + 1 }); return order;
+    },
+  });
+  const event = { eventId: "settled-1", companyCode: "ACME", branchId: "B1", payload: { sourceType: "retail_order", sourceId: "o1", settledAt: "2026-08-12T05:00:00.000Z" } };
+  assert.equal((await contract(event))?.dueAmount, 0);
+  assert.equal(await contract(event), null);
+  assert.deepEqual(orders[0], { _id: "o1", companyCode: "ACME", branchId: "B1", dueAmount: 0, status: "completed", version: 3, paymentStatus: "paid", completedAt: new Date("2026-08-12T05:00:00.000Z"), financeSettlementEventId: "settled-1" });
 });

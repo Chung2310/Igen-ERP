@@ -5,7 +5,7 @@ import {
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
   FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User,
-  LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ContactRound, UserSearch, ChevronDown
+  LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ContactRound, UserSearch, ChevronDown, Landmark
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +16,7 @@ import { toast } from "./Toast";
 import { notificationService, WebNotification } from "../services/notificationService";
 import { socketService } from "../services/socketService";
 import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
+import { ATTENDANCE_FACE_CHECK_ENABLED } from "../config/attendanceFaceCheck";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -99,12 +100,19 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
     setTimekeepingChecking(type);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        timekeepingCoordsRef.current = {
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        setTimekeepingChecking(null);
-        setTimekeepingCameraAction(type);
+        timekeepingCoordsRef.current = coords;
+        if (ATTENDANCE_FACE_CHECK_ENABLED) {
+          setTimekeepingChecking(null);
+          setTimekeepingCameraAction(type);
+          return;
+        }
+        void submitTimekeeping(type, coords)
+          .catch((error) => toast.error(error instanceof Error ? error.message : "Không thể chấm công."))
+          .finally(() => setTimekeepingChecking(null));
       },
       (error) => {
         setTimekeepingChecking(null);
@@ -128,13 +136,13 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
     model_unavailable: "Hệ thống nhận diện khuôn mặt tạm thời không khả dụng.",
   };
 
-  const handleTimekeepingCameraCapture = async (image: Blob) => {
-    const type = timekeepingCameraAction;
-    const coords = timekeepingCoordsRef.current;
-    if (!type || !coords) throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
-
+  const submitTimekeeping = async (
+    type: "in" | "out",
+    coords: { latitude: number; longitude: number },
+    image?: Blob,
+  ) => {
     const formData = new FormData();
-    formData.append("file", image, "attendance.jpg");
+    if (image) formData.append("file", image, "attendance.jpg");
     formData.append("latitude", String(coords.latitude));
     formData.append("longitude", String(coords.longitude));
     formData.append("deviceInfo", navigator.userAgent);
@@ -161,6 +169,13 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
     timekeepingCoordsRef.current = null;
     await fetchHeaderTimekeeping();
     window.dispatchEvent(new CustomEvent("timekeeping-mutation"));
+  };
+
+  const handleTimekeepingCameraCapture = async (image: Blob) => {
+    const type = timekeepingCameraAction;
+    const coords = timekeepingCoordsRef.current;
+    if (!type || !coords) throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
+    await submitTimekeeping(type, coords, image);
   };
 
   const hasCheckIn = !!todayTimekeeping?.checkIn;
@@ -545,6 +560,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "QUẢN LÝ HỌC VIÊN": { title: "Học viên", icon: GraduationCap },
                       "QUẢN LÝ LAO ĐỘNG": { title: "Lao động", icon: BriefcaseBusiness },
                       "BÁN LẺ": { title: "Bán lẻ", icon: ShoppingCart },
+                      "TÀI CHÍNH": { title: "Tài chính", icon: Landmark },
                       "QUẢN LÝ KHÁCH HÀNG": { title: "Khách hàng", icon: ContactRound },
                       "QUẢN LÝ ỨNG VIÊN": { title: "Ứng viên", icon: UserSearch },
                       "QUẢN LÝ TÀI NGUYÊN": { title: "Tài nguyên", icon: FolderOpen },
@@ -561,6 +577,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "QUẢN LÝ HỌC VIÊN",
                       "QUẢN LÝ LAO ĐỘNG",
                       "BÁN LẺ",
+                      "TÀI CHÍNH",
                       "QUẢN LÝ KHÁCH HÀNG",
                       "QUẢN LÝ ỨNG VIÊN",
                       "QUẢN LÝ TÀI NGUYÊN",

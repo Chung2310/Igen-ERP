@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findOne: vi.fn(), findOneAndUpdate: vi.fn(), create: vi.fn(), deleteOne: vi.fn(),
+  find: vi.fn(), findOne: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), create: vi.fn(), deleteOne: vi.fn(),
   runFind: vi.fn(), revisionFind: vi.fn(), auditCreate: vi.fn(),
 }));
-vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { findOne: mocks.findOne, findOneAndUpdate: mocks.findOneAndUpdate, create: mocks.create, deleteOne: mocks.deleteOne } }));
+vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { find: mocks.find, findOne: mocks.findOne, findOneAndUpdate: mocks.findOneAndUpdate, updateOne: mocks.updateOne, create: mocks.create, deleteOne: mocks.deleteOne } }));
 vi.mock("../model/payroll-run.model", () => ({ PayrollRunModel: { find: mocks.runFind } }));
 vi.mock("../model/payroll-calculation-revision.model", () => ({ PayrollCalculationRevisionModel: { find: mocks.revisionFind } }));
 vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mocks.auditCreate } }));
 
-import { clonePayrollPolicy, deletePayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
+import { activatePayrollPolicy, clonePayrollPolicy, deletePayrollPolicy, ensureDefaultPayrollPolicy, updatePayrollPolicy } from "./payroll-policy-operations.service";
 
 const lean = (value: any) => ({ lean: vi.fn().mockResolvedValue(value) });
 const selectLean = (value: any) => ({ select: vi.fn().mockReturnValue(lean(value)) });
@@ -18,11 +18,62 @@ const definition = { code: "vn-2026", name: "Policy", effectiveFrom: new Date("2
 describe("payroll policy version operations", () => {
   beforeEach(() => { vi.resetAllMocks(); mocks.auditCreate.mockResolvedValue({}); });
 
+  it("creates one active default policy from the company creation day", async () => {
+    mocks.findOne.mockReturnValue(lean(null));
+    mocks.create.mockImplementation(async (value: any) => ({ _id: "default", ...value }));
+    const result: any = await ensureDefaultPayrollPolicy("ACME", "system", new Date("2026-08-12T15:30:00+07:00"));
+    expect(result).toMatchObject({ companyCode: "ACME", code: "vn-default", status: "active", createdBy: "system" });
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ effectiveFrom: new Date("2026-08-12T00:00:00.000Z") }));
+  });
+
+  it("does not seed when any company policy already exists", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "draft", status: "draft" }));
+    expect(await ensureDefaultPayrollPolicy("ACME", "system", new Date())).toMatchObject({ _id: "draft" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("truncates an older overlap before activating the replacement", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: new Date("2026-07-01") }));
+    mocks.find.mockReturnValue(selectLean([{ _id: "old", status: "active", effectiveFrom: new Date("2026-01-01") }]));
+    mocks.updateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "new", status: "active" }));
+
+    await activatePayrollPolicy("ACME", "new", "manager", { replaceOverlaps: true });
+
+    expect(mocks.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "old", companyCode: "ACME", status: "active" }),
+      { $set: { effectiveTo: new Date("2026-06-30T00:00:00.000Z") } },
+      expect.any(Object),
+    );
+    expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "new", status: "draft" }), expect.any(Object), expect.any(Object),
+    );
+  });
+
+  it("retires an overlap with the same start date", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "new", status: "draft", effectiveFrom: new Date("2026-07-01") }));
+    mocks.find.mockReturnValue(selectLean([{ _id: "old", status: "active", effectiveFrom: new Date("2026-07-01") }]));
+    mocks.updateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "new", status: "active" }));
+    await activatePayrollPolicy("ACME", "new", "manager", { replaceOverlaps: true });
+    expect(mocks.updateOne).toHaveBeenCalledWith(expect.any(Object), { $set: { status: "retired", retiredBy: "manager" } }, expect.any(Object));
+  });
+
   it("updates only a draft at the expected version", async () => {
     mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "p1", status: "draft", version: 3, ...definition }));
     await updatePayrollPolicy("ACME", "p1", "manager", 2, definition);
     expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: "draft", version: 2 }),
+      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 2 }),
+      { $set: definition, $inc: { version: 1 } },
+      { new: true, runValidators: true },
+    );
+  });
+
+  it("updates an active policy at the expected version without changing its status", async () => {
+    mocks.findOneAndUpdate.mockReturnValue(lean({ _id: "p1", status: "active", version: 4, ...definition }));
+    await updatePayrollPolicy("ACME", "p1", "manager", 3, definition);
+    expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 3 }),
       { $set: definition, $inc: { version: 1 } },
       { new: true, runValidators: true },
     );
@@ -34,6 +85,13 @@ describe("payroll policy version operations", () => {
     const cloned: any = await clonePayrollPolicy("ACME", "p1", "manager", { code: "vn-copy" });
     expect(cloned).toMatchObject({ code: "vn-copy", name: "Policy Bản sao", status: "draft", createdBy: "manager" });
     expect(mocks.create.mock.calls[0][0]).not.toHaveProperty("activatedBy");
+  });
+
+  it("applies reviewed form values atomically when cloning", async () => {
+    mocks.findOne.mockReturnValue(lean({ _id: "p1", status: "active", version: 7, ...definition }));
+    mocks.create.mockImplementation(async (value: any) => ({ _id: "p2", ...value }));
+    await clonePayrollPolicy("ACME", "p1", "manager", { code: "vn-copy", name: "Reviewed copy", definition: { ...definition, code: "vn-copy", name: "Reviewed copy", baseSalary: 2 } } as any);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ code: "vn-copy", name: "Reviewed copy", baseSalary: 2, status: "draft" }));
   });
 
   it("blocks deletion when a finalized run references the policy", async () => {

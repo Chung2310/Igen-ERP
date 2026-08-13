@@ -7,8 +7,15 @@ export interface IBranch extends Document {
   address?: string;
   phone?: string;
   managerId?: string;
-  locationConfig?: Record<string, unknown>;
+  locationConfig?: BranchAttendanceConfig;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface BranchAttendanceConfig {
+  latitude: number;
+  longitude: number;
+  allowedRadius: number;
+  allowedPublicIps: string[];
 }

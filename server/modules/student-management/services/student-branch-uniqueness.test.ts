@@ -29,7 +29,6 @@ it("does not let a branch-B phone block manual creation in branch A", async () =
   assert.deepEqual(uniquenessQueries, [
     { ownerId: { $in: ownerScope }, branchId: branchA, email: "student@example.com" },
     { ownerId: { $in: ownerScope }, branchId: branchA, phone: "0900000001" },
-    { ownerId: { $in: ownerScope }, branchId: branchA, idCard: "001002003004" },
   ]);
 });
 
@@ -64,6 +63,5 @@ it("does not leak a branch-B duplicate during a branch-A manual update", async (
   assert.deepEqual(uniquenessQueries, [
     { ownerId: { $in: ownerScope }, branchId: branchA, email: "student2@example.com", _id: { $ne: "student-a" } },
     { ownerId: { $in: ownerScope }, branchId: branchA, phone: "0900000002", _id: { $ne: "student-a" } },
-    { ownerId: { $in: ownerScope }, branchId: branchA, idCard: "005006007008", _id: { $ne: "student-a" } },
   ]);
 });

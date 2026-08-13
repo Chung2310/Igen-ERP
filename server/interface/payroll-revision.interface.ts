@@ -10,6 +10,8 @@ export type PayrollLineSnapshot = {
   policyName?: string;
   formulaVersion: string;
   warnings: string[];
+  formulaApplications?: Array<{ code: string; name: string; version: number; bucket: string; applied: boolean; value: number; variables: Record<string, number>; trace: string[] }>;
+  periodInput?: { version: number; values: Record<string, number>; provenance: Record<string, string> };
   /** Full Vietnam breakdown (insurance funds, tax brackets, employer cost) when a policy applied. */
   vietnam?: Record<string, unknown>;
 };

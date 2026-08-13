@@ -342,11 +342,16 @@ export class AssignmentService {
     );
     const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId }).select("_id fullName");
     if (!student) throw new Error("Học viên không tồn tại.");
-    await assignmentResourceService.finalizeSubmission({
-      companyCode: await resolveCompanyCodeForOwner(String(assignment.ownerId)),
-      branchId: assignment.branchId,
-      actorId,
-    }, submission, student);
+    // Resource indexing is auxiliary; an indexing error must not reject a saved staff submission.
+    try {
+      await assignmentResourceService.finalizeSubmission({
+        companyCode: await resolveCompanyCodeForOwner(String(assignment.ownerId)),
+        branchId: assignment.branchId,
+        actorId,
+      }, submission, student);
+    } catch (error) {
+      logger.error("Unable to index staff submission for assignment %s, student %s: %o", assignmentId, studentId, error);
+    }
     return submission;
   }
 
@@ -359,9 +364,7 @@ export class AssignmentService {
   ): Promise<any> {
     const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
     if (!assignment) throw new Error("Bài tập không tồn tại.");
-    if (String(assignment.instructorId) !== instructorId) {
-      throw new Error("Bạn không có quyền chấm điểm bài tập này.");
-    }
+    // Route permission and owner scope above authorize staff who may manage this class.
     const maxScore = assignment.maxScore || 10;
     if (Number(data.score) < 0 || Number(data.score) > maxScore) throw new Error(`Điểm không được lớn hơn thang điểm ${maxScore}.`);
 

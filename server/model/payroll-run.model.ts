@@ -34,6 +34,7 @@ const schema = new Schema<PayrollRunDocument>({
   activeRevisionChecksum: String,
   supplementalReason: String,
   status: { type: String, enum: ["draft", "review", "closed", "paid"], default: "draft", index: true },
+  needsInputRefresh: { type: Boolean, default: false },
   // vietnam giữ nguyên khối bảo hiểm/thuế; thiếu khai báo ở đây Mongoose sẽ cắt bỏ
   // và bảng lương mất toàn bộ chi tiết khấu trừ.
   lines: [{
@@ -47,6 +48,8 @@ const schema = new Schema<PayrollRunDocument>({
     policyCode: String,
     policyName: String,
     warnings: { type: [String], default: [] },
+    formulaApplications: { type: Schema.Types.Mixed },
+    periodInput: { type: Schema.Types.Mixed },
   }],
   issues: [{
     code: { type: String, required: true },

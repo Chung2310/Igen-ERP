@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   policyWindowsOverlap,
+  replacementForPolicy,
   selectPolicyForDate,
   validatePolicyActivation,
   validatePolicyDefinition,
@@ -44,6 +45,17 @@ describe("policy windows", () => {
       { effectiveFrom: "2026-07-01", effectiveTo: "2026-12-31" },
     )).toBe(false);
   });
+
+  it("truncates an older policy to the preceding UTC day", () => {
+    expect(replacementForPolicy({ effectiveFrom: "2026-01-01" }, "2026-07-01")).toEqual({
+      action: "truncate", effectiveTo: new Date("2026-06-30T00:00:00.000Z"),
+    });
+  });
+
+  it("retires policies that start on or after the replacement", () => {
+    expect(replacementForPolicy({ effectiveFrom: "2026-07-01" }, "2026-07-01")).toEqual({ action: "retire" });
+    expect(replacementForPolicy({ effectiveFrom: "2026-08-01" }, "2026-07-01")).toEqual({ action: "retire" });
+  });
 });
 
 describe("policy activation", () => {
@@ -58,8 +70,9 @@ describe("policy activation", () => {
       .toEqual(expect.objectContaining({ code: "PAYROLL_POLICY_OVERLAP", status: 409 }));
   });
 
-  it("refuses to activate a policy that is not a draft", () => {
-    expect(validatePolicyActivation({ ...draft, status: "retired" }, [])?.code).toBe("PAYROLL_POLICY_INVALID_STATE");
+  it("allows a retired policy to be activated again", () => {
+    expect(validatePolicyActivation({ ...draft, status: "retired" }, [])).toBeNull();
+    expect(validatePolicyActivation({ ...draft, status: "active" }, [])?.code).toBe("PAYROLL_POLICY_INVALID_STATE");
   });
 
   it("reports a missing policy as not found", () => {

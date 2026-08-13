@@ -22,7 +22,6 @@ import {
   type RetailCartState,
 } from "../hooks/retailCart";
 import { buildRetailOrderInput } from "../hooks/retailOrderInput";
-import { buildPaymentSummary } from "../hooks/retailPayment";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
 import { createHidScannerBuffer } from "../hooks/retailScannerInput";
@@ -67,12 +66,20 @@ export default function RetailPosPage() {
   const queueRef = React.useRef(typeof indexedDB === "undefined" ? createMemoryRetailOfflineQueue() : createIndexedDbRetailOfflineQueue());
   const [offlineItems, setOfflineItems] = React.useState<RetailOfflineOrder[]>([]);
   const offlineScope = scope && userProfile?.uid ? { ...scope, userId: userProfile.uid } : null;
+  const openPayment = () => {
+    if (!cart.customer?._id) {
+      setMessage("Vui lòng chọn khách hàng trước khi thanh toán.");
+      return;
+    }
+    setMessage("");
+    setPaying(true);
+  };
   const refreshOffline = React.useCallback(() => { if (offlineScope) void queueRef.current.list(offlineScope).then((items) => setOfflineItems(items.filter((item) => item.status !== "synced"))); }, [offlineScope?.companyCode, offlineScope?.branchId, offlineScope?.userId]);
   useRetailPosShortcuts(
     React.useMemo(
       () => ({
         focusSearch: () => searchRef.current?.focus(),
-        openPayment: () => setPaying(true),
+        openPayment,
         holdDraft: () =>
           (
             Array.from(document.querySelectorAll("button")).find((button) =>
@@ -82,7 +89,7 @@ export default function RetailPosPage() {
         openScanner: () => setScanning(true),
         openHelp: () => setHelp(true),
       }),
-      [],
+      [openPayment],
     ),
   );
 
@@ -217,10 +224,6 @@ export default function RetailPosPage() {
   const checkout = async (payments: RetailPaymentInput[], dueDate?: string) => {
     if (!cart.quote) return;
     const customerId = cart.customer?._id;
-    buildPaymentSummary(cart.quote.grandTotal, payments, {
-      customerId,
-      dueDate,
-    });
     setBusy(true);
     const key = crypto.randomUUID();
     const input = { ...buildRetailOrderInput(cart), dueDate };
@@ -324,7 +327,7 @@ export default function RetailPosPage() {
         canPay={Boolean(shift)}
         dispatch={dispatch}
         onHold={saveDraft}
-        onPay={() => setPaying(true)}
+        onPay={openPayment}
       />
       <RetailOfflineQueuePanel items={offlineItems} onRetry={(id) => void queueRef.current.update(id, { status: "pending", lastError: undefined }).then(() => offlineScope && syncOffline(offlineScope))} onRemove={(id) => void queueRef.current.remove(id).then(refreshOffline)} />
       {paying && cart.quote && (

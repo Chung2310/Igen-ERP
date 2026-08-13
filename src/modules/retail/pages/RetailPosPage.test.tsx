@@ -16,7 +16,7 @@ vi.mock("../components/pos/BarcodeScannerDialog", () => ({ default: () => null }
 vi.mock("../components/pos/CustomerPicker", () => ({ default: ({ onChange }: any) => <button onClick={() => onChange({ _id: "c1", customerCode: "KH-1", companyCode: "ACME", originBranchId: "B2", name: "An" })}>Chọn khách An</button> }));
 vi.mock("../components/pos/DiscountInput", () => ({ default: ({ label, onChange }: any) => <button onClick={() => onChange({ type: "percent", value: 10 })}>{label}</button> }));
 vi.mock("../components/pos/OrderAdjustments", () => ({ default: ({ onChange }: any) => <button onClick={() => onChange({ orderDiscount: { type: "amount", value: 5_000 }, taxRate: 8, shippingFee: 20_000 })}>Điều chỉnh đơn</button> }));
-vi.mock("../components/pos/PaymentDialog", () => ({ default: ({ onSubmit }: any) => <button onClick={() => onSubmit([{ method: "cash", amount: 209_000, tenderedAmount: 220_000 }])}>Gửi thanh toán</button> }));
+vi.mock("../components/pos/PaymentDialog", () => ({ default: ({ onSubmit }: any) => <div data-testid="payment-dialog"><button onClick={() => onSubmit([{ method: "cash", amount: 209_000, tenderedAmount: 220_000 }])}>Gửi thanh toán</button><button onClick={() => onSubmit([], "2026-09-30")}>Gửi ghi nợ toàn bộ</button></div> }));
 
 const product = { _id: "p1", sku: "SKU-1", name: "Áo", category: "A", unit: "cái", stock: 10, price: 100_000 };
 const order = { _id: "o1", orderCode: "DH-1", status: "completed", paymentStatus: "paid", items: [], subtotal: 180_000, orderDiscount: 5_000, taxRate: 8, taxAmount: 14_000, shippingFee: 20_000, grandTotal: 209_000, paidAmount: 209_000, dueAmount: 0, version: 1, createdBy: "u1", createdByName: "Thu ngân" } as any;
@@ -33,6 +33,17 @@ beforeEach(() => {
 });
 
 describe("RetailPosPage", () => {
+  it("keeps payment dialog closed and guides cashier to select a customer", async () => {
+    render(<RetailPosPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Thanh toán" }) as HTMLButtonElement).disabled).toBe(false));
+
+    await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
+
+    expect(screen.queryByTestId("payment-dialog")).toBeNull();
+    expect(await screen.findByText("Vui lòng chọn khách hàng trước khi thanh toán.")).toBeTruthy();
+  });
+
   it("carries customer and adjustments through quote and checkout to receipt", async () => {
     render(<RetailPosPage />);
     await userEvent.click(await screen.findByRole("button", { name: /Áo/ }));
@@ -55,10 +66,23 @@ describe("RetailPosPage", () => {
     vi.mocked(retailOrdersApi.idempotency).mockRejectedValueOnce(new TypeError("Failed to fetch"));
     render(<RetailPosPage />);
     await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Chọn khách An" }));
     await waitFor(() => expect((screen.getByRole("button", { name: "Thanh toán" }) as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
     await userEvent.click(screen.getByRole("button", { name: "Gửi thanh toán" }));
     expect(await screen.findByText("Chờ đồng bộ")).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Thanh toÃ¡n thÃ nh cÃ´ng" })).toBeNull();
+  });
+
+  it("creates a customer debt draft and confirms with no collected payments", async () => {
+    render(<RetailPosPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Chọn khách An" }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Thanh toán" }) as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gửi ghi nợ toàn bộ" }));
+
+    await waitFor(() => expect(retailOrdersApi.createDraft).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, expect.objectContaining({ customerId: "c1", dueDate: "2026-09-30" })));
+    expect(retailOrdersApi.confirm).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, "o1", expect.objectContaining({ payments: [] }));
   });
 });

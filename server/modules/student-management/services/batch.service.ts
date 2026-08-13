@@ -91,11 +91,9 @@ function applyStatusTimestamps(data: BatchData, batch: IBatch): BatchData {
 async function assertBatchReadyToClose(batch: IBatch) {
   const today = todayInVietnam();
   const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
-  const upcoming = scheduledDates.filter((date) => date >= today);
-  if (upcoming.length) throw new Error(`Không thể kết thúc lớp khi còn ${upcoming.length} buổi theo lịch.`);
-  const pastDates = new Set(scheduledDates.filter((date) => date < today));
-  const confirmedDates = new Set((batch.attendanceSessions || []).filter((session) => pastDates.has(session.date) && session.records.length > 0).map((session) => session.date));
-  if (confirmedDates.size < pastDates.size) throw new Error(`Không thể kết thúc lớp khi còn ${pastDates.size - confirmedDates.size} buổi chưa chốt điểm danh.`);
+  const confirmedDates = new Set((batch.attendanceSessions || []).filter((session) => scheduledDates.includes(session.date) && session.records.length > 0).map((session) => session.date));
+  const requiredSessions = Math.ceil(scheduledDates.length * 0.85);
+  if (confirmedDates.size < requiredSessions) throw new Error(`Chỉ có thể kết thúc sớm sau khi đã chốt ít nhất ${requiredSessions}/${scheduledDates.length} buổi học (85%).`);
   const exams = await Exam.find({ ownerId: batch.ownerId, branchId: batch.branchId, batchId: String(batch._id), status: { $ne: "Đã hủy" } }).lean();
   const incomplete = exams.find((exam) => (exam.results || []).some((result) => typeof result.score !== "number"));
   if (incomplete) throw new Error(`Kỳ thi "${incomplete.name}" chưa có kết quả đầy đủ. Hãy xử lý đủ kết quả hoặc hủy kỳ thi trước khi đóng lớp.`);
@@ -138,6 +136,23 @@ export function resolveQuota(batchQuota?: number, courseMaxLearners?: number): n
 function hasLockedStudentFee(fee: string | undefined): boolean {
   const feeNum = parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
   return feeNum > 0;
+}
+
+function parseCourseFee(fee: string | undefined): number {
+  return parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
+}
+
+async function resolveRoadmapFee(ownerScope: string | string[], branchId: string | undefined, roadmapId: string): Promise<number> {
+  const scope = { ...buildOwnerQuery(ownerScope), ...buildBranchScopeQuery(branchId) };
+  const roadmap = await LearningRoadmap.findOne({ _id: roadmapId, ...scope }).lean();
+  if (!roadmap || roadmap.steps.length === 0) throw new Error("Không tìm thấy các chặng học của lộ trình.");
+
+  const courseIds = [...new Set(roadmap.steps.map((step) => String(step.courseId)).filter(Boolean))];
+  const courses = await Course.find({ _id: { $in: courseIds }, ...scope }).lean();
+  if (courses.length !== courseIds.length) throw new Error("Lộ trình có khóa học không còn tồn tại.");
+
+  const feeByCourseId = new Map(courses.map((course) => [String(course._id), parseCourseFee(course.fee)]));
+  return roadmap.steps.reduce((total, step) => total + (feeByCourseId.get(String(step.courseId)) || 0), 0);
 }
 
 export function buildInstructorAssignmentQuery(actor: BatchActor, instructorId: unknown): Record<string, unknown> {
@@ -624,8 +639,19 @@ export class BatchService {
         shouldSaveStudent = true;
       }
 
-      if (!hasLockedStudentFee(student.fee)) {
+      if (batch.roadmapId) {
+        // A roadmap is one continuous enrollment: charge the sum of every step,
+        // rather than only the course of the batch the learner is joining.
+        const roadmapFee = await resolveRoadmapFee(ownerId, batch.branchId, batch.roadmapId);
+        student.fee = roadmapFee.toLocaleString("vi-VN");
+        shouldSaveStudent = true;
+      } else if (!hasLockedStudentFee(student.fee)) {
         student.fee = course.fee;
+        shouldSaveStudent = true;
+      }
+
+      if (batch.status === "Sắp khai giảng" && batch.startDate) {
+        student.enrollmentDate = batch.startDate.split("-").reverse().join("/");
         shouldSaveStudent = true;
       }
 

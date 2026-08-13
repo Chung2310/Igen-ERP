@@ -5,6 +5,7 @@ import { EntityAddModal } from "../../shared/components/EntityAddModal";
 import { CustomFieldsSection } from "../../shared/custom-fields/CustomFieldsSection";
 import type { CustomFieldValues } from "../../shared/custom-fields/types";
 import { canManageWorkerArea } from "../workerPermissionPolicy";
+import { workerLaborTypeLabel } from "../types";
 import type {
   Worker,
   WorkerInput,
@@ -40,6 +41,25 @@ const defaultFields: WorkerProfileFieldConfig[] = [
     isVisible: true,
   },
   { key: "status", label: "Trạng thái", isRequired: false, isVisible: true },
+  {
+    key: "laborType",
+    label: "Loại lao động",
+    isRequired: false,
+    isVisible: true,
+  },
+  { key: "nationality", label: "Quốc tịch", isRequired: false, isVisible: true },
+  {
+    key: "workPermitNumber",
+    label: "Số giấy phép lao động / visa",
+    isRequired: false,
+    isVisible: true,
+  },
+  {
+    key: "workPermitExpiry",
+    label: "Ngày hết hạn GPLĐ / visa",
+    isRequired: false,
+    isVisible: true,
+  },
   { key: "address", label: "Địa chỉ", isRequired: false, isVisible: true },
   { key: "note", label: "Ghi chú", isRequired: false, isVisible: true },
 ];
@@ -50,6 +70,10 @@ function initialForm(): WorkerInput {
     phone: "",
     email: "",
     status: "active",
+    laborType: "official",
+    nationality: "Việt Nam",
+    workPermitNumber: "",
+    workPermitExpiry: "",
     note: "",
     address: "",
     birthday: "",
@@ -253,6 +277,58 @@ export function AddWorkerModal({
               <option value="inactive">Ngừng xử lý</option>
             </select>
           </div>
+        )}
+        {visible("laborType") && (
+          <div className="space-y-1">
+            <label
+              htmlFor="laborType"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+            >
+              {label("laborType")}
+            </label>
+            <select
+              id="laborType"
+              name="laborType"
+              value={form.laborType || "official"}
+              onChange={update}
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+            >
+              {Object.entries(workerLaborTypeLabel).map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {visible("nationality") && (
+          <Field
+            label={label("nationality")}
+            name="nationality"
+            value={form.nationality || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {form.laborType === "foreign" && visible("workPermitNumber") && (
+          <Field
+            label={label("workPermitNumber")}
+            name="workPermitNumber"
+            value={form.workPermitNumber || ""}
+            onChange={update}
+            disabled={submitting}
+          />
+        )}
+        {form.laborType === "foreign" && visible("workPermitExpiry") && (
+          <Field
+            label={label("workPermitExpiry")}
+            name="workPermitExpiry"
+            value={form.workPermitExpiry || ""}
+            onChange={update}
+            disabled={submitting}
+            placeholder="DD/MM/YYYY"
+          />
         )}
         {visible("address") && (
           <Field

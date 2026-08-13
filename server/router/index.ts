@@ -35,6 +35,7 @@ import { retailRouter } from "../modules/retail/router";
 import { productCatalogRouter } from "../modules/inventory/product-catalog/router";
 import { receivingRouter } from "../modules/inventory/receiving/router";
 import { warehouseRouter } from "../modules/inventory/warehouse/router";
+import { financeRouter } from "../modules/finance/router";
 export const apiRouter = Router();
 
 // Webhooks
@@ -118,6 +119,7 @@ apiRouter.use("/inventory/catalog", requireAuth as any, requireModule("inventory
 apiRouter.use("/inventory/receiving", requireAuth as any, requireModule("inventory"), receivingRouter);
 apiRouter.use("/inventory/warehouses", requireAuth as any, requireModule("inventory"), warehouseRouter);
 apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
+apiRouter.use("/finance", requireAuth as any, requireModule("finance"), financeRouter);
 
 
 // Public QR attendance routes cho lao động (không yêu cầu đăng nhập)

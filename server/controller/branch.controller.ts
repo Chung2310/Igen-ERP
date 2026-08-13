@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { BranchModel } from "../model/branch.model";
+import { getRequestPublicIp, normalizeAllowedNetwork } from "../utils/request-ip";
 
 const company = (req: AuthenticatedRequest) => String(req.user?.companyCode || "").trim().toUpperCase();
 const canManage = (req: AuthenticatedRequest) => ["admin", "superadmin", "branch_owner"].includes(String(req.user?.role || ""));
@@ -16,6 +17,9 @@ async function ensureDefaultBranch(companyCode: string) {
 }
 
 export const branchController = {
+  currentIp(req: AuthenticatedRequest, res: Response) {
+    return res.json({ status: "success", data: { ip: getRequestPublicIp(req) } });
+  },
   async list(req: AuthenticatedRequest, res: Response) {
     const code = req.user?.role === "superadmin" && req.query.companyCode ? String(req.query.companyCode).toUpperCase() : company(req);
     let data = await BranchModel.find({ companyCode: code }).sort({ isActive: -1, name: 1 }).lean();
@@ -28,7 +32,8 @@ export const branchController = {
   async create(req: AuthenticatedRequest, res: Response) {
     if (!canManage(req)) return res.status(403).json({ status: "error", message: "Không có quyền quản lý chi nhánh." });
     const companyCode = req.user?.role === "superadmin" && req.body.companyCode ? String(req.body.companyCode).toUpperCase() : company(req);
-    const data = await BranchModel.create({ ...req.body, companyCode, code: String(req.body.code || "").toUpperCase() });
+    const locationConfig = req.body.locationConfig ? { ...req.body.locationConfig, allowedPublicIps: req.body.locationConfig.allowedPublicIps.map(normalizeAllowedNetwork) } : undefined;
+    const data = await BranchModel.create({ ...req.body, locationConfig, companyCode, code: String(req.body.code || "").toUpperCase() });
     return res.status(201).json({ status: "success", data });
   },
   async update(req: AuthenticatedRequest, res: Response) {
@@ -40,6 +45,10 @@ export const branchController = {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) updates[field] = req.body[field];
     }
     if (typeof updates.code === "string") updates.code = updates.code.toUpperCase();
+    if (updates.locationConfig) {
+      const config = updates.locationConfig as any;
+      updates.locationConfig = { ...config, allowedPublicIps: config.allowedPublicIps.map(normalizeAllowedNetwork) };
+    }
     const data = await BranchModel.findOneAndUpdate(filter, { $set: updates }, { new: true, runValidators: true }).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy chi nhánh." });
     return res.json({ status: "success", data });

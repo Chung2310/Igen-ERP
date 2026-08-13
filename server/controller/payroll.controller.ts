@@ -17,8 +17,13 @@ import { readPayrollLine } from "../service/payroll-line-read.service";
 import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
 import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
-import { resolvePayrollPolicy } from "../config/payroll-default-policy";
+import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
+import { PayrollFormulaModel } from "../model/payroll-formula.model";
+import { evaluatePayrollFormulas } from "../service/payroll-formula-engine.service";
+import { PayrollPeriodInputModel } from "../model/payroll-period-input.model";
+import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
+import { resolvePayrollPeriodInputs } from "../service/payroll-period-input-resolver.service";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
 import { countDependents, resolveTaxMethod, selectProfileForPeriod } from "../service/payroll-employee-input.service";
 import { evaluateWorkingDate } from "../service/company-work-calendar.service";
@@ -56,6 +61,7 @@ import {
   createPaymentSchema,
   createPolicySchema,
   updatePolicySchema,
+  activatePolicySchema,
   clonePolicySchema,
   paymentTransitionSchema,
   reopenRunSchema,
@@ -207,6 +213,12 @@ export const payrollController = {
         message: "Chỉ có thể cập nhật bảng lương khi kỳ đang ở trạng thái Nháp.",
       });
     }
+    const periodKey = req.params.periodKey;
+    const periodEnd = new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const policies: any[] = await PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean();
+    if (!resolvePersistedPayrollPolicy(policies as any[], periodEnd)) {
+      return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
+    }
     try {
       const run = await processPayrollPeriod({
         syncAttendance: () => runPayrollControllerStep(payrollController.createSnapshot, req),
@@ -313,8 +325,10 @@ export const payrollController = {
     }
   },
   async activatePolicy(req: AuthenticatedRequest, res: Response) {
+    const { error, value } = activatePolicySchema.validate(req.body ?? {}, { abortEarly: false, stripUnknown: true });
+    if (error) return validationFailure(res, error.message);
     try {
-      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id) });
+      return res.json({ status: "success", data: await activatePayrollPolicy(tenant(req), req.params.id, req.user!.id, value) });
     } catch (operationError) {
       return operationFailure(res, operationError);
     }
@@ -480,13 +494,17 @@ export const payrollController = {
     const periodKey = req.params.periodKey;
     const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
     const employeeIds = rows.map((row) => row.employeeId);
-    const [policies, profiles, dependents, adjustmentsData] = await Promise.all([
+    const [policies, profiles, dependents, adjustmentsData, formulas, periodInputs, customVariables] = await Promise.all([
       PayrollPolicyModel.find({ companyCode: tenant(req), status: "active" }).lean(),
       PayrollProfileModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
+      PayrollFormulaModel.find({ companyCode: tenant(req), status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean(),
+      PayrollPeriodInputModel.find({ companyCode: tenant(req), branchId, periodKey, employeeId: { $in: employeeIds } }).lean(),
+      PayrollCustomVariableModel.find({ companyCode: tenant(req), status: "active" }).lean(),
     ]);
-    const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+    const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+    if (!policy) return res.status(409).json({ status: "error", code: "PAYROLL_POLICY_REQUIRED", message: "Cần áp dụng công thức lương cho kỳ này" });
     const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
       const key = String(item.employeeId);
       map.set(key, [...(map.get(key) ?? []), item]);
@@ -496,6 +514,7 @@ export const payrollController = {
     const dependentsByEmployee = byEmployee(dependents as any[]);
 
     const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+    const periodInputMap = new Map((periodInputs as any[]).map((item:any)=>[String(item.employeeId),item]));
     for (const adj of adjustmentsData) {
       const empId = String(adj.employeeId);
       const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
@@ -509,29 +528,38 @@ export const payrollController = {
     const lines = rows.map((row) => {
       const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
       const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      const periodInput:any=periodInputMap.get(String(row.employeeId));
+      const sourceDays=(row.workedDays??(row.standardDays>0?workedMinutes/(row.standardHours*60/row.standardDays):0));
+      const resolvedPeriod=resolvePayrollPeriodInputs({agreedSalary:row.monthlySalary,reconciledDays:sourceDays,reconciledHours:workedMinutes/60,allowance:empAdjustments.allowances,bonus:empAdjustments.bonuses,deduction:empAdjustments.deductions},periodInput,customVariables as any[]);
+      const effectiveSalary=resolvedPeriod.values.agreedSalary,effectiveWorkedMinutes=resolvedPeriod.values.reconciledHours*60;
+      const dailyMinutes = row.standardDays > 0 ? row.standardHours * 60 / row.standardDays : 0;
+      const overtimeHours = (category: string) => (row.overtime ?? []).filter((item: any) => item.category === category).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / 60;
+      const customContext=Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.value]));
+      const library = evaluatePayrollFormulas(formulas as any[], { monthlySalary: effectiveSalary, attendanceSalary: row.standardDays > 0 ? effectiveSalary * resolvedPeriod.values.reconciledDays / row.standardDays : 0, standardWorkDays: row.standardDays, actualWorkDays: resolvedPeriod.values.reconciledDays, standardWorkHours: row.standardHours, actualWorkHours: resolvedPeriod.values.reconciledHours, shortageMinutes: row.shortageMinutes ?? 0, lateMinutes: Number((row as any).lateMinutes || 0), earlyLeaveMinutes: Number((row as any).earlyLeaveMinutes || 0), paidLeaveDays: (row.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths: 0,...customContext });
+      const appliedAdjustments = { allowances: resolvedPeriod.values.allowance + library.totals.allowance, bonuses: resolvedPeriod.values.bonus + library.totals.bonus, deductions: resolvedPeriod.values.deduction + library.totals.deduction, adjustments: empAdjustments.adjustments + library.totals.adjustment };
       const calculation = calculatePayroll({
-        monthlySalary: row.monthlySalary,
+        monthlySalary: effectiveSalary,
         standardDays: row.standardDays,
         standardHours: row.standardHours,
-        workedMinutes,
+        workedMinutes:effectiveWorkedMinutes,
         shortageMinutes: row.shortageMinutes,
         paidLeaveMinutesByRate: row.paidLeaveMinutesByRate,
         overtime: row.overtime,
-        allowances: empAdjustments.allowances,
-        bonuses: empAdjustments.bonuses,
-        deductions: empAdjustments.deductions,
-        adjustments: empAdjustments.adjustments,
+        allowances: appliedAdjustments.allowances,
+        bonuses: appliedAdjustments.bonuses,
+        deductions: appliedAdjustments.deductions,
+        adjustments: appliedAdjustments.adjustments,
       });
       const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
       const vietnam = calculateVietnamPayroll(policy, {
         workPay: calculation.adjustedBase,
         hourlyRate: calculation.hourlyRate,
         overtime: (row.overtime ?? []) as any,
-        taxableAllowances: empAdjustments.allowances,
-        bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
-        otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
+        taxableAllowances: appliedAdjustments.allowances,
+        bonuses: appliedAdjustments.bonuses + (appliedAdjustments.adjustments > 0 ? appliedAdjustments.adjustments : 0),
+        otherDeductions: appliedAdjustments.deductions + (appliedAdjustments.adjustments < 0 ? -appliedAdjustments.adjustments : 0),
         // Chưa khai báo mức đóng riêng thì lấy lương tháng; trần đóng vẫn được áp.
-        insuranceSalary: row.monthlySalary,
+        insuranceSalary: effectiveSalary,
         participatesInsurance: profile?.participatesInsurance ?? true,
         taxMethod: resolveTaxMethod(profile),
         dependentCount: countDependents(dependentsByEmployee.get(String(row.employeeId)) ?? [], period),
@@ -543,15 +571,15 @@ export const payrollController = {
         calculation: {
           ...calculation,
           // Lưu lại các khoản điều chỉnh để bảng lương hiển thị cột thưởng/phạt.
-          allowances: empAdjustments.allowances,
-          bonuses: empAdjustments.bonuses,
-          otherDeductions: empAdjustments.deductions,
-          adjustments: empAdjustments.adjustments,
+          allowances: appliedAdjustments.allowances,
+          bonuses: appliedAdjustments.bonuses,
+          otherDeductions: appliedAdjustments.deductions,
+          adjustments: appliedAdjustments.adjustments,
           gross: vietnam.income.totalIncome,
           deductions: vietnam.deductions.total,
           net: vietnam.netPay,
-          monthlySalary: row.monthlySalary,
-          workedMinutes,
+          monthlySalary: effectiveSalary,
+          workedMinutes:effectiveWorkedMinutes,
           workedDays: row.workedDays || 0,
           standardHours: row.standardHours,
           standardDays: row.standardDays,
@@ -561,6 +589,8 @@ export const payrollController = {
         policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
         policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
         warnings: vietnam.warnings.map((warning) => warning.code),
+        formulaApplications: library.applications,
+        periodInput:{version:Number(periodInput?.version??0),values:{...resolvedPeriod.values,...customContext},provenance:{...resolvedPeriod.provenance,...Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.provenance]))}},
       };
     });
     if (existing) {
@@ -698,7 +728,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);
@@ -807,7 +838,8 @@ export const payrollController = {
             PayrollAdjustmentModel.find({ companyCode, branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean()
           ]);
           const period = { start: `${periodKey}-01`, end: new Date(Date.UTC(Number(periodKey.slice(0, 4)), Number(periodKey.slice(5, 7)), 0)).toISOString().slice(0, 10) };
-          const { policy } = resolvePayrollPolicy(policies as any[], period.start);
+          const policy = resolvePersistedPayrollPolicy(policies as any[], period.end);
+          if (!policy) throw new PayrollOperationError("PAYROLL_POLICY_REQUIRED", "Cần áp dụng công thức lương cho kỳ này", 409);
           const byEmployee = <T extends { employeeId: unknown }>(items: T[]) => items.reduce((map, item) => {
             const key = String(item.employeeId);
             map.set(key, [...(map.get(key) ?? []), item]);

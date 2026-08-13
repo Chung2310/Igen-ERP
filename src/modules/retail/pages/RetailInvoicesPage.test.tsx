@@ -11,7 +11,7 @@ vi.mock("../api/retailInvoices.api", () => ({ retailInvoicesApi: { list: vi.fn()
 
 const invoice: any = {
   _id: "i1", invoiceNo: "HD-01", orderId: "o1", orderCode: "DH-01", issuedAt: "2026-08-12T01:00:00Z", status: "issued",
-  snapshot: { store: { legalName: "Công ty Igen", storeName: "Igen Store", branchCode: "HCM", branchName: "Chi nhánh HCM", branchAddress: "1 Nguyễn Huệ" }, customerName: "Nguyễn Văn A", cashierName: "Thu ngân A", items: [], subtotal: 100_000, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 100_000, payments: [], amountInWords: "Một trăm nghìn đồng" },
+  snapshot: { store: { legalName: "Công ty Igen", storeName: "Igen Store", branchCode: "HCM", branchName: "Chi nhánh HCM", branchAddress: "1 Nguyễn Huệ" }, customerName: "Nguyễn Văn A", cashierName: "Thu ngân A", items: [], subtotal: 100_000, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 100_000, paidAmount: 40_000, dueAmount: 60_000, paymentStatus: "partial", payments: [{ method: "transfer", amount: 40_000 }], amountInWords: "Một trăm nghìn đồng" },
 };
 
 afterEach(cleanup);
@@ -32,5 +32,14 @@ describe("RetailInvoicesPage", () => {
     expect(print).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole("button", { name: "Tải PDF hóa đơn HD-01" }));
     await waitFor(() => expect(retailInvoicesApi.downloadPdf).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, "i1"));
+  });
+
+  it("shows cashier and localized partial payment details", async () => {
+    render(<RetailInvoicesPage />);
+    expect(await screen.findByText(/Thanh toán một phần · Đã thanh toán 40\.000 ₫ · Còn nợ 60\.000 ₫/)).toBeTruthy();
+    await userEvent.click(await screen.findByRole("button", { name: "Xem hóa đơn HD-01" }));
+    expect(await screen.findByText("Thu ngân A")).toBeTruthy();
+    expect(screen.getAllByText("Chuyển khoản").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Còn nợ").length).toBeGreaterThan(0);
   });
 });
