@@ -7,9 +7,13 @@ import { buildInvoiceListQuery } from "./retail-query.service";
 import type { RetailStoreSnapshot } from "../interfaces/retail-invoice.interface";
 import { BranchModel } from "../../../model/branch.model";
 import { CompanyModel } from "../../../model/company.model";
-export { invoicePdfFilename, invoicePdfPageSize, renderRetailInvoicePdf } from "./retail-invoice-pdf.service";
+import { UserModel } from "../../../model/user.model";
+export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf } from "./retail-invoice-pdf.service";
 
 export function buildRetailInvoiceSnapshot(order: any, actor: any, store: RetailStoreSnapshot) {
+  const vndValues = [order.grandTotal, order.paidAmount, order.dueAmount, ...(order.payments || []).map((payment: any) => payment.amount)];
+  if (vndValues.some((value) => !Number.isSafeInteger(Number(value)) || Number(value) < 0)) throw new Error("INVALID_INVOICE_VND");
+  if (order.paymentStatus !== "refunded" && Number(order.paidAmount) + Number(order.dueAmount) !== Number(order.grandTotal)) throw new Error("INVALID_INVOICE_PAYMENT_TOTAL");
   return {
     store,
     customerName: order.customerName || "Khách lẻ",
@@ -23,9 +27,26 @@ export function buildRetailInvoiceSnapshot(order: any, actor: any, store: Retail
     taxAmount: order.taxAmount,
     shippingFee: order.shippingFee,
     grandTotal: order.grandTotal,
+    paidAmount: order.paidAmount,
+    dueAmount: order.dueAmount,
+    paymentStatus: order.paymentStatus,
     payments: (order.payments || []).map(({ method, amount, tenderedAmount, changeAmount, reference }: any) => ({ method, amount, tenderedAmount, changeAmount, reference })),
     amountInWords: `${order.grandTotal.toLocaleString("vi-VN")} đồng`,
   };
+}
+
+const emailLike = (value: unknown) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+export function projectLegacyInvoiceCashier(invoice: any, displayName?: string) {
+  if (!displayName || !emailLike(invoice?.snapshot?.cashierName)) return invoice;
+  return { ...invoice, issuedByName: displayName, snapshot: { ...invoice.snapshot, cashierName: displayName } };
+}
+
+async function projectInvoiceCashiers(invoices: any[]) {
+  const legacy = invoices.filter((invoice) => emailLike(invoice?.snapshot?.cashierName) && invoice.issuedBy);
+  if (!legacy.length) return invoices;
+  const users = await UserModel.find({ _id: { $in: [...new Set(legacy.map((invoice) => String(invoice.issuedBy)))] } }).select("displayName").lean();
+  const names = new Map(users.map((user: any) => [String(user._id), String(user.displayName || "").trim()]));
+  return invoices.map((invoice) => projectLegacyInvoiceCashier(invoice, names.get(String(invoice.issuedBy))));
 }
 
 export async function issueRetailInvoice(order: IRetailOrder & { _id: unknown }, prefix: string, branchCode: string, scope: string, actor: any, session: ClientSession) {
@@ -55,11 +76,11 @@ export const RetailInvoiceService = {
       RetailInvoiceModel.find(filter).sort({ issuedAt: -1 }).skip(skip).limit(limit).lean(),
       RetailInvoiceModel.countDocuments(filter),
     ]);
-    return { items, total, page, limit };
+    return { items: await projectInvoiceCashiers(items), total, page, limit };
   },
   async detail(scope: RetailBranchScope, id: string) {
     const invoice = await RetailInvoiceModel.findOne({ _id: id, ...scope }).lean();
     if (!invoice) throw new Error("Không tìm thấy hóa đơn.");
-    return invoice;
+    return (await projectInvoiceCashiers([invoice]))[0];
   },
 };
