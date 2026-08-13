@@ -79,6 +79,7 @@ export default function InventoryTab() {
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
+  const [outboundPrefill, setOutboundPrefill] = useState<{ warehouseId: string; sku: string; nonce: number } | null>(null);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -614,6 +615,7 @@ export default function InventoryTab() {
               { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
               { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
               { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
+              { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
               { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
             ].map((tab) => {
@@ -646,7 +648,10 @@ export default function InventoryTab() {
           </div>
         )}
 
-        {subTab === "KHO HÀNG" && <WarehouseSection />}
+        {subTab === "KHO HÀNG" && <WarehouseSection onCreateOutbound={(warehouseId, sku) => {
+          setOutboundPrefill({ warehouseId, sku, nonce: Date.now() });
+          setSubTab("XUẤT HÀNG");
+        }} />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
@@ -825,7 +830,29 @@ export default function InventoryTab() {
               />
             </>
           )}
-          {subTab === "DỰ BÁO" && <AiForecastPanel forecast={forecastSummary} />}
+          {subTab === "XUẤT HÀNG" && (
+            <StockLogPanel
+              products={products}
+              searchLog={searchLog}
+              setSearchLog={setSearchLog}
+              stockLogs={stockLogs}
+              isLoading={stockLogLoading}
+              onExportExcel={handleExportStockLogsExcel}
+              onImportExcel={handleOpenStockLogImport}
+              isImporting={stockLogExcelImporting}
+              onNavigateToCreateProduct={handleNavigateToCreateProduct}
+              onCreateTransaction={handleCreateTransaction}
+              onUpdateTransaction={handleUpdateTransaction}
+              onUpdateStatus={handleQuickUpdateTransactionStatus}
+              onDeleteTransaction={handleDeleteTransaction}
+              outboundOnly
+              hideExcelActions
+              initialWarehouseId={outboundPrefill?.warehouseId}
+              initialSku={outboundPrefill?.sku}
+              openOnMountKey={outboundPrefill?.nonce}
+            />
+          )}
+          {subTab === "DỰ BÁO" && <AiForecastPanel forecast={forecastSummary} stockLogs={stockLogs} />}
         </Suspense>
       </div>
 

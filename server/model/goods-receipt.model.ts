@@ -23,7 +23,7 @@ const GoodsReceiptSchema = new Schema<IGoodsReceipt>(
     receiptCode: { type: String, required: true, trim: true, uppercase: true },
     supplierId: { type: String, required: true, trim: true, index: true },
     supplierName: { type: String, required: true, trim: true },
-    status: { type: String, enum: ["draft", "confirmed", "cancelled"], default: "draft", required: true, index: true },
+    status: { type: String, enum: ["draft", "pending", "receiving", "confirmed", "cancelled"], default: "draft", required: true, index: true },
     receivedAt: { type: Date },
     items: { type: [GoodsReceiptItemSchema], default: [] },
     subtotal: { type: Number, required: true, min: 0, default: 0 },
