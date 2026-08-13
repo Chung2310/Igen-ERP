@@ -20,6 +20,18 @@ export function invoicePdfFilename(invoiceNo: string): string {
 export interface RetailInvoicePdfResult { buffer: Buffer; filename: string }
 
 const money = (value: number) => `${Number(value || 0).toLocaleString("vi-VN")} đ`;
+const paymentLabels: Record<string, string> = { cash: "Tiền mặt", card: "Thẻ", transfer: "Chuyển khoản", ewallet: "Ví điện tử" };
+
+export function invoicePdfPaymentRows(snapshot: Pick<IRetailInvoice["snapshot"], "grandTotal" | "paidAmount" | "dueAmount" | "paymentStatus" | "payments">) {
+  const rows = (snapshot.payments || []).map((payment) => ({ label: paymentLabels[payment.method] || payment.method, amount: Number(payment.amount || 0) }));
+  const paid = snapshot.paidAmount ?? (snapshot.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const due = snapshot.dueAmount ?? Math.max(0, Number(snapshot.grandTotal || 0) - paid);
+  if (snapshot.paymentStatus === "refunded") rows.push({ label: "Đã hoàn tiền", amount: paid });
+  if (due > 0) rows.push({ label: paid > 0 ? "Còn nợ" : "Ghi nợ toàn bộ", amount: due });
+  const change = (snapshot.payments || []).reduce((sum, payment) => sum + Number(payment.changeAmount || 0), 0);
+  if (change > 0) rows.push({ label: "Tiền thừa", amount: change });
+  return rows;
+}
 
 export async function renderRetailInvoicePdf(
   invoice: IRetailInvoice,
@@ -53,6 +65,8 @@ export async function renderRetailInvoicePdf(
   if (invoice.snapshot.taxAmount) doc.text(`Thuế (${invoice.snapshot.taxRate}%): ${money(invoice.snapshot.taxAmount)}`, { align: "right" });
   if (invoice.snapshot.shippingFee) doc.text(`Phí vận chuyển: ${money(invoice.snapshot.shippingFee)}`, { align: "right" });
   doc.fontSize(compact ? 11 : 14).text(`TỔNG CỘNG: ${money(invoice.snapshot.grandTotal)}`, { align: "right" });
+  doc.fontSize(compact ? 8 : 10).moveDown(0.5);
+  for (const row of invoicePdfPaymentRows(invoice.snapshot)) doc.text(`${row.label}: ${money(row.amount)}`, { align: "right" });
   doc.fontSize(compact ? 8 : 10).text(`Bằng chữ: ${invoice.snapshot.amountInWords}`);
   doc.moveDown().text("Cảm ơn quý khách!", { align: "center" });
   doc.end();
