@@ -41,6 +41,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
+import { mergeSavedProject, shouldApplyProjectResponse } from "./kanbanProjectState";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -656,6 +657,7 @@ export default function KanbanTab({
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+  const projectRequestGeneration = React.useRef(0);
 
   const subTabsRef = React.useRef<HTMLDivElement>(null);
   const scrollSubTabs = (direction: "left" | "right") => {
@@ -716,11 +718,13 @@ export default function KanbanTab({
 
   const fetchProjects = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
+    const requestGeneration = ++projectRequestGeneration.current;
     try {
       const url = activeBranchId
         ? `/api/v1/kanban/projects?branchId=${activeBranchId}`
         : "/api/v1/kanban/projects";
       const res = await fetch(url, {
+        cache: "no-store",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -729,18 +733,17 @@ export default function KanbanTab({
         throw new Error("Không thể tải danh sách dự án");
       }
       const json = await res.json();
+      if (!shouldApplyProjectResponse(requestGeneration, projectRequestGeneration.current)) return;
       const projData: Project[] = (json.data || []).map((item: any) => ({
         ...item,
         id: item._id,
       }));
       setProjects(projData.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
 
-      const expanded: Record<string, boolean> = {};
-      projData.forEach(p => {
-        expanded[p.id] = true;
+      setExpandedProjects((current) => {
+        if (Object.keys(current).length > 0) return current;
+        return Object.fromEntries([...projData.map((project) => [project.id, true]), ["unassigned", true]]);
       });
-      expanded["unassigned"] = true;
-      setExpandedProjects(expanded);
     } catch (error) {
       console.error("Lỗi khi tải danh sách dự án:", error);
     }
@@ -1115,10 +1118,11 @@ export default function KanbanTab({
       }
 
       const json = await res.json();
+      ++projectRequestGeneration.current;
       const createdProj = { ...json.data, id: json.data._id };
 
       toast.success(editingProjectId ? "Đã cập nhật dự án!" : "Đã tạo dự án mới thành công!");
-      setProjects(prev => editingProjectId ? prev.map((project) => project.id === editingProjectId ? createdProj : project) : [createdProj, ...prev]);
+      setProjects(prev => mergeSavedProject(prev, json.data, editingProjectId));
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]);

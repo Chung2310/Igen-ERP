@@ -13,6 +13,7 @@ import { idParamSchema } from "../validations/student.validation";
 import { requireModule } from "../../../middleware/require-module";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
+import { requireTeacherOperation } from "../middlewares/teacher-operation.middleware";
 
 const router = Router();
 const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS.assignment.manage]) as any;
@@ -30,10 +31,10 @@ const studentModuleGuard = requireModule("student") as any;
 const workerModuleGuard = requireModule("worker") as any;
 router.use((req, res, next) => (req.originalUrl.includes("/worker-management/") ? workerModuleGuard : studentModuleGuard)(req, res, next));
 router.use(requireRead);
-router.post("/", requireManage, validate(createAssignmentSchema), AssignmentController.create);
+router.post("/", requireTeacherOperation, validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);
-router.post("/:id/students/:studentId/submit", requireManage, validate(staffSubmitProofSchema), AssignmentController.staffSubmit);
-router.post("/:id/students/:studentId/grade", requireManage, validate(gradeSubmissionSchema), AssignmentController.grade);
+router.post("/:id/students/:studentId/submit", requireTeacherOperation, validate(staffSubmitProofSchema), AssignmentController.staffSubmit);
+router.post("/:id/students/:studentId/grade", requireTeacherOperation, validate(gradeSubmissionSchema), AssignmentController.grade);
 
 export default router;
