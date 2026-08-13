@@ -33,6 +33,15 @@ Payment method labels are localized: cash is `Tiền mặt`, transfer is `Chuy�
 
 These rules are shared by the detail dialog, browser receipt, and PDF so the three representations do not disagree.
 
+The invoice list card also shows an immediately visible payment summary below the order/customer line:
+
+- one payment method: its localized method label;
+- multiple payment methods: `Thanh toán hỗn hợp`;
+- no payment and full outstanding balance: `Ghi nợ toàn bộ`;
+- partial payment: `Thanh toán một phần · Đã thanh toán <paidAmount> · Còn nợ <dueAmount>`.
+
+Legacy invoices derive this summary from payment rows and `grandTotal` when summary fields are absent. The summary is informational and does not replace the detailed payment rows in the dialog, print view, or PDF.
+
 ## Validation and compatibility
 
 - Monetary snapshot fields remain integer VND values and cannot be negative.
@@ -46,4 +55,5 @@ These rules are shared by the detail dialog, browser receipt, and PDF so the thr
 - Snapshot creation prefers the human-readable cashier name and captures payment/debt totals.
 - Legacy invoice projection replaces email-like cashier values when a referenced user is available.
 - UI and print tests cover cash/transfer labels, partial debt, and full debt.
+- Invoice-list tests cover a single method, mixed payment, partial debt, and full debt without opening the detail dialog.
 - PDF rendering tests verify the payment/debt section is emitted without breaking Unicode output.

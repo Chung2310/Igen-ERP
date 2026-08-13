@@ -26,3 +26,14 @@ export function invoicePaymentRows(snapshot: PaymentSnapshot) {
   if (change > 0) rows.push({ label: "Tiền thừa", amount: change });
   return rows;
 }
+
+export function invoicePaymentSummary(snapshot: PaymentSnapshot) {
+  const paid = snapshot.paidAmount ?? snapshot.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const due = snapshot.dueAmount ?? Math.max(0, Number(snapshot.grandTotal || 0) - paid);
+  if (due > 0 && paid > 0) return { label: "Thanh toán một phần", paidAmount: paid, dueAmount: due };
+  if (due > 0) return { label: "Ghi nợ toàn bộ", dueAmount: due };
+  const methods = [...new Set(snapshot.payments.map((payment) => payment.method))];
+  if (methods.length > 1) return { label: "Thanh toán hỗn hợp" };
+  if (methods.length === 1) return { label: paymentLabels[methods[0]] || methods[0] };
+  return { label: snapshot.paymentStatus === "refunded" ? "Đã hoàn tiền" : "Chưa xác định" };
+}
