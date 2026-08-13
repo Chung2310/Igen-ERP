@@ -29,6 +29,13 @@ test("invoice schema stores immutable store identity fields", () => {
   }
 });
 
+test("invoice schema stores immutable payment and debt summary", () => {
+  for (const path of ["snapshot.paidAmount", "snapshot.dueAmount", "snapshot.paymentStatus"]) {
+    assert.ok(RetailInvoiceModel.schema.path(path), `${path} must exist`);
+  }
+  assert.ok((RetailInvoiceModel.schema.path("snapshot.paidAmount") as any).validators.length > 0);
+});
+
 test("order payment snapshots carry shift date tender and change", () => {
   for (const path of ["payments.shiftId", "payments.businessDate", "payments.tenderedAmount", "payments.changeAmount", "refunds.shiftId", "refunds.businessDate"]) {
     assert.ok(RetailOrderModel.schema.path(path), `${path} must exist`);

@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { WorkerModel } from "../models/worker.model";
 import { WorkerProjectModel } from "../models/worker-project.model";
-import type { WorkerStatus } from "../interfaces/worker.interface";
+import { WORKER_LABOR_TYPES, type WorkerLaborType, type WorkerStatus } from "../interfaces/worker.interface";
 import type { WorkerScope } from "../contracts";
 
 export type { WorkerScope } from "../contracts";
@@ -11,6 +11,10 @@ export type WorkerInput = {
   phone?: unknown;
   email?: unknown;
   status?: unknown;
+  laborType?: unknown;
+  nationality?: unknown;
+  workPermitNumber?: unknown;
+  workPermitExpiry?: unknown;
   note?: unknown;
   branchId?: unknown;
   address?: unknown;
@@ -31,6 +35,10 @@ export type BulkWorkerInput = {
   note?: unknown;
   registrationDate?: unknown;
   status?: unknown;
+  laborType?: unknown;
+  nationality?: unknown;
+  workPermitNumber?: unknown;
+  workPermitExpiry?: unknown;
   customFields?: unknown;
 };
 
@@ -73,6 +81,18 @@ function normalizeIdCard(value: unknown): string {
   return String(value ?? "").replace(/\s/g, "");
 }
 
+/**
+ * Accept both the stored codes and the Vietnamese labels users type into the
+ * import sheet, so "Thời vụ" and "seasonal" land on the same value.
+ */
+export function normalizeLaborType(value: unknown): WorkerLaborType {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (WORKER_LABOR_TYPES.includes(raw as WorkerLaborType)) return raw as WorkerLaborType;
+  if (raw.includes("thời vụ") || raw.includes("thoi vu")) return "seasonal";
+  if (raw.includes("nước ngoài") || raw.includes("nuoc ngoai")) return "foreign";
+  return "official";
+}
+
 export function normalizeWorkerInput(input: WorkerInput) {
   const fullName = String(input.fullName || "").trim();
   if (!fullName) throw new Error("Worker full name is required");
@@ -80,11 +100,28 @@ export function normalizeWorkerInput(input: WorkerInput) {
     ? String(input.status) as WorkerStatus
     : "active";
   const customFields = normalizeCustomFields(input.customFields);
+  const laborType = input.laborType !== undefined ? normalizeLaborType(input.laborType) : undefined;
+  // Giấy phép lao động/visa chỉ có nghĩa với lao động nước ngoài: khi chuyển sang
+  // loại khác thì xoá luôn để hồ sơ không giữ dữ liệu treo.
+  const clearWorkPermit = laborType !== undefined && laborType !== "foreign";
+  const workPermit = clearWorkPermit
+    ? { workPermitNumber: "", workPermitExpiry: "" }
+    : {
+        ...(input.workPermitNumber !== undefined
+          ? { workPermitNumber: String(input.workPermitNumber || "").trim() }
+          : {}),
+        ...(input.workPermitExpiry !== undefined
+          ? { workPermitExpiry: String(input.workPermitExpiry || "").trim() }
+          : {}),
+      };
   return {
     fullName,
     ...(input.phone !== undefined ? { phone: normalizeWorkerPhone(input.phone) } : {}),
     ...(input.email !== undefined ? { email: normalizeWorkerEmail(input.email) } : {}),
     status,
+    ...(laborType !== undefined ? { laborType } : {}),
+    ...(input.nationality !== undefined ? { nationality: String(input.nationality || "").trim() } : {}),
+    ...workPermit,
     ...(input.note !== undefined ? { note: String(input.note || "").trim() } : {}),
     ...(input.address !== undefined ? { address: String(input.address || "").trim() } : {}),
     ...(input.birthday !== undefined ? { birthday: String(input.birthday || "").trim() } : {}),
@@ -178,6 +215,14 @@ export class WorkerService {
           ? { customFields: normalizeCustomFields(row.customFields) }
           : {}),
         status,
+        laborType: normalizeLaborType(row.laborType),
+        ...(row.nationality ? { nationality: String(row.nationality).trim() } : {}),
+        ...(normalizeLaborType(row.laborType) === "foreign"
+          ? {
+              ...(row.workPermitNumber ? { workPermitNumber: String(row.workPermitNumber).trim() } : {}),
+              ...(row.workPermitExpiry ? { workPermitExpiry: String(row.workPermitExpiry).trim() } : {}),
+            }
+          : {}),
         companyCode: scope.companyCode,
         ...(scope.branchId ? { branchId: scope.branchId } : {}),
         deletedAt: null,

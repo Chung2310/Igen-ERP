@@ -18,6 +18,7 @@ export interface AuthenticatedRequest extends Request {
     branchId?: string;
     sessionId?: string;
     authLevel?: string;
+    displayName?: string;
   };
   resource?: any; // Để đính kèm tài nguyên sau khi qua requireCompanyAccess
 }
@@ -113,7 +114,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
-    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId").lean();
+    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId displayName").lean();
     if (!userDoc) {
       return res.status(401).json({ status: "error", message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại." });
     }
@@ -141,6 +142,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       branchId,
       sessionId: decoded.sid,
       authLevel: decoded.authLevel,
+      displayName: String(userDoc.displayName || "").trim() || undefined,
     };
 
     // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);

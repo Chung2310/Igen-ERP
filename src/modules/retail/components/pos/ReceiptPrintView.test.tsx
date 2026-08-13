@@ -25,6 +25,12 @@ describe("retail receipt", () => {
     expect(screen.queryByText(/giá vốn/i)).toBeNull();
   });
 
+  it("shows full debt when an invoice has no payment", () => {
+    render(<ReceiptPrintView invoice={{ ...result.invoice, snapshot: { ...result.invoice.snapshot, payments: [], paidAmount: 0, dueAmount: result.invoice.snapshot.grandTotal, paymentStatus: "unpaid" } }} />);
+    expect(screen.getByText("Ghi nợ toàn bộ")).toBeTruthy();
+    expect(screen.getAllByText("111.800 ₫").length).toBeGreaterThan(1);
+  });
+
   it("prints the completed invoice and can start a new order", async () => {
     const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
     const onNewOrder = vi.fn();
