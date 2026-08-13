@@ -14,6 +14,8 @@ const result: AttendanceDailyOverviewResult = {
   all: [onTime, late],
   groups: { ...emptyGroups, on_time: [onTime], late: [late] },
   counts: { all: 2, on_time: 1, late: 1, early: 0, late_early: 0, leave: 0, wfh: 0, absent: 0, incomplete: 0 },
+  errors: { location: [], network: [], face: [], forgot_checkin: [], forgot_checkout: [] },
+  errorCounts: { location: 0, network: 0, face: 0, forgot_checkin: 0, forgot_checkout: 0 },
 };
 
 describe("AttendanceDailyOverview", () => {
@@ -40,6 +42,14 @@ describe("AttendanceDailyOverview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ngày sau" }));
     expect(onDateChange).toHaveBeenNthCalledWith(1, "2026-08-12");
     expect(onDateChange).toHaveBeenNthCalledWith(2, "2026-08-14");
+  });
+
+  it("opens employees affected by an attendance error", () => {
+    const errorItem = { uid: "u2", displayName: "Trần Bình", email: "binh@igen.vn", category: "network" as const, reasonCode: "network_not_allowed", action: "check-in", attemptedAt: "2026-08-13T01:00:00Z", attemptCount: 2 };
+    const withError = { ...result, errors: { ...result.errors, network: [errorItem] }, errorCounts: { ...result.errorCounts, network: 1 } };
+    render(<AttendanceDailyOverview date="2026-08-13" onDateChange={vi.fn()} result={withError} loading={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sai mạng Wi-Fi: 1" }));
+    expect(screen.getByText("2 lần thử")).toBeTruthy();
   });
 
   it("renders loading and empty states", () => {
