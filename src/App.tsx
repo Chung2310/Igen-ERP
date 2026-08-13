@@ -51,7 +51,12 @@ function AppContent() {
 
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
-  const resolvedActiveTab = resolveEnabledTab(activeTab, userProfile?.enabledModules, userProfile?.businessType);
+  // Giảng viên chỉ làm việc tại Lớp học. Nếu gõ/thăm lại URL Nhân sự cũ,
+  // chuyển thẳng về Quản lý học viên thay vì để trang HR gọi API không có quyền.
+  const teacherSafeTab = userProfile?.role === "teacher" && activeTab === "NHÂN SỰ"
+    ? "QUẢN LÝ HỌC VIÊN" as TabType
+    : activeTab;
+  const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
 
   React.useEffect(() => {
     if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);

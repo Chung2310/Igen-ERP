@@ -131,7 +131,7 @@ async function seedPermissions() {
       { $addToSet: { permissions: { $each: ["custom-field:manage", "company-smtp:manage", "payroll:prepare", "payroll:pay"] } } },
     );
     await RolePermissionModel.updateMany(
-      { role: { $in: ["admin", "manager", "branch_owner", "user"] } },
+      { role: { $in: ["admin", "manager", "branch_owner", "user", "teacher"] } },
       { $pull: { permissions: "student-settings:manage" } },
     );
     await RolePermissionModel.updateMany(
