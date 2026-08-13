@@ -38,7 +38,7 @@ The invoice list card also shows an immediately visible payment summary below th
 - one payment method: its localized method label;
 - multiple payment methods: `Thanh toán hỗn hợp`;
 - no payment and full outstanding balance: `Ghi nợ toàn bộ`;
-- partial payment: `Thanh toán một phần · Còn nợ <amount>`.
+- partial payment: `Thanh toán một phần · Đã thanh toán <paidAmount> · Còn nợ <dueAmount>`.
 
 Legacy invoices derive this summary from payment rows and `grandTotal` when summary fields are absent. The summary is informational and does not replace the detailed payment rows in the dialog, print view, or PDF.
 

@@ -36,6 +36,7 @@ describe("RetailInvoicesPage", () => {
 
   it("shows cashier and localized partial payment details", async () => {
     render(<RetailInvoicesPage />);
+    expect(await screen.findByText(/Thanh toán một phần · Đã thanh toán 40\.000 ₫ · Còn nợ 60\.000 ₫/)).toBeTruthy();
     await userEvent.click(await screen.findByRole("button", { name: "Xem hóa đơn HD-01" }));
     expect(await screen.findByText("Thu ngân A")).toBeTruthy();
     expect(screen.getAllByText("Chuyển khoản").length).toBeGreaterThan(0);
