@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BellRing, ChartColumn, FileText, ListOrdered, MonitorSmartphone, Settings, Store, Users } from "lucide-react";
+import { ChartColumn, FileText, ListOrdered, MonitorSmartphone, Settings, Store, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
@@ -11,9 +11,8 @@ const OrdersPage = lazy(() => import("./pages/RetailOrdersPage"));
 const ShiftsPage = lazy(() => import("./pages/RetailShiftsPage"));
 const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPageContent"));
 const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
-const DebtRemindersPage = lazy(() => import("./pages/RetailDebtRemindersPage"));
 
-type RetailSubTab = "BÁN HÀNG" | "ĐƠN HÀNG" | "CA BÁN HÀNG" | "HÓA ĐƠN" | "BÁO CÁO" | "KHÁCH HÀNG" | "NHẮC CÔNG NỢ" | "CÀI ĐẶT";
+type RetailSubTab = "BÁN HÀNG" | "ĐƠN HÀNG" | "CA BÁN HÀNG" | "HÓA ĐƠN" | "BÁO CÁO" | "KHÁCH HÀNG" | "CÀI ĐẶT";
 const SUB_TABS = [
   { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Bán hàng", icon: Store },
   { slug: "don-hang", value: "ĐƠN HÀNG" as const, label: "Đơn hàng", icon: ListOrdered },
@@ -21,7 +20,6 @@ const SUB_TABS = [
   { slug: "hoa-don", value: "HÓA ĐƠN" as const, label: "Hóa đơn", icon: FileText },
   { slug: "bao-cao", value: "BÁO CÁO" as const, label: "Báo cáo", icon: ChartColumn },
   { slug: "khach-hang", value: "KHÁCH HÀNG" as const, label: "Khách hàng", icon: Users },
-  { slug: "nhac-cong-no", value: "NHẮC CÔNG NỢ" as const, label: "Nhắc công nợ", icon: BellRing },
   { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
 ];
 
@@ -60,7 +58,6 @@ export default function RetailWorkspace() {
           {activeTab === "HÓA ĐƠN" && <InvoicesPage />}
           {activeTab === "BÁO CÁO" && <ReportsPage />}
           {activeTab === "KHÁCH HÀNG" && <CustomersPage />}
-          {activeTab === "NHẮC CÔNG NỢ" && <DebtRemindersPage />}
           {activeTab === "CÀI ĐẶT" && <SettingsPage />}
         </Suspense>
       </div>
