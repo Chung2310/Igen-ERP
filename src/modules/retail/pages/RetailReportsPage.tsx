@@ -105,6 +105,7 @@ export default function RetailReportsPage() {
   const [reminderMessage, setReminderMessage] = React.useState("");
   const [reloadToken, setReloadToken] = React.useState(0);
   const requestSequence = React.useRef(0);
+  const summaryLoadingRef = React.useRef(false);
   const exportSequence = React.useRef(0);
   const exportController = React.useRef<AbortController | null>(null);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId}` : "";
@@ -134,14 +135,26 @@ export default function RetailReportsPage() {
   }, [exportContextKey]);
 
   React.useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "visible" || !scopeKey || summaryLoadingRef.current) return;
+      setReloadToken((value) => value + 1);
+    };
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [scopeKey]);
+
+  React.useEffect(() => {
     const requestId = ++requestSequence.current;
     if (!scope) {
+      summaryLoadingRef.current = false;
       setLoading(false);
       setLoadError(null);
       return undefined;
     }
 
     const requestedScopeKey = `${scope.companyCode}:${scope.branchId}`;
+    summaryLoadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     void retailReportsApi.summary(scope, filters)
@@ -155,7 +168,10 @@ export default function RetailReportsPage() {
         setLoadError({ scopeKey: requestedScopeKey, message: errorMessage(cause, "Không tải được báo cáo bán lẻ.") });
       })
       .finally(() => {
-        if (requestSequence.current === requestId) setLoading(false);
+        if (requestSequence.current === requestId) {
+          summaryLoadingRef.current = false;
+          setLoading(false);
+        }
       });
 
     return () => {

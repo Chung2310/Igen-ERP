@@ -86,7 +86,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [rankFilter] = useState('Tất cả hạng');
   const [feeStatusFilter, setFeeStatusFilter] = useState('Tất cả học phí');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -288,7 +288,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       window.dispatchEvent(new Event("student-mutation"));
     } catch (error) {
       console.error("Error bulk deleting students:", error);
-      toast.error(`Có lỗi xảy ra khi xóa hàng loạt ${entityLabel.singular}.`);
+      toast.error(error instanceof Error ? error.message : `Có lỗi xảy ra khi xóa hàng loạt ${entityLabel.singular}.`);
     } finally {
       setIsBulkDeleting(false);
     }

@@ -25,6 +25,20 @@ async function resolveActorName(uid: string, fallbackEmail?: string): Promise<st
   }
 }
 
+/** Resource indexing is secondary cleanup and must never make an already-completed student deletion fail. */
+async function trashStudentResources(companyCode: string | undefined, studentIds: string[]) {
+  if (!companyCode || studentIds.length === 0) return;
+  const results = await Promise.allSettled(studentIds.flatMap((id) => [
+    resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", id),
+    resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", id),
+    resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", id),
+    resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", id),
+  ]));
+  results.filter((result): result is PromiseRejectedResult => result.status === "rejected").forEach((result) => {
+    console.error("Failed to remove an indexed student resource:", result.reason);
+  });
+}
+
 export class StudentController {
   static async previewBulk(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -178,12 +192,7 @@ export class StudentController {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien de xoa." });
       }
       const companyCode = req.user!.companyCode || req.user!.centerId;
-      await Promise.all([
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", String(student._id)),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", String(student._id)),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", String(student._id)),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", String(student._id)),
-      ]);
+      await trashStudentResources(companyCode, [String(student._id)]);
       res.json({ success: true, data: student });
     } catch (error: unknown) {
       next(error);
@@ -199,12 +208,7 @@ export class StudentController {
       }
       const result = await StudentService.bulkDeleteStudents(ownerId, ids, req.user!.branchId);
       const companyCode = req.user!.companyCode || req.user!.centerId;
-      await Promise.all(result.deletedIds.flatMap((id: string) => [
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.profile", id),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.custom-field", id),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "student.face", id),
-        resourceIndexingService.trashSourceRecordResources(companyCode, "public.registration", id),
-      ]));
+      await trashStudentResources(companyCode, result.deletedIds);
       res.json({ success: true, message: `Da xoa thanh cong ${result.deletedCount} hoc vien.`, ...result });
     } catch (error: unknown) {
       next(error);

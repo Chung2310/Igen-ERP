@@ -13,10 +13,9 @@ import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { apiFetch } from '../../lib/api';
 
-type PaymentRecord = { studentId: string; amount: number; date: string; method: string; paidOn?: string };
+type PaymentRecord = { studentId: string; studentName?: string; amount: number; date: string; method: string; paidOn?: string };
 
 const toDateInput = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-const defaultStartDate = () => { const date = new Date(); date.setMonth(date.getMonth() - 1); return toDateInput(date); };
 
 interface FeesPageProps {
   onSelectStudent?: (student: Student, tab: string) => void;
@@ -30,10 +29,10 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debtFilter, setDebtFilter] = useState('Tất cả');
-  const [startDate, setStartDate] = useState(defaultStartDate);
-  const [endDate, setEndDate] = useState(() => toDateInput(new Date()));
-  const [appliedStartDate, setAppliedStartDate] = useState(defaultStartDate);
-  const [appliedEndDate, setAppliedEndDate] = useState(() => toDateInput(new Date()));
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
 
@@ -65,7 +64,24 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     total[String(payment.studentId)] = (total[String(payment.studentId)] || 0) + Number(payment.amount || 0);
     return total;
   }, {}), [payments]);
-  const studentsInPeriod = React.useMemo(() => students.filter((student) => periodStudentIds.has(String(student.id))), [students, periodStudentIds]);
+  const studentsInPeriod = React.useMemo(() => {
+    const activeStudents = students.filter((student) => periodStudentIds.has(String(student.id)));
+    const activeIds = new Set(activeStudents.map((student) => String(student.id)));
+    const archivedById = new Map<string, { name: string; paid: number; lastPaidOn?: string }>();
+    payments.forEach((payment) => {
+      const id = String(payment.studentId);
+      if (activeIds.has(id)) return;
+      const record = archivedById.get(id) || { name: payment.studentName || 'Học viên đã xóa', paid: 0, lastPaidOn: payment.paidOn || payment.date };
+      record.paid += Number(payment.amount || 0);
+      if (payment.paidOn || payment.date) record.lastPaidOn = payment.paidOn || payment.date;
+      archivedById.set(id, record);
+    });
+    const archivedStudents = Array.from(archivedById, ([id, record]) => ({
+      id, fullName: `${record.name} (đã xóa)`, phone: '-', rank: '', fee: record.paid.toLocaleString('vi-VN'), paidAmount: record.paid,
+      status: [], registrationDate: '', updatedAt: record.lastPaidOn || '', paymentHistory: [],
+    } as Student));
+    return [...activeStudents, ...archivedStudents];
+  }, [students, periodStudentIds, payments]);
 
   // Modal state
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
@@ -115,7 +131,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
     // Construct CSV content
     const csvContent = [
-      `Kỳ báo cáo: ${appliedStartDate} đến ${appliedEndDate}`,
+      `Kỳ báo cáo: ${appliedStartDate || 'Tất cả lịch sử'} đến ${appliedEndDate || 'hiện tại'}`,
       '',
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
@@ -175,7 +191,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold text-cyan-700 tracking-tight">Học phí</h1>
-          <p className="mt-1 text-[11px] font-medium text-slate-400">Số liệu theo kỳ: {appliedStartDate} đến {appliedEndDate}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-400">Số liệu theo kỳ: {appliedStartDate || 'Tất cả lịch sử'} đến {appliedEndDate || 'hiện tại'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -244,7 +260,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
         <button
           type="button"
           onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }}
-          disabled={paymentsLoading || !startDate || !endDate}
+          disabled={paymentsLoading || (Boolean(startDate) !== Boolean(endDate))}
           className="h-8 self-end rounded-lg bg-cyan-700 px-4 text-xs font-bold text-white transition hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {paymentsLoading ? 'Đang lọc...' : 'Lọc'}
