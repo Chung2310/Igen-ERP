@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { BranchModel } from "../model/branch.model";
-import { getRequestPublicIp, normalizePublicIp } from "../utils/request-ip";
+import { getRequestPublicIp, normalizeAllowedNetwork } from "../utils/request-ip";
 
 const company = (req: AuthenticatedRequest) => String(req.user?.companyCode || "").trim().toUpperCase();
 const canManage = (req: AuthenticatedRequest) => ["admin", "superadmin", "branch_owner"].includes(String(req.user?.role || ""));
@@ -32,7 +32,7 @@ export const branchController = {
   async create(req: AuthenticatedRequest, res: Response) {
     if (!canManage(req)) return res.status(403).json({ status: "error", message: "Không có quyền quản lý chi nhánh." });
     const companyCode = req.user?.role === "superadmin" && req.body.companyCode ? String(req.body.companyCode).toUpperCase() : company(req);
-    const locationConfig = req.body.locationConfig ? { ...req.body.locationConfig, allowedPublicIps: req.body.locationConfig.allowedPublicIps.map(normalizePublicIp) } : undefined;
+    const locationConfig = req.body.locationConfig ? { ...req.body.locationConfig, allowedPublicIps: req.body.locationConfig.allowedPublicIps.map(normalizeAllowedNetwork) } : undefined;
     const data = await BranchModel.create({ ...req.body, locationConfig, companyCode, code: String(req.body.code || "").toUpperCase() });
     return res.status(201).json({ status: "success", data });
   },
@@ -47,7 +47,7 @@ export const branchController = {
     if (typeof updates.code === "string") updates.code = updates.code.toUpperCase();
     if (updates.locationConfig) {
       const config = updates.locationConfig as any;
-      updates.locationConfig = { ...config, allowedPublicIps: config.allowedPublicIps.map(normalizePublicIp) };
+      updates.locationConfig = { ...config, allowedPublicIps: config.allowedPublicIps.map(normalizeAllowedNetwork) };
     }
     const data = await BranchModel.findOneAndUpdate(filter, { $set: updates }, { new: true, runValidators: true }).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy chi nhánh." });

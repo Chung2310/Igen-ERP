@@ -281,7 +281,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         method: 'POST',
         body: JSON.stringify({ ids: bulkDeletePreview.deletableIds }),
       });
-      if (result.deletedCount > 0) toast.success(`Đã xóa ${result.deletedCount} ${entityLabel.singular} không có dữ liệu liên quan.`);
+      if (result.deletedCount > 0) toast.success(`Đã xóa ${result.deletedCount} ${entityLabel.singular} và dữ liệu vận hành liên quan. Phiếu thu vẫn được giữ lại.`);
       if (result.blocked?.length > 0) toast.warning(`${result.blocked.length} ${entityLabel.singular} vừa phát sinh dữ liệu nên không được xóa.`);
       setSelectedStudentIds(bulkDeletePreview.blockedIds);
       setBulkDeletePreview(null);
@@ -901,7 +901,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               <div>
                 <h2 className="text-base font-bold text-slate-800">Kiểm tra trước khi xóa</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Có thể xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong>, bị chặn <strong className="text-rose-600">{bulkDeletePreview.blockedCount}</strong> {entityLabel.singular}.
+                  Sẽ xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong> {entityLabel.singular}, dữ liệu lớp học/điểm danh/điểm số liên quan; phiếu thu vẫn được giữ lại.
                 </p>
               </div>
               <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-50">
@@ -932,9 +932,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
               {bulkDeletePreview.deletableCount > 0 && (
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                  <h3 className="text-xs font-bold text-emerald-700">Có thể xóa</h3>
+                  <h3 className="text-xs font-bold text-emerald-700">Sẽ xóa</h3>
                   <p className="mt-1 text-[11px] text-slate-600">
-                    {bulkDeletePreview.items.filter(item => item.reasons.length === 0).map(item => item.name).join(', ')}
+                    {bulkDeletePreview.items.filter(item => bulkDeletePreview.deletableIds.includes(item.studentId)).map(item => item.name).join(', ')}
                   </p>
                 </div>
               )}
@@ -972,7 +972,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       />
 
       {/* Import Student Modal */}
-      {usesEducationBilling && <ImportStudentModal
+      {usesEducationBilling && isImportOpen && <ImportStudentModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => setIsImportOpen(false)}

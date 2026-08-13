@@ -6,12 +6,20 @@ import { validateRequest } from "../middleware/validation";
 import { authRateLimiter, loginAccountRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
 import { UserModel } from "../model/user.model";
 import { branchController } from "../controller/branch.controller";
+import { isIP } from "node:net";
 
 export const authRouter = Router();
 
 // Định nghĩa regex cho email và số điện thoại Việt Nam
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
+
+export const allowedPublicIpSchema = Joi.string().trim().custom((value, helpers) => {
+  if (isIP(value) !== 0) return value;
+  const cidr = value.match(/^(.+)\/(\d+)$/);
+  if (cidr && isIP(cidr[1]) === 6 && cidr[2] === "64") return value;
+  return helpers.error("string.ip");
+}, "IPv4, IPv6 or IPv6 /64 network");
 
 const branchFields = {
   code: Joi.string().trim().min(1).max(32).pattern(/^[A-Za-z0-9_-]+$/).required(),
@@ -23,7 +31,7 @@ const branchFields = {
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
     allowedRadius: Joi.number().min(1).required(),
-    allowedPublicIps: Joi.array().items(Joi.string().ip({ version: ["ipv4", "ipv6"], cidr: "forbidden" })).min(1).unique().required(),
+    allowedPublicIps: Joi.array().items(allowedPublicIpSchema).min(1).unique().required(),
   }).unknown(false).optional(),
   isActive: Joi.boolean().optional(),
 };

@@ -145,7 +145,7 @@ export default function SubmitProofPage() {
           body: JSON.stringify({
             file: base64,
             fileName: file.name,
-            mimeType: file.type,
+            mimeType: file.type || "application/octet-stream",
             size: file.size,
           }),
         });
@@ -159,7 +159,7 @@ export default function SubmitProofPage() {
           {
             name: file.name,
             url: data.url,
-            type: file.type,
+            type: file.type || "application/octet-stream",
             uploadToken: data.uploadToken,
           },
         ]);

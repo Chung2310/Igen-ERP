@@ -88,6 +88,22 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     errors: { row: number; name: string; phone: string; reason: string }[];
   } | null>(null);
 
+  const clearImportState = () => {
+    setIsDragging(false);
+    setValidationRows([]);
+    setFileName('');
+    setSourceFile(null);
+    setErrorMsg(null);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleClose = () => {
+    if (isUploading || isValidating) return;
+    clearImportState();
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const handleDownloadTemplate = () => {
@@ -97,26 +113,31 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       let cols: { wch: number }[] = [];
 
       headers = [
-        'Họ và tên', 'Số điện thoại', 'Học phí', 'Đã đóng', 'Còn nợ',
-        'Ngày sinh', 'CCCD / CMND', 'Email', 'Người giới thiệu', 'Địa chỉ', 'Ngày nhập học', 'Mã lớp'
+        'Họ và tên *', 'Số điện thoại *', 'Email *', 'Học phí', 'Đã đóng', 'Còn nợ',
+        'Ngày sinh', 'CCCD / CMND', 'Người giới thiệu', 'Địa chỉ', 'Ngày nhập học', 'Mã lớp'
       ];
       data = [
-        ['Nguyễn Văn A', '0912345678', '1.000.000', '1.000.000', '0', '25/12/1995', '123456789012', 'nva@gmail.com', 'Trần Văn B', '123 Đường Lê Lợi, Q.1', '15/06/2026', 'LH-001'],
-        ['Trần Thị B', '0987654321', '3.500.000', '0', '3.500.000', '10/05/2000', '987654321098', 'ttb@gmail.com', '', '456 Đường Nguyễn Huệ, H.Hóc Môn', '20/06/2026', 'LH-002']
+        ['Nguyễn Văn A', '0912345678', 'nva@gmail.com', '1.000.000', '1.000.000', '0', '25/12/1995', '123456789012', 'Trần Văn B', '123 Đường Lê Lợi, Q.1', '15/06/2026', 'LH-001'],
+        ['Trần Thị B', '0987654321', 'ttb@gmail.com', '3.500.000', '0', '3.500.000', '10/05/2000', '987654321098', '', '456 Đường Nguyễn Huệ, H.Hóc Môn', '20/06/2026', 'LH-002']
       ];
       cols = [
         { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
         { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 }, { wch: 12 }
       ];
 
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+      const note = 'Chỉ bắt buộc: Họ và tên, Số điện thoại, Email. Các cột còn lại có thể để trống.';
+      const ws = XLSX.utils.aoa_to_sheet([[note], headers, ...data]);
       ws['!cols'] = cols;
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, entityLabel.listTitle);
       // ownerId/centerId are intentionally excluded: the server resolves the center automatically.
       const guide = XLSX.utils.aoa_to_sheet([
         ['L\u01b0u \u00fd'],
+        ['Ba cột bắt buộc: Họ và tên, Số điện thoại, Email.'],
+        ['Các cột còn lại là tùy chọn. CCCD / CMND có thể để trống và được phép trùng.'],
+        ['Hệ thống chỉ kiểm tra trùng Số điện thoại và Email.'],
         ['Kh\u00f4ng c\u1ea7n nh\u1eadp ownerId, centerId ho\u1eb7c m\u00e3 trung t\u00e2m. H\u1ec7 th\u1ed1ng t\u1ef1 g\u00e1n trung t\u00e2m khi nh\u1eadp d\u1eef li\u1ec7u.'],
         ['Trường "Mã lớp" là không bắt buộc. Nếu nhập và mã lớp tồn tại, học viên sẽ được tự động xếp vào lớp đó.'],
       ]);
@@ -180,10 +201,16 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           return;
         }
 
-        const headerMap = mapHeaders(rows[0]);
+        const headerRowIndex = rows.findIndex((row, index) => {
+          if (index > 9 || !Array.isArray(row)) return false;
+          const candidate = mapHeaders(row);
+          return candidate.fullName !== undefined && candidate.phone !== undefined && candidate.email !== undefined;
+        });
+        const headerMap = headerRowIndex >= 0 ? mapHeaders(rows[headerRowIndex]) : {};
         const missingHeaders = [];
         if (headerMap.fullName === undefined) missingHeaders.push('Họ và tên');
         if (headerMap.phone === undefined) missingHeaders.push('Số điện thoại');
+        if (headerMap.email === undefined) missingHeaders.push('Email');
         // Cột "Hạng bằng" chỉ dành cho ngành lái xe — không còn bắt buộc
 
         if (missingHeaders.length > 0) {
@@ -194,9 +221,8 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         const validationResults: ValidationRow[] = [];
         const seenPhones = new Set<string>();
         const seenEmails = new Set<string>();
-        const seenIdCards = new Set<string>();
 
-        for (let i = 1; i < rows.length; i++) {
+        for (let i = headerRowIndex + 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
             continue;
@@ -232,15 +258,9 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           else if (seenPhones.has(studentData.phone)) errors.push('SĐT bị trùng lặp trong file');
           else seenPhones.add(studentData.phone);
           const normalizedEmail = studentData.email?.trim().toLowerCase() || '';
-          if (normalizedEmail) {
-            if (seenEmails.has(normalizedEmail)) errors.push('Email bị trùng lặp trong file');
-            else seenEmails.add(normalizedEmail);
-          }
-          const normalizedIdCard = studentData.idCard?.replace(/\D/g, '') || '';
-          if (normalizedIdCard) {
-            if (seenIdCards.has(normalizedIdCard)) errors.push('CCCD/CMND bị trùng lặp trong file');
-            else seenIdCards.add(normalizedIdCard);
-          }
+          if (!normalizedEmail) errors.push('Email không được trống');
+          else if (seenEmails.has(normalizedEmail)) errors.push('Email bị trùng lặp trong file');
+          else seenEmails.add(normalizedEmail);
           if (paidAmount > feeNum) errors.push(`Số tiền đã đóng (${paidAmount.toLocaleString('vi-VN')}đ) không được vượt quá học phí (${studentData.fee}đ)`);
 
           // Hạng bằng là tùy chọn tự do, không cần kiểm tra thuộc danh sách cố định lái xe nữa
@@ -351,12 +371,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   };
 
   const handleReset = () => {
-    setValidationRows([]);
-    setFileName('');
-    setSourceFile(null);
-    setErrorMsg(null);
-    setImportResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    clearImportState();
   };
 
   const totalValid = validationRows.filter(r => r.isValid).length;
@@ -369,7 +384,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => !isUploading && !isValidating && onClose()}
+          onClick={handleClose}
           className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
         />
         <motion.div
@@ -384,7 +399,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
               <h2 className="text-xl font-bold text-slate-800">Nhập danh sách {entityLabel.singular}</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Hỗ trợ định dạng file Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button onClick={onClose} disabled={isUploading || isValidating} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
+            <button onClick={handleClose} disabled={isUploading || isValidating} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>
@@ -405,7 +420,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
             {isValidating && (
               <div className="p-4 mb-6 bg-cyan-50 border border-cyan-100 rounded-2xl flex items-center gap-3 text-cyan-700">
                 <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-                <p className="text-xs font-bold">Đang kiểm tra trùng SĐT, email và CCCD/CMND với dữ liệu hiện có...</p>
+                <p className="text-xs font-bold">Đang kiểm tra trùng SĐT và email với dữ liệu hiện có...</p>
               </div>
             )}
 
@@ -554,7 +569,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
           {!importResult && (
             <div className="flex items-center justify-end gap-4 px-8 py-5 border-t border-slate-100 flex-shrink-0">
-              <button type="button" onClick={onClose} disabled={isUploading || isValidating} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Hủy</button>
+              <button type="button" onClick={handleClose} disabled={isUploading || isValidating} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Hủy</button>
               {validationRows.length > 0 && (
                 <button onClick={handleImport} disabled={isUploading || isValidating} className="flex items-center gap-2 px-6 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0">
                   {isUploading || isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}

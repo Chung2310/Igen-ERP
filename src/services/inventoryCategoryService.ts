@@ -7,6 +7,8 @@ type CategoryInput = {
   description: string;
 };
 
+type CategoryApiRecord = Record<string, unknown>;
+
 export const inventoryCategoryService = {
   subscribe(branchId: string, callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
     const controller = new AbortController();
@@ -23,7 +25,7 @@ export const inventoryCategoryService = {
           throw new Error("Không thể tải danh sách danh mục.");
         }
         const json = await res.json();
-        const categories = (json.data || []).map((item: any) => ({
+        const categories = (json.data || []).map((item: CategoryApiRecord) => ({
           ...item,
           id: item._id,
           code: typeof item.code === "string" ? item.code : "",

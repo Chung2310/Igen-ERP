@@ -106,6 +106,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
   const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    if (entityLabel.preset === 'student') return ['fullName', 'phone', 'email'].includes(fieldKey);
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
@@ -179,7 +180,8 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     e.preventDefault();
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
-      if (f.isVisible && !f.isArchived && f.isRequired) {
+      const required = entityLabel.preset === 'student' ? ['fullName', 'phone', 'email'].includes(f.key) : f.isRequired;
+      if (f.isVisible && !f.isArchived && required) {
         if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
         if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
         if (f.key === 'referral' && !formData.referral && referralMode === 'custom') missingFields.push(f.label);
@@ -202,7 +204,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
       {
         email: formData.email,
         phone: formData.phone,
-        idCard: formData.idCard,
       },
       student?.id,
       'general'

@@ -23,6 +23,18 @@ interface AddExamModalProps {
   tenantId?: string;
 }
 
+function getEarliestExamDate(batch?: { startDate?: string; endDate?: string; daysOfWeek?: number[] }) {
+  if (!batch?.startDate || !batch?.endDate || !batch.daysOfWeek?.length) return '';
+  const dates: string[] = [];
+  const cursor = new Date(`${batch.startDate}T00:00:00`);
+  const end = new Date(`${batch.endDate}T00:00:00`);
+  while (cursor <= end) {
+    if (batch.daysOfWeek.includes(cursor.getDay())) dates.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates[Math.max(0, Math.ceil(dates.length * 0.85) - 1)] || '';
+}
+
 export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId }: AddExamModalProps) {
   const { userProfile: user } = useAuth();
   const {
@@ -159,6 +171,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     () => batches.find((batch) => batch.id === formData.batchId),
     [batches, formData.batchId]
   );
+  const earliestExamDate = React.useMemo(() => getEarliestExamDate(selectedBatch), [selectedBatch]);
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const [localTentativeDate, setLocalTentativeDate] = useState('');
@@ -242,8 +255,8 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
       toast.warning('Ngưỡng đạt phải nằm trong khoảng từ 0 đến thang điểm.');
       return;
     }
-    if (selectedBatch && formData.tentativeDate && selectedBatch.endDate && formData.tentativeDate < selectedBatch.endDate) {
-      toast.warning(`Ngày thi dự kiến nên từ sau ngày kết thúc lớp (${selectedBatch.endDate.split('-').reverse().join('/')}). Bạn vẫn có thể tạo lịch trước, nhưng không nên thi khi lớp chưa hoàn tất.`);
+    if (earliestExamDate && formData.tentativeDate && formData.tentativeDate < earliestExamDate) {
+      toast.warning(`Ngày thi chỉ được sớm tối đa 15% tiến độ lớp, từ ngày ${earliestExamDate.split('-').reverse().join('/')}.`);
       return;
     }
     if (!initialData && formData.tentativeDate) {
@@ -526,6 +539,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                         type="date"
                         name="tentativeDate"
                         value={localTentativeDate}
+                        min={earliestExamDate || undefined}
                         onChange={(e) => {
                           setLocalTentativeDate(e.target.value);
                           handleInputChange(e);
@@ -534,6 +548,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                         className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
                       />
                     </div>
+                    {earliestExamDate && <p className="text-[10px] text-slate-400">Có thể thi sớm tối đa 15%: từ {earliestExamDate.split('-').reverse().join('/')}.</p>}
                   </div>
                 )}
               </div>
