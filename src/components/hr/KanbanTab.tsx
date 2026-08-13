@@ -41,7 +41,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
-import { mergeSavedProject, shouldApplyProjectResponse } from "./kanbanProjectState";
+import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -626,6 +626,7 @@ export default function KanbanTab({
   activeBranchId,
 }: KanbanTabProps) {
   const [tasks, setTasks] = useState<HRTask[]>([]);
+  const tasksRef = React.useRef<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
@@ -691,6 +692,16 @@ export default function KanbanTab({
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const applyTaskMutation = (updateTasks: (current: HRTask[]) => HRTask[], affectedProjectIds: Array<string | undefined>) => {
+    const nextTasks = updateTasks(tasksRef.current);
+    tasksRef.current = nextTasks;
+    setTasks(nextTasks);
+    setProjects((currentProjects) => updateProjectProgressFromTasks(currentProjects, nextTasks, affectedProjectIds));
+    void fetchProjects();
+  };
+
   const fetchTasks = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
@@ -710,6 +721,7 @@ export default function KanbanTab({
         ...item,
         id: item._id,
       })) as HRTask[];
+      tasksRef.current = tasksData;
       setTasks(tasksData);
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
@@ -983,7 +995,7 @@ export default function KanbanTab({
         } as HRTask;
 
         toast.success("Đã thêm công việc thành công!");
-        setTasks(prev => [...prev, createdTask]);
+        applyTaskMutation((current) => [...current, createdTask], [createdTask.projectId]);
       } else {
         const changes: string[] = [];
         if ((selectedKanbanTask.title || "") !== editTitle.trim()) {
@@ -1073,7 +1085,7 @@ export default function KanbanTab({
         }
 
         toast.success("Đã lưu thay đổi công việc!");
-        setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } as HRTask : t));
+        applyTaskMutation((current) => current.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } as HRTask : t), [selectedKanbanTask.projectId, updatedFields.projectId]);
       }
       setSelectedKanbanTask(null);
     } catch (error: any) {
@@ -1202,7 +1214,7 @@ export default function KanbanTab({
         throw new Error(err.message || "Cập nhật trạng thái thất bại");
       }
 
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
+      applyTaskMutation((current) => current.map(t => t.id === id ? { ...t, ...updateData } : t), [taskObj?.projectId]);
       toast.success("Đã cập nhật trạng thái công việc!");
     } catch (error: any) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
@@ -1272,7 +1284,7 @@ export default function KanbanTab({
         throw new Error(err.message || "Cập nhật trạng thái thất bại");
       }
 
-      setTasks(prev => prev.map(x => (x.id === t.id ? { ...x, ...updateData } : x)));
+      applyTaskMutation((current) => current.map(x => (x.id === t.id ? { ...x, ...updateData } : x)), [t.projectId]);
       setQuickDone(null);
       toast.success("Đã hoàn thành công việc!");
     } catch (error) {
@@ -1315,7 +1327,8 @@ export default function KanbanTab({
         throw new Error(err.message || "Xóa công việc thất bại");
       }
 
-      setTasks(prev => prev.filter(t => t.id !== id));
+      const deletedTask = tasksRef.current.find((task) => task.id === id);
+      applyTaskMutation((current) => current.filter(t => t.id !== id), [deletedTask?.projectId]);
       toast.success("Đã xóa công việc thành công!");
       return true;
     } catch (error: any) {
@@ -1348,7 +1361,9 @@ export default function KanbanTab({
 
       setProjects(prev => prev.filter(p => p.id !== id));
       // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
-      setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
+      const nextTasks = tasksRef.current.map(t => (t.projectId === id ? { ...t, projectId: "" } : t));
+      tasksRef.current = nextTasks;
+      setTasks(nextTasks);
       toast.success("Đã xóa dự án thành công!");
     } catch (error: any) {
       console.error("Lỗi khi xóa dự án:", error);
