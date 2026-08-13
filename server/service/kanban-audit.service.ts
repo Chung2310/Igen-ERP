@@ -12,8 +12,9 @@ type MutationContext = {
 };
 
 type ProjectMutation = MutationContext & {
-  action: "created" | "deleted";
+  action: "created" | "updated" | "deleted";
   project: Record<string, any>;
+  before?: Record<string, any>;
 };
 
 type TaskMutation = MutationContext & {
@@ -27,7 +28,11 @@ function idOf(value: unknown) {
 }
 
 function safeProject(project: Record<string, any>) {
-  return { name: String(project.name || "") };
+  const snapshot: Record<string, unknown> = { name: String(project.name || "") };
+  for (const field of ["status", "priority", "startAt", "dueAt", "completedAt", "attachments"] as const) {
+    if (project[field] !== undefined) snapshot[field] = project[field];
+  }
+  return snapshot;
 }
 
 function safeTask(task: Record<string, any>) {
@@ -53,8 +58,8 @@ export function createKanbanAuditService(recorder: AuditRecorder = auditService)
         entityType: "project",
         entityId: projectId,
         projectId,
-        ...(input.action === "deleted"
-          ? { before: safeProject(input.project) }
+        ...(input.action === "deleted" ? { before: safeProject(input.project) }
+          : input.before ? { before: safeProject(input.before), after: safeProject(input.project) }
           : { after: safeProject(input.project) }),
       });
     },
