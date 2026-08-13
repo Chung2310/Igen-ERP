@@ -48,7 +48,7 @@ describe("BranchManagementTab", () => {
 
     await waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith(expect.stringMatching(/quyền truy cập vị trí/i)));
     expect((screen.getByLabelText("IP công cộng được phép") as HTMLTextAreaElement).value)
-      .toBe("2405:4802:219a:9eb0:8002:e332:b128:462b");
+      .toBe("2405:4802:219a:9eb0::/64");
   });
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 

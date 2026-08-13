@@ -1,4 +1,4 @@
-import { normalizePublicIp } from "../utils/request-ip";
+import { isRequestIpAllowed, normalizePublicIp } from "../utils/request-ip";
 
 export class BranchAttendanceGateError extends Error {
   constructor(public readonly reasonCode: "branch_attendance_not_configured" | "outside_radius" | "network_not_allowed", public readonly distance?: number) { super(reasonCode); }
@@ -19,6 +19,8 @@ export function validateBranchAttendance(input: { branch: any; latitude: number;
   const distance = distanceMeters(input.latitude, input.longitude, config.latitude, config.longitude);
   if (distance > config.allowedRadius) throw new BranchAttendanceGateError("outside_radius", distance);
   const requestIp = normalizePublicIp(input.requestIp);
-  if (!config.allowedPublicIps.map(normalizePublicIp).includes(requestIp)) throw new BranchAttendanceGateError("network_not_allowed", distance);
+  if (!config.allowedPublicIps.some((allowedIp: unknown) => isRequestIpAllowed(requestIp, allowedIp))) {
+    throw new BranchAttendanceGateError("network_not_allowed", distance);
+  }
   return { distance, requestIp };
 }
