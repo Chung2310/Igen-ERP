@@ -100,6 +100,7 @@ describe("PayrollTab inline period inputs", () => {
     await user.clear(bonus);
     await user.type(bonus, "0");
 
+    expect((bonus as HTMLInputElement).value).toBe("0");
     expect((await screen.findByText("1 nhân viên có thay đổi chưa lưu")).textContent).toBe("1 nhân viên có thay đổi chưa lưu");
     expect(screen.getAllByRole("button", { name: "Lưu thay đổi" })).toHaveLength(1);
   });
