@@ -145,7 +145,7 @@ export class PaymentService {
   static async getPayments(ownerId: string | string[], filters: PaymentFilters, branchId?: string) {
     logger.info(`[Payment] Fetching payments for ownerId=${ownerId} with filters: ${JSON.stringify(filters)}`);
     const page = Math.max(1, filters.page ? parseInt(String(filters.page)) || 1 : 1);
-    const limit = Math.min(500, Math.max(1, filters.limit ? parseInt(String(filters.limit)) || 100 : 100));
+    const limit = Math.min(5000, Math.max(1, filters.limit ? parseInt(String(filters.limit)) || 100 : 100));
     const skip = (page - 1) * limit;
 
     const query: Record<string, unknown> = {
@@ -156,13 +156,19 @@ export class PaymentService {
     }
     if (filters.studentId) query.studentId = filters.studentId;
 
-    const endDate = parsePaymentDate(filters.endDate) || new Date();
-    const startDate = parsePaymentDate(filters.startDate) || new Date(endDate);
-    if (!filters.startDate) startDate.setMonth(startDate.getMonth() - 1);
-    if (startDate > endDate) throw new Error("Ngày bắt đầu không được sau ngày kết thúc.");
-    const rangeEnd = new Date(endDate);
-    rangeEnd.setHours(23, 59, 59, 999);
-    query.paidOn = { $gte: startDate, $lte: rangeEnd };
+    const startDate = parsePaymentDate(filters.startDate);
+    const endDate = parsePaymentDate(filters.endDate);
+    if (startDate && endDate && startDate > endDate) throw new Error("Ngày bắt đầu không được sau ngày kết thúc.");
+    if (startDate || endDate) {
+      const range: Record<string, Date> = {};
+      if (startDate) range.$gte = startDate;
+      if (endDate) {
+        const rangeEnd = new Date(endDate);
+        rangeEnd.setHours(23, 59, 59, 999);
+        range.$lte = rangeEnd;
+      }
+      query.paidOn = range;
+    }
 
     const total = await Payment.countDocuments(query);
     const payments = await Payment.find(query)
