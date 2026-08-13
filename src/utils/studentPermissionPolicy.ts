@@ -26,10 +26,11 @@ const hasPermission = (permissions: readonly string[], code: string) =>
 export function canReadStudentArea(permissions: readonly string[], area: StudentPermissionArea) {
   if (CONFIGURATION_AREAS.has(area)) return hasPermission(permissions, `${area}:manage`);
   // The student module has two umbrella permissions rather than area-specific permissions.
-  return ["student:read", "student:manage"].some((code) => hasPermission(permissions, code));
+  return ["student:read", "student:manage", "teacher:operate"].some((code) => hasPermission(permissions, code));
 }
 
 export function canManageStudentArea(permissions: readonly string[], area: StudentPermissionArea) {
   if (CONFIGURATION_AREAS.has(area)) return hasPermission(permissions, `${area}:manage`);
-  return hasPermission(permissions, "student:manage");
+  if (hasPermission(permissions, "student:manage")) return true;
+  return ["assignment", "student-quality"].includes(area) && hasPermission(permissions, "teacher:operate");
 }

@@ -35,6 +35,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   // grouped here - see RETIRED_PERMISSION_CODES below.
   { code: "student:read", label: "Xem học viên", group: "Học viên" },
   { code: "student:manage", label: "Quản lý học viên", group: "Học viên" },
+  { code: "teacher:operate", label: "Vận hành lớp được phân công", group: "Học viên", description: "Điểm danh, giao/nộp hộ/chấm bài tập và cập nhật chất lượng học viên trong lớp mình dạy." },
   { code: "worker:read", label: "Xem lao động", group: "Lao động" },
   { code: "worker:manage", label: "Quản lý lao động", group: "Lao động" },
   { code: "customer:read", label: "Xem khách hàng", group: "Khách hàng" },

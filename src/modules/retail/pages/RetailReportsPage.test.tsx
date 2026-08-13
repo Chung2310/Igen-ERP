@@ -109,8 +109,14 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function setDocumentVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", { configurable: true, value: state });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
   retailScopeState.scope = { companyCode: "ACME", branchId: "B1" };
   window.history.replaceState(null, "", "/erp?sub=bao-cao");
   vi.mocked(retailReportsApi.summary).mockResolvedValue(report());
@@ -485,5 +491,42 @@ describe("RetailReportsPage", () => {
 
     expect(screen.getByText("Vui lòng chọn chi nhánh để xem báo cáo.")).toBeTruthy();
     expect(retailReportsApi.summary).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the report when the browser tab becomes visible again", async () => {
+    render(<RetailReportsPage />);
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledTimes(1));
+
+    setDocumentVisibility("hidden");
+    expect(retailReportsApi.summary).toHaveBeenCalledTimes(1);
+
+    setDocumentVisibility("visible");
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledTimes(2));
+    expect(retailReportsApi.summary).toHaveBeenLastCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      {},
+    );
+  });
+
+  it("does not overlap visibility refreshes and removes the listener on unmount", async () => {
+    const initialRequest = deferred<RetailReport>();
+    vi.mocked(retailReportsApi.summary).mockImplementationOnce(() => initialRequest.promise);
+    const view = render(<RetailReportsPage />);
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledTimes(1));
+
+    setDocumentVisibility("hidden");
+    setDocumentVisibility("visible");
+    expect(retailReportsApi.summary).toHaveBeenCalledTimes(1);
+
+    initialRequest.resolve(report());
+    await waitFor(() => expect(document.querySelector("section")?.getAttribute("aria-busy")).toBe("false"));
+    setDocumentVisibility("hidden");
+    setDocumentVisibility("visible");
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledTimes(2));
+
+    view.unmount();
+    setDocumentVisibility("hidden");
+    setDocumentVisibility("visible");
+    expect(retailReportsApi.summary).toHaveBeenCalledTimes(2);
   });
 });

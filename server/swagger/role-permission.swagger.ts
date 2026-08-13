@@ -13,7 +13,7 @@ export const rolePermissionSwagger = {
                 type: "object",
                 properties: {
                   companyCode: { type: "string", example: "COMPA", description: "Mã doanh nghiệp (Bắt buộc đối với Superadmin, Admin tự động dùng companyCode của mình)" },
-                  role: { type: "string", enum: ["admin", "manager", "user"], example: "manager", description: "Vai trò cần gán quyền" },
+                  role: { type: "string", enum: ["admin", "manager", "teacher", "user"], example: "manager", description: "Vai trò cần gán quyền" },
                   permissions: {
                     type: "array",
                     items: { type: "string" },
@@ -48,7 +48,7 @@ export const rolePermissionSwagger = {
         parameters: [
           { name: "page", in: "query", schema: { type: "integer", minimum: 1 }, description: "Số trang" },
           { name: "limit", in: "query", schema: { type: "integer", minimum: 1 }, description: "Số bản ghi trên trang" },
-          { name: "role", in: "query", schema: { type: "string", enum: ["admin", "manager", "user"] }, description: "Lọc theo vai trò" },
+          { name: "role", in: "query", schema: { type: "string", enum: ["admin", "manager", "teacher", "user"] }, description: "Lọc theo vai trò" },
           { name: "companyCode", in: "query", schema: { type: "string" }, description: "Lọc theo mã doanh nghiệp (Chỉ Superadmin mới lọc được doanh nghiệp khác, các vai trò khác mặc định lấy doanh nghiệp của mình)" }
         ],
         responses: {
@@ -67,7 +67,7 @@ export const rolePermissionSwagger = {
         tags: ["Role Permissions"],
         security: [{ BearerAuth: [] }],
         parameters: [
-          { name: "role", in: "path", required: true, schema: { type: "string", enum: ["admin", "manager", "user"] }, description: "Vai trò cần xem" },
+          { name: "role", in: "path", required: true, schema: { type: "string", enum: ["admin", "manager", "teacher", "user"] }, description: "Vai trò cần xem" },
           { name: "companyCode", in: "query", schema: { type: "string" }, description: "Mã doanh nghiệp (Bắt buộc đối với Superadmin, các vai trò khác mặc định lấy doanh nghiệp của mình)" }
         ],
         responses: {
@@ -84,7 +84,7 @@ export const rolePermissionSwagger = {
         tags: ["Role Permissions"],
         security: [{ BearerAuth: [] }],
         parameters: [
-          { name: "role", in: "path", required: true, schema: { type: "string", enum: ["admin", "manager", "user"] }, description: "Vai trò cần xóa" },
+          { name: "role", in: "path", required: true, schema: { type: "string", enum: ["admin", "manager", "teacher", "user"] }, description: "Vai trò cần xóa" },
           { name: "companyCode", in: "query", schema: { type: "string" }, description: "Mã doanh nghiệp (Bắt buộc đối với Superadmin, các vai trò khác mặc định lấy doanh nghiệp của mình)" }
         ],
         responses: {

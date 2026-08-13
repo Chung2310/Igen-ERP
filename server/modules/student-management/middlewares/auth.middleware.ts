@@ -2,7 +2,7 @@ import { Response, NextFunction } from "express";
 import { requireAuth, AuthenticatedRequest } from "../../../middleware/auth";
 import { requireStudentBranch } from "../utils/auth.util";
 
-type StudentManagementRole = "superadmin" | "admin" | "branch_owner" | "manager" | "user";
+type StudentManagementRole = "superadmin" | "admin" | "branch_owner" | "manager" | "user" | "teacher";
 
 export interface AuthRequest extends AuthenticatedRequest {
   user?: {

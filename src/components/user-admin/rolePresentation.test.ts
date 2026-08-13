@@ -9,7 +9,7 @@ test("system roles have clear Vietnamese titles without changing slugs", () => {
   assert.equal(getRoleTitle("manager"), "Quản lý");
   assert.equal(getRoleTitle("user"), "Nhân viên");
   assert.equal(getRoleTitle("staff"), "Nhân viên");
-  assert.equal(getRoleTitle("teacher"), "Giáo viên");
+  assert.equal(getRoleTitle("teacher"), "Giảng viên");
   assert.equal(getRoleTitle("accountant"), "Kế toán");
   assert.equal(getRoleTitle("manager", "Trưởng trung tâm"), "Trưởng trung tâm");
 });
