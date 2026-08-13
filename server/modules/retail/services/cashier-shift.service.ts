@@ -4,10 +4,58 @@ import type { ICashierShift } from "../interfaces/cashier-shift.interface";
 import { CashierShiftModel } from "../models/cashier-shift.model";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 import { RetailOrderModel } from "../models/retail-order.model";
+import { resolveShift, scheduledAt, shiftWindow, vietnamWorkDate, weekdayOf } from "../../../service/work-shift.service";
 
 type CashInputs = { openingFloat: number; cashCollected: number; cashRefunded: number; movementsIn: number; movementsOut: number };
 export function calculateExpectedCash(input: CashInputs) { return input.openingFloat + input.cashCollected + input.movementsIn - input.movementsOut - input.cashRefunded; }
 export function varianceNeedsReason(variance: number, threshold: number) { return Math.abs(variance) > threshold; }
+export function retailShiftOperationalEndsAt(input: { businessDate: string; scheduledEndAt: Date; crossesMidnight: boolean }) {
+  if (input.crossesMidnight) return input.scheduledEndAt;
+  return new Date(scheduledAt(input.businessDate, "00:00", true).getTime() - 1);
+}
+export function isRetailShiftOperational(shift: { businessDate?: string; operationalEndsAt?: Date | string }, now = new Date()) {
+  const deadline = shift.operationalEndsAt
+    ? new Date(shift.operationalEndsAt)
+    : shift.businessDate
+      ? new Date(scheduledAt(shift.businessDate, "00:00", true).getTime() - 1)
+      : new Date(0);
+  return now.getTime() <= deadline.getTime();
+}
+export function assertRetailShiftOperational<T extends { businessDate?: string; operationalEndsAt?: Date | string }>(shift: T | null | undefined, now = new Date()): T {
+  if (!shift) throw Object.assign(new Error("Bạn chưa mở ca bán hàng."), { status: 409, code: "SHIFT_NOT_OPEN" });
+  if (!isRetailShiftOperational(shift, now)) throw Object.assign(new Error("Ca bán hàng đã hết thời gian hoạt động. Vui lòng đóng ca cũ."), { status: 409, code: "SHIFT_EXPIRED" });
+  return shift;
+}
+const outsideWorkSchedule = () => Object.assign(new Error("Chỉ được mở ca bán hàng trong giờ làm việc được phân công."), { status: 409, code: "OUTSIDE_WORK_SCHEDULE" });
+export function buildRetailShiftScheduleSnapshot(resolved: Awaited<ReturnType<typeof resolveShift>>, workDate: string, now: Date) {
+  const shift = resolved.shift as any;
+  if (!(shift.workingDays || []).includes(weekdayOf(workDate))) throw outsideWorkSchedule();
+  const { scheduledStartAt, scheduledEndAt } = shiftWindow(shift, workDate);
+  if (now < scheduledStartAt || now > scheduledEndAt) throw outsideWorkSchedule();
+  return {
+    ...(shift._id ? { workShiftId: String(shift._id) } : {}),
+    workShiftCode: String(shift.code), workShiftName: String(shift.name), scheduledStartAt, scheduledEndAt,
+    operationalEndsAt: retailShiftOperationalEndsAt({ businessDate: workDate, scheduledEndAt, crossesMidnight: Boolean(shift.crossesMidnight) }),
+  };
+}
+export async function resolveRetailShiftSchedule(
+  companyCode: string,
+  employeeId: string,
+  now = new Date(),
+  resolver: typeof resolveShift = resolveShift,
+) {
+  const today = vietnamWorkDate(now);
+  const previous = new Date(`${today}T00:00:00.000Z`);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  for (const businessDate of [today, previous.toISOString().slice(0, 10)]) {
+    try {
+      return { businessDate, snapshot: buildRetailShiftScheduleSnapshot(await resolver(companyCode, employeeId, businessDate), businessDate, now) };
+    } catch (error: any) {
+      if (error?.code !== "OUTSIDE_WORK_SCHEDULE") throw error;
+    }
+  }
+  throw outsideWorkSchedule();
+}
 export function serializeCashierShift(shift: ICashierShift | Record<string, any>, canManage: boolean) {
   const value = typeof (shift as any).toObject === "function" ? (shift as any).toObject() : { ...shift };
   if (value.status !== "open" || value.countedCash != null || canManage) return value;
@@ -20,6 +68,9 @@ const actorName = (actor: any) => String(actor.displayName || actor.email || "")
 
 export const CashierShiftService = {
   current: (scope: RetailBranchScope, actor: any) => CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }),
+  async operational(scope: RetailBranchScope, actor: any, now = new Date()) {
+    return assertRetailShiftOperational(await CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }), now);
+  },
   async list(scope: RetailBranchScope, query: any) {
     const page = Math.max(1, Number(query.page) || 1); const limit = Math.min(100, Math.max(1, Number(query.limit) || 20)); const filter: any = { ...scope };
     for (const key of ["businessDate", "cashierId", "status"]) if (query[key]) filter[key] = query[key];
@@ -32,11 +83,13 @@ export const CashierShiftService = {
     const openingFloat = Number(input.openingFloat);
     if (!Number.isSafeInteger(openingFloat) || openingFloat < 0) throw new Error("Quỹ đầu ca không hợp lệ.");
     const now = new Date(); const terminalId = String(input.terminalId || "").trim() || undefined;
-    return CashierShiftModel.create({ ...scope, terminalId, shiftCode: `CA-${scope.branchId}-${now.getTime()}`, cashierId: actorId(actor), cashierName: actorName(actor), openingFloat, openedAt: now, openedBy: actorId(actor), cashMovements: [], grossSales: 0, collectedAmount: 0, newDebtAmount: 0, refundedAmount: 0, netCollectedAmount: 0, methodTotals: [], expectedCash: openingFloat, status: "open", businessDate: businessDateInVietnam(now) });
+    const { businessDate, snapshot } = await resolveRetailShiftSchedule(scope.companyCode, actorId(actor), now);
+    return CashierShiftModel.create({ ...scope, terminalId, shiftCode: `CA-${scope.branchId}-${now.getTime()}`, cashierId: actorId(actor), cashierName: actorName(actor), openingFloat, openedAt: now, openedBy: actorId(actor), cashMovements: [], grossSales: 0, collectedAmount: 0, newDebtAmount: 0, refundedAmount: 0, netCollectedAmount: 0, methodTotals: [], expectedCash: openingFloat, status: "open", businessDate, ...snapshot });
   },
   async addMovement(scope: RetailBranchScope, id: string, input: any, actor: any) {
     const amount = Number(input.amount); const type = input.type; const reason = String(input.reason || "").trim();
     if (!Types.ObjectId.isValid(id) || !["in", "out"].includes(type) || !Number.isSafeInteger(amount) || amount <= 0 || !reason) throw new Error("Giao dịch thu/chi không hợp lệ.");
+    assertRetailShiftOperational(await CashierShiftModel.findOne({ _id: id, ...scope, cashierId: actorId(actor), status: "open" }));
     const shift = await CashierShiftModel.findOneAndUpdate({ _id: id, ...scope, cashierId: actorId(actor), status: "open" }, { $push: { cashMovements: { type, amount, reason, at: new Date(), by: actorId(actor), byName: actorName(actor) } } }, { new: true });
     if (!shift) throw new Error("Ca bán hàng không còn mở."); return shift;
   },
