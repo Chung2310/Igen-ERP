@@ -7,6 +7,4 @@ cashierShiftRoutes.get("/current", operate, cashierShiftController.current as an
 cashierShiftRoutes.get("/", operate, cashierShiftController.list as any);
 cashierShiftRoutes.get("/:id", operate, cashierShiftController.detail as any);
 cashierShiftRoutes.post("/open", operate, cashierShiftController.open as any);
-cashierShiftRoutes.post("/:id/cash-movements", operate, cashierShiftController.movement as any);
 cashierShiftRoutes.post("/:id/close", operate, cashierShiftController.close as any);
-cashierShiftRoutes.post("/:id/approve", requirePermission(RETAIL_MANAGER_PERMISSION) as any, cashierShiftController.approve as any);

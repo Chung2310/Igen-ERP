@@ -8,7 +8,7 @@ import RetailShiftsPage from "./RetailShiftsPage";
 vi.mock("../hooks/useRetailScope", () => ({
   useRetailScope: () => ({
     scope: { companyCode: "ACME", branchId: "B1" },
-    userProfile: { uid: "user-1", permissions: ["retail:operate"] },
+    userProfile: { uid: "user-1", permissions: ["retail:manager"] },
   }),
 }));
 
@@ -55,16 +55,15 @@ describe("RetailShiftsPage currency inputs", () => {
     expect(button.disabled).toBe(false);
   });
 
-  it("formats counted cash and cash movement amounts", async () => {
+  it("keeps formatted counted cash without movement or approval controls", async () => {
     vi.mocked(retailShiftsApi.current).mockResolvedValue(openShift);
     render(<RetailShiftsPage />);
 
-    const movementInput = await screen.findByRole("textbox", { name: "Số tiền" }) as HTMLInputElement;
-    const countedInput = screen.getByRole("textbox", { name: "Tiền thực đếm" }) as HTMLInputElement;
+    const countedInput = await screen.findByRole("textbox", { name: "Tiền thực đếm" }) as HTMLInputElement;
 
-    fireEvent.change(movementInput, { target: { value: "250000" } });
     fireEvent.change(countedInput, { target: { value: "1.500.000 ₫" } });
-    expect(movementInput.value).toBe("250.000");
     expect(countedInput.value).toBe("1.500.000");
+    expect(screen.queryByText("Thu/rút tiền trong ca")).toBeNull();
+    expect(screen.queryByText("Ca chờ duyệt")).toBeNull();
   });
 });

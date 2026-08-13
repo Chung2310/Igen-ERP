@@ -18,7 +18,5 @@ export const cashierShiftController = {
   list: asyncHandler(async (req, res) => { const data = await CashierShiftService.list(scope(req), req.query); const manager = await hasEffectiveRetailCapability((req as any).user || {}, "manager"); res.json({ success: true, data: { ...data, items: data.items.map((shift) => serializeCashierShift(shift, manager)) } }); }),
   detail: asyncHandler(async (req, res) => { const data = await CashierShiftService.detail(scope(req), req.params.id); const manager = await hasEffectiveRetailCapability((req as any).user || {}, "manager"); res.json({ success: true, data: { ...data, shift: serializeCashierShift(data.shift, manager) } }); }),
   open: asyncHandler(async (req, res) => { res.status(201).json({ success: true, data: serializeCashierShift(await CashierShiftService.open(scope(req), req.body || {}, (req as any).user), false) }); }),
-  movement: asyncHandler(async (req, res) => { res.json({ success: true, data: serializeCashierShift(await CashierShiftService.addMovement(scope(req), req.params.id, req.body || {}, (req as any).user), false) }); }),
   close: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.close(scope(req), req.params.id, req.body || {}, (req as any).user) }); }),
-  approve: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.approve(scope(req), req.params.id, (req as any).user) }); }),
 };
