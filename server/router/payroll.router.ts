@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 import { payrollController } from "../controller/payroll.controller";
 import { payrollFormulaController } from "../controller/payroll-formula.controller";
 import { payrollPeriodInputController } from "../controller/payroll-period-input.controller";
+import { payrollLineOverrideController } from "../controller/payroll-line-override.controller";
 export const payrollRouter = Router();
 payrollRouter.use(requireAuth as any);
 payrollRouter.get("/period-input-variables", requirePermission("payroll:read") as any, payrollPeriodInputController.variables as any);
@@ -13,6 +14,8 @@ payrollRouter.post("/period-input-variables/:id/retire", requirePermission("payr
 payrollRouter.get("/periods/:periodKey/inputs", requirePermission("payroll:read") as any, payrollPeriodInputController.list as any);
 payrollRouter.put("/periods/:periodKey/inputs/:employeeId", requirePermission("payroll:manage") as any, payrollPeriodInputController.save as any);
 payrollRouter.put("/periods/:periodKey/inputs", requirePermission("payroll:manage") as any, payrollPeriodInputController.bulk as any);
+payrollRouter.get("/periods/:periodKey/line-overrides", requirePermission("payroll:read") as any, payrollLineOverrideController.list as any);
+payrollRouter.put("/periods/:periodKey/line-overrides", requirePermission("payroll:manage") as any, payrollLineOverrideController.bulk as any);
 payrollRouter.get("/formulas", requirePermission("payroll:read") as any, payrollFormulaController.list as any);
 payrollRouter.post("/formulas", requirePermission("payroll:manage") as any, payrollFormulaController.create as any);
 payrollRouter.patch("/formulas/:id", requirePermission("payroll:manage") as any, payrollFormulaController.update as any);
