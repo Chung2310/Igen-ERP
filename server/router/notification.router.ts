@@ -31,6 +31,7 @@ notificationRouter.post(
 notificationRouter.patch(
   "/read-all",
   requireAuth as any,
+  requirePermission("chat:read") as any,
   notificationController.markAllRead as any
 );
 
@@ -38,6 +39,7 @@ notificationRouter.patch(
 notificationRouter.patch(
   "/:id/read",
   requireAuth as any,
+  requirePermission("chat:read") as any,
   validateRequest(notificationIdParamsSchema),
   notificationController.markRead as any
 );
@@ -46,6 +48,7 @@ notificationRouter.patch(
 notificationRouter.delete(
   "/:id",
   requireAuth as any,
+  requirePermission("chat:manage") as any,
   validateRequest(notificationIdParamsSchema),
   notificationController.delete as any
 );
