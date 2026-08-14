@@ -271,7 +271,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
     setProcessingPayroll(true);
     try {
-      await payrollService.processPeriod(period);
+      if (run?.activeRevisionId) await payrollService.calculateRun(String(run._id), Number(run.version));
+      else await payrollService.processPeriod(period);
       clearLocalOverrideState();
       await loadLineOverrides();
       toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
@@ -494,7 +495,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
