@@ -20,6 +20,7 @@ type PayrollRunDocument = IPayrollRun & {
     deductions: number;
     netPay: number;
   };
+  effectiveSnapshot?: any;
 };
 
 const schema = new Schema<PayrollRunDocument>({
@@ -32,6 +33,7 @@ const schema = new Schema<PayrollRunDocument>({
   parentRunId: String,
   activeRevisionId: String,
   activeRevisionChecksum: String,
+  effectiveSnapshot: { type: Schema.Types.Mixed },
   supplementalReason: String,
   status: { type: String, enum: ["draft", "review", "closed", "paid"], default: "draft", index: true },
   needsInputRefresh: { type: Boolean, default: false },
@@ -50,6 +52,7 @@ const schema = new Schema<PayrollRunDocument>({
     warnings: { type: [String], default: [] },
     formulaApplications: { type: Schema.Types.Mixed },
     periodInput: { type: Schema.Types.Mixed },
+    payment: { type: Schema.Types.Mixed },
   }],
   issues: [{
     code: { type: String, required: true },

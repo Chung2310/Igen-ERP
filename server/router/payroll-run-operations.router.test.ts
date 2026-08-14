@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
 
+const permissionGuards = vi.hoisted(() => new Map<any, string | string[]>());
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
   runFindOneAndUpdate: vi.fn(),
@@ -13,6 +14,18 @@ const mocks = vi.hoisted(() => ({
   jobFindOneAndUpdate: vi.fn(),
   auditCreate: vi.fn(),
 }));
+
+vi.mock("../middleware/auth", async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    requirePermission: (permission: string | string[]) => {
+      const guard = (_req: any, _res: any, next: any) => next();
+      permissionGuards.set(guard, permission);
+      return guard;
+    },
+  };
+});
 
 vi.mock("../model/payroll-run.model", () => ({
   PayrollRunModel: {
@@ -75,6 +88,15 @@ const response = () => {
   res.status = vi.fn().mockReturnValue(res);
   res.json = vi.fn().mockReturnValue(res);
   return res;
+};
+const permissionOf = (method: string, path: string) => {
+  const layer = (payrollRouter as any).stack.find((item: any) => (
+    item.route?.path === path && item.route?.methods?.[method.toLowerCase()]
+  ));
+  if (!layer) return undefined;
+  return layer.route.stack
+    .map((handler: any) => permissionGuards.get(handler.handle))
+    .find((permission: string | undefined) => permission !== undefined);
 };
 
 describe("operational payroll request validation", () => {
@@ -537,5 +559,21 @@ describe("operational payroll controller and routes", () => {
       "POST /runs/:id/close",
       "GET /runs/:id/audit",
     ]));
+  });
+
+  it("guards line override reads and bulk writes with payroll permissions", () => {
+    expect(permissionOf("GET", "/periods/:periodKey/line-overrides")).toBe("payroll:read");
+    expect(permissionOf("PUT", "/periods/:periodKey/line-overrides")).toBe("payroll:manage");
+  });
+
+  it("never exposes a line override route without a permission guard", () => {
+    const lineOverrideRoutes = (payrollRouter as any).stack.filter((item: any) => (
+      item.route?.path === "/periods/:periodKey/line-overrides"
+    ));
+
+    expect(lineOverrideRoutes).toHaveLength(2);
+    expect(lineOverrideRoutes.every((item: any) => (
+      item.route.stack.some((handler: any) => permissionGuards.has(handler.handle))
+    ))).toBe(true);
   });
 });
