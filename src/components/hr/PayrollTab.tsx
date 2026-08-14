@@ -147,7 +147,15 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     try { setResults(await payrollService.getResults(period)); } catch { setResults([]); }
     try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); }
   };
-  useEffect(() => { void reload(); void loadLineOverrides(); }, [period]);
+  useEffect(() => {
+    // A missing run for the newly selected month must not leave the previous
+    // month's authoritative table on screen while the new requests settle.
+    setRun(null);
+    setResults([]);
+    setAdjustments([]);
+    void reload();
+    void loadLineOverrides();
+  }, [period]);
   useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
 
