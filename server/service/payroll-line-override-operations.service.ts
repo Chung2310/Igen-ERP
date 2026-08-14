@@ -1,7 +1,9 @@
+import mongoose, { type ClientSession } from "mongoose";
 import {
   PAYROLL_LINE_OVERRIDE_FIELDS,
 } from "../interface/payroll-line-override.interface";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
+import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
 import { PayrollLineOverrideModel } from "../model/payroll-line-override.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 
@@ -22,6 +24,24 @@ const failure = (code: string, message: string, status = 400): never => {
   throw Object.assign(new Error(message), { code, status });
 };
 
+async function inTransaction<T>(operation: (session?: ClientSession) => Promise<T>): Promise<T> {
+  if (mongoose.connection.readyState !== 1) return operation();
+  const session = await mongoose.startSession();
+  try {
+    let result!: T;
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
+const withSession = (query: any, session?: ClientSession) => (
+  session ? query.session(session) : query
+);
+
 function assertValidValue(value: unknown, field: string) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     failure("PAYROLL_LINE_OVERRIDE_VALUE_INVALID", `${field} is not a finite non-negative number`);
@@ -32,6 +52,10 @@ function parseChanges(row: PayrollLineOverrideRow) {
   const values = { ...(row.values ?? {}) };
   const customValues = { ...(row.customValues ?? {}) };
   const clearFields = [...new Set((row.clearFields ?? []).map(String))];
+  const customCodes = [...new Set([
+    ...Object.keys(customValues),
+    ...clearFields.filter((field) => field.startsWith("custom.")).map((field) => field.slice("custom.".length)),
+  ])];
 
   for (const [field, value] of Object.entries(values)) {
     if (!allowedFields.has(field)) {
@@ -74,7 +98,28 @@ function parseChanges(row: PayrollLineOverrideRow) {
   const auditValues: Record<string, unknown> = { ...values };
   if (Object.keys(customValues).length) auditValues.customValues = customValues;
 
-  return { clearFields, setValues, unsetValues, auditValues };
+  return { clearFields, customCodes, setValues, unsetValues, auditValues };
+}
+
+async function assertActiveCustomCodes(
+  scope: PayrollScope,
+  customCodes: string[],
+  session?: ClientSession,
+) {
+  if (!customCodes.length) return;
+  const activeVariables = await withSession(PayrollCustomVariableModel.find({
+    companyCode: scope.companyCode,
+    status: "active",
+    code: { $in: customCodes },
+  }), session).lean();
+  const activeCodes = new Set(activeVariables.map((variable) => variable.code));
+  const invalidCode = customCodes.find((code) => !activeCodes.has(code));
+  if (invalidCode) {
+    failure(
+      "PAYROLL_LINE_OVERRIDE_FIELD_INVALID",
+      `custom.${invalidCode} is not an active company custom field`,
+    );
+  }
 }
 
 async function assertEditableRun(scope: PayrollScope, periodKey: string) {
@@ -86,6 +131,29 @@ async function assertEditableRun(scope: PayrollScope, periodKey: string) {
       409,
     );
   }
+}
+
+async function claimDraftRun(scope: PayrollScope, periodKey: string, session?: ClientSession) {
+  const options = { new: true, ...(session ? { session } : {}) };
+  const run = await withSession(PayrollRunModel.findOneAndUpdate(
+    { ...scope, periodKey, type: "regular", status: "draft" },
+    { $inc: { version: 1 } },
+    options,
+  ), session).lean();
+  if (!run) {
+    failure(
+      "PAYROLL_LINE_OVERRIDE_LOCKED",
+      "Payroll line overrides require a draft regular run",
+      409,
+    );
+  }
+  return run;
+}
+
+async function createAudit(value: Record<string, unknown>, session?: ClientSession) {
+  if (!session) return PayrollAuditModel.create(value as any);
+  const [created] = await PayrollAuditModel.create([value as any], { session });
+  return created;
 }
 
 export async function listPayrollLineOverrides(scope: PayrollScope, periodKey: string) {
@@ -101,62 +169,81 @@ async function savePayrollLineOverride(
   if (!row.reason?.trim()) {
     failure("PAYROLL_LINE_OVERRIDE_REASON_REQUIRED", "A reconciliation reason is required");
   }
+  if (
+    typeof row.expectedVersion !== "number"
+    || !Number.isInteger(row.expectedVersion)
+    || row.expectedVersion < 0
+  ) {
+    failure(
+      "PAYROLL_LINE_OVERRIDE_VERSION_INVALID",
+      "expectedVersion must be a supplied non-negative integer number",
+    );
+  }
 
-  const { clearFields, setValues, unsetValues, auditValues } = parseChanges(row);
+  const { clearFields, customCodes, setValues, unsetValues, auditValues } = parseChanges(row);
   const reason = row.reason.trim();
-  const expectedVersion = Number(row.expectedVersion ?? 0);
+  const expectedVersion = row.expectedVersion;
   const identity = { ...scope, periodKey, employeeId: row.employeeId };
-  const before = await PayrollLineOverrideModel.findOne(identity).lean();
-  const update: Record<string, unknown> = {
-    $set: { ...setValues, reason, updatedBy: actorId },
-    $setOnInsert: identity,
-    $inc: { version: 1 },
-  };
-  if (Object.keys(unsetValues).length) update.$unset = unsetValues;
+  return inTransaction(async (session) => {
+    await claimDraftRun(scope, periodKey, session);
+    await assertActiveCustomCodes(scope, customCodes, session);
+    const before = await withSession(PayrollLineOverrideModel.findOne(identity), session).lean();
+    const update: Record<string, unknown> = {
+      $set: { ...setValues, reason, updatedBy: actorId },
+      $setOnInsert: identity,
+      $inc: { version: 1 },
+    };
+    if (Object.keys(unsetValues).length) update.$unset = unsetValues;
 
-  let after;
-  try {
-    after = await PayrollLineOverrideModel.findOneAndUpdate(
-      { ...identity, version: expectedVersion },
-      update,
-      { new: true, upsert: expectedVersion === 0, runValidators: true },
-    ).lean();
-  } catch (error: any) {
-    if (error?.code === 11000) {
+    let after;
+    try {
+      after = await withSession(PayrollLineOverrideModel.findOneAndUpdate(
+        { ...identity, version: expectedVersion },
+        update,
+        {
+          new: true,
+          upsert: expectedVersion === 0,
+          runValidators: true,
+          ...(session ? { session } : {}),
+        },
+      ), session).lean();
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        failure(
+          "PAYROLL_LINE_OVERRIDE_VERSION_CONFLICT",
+          "Payroll line override was changed by another user",
+          409,
+        );
+      }
+      throw error;
+    }
+
+    if (!after) {
       failure(
         "PAYROLL_LINE_OVERRIDE_VERSION_CONFLICT",
         "Payroll line override was changed by another user",
         409,
       );
     }
-    throw error;
-  }
 
-  if (!after) {
-    failure(
-      "PAYROLL_LINE_OVERRIDE_VERSION_CONFLICT",
-      "Payroll line override was changed by another user",
-      409,
-    );
-  }
+    await createAudit({
+      ...scope,
+      periodKey,
+      action: "adjustment",
+      actorId,
+      metadata: {
+        operation: "line_override",
+        employeeId: row.employeeId,
+        reason,
+        values: auditValues,
+        clearFields,
+        before,
+        after,
+      },
+    }, session);
 
-  await PayrollAuditModel.create({
-    ...scope,
-    periodKey,
-    action: "adjustment",
-    actorId,
-    metadata: {
-      operation: "line_override",
-      employeeId: row.employeeId,
-      reason,
-      values: auditValues,
-      clearFields,
-      before,
-      after,
-    },
+    return after;
   });
-
-  return after;
 }
 
 export async function bulkSavePayrollLineOverrides(
