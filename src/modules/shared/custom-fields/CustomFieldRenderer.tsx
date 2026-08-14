@@ -17,6 +17,13 @@ function acceptsMime(file: File, allowed?: string[]): boolean {
   return allowed.some((mime) => mime === file.type || (mime.endsWith("/*") && file.type.startsWith(mime.slice(0, -1))));
 }
 
+function toDateTimeLocalValue(value: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function CustomFieldRenderer({ field, value, onChange, error, disabled = false }: CustomFieldRendererProps) {
   const fieldType = field.type as string;
   const generatedId = useId();
@@ -212,7 +219,9 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
       const dateMin = fieldType === "date" ? validation?.minDate : fieldType === "time" ? validation?.minTime : fieldType === "dateTime" ? validation?.minDateTime : validation?.min;
       const dateMax = fieldType === "date" ? validation?.maxDate : fieldType === "time" ? validation?.maxTime : fieldType === "dateTime" ? validation?.maxDateTime : validation?.max;
       const decimals = Number(validation?.decimals ?? 0);
-      control = <input {...common} className={inputClass} type={inputTypes[fieldType] ?? "text"} placeholder={field.placeholder} value={stringValue} min={dateMin as string | number | undefined} max={dateMax as string | number | undefined} step={isNumeric ? (decimals > 0 ? 10 ** -decimals : fieldType === "percent" ? "any" : 1) : undefined} minLength={validation?.minLength as number | undefined} maxLength={validation?.maxLength as number | undefined} pattern={validation?.pattern as string | undefined} onChange={(event) => onChange(isNumeric ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value)} />;
+      const normalizedDateMin = fieldType === "dateTime" && typeof dateMin === "string" ? toDateTimeLocalValue(dateMin) : dateMin;
+      const normalizedDateMax = fieldType === "dateTime" && typeof dateMax === "string" ? toDateTimeLocalValue(dateMax) : dateMax;
+      control = <input {...common} className={inputClass} type={inputTypes[fieldType] ?? "text"} placeholder={field.placeholder} value={fieldType === "dateTime" ? toDateTimeLocalValue(stringValue) : stringValue} min={normalizedDateMin as string | number | undefined} max={normalizedDateMax as string | number | undefined} step={isNumeric ? (decimals > 0 ? 10 ** -decimals : fieldType === "percent" ? "any" : 1) : undefined} minLength={validation?.minLength as number | undefined} maxLength={validation?.maxLength as number | undefined} pattern={validation?.pattern as string | undefined} onChange={(event) => onChange(isNumeric ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value)} />;
     }
   }
 

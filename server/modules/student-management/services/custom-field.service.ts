@@ -32,7 +32,10 @@ type QueryableModel = {
   findOneAndDelete(filter: Record<string, unknown>): PromiseLike<IFieldDefinition | null>;
 };
 type UserModel = { find(filter: Record<string, unknown>): { select(fields: string): Promise<Array<{ _id: unknown }> > } };
-type EntityModel = { exists(filter: Record<string, unknown>): Promise<unknown> };
+type EntityModel = {
+  exists(filter: Record<string, unknown>): Promise<unknown>;
+  updateMany?: (filter: Record<string, unknown>, update: Record<string, unknown>) => PromiseLike<unknown>;
+};
 
 export type CustomFieldServiceDependencies = {
   fieldDefinitions: QueryableModel;
@@ -226,6 +229,17 @@ export class CustomFieldService {
   }
 
   async delete(context: CustomFieldContext, moduleKey: ModuleKey, id: string): Promise<void> {
+    const field = await this.dependencies.fieldDefinitions.findOne({ _id: id, tenantId: context.tenantId, moduleKey });
+    if (!field) throw new Error("Không tìm thấy trường tùy chỉnh.");
+    const users = await this.dependencies.users.find({ companyCode: context.tenantId }).select("_id");
+    const ownerIds = users.map(user => String(user._id));
+    const updateMany = this.dependencies.entityModels[moduleKey].updateMany;
+    if (updateMany && ownerIds.length) {
+      await updateMany(
+        { ownerId: { $in: ownerIds } },
+        { $unset: { [`customFields.${field.key}`]: 1 } },
+      );
+    }
     const deleted = await this.dependencies.fieldDefinitions.findOneAndDelete({ _id: id, tenantId: context.tenantId, moduleKey });
     if (!deleted) throw new Error("Không tìm thấy trường tùy chỉnh.");
   }
