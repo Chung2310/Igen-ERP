@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import {
   permissionRouteDiagnostics,
+  PUBLIC_ROUTE_EXCEPTIONS,
   scanPermissionRouteInventory,
   scanPermissionRouteSource,
   type PermissionRouteDiagnostic,
@@ -61,6 +62,16 @@ describe("permission route inventory", () => {
     expect(scanPermissionRouteSource(`router.post("/payment", handler);`, "server/modules/student-management/routes/webhook.routes.ts")[0].diagnostics).toEqual([]);
   });
 
+  it("documents the signed Google Drive OAuth callback as a public protocol exception", () => {
+    expect(PUBLIC_ROUTE_EXCEPTIONS).toContainEqual(expect.objectContaining({
+      sourceFile: "server/router/google-drive.router.ts",
+      router: "googleDriveRouter",
+      mount: "/integrations/google-drive",
+      method: "GET",
+      path: "/callback",
+    }));
+  });
+
   it("does not treat a handler-body alias as route middleware", () => {
     const [route] = scanPermissionRouteSource(`router.post("/x", requireAuth, (req, res) => { const operate = requirePermission("retail:manage"); });`, "fixture.router.ts");
     expect(route.permissionCodes).toEqual([]);
@@ -79,7 +90,7 @@ describe("permission route inventory", () => {
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
     const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 275, fingerprint: "baa555d7296309b85bd6288a021a2b74bb6476d296ae65474c455e149c42fc8b" });
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 267, fingerprint: "6c69394877cc4b452a0eaf9fccda5246e2efd8fe29a81164027be422c0e1a852" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {

@@ -219,8 +219,8 @@ export const googleDriveController = {
         return sendHtmlResponse("error", "Không tìm thấy mã code từ Google.");
       }
 
-      const userId = String(state);
-      if (!userId || userId.length !== 24) {
+      const userId = GoogleDriveService.getUserIdFromOAuthState(String(state || ""));
+      if (!userId) {
         return sendHtmlResponse("error", "Mã trạng thái userId không hợp lệ.");
       }
 
