@@ -3,6 +3,7 @@ import Joi from "joi";
 import { rolePermissionController } from "../controller/role-permission.controller";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { isCanonicalPermission } from "../config/permission-catalog";
 
 export const rolePermissionRouter = Router();
 
@@ -12,8 +13,11 @@ const saveRolePermissionSchema = {
     role: Joi.string().required().messages({
       "any.required": "Vai trò là bắt buộc.",
     }),
-    permissions: Joi.array().items(Joi.string()).required().messages({
+    permissions: Joi.array().items(Joi.string().custom((value, helpers) =>
+      value !== "*" && isCanonicalPermission(value) ? value : helpers.error("any.invalid")
+    )).required().messages({
       "any.required": "Mảng danh sách mã quyền permissions là bắt buộc.",
+      "any.invalid": "Danh sách chứa mã quyền không hợp lệ.",
     }),
     level: Joi.number().integer().min(1).required().messages({
       "any.required": "Cấp bậc vai trò (level) là bắt buộc.",

@@ -47,10 +47,10 @@ describe("worker HTTP routes", () => {
   it("allows worker:read to list but not mutate", async () => {
     vi.spyOn(WorkerService, "list").mockResolvedValue([] as any);
     await withServer(async (base) => {
-      const list = await fetch(base, { headers: { "x-permissions": "worker:read" } });
+      const list = await fetch(base, { headers: { "x-permissions": "people:read" } });
       expect(list.status).toBe(200);
       expect(await list.json()).toEqual({ workers: [] });
-      const create = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-permissions": "worker:read" }, body: JSON.stringify({ fullName: "A" }) });
+      const create = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-permissions": "people:read" }, body: JSON.stringify({ fullName: "A" }) });
       expect(create.status).toBe(403);
     });
   });
@@ -58,7 +58,7 @@ describe("worker HTTP routes", () => {
   it("allows worker:manage and preserves create 201", async () => {
     vi.spyOn(WorkerService, "create").mockResolvedValue({ _id: "w1", fullName: "A" } as any);
     await withServer(async (base) => {
-      const response = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-permissions": "worker:manage", "x-company": "acme", "x-branch": " B1 " }, body: JSON.stringify({ fullName: "A" }) });
+      const response = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-permissions": "people:manage", "x-company": "acme", "x-branch": " B1 " }, body: JSON.stringify({ fullName: "A" }) });
       expect(response.status).toBe(201);
       expect(await response.json()).toMatchObject({ worker: { _id: "w1" } });
       expect(WorkerService.create).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, { fullName: "A" });
@@ -69,9 +69,9 @@ describe("worker HTTP routes", () => {
     vi.spyOn(WorkerService, "update").mockResolvedValue(null as any);
     vi.spyOn(WorkerService, "delete").mockResolvedValue(null as any);
     await withServer(async (base) => {
-      const update = await fetch(`${base}/missing`, { method: "PATCH", headers: { "content-type": "application/json", "x-permissions": "worker:manage" }, body: JSON.stringify({ fullName: "A" }) });
+      const update = await fetch(`${base}/missing`, { method: "PATCH", headers: { "content-type": "application/json", "x-permissions": "people:manage" }, body: JSON.stringify({ fullName: "A" }) });
       expect(update.status).toBe(404);
-      const remove = await fetch(`${base}/missing`, { method: "DELETE", headers: { "x-permissions": "worker:manage" } });
+      const remove = await fetch(`${base}/missing`, { method: "DELETE", headers: { "x-permissions": "people:manage" } });
       expect(remove.status).toBe(404);
     });
   });
@@ -82,7 +82,7 @@ describe("worker HTTP routes", () => {
         headers: {
           "x-company": "",
           "x-role": "superadmin",
-          "x-permissions": "worker:read",
+          "x-permissions": "people:read",
         },
       });
       expect(response.status).toBe(200);
@@ -100,7 +100,7 @@ describe("worker HTTP routes", () => {
         headers: {
           "x-company": "ACME",
           "x-role": "admin",
-          "x-permissions": "worker:read",
+          "x-permissions": "people:read",
         },
       });
       expect(response.status).toBe(403);
@@ -110,7 +110,7 @@ describe("worker HTTP routes", () => {
 });
 
 describe("bulk import route", () => {
-  const post = (base: string, body: unknown, permissions = "worker:manage") =>
+  const post = (base: string, body: unknown, permissions = "people:manage") =>
     fetch(`${base}/bulk`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-company": "ACME", "x-role": "admin", "x-permissions": permissions },
@@ -120,7 +120,7 @@ describe("bulk import route", () => {
   it("requires the manage permission", async () => {
     const bulk = vi.spyOn(WorkerService, "bulkCreate");
     await withServer(async (base) => {
-      const response = await post(base, { workers: [] }, "worker:read");
+      const response = await post(base, { workers: [] }, "people:read");
       expect(response.status).toBe(403);
       expect(bulk).not.toHaveBeenCalled();
     });

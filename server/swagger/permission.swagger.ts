@@ -12,7 +12,7 @@ export const permissionSwagger = {
               schema: {
                 type: "object",
                 properties: {
-                  code: { type: "string", example: "stock:manage", description: "Mã quyền duy nhất" },
+                  code: { type: "string", example: "inventory:manage", description: "Mã quyền duy nhất" },
                   name: { type: "string", example: "Quản trị Kho", description: "Tên mã quyền tiếng Việt" },
                   module: { type: "string", example: "stock", description: "Module thuộc về mã quyền này" },
                   description: { type: "string", example: "Cho phép thêm phiếu nhập xuất kho hàng", description: "Mô tả chi tiết" }

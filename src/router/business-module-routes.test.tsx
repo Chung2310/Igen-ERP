@@ -15,8 +15,8 @@ describe("business module routing", () => {
   it("registers retail and grants route access to either retail permission", () => {
     const route = APP_ROUTES.find((item) => item.tab === "BÁN LẺ");
     expect(route).toBeDefined();
-    expect(route?.canAccess?.({ role: "user", permissions: ["retail:operate"] } as any)).toBe(true);
-    expect(route?.canAccess?.({ role: "user", permissions: ["retail:manager"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: ["retail:manage"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: ["retail:manage"] } as any)).toBe(true);
     expect(route?.canAccess?.({ role: "user", permissions: [] } as any)).toBe(false);
   });
 });

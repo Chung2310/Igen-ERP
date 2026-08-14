@@ -171,7 +171,7 @@ function entityLabel(preset: "student" | "worker" | "customer") {
 
 beforeEach(() => {
   localStorage.clear();
-  mockedAuth.mockReturnValue({ userProfile: { role: "manager", permissions: ["custom-field:manage"] } } as ReturnType<typeof useAuth>);
+  mockedAuth.mockReturnValue({ userProfile: { role: "manager", permissions: ["settings:manage"] } } as ReturnType<typeof useAuth>);
   mockedCustomFields.mockReturnValue(customFieldsResult() as ReturnType<typeof useCustomFields>);
   mockedBatches.mockReturnValue({ batches: [], loading: false, refetch: vi.fn(async () => undefined) } as ReturnType<typeof useBatches>);
   mockedEntityLabel.mockReturnValue(entityLabel("student"));

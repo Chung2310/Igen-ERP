@@ -107,7 +107,7 @@ const mongoDependencies: Dependencies = {
   async createNotification(payload) {
     const recipients: any[] = await UserModel.find({
       companyCode: payload.companyCode, isActive: { $ne: false },
-      $and: [{ $or: [{ branchId: payload.branchId }, { role: { $in: ["admin", "superadmin"] } }] }, { $or: [{ permissions: "receivable:read" }, { role: { $in: ["admin", "superadmin"] } }] }],
+      $and: [{ $or: [{ branchId: payload.branchId }, { role: { $in: ["admin", "superadmin"] } }] }, { $or: [{ permissions: "finance:read" }, { role: { $in: ["admin", "superadmin"] } }] }],
     }).select("_id").lean();
     for (const recipient of recipients) await NotificationModel.updateOne(
       { companyCode: payload.companyCode, recipientUid: String(recipient._id), idempotencyKey: payload.idempotencyKey },

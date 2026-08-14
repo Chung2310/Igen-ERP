@@ -19,9 +19,9 @@ const has = (permissions: readonly string[], code: string) =>
   permissions.includes("*") || permissions.includes(code);
 
 export function canReadWorkerArea(permissions: readonly string[], _area: WorkerPermissionArea) {
-  return has(permissions, "worker:read") || has(permissions, "worker:manage");
+  return has(permissions, "people:read") || has(permissions, "people:manage");
 }
 
 export function canManageWorkerArea(permissions: readonly string[], _area: WorkerPermissionArea) {
-  return has(permissions, "worker:manage");
+  return has(permissions, "people:manage");
 }

@@ -98,7 +98,7 @@ test("controller ignores body scope and derives includeProfit from the manager c
   const controller = createRetailReportController({
     hasCapability: async (actor, capability) => {
       capabilities.push({ actor, capability });
-      return (actor as any).permissions.includes("retail:manager");
+      return (actor as any).permissions.includes("retail:manage");
     },
     summary: async (scope, query, includeProfit) => {
       calls.push({ scope, query, includeProfit });
@@ -106,7 +106,7 @@ test("controller ignores body scope and derives includeProfit from the manager c
     },
   });
 
-  for (const permissions of [["retail:operate"], ["retail:manager"]]) {
+  for (const permissions of [["retail:manage"], ["retail:manage"]]) {
     const req: any = {
       user: { id: permissions[0], role: "user", companyCode: "ACME", branchId: "branch-1", permissions },
       query: { from: "2026-08-10", to: "2026-08-10", includeProfit: "true" },

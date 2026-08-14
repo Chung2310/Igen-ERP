@@ -3,9 +3,9 @@ import { test } from "vitest";
 import { canManageStudentArea, canReadStudentArea } from "./studentPermissionPolicy";
 
 test("student umbrella permissions preserve operational access", () => {
-  assert.equal(canReadStudentArea(["student:read"], "course"), true);
-  assert.equal(canReadStudentArea(["student:manage"], "payment"), true);
-  assert.equal(canManageStudentArea(["student:manage"], "student-resource"), true);
+  assert.equal(canReadStudentArea(["people:read"], "course"), true);
+  assert.equal(canReadStudentArea(["people:manage"], "payment"), true);
+  assert.equal(canManageStudentArea(["people:manage"], "student-resource"), true);
 });
 
 test("retired granular permissions do not grant operational student access", () => {
@@ -15,8 +15,8 @@ test("retired granular permissions do not grant operational student access", () 
 });
 
 test("student umbrella manage does not grant configuration permissions", () => {
-  assert.equal(canManageStudentArea(["student:manage"], "custom-field"), false);
-  assert.equal(canManageStudentArea(["student:manage"], "student-settings"), false);
-  assert.equal(canManageStudentArea(["student:manage"], "company-smtp"), false);
-  assert.equal(canManageStudentArea(["company-smtp:manage"], "company-smtp"), true);
+  assert.equal(canManageStudentArea(["people:manage"], "custom-field"), false);
+  assert.equal(canManageStudentArea(["people:manage"], "student-settings"), false);
+  assert.equal(canManageStudentArea(["people:manage"], "company-smtp"), false);
+  assert.equal(canManageStudentArea(["settings:manage"], "company-smtp"), true);
 });

@@ -55,7 +55,7 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin" || userRole === "manager") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("leave:approve");
+  return permissions.has("*") || permissions.has("timekeeping:manage");
 }
 
 /**
@@ -67,7 +67,7 @@ async function canApproveLeave(req: AuthenticatedRequest): Promise<boolean> {
   const userRole = req.user?.role || "user";
   if (userRole === "superadmin" || userRole === "admin") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
-  return permissions.has("*") || permissions.has("leave:approve");
+  return permissions.has("*") || permissions.has("timekeeping:manage");
 }
 
 export const crudController = {

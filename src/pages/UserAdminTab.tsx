@@ -793,31 +793,31 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
-                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],
+                  branch_owner: ["access:read", "access:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "people:read", "people:manage", "resource:read", "chat:read", "work:read", "work:manage"],
                   manager: [
-                    "user:read", "user:manage",
+                    "access:read", "access:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read", "project:manage",
-                    "stock:read", "stock:manage",
-                    "student:read", "student:manage",
+                    "work:read", "work:manage",
+                    "work:read", "work:manage",
+                    "inventory:read", "inventory:manage",
+                    "people:read", "people:manage",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
-                    "wallet:read"
+                    "finance:read"
                   ],
                   user: [
-                    "user:read",
+                    "access:read",
                     "timekeeping:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read",
-                    "stock:read",
-                    "student:read",
+                    "work:read", "work:manage",
+                    "work:read",
+                    "inventory:read",
+                    "people:read",
                     "resource:read",
                     "chat:read",
-                    "wallet:read"
+                    "finance:read"
                   ],
-                  teacher: ["student:read", "teacher:operate"]
+                  teacher: ["people:read", "people:manage"]
                 };
 
                 const defaultRolesList = [

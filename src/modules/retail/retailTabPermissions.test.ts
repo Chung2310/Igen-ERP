@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 
 describe("retail subtab permissions", () => {
-  it("allows operators to run every operational tab but not settings", () => {
-    expect(getAllowedRetailTabSlugs(["retail:operate"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang",
+  it("allows retail managers to use every retail tab", () => {
+    expect(getAllowedRetailTabSlugs(["retail:manage"])).toEqual([
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });
 
   it("allows managers to access customers and settings", () => {
-    expect(getAllowedRetailTabSlugs(["retail:manager"])).toEqual([
+    expect(getAllowedRetailTabSlugs(["retail:manage"])).toEqual([
       "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });

@@ -105,8 +105,8 @@ export default function ReceivableDetailDrawer({
       </aside>
     );
   const { receivable, entries } = detail;
-  const canCollect = permitted(permissions, "receivable:collect");
-  const canAdjust = permitted(permissions, "receivable:adjust");
+  const canCollect = permitted(permissions, "finance:manage");
+  const canAdjust = permitted(permissions, "finance:manage");
   const isActive = receivable.status === "open" || receivable.status === "partially_paid";
   const minimumExtensionDate = new Date(receivable.dueDate);
   minimumExtensionDate.setUTCDate(minimumExtensionDate.getUTCDate() + 1);
