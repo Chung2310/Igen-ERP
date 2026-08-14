@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Joi from "joi";
 import { permissionController } from "../controller/permission.controller";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 
 export const permissionRouter = Router();
@@ -63,6 +63,7 @@ permissionRouter.post(
   "/",
   requireAuth as any,
   requireRole(["superadmin"]) as any,
+  requirePermission("access:manage") as any,
   validateRequest(createPermissionSchema),
   permissionController.create as any
 );
@@ -88,6 +89,7 @@ permissionRouter.patch(
   "/:code",
   requireAuth as any,
   requireRole(["superadmin"]) as any,
+  requirePermission("access:manage") as any,
   validateRequest(updatePermissionSchema),
   permissionController.update as any
 );
@@ -97,6 +99,7 @@ permissionRouter.delete(
   "/:code",
   requireAuth as any,
   requireRole(["superadmin"]) as any,
+  requirePermission("access:manage") as any,
   validateRequest(permissionCodeParamsSchema),
   permissionController.delete as any
 );

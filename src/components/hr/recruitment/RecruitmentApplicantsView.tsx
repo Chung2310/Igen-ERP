@@ -21,7 +21,7 @@ import {
 } from "./recruitmentFile";
 import { applicantOutcomeLabels } from "./recruitmentLabels";
 
-export default function RecruitmentApplicantsView() {
+export default function RecruitmentApplicantsView({ canManage }: { canManage: boolean }) {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[]>([]);
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
   const [pipeline, setPipeline] = useState<RecruitmentPipeline | null>(null);
@@ -88,13 +88,15 @@ export default function RecruitmentApplicantsView() {
             <Columns3 className="h-4 w-4" />
           </button>
         </div>
-        <button
-          className={`${primaryButton} ml-auto`}
-          onClick={() => setAdding(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Thêm ứng viên
-        </button>
+        {canManage && (
+          <button
+            className={`${primaryButton} ml-auto`}
+            onClick={() => setAdding(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Thêm ứng viên
+          </button>
+        )}
       </div>
       <ViewState
         loading={loading}
@@ -115,7 +117,7 @@ export default function RecruitmentApplicantsView() {
                 <th className="px-4 py-3">Nguồn</th>
                 <th className="px-4 py-3">Giai đoạn</th>
                 <th className="px-4 py-3">Kết quả</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
+                {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -137,22 +139,26 @@ export default function RecruitmentApplicantsView() {
                   </td>
                   <td className="px-4 py-3">{a.source || "-"}</td>
                   <td className="px-4 py-3">
-                    <select
-                      className={`${fieldClass} w-44`}
-                      value={a.stageId}
-                      onChange={(e) => move(a, e.target.value)}
-                    >
-                      {pipeline?.stages
-                        .filter((s) => s.isActive)
-                        .map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                    </select>
+                    {canManage ? (
+                      <select
+                        className={`${fieldClass} w-44`}
+                        value={a.stageId}
+                        onChange={(e) => move(a, e.target.value)}
+                      >
+                        {pipeline?.stages
+                          .filter((s) => s.isActive)
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      pipeline?.stages.find((stage) => stage.id === a.stageId)?.name || "-"
+                    )}
                   </td>
                   <td className="px-4 py-3">{applicantOutcomeLabels[a.outcome]}</td>
-                  <td className="px-4 py-3 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>
+                  {canManage && <td className="px-4 py-3 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>}
                 </tr>
               ))}
             </tbody>
@@ -197,7 +203,7 @@ export default function RecruitmentApplicantsView() {
             ))}
         </div>
       )}
-      {(adding || editingApplicant) && (
+      {canManage && (adding || editingApplicant) && (
         <ApplicantForm
           jobs={editingApplicant ? jobs : jobs.filter((j) => j.status === "open")}
           applicant={editingApplicant}
@@ -213,6 +219,7 @@ export default function RecruitmentApplicantsView() {
         <ApplicantDetailPanel
           applicant={selected}
           jobs={jobs}
+          canManage={canManage}
           onClose={() => setSelected(null)}
         />
       )}

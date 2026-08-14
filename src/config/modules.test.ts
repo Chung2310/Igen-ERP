@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TabType } from "../types";
-import { filterEnabledTabs, resolveEnabledTab } from "./modules";
+import { filterEnabledTabs, MODULE_READ_PERMISSIONS, resolveEnabledTab } from "./modules";
 
 const tabs: TabType[] = [
   "TỔNG QUAN",
@@ -34,4 +34,10 @@ test("hides student for labor tenants and shows worker", () => {
 
 test("redirects incompatible business tabs to overview", () => {
   assert.equal(resolveEnabledTab("QUẢN LÝ HỌC VIÊN" as any, ["student", "worker"], "labor" as any), "TỔNG QUAN");
+});
+
+test("maps read and manage access without duplicate module permissions", () => {
+  assert.deepEqual(MODULE_READ_PERMISSIONS["NHÂN SỰ"], ["hr:read", "access:read", "work:read", "timekeeping:read"]);
+  assert.deepEqual(MODULE_READ_PERMISSIONS["BÁN LẺ"], ["retail:read", "retail:manage"]);
+  assert.deepEqual(MODULE_READ_PERMISSIONS["TÀI CHÍNH"], ["finance:read", "finance:manage"]);
 });

@@ -30,7 +30,7 @@ companyPaymentRouter.get("/vietqr", async (req: any, res) => {
   }
 });
 
-companyPaymentRouter.put("/vietqr", async (req: any, res) => {
+companyPaymentRouter.put("/vietqr", requirePermission("settings:manage") as any, async (req: any, res) => {
   const { error, value } = vietqrSchema.validate(req.body);
   if (error) {
     return res.status(400).json({ message: error.message });

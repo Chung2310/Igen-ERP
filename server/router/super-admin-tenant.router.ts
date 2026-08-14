@@ -5,6 +5,9 @@ import { executeAdminAction } from "../super-admin/action-runtime";
 import { tenantActions } from "../super-admin/action-registry";
 import { clearModuleCache } from "../middleware/require-module";
 import { notifyCompanyModulesChanged } from "../service/company-module-notify";
+import { requireAuth } from "../middleware/auth";
+import { requirePrivilegedSession, requireRealSuperAdmin } from "../middleware/super-admin-auth";
+import { requirePermission } from "../middleware/auth";
 
 type Dependencies = { service?: TenantManagementService; execute?: typeof executeAdminAction; clearModuleCache?: (companyCode?: string) => void; emitToCompany?: (companyCode: string, eventName: string, data: any) => void | Promise<void>; };
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`${label} is required`); return value.trim(); };
@@ -12,6 +15,9 @@ const actionRequest = (req: any, definition: any, input: unknown) => ({ definiti
 
 export function createTenantRouter(deps: Dependencies = {}) {
   const router = Router(); const service = deps.service ?? new TenantManagementService(); const execute = deps.execute ?? executeAdminAction;
+  // Keep this router safe when mounted independently as well as through the
+  // super-admin router (defence in depth for tenant control-plane mutations).
+  router.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any, requirePermission("access:manage") as any);
   const clearCache = deps.clearModuleCache ?? clearModuleCache; const emitCompany = deps.emitToCompany ?? (async (companyCode: string, eventName: string, data: any) => {
     const socket = await import("../socket");
     socket.emitToCompany(companyCode, eventName, data);

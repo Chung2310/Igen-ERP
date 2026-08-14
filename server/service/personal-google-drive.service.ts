@@ -1,8 +1,12 @@
 import { google } from "googleapis";
+import jwt from "jsonwebtoken";
 import { Readable } from "stream";
+import { getJwtAccessSecret } from "../config/env";
 import { UserModel } from "../model/user.model";
 
 export class GoogleDriveService {
+  private static readonly OAUTH_STATE_PURPOSE = "google-drive-oauth";
+
   private static getOAuth2Client() {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -22,6 +26,11 @@ export class GoogleDriveService {
    */
   public static getAuthUrl(userId: string): string {
     const oauth2Client = this.getOAuth2Client();
+    const state = jwt.sign(
+      { purpose: this.OAUTH_STATE_PURPOSE, userId },
+      getJwtAccessSecret(),
+      { expiresIn: "10m" },
+    );
     return oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "select_account consent",
@@ -29,8 +38,27 @@ export class GoogleDriveService {
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/userinfo.email",
       ],
-      state: userId,
+      state,
     });
+  }
+
+  /** Validates the short-lived OAuth callback state before it can select a user. */
+  public static getUserIdFromOAuthState(state: string): string | null {
+    try {
+      const payload = jwt.verify(state, getJwtAccessSecret());
+      if (
+        typeof payload !== "object"
+        || payload === null
+        || payload.purpose !== this.OAUTH_STATE_PURPOSE
+        || typeof payload.userId !== "string"
+        || !/^[a-f\d]{24}$/i.test(payload.userId)
+      ) {
+        return null;
+      }
+      return payload.userId;
+    } catch {
+      return null;
+    }
   }
 
   /**
