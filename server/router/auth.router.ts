@@ -7,6 +7,7 @@ import { authRateLimiter, loginAccountRateLimiter, refreshTokenRateLimiter } fro
 import { UserModel } from "../model/user.model";
 import { branchController } from "../controller/branch.controller";
 import { isIP } from "node:net";
+import { userActivityService } from "../super-admin/user-activity.service";
 
 export const authRouter = Router();
 
@@ -279,6 +280,24 @@ authRouter.get("/users/colleagues", requireAuth as any, authController.getCollea
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
 // (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
 authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
+authRouter.get("/users/:id/activity", requireAuth as any, requireRole(["admin"]) as any, async (req: any, res) => {
+  try {
+    return res.json(await userActivityService.list({
+      tenantId: req.user.companyCode,
+      companyCode: req.user.companyCode,
+      userId: req.params.id,
+      from: req.query.from,
+      to: req.query.to,
+      category: req.query.category,
+      result: req.query.result,
+      search: req.query.search,
+      page: req.query.page,
+      limit: req.query.limit,
+    }));
+  } catch (error) {
+    return res.status(400).json({ message: (error as Error).message });
+  }
+});
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);

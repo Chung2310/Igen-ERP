@@ -7,6 +7,14 @@ export function getAccessToken(): string | null {
 }
 
 export const authService = {
+  async getUserActivity(userId: string, filters: Record<string, string | number | undefined> = {}): Promise<any> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") query.set(key, String(value));
+    const res = await fetch(`/api/v1/auth/users/${encodeURIComponent(userId)}/activity?${query}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Không thể tải lịch sử hoạt động.");
+    return data;
+  },
   // Đăng ký bằng Email & Mật khẩu
   async registerWithEmail(email: string, password: string, displayName: string): Promise<any> {
     const res = await fetch("/api/v1/auth/register", {
