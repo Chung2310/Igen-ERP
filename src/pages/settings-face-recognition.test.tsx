@@ -35,7 +35,7 @@ describe("SettingsTab face recognition navigation", () => {
   });
 
   it("shows the tab button with the face:manage permission", () => {
-    authState.userProfile = { role: "user", permissions: ["face:manage"] };
+    authState.userProfile = { role: "user", permissions: ["access:manage"] };
     render(<SettingsTab />);
     expect(screen.getByRole("button", { name: "Nhận diện khuôn mặt" })).toBeTruthy();
   });

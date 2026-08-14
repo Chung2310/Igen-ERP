@@ -11,7 +11,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(financeReceivablesApi.detail).m
 
 describe("ReceivableDetailDrawer", () => {
   it("renders immutable ledger and source without edit or delete controls", async () => {
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:read"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:read"]} onClose={() => {}} onChanged={() => {}} />);
     expect(await screen.findByText("DH-1")).toBeTruthy();
     expect(screen.getByText(/Mở nợ/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /sửa bút toán/i })).toBeNull();
@@ -20,7 +20,7 @@ describe("ReceivableDetailDrawer", () => {
   });
 
   it("exposes permission-scoped commands with bounded amounts and required audit fields", async () => {
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage", "finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     expect(await screen.findByRole("button", { name: "Thu tiền" })).toBeTruthy();
     expect(screen.getByLabelText("Số tiền thu").getAttribute("max")).toBe("80000");
     expect((screen.getByLabelText("Lý do điều chỉnh") as HTMLInputElement).required).toBe(true);
@@ -29,7 +29,7 @@ describe("ReceivableDetailDrawer", () => {
   });
 
   it("shows a visible label for every receivable command field", async () => {
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage", "finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     await screen.findByRole("button", { name: "Thu tiền" });
 
     for (const name of [
@@ -49,7 +49,7 @@ describe("ReceivableDetailDrawer", () => {
 
   it("formats VND amounts and submits integer values", async () => {
     vi.mocked(financeReceivablesApi.collect).mockResolvedValue({} as any);
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage", "finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     const amount = await screen.findByLabelText("Số tiền thu");
     fireEvent.change(amount, { target: { value: "75.000" } });
     expect((amount as HTMLInputElement).value).toBe("75.000");
@@ -62,7 +62,7 @@ describe("ReceivableDetailDrawer", () => {
   });
 
   it("does not submit a collection above the outstanding balance", async () => {
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     const amount = await screen.findByLabelText("Số tiền thu");
     fireEvent.change(amount, { target: { value: "80.001" } });
     fireEvent.submit(screen.getByRole("button", { name: "Thu tiền" }).closest("form")!);
@@ -71,7 +71,7 @@ describe("ReceivableDetailDrawer", () => {
 
   it("extends the real due date, hides write-off, and localizes immutable history", async () => {
     vi.mocked(financeReceivablesApi.extend).mockResolvedValue({} as any);
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage", "finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     await screen.findByText(/Phát sinh công nợ/);
     expect(screen.queryByText("Xóa nợ")).toBeNull();
     fireEvent.change(screen.getByLabelText("Gia hạn đến ngày"), { target: { value: "2026-08-30" } });
@@ -85,7 +85,7 @@ describe("ReceivableDetailDrawer", () => {
 
   it("hides collection and write-off controls after the receivable is settled", async () => {
     vi.mocked(financeReceivablesApi.detail).mockResolvedValue({ ...detail, receivable: { ...detail.receivable, balance: 0, paidAmount: 100, status: "settled" } } as any);
-    render(<ReceivableDetailDrawer id="r1" permissions={["receivable:collect", "receivable:adjust"]} onClose={() => {}} onChanged={() => {}} />);
+    render(<ReceivableDetailDrawer id="r1" permissions={["finance:manage", "finance:manage"]} onClose={() => {}} onChanged={() => {}} />);
     await screen.findByText("CN-1");
     expect(screen.queryByRole("button", { name: "Thu tiền" })).toBeNull();
     expect(screen.queryByText("Xóa nợ")).toBeNull();

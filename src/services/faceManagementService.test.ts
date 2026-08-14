@@ -12,7 +12,7 @@ describe("faceManagementService", () => {
   it.each([
     [{ role: "superadmin" }, true],
     [{ role: "admin" }, true],
-    [{ role: "manager", permissions: ["face:manage"] }, true],
+    [{ role: "manager", permissions: ["access:manage"] }, true],
     [{ role: "user", permissions: ["*"] }, true],
     [{ role: "manager", permissions: [] }, false],
   ])("calculates face-management access", (profile, expected) => {

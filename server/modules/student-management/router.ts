@@ -68,7 +68,7 @@ const requireCustomFieldModule: RequestHandler = async (req, res, next) => {
   }
 };
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
-const requirePartnerRead = requirePermission("partner:read") as RequestHandler;
+const requirePartnerRead = requirePermission("relationship:read") as RequestHandler;
 
 studentManagementRouter.use("/auth", authRoutes);
 studentManagementRouter.use("/students", publicStudentRouter);

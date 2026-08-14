@@ -198,7 +198,7 @@ export function RoleModal({
                                   {descText && (
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
                                   )}
-                                  {(perm.code === "student:read" || perm.code === "student:manage") && (
+                                  {(perm.code === "people:read" || perm.code === "people:manage") && (
                                     <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>
                                   )}
                                 </div>

@@ -44,11 +44,11 @@ export default function HRTab() {
   const canViewAllAttendance = (isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll:manage")) && !hasContractPermissions;
   const canManageAttendance = (isManager || hasPermission("timekeeping:manage")) && !hasContractPermissions;
   const canEditAttendance = (canManageAttendance || hasPermission("payroll:manage")) && !hasContractPermissions;
-  const canManageOrgChart = isManager || hasPermission("user:manage");
-  const canManageKanban = isManager || hasPermission("kanban:manage");
+  const canManageOrgChart = isManager || hasPermission("access:manage");
+  const canManageKanban = isManager || hasPermission("work:manage");
   const isPayrollManager = userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canViewPayroll = isPayrollManager || hasPermission("payroll:read") || hasPermission("payroll:manage");
-  const canManageCelebration = userProfile?.role === "admin" || hasPermission("company-email:manage");
+  const canManageCelebration = userProfile?.role === "admin" || hasPermission("settings:manage");
   const canManageRecruitment = canAccessRecruitment(userProfile?.role, hasPermission);
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");

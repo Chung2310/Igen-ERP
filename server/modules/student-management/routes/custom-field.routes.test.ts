@@ -57,7 +57,7 @@ async function requestRouter(router: Router, mountPath: string, method: string, 
   const token = jwt.sign({ id: actorId, email: "actor@example.com", role: "manager", companyCode: "tenant-a" }, getJwtAccessSecret());
   const originalFindById = UserModel.findById;
   const originalRoleFindOne = RolePermissionModel.findOne;
-  (UserModel as any).findById = () => ({ select: () => ({ lean: async () => ({ branchId, permissions: ["custom-field:manage"] }) }) });
+  (UserModel as any).findById = () => ({ select: () => ({ lean: async () => ({ branchId, permissions: ["settings:manage"] }) }) });
   (RolePermissionModel as any).findOne = () => ({ lean: async () => null });
 
   try {

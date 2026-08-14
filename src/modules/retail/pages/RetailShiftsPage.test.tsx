@@ -8,7 +8,7 @@ import RetailShiftsPage from "./RetailShiftsPage";
 vi.mock("../hooks/useRetailScope", () => ({
   useRetailScope: () => ({
     scope: { companyCode: "ACME", branchId: "B1" },
-    userProfile: { uid: "user-1", permissions: ["retail:manager"] },
+    userProfile: { uid: "user-1", permissions: ["retail:manage"] },
   }),
 }));
 

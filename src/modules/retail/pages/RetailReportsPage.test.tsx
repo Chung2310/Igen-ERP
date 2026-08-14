@@ -12,7 +12,7 @@ const retailScopeState = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks/useRetailScope", () => ({
-  useRetailScope: () => ({ scope: retailScopeState.scope, userProfile: { role: "admin", permissions: ["retail:manager"] } }),
+  useRetailScope: () => ({ scope: retailScopeState.scope, userProfile: { role: "admin", permissions: ["retail:manage"] } }),
 }));
 
 vi.mock("../api/retailReports.api", () => ({

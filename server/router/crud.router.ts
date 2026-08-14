@@ -36,28 +36,28 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
  * về chính mình), còn duyệt đơn và đăng biểu mẫu bị `canApproveLeave` chặn riêng.
  */
 const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
-  products: "stock:read",
-  categories: "stock:read",
-  "stock-logs": "stock:read",
-  "kanban-tasks": "kanban:read",
-  projects: "project:read",
+  products: "inventory:read",
+  categories: "inventory:read",
+  "stock-logs": "inventory:read",
+  "kanban-tasks": "work:read",
+  projects: "work:read",
   "hr-calendar-events": "timekeeping:read",
   "timekeeping-logs": ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
   workflows: "hr:read",
   "training-courses": "hr:read",
   "training-enrollments": "hr:read",
-  users: "user:read",
+  users: "access:read",
 };
 
 const CRUD_MODEL_MANAGE_PERMISSION: Record<string, string | string[]> = {
-  products: "stock:manage",
-  categories: "stock:manage",
-  "stock-logs": "stock:manage",
-  "kanban-tasks": "kanban:manage",
-  projects: "project:manage",
+  products: "inventory:manage",
+  categories: "inventory:manage",
+  "stock-logs": "inventory:manage",
+  "kanban-tasks": "work:manage",
+  projects: "work:manage",
   "hr-calendar-events": "timekeeping:manage",
   "timekeeping-logs": ["timekeeping:manage", "payroll:manage"],
-  users: "user:manage",
+  users: "access:manage",
 };
 
 const crudReadPermissionGuard = (req: any, res: any, next: any) => {

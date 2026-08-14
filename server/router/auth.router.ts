@@ -263,7 +263,7 @@ const registerUserSchema = {
 };
 
 // Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và quyền user:manage)
-authRouter.post("/register-user", requireAuth as any, requirePermission("user:manage") as any, validateRequest(registerUserSchema), authController.registerUser as any);
+authRouter.post("/register-user", requireAuth as any, requirePermission("access:manage") as any, validateRequest(registerUserSchema), authController.registerUser as any);
 
 const getUsersSchema = {
   query: Joi.object({
@@ -278,16 +278,16 @@ authRouter.get("/users/colleagues", requireAuth as any, authController.getCollea
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
 // (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
-authRouter.get("/users", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
+authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
-authRouter.get("/current-ip", requireAuth as any, requirePermission("user:manage") as any, branchController.currentIp as any);
-authRouter.get("/branches", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, branchController.list as any);
-authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchSchema), branchController.create as any);
-authRouter.post("/branches/:id/owner", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchOwnerSchema), branchController.createOwner as any);
-authRouter.delete("/branches/:id/pending", requireAuth as any, requirePermission("user:manage") as any, branchController.removePending as any);
-authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, validateRequest(updateBranchSchema), branchController.update as any);
+authRouter.get("/current-ip", requireAuth as any, requirePermission("access:manage") as any, branchController.currentIp as any);
+authRouter.get("/branches", requireAuth as any, requirePermission(["access:read", "hr:read"]) as any, branchController.list as any);
+authRouter.post("/branches", requireAuth as any, requirePermission("access:manage") as any, validateRequest(createBranchSchema), branchController.create as any);
+authRouter.post("/branches/:id/owner", requireAuth as any, requirePermission("access:manage") as any, validateRequest(createBranchOwnerSchema), branchController.createOwner as any);
+authRouter.delete("/branches/:id/pending", requireAuth as any, requirePermission("access:manage") as any, branchController.removePending as any);
+authRouter.patch("/branches/:id", requireAuth as any, requirePermission("access:manage") as any, validateRequest(updateBranchSchema), branchController.update as any);
 
 const updateCompanySchema = {
   params: Joi.object({
@@ -419,10 +419,10 @@ const deleteUserSchema = {
 };
 
 // Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và quyền user:manage)
-authRouter.patch("/users/bulk", requireAuth as any, requirePermission("user:manage") as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
+authRouter.patch("/users/bulk", requireAuth as any, requirePermission("access:manage") as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
 
 // Cập nhật chi tiết một thành viên (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
-authRouter.patch("/users/:id", requireAuth as any, requirePermission("user:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(updateUserSchema), authController.updateUser as any);
+authRouter.patch("/users/:id", requireAuth as any, requirePermission("access:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(updateUserSchema), authController.updateUser as any);
 
 // Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
-authRouter.delete("/users/:id", requireAuth as any, requirePermission("user:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(deleteUserSchema), authController.deleteUser as any);
+authRouter.delete("/users/:id", requireAuth as any, requirePermission("access:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(deleteUserSchema), authController.deleteUser as any);
