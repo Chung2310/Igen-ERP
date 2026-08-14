@@ -552,7 +552,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
                   <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
-                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className="border-l-2 border-cyan-200 bg-cyan-50 p-2 text-center font-bold text-cyan-800">Các khoản có thể chỉnh sửa</th>
+                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l-2 p-2 text-center font-bold ${inlineEditable ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
                   <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
                 </tr>
