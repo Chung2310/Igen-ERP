@@ -17,6 +17,8 @@ export const payrollService = {
   getPeriodInputs: (periodKey: string) => request(`/periods/${periodKey}/inputs`),
   savePeriodInput: (periodKey: string, employeeId: string, payload: unknown) => request(`/periods/${periodKey}/inputs/${employeeId}`, { method: "PUT", body: JSON.stringify(payload) }),
   bulkSavePeriodInputs: (periodKey: string, rows: unknown[]) => request(`/periods/${periodKey}/inputs`, { method: "PUT", body: JSON.stringify({ rows }) }),
+  getLineOverrides: (periodKey: string) => request(`/periods/${periodKey}/line-overrides`),
+  bulkSaveLineOverrides: (periodKey: string, rows: unknown[]) => request(`/periods/${periodKey}/line-overrides`, { method: "PUT", body: JSON.stringify({ rows }) }),
   getPeriodInputVariables: () => request("/period-input-variables"),
   createPeriodInputVariable: (payload: unknown) => request("/period-input-variables", { method: "POST", body: JSON.stringify(payload) }),
   activatePeriodInputVariable: (id: string) => request(`/period-input-variables/${id}/activate`, { method: "POST" }),
@@ -50,7 +52,16 @@ export const payrollService = {
   cancelPayment: (paymentId: string) => request(`/payments/${paymentId}/cancel`, { method: "POST" }),
   reversePayment: (paymentId: string) => request(`/payments/${paymentId}/reverse`, { method: "POST" }), publishPayslips: (runId: string, employeeIds?: string[]) => request(`/runs/${runId}/payslips/publish`, { method: "POST", body: JSON.stringify({ employeeIds }) }),
   getEmployeePayslips: () => request("/employee/me/payslips"),
-  printPayslip: (runId: string, employeeId: string) => `/api/v1/payroll/runs/${runId}/payslips/${employeeId}/print`,
+  printPayslip: async (runId: string, employeeId: string) => {
+    const response = await fetch(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}/print`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.message || "Unable to print payslip");
+    }
+    return response.blob();
+  },
   exportWorkbook: async (runId: string, type: "detailed" | "insurance" | "pit" | "bank_transfer") => {
     const response = await fetch(`/api/v1/payroll/runs/${runId}/exports`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify({ type }) });
     if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.message || "Payroll export failed"); }

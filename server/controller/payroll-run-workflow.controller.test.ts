@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   auditCreate: vi.fn(),
   auditFind: vi.fn(),
   auditCount: vi.fn(),
+  publicationFindOneAndUpdate: vi.fn(),
+  createEffectiveSnapshot: vi.fn(),
+  verifyEffectiveSnapshot: vi.fn(),
+  transactionRunner: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -21,6 +25,17 @@ vi.mock("../model/payroll-calculation-revision.model", () => ({
 vi.mock("../model/payroll-audit.model", () => ({
   PayrollAuditModel: { create: mocks.auditCreate, find: mocks.auditFind, countDocuments: mocks.auditCount },
 }));
+vi.mock("../model/payslip-publication.model", () => ({
+  PayslipPublicationModel: { findOneAndUpdate: mocks.publicationFindOneAndUpdate },
+}));
+vi.mock("../service/payroll-effective-line.service", () => ({
+  createEffectivePayrollSnapshot: mocks.createEffectiveSnapshot,
+  verifyEffectivePayrollSnapshot: mocks.verifyEffectiveSnapshot,
+  loadAuthoritativePayrollLines: vi.fn(),
+}));
+vi.mock("../service/payroll-transaction.service", () => ({
+  runPayrollAtomicTransaction: mocks.transactionRunner,
+}));
 
 import { payrollController } from "./payroll.controller";
 
@@ -30,6 +45,11 @@ const totals = { grossPay: 1_000, deductions: 0, netPay: 1_000 };
 const checksum = calculatePayrollChecksum({ lines, totals });
 
 const lean = <T>(value: T) => ({ lean: vi.fn().mockResolvedValue(value) });
+const sortedLean = <T>(value: T) => {
+  const query: any = { lean: vi.fn().mockResolvedValue(value) };
+  query.sort = vi.fn().mockReturnValue(query);
+  return query;
+};
 const selectLean = <T>(value: T) => ({ select: vi.fn().mockReturnValue(lean(value)) });
 const response = () => {
   const res: any = {};
@@ -187,7 +207,15 @@ describe("legacy period approve and close", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "approved" });
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "review" });
+    mocks.createEffectiveSnapshot.mockResolvedValue({
+      sourceRevisionChecksum: "legacy-checksum",
+      checksum: "effective-checksum",
+      lines: [{ employeeId: "employee-a", calculation: { net: 1_000 } }],
+    });
+    mocks.verifyEffectiveSnapshot.mockResolvedValue(true);
+    mocks.publicationFindOneAndUpdate.mockResolvedValue({});
+    mocks.transactionRunner.mockImplementation((operation: any) => operation(undefined));
   });
 
   it.each(["approveRun", "closeRun"] as const)("refuses to %s a revision-backed run through the legacy route", async (handler) => {
@@ -204,14 +232,162 @@ describe("legacy period approve and close", () => {
 
   it.each(["approveRun", "closeRun"] as const)("still updates a legacy-only run via %s", async (handler) => {
     mocks.runExists.mockResolvedValue(null);
+    const status = handler === "approveRun" ? "draft" : "review";
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status,
+      version: 2,
+      lines,
+      ...(status === "review" ? {
+        effectiveSnapshot: {
+          checksum: "effective-checksum",
+          lines: [{ employeeId: "employee-a", calculation: { net: 1_000 } }],
+        },
+      } : {}),
+    }));
+    mocks.runFindOneAndUpdate.mockResolvedValue({
+      _id: "run-a",
+      status: handler === "approveRun" ? "review" : "closed",
+    });
 
     await (payrollController as any)[handler](legacyRequest(), response());
 
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ activeRevisionId: { $exists: false } }),
+      expect.objectContaining({
+        _id: "run-a",
+        version: 2,
+        activeRevisionId: { $exists: false },
+      }),
       expect.anything(),
       expect.anything(),
     );
+    if (handler === "approveRun") {
+      expect(mocks.createEffectiveSnapshot).toHaveBeenCalledWith(
+        scope,
+        expect.objectContaining({ _id: "run-a", status: "draft" }),
+      );
+      expect(mocks.runFindOneAndUpdate.mock.calls[0][1]).toEqual(expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "review",
+          effectiveSnapshot: expect.objectContaining({ checksum: "effective-checksum" }),
+        }),
+      }));
+      expect(mocks.publicationFindOneAndUpdate).not.toHaveBeenCalled();
+    } else {
+      expect(mocks.transactionRunner).toHaveBeenCalledOnce();
+      expect(mocks.verifyEffectiveSnapshot).toHaveBeenCalledWith(
+        scope,
+        expect.objectContaining({ _id: "run-a", status: "review" }),
+      );
+      expect(mocks.publicationFindOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ runId: "run-a", employeeId: "employee-a" }),
+        { $set: expect.objectContaining({ revisionChecksum: "effective-checksum" }) },
+        expect.anything(),
+      );
+    }
+  });
+
+  it("backfills and publishes a snapshot when closing a pre-upgrade legacy review", async () => {
+    mocks.runExists.mockResolvedValue(null);
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "review",
+      version: 2,
+      lines,
+    }));
+    mocks.runFindOneAndUpdate.mockResolvedValue({ _id: "run-a", status: "closed" });
+
+    await payrollController.closeRun(legacyRequest(), response());
+
+    expect(mocks.createEffectiveSnapshot).toHaveBeenCalledWith(
+      scope,
+      expect.objectContaining({ _id: "run-a", status: "review" }),
+    );
+    expect(mocks.verifyEffectiveSnapshot).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate.mock.calls[0][1]).toEqual(expect.objectContaining({
+      $set: expect.objectContaining({
+        status: "closed",
+        effectiveSnapshot: expect.objectContaining({ checksum: "effective-checksum" }),
+      }),
+    }));
+    expect(mocks.publicationFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-a", employeeId: "employee-a" }),
+      { $set: expect.objectContaining({ revisionChecksum: "effective-checksum" }) },
+      expect.anything(),
+    );
+  });
+
+  it("blocks legacy close and publication when an existing effective snapshot is invalid", async () => {
+    mocks.runExists.mockResolvedValue(null);
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "review",
+      version: 2,
+      lines,
+      effectiveSnapshot: {
+        checksum: "invalid",
+        lines: [{ employeeId: "employee-a", calculation: { net: 1_000 } }],
+      },
+    }));
+    mocks.verifyEffectiveSnapshot.mockResolvedValue(false);
+    const res = response();
+
+    await payrollController.closeRun(legacyRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+    }));
+    expect(mocks.transactionRunner).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.publicationFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rolls back legacy close when publication insertion fails", async () => {
+    let storedStatus = "review";
+    mocks.runExists.mockResolvedValue(null);
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "review",
+      version: 2,
+      lines,
+      effectiveSnapshot: {
+        checksum: "effective-checksum",
+        lines: [{ employeeId: "employee-a", calculation: { net: 1_000 } }],
+      },
+    }));
+    mocks.runFindOneAndUpdate.mockImplementation(async () => {
+      storedStatus = "closed";
+      return { _id: "run-a", status: "closed" };
+    });
+    mocks.publicationFindOneAndUpdate.mockRejectedValue(new Error("publication unavailable"));
+    mocks.transactionRunner.mockImplementation(async (operation: any) => {
+      const before = storedStatus;
+      try {
+        return await operation(undefined);
+      } catch (error) {
+        storedStatus = before;
+        throw error;
+      }
+    });
+    const res = response();
+
+    await payrollController.closeRun(legacyRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(storedStatus).toBe("review");
   });
 });
 

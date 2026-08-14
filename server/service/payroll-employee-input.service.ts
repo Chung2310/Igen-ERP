@@ -108,7 +108,11 @@ export type ProfileLike = {
   residencyStatus?: "resident" | "nonResident";
   hasWithholdingCommitment?: boolean;
   taxCode?: string;
+  paymentMethod?: "transfer" | "cash";
+  bankName?: string;
+  bankCode?: string;
   bankAccountNumber?: string;
+  bankAccountHolder?: string;
   effectiveFrom?: Date | string;
   effectiveTo?: Date | string;
   status?: string;

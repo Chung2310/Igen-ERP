@@ -11,8 +11,22 @@ const mocks = vi.hoisted(() => ({
   auditCreate: vi.fn(),
   auditDeleteMany: vi.fn(),
   adjustmentCreate: vi.fn(),
+  adjustmentFind: vi.fn(),
   adjustmentFindOneAndUpdate: vi.fn(),
   adjustmentDeleteMany: vi.fn(),
+  resetPayrollPeriod: vi.fn(),
+  policyFind: vi.fn(),
+  profileFind: vi.fn(),
+  dependentFind: vi.fn(),
+  periodInputFind: vi.fn(),
+  customVariableFind: vi.fn(),
+  lineOverrideFind: vi.fn(),
+  publicationFind: vi.fn(),
+  publicationFindOneAndUpdate: vi.fn(),
+  loadEffectiveLines: vi.fn(),
+  createEffectiveSnapshot: vi.fn(),
+  verifyEffectiveSnapshot: vi.fn(),
+  transactionRunner: vi.fn(),
 }));
 
 vi.mock("../model/attendance-period-result.model", () => ({
@@ -33,6 +47,7 @@ vi.mock("../model/payroll-run.model", () => ({
 vi.mock("../model/payroll-adjustment.model", () => ({
   PayrollAdjustmentModel: {
     create: mocks.adjustmentCreate,
+    find: mocks.adjustmentFind,
     findOneAndUpdate: mocks.adjustmentFindOneAndUpdate,
     deleteMany: mocks.adjustmentDeleteMany,
   },
@@ -40,8 +55,40 @@ vi.mock("../model/payroll-adjustment.model", () => ({
 vi.mock("../model/payroll-audit.model", () => ({
   PayrollAuditModel: { create: mocks.auditCreate, deleteMany: mocks.auditDeleteMany },
 }));
+vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { find: mocks.policyFind } }));
+vi.mock("../model/payroll-profile.model", () => ({
+  PayrollProfileModel: { find: mocks.profileFind },
+  PayrollDependentModel: { find: mocks.dependentFind },
+}));
+vi.mock("../model/payroll-period-input.model", () => ({
+  PayrollPeriodInputModel: { find: mocks.periodInputFind },
+}));
+vi.mock("../model/payroll-custom-variable.model", () => ({
+  PayrollCustomVariableModel: { find: mocks.customVariableFind },
+}));
+vi.mock("../model/payroll-line-override.model", () => ({
+  PayrollLineOverrideModel: { find: mocks.lineOverrideFind },
+}));
+vi.mock("../model/payslip-publication.model", () => ({
+  PayslipPublicationModel: {
+    find: mocks.publicationFind,
+    findOneAndUpdate: mocks.publicationFindOneAndUpdate,
+  },
+}));
+vi.mock("../service/payroll-period-reset.service", () => ({
+  resetPayrollPeriod: mocks.resetPayrollPeriod,
+}));
+vi.mock("../service/payroll-effective-line.service", () => ({
+  loadAuthoritativePayrollLines: mocks.loadEffectiveLines,
+  createEffectivePayrollSnapshot: mocks.createEffectiveSnapshot,
+  verifyEffectivePayrollSnapshot: mocks.verifyEffectiveSnapshot,
+}));
+vi.mock("../service/payroll-transaction.service", () => ({
+  runPayrollAtomicTransaction: mocks.transactionRunner,
+}));
 
 import { payrollController } from "./payroll.controller";
+import { DEFAULT_VIETNAM_PAYROLL_POLICY } from "../config/payroll-default-policy";
 
 const requestForBranchA: any = {
   user: { id: "actor-a", role: "admin", companyCode: "ACME", branchId: "branch-a" },
@@ -68,6 +115,34 @@ describe("payrollController.createRun branch scope", () => {
     mocks.adjustmentDeleteMany.mockResolvedValue({ deletedCount: 0 });
     mocks.auditDeleteMany.mockResolvedValue({ deletedCount: 0 });
     mocks.payrollDeleteOne.mockResolvedValue({ deletedCount: 0 });
+    mocks.resetPayrollPeriod.mockResolvedValue({
+      deleted: { run: 1, results: 2, adjustments: 3, overrides: 4, audits: 5 },
+    });
+    mocks.payrollExists.mockResolvedValue(null);
+    mocks.payrollFindOne.mockReturnValue(sortedLean(null).query);
+    mocks.policyFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([DEFAULT_VIETNAM_PAYROLL_POLICY]) });
+    mocks.profileFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.dependentFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.adjustmentFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.periodInputFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.customVariableFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.lineOverrideFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.publicationFind.mockReturnValue({
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) }),
+    });
+    mocks.publicationFindOneAndUpdate.mockResolvedValue({});
+    mocks.loadEffectiveLines.mockImplementation(async (_scope, run) => ({
+      sourceLines: run.lines ?? [],
+      effectiveLines: run.lines ?? [],
+      effectiveChecksum: "effective-checksum",
+    }));
+    mocks.createEffectiveSnapshot.mockResolvedValue({
+      sourceRevisionChecksum: "legacy-checksum",
+      checksum: "effective-checksum",
+      lines: [{ employeeId: "employee-a", calculation: { net: 100 } }],
+    });
+    mocks.verifyEffectiveSnapshot.mockResolvedValue(true);
+    mocks.transactionRunner.mockImplementation((operation: any) => operation(undefined));
   });
 
   it("does not consume Branch B locked attendance for a Branch A run", async () => {
@@ -106,6 +181,80 @@ describe("payrollController.createRun branch scope", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it("recalculates a legacy draft through an exact version-and-status claim", async () => {
+    const branchARow = {
+      employeeId: "branch-a-employee", monthlySalary: 100, standardDays: 1, standardHours: 8,
+      workedMinutes: 480, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [],
+    };
+    mocks.attendanceFind.mockReturnValue({ lean: async () => [branchARow] });
+    const existing = sortedLean({
+      _id: "branch-a-run",
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      type: "regular",
+      status: "draft",
+      version: 4,
+      lines: [{ employeeId: "branch-a-employee", calculation: { net: 50 } }],
+    });
+    mocks.payrollFindOne.mockReturnValue(existing.query);
+    mocks.payrollFindOneAndUpdate.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ _id: "branch-a-run", status: "draft", version: 5 }),
+    });
+    const res = response();
+
+    await payrollController.createRun(requestForBranchA, res);
+
+    expect(mocks.payrollFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: "branch-a-run",
+        companyCode: "ACME",
+        branchId: "branch-a",
+        periodKey: "2026-07",
+        type: "regular",
+        activeRevisionId: { $exists: false },
+        status: "draft",
+        version: 4,
+      },
+      { $set: { lines: expect.any(Array) }, $inc: { version: 1 } },
+      { new: true },
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      status: "success",
+      data: expect.objectContaining({ version: 5 }),
+    }));
+  });
+
+  it("fails a legacy recalculation when review wins the version claim", async () => {
+    const branchARow = {
+      employeeId: "branch-a-employee", monthlySalary: 100, standardDays: 1, standardHours: 8,
+      workedMinutes: 480, shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [],
+    };
+    mocks.attendanceFind.mockReturnValue({ lean: async () => [branchARow] });
+    mocks.payrollFindOne.mockReturnValue(sortedLean({
+      _id: "branch-a-run",
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      type: "regular",
+      status: "draft",
+      version: 4,
+      lines: [{ employeeId: "branch-a-employee", calculation: { net: 50 } }],
+    }).query);
+    mocks.payrollFindOneAndUpdate.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const res = response();
+
+    await payrollController.createRun(requestForBranchA, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      status: "error",
+      code: "PAYROLL_VERSION_CONFLICT",
+      message: "Payroll run changed while it was being recalculated",
+    });
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
+  });
+
   it("gets the deterministic regular run only from the authenticated branch", async () => {
     const selected = sortedLean({ _id: "branch-a-regular" });
     mocks.payrollFindOne.mockReturnValue(selected.query);
@@ -117,13 +266,72 @@ describe("payrollController.createRun branch scope", () => {
       companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07", type: "regular",
     });
     expect(selected.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
-    expect(res.json).toHaveBeenCalledWith({ status: "success", data: { _id: "branch-a-regular" } });
+    expect(res.json).toHaveBeenCalledWith({
+      status: "success",
+      data: {
+        _id: "branch-a-regular",
+        lines: [],
+        effectiveLines: [],
+        effectiveChecksum: "effective-checksum",
+        publishedEmployeeIds: [],
+      },
+    });
+  });
+
+  it("returns active revision totals with active revision lines", async () => {
+    const selected = sortedLean({
+      _id: "branch-a-regular",
+      status: "draft",
+      totals: { grossPay: 0, deductions: 0, netPay: 0 },
+    });
+    mocks.payrollFindOne.mockReturnValue(selected.query);
+    mocks.loadEffectiveLines.mockResolvedValue({
+      sourceLines: [{ employeeId: "employee-a", calculation: { net: 900 } }],
+      sourceTotals: { grossPay: 1_000, deductions: 100, netPay: 900 },
+      effectiveLines: [{ employeeId: "employee-a", calculation: { net: 900 } }],
+      effectiveChecksum: "effective-checksum",
+    });
+    const res = response();
+
+    await payrollController.getRun(requestForBranchA, res);
+
+    expect(res.json.mock.calls[0][0].data).toMatchObject({
+      lines: [{ employeeId: "employee-a", calculation: { net: 900 } }],
+      totals: { grossPay: 1_000, deductions: 100, netPay: 900 },
+    });
+  });
+
+  it("hides stale payslip publications after a run is reopened or still in review", async () => {
+    const selected = sortedLean({
+      _id: "branch-a-regular",
+      status: "review",
+      lines: [{ employeeId: "employee-a", calculation: { net: 100 } }],
+    });
+    mocks.payrollFindOne.mockReturnValue(selected.query);
+    const res = response();
+
+    await payrollController.getRun(requestForBranchA, res);
+
+    expect(mocks.publicationFind).not.toHaveBeenCalled();
+    expect(res.json.mock.calls[0][0].data.publishedEmployeeIds).toEqual([]);
   });
 
   it.each([
     ["approveRun", "draft", "review"],
     ["closeRun", "review", "closed"],
   ] as const)("%s mutates only the deterministic regular run in the authenticated branch", async (method, fromStatus, toStatus) => {
+    const selected = sortedLean({
+      _id: "branch-a-regular",
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      type: "regular",
+      status: fromStatus,
+      version: 2,
+      lines: [{ employeeId: "employee-a", calculation: { net: 100 } }],
+      ...(fromStatus === "review" ? { effectiveSnapshot: { checksum: "effective-checksum" } } : {}),
+    });
+    mocks.payrollFindOne.mockReturnValue(selected.query);
     mocks.payrollFindOneAndUpdate.mockResolvedValue({ _id: "branch-a-regular", status: toStatus });
     const res = response();
 
@@ -131,30 +339,30 @@ describe("payrollController.createRun branch scope", () => {
 
     expect(mocks.payrollFindOneAndUpdate).toHaveBeenCalledWith(
       {
-        companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07",
-        type: "regular", status: fromStatus, activeRevisionId: { $exists: false },
+        _id: "branch-a-regular", companyCode: "ACME", branchId: "branch-a",
+        periodKey: "2026-07", type: "regular", status: fromStatus,
+        activeRevisionId: { $exists: false }, version: 2,
       },
       expect.any(Object),
-      expect.objectContaining({ new: true, sort: { createdAt: 1, _id: 1 } }),
+      { new: true },
     );
+    expect(selected.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
   });
 
   it("resets only the selected regular run and branch-owned period records", async () => {
-    const selected = sortedLean({ _id: "branch-a-regular" });
-    mocks.payrollFindOne.mockReturnValue(selected.query);
-    mocks.payrollDeleteOne.mockResolvedValue({ deletedCount: 1 });
     const res = response();
 
     await payrollController.resetPeriod(requestForBranchA, res);
 
-    expect(mocks.payrollDeleteOne).toHaveBeenCalledWith({
-      _id: "branch-a-regular", companyCode: "ACME", branchId: "branch-a",
-      periodKey: "2026-07", type: "regular",
+    expect(mocks.resetPayrollPeriod).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "branch-a" },
+      "2026-07",
+      "actor-a",
+    );
+    expect(res.json).toHaveBeenCalledWith({
+      status: "success",
+      deleted: { run: 1, results: 2, adjustments: 3, overrides: 4, audits: 5 },
     });
-    const branchPeriod = { companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07" };
-    expect(mocks.attendanceDeleteMany).toHaveBeenCalledWith(branchPeriod);
-    expect(mocks.adjustmentDeleteMany).toHaveBeenCalledWith(branchPeriod);
-    expect(mocks.auditDeleteMany).toHaveBeenCalledWith(branchPeriod);
   });
 
   it("creates and approves adjustments only inside the authenticated branch", async () => {

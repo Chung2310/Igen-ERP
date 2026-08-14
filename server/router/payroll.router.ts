@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 import { payrollController } from "../controller/payroll.controller";
 import { payrollFormulaController } from "../controller/payroll-formula.controller";
 import { payrollPeriodInputController } from "../controller/payroll-period-input.controller";
+import { payrollLineOverrideController } from "../controller/payroll-line-override.controller";
 export const payrollRouter = Router();
 payrollRouter.use(requireAuth as any);
 payrollRouter.get("/period-input-variables", requirePermission("payroll:read") as any, payrollPeriodInputController.variables as any);
@@ -13,6 +14,8 @@ payrollRouter.post("/period-input-variables/:id/retire", requirePermission("payr
 payrollRouter.get("/periods/:periodKey/inputs", requirePermission("payroll:read") as any, payrollPeriodInputController.list as any);
 payrollRouter.put("/periods/:periodKey/inputs/:employeeId", requirePermission("payroll:manage") as any, payrollPeriodInputController.save as any);
 payrollRouter.put("/periods/:periodKey/inputs", requirePermission("payroll:manage") as any, payrollPeriodInputController.bulk as any);
+payrollRouter.get("/periods/:periodKey/line-overrides", requirePermission("payroll:read") as any, payrollLineOverrideController.list as any);
+payrollRouter.put("/periods/:periodKey/line-overrides", requirePermission("payroll:manage") as any, payrollLineOverrideController.bulk as any);
 payrollRouter.get("/formulas", requirePermission("payroll:read") as any, payrollFormulaController.list as any);
 payrollRouter.post("/formulas", requirePermission("payroll:manage") as any, payrollFormulaController.create as any);
 payrollRouter.patch("/formulas/:id", requirePermission("payroll:manage") as any, payrollFormulaController.update as any);
@@ -37,8 +40,12 @@ payrollRouter.get("/runs/:id/audit", requirePermission("payroll:read") as any, p
 payrollRouter.post("/runs/:id/calculate", requirePermission("payroll:manage") as any, payrollController.calculateRun as any);
 payrollRouter.post("/runs/:id/recalculate", requirePermission("payroll:manage") as any, payrollController.calculateRun as any);
 payrollRouter.get("/runs/:id/issues", requirePermission("payroll:read") as any, payrollController.listRunIssues as any);
-payrollRouter.get("/runs/:id/lines/:employeeId", requirePermission("payroll:read") as any, payrollController.getLineDetail as any);payrollRouter.post("/runs/:id/payslips/publish", requirePermission("payroll:manage") as any, payrollController.publishPayslips as any);
-payrollRouter.get("/runs/:id/payslips/:employeeId/print", payrollController.printPayslip as any);
+payrollRouter.get("/runs/:id/lines/:employeeId", payrollController.getLineDetail as any);
+payrollRouter.post("/runs/:id/payslips/publish", requirePermission("payroll:manage") as any, payrollController.publishPayslips as any);
+payrollRouter.get(
+  "/runs/:id/payslips/:employeeId/print",
+  payrollController.printPayslip as any,
+);
 payrollRouter.post("/runs/:id/payslips/:employeeId/withdraw", requirePermission("payroll:manage") as any, payrollController.withdrawPayslip as any);
 payrollRouter.get("/employee/me/payslips", payrollController.listEmployeePayslips as any);
 payrollRouter.post("/runs/:id/exports", requirePermission("payroll:read") as any, payrollController.exportPayroll as any);
