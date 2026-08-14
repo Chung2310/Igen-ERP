@@ -129,12 +129,63 @@ describe("calculateRun for a whole run", () => {
     expect(completed.lines[0]).toEqual(storedSystemLine);
     expect(completed.checksum).toBe(storedChecksum);
     expect(projected.checksum).toBe(storedChecksum);
-    expect(projected.lines[0]).toMatchObject({
+    expect(projected.lines).toEqual(completed.lines);
+    expect(projected.effectiveLines[0]).toMatchObject({
       overrideVersion: 4,
       overrideValues: { adjustedBase: 8_000_000, bonusTotal: 0 },
       effectiveValues: { adjustedBase: 8_000_000, bonusTotal: 0 },
     });
-    expect(projected.lines[0].systemValues.adjustedBase).toBe(storedSystemLine.calculation.adjustedBase);
-    expect(projected.lines[0].net).toBeLessThan(storedSystemLine.calculation.net);
+    expect(projected.effectiveLines[0].systemValues.adjustedBase).toBe(storedSystemLine.calculation.adjustedBase);
+    expect(projected.effectiveLines[0].net).toBeLessThan(storedSystemLine.calculation.net);
+    expect(projected.effectiveLines[0]).not.toHaveProperty("calculation");
+    expect(projected.effectiveLines[0]).not.toHaveProperty("vietnam");
+  });
+
+  it("applies an employee override once to aggregated system values across salary segments", () => {
+    const segmentLines = [{
+      employeeId: "emp-1",
+      employeeName: "Employee One",
+      calculation: {
+        monthlySalary: 6_000_000, adjustedBase: 5_000_000, overtime: 500_000,
+        bonuses: 200_000, allowances: 300_000, adjustments: 0,
+        otherDeductions: 100_000, gross: 6_000_000, deductions: 100_000, net: 5_900_000,
+      },
+      vietnam: { income: { totalIncome: 6_000_000 }, deductions: { other: 100_000, total: 100_000 }, netPay: 5_900_000 },
+    }, {
+      employeeId: "emp-1",
+      employeeName: "Employee One",
+      calculation: {
+        monthlySalary: 4_000_000, adjustedBase: 3_000_000, overtime: 200_000,
+        bonuses: 100_000, allowances: 200_000, adjustments: 0,
+        otherDeductions: 50_000, gross: 3_500_000, deductions: 50_000, net: 3_450_000,
+      },
+      vietnam: { income: { totalIncome: 3_500_000 }, deductions: { other: 50_000, total: 50_000 }, netPay: 3_450_000 },
+    }];
+    const storedSegments = structuredClone(segmentLines);
+
+    const projected: any = projectPayrollRevisionWithOverrides({ lines: segmentLines, checksum: "system-only" }, [{
+      employeeId: "emp-1", adjustedBase: 7_000_000, bonusTotal: 0, version: 2,
+    }]);
+
+    expect(projected.lines).toEqual(storedSegments);
+    expect(projected.effectiveLines).toHaveLength(1);
+    expect(projected.effectiveLines[0]).toMatchObject({
+      employeeId: "emp-1",
+      segmentLines: storedSegments,
+      systemValues: {
+        baseSalary: 10_000_000,
+        adjustedBase: 8_000_000,
+        overtime: 700_000,
+        bonusTotal: 300_000,
+        hiddenIncome: 500_000,
+        otherDeductions: 150_000,
+      },
+      overrideValues: { adjustedBase: 7_000_000, bonusTotal: 0 },
+      effectiveValues: { adjustedBase: 7_000_000, bonusTotal: 0, hiddenIncome: 500_000 },
+      deductionTotal: 150_000,
+      net: 8_050_000,
+      overrideVersion: 2,
+    });
+    expect(projected.checksum).toBe("system-only");
   });
 });

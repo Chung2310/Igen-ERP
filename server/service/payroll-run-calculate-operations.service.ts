@@ -94,8 +94,31 @@ const overrideProjection = (override: any): PayrollLineOverrideValues => {
   return values;
 };
 
-export function projectPayrollLineWithOverride(line: any, override?: any) {
-  const systemValues = normalizePayrollLineSystemValues(line);
+const emptySystemValues = (): PayrollLineSystemValues => ({
+  baseSalary: 0,
+  adjustedBase: 0,
+  overtime: 0,
+  bonusTotal: 0,
+  penaltyTotal: 0,
+  socialInsurance: 0,
+  healthInsurance: 0,
+  unemploymentInsurance: 0,
+  personalIncomeTax: 0,
+  otherDeductions: 0,
+  advances: 0,
+  hiddenIncome: 0,
+});
+
+const aggregatePayrollLineSystemValues = (lines: any[]) => lines.reduce((total, line) => {
+  const values = normalizePayrollLineSystemValues(line);
+  for (const field of Object.keys(total) as Array<keyof PayrollLineSystemValues>) {
+    total[field] += values[field];
+  }
+  return total;
+}, emptySystemValues());
+
+export function projectPayrollEmployeeWithOverride(segmentLines: any[], override?: any) {
+  const systemValues = aggregatePayrollLineSystemValues(segmentLines);
   const overrideValues = overrideProjection(override);
   const resolved = resolvePayrollLineOverride(systemValues, overrideValues);
   const effectiveValues = {
@@ -103,24 +126,9 @@ export function projectPayrollLineWithOverride(line: any, override?: any) {
     ...(overrideValues.customValues ? { customValues: overrideValues.customValues } : {}),
   };
   return {
-    ...line,
-    calculation: {
-      ...(line?.calculation ?? {}),
-      baseSalary: resolved.values.baseSalary,
-      monthlySalary: resolved.values.baseSalary,
-      adjustedBase: resolved.values.adjustedBase,
-      overtime: resolved.values.overtime,
-      bonusTotal: resolved.values.bonusTotal,
-      penaltyTotal: resolved.values.penaltyTotal,
-      socialInsurance: resolved.values.socialInsurance,
-      healthInsurance: resolved.values.healthInsurance,
-      unemploymentInsurance: resolved.values.unemploymentInsurance,
-      personalIncomeTax: resolved.values.personalIncomeTax,
-      otherDeductions: resolved.values.otherDeductions,
-      advances: resolved.values.advances,
-      deductions: resolved.deductionTotal,
-      net: resolved.net,
-    },
+    employeeId: String(segmentLines[0]?.employeeId ?? override?.employeeId ?? ""),
+    ...(segmentLines[0]?.employeeName ? { employeeName: segmentLines[0].employeeName } : {}),
+    segmentLines,
     systemValues,
     overrideValues,
     effectiveValues,
@@ -133,27 +141,36 @@ export function projectPayrollLineWithOverride(line: any, override?: any) {
 
 export function projectPayrollRevisionWithOverrides(revision: any, overrides: any[]) {
   const overrideByEmployee = new Map(overrides.map((item) => [String(item.employeeId), item]));
+  const lines = revision?.lines ?? [];
+  const linesByEmployee = new Map<string, any[]>();
+  for (const line of lines) {
+    const employeeId = String(line.employeeId);
+    linesByEmployee.set(employeeId, [...(linesByEmployee.get(employeeId) ?? []), line]);
+  }
   return {
     ...revision,
-    lines: (revision?.lines ?? []).map((line: any) => (
-      projectPayrollLineWithOverride(line, overrideByEmployee.get(String(line.employeeId)))
+    lines,
+    effectiveLines: [...linesByEmployee.entries()].map(([employeeId, segmentLines]) => (
+      projectPayrollEmployeeWithOverride(segmentLines, overrideByEmployee.get(employeeId))
     )),
   };
 }
 
 export async function projectPayrollLinesWithStoredOverrides(
   scope: PayrollOperationScope,
-  periodKey: string,
+  run: { periodKey: string; type?: string },
   lines: any[],
 ) {
   const employeeIds = [...new Set(lines.map((line) => String(line.employeeId)))];
   if (!employeeIds.length) return [];
-  const overrides = await PayrollLineOverrideModel.find({
-    ...scope,
-    periodKey,
-    employeeId: { $in: employeeIds },
-  }).lean();
-  return projectPayrollRevisionWithOverrides({ lines }, overrides as any[]).lines;
+  const overrides = run.type === "regular"
+    ? await PayrollLineOverrideModel.find({
+        ...scope,
+        periodKey: run.periodKey,
+        employeeId: { $in: employeeIds },
+      }).lean()
+    : [];
+  return projectPayrollRevisionWithOverrides({ lines }, overrides as any[]).effectiveLines;
 }
 
 const ADJUSTMENT_BUCKET = {
@@ -305,7 +322,8 @@ export async function calculateOperationalRun(
     const revision = replayed?.periodKey
       ? {
           ...replay.result,
-          lines: await projectPayrollLinesWithStoredOverrides(scope, replayed.periodKey, replay.result.lines ?? []),
+          lines: replay.result.lines ?? [],
+          effectiveLines: await projectPayrollLinesWithStoredOverrides(scope, replayed, replay.result.lines ?? []),
         }
       : replay.result;
     return { revision, runVersion: replayed?.version };
@@ -349,7 +367,7 @@ export async function calculateOperationalRun(
   const revision = run?.periodKey
     ? {
         ...result,
-        lines: await projectPayrollLinesWithStoredOverrides(scope, run.periodKey, result?.lines ?? []),
+        effectiveLines: await projectPayrollLinesWithStoredOverrides(scope, run, result?.lines ?? []),
       }
     : result;
   return { revision, runVersion: run?.version };

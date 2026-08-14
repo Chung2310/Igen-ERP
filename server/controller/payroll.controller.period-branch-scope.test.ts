@@ -290,7 +290,9 @@ describe("legacy payroll period branch scope", () => {
       periodKey: "2026-07",
       employeeId: { $in: ["employee-a"] },
     });
-    const returnedLine = res.json.mock.calls[0][0].data.lines[0];
+    const returnedRun = res.json.mock.calls[0][0].data;
+    expect(returnedRun.lines).toEqual([storedLine]);
+    const returnedLine = returnedRun.effectiveLines[0];
     expect(returnedLine).toMatchObject({
       systemValues: {
         adjustedBase: 18_000_000,
@@ -313,6 +315,45 @@ describe("legacy payroll period branch scope", () => {
       deductionTotal: 925_000,
       net: 17_775_000,
     });
+    expect(returnedLine.segmentLines).toEqual([storedLine]);
+    expect(returnedLine).not.toHaveProperty("calculation");
+    expect(returnedLine).not.toHaveProperty("vietnam");
     expect(systemLine).toEqual(storedLine);
+  });
+
+  it("does not load or apply regular-period overrides to a supplemental line detail", async () => {
+    const supplementalLine = {
+      employeeId: "employee-a",
+      calculation: {
+        monthlySalary: 10_000_000, adjustedBase: 9_000_000, overtime: 0,
+        bonuses: 0, allowances: 0, adjustments: 0, otherDeductions: 0,
+        gross: 9_000_000, deductions: 0, net: 9_000_000,
+      },
+    };
+    mocks.runFindOne.mockReturnValue(lean({
+      _id: "run-supplemental",
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      type: "supplemental",
+      status: "draft",
+      lines: [supplementalLine],
+    }));
+    mocks.lineOverrideFind.mockReturnValue(lean([{
+      employeeId: "employee-a", adjustedBase: 1, version: 9,
+    }]));
+    const res = response();
+
+    await payrollController.getLineDetail(branchRequest({
+      params: { id: "run-supplemental", employeeId: "employee-a" },
+    }), res);
+
+    expect(mocks.lineOverrideFind).not.toHaveBeenCalled();
+    expect(res.json.mock.calls[0][0].data).toMatchObject({
+      overrideValues: {},
+      overrideVersion: 0,
+      effectiveValues: { adjustedBase: 9_000_000 },
+      net: 9_000_000,
+    });
   });
 });

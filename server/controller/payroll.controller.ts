@@ -13,7 +13,6 @@ import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-re
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
 import { PayslipPublicationModel } from "../model/payslip-publication.model";
 import { PayrollExportJobModel } from "../model/payroll-export-job.model";
-import { readPayrollLine } from "../service/payroll-line-read.service";
 import { CompanyWorkCalendarDayModel } from "../model/company-work-calendar.model";
 import { calculatePayroll } from "../service/payroll-calculation.service";
 import { calculateVietnamPayroll } from "../service/payroll-vietnam.service";
@@ -600,10 +599,10 @@ export const payrollController = {
       await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length, recalculated: true });
       const effectiveLines = await projectPayrollLinesWithStoredOverrides(
         { companyCode: tenant(req), branchId },
-        req.params.periodKey,
+        { periodKey: req.params.periodKey, type: "regular" },
         lines,
       );
-      return res.json({ status: "success", data: { ...run, lines: effectiveLines } });
+      return res.json({ status: "success", data: { ...run, effectiveLines } });
     }
     const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "draft", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
@@ -982,16 +981,14 @@ export const payrollController = {
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
     if (!run) return res.status(404).json({ status: "error", code: "PAYROLL_RUN_NOT_FOUND", message: "Payroll run not found" });
-    const line = await readPayrollLine({
-      run,
-      employeeId: req.params.employeeId,
-      revision: { getLine: async (revisionId, employeeId) => {
-        const revision = await PayrollCalculationRevisionModel.findOne({ _id: revisionId, ...scope }).lean();
-        return revision?.lines?.find((item: any) => item.employeeId === employeeId) as any;
-      } },
-    });
-    if (!line) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND", message: "Payroll line not found" });
-    const [effectiveLine] = await projectPayrollLinesWithStoredOverrides(scope, run.periodKey, [line]);
+    const revision: any = run.activeRevisionId
+      ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean()
+      : null;
+    const systemLines = (revision?.lines ?? run.lines ?? []).filter(
+      (item: any) => String(item.employeeId) === req.params.employeeId,
+    );
+    if (!systemLines.length) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND", message: "Payroll line not found" });
+    const [effectiveLine] = await projectPayrollLinesWithStoredOverrides(scope, run, systemLines);
     return res.json({ status: "success", data: effectiveLine });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
@@ -1002,9 +999,9 @@ export const payrollController = {
       status: "published"
     }).select("employeeId").lean();
     (data as any).publishedEmployeeIds = publications.map((p) => p.employeeId);
-    (data as any).lines = await projectPayrollLinesWithStoredOverrides(
+    (data as any).effectiveLines = await projectPayrollLinesWithStoredOverrides(
       { companyCode: tenant(req), branchId: req.user?.branchId || "" },
-      data.periodKey,
+      data,
       data.lines ?? [],
     );
     return res.json({ status: "success", data });
