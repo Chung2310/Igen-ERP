@@ -59,13 +59,12 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
 }
 
 /**
- * Narrower than canManageTimekeeping: superadmin/admin OR timekeeping:manage —
- * used for actions previously restricted to admin/superadmin only (approving
- * leave applications, managing leave templates), where "manager" was never included.
+ * Used for actions that must always require the effective timekeeping:manage
+ * permission: approving leave applications, editing another employee's leave,
+ * and managing leave templates.
  */
 async function canApproveLeave(req: AuthenticatedRequest): Promise<boolean> {
   const userRole = req.user?.role || "user";
-  if (userRole === "superadmin" || userRole === "admin") return true;
   const permissions = await getEffectivePermissions(req.user!.id, userRole, req.user?.companyCode);
   return permissions.has("*") || permissions.has("timekeeping:manage");
 }
