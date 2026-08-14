@@ -44,7 +44,7 @@ export function PayrollPolicyFormModal({ mode, initialDefinition, saving, onCanc
   const close = () => { if (!dirty || window.confirm("Bạn có thay đổi chưa lưu. Đóng popup?")) onCancel(); };
   const next = () => { const found = validatePayrollPolicyStep(form, step); setErrors(found); if (!Object.keys(found).length) setStep((value) => Math.min(3, value + 1)); };
   const submit = async () => { const found = validatePayrollPolicyForm(form); setErrors(found); if (Object.keys(found).length) { const first = [0, 1, 2, 3].find((index) => Object.keys(validatePayrollPolicyStep(form, index)).length); setStep(first ?? 0); return; } await onSave(payrollPolicyFormToDefinition(form)); };
-  const numberInput = (value: number, onChange: (value: number) => void, extra?: string) => <input type="number" min="0" value={value} onChange={(event) => onChange(numberValue(event.target.value))} className={`${inputClass} ${extra ?? ""}`}/>;
+  const numberInput = (value: number, onChange: (value: number) => void, extra?: string, min = 0) => <input type="number" min={min} value={value} onChange={(event) => onChange(numberValue(event.target.value))} className={`${inputClass} ${extra ?? ""}`}/>;
   const percentInput = (value: number, onChange: (value: number) => void) => <div className="relative">{numberInput(value, onChange, "pr-9")}<span className="absolute right-3 top-3 text-sm text-slate-400">%</span></div>;
 
   const general = <div className="grid gap-4 md:grid-cols-2">
@@ -54,8 +54,8 @@ export function PayrollPolicyFormModal({ mode, initialDefinition, saving, onCanc
     <Field label="Hiệu lực đến" error={errors.effectiveTo}><input type="date" value={form.effectiveTo} onChange={(e) => set("effectiveTo", e.target.value)} className={inputClass}/></Field>
     <Field label="Lương cơ sở" error={errors.baseSalary}>{numberInput(form.baseSalary, (v) => set("baseSalary", v))}</Field>
     <Field label="Lương tối thiểu vùng" error={errors.regionalMinimumWage}>{numberInput(form.regionalMinimumWage, (v) => set("regionalMinimumWage", v))}</Field>
-    <Field label="Hệ số trần BHXH">{numberInput(form.socialCapMultiplier, (v) => set("socialCapMultiplier", v))}</Field>
-    <Field label="Hệ số trần BHTN">{numberInput(form.unemploymentCapMultiplier, (v) => set("unemploymentCapMultiplier", v))}</Field>
+    <Field label="Hệ số trần BHXH/BHYT" error={errors.socialCapMultiplier}>{numberInput(form.socialCapMultiplier, (v) => set("socialCapMultiplier", v), undefined, 1)}</Field>
+    <Field label="Hệ số trần BHTN" error={errors.unemploymentCapMultiplier}>{numberInput(form.unemploymentCapMultiplier, (v) => set("unemploymentCapMultiplier", v), undefined, 1)}</Field>
     <div className="md:col-span-2"><Field label="Nguồn tham chiếu / ghi chú"><textarea value={form.sourceReference} onChange={(e) => set("sourceReference", e.target.value)} rows={2} className={inputClass}/></Field></div>
   </div>;
 

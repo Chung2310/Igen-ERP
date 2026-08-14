@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PayrollPolicyFormModal } from "./PayrollPolicyFormModal";
+
+afterEach(cleanup);
 
 describe("PayrollPolicyFormModal", () => {
   it("uses four guided steps and blocks invalid navigation", () => {
@@ -16,5 +18,23 @@ describe("PayrollPolicyFormModal", () => {
   it("prefills edit data using percentage values", () => {
     render(<PayrollPolicyFormModal mode="edit" saving={false} initialDefinition={{ code: "VN", name: "Việt Nam", effectiveFrom: "2026-01-01", funds: [{ code: "social", employeeRate: .08, employerRate: .175, capBasis: "baseSalary" }] }} onCancel={vi.fn()} onSave={vi.fn()} />);
     expect(screen.getByDisplayValue("VN")).toBeTruthy();
+  });
+
+  it("shows field-level errors when insurance cap multipliers are zero", () => {
+    render(<PayrollPolicyFormModal
+      mode="edit"
+      saving={false}
+      initialDefinition={{ code: "VN", name: "Việt Nam", effectiveFrom: "2026-01-01" }}
+      onCancel={vi.fn()}
+      onSave={vi.fn()}
+    />);
+
+    fireEvent.change(screen.getByLabelText("Hệ số trần BHXH/BHYT"), { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Hệ số trần BHTN"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+
+    expect(screen.getByText("Hệ số trần BHXH/BHYT phải từ 1 trở lên.")).toBeTruthy();
+    expect(screen.getByText("Hệ số trần BHTN phải từ 1 trở lên.")).toBeTruthy();
+    expect(screen.queryByText("Bảo hiểm xã hội")).toBeNull();
   });
 });
