@@ -77,7 +77,7 @@ describe("worker labor contract service", () => {
         startDate: "2026-01-01",
         endDate: "2026-06-30",
       }),
-    ).toMatchObject({ code: "HD-1", clientName: "Công ty A", status: "draft" });
+    ).toMatchObject({ code: "HD-1", clientName: "Công ty A", status: "active" });
   });
 
   it.each(["2026-02-30", "2026-99-99", "2026-00-10", "not-a-date"])(

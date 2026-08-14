@@ -2,6 +2,7 @@ import { workerApiFetch } from "./client";
 import type {
   BulkWorkerInput,
   Worker,
+  WorkerBulkDeleteResult,
   WorkerBulkImportResult,
   WorkerInput,
   WorkerScope,
@@ -42,6 +43,14 @@ export const workerApi = {
     return workerApiFetch<WorkerBulkImportResult>(`${WORKER_BASE}/bulk`, {
       method: "POST",
       body: JSON.stringify({ workers, ...(projectId ? { projectId } : {}), ...(importUpload ? { importUpload } : {}) }),
+      params: scopeParams(scope),
+    });
+  },
+
+  async bulkDelete(ids: string[], scope: WorkerScope) {
+    return workerApiFetch<WorkerBulkDeleteResult>(`${WORKER_BASE}/bulk-delete`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
       params: scopeParams(scope),
     });
   },

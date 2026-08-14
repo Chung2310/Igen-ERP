@@ -101,6 +101,7 @@ export type WorkerProjectSummary = {
 export type BulkWorkerInput = {
   fullName: string;
   phone: string;
+  partnerCode?: string;
   email?: string;
   idCard?: string;
   birthday?: string;
@@ -120,16 +121,28 @@ export type WorkerBulkImportError = {
   reason: string;
 };
 
+export type WorkerBulkImportReferralError = {
+  workerId: string;
+  partnerCode: string;
+  reason: string;
+};
+
 export type WorkerBulkImportResult = {
   importedCount: number;
   skippedCount: number;
   errors: WorkerBulkImportError[];
+  referralErrors?: WorkerBulkImportReferralError[];
+};
+
+export type WorkerBulkDeleteResult = {
+  deletedCount: number;
 };
 
 export type Worker = {
   _id: string;
   fullName: string;
   phone?: string;
+  partnerCode?: string;
   email?: string;
   status: WorkerStatus;
   laborType?: WorkerLaborType;

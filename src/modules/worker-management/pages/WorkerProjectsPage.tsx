@@ -24,6 +24,7 @@ import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
+import { toIsoDate } from "../utils/contractDate";
 import type {
   Worker,
   WorkerAttendanceLog,
@@ -625,12 +626,14 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày bắt đầu">
                 <input
-                  type="date"
-                  value={form.startDate}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDate(form.startDate)}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      startDate: event.target.value,
+                      startDate: toIsoDate(event.target.value),
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
@@ -638,12 +641,14 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày kết thúc">
                 <input
-                  type="date"
-                  value={form.endDate}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDate(form.endDate)}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      endDate: event.target.value,
+                      endDate: toIsoDate(event.target.value),
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
@@ -989,7 +994,7 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
   const exportExcel = () => {
     const data = rows.map(({ log, worker }, index) => ({
       "STT": index + 1,
-      "Ngày": log.date,
+      "Ngày": formatDate(log.date),
       "Họ và tên": worker?.fullName || "Không xác định",
       "Số điện thoại": worker?.phone || "",
       "Giờ vào": formatAttendanceTime(log.checkIn?.time),
@@ -1009,8 +1014,8 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
 
   return <div className="space-y-3">
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(from)} onChange={(e) => setFrom(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(to)} onChange={(e) => setTo(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
       <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Hôm nay</button>
       <button type="button" onClick={exportExcel} disabled={loading || rows.length === 0} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
     </div>

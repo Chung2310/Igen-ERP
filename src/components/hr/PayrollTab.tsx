@@ -42,9 +42,9 @@ function SortHeader({ label, sortKey, activeKey, dir, onSort, align = "left" }: 
   return (
     <th
       onClick={() => onSort(sortKey)}
-      className={`p-3 font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"}`}
+      className="border-l border-slate-200 p-3 text-center font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap"
     >
-      <span className={`inline-flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+      <span className={`inline-flex items-center justify-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
         {label}
         <Icon size={12} className={isActive ? "text-slate-600" : "text-slate-300"} />
       </span>
@@ -475,7 +475,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
@@ -539,14 +539,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
-                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-left font-bold">Thông tin nhân viên</th>
+                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
                   <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className="border-l-2 border-cyan-200 bg-cyan-50 p-2 text-center font-bold text-cyan-800">Các khoản có thể chỉnh sửa</th>
                   <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
                 </tr>
                 <tr className="border-b text-xs text-slate-500">
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
-                  {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
+                  {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
@@ -556,13 +556,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr><td colSpan={14 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700">
+                    <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 text-center font-medium text-slate-700">
                       <div>{line.employeeName || "Chưa có tên"}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
                     {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
                       ? renderResultCell(line, field.key, Number(line.systemValues[field.key]), Number(line[field.key]))
-                      : <td key={field.key} className="p-3 text-right text-slate-600">{field.key === "adjustedBase"
+                        : <td key={field.key} className="border-l border-slate-100 p-3 text-right text-slate-600">{field.key === "adjustedBase"
                         ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line[field.key]).toLocaleString()} đ</button>
                         : `${Number(line[field.key]).toLocaleString()} đ`}</td>)}
                     {customVariables.map((variable: any) => {
@@ -571,7 +571,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                       const effectiveValue = Number(line.customValues?.[variable.code] ?? systemValue);
                       return inlineEditable
                         ? renderResultCell(line, field, systemValue, effectiveValue)
-                        : <td key={field} className="p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
+                        : <td key={field} className="border-l border-slate-100 p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
                     })}
                     <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{Number(line.deductionTotal).toLocaleString()} đ</span></td>
                     <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{Number(line.net).toLocaleString()} đ</span></td>

@@ -51,6 +51,28 @@ describe("worker service", () => {
     );
   });
 
+  it("bulk soft deletes only valid workers in the current tenant scope", async () => {
+    const firstId = new Types.ObjectId().toString();
+    const secondId = new Types.ObjectId().toString();
+    const updateMany = vi.spyOn(WorkerModel, "updateMany").mockResolvedValue({ modifiedCount: 2 } as any);
+
+    const result = await WorkerService.bulkDelete(
+      { companyCode: "ACME", branchId: "B1" },
+      [firstId, secondId, firstId, "not-an-object-id"],
+    );
+
+    expect(result).toEqual({ deletedCount: 2 });
+    expect(updateMany).toHaveBeenCalledWith(
+      {
+        _id: { $in: [new Types.ObjectId(firstId), new Types.ObjectId(secondId)] },
+        companyCode: "ACME",
+        branchId: "B1",
+        deletedAt: null,
+      },
+      { $set: { deletedAt: expect.any(Date) } },
+    );
+  });
+
   it("normalizes optional fields and rejects student-only fields", () => {
     const normalized = normalizeWorkerInput({ fullName: " A ", phone: " 090 ", email: " WORKER@EXAMPLE.COM ", address: " HN ", birthday: "2000-01-01", idCard: " 001 ", registrationDate: " 2026-08-04 ", note: " note ", customFields: { preferredShift: "morning" }, rank: "B2", fee: "1000000", batchId: "student-batch" } as any);
     expect(normalized).toMatchObject({ fullName: "A", phone: "090", email: "worker@example.com", address: "HN", birthday: "2000-01-01", idCard: "001", registrationDate: "2026-08-04", note: "note", customFields: { preferredShift: "morning" }, status: "active" });

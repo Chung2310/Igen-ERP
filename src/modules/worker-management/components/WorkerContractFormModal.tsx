@@ -133,7 +133,7 @@ export function WorkerContractFormModal({
         clientName: form.clientName.trim(),
         startDate,
         endDate,
-        status: form.status,
+        ...(mode === "create" ? { status: "active" as const } : {}),
         note: form.note.trim(),
       });
       onClose();
@@ -241,7 +241,7 @@ export function WorkerContractFormModal({
             disabled={submitting || locked}
           />
 
-          <div className="space-y-1">
+          <div className="hidden">
             <label htmlFor="status" className={labelClass}>
               Trạng thái
             </label>
@@ -300,12 +300,16 @@ function Field({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const isDate = props.name === "startDate" || props.name === "endDate";
+  const inputProps = isDate
+    ? { ...props, type: "text", value: toDisplayDate(String(props.value || "")), placeholder: "DD/MM/YYYY", inputMode: "numeric" as const, maxLength: 10 }
+    : props;
   return (
     <div className="space-y-1">
       <label htmlFor={props.name} className={labelClass}>
         {label}
       </label>
-      <input id={props.name} {...props} className={inputClass} />
+      <input id={props.name} {...inputProps} className={inputClass} />
     </div>
   );
 }
