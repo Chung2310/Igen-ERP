@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Joi from "joi";
 import { pushController } from "../controller/push.controller";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 
 export const pushRouter = Router();
@@ -43,6 +43,7 @@ pushRouter.get("/public-key", requireAuth as any, pushController.getPublicKey as
 pushRouter.post(
   "/subscribe",
   requireAuth as any,
+  requirePermission("people:manage") as any,
   validateRequest(subscribeSchema),
   pushController.subscribe as any
 );
@@ -51,6 +52,7 @@ pushRouter.post(
 pushRouter.post(
   "/unsubscribe",
   requireAuth as any,
+  requirePermission("people:manage") as any,
   validateRequest(unsubscribeSchema),
   pushController.unsubscribe as any
 );

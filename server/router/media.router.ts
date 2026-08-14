@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from "express";
 import Joi from "joi";
 import { mediaController } from "../controller/media.controller";
 import { validateRequest } from "../middleware/validation";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import https from "https";
 import http from "http";
 
@@ -77,6 +77,7 @@ const uploadSchema = {
 mediaRouter.post(
   "/upload",
   requireAuth as RequestHandler,
+  requirePermission("resource:manage") as RequestHandler,
   validateRequest(uploadSchema),
   mediaController.upload as RequestHandler
 );
@@ -85,6 +86,7 @@ mediaRouter.post(
 mediaRouter.post(
   "/sign-upload",
   requireAuth as RequestHandler,
+  requirePermission("resource:manage") as RequestHandler,
   async (req, res) => {
     try {
       const { paramsToSign } = req.body;
