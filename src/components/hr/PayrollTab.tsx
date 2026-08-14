@@ -258,6 +258,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
   const processPeriod = async (propagateError = false) => {
     if (processingPayroll) return;
+    if (run && run.status !== "draft") {
+      const message = "Kỳ lương đã ở bước kiểm tra/chốt. Hãy mở lại kỳ trước khi tính lại.";
+      toast.warning(message);
+      if (propagateError) throw new Error(message);
+      return;
+    }
     setProcessingPayroll(true);
     try {
       await payrollService.processPeriod(period);
