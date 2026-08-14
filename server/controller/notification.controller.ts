@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { notificationService } from "../service/notification.service";
 import { NotifType } from "../interface/notification.interface";
+import { UserModel } from "../model/user.model";
 
 export const notificationController = {
   /**
@@ -59,6 +60,18 @@ export const notificationController = {
         return res.status(401).json({
           status: "error",
           message: "Người dùng chưa xác thực hoặc thiếu mã công ty.",
+        });
+      }
+
+      const recipient = await UserModel.findOne({
+        _id: req.body.recipientUid,
+        companyCode,
+      }).select("_id").lean();
+
+      if (!recipient) {
+        return res.status(403).json({
+          status: "error",
+          message: "Nguoi nhan khong thuoc doanh nghiep cua ban hoac khong ton tai.",
         });
       }
 

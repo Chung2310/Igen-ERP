@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { notificationController } from "../controller/notification.controller";
 import {
@@ -22,6 +22,7 @@ notificationRouter.get(
 notificationRouter.post(
   "/",
   requireAuth as any,
+  requirePermission("chat:manage") as any,
   validateRequest(createNotificationSchema),
   notificationController.create as any
 );
