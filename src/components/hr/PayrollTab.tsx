@@ -538,8 +538,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           {run ? (
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
+                <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
+                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-left font-bold">Thông tin nhân viên</th>
+                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className="border-l-2 border-cyan-200 bg-cyan-50 p-2 text-center font-bold text-cyan-800">Các khoản có thể chỉnh sửa</th>
+                  <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
+                  <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
+                </tr>
                 <tr className="border-b text-xs text-slate-500">
-                  <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
                   {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
@@ -551,16 +556,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr><td colSpan={14 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="p-3 font-medium text-slate-700">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{line.employeeName || "Chưa có tên"}</span>
-                        {run?.publishedEmployeeIds?.includes(line.employeeId) ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-[9px] font-semibold text-emerald-700 border border-emerald-100">Đã phát hành</span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-semibold text-slate-500 border border-slate-200">Chưa phát hành</span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{line.employeeId}</div>
+                    <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700">
+                      <div>{line.employeeName || "Chưa có tên"}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
                     {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
@@ -615,7 +612,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
+                      <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">

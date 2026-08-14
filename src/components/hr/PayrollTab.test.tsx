@@ -134,6 +134,14 @@ describe("PayrollTab editable payroll results", () => {
     arrange();
     render(<PayrollTab canManage />);
 
+    expect(await screen.findByText("Thông tin nhân viên")).toBeTruthy();
+    expect(await screen.findByText("Các khoản có thể chỉnh sửa")).toBeTruthy();
+    expect(await screen.findByText("Khoản khấu trừ")).toBeTruthy();
+    expect((await screen.findAllByText("Thực nhận")).length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    expect(screen.queryByText("Chưa phát hành")).toBeNull();
+    expect(screen.queryByText("e1")).toBeNull();
+
     expect(screen.getByText("custom-variable-catalog")).toBeTruthy();
     for (const field of PAYROLL_RESULT_FIELDS) {
       expect(await screen.findByLabelText(`${field.key}-e1`)).toBeTruthy();
