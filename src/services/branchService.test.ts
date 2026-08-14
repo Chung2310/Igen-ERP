@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { branchService } from "./branchService";
 
@@ -19,5 +20,16 @@ describe("branchService", () => {
     await branchService.update("b1", { isActive: false });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect((fetchMock as any).mock.calls[1][0]).toBe("/api/v1/auth/branches/b1");
+  });
+
+  test("creates an owner and removes a pending branch", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: {} }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await branchService.createOwner("b 1", { displayName: "Owner", email: "owner@test", password: "secret" });
+    await branchService.removePending("b 1");
+    expect((fetchMock as any).mock.calls[0][0]).toBe("/api/v1/auth/branches/b%201/owner");
+    expect((fetchMock as any).mock.calls[0][1]).toEqual(expect.objectContaining({ method: "POST" }));
+    expect((fetchMock as any).mock.calls[1][0]).toBe("/api/v1/auth/branches/b%201/pending");
+    expect((fetchMock as any).mock.calls[1][1]).toEqual(expect.objectContaining({ method: "DELETE" }));
   });
 });

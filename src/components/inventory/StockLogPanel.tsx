@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Eye, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { ProductItem, StockLog, StockLogPurpose } from "../../types";
+import { inventoryReceivingService, type InventoryBalance, type Warehouse } from "../../services/inventoryReceivingService";
 
 type DraftLine = {
   productId: string;
+  sku?: string;
   quantity: string;
 };
 
@@ -36,6 +38,11 @@ type StockLogPanelProps = {
   onUpdateStatus?: (logId: string, status: TransactionStatus) => Promise<void>;
   onDeleteTransaction?: (logId: string) => Promise<void>;
   readOnly?: boolean;
+  outboundOnly?: boolean;
+  hideExcelActions?: boolean;
+  initialWarehouseId?: string;
+  initialSku?: string;
+  openOnMountKey?: number;
 };
 
 function formatNumber(value: number) {
@@ -100,23 +107,108 @@ export function StockLogPanel({
   onUpdateStatus,
   onDeleteTransaction,
   readOnly = false,
+  outboundOnly = false,
+  hideExcelActions = false,
+  initialWarehouseId,
+  initialSku,
+  openOnMountKey,
 }: StockLogPanelProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState<StockLog | null>(null);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
-  const [draftType, setDraftType] = useState<"nhập" | "xuất">("nhập");
+  const [draftType, setDraftType] = useState<"nhập" | "xuất">(outboundOnly ? "xuất" : "nhập");
   const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
   const [draftCustomerName, setDraftCustomerName] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftOperator, setDraftOperator] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
   const [draftStatus, setDraftStatus] = useState<TransactionStatus>("Đang chờ");
-  const [draftLines, setDraftLines] = useState<DraftLine[]>([{ productId: "", quantity: "" }]);
+  const [draftLines, setDraftLines] = useState<DraftLine[]>([{ productId: "", quantity: "1" }]);
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">(outboundOnly ? "outbound" : "all");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "completed">("all");
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [sourceWarehouseId, setSourceWarehouseId] = useState("");
+  const [warehouseBalances, setWarehouseBalances] = useState<InventoryBalance[]>([]);
+  const [warehouseProductsLoading, setWarehouseProductsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!outboundOnly) return;
+    let active = true;
+    const loadWarehouses = async () => {
+      setWarehouseProductsLoading(true);
+      try {
+        const nextWarehouses = await inventoryReceivingService.listWarehouses();
+        if (!active) return;
+        setWarehouses(nextWarehouses);
+        setSourceWarehouseId((current) => current && nextWarehouses.some((warehouse) => warehouse._id === current) ? current : nextWarehouses.find((warehouse) => warehouse.isDefault)?._id || nextWarehouses[0]?._id || "");
+      } catch {
+        if (active) { setWarehouses([]); setSourceWarehouseId(""); }
+      } finally {
+        if (active) setWarehouseProductsLoading(false);
+      }
+    };
+    void loadWarehouses();
+    return () => { active = false; };
+  }, [outboundOnly]);
+
+  useEffect(() => {
+    if (!outboundOnly || !sourceWarehouseId) { setWarehouseBalances([]); return; }
+    let active = true;
+    const loadBalances = async () => {
+      setWarehouseProductsLoading(true);
+      try {
+        const nextBalances = await inventoryReceivingService.listBalances(sourceWarehouseId);
+        if (active) setWarehouseBalances(nextBalances);
+      } catch {
+        if (active) setWarehouseBalances([]);
+      } finally {
+        if (active) setWarehouseProductsLoading(false);
+      }
+    };
+    void loadBalances();
+    return () => { active = false; };
+  }, [outboundOnly, sourceWarehouseId]);
+
+  const selectableProducts = useMemo(() => {
+    if (!outboundOnly) return products;
+    const availableBySku = new Map(warehouseBalances.filter((balance) => balance.quantity - balance.reservedQuantity > 0).map((balance) => [balance.sku, balance]));
+    const legacyProductsInWarehouse = products
+      .filter((product) => availableBySku.has(product.sku))
+      .map((product) => ({ ...product, stock: Math.max(0, (availableBySku.get(product.sku)?.quantity || 0) - (availableBySku.get(product.sku)?.reservedQuantity || 0)) }));
+    if (legacyProductsInWarehouse.length > 0) return legacyProductsInWarehouse;
+
+    // Kho mới lưu tồn theo SKU/biến thể; vẫn hiển thị được các SKU này khi danh mục cũ chưa đồng bộ.
+    return warehouseBalances
+      .filter((balance) => balance.quantity - balance.reservedQuantity > 0)
+      .map((balance) => ({
+        id: balance.productId,
+        sku: balance.sku,
+        name: balance.productName || balance.sku,
+        category: "",
+        unit: "",
+        stock: Math.max(0, balance.quantity - balance.reservedQuantity),
+        minStockAlert: 0,
+        price: 0,
+        status: "Active" as const,
+        demandForecast: "Ổn định" as const,
+        imageUrl: balance.variantMediaUrl || balance.productMediaUrl || "",
+      }));
+  }, [outboundOnly, products, warehouseBalances]);
+
+  const warehouseProductGroups = useMemo(() => {
+    const groups = new Map<string, { productId: string; name: string; variants: InventoryBalance[] }>();
+    warehouseBalances
+      .filter((balance) => balance.quantity - balance.reservedQuantity > 0)
+      .forEach((balance) => {
+        const current = groups.get(balance.productId) || { productId: balance.productId, name: balance.productName || balance.sku, variants: [] };
+        current.variants.push(balance);
+        groups.set(balance.productId, current);
+      });
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }, [warehouseBalances]);
 
   const filteredLogs = useMemo(
     () =>
@@ -127,7 +219,7 @@ export function StockLogPanel({
           .join(" ")
           .toLowerCase();
 
-        const matchesType = typeFilter === "all" || getTypeKey(log.type) === typeFilter;
+        const matchesType = outboundOnly ? getTypeKey(log.type) === "outbound" : typeFilter === "all" || getTypeKey(log.type) === typeFilter;
         const matchesStatus = statusFilter === "all" || getStatusKey(getLogStatus(log)) === statusFilter;
         const matchesKeyword =
           log.id.toLowerCase().includes(keyword) ||
@@ -136,25 +228,38 @@ export function StockLogPanel({
 
         return matchesType && matchesStatus && matchesKeyword;
       }),
-    [searchLog, statusFilter, stockLogs, typeFilter]
+    [outboundOnly, searchLog, statusFilter, stockLogs, typeFilter]
   );
 
   const resetDraft = () => {
     setEditingLogId(null);
-    setDraftType("nhập");
+    setDraftType(outboundOnly ? "xuất" : "nhập");
     setDraftPurpose("bán");
     setDraftCustomerName("");
     setDraftTitle("");
     setDraftOperator("");
     setDraftNotes("");
     setDraftStatus("Đang chờ");
-    setDraftLines([{ productId: "", quantity: "" }]);
+    setDraftLines([{ productId: "", quantity: "1" }]);
   };
 
   const openCreateModal = () => {
     resetDraft();
     setShowCreateModal(true);
   };
+
+  useEffect(() => {
+    if (!openOnMountKey || !outboundOnly) return;
+    resetDraft();
+    setSourceWarehouseId(initialWarehouseId || "");
+    setShowCreateModal(true);
+  }, [initialWarehouseId, openOnMountKey, outboundOnly]);
+
+  useEffect(() => {
+    if (!showCreateModal || !outboundOnly || !initialSku || !openOnMountKey) return;
+    const product = selectableProducts.find((item) => item.sku === initialSku);
+    if (product) setDraftLines([{ productId: product.id, sku: initialSku, quantity: "1" }]);
+  }, [initialSku, openOnMountKey, outboundOnly, selectableProducts, showCreateModal]);
 
   const openEditModal = (log: StockLog) => {
     const items = getLogItems(log);
@@ -179,7 +284,7 @@ export function StockLogPanel({
   };
 
   const addDraftLine = () => {
-    setDraftLines((current) => [...current, { productId: "", quantity: "" }]);
+    setDraftLines((current) => [...current, { productId: "", quantity: "1" }]);
   };
 
   const updateDraftLine = (index: number, nextLine: DraftLine) => {
@@ -198,7 +303,7 @@ export function StockLogPanel({
         productId: line.productId,
         quantity: Number(line.quantity),
       }))
-      .filter((line) => line.productId && Number.isFinite(line.quantity) && line.quantity > 0);
+      .filter((line, index) => line.productId && (!outboundOnly || Boolean(draftLines[index]?.sku)) && Number.isFinite(line.quantity) && line.quantity > 0);
 
     if (!draftTitle.trim() || !draftOperator.trim() || normalizedItems.length === 0) {
       return;
@@ -210,7 +315,7 @@ export function StockLogPanel({
       id: editingLogId || undefined,
       type: draftType,
       purpose: draftType === "xuất" ? draftPurpose : undefined,
-      customerName: draftType === "xuất" && draftPurpose === "bán" ? draftCustomerName.trim() : undefined,
+      customerName: draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") ? draftCustomerName.trim() : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
       notes: draftNotes.trim(),
@@ -250,7 +355,7 @@ export function StockLogPanel({
             />
           </div>
 
-          <label className="flex shrink-0 flex-col gap-1">
+          {!outboundOnly && <label className="flex shrink-0 flex-col gap-1">
             <span className="px-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Loại phiếu</span>
             <select
               value={typeFilter}
@@ -261,7 +366,7 @@ export function StockLogPanel({
               <option value="inbound">Phiếu nhập</option>
               <option value="outbound">Phiếu xuất</option>
             </select>
-          </label>
+          </label>}
 
           <label className="flex shrink-0 flex-col gap-1">
             <span className="px-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Trạng thái</span>
@@ -282,7 +387,7 @@ export function StockLogPanel({
 
           {/* ── Hành động ── */}
           <div className="flex shrink-0 items-center gap-2">
-            {!readOnly && <button
+            {!readOnly && !hideExcelActions && <button
               type="button"
               onClick={onImportExcel}
               disabled={isImporting}
@@ -291,7 +396,7 @@ export function StockLogPanel({
               <Upload className="h-3.5 w-3.5" />
               {isImporting ? "Đang nhập..." : "Nhập Excel"}
             </button>}
-            {!readOnly && <button
+            {!readOnly && !hideExcelActions && <button
               type="button"
               onClick={onExportExcel}
               className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
@@ -305,14 +410,14 @@ export function StockLogPanel({
               className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-800"
             >
               <Plus className="h-4 w-4" />
-              Tạo phiếu
+              {outboundOnly ? "Tạo phiếu xuất" : "Tạo phiếu"}
             </button>
           </div>
 
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="space-y-3">
           {isLoading ? (
             <div className="space-y-3">
@@ -341,20 +446,19 @@ export function StockLogPanel({
             const status = getLogStatus(log);
 
             return (
-              <div key={log.id} className="flex flex-col gap-4 rounded-2xl border border-sky-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${isInbound ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                    {isInbound ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+              <div key={log.id} className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-5 hover:bg-slate-50/70">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isInbound ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                    {isInbound ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-bold text-slate-800">{getLogTitle(log)}</h4>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">{log.id}</span>
+                      <h4 className="text-sm font-semibold text-slate-800">{getLogTitle(log)}</h4>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${isInbound ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{isInbound ? "Nhập kho" : "Xuất kho"}</span>
                     </div>
-                    <p className="mt-1 truncate text-sm text-gray-500">{previewText}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                      <span>{log.operatorName}</span>
-                      <span>{log.createdAt}</span>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{previewText}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <span>{log.operatorName || "Chưa rõ người tạo"}</span><span>•</span><span>{new Date(log.createdAt).toLocaleString("vi-VN")}</span>
                       {!readOnly && onUpdateStatus ? (
                         <select
                           value={status}
@@ -384,11 +488,11 @@ export function StockLogPanel({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
-                  <div className={`text-right text-3xl font-bold ${isInbound ? "text-emerald-600" : "text-rose-600"}`}>
+                <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                  <div className={`text-right text-2xl font-bold ${isInbound ? "text-emerald-600" : "text-rose-600"}`}>
                     {isInbound ? "+" : "-"}
                     {formatNumber(totalQuantity)}
-                    <span className="ml-1 text-lg font-semibold text-gray-400">sp</span>
+                    <span className="ml-1 text-sm font-semibold text-gray-400">sp</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {!readOnly && <button
@@ -405,7 +509,8 @@ export function StockLogPanel({
                         setSelectedLog(log);
                         setShowDetailModal(true);
                       }}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50"
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-cyan-700"
+                      title="Xem chi tiết"
                     >
                       <Eye className="h-4 w-4" />
                       Xem chi tiết
@@ -437,41 +542,48 @@ export function StockLogPanel({
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">{editingLogId ? "Chỉnh sửa phiếu nhập xuất kho" : "Tạo phiếu nhập xuất kho"}</h3>
-                <p className="text-sm text-gray-500">Chọn loại phiếu, trạng thái xử lý, thêm sản phẩm có sẵn và số lượng cần xử lý.</p>
+                <h3 className="text-xl font-bold text-slate-900">{editingLogId ? "Chỉnh sửa phiếu xuất kho" : outboundOnly ? "Tạo phiếu xuất kho" : "Tạo phiếu nhập xuất kho"}</h3>
+                <p className="mt-1 text-sm text-slate-500">{outboundOnly ? "Khai báo thông tin và danh sách hàng cần xuất." : "Chọn loại phiếu, trạng thái xử lý và danh sách sản phẩm."}</p>
               </div>
-              <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+              <button type="button" onClick={() => setShowCreateModal(false)} className="-mr-2 -mt-1 rounded-lg p-2 text-gray-400 hover:bg-slate-100 hover:text-slate-700">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form className="space-y-5" onSubmit={submitDraft}>
+            <form className="space-y-5 p-6" onSubmit={submitDraft}>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <button
+                {!outboundOnly && <button
                   type="button"
                   onClick={() => setDraftType("nhập")}
                   className={`rounded-2xl border px-4 py-3 text-left ${draftType === "nhập" ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white"}`}
                 >
                   <div className="text-sm font-bold text-slate-800">Phiếu nhập hàng</div>
                   <div className="mt-1 text-xs text-gray-500">Cộng tồn kho cho sản phẩm được chọn.</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDraftType("xuất")}
-                  className={`rounded-2xl border px-4 py-3 text-left ${draftType === "xuất" ? "border-rose-200 bg-rose-50" : "border-gray-200 bg-white"}`}
-                >
-                  <div className="text-sm font-bold text-slate-800">Phiếu xuất hàng</div>
-                  <div className="mt-1 text-xs text-gray-500">Trừ tồn kho theo từng sản phẩm trong phiếu.</div>
-                </button>
-                <label className="space-y-1.5 md:col-span-2">
+                </button>}
+                {outboundOnly ? (
+                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                    <div className="text-sm font-semibold text-rose-800">Phiếu xuất hàng</div>
+                    <div className="mt-1 text-xs leading-5 text-rose-700">Tồn kho được trừ khi phiếu hoàn thành.</div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDraftType("xuất")}
+                    className={`rounded-xl border px-4 py-3 text-left ${draftType === "xuất" ? "border-rose-200 bg-rose-50" : "border-gray-200 bg-white"}`}
+                  >
+                    <div className="text-sm font-bold text-slate-800">Phiếu xuất hàng</div>
+                    <div className="mt-1 text-xs text-gray-500">Trừ tồn kho theo từng sản phẩm trong phiếu.</div>
+                  </button>
+                )}
+                <label className={`space-y-1.5 ${outboundOnly ? "md:col-span-3" : "md:col-span-2"}`}>
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Trạng thái phiếu</span>
                   <select
                     value={draftStatus}
                     onChange={(event) => setDraftStatus(event.target.value as TransactionStatus)}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   >
                     <option value="Đang chờ">Đang chờ</option>
                     <option value="Đang xử lý">Đang xử lý</option>
@@ -480,7 +592,27 @@ export function StockLogPanel({
                 </label>
               </div>
 
+              <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <span className="h-5 w-1 rounded-full bg-teal-600" />
+                  <h4 className="text-sm font-bold text-slate-800">Thông tin phiếu</h4>
+                </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {outboundOnly && (
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Xuất từ kho</span>
+                    <select
+                      value={sourceWarehouseId}
+                      onChange={(event) => setSourceWarehouseId(event.target.value)}
+                      required
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                    >
+                      <option value="">Chọn kho xuất</option>
+                      {warehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouse.name}{warehouse.isDefault ? " (mặc định)" : ""}</option>)}
+                    </select>
+                    <span className="block text-xs text-slate-500">Chỉ hiển thị SKU còn tồn khả dụng tại kho đã chọn.</span>
+                  </label>
+                )}
                 {draftType === "xuất" && (
                   <label className="space-y-1.5 md:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Mục đích xuất kho</span>
@@ -488,24 +620,24 @@ export function StockLogPanel({
                       value={draftPurpose}
                       onChange={(event) => setDraftPurpose(event.target.value as StockLogPurpose)}
                       required
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                     >
                       <option value="bán">Bán hàng</option>
                       <option value="nội bộ">Sử dụng nội bộ</option>
                       <option value="hủy">Hủy / hàng hỏng</option>
-                      <option value="chuyển kho">Chuyển kho</option>
+                      <option value="chuyển kho">Điều chuyển kho / chi nhánh</option>
                     </select>
                   </label>
                 )}
-                {draftType === "xuất" && draftPurpose === "bán" && (
+                {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") && (
                   <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Khách hàng</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{draftPurpose === "chuyển kho" ? "Kho / chi nhánh nhận" : "Khách hàng"}</span>
                     <input
                       type="text"
                       value={draftCustomerName}
                       onChange={(event) => setDraftCustomerName(event.target.value)}
-                      placeholder="Tên khách hàng hoặc đơn vị mua"
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                      placeholder={draftPurpose === "chuyển kho" ? "Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1" : "Tên khách hàng hoặc đơn vị mua"}
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                     />
                   </label>
                 )}
@@ -516,7 +648,7 @@ export function StockLogPanel({
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     placeholder={draftType === "nhập" ? "Ví dụ: Nhập hàng từ nhà cung cấp A" : "Ví dụ: Xuất kho cho đại lý Hà Nội"}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </label>
 
@@ -527,23 +659,24 @@ export function StockLogPanel({
                     value={draftOperator}
                     onChange={(event) => setDraftOperator(event.target.value)}
                     placeholder="Nhập tên người phụ trách"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </label>
               </div>
 
-              <label className="block space-y-1.5">
+              <label className="mt-4 block space-y-1.5">
                 <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Ghi chú</span>
                 <textarea
                   value={draftNotes}
                   onChange={(event) => setDraftNotes(event.target.value)}
                   placeholder="Mô tả ngắn nội dung phiếu hoặc lưu ý vận hành"
                   rows={3}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                 />
               </label>
+              </section>
 
-              <div className="rounded-2xl border border-gray-200 p-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="font-bold text-slate-800">Danh sách sản phẩm trong phiếu</h4>
                   <button type="button" onClick={addDraftLine} className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50">
@@ -566,31 +699,72 @@ export function StockLogPanel({
 
                 <div className="space-y-3">
                   {draftLines.map((line, index) => (
-                    <div key={`${index}-${line.productId}`} className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-slate-50 p-3 md:grid-cols-[1fr_140px_44px]">
+                    <div key={`${index}-${line.productId}-${line.sku || ""}`} className={`grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-slate-50 p-3 ${outboundOnly ? "md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_140px_44px]" : "md:grid-cols-[1fr_140px_44px]"}`}>
                       <label className="space-y-1.5">
                         <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Sản phẩm</span>
                         <select
                           value={line.productId}
-                          onChange={(event) => updateDraftLine(index, { ...line, productId: event.target.value })}
+                          onChange={(event) => {
+                            const productId = event.target.value;
+                            const firstSku = outboundOnly ? warehouseProductGroups.find((group) => group.productId === productId)?.variants[0]?.sku || "" : undefined;
+                            setDraftLines((current) => {
+                              const duplicateIndex = outboundOnly ? current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === productId && item.sku === firstSku) : -1;
+                              if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, productId, sku: firstSku } : item);
+
+                              const increment = Math.max(1, Number(line.quantity) || 0);
+                              return current
+                                .map((item, itemIndex) => itemIndex === duplicateIndex ? { ...item, quantity: String((Number(item.quantity) || 0) + increment) } : item)
+                                .filter((_, itemIndex) => itemIndex !== index);
+                            });
+                          }}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         >
                           <option value="">Chọn sản phẩm</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} - {product.sku} ({formatNumber(product.stock)})
+                          {(outboundOnly ? warehouseProductGroups : selectableProducts).map((product) => (
+                            <option key={outboundOnly ? product.productId : product.id} value={outboundOnly ? product.productId : product.id}>
+                              {outboundOnly ? product.name : `${product.name} - ${product.sku} (${formatNumber(product.stock)})`}
                             </option>
                           ))}
                         </select>
                       </label>
+
+                      {outboundOnly && (
+                        <label className="space-y-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">SKU / biến thể</span>
+                          <select
+                            value={line.sku || ""}
+                            disabled={!line.productId}
+                            onChange={(event) => {
+                              const sku = event.target.value;
+                              setDraftLines((current) => {
+                                const duplicateIndex = current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === line.productId && item.sku === sku);
+                                if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, sku } : item);
+
+                                const increment = Math.max(1, Number(line.quantity) || 0);
+                                return current
+                                  .map((item, itemIndex) => itemIndex === duplicateIndex ? { ...item, quantity: String((Number(item.quantity) || 0) + increment) } : item)
+                                  .filter((_, itemIndex) => itemIndex !== index);
+                              });
+                            }}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
+                          >
+                            <option value="">Chọn SKU / biến thể</option>
+                            {(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).map((variant) => (
+                              <option key={variant._id} value={variant.sku}>{variant.sku}{variant.variantName ? ` - ${variant.variantName}` : ""} (tồn {formatNumber(variant.quantity - variant.reservedQuantity)})</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
 
                       <label className="space-y-1.5">
                         <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Số lượng</span>
                         <input
                           type="number"
                           min={1}
+                          max={outboundOnly ? Math.max(0, (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants.find((variant) => variant.sku === line.sku)?.quantity || 0) - (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants.find((variant) => variant.sku === line.sku)?.reservedQuantity || 0)) : undefined}
                           value={line.quantity}
                           onChange={(event) => updateDraftLine(index, { ...line, quantity: event.target.value })}
-                          placeholder="0"
+                          placeholder={warehouseProductsLoading && outboundOnly ? "Đang tải tồn kho..." : "0"}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         />
                       </label>

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { branchController } from "./branch.controller";
 import { BranchModel } from "../model/branch.model";
+import { UserModel } from "../model/user.model";
+import { authService } from "../service/auth.service";
 
 function response() {
   const state: { statusCode: number; body?: any } = { statusCode: 200 };
@@ -51,4 +53,49 @@ test("branch list creates the default branch for an admin company", async () => 
     (BranchModel as any).findOne = originalFindOne;
     (BranchModel as any).create = originalCreate;
   }
+});
+
+test("branch owner completion forces the authenticated admin hierarchy and links the owner", async () => {
+  const originalFindOne = BranchModel.findOne;
+  const originalUpdate = BranchModel.findOneAndUpdate;
+  const originalRegister = authService.registerUserForCompany;
+  let registration: any;
+  (BranchModel as any).findOne = () => ({ lean: async () => ({ _id: "b1", companyCode: "ACME", managerId: "" }) });
+  (authService as any).registerUserForCompany = async (payload: any, companyCode: string, role: string) => {
+    registration = { payload, companyCode, role };
+    return { _id: "owner-1", toObject: () => ({ _id: "owner-1", ...payload, password: "hashed" }) };
+  };
+  (BranchModel as any).findOneAndUpdate = (_filter: any, update: any) => ({ lean: async () => ({ _id: "b1", companyCode: "ACME", managerId: update.$set.managerId }) });
+  try {
+    const res = response();
+    await branchController.createOwner({
+      user: { id: "admin-1", role: "admin", companyCode: "ACME" }, params: { id: "b1" },
+      body: { displayName: "Owner", email: "owner@acme.test", password: "secret", role: "admin", companyCode: "OTHER", branchId: "foreign", parentId: "other" },
+    } as any, res);
+    assert.equal(res.state.statusCode, 201);
+    assert.equal(registration.companyCode, "ACME");
+    assert.equal(registration.role, "admin");
+    assert.equal(registration.payload.role, "branch_owner");
+    assert.equal(registration.payload.companyCode, "ACME");
+    assert.equal(registration.payload.branchId, "b1");
+    assert.equal(registration.payload.parentId, "admin-1");
+    assert.equal(res.state.body.data.branch.managerId, "owner-1");
+    assert.equal("password" in res.state.body.data.owner, false);
+  } finally {
+    (BranchModel as any).findOne = originalFindOne;
+    (BranchModel as any).findOneAndUpdate = originalUpdate;
+    (authService as any).registerUserForCompany = originalRegister;
+  }
+});
+
+test("cancelling owner creation only removes an unmanaged branch in the admin company", async () => {
+  const original = BranchModel.findOneAndDelete;
+  let filter: any;
+  (BranchModel as any).findOneAndDelete = (value: any) => { filter = value; return { lean: async () => ({ _id: "b1" }) }; };
+  try {
+    const res = response();
+    await branchController.removePending({ user: { role: "admin", companyCode: "ACME" }, params: { id: "b1" } } as any, res);
+    assert.equal(res.state.statusCode, 200);
+    assert.deepEqual(filter, { _id: "b1", companyCode: "ACME", pendingOwnerSetup: true, managerId: { $in: ["", null] } });
+  } finally { (BranchModel as any).findOneAndDelete = original; }
 });

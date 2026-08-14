@@ -21,6 +21,7 @@ import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy"
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollFormulaModel } from "../model/payroll-formula.model";
 import { evaluatePayrollFormulas } from "../service/payroll-formula-engine.service";
+import { PAYROLL_FORMULA_LIBRARY_ENABLED, emptyPayrollFormulaLibraryResult } from "../../src/config/payrollFeatureFlags";
 import { PayrollPeriodInputModel } from "../model/payroll-period-input.model";
 import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
 import { resolvePayrollPeriodInputs } from "../service/payroll-period-input-resolver.service";
@@ -499,7 +500,7 @@ export const payrollController = {
       PayrollProfileModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollDependentModel.find({ companyCode: tenant(req), employeeId: { $in: employeeIds } }).lean(),
       PayrollAdjustmentModel.find({ companyCode: tenant(req), branchId, periodKey, status: { $in: ["pending", "approved", "snapshotted"] } }).lean(),
-      PayrollFormulaModel.find({ companyCode: tenant(req), status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean(),
+      PAYROLL_FORMULA_LIBRARY_ENABLED ? PayrollFormulaModel.find({ companyCode: tenant(req), status: "active", effectiveFrom: { $lte: new Date(period.end) }, $or: [{ effectiveTo: { $exists: false } }, { effectiveTo: null }, { effectiveTo: { $gte: new Date(period.end) } }] }).sort({ priority: 1, code: 1 }).lean() : Promise.resolve([]),
       PayrollPeriodInputModel.find({ companyCode: tenant(req), branchId, periodKey, employeeId: { $in: employeeIds } }).lean(),
       PayrollCustomVariableModel.find({ companyCode: tenant(req), status: "active" }).lean(),
     ]);
@@ -535,7 +536,8 @@ export const payrollController = {
       const dailyMinutes = row.standardDays > 0 ? row.standardHours * 60 / row.standardDays : 0;
       const overtimeHours = (category: string) => (row.overtime ?? []).filter((item: any) => item.category === category).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / 60;
       const customContext=Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.value]));
-      const library = evaluatePayrollFormulas(formulas as any[], { monthlySalary: effectiveSalary, attendanceSalary: row.standardDays > 0 ? effectiveSalary * resolvedPeriod.values.reconciledDays / row.standardDays : 0, standardWorkDays: row.standardDays, actualWorkDays: resolvedPeriod.values.reconciledDays, standardWorkHours: row.standardHours, actualWorkHours: resolvedPeriod.values.reconciledHours, shortageMinutes: row.shortageMinutes ?? 0, lateMinutes: Number((row as any).lateMinutes || 0), earlyLeaveMinutes: Number((row as any).earlyLeaveMinutes || 0), paidLeaveDays: (row.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths: 0,...customContext });
+      const formulaContext = { monthlySalary: effectiveSalary, attendanceSalary: row.standardDays > 0 ? effectiveSalary * resolvedPeriod.values.reconciledDays / row.standardDays : 0, standardWorkDays: row.standardDays, actualWorkDays: resolvedPeriod.values.reconciledDays, standardWorkHours: row.standardHours, actualWorkHours: resolvedPeriod.values.reconciledHours, shortageMinutes: row.shortageMinutes ?? 0, lateMinutes: Number((row as any).lateMinutes || 0), earlyLeaveMinutes: Number((row as any).earlyLeaveMinutes || 0), paidLeaveDays: (row.paidLeaveMinutesByRate ?? []).reduce((sum: number, item: any) => sum + Number(item.minutes || 0), 0) / Math.max(1, dailyMinutes), weekdayOvertimeHours: overtimeHours("weekday"), restDayOvertimeHours: overtimeHours("restDay"), holidayOvertimeHours: overtimeHours("holiday"), tenureMonths: 0,...customContext };
+      const library = PAYROLL_FORMULA_LIBRARY_ENABLED ? evaluatePayrollFormulas(formulas as any[], formulaContext) : emptyPayrollFormulaLibraryResult();
       const appliedAdjustments = { allowances: resolvedPeriod.values.allowance + library.totals.allowance, bonuses: resolvedPeriod.values.bonus + library.totals.bonus, deductions: resolvedPeriod.values.deduction + library.totals.deduction, adjustments: empAdjustments.adjustments + library.totals.adjustment };
       const calculation = calculatePayroll({
         monthlySalary: effectiveSalary,

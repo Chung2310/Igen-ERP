@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const branchMocks = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), update: vi.fn(), currentIp: vi.fn() }));
-const authState = vi.hoisted(() => ({ userProfile: { role: "admin", companyCode: "ACME" } }));
+const branchMocks = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), createOwner: vi.fn(), removePending: vi.fn(), update: vi.fn(), currentIp: vi.fn() }));
+const authState = vi.hoisted(() => ({ userProfile: { uid: "admin-1", displayName: "Admin", role: "admin", companyCode: "ACME", companyName: "Acme" } }));
 const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("../../services/branchService", () => ({ branchService: branchMocks }));
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => authState }));
@@ -17,6 +17,8 @@ describe("BranchManagementTab", () => {
     branchMocks.list.mockResolvedValue([{ _id: "b1", code: "HQ", name: "Head Office", address: "Main street", phone: "0900000000", companyCode: "ACME", isActive: true }]);
     branchMocks.create.mockResolvedValue({ _id: "b2", code: "BR2", name: "Branch 2", companyCode: "ACME", isActive: true });
     branchMocks.update.mockResolvedValue({ _id: "b1", code: "HQ", name: "Head Office", companyCode: "ACME", isActive: false });
+    branchMocks.createOwner.mockResolvedValue({ branch: { _id: "b2", code: "BR2", name: "Branch 2", companyCode: "ACME", managerId: "owner-1", isActive: true }, owner: { _id: "owner-1" } });
+    branchMocks.removePending.mockResolvedValue({});
     branchMocks.currentIp.mockResolvedValue({ ip: "203.0.113.7" });
   });
 
@@ -61,6 +63,22 @@ describe("BranchManagementTab", () => {
     await user.type(screen.getByLabelText("Tên chi nhánh"), "Branch 2");
     await user.click(screen.getByRole("button", { name: /Tạo chi nhánh/ }));
     await waitFor(() => expect(branchMocks.create).toHaveBeenCalledWith(expect.objectContaining({ code: "BR2", name: "Branch 2" })));
+    expect(await screen.findByText(/Thêm người dùng mới/i)).toBeTruthy();
+    expect((screen.getByLabelText(/Quyền hạn/i) as HTMLSelectElement).value).toBe("branch_owner");
+    expect((screen.getByLabelText("Chi nhánh") as HTMLSelectElement).value).toBe("b2");
+  });
+
+  it("deletes the new branch when owner creation is cancelled", async () => {
+    const user = userEvent.setup();
+    render(<BranchManagementTab />);
+    await screen.findByText("Head Office");
+    await user.click(screen.getByRole("button", { name: /Thêm chi nhánh/i }));
+    await user.type(screen.getByLabelText(/Mã chi nhánh/i), "BR2");
+    await user.type(screen.getByLabelText(/Tên chi nhánh/i), "Branch 2");
+    await user.click(screen.getByRole("button", { name: /Tạo chi nhánh/i }));
+    await screen.findByText(/Thêm người dùng mới/i);
+    await user.click(screen.getByRole("button", { name: /Hủy/i }));
+    await waitFor(() => expect(branchMocks.removePending).toHaveBeenCalledWith("b2"));
   });
 
   it("soft deletes an active branch", async () => {

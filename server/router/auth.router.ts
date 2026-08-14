@@ -37,6 +37,14 @@ const branchFields = {
 };
 const createBranchSchema = { body: Joi.object(branchFields).unknown(false) };
 const updateBranchSchema = { body: Joi.object({ ...branchFields, code: branchFields.code.optional(), name: branchFields.name.optional() }).min(1).unknown(false) };
+export const createBranchOwnerSchema = { body: Joi.object({
+  displayName: Joi.string().trim().min(1).max(120).required(),
+  email: Joi.string().pattern(emailRegex).required(),
+  password: Joi.string().min(6).required(),
+  phone: Joi.string().trim().max(32).allow("").optional(),
+  birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(""),
+  qualification: Joi.string().trim().max(200).allow("").optional(),
+}).unknown(false) };
 const registerSchema = {
   body: Joi.object({
     email: Joi.string().pattern(emailRegex).required().messages({
@@ -277,6 +285,8 @@ authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as 
 authRouter.get("/current-ip", requireAuth as any, requirePermission("user:manage") as any, branchController.currentIp as any);
 authRouter.get("/branches", requireAuth as any, requirePermission(["user:read", "hr:read"]) as any, branchController.list as any);
 authRouter.post("/branches", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchSchema), branchController.create as any);
+authRouter.post("/branches/:id/owner", requireAuth as any, requirePermission("user:manage") as any, validateRequest(createBranchOwnerSchema), branchController.createOwner as any);
+authRouter.delete("/branches/:id/pending", requireAuth as any, requirePermission("user:manage") as any, branchController.removePending as any);
 authRouter.patch("/branches/:id", requireAuth as any, requirePermission("user:manage") as any, validateRequest(updateBranchSchema), branchController.update as any);
 
 const updateCompanySchema = {

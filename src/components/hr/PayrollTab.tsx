@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
+import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlags";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
@@ -312,7 +313,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
   };
 
-  const inlineEditable = canManage && periodInputs.editable && (!run || run.status === "draft");
+  const showPeriodInputColumns = canManage;
+  const inlineEditable = showPeriodInputColumns && periodInputs.editable && (!run || run.status === "draft");
   const persistedInput = (employeeId: string) => periodInputs.items.find((item: any) => String(item.employeeId) === String(employeeId)) ?? {};
   const persistedFieldValue = (employeeId: string, field: string) => {
     const item = persistedInput(employeeId);
@@ -378,7 +380,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
     {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
-    {canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
+    {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -533,8 +535,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  {inlineEditable && INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
-                  {inlineEditable && periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
+                  {showPeriodInputColumns && INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
+                  {showPeriodInputColumns && periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Lương cơ bản" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Lương điều chỉnh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Tăng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
@@ -552,7 +554,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={14 + (inlineEditable ? INPUT_FIELDS.length + periodInputs.variables.length : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={14 + (showPeriodInputColumns ? INPUT_FIELDS.length + periodInputs.variables.length : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-700">
@@ -567,8 +569,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                       <div className="text-[10px] text-slate-400">{line.employeeId}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
-                    {inlineEditable && INPUT_FIELDS.map(field => renderInputCell(line, field.key, Number(line[field.source] ?? 0), field.unit))}
-                    {inlineEditable && periodInputs.variables.map((variable: any) => renderInputCell(line, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
+                    {showPeriodInputColumns && INPUT_FIELDS.map(field => renderInputCell(line, field.key, Number(line[field.source] ?? 0), field.unit))}
+                    {showPeriodInputColumns && periodInputs.variables.map((variable: any) => renderInputCell(line, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
                     <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
                     <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
@@ -588,7 +590,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               {filteredSortedRunRows.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-slate-50 font-bold text-slate-700">
-                    <td colSpan={inlineEditable ? 1 + INPUT_FIELDS.length + periodInputs.variables.length : 1} className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
+                    <td colSpan={showPeriodInputColumns ? 1 + INPUT_FIELDS.length + periodInputs.variables.length : 1} className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} đ</td>
@@ -615,8 +617,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  {INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
-                  {periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
+                  {showPeriodInputColumns && INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
+                  {showPeriodInputColumns && periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
@@ -624,15 +626,15 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4 + INPUT_FIELDS.length + periodInputs.variables.length}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
+                  <tr><td colSpan={4 + (showPeriodInputColumns ? INPUT_FIELDS.length + periodInputs.variables.length : 0)}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={4 + INPUT_FIELDS.length + periodInputs.variables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={4 + (showPeriodInputColumns ? INPUT_FIELDS.length + periodInputs.variables.length : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                       <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
-                      {INPUT_FIELDS.map(field => renderInputCell(row, field.key, Number(row[field.source] ?? 0), field.unit))}
-                      {periodInputs.variables.map((variable: any) => renderInputCell(row, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
+                      {showPeriodInputColumns && INPUT_FIELDS.map(field => renderInputCell(row, field.key, Number(row[field.source] ?? 0), field.unit))}
+                      {showPeriodInputColumns && periodInputs.variables.map((variable: any) => renderInputCell(row, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
