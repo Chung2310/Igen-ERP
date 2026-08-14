@@ -35,12 +35,15 @@ export function formatDisplayDate(dateStr: string | undefined): string {
   if (!dateStr) return 'Chưa cập nhật';
   
   // If it's already DD/MM/YYYY, return as is
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) return dateStr;
+  const displayMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (displayMatch) {
+    return `${displayMatch[1].padStart(2, '0')}/${displayMatch[2].padStart(2, '0')}/${displayMatch[3]}`;
+  }
   
   // If it's YYYY-MM-DD (from HTML date input)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|T)/);
+  if (isoMatch) {
+    return `${isoMatch[3].padStart(2, '0')}/${isoMatch[2].padStart(2, '0')}/${isoMatch[1]}`;
   }
   
   return dateStr;
@@ -67,9 +70,13 @@ export function toInputDate(dateStr: string | undefined): string {
  */
 export function toDisplayDate(dateStr: string | undefined): string {
   if (!dateStr) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|T)/);
+  if (isoMatch) {
+    return `${isoMatch[3].padStart(2, '0')}/${isoMatch[2].padStart(2, '0')}/${isoMatch[1]}`;
+  }
+  const displayMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (displayMatch) {
+    return `${displayMatch[1].padStart(2, '0')}/${displayMatch[2].padStart(2, '0')}/${displayMatch[3]}`;
   }
   return dateStr;
 }

@@ -5,6 +5,7 @@ import {
 } from "../contracts";
 import { WorkerService } from "../services/worker.service";
 import { importResourceService } from "../../../service/import-resource.service";
+import { WorkerReferralService } from "../labor-partners/services/worker-referral.service";
 
 /** Guard against a runaway spreadsheet blocking the event loop on insertMany. */
 const MAX_BULK_ROWS = 2000;
@@ -66,8 +67,20 @@ export const workerController = {
         rows,
         typeof body.projectId === "string" ? body.projectId : undefined,
       );
+      const referralErrors: Array<{ workerId: string; partnerCode: string; reason: string }> = [];
+      const actor = (req as any).user || {};
+      for (const importedWorker of result.importedWorkers || []) {
+        try {
+          await WorkerReferralService.createForImportedWorker(scope, importedWorker, actor);
+        } catch (error) {
+          referralErrors.push({
+            workerId: importedWorker.workerId,
+            partnerCode: importedWorker.partnerCode,
+            reason: error instanceof Error ? error.message : "Không thể gắn đối tác cho lao động.",
+          });
+        }
+      }
       if (body.importUpload?.uploadToken && body.importUpload?.fileName) {
-        const actor = (req as any).user || {};
         await importResourceService.recordSuccessfulImport({
           companyCode: scope.companyCode,
           branchId: scope.branchId,
@@ -81,7 +94,24 @@ export const workerController = {
           skippedCount: result.skippedCount,
         });
       }
-      return res.status(201).json(result);
+      return res.status(201).json({
+        ...result,
+        ...(referralErrors.length ? { referralErrors } : {}),
+      });
+    }),
+
+  bulkDelete: async (req: Request, res: Response) =>
+    handle(res, async () => {
+      const ids = Array.isArray(req.body?.ids)
+        ? req.body.ids.filter((id: unknown): id is string => typeof id === "string")
+        : null;
+      if (!ids) {
+        return res.status(400).json({ message: "Danh sách lao động cần xóa không hợp lệ." });
+      }
+      if (ids.length > MAX_BULK_ROWS) {
+        return res.status(400).json({ message: `Chỉ xóa tối đa ${MAX_BULK_ROWS} lao động mỗi lần.` });
+      }
+      return res.json({ deletedCount: (await WorkerService.bulkDelete(scopeFromRequest(req), ids)).deletedCount });
     }),
 
   update: async (req: Request, res: Response) =>

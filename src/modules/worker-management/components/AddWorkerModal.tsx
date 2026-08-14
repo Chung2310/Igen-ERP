@@ -6,6 +6,8 @@ import { CustomFieldsSection } from "../../shared/custom-fields/CustomFieldsSect
 import type { CustomFieldValues } from "../../shared/custom-fields/types";
 import { canManageWorkerArea } from "../workerPermissionPolicy";
 import { workerLaborTypeLabel } from "../types";
+import { todayWorkerDate } from "../utils/date";
+import type { LaborPartner } from "../partners/types";
 import type {
   Worker,
   WorkerInput,
@@ -17,9 +19,10 @@ import type {
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (input: WorkerInput) => Promise<Worker>;
+  onSubmit: (input: WorkerInput, partnerId?: string) => Promise<Worker>;
   onSuccess: (worker: Worker) => void;
   workers?: Worker[];
+  partners?: LaborPartner[];
   profileFields?: WorkerProfileFieldConfig[];
   projects?: WorkerProjectSummary[];
   /** Scope passed to the shared custom-field storage. */
@@ -78,7 +81,7 @@ function initialForm(): WorkerInput {
     address: "",
     birthday: "",
     idCard: "",
-    registrationDate: new Date().toLocaleDateString("vi-VN"),
+    registrationDate: todayWorkerDate(),
     projectId: "",
     customFields: {},
   };
@@ -117,6 +120,7 @@ export function AddWorkerModal({
   onSubmit,
   onSuccess,
   workers = [],
+  partners,
   profileFields = defaultFields,
   projects = [],
   tenantId,
@@ -124,8 +128,16 @@ export function AddWorkerModal({
 }: Props) {
   const { userProfile } = useAuth();
   const [form, setForm] = React.useState<WorkerInput>(initialForm);
+  const [partnerId, setPartnerId] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setForm(initialForm());
+    setPartnerId("");
+    setError(null);
+  }, [isOpen]);
 
   const manageable = canManageWorkerArea(userProfile?.permissions || [], "custom-field");
   const archivedFields = profileFields.filter((field) => field.isArchived);
@@ -176,7 +188,7 @@ export function AddWorkerModal({
     setSubmitting(true);
     setError(null);
     try {
-      const worker = await onSubmit(form);
+      const worker = await onSubmit(form, partnerId || undefined);
       toast.success("Đã lưu hồ sơ Lao động thành công!");
       onClose();
       onSuccess(worker);
@@ -207,6 +219,7 @@ export function AddWorkerModal({
             value={form.fullName}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập họ và tên"
           />
         )}
         {visible("phone") && (
@@ -216,6 +229,7 @@ export function AddWorkerModal({
             value={form.phone || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập số điện thoại"
           />
         )}
         {visible("email") && (
@@ -226,6 +240,7 @@ export function AddWorkerModal({
             value={form.email || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập địa chỉ email"
           />
         )}
         {visible("idCard") && (
@@ -235,16 +250,17 @@ export function AddWorkerModal({
             value={form.idCard || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập số CCCD / CMND"
           />
         )}
         {visible("birthday") && (
           <Field
             label={label("birthday")}
             name="birthday"
-            type="date"
             value={form.birthday || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="DD/MM/YYYY"
           />
         )}
         {visible("registrationDate") && (
@@ -254,6 +270,7 @@ export function AddWorkerModal({
             value={form.registrationDate || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="DD/MM/YYYY"
           />
         )}
         {visible("status") && (
@@ -302,6 +319,22 @@ export function AddWorkerModal({
             </select>
           </div>
         )}
+        {partners && (
+          <div className="space-y-1">
+            <label
+              htmlFor="referralPartnerId"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+            >
+              Đối tác giới thiệu
+            </label>
+            <PartnerSearchSelect
+              partners={partners}
+              value={partnerId}
+              onChange={setPartnerId}
+              disabled={submitting}
+            />
+          </div>
+        )}
         {visible("nationality") && (
           <Field
             label={label("nationality")}
@@ -309,6 +342,7 @@ export function AddWorkerModal({
             value={form.nationality || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập quốc tịch"
           />
         )}
         {form.laborType === "foreign" && visible("workPermitNumber") && (
@@ -318,6 +352,7 @@ export function AddWorkerModal({
             value={form.workPermitNumber || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập số giấy phép lao động / visa"
           />
         )}
         {form.laborType === "foreign" && visible("workPermitExpiry") && (
@@ -337,6 +372,7 @@ export function AddWorkerModal({
             value={form.address || ""}
             onChange={update}
             disabled={submitting}
+            placeholder="Nhập địa chỉ"
           />
         )}
         {projects.length > 0 && (
@@ -381,6 +417,7 @@ export function AddWorkerModal({
             onChange={update}
             rows={3}
             disabled={submitting}
+            placeholder="Nhập ghi chú (nếu có)"
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
           />
         </div>
@@ -427,10 +464,125 @@ export function AddWorkerModal({
   );
 }
 
+function PartnerSearchSelect({
+  partners,
+  value,
+  onChange,
+  disabled,
+}: {
+  partners: LaborPartner[];
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const activePartners = partners.filter((partner) => partner.status === "active");
+  const selected = activePartners.find((partner) => partner._id === value);
+  const matches = activePartners.filter((partner) => {
+    const term = query.trim().toLocaleLowerCase("vi");
+    if (!term) return true;
+    return `${partner.code} ${partner.name} ${partner.phone}`.toLocaleLowerCase("vi").includes(term);
+  });
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const pick = (partnerId: string) => {
+    onChange(partnerId);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        id="referralPartnerId"
+        name="referralPartnerId"
+        type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="referral-partner-options"
+        autoComplete="off"
+        disabled={disabled}
+        value={open ? query : selected ? `${selected.code} · ${selected.name}` : ""}
+        placeholder="Tìm mã hoặc tên đối tác..."
+        onFocus={() => {
+          setQuery("");
+          setOpen(true);
+        }}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange("");
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            setQuery("");
+          }
+          if (event.key === "Enter" && open && matches.length === 1) {
+            event.preventDefault();
+            pick(matches[0]._id);
+          }
+        }}
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-10 text-sm transition-all placeholder:text-slate-300 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">⌄</span>
+      {open && (
+        <div
+          id="referral-partner-options"
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!value}
+            onClick={() => pick("")}
+            className="w-full px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Không chọn đối tác
+          </button>
+          {matches.map((partner) => (
+            <button
+              key={partner._id}
+              type="button"
+              role="option"
+              aria-selected={partner._id === value}
+              onClick={() => pick(partner._id)}
+              className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-cyan-50"
+            >
+              {partner.code} · {partner.name}
+            </button>
+          ))}
+          {!matches.length && (
+            <p className="px-3 py-2 text-xs text-slate-400">Không tìm thấy đối tác phù hợp.</p>
+          )}
+          {!activePartners.length && (
+            <p className="px-3 py-2 text-xs text-slate-400">Chưa có đối tác đang hoạt động.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const placeholder = props.placeholder || `Nhập ${label.replace(/\s*\*$/, "").toLowerCase()}`;
   return (
     <div className="space-y-1">
       <label
@@ -442,6 +594,7 @@ function Field({
       <input
         id={props.name}
         {...props}
+        placeholder={placeholder}
         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
       />
     </div>

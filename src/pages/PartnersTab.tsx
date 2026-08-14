@@ -1,9 +1,19 @@
 import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { PartnersPage } from "../modules/student-management/pages/Partners/PartnersPage";
+import WorkerPartnersTab from "./WorkerPartnersTab";
+
+export function isLaborPartnerWorkspace(businessType: string | undefined): boolean {
+  return businessType === "labor";
+}
 
 export default function PartnersTab() {
   const { userProfile, hasPermission } = useAuth();
+
+  if (isLaborPartnerWorkspace(userProfile?.businessType)) {
+    return <WorkerPartnersTab />;
+  }
+
   const canManagePartners =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
