@@ -102,7 +102,7 @@ describe("permission route inventory", () => {
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
     // Remaining findings are explicit follow-up work; scanner improvements
     // resolve inherited auth and legacy module permission aliases.
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 114, fingerprint: "0d9e87da05e630f77e3544d90e1d951d1fc27f32a4f4293a55c7b0eeb7101299" });
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 96, fingerprint: "74cbe8ceee100f8414f163b6afb2f807960d40edcb12e708debbbbdb1b3fdec7" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {

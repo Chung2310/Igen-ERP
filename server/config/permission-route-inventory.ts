@@ -25,6 +25,7 @@ const publicException = (file: string, router: string, mount: string, method: st
 function permissionCodesFromMiddleware(middleware: string, constants: Readonly<Record<string, string[]>>): string[] {
   const codes: string[] = [];
   if (/\brequireTeacherOperation\b/.test(middleware)) codes.push("people:manage");
+  if (/\.\.\.access\b/.test(middleware)) codes.push("access:manage");
   const resolve = (name: string) => Object.prototype.hasOwnProperty.call(constants, name) ? constants[name] : undefined;
   for (const match of middleware.matchAll(/require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
     for (const value of match[1].matchAll(/["']([^"']+)["']/g)) codes.push(value[1]);
@@ -88,7 +89,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])].map((code) => LEGACY_PERMISSION_MAP[code] ?? code);
     const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(middleware);
     const hasInheritedPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(routerUseMiddleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(routerUseMiddleware));
-    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b|\bauthMiddleware\b|\badmin[A-Za-z]*AuthMiddleware\b|\brequireTeacherOperation\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\b(?:requireAuth|authMiddleware|admin[A-Za-z]*AuthMiddleware)\b/.test(source);
+    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b|\bauthMiddleware\b|\badmin[A-Za-z]*AuthMiddleware\b|\brequireTeacherOperation\b|\.\.\.access\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\b(?:requireAuth|requirePermission|authMiddleware|admin[A-Za-z]*AuthMiddleware)\b/.test(source);
     const line = lineAt(source, match.index!);
     const exception = publicException(sourceFile, router, mount, method, routePath);
     const base = { sourceFile, line, method, path: routePath };
