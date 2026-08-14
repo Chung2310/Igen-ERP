@@ -141,7 +141,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setInputSaveOpen(false);
     setInputReason("");
   };
-  const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
+  const reload = async () => {
+    try { setRun(await payrollService.getRun(period)); }
+    catch { /* Keep the last authoritative run visible instead of falling back to the draft input table. */ }
+    try { setResults(await payrollService.getResults(period)); } catch { setResults([]); }
+    try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); }
+  };
   useEffect(() => { void reload(); void loadLineOverrides(); }, [period]);
   useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
@@ -258,6 +263,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
   const processPeriod = async (propagateError = false) => {
     if (processingPayroll) return;
+    if (run && run.status !== "draft") {
+      const message = "Kỳ lương đã ở bước kiểm tra/chốt. Hãy mở lại kỳ trước khi tính lại.";
+      toast.warning(message);
+      if (propagateError) throw new Error(message);
+      return;
+    }
     setProcessingPayroll(true);
     try {
       await payrollService.processPeriod(period);
