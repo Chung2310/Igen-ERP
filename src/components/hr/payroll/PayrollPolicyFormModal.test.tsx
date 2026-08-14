@@ -37,4 +37,28 @@ describe("PayrollPolicyFormModal", () => {
     expect(screen.getByText("Hệ số trần BHTN phải từ 1 trở lên.")).toBeTruthy();
     expect(screen.queryByText("Bảo hiểm xã hội")).toBeNull();
   });
+
+  it("uses the standard dialog before discarding unsaved changes", () => {
+    const onCancel = vi.fn();
+    render(<PayrollPolicyFormModal
+      mode="edit"
+      saving={false}
+      initialDefinition={{ code: "VN", name: "Việt Nam", effectiveFrom: "2026-01-01" }}
+      onCancel={onCancel}
+      onSave={vi.fn()}
+    />);
+
+    fireEvent.change(screen.getByDisplayValue("Việt Nam"), { target: { value: "Việt Nam mới" } });
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Bỏ các thay đổi chưa lưu?" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục chỉnh sửa" }));
+    expect(screen.queryByRole("dialog", { name: "Bỏ các thay đổi chưa lưu?" })).toBeNull();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bỏ thay đổi" }));
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
 });
