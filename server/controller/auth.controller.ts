@@ -663,7 +663,7 @@ export const authController = {
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
 
-      const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole!);
+      const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole!, req.user?.id);
       if (updatedUser && req.body.jobDescriptionUploadToken) {
         await employeeDocumentResourceService.finalizeJobDescription({
           companyCode: updatedUser.companyCode,

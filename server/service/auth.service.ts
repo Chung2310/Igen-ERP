@@ -700,7 +700,7 @@ export const authService = {
   /**
    * Cập nhật thông tin chi tiết một nhân sự (Admin/Superadmin)
    */
-  async updateUser(userId: string, updateData: any, callerCompanyCode: string, callerRole: string): Promise<IUser | null> {
+  async updateUser(userId: string, updateData: any, callerCompanyCode: string, callerRole: string, callerId?: string): Promise<IUser | null> {
     const user = await UserModel.findById(userId);
     if (!user) {
       throw new Error("Không tìm thấy người dùng");
@@ -708,7 +708,19 @@ export const authService = {
 
     if (updateData.birthDate !== undefined) updateData.birthDate = normalizeBirthDate(updateData.birthDate);
 
-    if (callerRole !== "superadmin") {
+    const isSelf = Boolean(callerId && user._id.toString() === callerId);
+
+    if (isSelf) {
+      // Self-service may update profile fields, never organizational authority.
+      delete updateData.role;
+      delete updateData.parentId;
+      delete updateData.level;
+      delete updateData.companyCode;
+      delete updateData.companyName;
+      delete updateData.branchId;
+      delete updateData.isLeader;
+      delete updateData.monthlySalary;
+    } else if (callerRole !== "superadmin") {
       delete updateData.companyCode;
       delete updateData.companyName;
       if (user.companyCode !== callerCompanyCode) {
