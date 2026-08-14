@@ -54,6 +54,13 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
       for (const identifier of alias[2].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (scopedConstants[identifier[0]]) values.push(...scopedConstants[identifier[0]]);
       if (values.length) scopedConstants[alias[1]] = [...new Set(values)];
     }
+    // Resolve small named wrappers used by routers to keep middleware readable,
+    // e.g. `const read = requirePermission("x")` followed by
+    // `async function readGuard(...) { return read(req, res, next); }`.
+    for (const wrapper of prefix.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{[\s\S]*?\breturn\s+([A-Za-z_$][\w$]*)\s*\(/g)) {
+      const values = scopedConstants[wrapper[2]];
+      if (values?.length) scopedConstants[wrapper[1]] = values;
+    }
     const open = source.indexOf("(", match.index!);
     let depth = 0; let quote = ""; let close = source.length - 1;
     for (let cursor = open; cursor < source.length; cursor += 1) {
@@ -65,8 +72,10 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     }
     const remainder = source.slice(match.index! + match[0].length, close);
     const middleware = middlewareTokens(remainder);
-    const permissionCodes = permissionCodesFromMiddleware(middleware, scopedConstants);
+    const routerUseMiddleware = [...prefix.matchAll(new RegExp(`\\b${router}\\.use\\s*\\(([^;]*)`, "g"))].map((item) => item[1]).join(",");
+    const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])];
     const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(middleware);
+    const hasInheritedPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(routerUseMiddleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(routerUseMiddleware));
     const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\brequireAuth\b/.test(source);
     const line = lineAt(source, match.index!);
     const exception = publicException(sourceFile, router, mount, method, routePath);
@@ -74,7 +83,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const diagnostics: PermissionRouteDiagnostic[] = [];
     if (method !== "GET" && !isPublicException(sourceFile, router, mount, method, routePath)) {
       if (!hasAuthenticationGuard) diagnostics.push({ ...base, kind: "missing-auth", message: "Mutation route has no authentication guard." });
-      if (permissionCodes.length === 0) diagnostics.push({ ...base, kind: hasPermissionGuard ? "unknown-permission" : "missing-permission", message: hasPermissionGuard ? "Permission guard uses an unresolved/non-canonical code." : "Mutation route has no canonical permission guard." });
+      if (permissionCodes.length === 0) diagnostics.push({ ...base, kind: hasPermissionGuard || hasInheritedPermissionGuard ? "unknown-permission" : "missing-permission", message: hasPermissionGuard || hasInheritedPermissionGuard ? "Permission guard uses an unresolved/non-canonical code." : "Mutation route has no canonical permission guard." });
     }
     for (const code of permissionCodes) if (!isCanonicalPermission(code)) diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown or non-canonical permission code: ${code}.` });
     records.push({ sourceFile, line, method, path: routePath, router, mount: mount || exception?.mount || "", isMutation: method !== "GET", hasAuthenticationGuard, permissionCodes, diagnostics });

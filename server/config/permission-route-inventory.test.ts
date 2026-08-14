@@ -77,6 +77,16 @@ describe("permission route inventory", () => {
     expect(route.permissionCodes).toEqual([]);
   });
 
+  it("inherits permission guards from router-level middleware and named wrappers", () => {
+    const routes = scanPermissionRouteSource(`
+      const read = requirePermission("chat:read");
+      async function readGuard(req, res, next) { return read(req, res, next); }
+      router.use(requireAuth, readGuard);
+      router.post("/rooms", handler);
+    `, "fixture.router.ts");
+    expect(routes[0]).toMatchObject({ permissionCodes: ["chat:read"], diagnostics: [] });
+  });
+
   it("records nested webhook router identity and resolved mount", () => {
     const [route] = scanPermissionRouteSource(`router.post("/payment", handler);`, "server/modules/student-management/routes/webhook.routes.ts");
     expect(route).toMatchObject({ router: "router", mount: "/webhook" });
@@ -90,7 +100,9 @@ describe("permission route inventory", () => {
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
     const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 267, fingerprint: "6c69394877cc4b452a0eaf9fccda5246e2efd8fe29a81164027be422c0e1a852" });
+    // 218 findings remain after reviewed router-level guards and wrappers are
+    // resolved; each remaining mutation is tracked for a follow-up route fix.
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 218, fingerprint: "e3cddd970738a3046ae9d74d2943bfafc763cafa03da6c31c86a7c96686d6ce3" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {
