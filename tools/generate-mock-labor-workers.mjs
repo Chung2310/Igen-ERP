@@ -26,7 +26,7 @@ const rows = Array.from({ length: 200 }, (_, index) => {
   return [
     `Người lao động ${pad(number)}`,
     `090${String(number).padStart(7, "0")}`,
-    "",
+    "123",
     birthday,
     `001085${String(number).padStart(6, "0")}`,
     `laodong${String(number).padStart(3, "0")}@example.com`,

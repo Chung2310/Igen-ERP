@@ -807,8 +807,9 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   {renderFieldActions('fee')}
                   <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
                     <ErpInput
-                      type="number"
-                      min="1"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
                       required={isFieldRequired('fee', true)}
                       placeholder={getFieldPlaceholder('fee', copy.feePlaceholder)}
                       value={newCourse.fee}

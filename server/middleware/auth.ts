@@ -5,7 +5,7 @@ import { UserModel } from "../model/user.model";
 import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
-import { expandEffectivePermissions, normalizeStoredPermissions } from "../config/permission-catalog";
+import { expandEffectivePermissions, LEGACY_PERMISSION_MAP, normalizeStoredPermissions } from "../config/permission-catalog";
 
 const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
@@ -203,7 +203,9 @@ export async function getEffectivePermissions(
 }
 
 export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPermissions: readonly string[]) {
-  return allPermissions.has("*") || requiredPermissions.some((permission) => allPermissions.has(permission));
+  return allPermissions.has("*") || requiredPermissions.some((permission) =>
+    allPermissions.has(permission) || Boolean(LEGACY_PERMISSION_MAP[permission] && allPermissions.has(LEGACY_PERMISSION_MAP[permission])),
+  );
 }
 
 export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);
