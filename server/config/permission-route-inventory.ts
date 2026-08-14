@@ -23,7 +23,7 @@ function permissionCodesFromMiddleware(middleware: string, constants: Readonly<R
   const codes: string[] = [];
   for (const match of middleware.matchAll(/require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
     for (const value of match[1].matchAll(/["']([^"']+)["']/g)) codes.push(value[1]);
-    for (const identifier of match[1].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (constants[identifier[0]]) codes.push(...constants[identifier[0]]);
+    for (const identifier of match[1].matchAll(/\b[A-Z][A-Z0-9_]*\b|\b[a-z][A-Za-z0-9_$]*\b/g)) if (constants[identifier[0]]) codes.push(...constants[identifier[0]]);
   }
   return [...new Set(codes)];
 }
@@ -31,6 +31,12 @@ function permissionCodesFromMiddleware(middleware: string, constants: Readonly<R
 /** Scan router source without importing or executing application code. */
 export function scanPermissionRouteSource(source: string, sourceFile: string, constants: Readonly<Record<string, string[]>> = {}): PermissionRouteRecord[] {
   const records: PermissionRouteRecord[] = [];
+  const scopedConstants: Record<string, string[]> = { ...constants };
+  for (const alias of source.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
+    const values = [...alias[2].matchAll(/["']([^"']+)["']/g)].map((value) => value[1]);
+    for (const identifier of alias[2].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (constants[identifier[0]]) values.push(...constants[identifier[0]]);
+    if (values.length) scopedConstants[alias[1]] = [...new Set(values)];
+  }
   const routePattern = /\b[A-Za-z_$][\w$]*\.(get|post|put|patch|delete)\s*\(\s*(['"])([^'"]+)\2\s*,/gi;
   for (const match of source.matchAll(routePattern)) {
     const method = match[1].toUpperCase();
@@ -45,7 +51,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
       if (character === ")" && --depth === 0) { close = cursor; break; }
     }
     const remainder = source.slice(match.index! + match[0].length, close);
-    const permissionCodes = permissionCodesFromMiddleware(remainder, constants);
+    const permissionCodes = permissionCodesFromMiddleware(remainder, scopedConstants);
     const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(remainder);
     const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b/.test(remainder) || /\.use\s*\([^;]*\brequireAuth\b/.test(source);
     const line = lineAt(source, match.index!);

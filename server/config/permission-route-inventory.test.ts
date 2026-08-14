@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import {
   permissionRouteDiagnostics,
   scanPermissionRouteInventory,
@@ -44,6 +45,7 @@ describe("permission route inventory", () => {
     );
 
     expect(route.diagnostics).toEqual([]);
+    expect(scanPermissionRouteSource(`router.post("/webhooks/payos", handler);`, "server/router/webhook.router.ts")[0].diagnostics).not.toEqual([]);
   });
 
   it("scans the repository router inventory and keeps the current baseline explicit", () => {
@@ -52,10 +54,8 @@ describe("permission route inventory", () => {
     expect(routes.length).toBeGreaterThan(0);
     expect(diagnostics.every((item) => item.sourceFile && item.method && item.path && item.kind)).toBe(true);
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
-    expect(diagnostics.length).toBeGreaterThan(0);
-    expect(diagnostics.some((item) => item.kind === "unknown-permission")).toBe(true);
-    expect(diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ sourceFile: "server/router/notification.router.ts", method: "POST", path: "/", kind: "missing-permission" }),
-    ]));
+    const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
+    const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 367, fingerprint: "3713f2579d9c1df57bbc211582c4e3c427a4b2f3ee0e3d3205d889d30b8a21e3" });
   });
 });
