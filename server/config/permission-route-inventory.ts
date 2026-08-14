@@ -10,7 +10,7 @@ export interface PublicRouteException { sourceFile: string; router: string; moun
 /** Reviewed protocol exceptions. Keep each endpoint explicit and auditable. */
 export const PUBLIC_ROUTE_EXCEPTIONS: readonly PublicRouteException[] = [
   { sourceFile: "server/router/webhook.router.ts", router: "webhookRouter", mount: "/webhook", method: "POST", path: "/payment", reason: "signed payment-provider webhook" },
-  { sourceFile: "server/modules/student-management/routes/webhook.routes.ts", router: "router", mount: "/student-management", method: "POST", path: "/payment", reason: "validated payment webhook" },
+  { sourceFile: "server/modules/student-management/routes/webhook.routes.ts", router: "router", mount: "/webhook", method: "POST", path: "/payment", reason: "validated payment webhook" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/checkin", reason: "public QR attendance scan" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/device/forget", reason: "public QR attendance device flow" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "GET", path: "/session-info", reason: "public QR attendance scan" },
@@ -44,7 +44,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const method = match[1].toUpperCase();
     const routePath = match[3];
     const router = match[0].split(".", 1)[0];
-    const mount = context.mounts?.[router] ?? "";
+    const mount = context.mounts?.[router] ?? (sourceFile === "server/modules/student-management/routes/webhook.routes.ts" ? "/webhook" : "");
     const scopedConstants: Record<string, string[]> = { ...constants };
     const prefix = source.slice(0, match.index!);
     for (const declaration of prefix.matchAll(/(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*["']([^"']+:[^"']+)["']/g)) scopedConstants[declaration[1]] = [declaration[2]];

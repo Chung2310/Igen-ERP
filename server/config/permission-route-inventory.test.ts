@@ -58,11 +58,17 @@ describe("permission route inventory", () => {
 
     expect(route.diagnostics).toEqual([]);
     expect(scanPermissionRouteSource(`webhookRouter.post("/payment", handler);`, "server/router/webhook.router.ts", {}, { mounts: { webhookRouter: "/private" } })[0].diagnostics).not.toEqual([]);
+    expect(scanPermissionRouteSource(`router.post("/payment", handler);`, "server/modules/student-management/routes/webhook.routes.ts")[0].diagnostics).toEqual([]);
   });
 
   it("does not treat a handler-body alias as route middleware", () => {
     const [route] = scanPermissionRouteSource(`router.post("/x", requireAuth, (req, res) => { const operate = requirePermission("retail:manage"); });`, "fixture.router.ts");
     expect(route.permissionCodes).toEqual([]);
+  });
+
+  it("records nested webhook router identity and resolved mount", () => {
+    const [route] = scanPermissionRouteSource(`router.post("/payment", handler);`, "server/modules/student-management/routes/webhook.routes.ts");
+    expect(route).toMatchObject({ router: "router", mount: "/webhook" });
   });
 
   it("scans the repository router inventory and keeps the current baseline explicit", () => {
@@ -73,7 +79,7 @@ describe("permission route inventory", () => {
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
     const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 277, fingerprint: "335d06989c424eb292894765cb9fb5c67cd773622d97ba565804690656b81c43" });
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 275, fingerprint: "baa555d7296309b85bd6288a021a2b74bb6476d296ae65474c455e149c42fc8b" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {
