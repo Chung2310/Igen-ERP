@@ -27,7 +27,11 @@ describe("notificationController.create permission scope", () => {
   });
 
   it("rejects delivery to a recipient outside the caller company", async () => {
-    dependencies.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: "recipient", companyCode: "OTHER" }) });
+    dependencies.findOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ _id: "recipient", companyCode: "OTHER" }),
+      }),
+    });
     const res = response();
 
     await notificationController.create({
@@ -40,7 +44,11 @@ describe("notificationController.create permission scope", () => {
   });
 
   it("uses the authenticated caller company instead of a request companyCode", async () => {
-    dependencies.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: "recipient", companyCode: "ACME" }) });
+    dependencies.findOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ _id: "recipient", companyCode: "ACME" }),
+      }),
+    });
     dependencies.createNotification.mockResolvedValue({ id: "notification" });
     const res = response();
 
