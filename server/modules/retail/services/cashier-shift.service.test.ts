@@ -38,17 +38,17 @@ test("missing variance reason is a public validation error", () => {
   assert.equal(normalized.message, "Vui lòng nhập lý do chênh lệch ca.");
 });
 
-test("zero opening cash is a public validation error", () => {
-  let normalized;
-  try {
-    parseOpeningFloat(0);
-    assert.fail("Expected zero opening cash to be rejected");
-  } catch (error) {
-    normalized = normalizeError(error);
+test("zero opening cash is valid", () => {
+  assert.equal(parseOpeningFloat(0), 0);
+});
+
+test("opening cash rejects negative, fractional, non-numeric, and unsafe values", () => {
+  for (const value of [-1, 1.5, "abc", Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(
+      () => parseOpeningFloat(value),
+      (error: unknown) => normalizeError(error).code === "SHIFT_OPENING_FLOAT_INVALID",
+    );
   }
-  assert.equal(normalized.status, 400);
-  assert.equal(normalized.code, "SHIFT_OPENING_FLOAT_INVALID");
-  assert.equal(normalized.message, "Quỹ đầu ca phải lớn hơn 0.");
 });
 
 test("daytime retail shifts remain operational until Vietnam day-end", () => {
