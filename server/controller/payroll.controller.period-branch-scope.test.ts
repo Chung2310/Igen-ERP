@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   evaluatePayrollFormulas: vi.fn(),
   lineOverrideFind: vi.fn(),
   publicationFind: vi.fn(),
+  revisionFindOne: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -39,6 +40,9 @@ vi.mock("../model/payroll-period-input.model", () => ({ PayrollPeriodInputModel:
 vi.mock("../model/payroll-custom-variable.model", () => ({ PayrollCustomVariableModel: { find: mocks.customVariableFind } }));
 vi.mock("../model/payroll-line-override.model", () => ({ PayrollLineOverrideModel: { find: mocks.lineOverrideFind } }));
 vi.mock("../model/payslip-publication.model", () => ({ PayslipPublicationModel: { find: mocks.publicationFind } }));
+vi.mock("../model/payroll-calculation-revision.model", () => ({
+  PayrollCalculationRevisionModel: { findOne: mocks.revisionFindOne },
+}));
 vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
 vi.mock("../model/company.model", () => ({
   CompanyModel: { findOne: mocks.companyFindOne },
@@ -66,7 +70,9 @@ vi.mock("../model/payroll-audit.model", () => ({
 
 import { payrollController } from "./payroll.controller";
 import { DEFAULT_VIETNAM_PAYROLL_POLICY } from "../config/payroll-default-policy";
+import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
 
+const scope = { companyCode: "ACME", branchId: "branch-a" };
 const branchRequest = (overrides: Record<string, unknown> = {}) => ({
   user: { id: "actor-a", role: "superadmin", companyCode: "ACME", branchId: "branch-a" },
   params: { periodKey: "2026-07" },
@@ -113,6 +119,7 @@ describe("legacy payroll period branch scope", () => {
     mocks.customVariableFind.mockReturnValue(lean([]));
     mocks.lineOverrideFind.mockReturnValue(lean([]));
     mocks.publicationFind.mockReturnValue({ select: vi.fn().mockReturnValue(lean([])) });
+    mocks.revisionFindOne.mockReturnValue(lean(null));
   });
 
   it("scopes snapshot source reads and attendance upserts to the authenticated branch", async () => {
@@ -220,6 +227,16 @@ describe("legacy payroll period branch scope", () => {
       { employeeId: "employee-a", kind: "deduction", amount: 300_000 },
       { employeeId: "employee-a", kind: "correction", amount: 400_000 },
     ]));
+    mocks.profileFind.mockReturnValue(lean([{
+      employeeId: "employee-a",
+      status: "active",
+      effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+      paymentMethod: "transfer",
+      bankName: "Igen Bank",
+      bankCode: "IGEN",
+      bankAccountNumber: "0123456789",
+      bankAccountHolder: "EMPLOYEE A",
+    }]));
     mocks.runCreate.mockImplementation(async (value) => value);
     const res = response();
 
@@ -231,6 +248,13 @@ describe("legacy payroll period branch scope", () => {
     expect(line.formulaApplications).toEqual([]);
     expect(line.calculation).toMatchObject({
       allowances: 100_000, bonuses: 200_000, otherDeductions: 300_000, adjustments: 400_000,
+    });
+    expect(line.payment).toEqual({
+      method: "transfer",
+      bankName: "Igen Bank",
+      bankCode: "IGEN",
+      bankAccountNumber: "0123456789",
+      bankAccountHolder: "EMPLOYEE A",
     });
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -316,9 +340,80 @@ describe("legacy payroll period branch scope", () => {
       net: 17_775_000,
     });
     expect(returnedLine.segmentLines).toEqual([storedLine]);
-    expect(returnedLine).not.toHaveProperty("calculation");
-    expect(returnedLine).not.toHaveProperty("vietnam");
+    expect(returnedLine).toMatchObject({
+      calculation: {
+        adjustedBase: 17_000_000,
+        bonusTotal: 0,
+        deductions: 925_000,
+        net: 17_775_000,
+      },
+      vietnam: {
+        income: { bonuses: 0, totalIncome: 18_700_000 },
+        insurance: { funds: [
+          { code: "social", employeeAmount: 250_000 },
+          { code: "health", employeeAmount: 100_000 },
+          { code: "unemployment", employeeAmount: 50_000 },
+        ] },
+        tax: { tax: 200_000 },
+        deductions: { other: 25_000, advances: 300_000, total: 925_000 },
+        netPay: 17_775_000,
+      },
+    });
     expect(systemLine).toEqual(storedLine);
+  });
+
+  it("loads and validates active revision lines for a revision-backed multi-segment regular run", async () => {
+    const revisionLines = [{
+      employeeId: "employee-a",
+      sourceIds: ["contract-a"],
+      calculation: { monthlySalary: 6_000, adjustedBase: 5_000, gross: 5_500, net: 5_500 },
+      formulaVersion: "vietnam-payroll-1",
+      warnings: [],
+    }, {
+      employeeId: "employee-a",
+      sourceIds: ["contract-b"],
+      calculation: { monthlySalary: 4_000, adjustedBase: 3_000, gross: 3_500, net: 3_500 },
+      formulaVersion: "vietnam-payroll-1",
+      warnings: [],
+    }];
+    const totals = { grossPay: 9_000, deductions: 0, netPay: 9_000 };
+    const checksum = calculatePayrollChecksum({ lines: revisionLines, totals });
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "draft",
+      activeRevisionId: "revision-a",
+      activeRevisionChecksum: checksum,
+      lines: [],
+    }));
+    mocks.revisionFindOne.mockReturnValue(lean({
+      _id: "revision-a",
+      runId: "run-a",
+      status: "completed",
+      lines: revisionLines,
+      totals,
+      checksum,
+    }));
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(mocks.revisionFindOne).toHaveBeenCalledWith({
+      _id: "revision-a",
+      runId: "run-a",
+      companyCode: "ACME",
+      branchId: "branch-a",
+    });
+    const returned = res.json.mock.calls[0][0].data;
+    expect(returned.lines).toEqual(revisionLines);
+    expect(returned.effectiveLines).toHaveLength(1);
+    expect(returned.effectiveLines[0]).toMatchObject({
+      employeeId: "employee-a",
+      segmentLines: revisionLines,
+      calculation: { adjustedBase: 8_000, net: 9_000 },
+    });
   });
 
   it("does not load or apply regular-period overrides to a supplemental line detail", async () => {
@@ -350,6 +445,8 @@ describe("legacy payroll period branch scope", () => {
 
     expect(mocks.lineOverrideFind).not.toHaveBeenCalled();
     expect(res.json.mock.calls[0][0].data).toMatchObject({
+      formulaVersion: "legacy",
+      calculation: supplementalLine.calculation,
       overrideValues: {},
       overrideVersion: 0,
       effectiveValues: { adjustedBase: 9_000_000 },

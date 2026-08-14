@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import mongoose from "mongoose";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
@@ -9,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   overrideFindOneAndUpdate: vi.fn(),
   customFind: vi.fn(),
   auditCreate: vi.fn(),
+  revisionFindOne: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -30,11 +30,15 @@ vi.mock("../model/payroll-audit.model", () => ({
 vi.mock("../model/payroll-custom-variable.model", () => ({
   PayrollCustomVariableModel: { find: mocks.customFind },
 }));
+vi.mock("../model/payroll-calculation-revision.model", () => ({
+  PayrollCalculationRevisionModel: { findOne: mocks.revisionFindOne },
+}));
 
 import {
-  bulkSavePayrollLineOverrides,
-  listPayrollLineOverrides,
+  createPayrollLineOverrideOperations,
 } from "./payroll-line-override-operations.service";
+import { loadAuthoritativePayrollSourceLines } from "./payroll-effective-line.service";
+import { calculatePayrollChecksum } from "./payroll-checksum.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 const periodKey = "2026-07";
@@ -59,10 +63,25 @@ const row = (changes: Record<string, unknown> = {}) => ({
   ...changes,
 });
 
+let operations: ReturnType<typeof createPayrollLineOverrideOperations>;
+const bulkSavePayrollLineOverrides = (...args: any[]) => (
+  (operations.bulkSavePayrollLineOverrides as any)(...args)
+);
+const listPayrollLineOverrides = (...args: any[]) => (
+  (operations.listPayrollLineOverrides as any)(...args)
+);
+
 describe("payroll line override operations", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.runFindOne.mockReturnValue(lean({ _id: "run-a", status: "draft", version: 0 }));
+    operations = createPayrollLineOverrideOperations({
+      transactionRunner: async (operation) => operation(undefined),
+      loadSourceLines: async () => [
+        { employeeId: "employee-a" },
+        { employeeId: "employee-b" },
+      ],
+    });
+    mocks.runFindOne.mockReturnValue(sortedLean({ _id: "run-a", status: "draft", version: 0 }));
     mocks.runFindOneAndUpdate.mockReturnValue(lean({ _id: "run-a", status: "draft", version: 1 }));
     mocks.overrideFindOne.mockReturnValue(lean(null));
     mocks.customFind.mockReturnValue(lean([
@@ -85,7 +104,7 @@ describe("payroll line override operations", () => {
     { run: null, label: "missing" },
     { run: { _id: "run-a", status: "review" }, label: "non-draft" },
   ])("locks writes when the regular run is $label", async ({ run }) => {
-    mocks.runFindOne.mockReturnValue(lean(run));
+    mocks.runFindOne.mockReturnValue(sortedLean(run));
 
     await expect(bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [row()]))
       .rejects.toMatchObject({
@@ -94,6 +113,82 @@ describe("payroll line override operations", () => {
       });
 
     expect(mocks.runFindOne).toHaveBeenCalledWith({ ...scope, periodKey, type: "regular" });
+    expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("sorts the canonical run once and pins every row claim to that exact run id", async () => {
+    const canonical = sortedLean({ _id: "run-a", status: "draft", version: 0 });
+    mocks.runFindOne.mockReturnValue(canonical);
+    mocks.runFindOneAndUpdate.mockImplementation((filter) => lean({
+      _id: filter._id,
+      status: "draft",
+      version: 1,
+    }));
+    mocks.overrideFindOneAndUpdate.mockImplementation((filter) => lean({
+      employeeId: filter.employeeId,
+      version: 1,
+    }));
+
+    const results = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row({ employeeId: "employee-a" }),
+      row({ employeeId: "employee-b" }),
+    ]);
+
+    expect(canonical.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
+    expect(results).toEqual([
+      expect.objectContaining({ employeeId: "employee-a", status: "success" }),
+      expect.objectContaining({ employeeId: "employee-b", status: "success" }),
+    ]);
+    expect(mocks.runFindOneAndUpdate.mock.calls.map(([filter]) => filter._id))
+      .toEqual(["run-a", "run-a"]);
+  });
+
+  it("uses the active revision as membership authority and never stale embedded run lines", async () => {
+    const revisionLines = [{ employeeId: "employee-a", calculation: { net: 100 } }];
+    const totals = { grossPay: 100, deductions: 0, netPay: 100 };
+    const checksum = calculatePayrollChecksum({ lines: revisionLines, totals });
+    const session = { id: "session-revision" } as any;
+    mocks.runFindOneAndUpdate.mockReturnValue(sessionLean({
+      _id: "run-a",
+      ...scope,
+      periodKey,
+      status: "draft",
+      activeRevisionId: "revision-a",
+      activeRevisionChecksum: checksum,
+      lines: [{ employeeId: "employee-stale", calculation: { net: 1 } }],
+    }));
+    const revisionQuery = sessionLean({
+      _id: "revision-a",
+      runId: "run-a",
+      status: "completed",
+      lines: revisionLines,
+      totals,
+      checksum,
+    });
+    mocks.revisionFindOne.mockReturnValue(revisionQuery);
+    const operations = createPayrollLineOverrideOperations({
+      transactionRunner: (async (operation: any) => operation(session)) as any,
+      loadSourceLines: loadAuthoritativePayrollSourceLines,
+    });
+
+    const [result] = await operations.bulkSavePayrollLineOverrides(
+      scope,
+      periodKey,
+      "actor-a",
+      [row({ employeeId: "employee-stale" })],
+    );
+
+    expect(result).toMatchObject({
+      employeeId: "employee-stale",
+      status: "error",
+      code: "PAYROLL_LINE_OVERRIDE_EMPLOYEE_NOT_IN_RUN",
+    });
+    expect(mocks.revisionFindOne).toHaveBeenCalledWith({
+      _id: "revision-a",
+      runId: "run-a",
+      ...scope,
+    });
+    expect(revisionQuery.session).toHaveBeenCalledWith(session);
     expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
@@ -147,16 +242,47 @@ describe("payroll line override operations", () => {
   });
 
   it("requires a nonblank audit reason", async () => {
-    const [result] = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+    await expect(bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
       row({ reason: "   " }),
-    ]);
-
-    expect(result).toMatchObject({
-      status: "error",
+    ])).rejects.toMatchObject({
       code: "PAYROLL_LINE_OVERRIDE_REASON_REQUIRED",
     });
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
     expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { rows: [], label: "empty rows" },
+    { rows: undefined, label: "missing rows" },
+    { rows: {}, label: "non-array rows" },
+  ])("rejects $label before preflight", async ({ rows }) => {
+    await expect(bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", rows as any))
+      .rejects.toMatchObject({
+        code: "PAYROLL_LINE_OVERRIDE_ROWS_REQUIRED",
+        status: 400,
+      });
+    expect(mocks.runFindOne).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { invalidRow: null, label: "null" },
+    { invalidRow: undefined, label: "undefined" },
+    { invalidRow: [], label: "array" },
+  ])(
+    "rejects a non-object row before preflight: $label",
+    async ({ invalidRow }) => {
+      await expect(bulkSavePayrollLineOverrides(
+        scope,
+        periodKey,
+        "actor-a",
+        [invalidRow] as any,
+      )).rejects.toMatchObject({
+        code: "PAYROLL_LINE_OVERRIDE_ROW_INVALID",
+        status: 400,
+      });
+      expect(mocks.runFindOne).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     { expectedVersion: undefined, label: "missing" },
@@ -261,6 +387,7 @@ describe("payroll line override operations", () => {
       actorId: "actor-a",
       metadata: {
         operation: "line_override",
+        runId: "run-a",
         employeeId: "employee-a",
         reason: "Restore calculated fields",
         values: { baseSalary: 0, customValues: { sales: 0 } },
@@ -288,11 +415,13 @@ describe("payroll line override operations", () => {
 
   it("retains successful row results when another row fails", async () => {
     const saved = { employeeId: "employee-a", baseSalary: 12_000_000, version: 1 };
-    mocks.overrideFindOneAndUpdate.mockReturnValueOnce(lean(saved));
+    mocks.overrideFindOneAndUpdate
+      .mockReturnValueOnce(lean(saved))
+      .mockReturnValueOnce(lean(null));
 
     const results = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
       row(),
-      row({ employeeId: "employee-b", reason: " " }),
+      row({ employeeId: "employee-b" }),
     ]);
 
     expect(results).toEqual([
@@ -300,34 +429,35 @@ describe("payroll line override operations", () => {
       expect.objectContaining({
         employeeId: "employee-b",
         status: "error",
-        code: "PAYROLL_LINE_OVERRIDE_REASON_REQUIRED",
+        code: "PAYROLL_LINE_OVERRIDE_VERSION_CONFLICT",
       }),
     ]);
     expect(mocks.auditCreate).toHaveBeenCalledOnce();
   });
 
   it("rolls back the run guard and override mutation when audit insertion fails", async () => {
-    const priorReadyState = mongoose.connection.readyState;
     let runVersion = 0;
     let storedOverride: any = null;
     const beforeQueries: any[] = [];
     const customQueries: any[] = [];
-    const session: any = { endSession: vi.fn() };
-    session.withTransaction = vi.fn(async (callback: () => Promise<unknown>) => {
+    const session: any = { id: "session-a" };
+    const transactionRunner = vi.fn(async (callback: (received: any) => Promise<unknown>) => {
       const snapshot = { runVersion, storedOverride };
       try {
-        return await callback();
+        return await callback(session);
       } catch (error) {
         runVersion = snapshot.runVersion;
         storedOverride = snapshot.storedOverride;
         throw error;
       }
     });
-    (mongoose.connection as any).readyState = 1;
-    const startSession = vi.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    operations = createPayrollLineOverrideOperations({
+      transactionRunner: transactionRunner as any,
+      loadSourceLines: async () => [{ employeeId: "employee-a" }],
+    });
     mocks.runFindOneAndUpdate.mockImplementation(() => {
       runVersion += 1;
-      return sessionLean({ _id: "run-a", status: "draft", version: runVersion });
+      return sessionLean({ _id: "run-a", status: "draft", version: runVersion, lines: [{ employeeId: "employee-a" }] });
     });
     mocks.overrideFindOne.mockImplementation(() => {
       const query = sessionLean(storedOverride);
@@ -351,47 +481,40 @@ describe("payroll line override operations", () => {
     });
     mocks.auditCreate.mockRejectedValue(new Error("audit unavailable"));
 
-    try {
-      const [result] = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [row()]);
+    const [result] = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [row()]);
 
-      expect(result).toMatchObject({ status: "error", code: "PAYROLL_LINE_OVERRIDE_ERROR" });
-      expect(storedOverride).toBeNull();
-      expect(runVersion).toBe(0);
-      expect(session.withTransaction).toHaveBeenCalledOnce();
-      expect(session.endSession).toHaveBeenCalledOnce();
-      expect(beforeQueries[0].session).toHaveBeenCalledWith(session);
-      expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-        { ...scope, periodKey, type: "regular", status: "draft" },
-        { $inc: { version: 1 } },
-        { new: true, session },
-      );
-      expect(mocks.overrideFindOneAndUpdate.mock.calls[0][2]).toEqual(
-        expect.objectContaining({ session }),
-      );
-      expect(mocks.auditCreate).toHaveBeenCalledWith(
-        [expect.objectContaining({ metadata: expect.objectContaining({ operation: "line_override" }) })],
-        { session },
-      );
-      expect(customQueries).toHaveLength(0);
-    } finally {
-      startSession.mockRestore();
-      (mongoose.connection as any).readyState = priorReadyState;
-    }
+    expect(result).toMatchObject({ status: "error", code: "PAYROLL_LINE_OVERRIDE_ERROR" });
+    expect(storedOverride).toBeNull();
+    expect(runVersion).toBe(0);
+    expect(transactionRunner).toHaveBeenCalledOnce();
+    expect(beforeQueries[0].session).toHaveBeenCalledWith(session);
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "run-a", ...scope, periodKey, type: "regular", status: "draft" },
+      { $inc: { version: 1 } },
+      { new: true, session },
+    );
+    expect(mocks.overrideFindOneAndUpdate.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ session }),
+    );
+    expect(mocks.auditCreate).toHaveBeenCalledWith(
+      [expect.objectContaining({ metadata: expect.objectContaining({ operation: "line_override", runId: "run-a" }) })],
+      { session },
+    );
+    expect(customQueries).toHaveLength(0);
   });
 
   it("rechecks and claims the draft run per row so a status transition wins against later rows", async () => {
-    const priorReadyState = mongoose.connection.readyState;
     let runStatus = "draft";
     let runVersion = 0;
     const sessions: any[] = [];
-    (mongoose.connection as any).readyState = 1;
-    const startSession = vi.spyOn(mongoose, "startSession").mockImplementation(async () => {
-      const session: any = {
-        withTransaction: vi.fn(async (callback: () => Promise<unknown>) => callback()),
-        endSession: vi.fn(),
-      };
+    const transactionRunner = vi.fn(async (callback: (received: any) => Promise<unknown>) => {
+      const session: any = { id: `session-${sessions.length + 1}` };
       sessions.push(session);
-      return session;
+      return callback(session);
+    });
+    operations = createPayrollLineOverrideOperations({
+      transactionRunner: transactionRunner as any,
+      loadSourceLines: async () => [{ employeeId: "employee-a" }, { employeeId: "employee-b" }],
     });
     mocks.runFindOneAndUpdate.mockImplementation(() => {
       if (runStatus !== "draft") return sessionLean(null);
@@ -411,28 +534,178 @@ describe("payroll line override operations", () => {
       return Array.isArray(value) ? value : [value];
     });
 
-    try {
-      const results = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
-        row(),
-        row({ employeeId: "employee-b" }),
-      ]);
+    const results = await bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row(),
+      row({ employeeId: "employee-b" }),
+    ]);
 
-      expect(results).toEqual([
-        expect.objectContaining({ employeeId: "employee-a", status: "success" }),
-        expect.objectContaining({
-          employeeId: "employee-b",
-          status: "error",
-          code: "PAYROLL_LINE_OVERRIDE_LOCKED",
-        }),
-      ]);
-      expect(mocks.runFindOneAndUpdate).toHaveBeenCalledTimes(2);
-      expect(mocks.overrideFindOneAndUpdate).toHaveBeenCalledOnce();
-      expect(sessions).toHaveLength(2);
-      expect(sessions.every((item) => item.withTransaction.mock.calls.length === 1)).toBe(true);
-      expect(sessions.every((item) => item.endSession.mock.calls.length === 1)).toBe(true);
-    } finally {
-      startSession.mockRestore();
-      (mongoose.connection as any).readyState = priorReadyState;
+    expect(results).toEqual([
+      expect.objectContaining({ employeeId: "employee-a", status: "success" }),
+      expect.objectContaining({
+        employeeId: "employee-b",
+        status: "error",
+        code: "PAYROLL_LINE_OVERRIDE_LOCKED",
+      }),
+    ]);
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledTimes(2);
+    expect(mocks.overrideFindOneAndUpdate).toHaveBeenCalledOnce();
+    expect(sessions).toHaveLength(2);
+    expect(transactionRunner).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { employeeId: "", label: "empty employee id" },
+    { employeeId: "employee-from-another-run", label: "unknown or cross-run employee" },
+  ])("rejects an override for an $label inside the row transaction", async ({ employeeId }) => {
+    const session = { id: "session-a" } as any;
+    const transactionRunner = vi.fn(async (operation: (received: any) => Promise<unknown>) => operation(session));
+    const loadSourceLines = vi.fn(async () => [{ employeeId: "employee-a" }]);
+    const operations = createPayrollLineOverrideOperations({
+      transactionRunner: transactionRunner as any,
+      loadSourceLines,
+    });
+    mocks.runFindOneAndUpdate.mockReturnValue(sessionLean({
+      _id: "run-a",
+      status: "draft",
+      version: 1,
+    }));
+
+    const [result] = await operations.bulkSavePayrollLineOverrides(
+      scope,
+      periodKey,
+      "actor-a",
+      [row({ employeeId })],
+    );
+
+    expect(result).toMatchObject({
+      employeeId,
+      status: "error",
+      code: "PAYROLL_LINE_OVERRIDE_EMPLOYEE_NOT_IN_RUN",
+      message: "Employee is not part of the active payroll run",
+    });
+    expect(loadSourceLines).toHaveBeenCalledWith(
+      scope,
+      expect.objectContaining({ _id: "run-a" }),
+      session,
+    );
+    expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects differing trimmed reasons for one bulk API before any row write", async () => {
+    const operations = createPayrollLineOverrideOperations({
+      transactionRunner: async (operation) => operation(undefined),
+      loadSourceLines: async () => [{ employeeId: "employee-a" }, { employeeId: "employee-b" }],
+    });
+
+    await expect(operations.bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row({ employeeId: "employee-a", reason: "  Reconcile July  " }),
+      row({ employeeId: "employee-b", reason: "Different reason" }),
+    ])).rejects.toMatchObject({
+      code: "PAYROLL_LINE_OVERRIDE_REASON_MISMATCH",
+      status: 400,
+    });
+
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("uses one normalized trimmed reason for every row in a bulk API", async () => {
+    mocks.overrideFindOneAndUpdate
+      .mockReturnValueOnce(lean({ employeeId: "employee-a", version: 1 }))
+      .mockReturnValueOnce(lean({ employeeId: "employee-b", version: 1 }));
+
+    const results = await operations.bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row({ employeeId: "employee-a", reason: "  Reconcile July  " }),
+      row({ employeeId: "employee-b", reason: "Reconcile July" }),
+    ]);
+
+    expect(results).toEqual([
+      expect.objectContaining({ employeeId: "employee-a", status: "success" }),
+      expect.objectContaining({ employeeId: "employee-b", status: "success" }),
+    ]);
+    expect(mocks.overrideFindOneAndUpdate).toHaveBeenCalledTimes(2);
+    for (const call of mocks.overrideFindOneAndUpdate.mock.calls) {
+      expect(call[1].$set.reason).toBe("Reconcile July");
     }
+    expect(mocks.auditCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a blank reason anywhere in a bulk API before preflight", async () => {
+    await expect(operations.bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row({ employeeId: "employee-a", reason: "Reconcile July" }),
+      row({ employeeId: "employee-b", reason: "   " }),
+    ])).rejects.toMatchObject({
+      code: "PAYROLL_LINE_OVERRIDE_REASON_REQUIRED",
+      status: 400,
+    });
+
+    expect(mocks.runFindOne).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("uses the injected transaction runner and fails the request closed when atomic writes are unavailable", async () => {
+    const transactionRunner = vi.fn(async () => {
+      throw Object.assign(new Error("Transactions unavailable"), {
+        code: "PAYROLL_TRANSACTION_UNAVAILABLE",
+        status: 503,
+      });
+    });
+    const operations = createPayrollLineOverrideOperations({
+      transactionRunner,
+      loadSourceLines: async () => [{ employeeId: "employee-a" }],
+    });
+
+    await expect(operations.bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [row()]))
+      .rejects.toMatchObject({ status: 503, code: "PAYROLL_TRANSACTION_UNAVAILABLE" });
+    expect(transactionRunner).toHaveBeenCalledOnce();
+    expect(mocks.overrideFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns committed success and retains every remaining row when transactions become unavailable mid-batch", async () => {
+    let transactionCall = 0;
+    const transactionRunner = vi.fn(async (operation: (session?: any) => Promise<unknown>) => {
+      transactionCall += 1;
+      if (transactionCall === 1) return operation(undefined);
+      throw Object.assign(new Error("Transactions became unavailable"), {
+        code: "PAYROLL_TRANSACTION_UNAVAILABLE",
+        status: 503,
+      });
+    });
+    const operations = createPayrollLineOverrideOperations({
+      transactionRunner: transactionRunner as any,
+      loadSourceLines: async () => [
+        { employeeId: "employee-a" },
+        { employeeId: "employee-b" },
+        { employeeId: "employee-c" },
+      ],
+    });
+    mocks.overrideFindOneAndUpdate.mockReturnValueOnce(lean({
+      employeeId: "employee-a",
+      version: 1,
+    }));
+
+    const results = await operations.bulkSavePayrollLineOverrides(scope, periodKey, "actor-a", [
+      row({ employeeId: "employee-a" }),
+      row({ employeeId: "employee-b" }),
+      row({ employeeId: "employee-c" }),
+    ]);
+
+    expect(results).toEqual([
+      expect.objectContaining({ employeeId: "employee-a", status: "success" }),
+      expect.objectContaining({
+        employeeId: "employee-b",
+        status: "error",
+        code: "PAYROLL_TRANSACTION_UNAVAILABLE",
+      }),
+      expect.objectContaining({
+        employeeId: "employee-c",
+        status: "error",
+        code: "PAYROLL_TRANSACTION_UNAVAILABLE",
+      }),
+    ]);
+    expect(transactionRunner).toHaveBeenCalledTimes(2);
+    expect(mocks.overrideFindOneAndUpdate).toHaveBeenCalledOnce();
+    expect(mocks.auditCreate).toHaveBeenCalledOnce();
   });
 });

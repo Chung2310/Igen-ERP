@@ -13,9 +13,15 @@ export type PayrollLineOverrideValues = Partial<Record<PayrollLineOverrideField,
 
 export type PayrollLineSystemValues = Record<PayrollLineOverrideField, number> & {
   hiddenIncome: number;
+  customValues?: Record<string, number>;
 };
 
-export type PayrollLineOverrideProvenance = Record<keyof PayrollLineSystemValues, "manual_override" | "system">;
+export type PayrollLineOverrideProvenance = Record<
+  PayrollLineOverrideField | "hiddenIncome",
+  "manual_override" | "system"
+> & {
+  customValues: Record<string, "manual_override" | "system">;
+};
 
 export interface IPayrollLineOverride extends Document, PayrollLineOverrideValues {
   companyCode: string;

@@ -9,7 +9,6 @@ import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
-import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
 import { PayslipPublicationModel } from "../model/payslip-publication.model";
 import { PayrollExportJobModel } from "../model/payroll-export-job.model";
@@ -52,8 +51,15 @@ import { runPayrollWorkflowAction } from "../service/payroll-run-workflow-operat
 import { buildPayslip } from "../service/payroll-payslip.service";
 import { buildPayrollWorkbook, workbookBuffer } from "../service/payroll-export.service";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
+import {
+  createEffectivePayrollSnapshot,
+  loadAuthoritativePayrollLines,
+  verifyEffectivePayrollSnapshot,
+} from "../service/payroll-effective-line.service";
 import type { PayrollWorkflowAction } from "../service/payroll-run-workflow.service";
 import { PayrollPeriodProcessingError, processPayrollPeriod } from "../service/payroll-period-processing.service";
+import { resetPayrollPeriod } from "../service/payroll-period-reset.service";
+import { runPayrollAtomicTransaction } from "../service/payroll-transaction.service";
 import {
   auditQuerySchema,
   calculateRunSchema,
@@ -150,11 +156,34 @@ const revisionBackedRunFailure = (res: Response) => res.status(409).json({
   message: "This payroll run is revision-backed; use the run workflow endpoints",
 });
 const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), branchId: req.user?.branchId || "", periodKey, action, actorId: req.user!.id, metadata });
+const snapshotPayrollPayment = (profile: any) => profile ? ({
+  method: profile.paymentMethod ?? "transfer",
+  ...(profile.bankName ? { bankName: profile.bankName } : {}),
+  ...(profile.bankCode ? { bankCode: profile.bankCode } : {}),
+  ...(profile.bankAccountNumber ? { bankAccountNumber: profile.bankAccountNumber } : {}),
+  ...(profile.bankAccountHolder ? { bankAccountHolder: profile.bankAccountHolder } : {}),
+}) : undefined;
 const operationalScope = (req: AuthenticatedRequest) => {
   const companyCode = tenant(req);
   const branchId = req.user?.branchId || "";
   return companyCode && branchId ? { companyCode, branchId } : null;
 };
+const runWithEffectiveChecksum = (run: any, checksum: string) => ({
+  ...run,
+  activeRevisionChecksum: checksum,
+});
+const publicationMatchesEffectivePayroll = (
+  publicationChecksum: string,
+  run: any,
+  effective: any,
+) => publicationChecksum === effective.effectiveChecksum
+  || (
+    effective.legacyUnpinned === true
+    && (
+      publicationChecksum === effective.sourceRevisionChecksum
+      || (!run.activeRevisionId && publicationChecksum === "legacy")
+    )
+  );
 const paymentTransitionHandler = (action: PayrollPaymentAction) => async (req: AuthenticatedRequest, res: Response) => {
   const scope = operationalScope(req);
   if (!scope) return validationFailure(res, "Authenticated company and branch are required");
@@ -191,12 +220,20 @@ const validationFailure = (res: Response, message: string) => res.status(400).js
   status: "error", code: "PAYROLL_VALIDATION_ERROR", message,
 });
 const operationFailure = (res: Response, error: unknown) => {
-  if (error instanceof PayrollOperationError) {
-    return res.status(error.status).json({
+  const payrollError = error instanceof PayrollOperationError
+    || (
+      error instanceof Error
+      && typeof (error as any).code === "string"
+      && (error as any).code.startsWith("PAYROLL_")
+      && Number.isInteger((error as any).status)
+    );
+  if (payrollError) {
+    const typed = error as PayrollOperationError;
+    return res.status(typed.status).json({
       status: "error",
-      code: error.code,
-      message: error.message,
-      ...(error.currentVersion !== undefined ? { currentVersion: error.currentVersion } : {}),
+      code: typed.code,
+      message: typed.message,
+      ...(typed.currentVersion !== undefined ? { currentVersion: typed.currentVersion } : {}),
     });
   }
   console.error("[payroll.operations] Unexpected error:", error);
@@ -552,6 +589,7 @@ export const payrollController = {
         adjustments: appliedAdjustments.adjustments,
       });
       const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+      const payment = snapshotPayrollPayment(profile);
       const vietnam = calculateVietnamPayroll(policy, {
         workPay: calculation.adjustedBase,
         hourlyRate: calculation.hourlyRate,
@@ -592,10 +630,28 @@ export const payrollController = {
         warnings: vietnam.warnings.map((warning) => warning.code),
         formulaApplications: library.applications,
         periodInput:{version:Number(periodInput?.version??0),values:{...resolvedPeriod.values,...customContext},provenance:{...resolvedPeriod.provenance,...Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.provenance]))}},
+        ...(payment ? { payment } : {}),
       };
     });
     if (existing) {
-      const run = await PayrollRunModel.findOneAndUpdate({ _id: existing._id }, { $set: { lines } }, { new: true }).lean();
+      const run = await PayrollRunModel.findOneAndUpdate(
+        {
+          _id: existing._id,
+          ...legacyRegularRunFilter(req),
+          ...LEGACY_RUN_ONLY,
+          status: "draft",
+          version: Number(existing.version ?? 0),
+        },
+        { $set: { lines }, $inc: { version: 1 } },
+        { new: true },
+      ).lean();
+      if (!run) {
+        return res.status(409).json({
+          status: "error",
+          code: "PAYROLL_VERSION_CONFLICT",
+          message: "Payroll run changed while it was being recalculated",
+        });
+      }
       await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length, recalculated: true });
       const effectiveLines = await projectPayrollLinesWithStoredOverrides(
         { companyCode: tenant(req), branchId },
@@ -636,11 +692,18 @@ export const payrollController = {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
     if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
-    const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
-    const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
-    if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const lines = revision ? revision.lines : (run.lines || []);
-    const employeeIds = Array.isArray(req.body?.employeeIds) ? req.body.employeeIds : lines.map((line) => line.employeeId);
+    let effective;
+    try {
+      effective = await loadAuthoritativePayrollLines(scope, run);
+    } catch (error) {
+      return operationFailure(res, error);
+    }
+    const eligibleEmployeeIds = new Set(effective.effectiveLines.map((line: any) => String(line.employeeId)));
+    const requestedEmployeeIds = Array.isArray(req.body?.employeeIds)
+      ? req.body.employeeIds.map(String)
+      : [...eligibleEmployeeIds];
+    const employeeIds = [...new Set(requestedEmployeeIds.filter((employeeId: string) => eligibleEmployeeIds.has(employeeId)))];
+    const revisionChecksum = effective.effectiveChecksum;
     const docs = await Promise.all(employeeIds.map((employeeId: string) => PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: String(run._id), employeeId }, { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } }, { upsert: true, new: true, setDefaultsOnInsert: true })));
     return res.json({ status: "success", data: docs });
   },
@@ -652,13 +715,25 @@ export const payrollController = {
   async listEmployeePayslips(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const publications = await PayslipPublicationModel.find({ ...scope, employeeId: req.user!.id, status: "published" }).lean();
-    const data = await Promise.all(publications.map(async (publication) => {
-      const run = await PayrollRunModel.findOne({ _id: publication.runId, ...scope }).lean();
-      const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
-      const line = revision ? revision.lines.find((item) => item.employeeId === req.user!.id) : run?.lines?.find((item: any) => item.employeeId === req.user!.id);
-      return run && line ? buildPayslip(run, line as any, await PayrollPaymentModel.find({ ...scope, runId: publication.runId }).lean() as any) : null;
-    }));
-    return res.json({ status: "success", data: data.filter(Boolean) });
+    try {
+      const data = await Promise.all(publications.map(async (publication) => {
+        const run = await PayrollRunModel.findOne({ _id: publication.runId, ...scope }).lean();
+        if (!run || !["closed", "paid"].includes(run.status)) return null;
+        const effective = await loadAuthoritativePayrollLines(scope, run);
+        // A publication from before reopen/re-review is stale, not a reason to
+        // fail the employee's entire payslip list. Hide it until republished.
+        if (!publicationMatchesEffectivePayroll(publication.revisionChecksum, run, effective)) return null;
+        const line = effective.effectiveLines.find((item: any) => String(item.employeeId) === req.user!.id);
+        return line ? buildPayslip(
+          runWithEffectiveChecksum(run, effective.effectiveChecksum),
+          line as any,
+          await PayrollPaymentModel.find({ ...scope, runId: publication.runId }).lean() as any,
+        ) : null;
+      }));
+      return res.json({ status: "success", data: data.filter(Boolean) });
+    } catch (error) {
+      return operationFailure(res, error);
+    }
   },
   async printPayslip(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
@@ -672,12 +747,25 @@ export const payrollController = {
 
     const publication = await PayslipPublicationModel.findOne({ ...scope, runId: req.params.id, employeeId: req.params.employeeId, status: "published" }).lean();
     if (!publication) return res.status(404).json({ status: "error", code: "PAYSLIP_NOT_PUBLISHED" });
-    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean(); 
-    const revision = run?.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null; 
-    const line = revision ? revision.lines.find((item) => item.employeeId === req.params.employeeId) : run?.lines?.find((item: any) => item.employeeId === req.params.employeeId);
-    if (!run || !line) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND" });
-    if (revision && (revision.checksum !== publication.revisionChecksum || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const payslip = buildPayslip(run, line as any, await PayrollPaymentModel.find({ ...scope, runId: req.params.id }).lean() as any);
+    const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
+    if (!run) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND" });
+    if (!["closed", "paid"].includes(run.status)) {
+      return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
+    }
+    let effective;
+    try {
+      effective = await loadAuthoritativePayrollLines(scope, run);
+    } catch (error) {
+      return operationFailure(res, error);
+    }
+    const line = effective.effectiveLines.find((item: any) => String(item.employeeId) === req.params.employeeId);
+    if (!line) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND" });
+    if (!publicationMatchesEffectivePayroll(publication.revisionChecksum, run, effective)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
+    const payslip = buildPayslip(
+      runWithEffectiveChecksum(run, effective.effectiveChecksum),
+      line as any,
+      await PayrollPaymentModel.find({ ...scope, runId: req.params.id }).lean() as any,
+    );
     const esc = (value: unknown) => String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char] || char));
     res.type("html").set("Content-Disposition", `inline; filename=payslip-${run.periodKey}-${payslip.employeeId}.html`); return res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Payslip ${esc(run.periodKey)}</title><style>body{font:14px Arial;max-width:760px;margin:40px auto;color:#172033}h1{font-size:24px;border-bottom:2px solid #172033;padding-bottom:12px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ddd}.total{font-size:18px;font-weight:bold}@media print{body{margin:0}}</style></head><body><h1>Payslip ${esc(run.periodKey)}</h1><div class="row"><b>Nhân viên</b><span>${esc(payslip.employeeName || payslip.employeeId)}</span></div><div class="row"><b>Tổng thu nhập</b><span>${payslip.calculation.gross ?? 0}</span></div><div class="row"><b>Các khoản khấu trừ</b><span>${payslip.calculation.deductions ?? 0}</span></div><div class="row total"><b>Thực nhận</b><span>${payslip.netPay}</span></div><div class="row"><b>Đã thanh toán</b><span>${payslip.paidAmount}</span></div><div class="row"><b>Còn lại</b><span>${payslip.balance}</span></div><p>Mã kiểm tra: ${esc(payslip.checksum)}</p><script>window.print()</script></body></html>`);
   },  async exportPayroll(req: AuthenticatedRequest, res: Response) {
@@ -686,11 +774,14 @@ export const payrollController = {
     if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll:pay")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll:pay" }); }
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
     if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
-    const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
-    const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
-    if (run.activeRevisionId && (!revision || revision.checksum !== run.activeRevisionChecksum)) return res.status(409).json({ status: "error", code: "PAYROLL_CHECKSUM_MISMATCH" });
-    const lines = revision ? revision.lines : (run.lines || []);
-    const buffer = workbookBuffer(buildPayrollWorkbook(type, lines as any)); const checksum = calculatePayrollChecksum(buffer.toString("base64"));
+    let effective;
+    try {
+      effective = await loadAuthoritativePayrollLines(scope, run);
+    } catch (error) {
+      return operationFailure(res, error);
+    }
+    const revisionChecksum = effective.effectiveChecksum;
+    const buffer = workbookBuffer(buildPayrollWorkbook(type, effective.effectiveLines as any)); const checksum = calculatePayrollChecksum(buffer.toString("base64"));
     const job = await PayrollExportJobModel.create({ ...scope, runId: String(run._id), type, revisionChecksum, status: "completed", createdBy: req.user!.id, output: { contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: buffer.length, checksum }, completedAt: new Date() });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename=payroll-${run.periodKey}-${type}.xlsx`); return res.send(buffer);
   },  async listAdjustments(req: AuthenticatedRequest, res: Response) {
@@ -719,7 +810,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
+    if (run && run.status === "draft" && !run.activeRevisionId && run.lines?.length) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
@@ -770,6 +861,7 @@ export const payrollController = {
               adjustments: empAdjustments.adjustments,
             });
             const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+            const payment = snapshotPayrollPayment(profile);
             const vietnam = calculateVietnamPayroll(policy, {
               workPay: calculation.adjustedBase,
               hourlyRate: calculation.hourlyRate,
@@ -807,9 +899,25 @@ export const payrollController = {
               policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
               policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
+              ...(payment ? { payment } : {}),
             };
           });
-          await PayrollRunModel.updateOne({ _id: run._id }, { $set: { lines } });
+          const updated = await PayrollRunModel.findOneAndUpdate(
+            {
+              _id: run._id,
+              ...legacyRegularRunFilter(req),
+              ...LEGACY_RUN_ONLY,
+              status: "draft",
+              version: Number(run.version ?? 0),
+            },
+            { $set: { lines }, $inc: { version: 1 } },
+            { new: true },
+          ).lean();
+          if (!updated) throw new PayrollOperationError(
+            "PAYROLL_VERSION_CONFLICT",
+            "Payroll run changed while its adjustment was being recalculated",
+            409,
+          );
         }
       } catch (err) {
         console.error("Recalculation error on approveAdjustment:", err);
@@ -829,7 +937,7 @@ export const payrollController = {
     
     // Automatically recalculate the legacy run if it exists in calculated status
     const run = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER);
-    if (run && run.status === "draft" && (run.activeRevisionId || run.lines?.length)) {
+    if (run && run.status === "draft" && !run.activeRevisionId && run.lines?.length) {
       try {
         const periodKey = run.periodKey;
         const branchId = run.branchId;
@@ -880,6 +988,7 @@ export const payrollController = {
               adjustments: empAdjustments.adjustments,
             });
             const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
+            const payment = snapshotPayrollPayment(profile);
             const vietnam = calculateVietnamPayroll(policy, {
               workPay: calculation.adjustedBase,
               hourlyRate: calculation.hourlyRate,
@@ -917,9 +1026,25 @@ export const payrollController = {
               policyId: (policy as any)._id ? String((policy as any)._id) : undefined,
               policyVersion: Number((policy as any).version ?? 0), policyCode: policy.code, policyName: policy.name,
               warnings: vietnam.warnings.map((warning) => warning.code),
+              ...(payment ? { payment } : {}),
             };
           });
-          await PayrollRunModel.updateOne({ _id: run._id }, { $set: { lines } });
+          const updated = await PayrollRunModel.findOneAndUpdate(
+            {
+              _id: run._id,
+              ...legacyRegularRunFilter(req),
+              ...LEGACY_RUN_ONLY,
+              status: "draft",
+              version: Number(run.version ?? 0),
+            },
+            { $set: { lines }, $inc: { version: 1 } },
+            { new: true },
+          ).lean();
+          if (!updated) throw new PayrollOperationError(
+            "PAYROLL_VERSION_CONFLICT",
+            "Payroll run changed while its adjustment was being recalculated",
+            409,
+          );
         }
       } catch (err) {
         console.error("Recalculation error on rejectAdjustment:", err);
@@ -930,80 +1055,176 @@ export const payrollController = {
     return res.json({ status: "success", data: adjustment });
   },  async approveRun(req: AuthenticatedRequest, res: Response) {
     if (await hasRevisionBackedRun(req)) return revisionBackedRunFailure(res);
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const current = await PayrollRunModel.findOne({
+      ...legacyRegularRunFilter(req),
+      ...LEGACY_RUN_ONLY,
+      status: "draft",
+    }).sort(LEGACY_RUN_ORDER).lean();
+    if (!current) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
+    let effectiveSnapshot;
+    try {
+      effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
+    } catch (error) {
+      return operationFailure(res, error);
+    }
     const run = await PayrollRunModel.findOneAndUpdate(
-      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "draft" },
-      { $set: { status: "review", reviewedBy: req.user!.id }, $inc: { version: 1 } },
-      { new: true, sort: LEGACY_RUN_ORDER },
+      {
+        _id: current._id,
+        ...legacyRegularRunFilter(req),
+        ...LEGACY_RUN_ONLY,
+        status: "draft",
+        version: Number(current.version ?? 0),
+      },
+      { $set: { status: "review", reviewedBy: req.user!.id, effectiveSnapshot }, $inc: { version: 1 } },
+      { new: true },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
-
-    // Automatically publish all payslips
-    const scope = operationalScope(req);
-    if (scope) {
-      const revision = run.activeRevisionId ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean() : null;
-      const revisionChecksum = revision ? revision.checksum : run.activeRevisionChecksum || "legacy";
-      const lines = revision ? revision.lines : (run.lines || []);
-      const employeeIds = lines.map((line) => line.employeeId);
-      await Promise.all(employeeIds.map((employeeId: string) =>
-        PayslipPublicationModel.findOneAndUpdate(
-          { ...scope, runId: String(run._id), employeeId },
-          { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        )
-      ));
-    }
 
     return res.json({ status: "success", data: run });
   },
   async closeRun(req: AuthenticatedRequest, res: Response) {
     if (await hasRevisionBackedRun(req)) return revisionBackedRunFailure(res);
-    const run = await PayrollRunModel.findOneAndUpdate(
-      { ...legacyRegularRunFilter(req), ...LEGACY_RUN_ONLY, status: "review" },
-      { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date() } },
-      { new: true, sort: LEGACY_RUN_ORDER },
-    );
-    if (!run) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
-    return res.json({ status: "success", data: run });
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const current = await PayrollRunModel.findOne({
+      ...legacyRegularRunFilter(req),
+      ...LEGACY_RUN_ONLY,
+      status: "review",
+    }).sort(LEGACY_RUN_ORDER).lean();
+    if (!current) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
+    let effectiveSnapshot = current.effectiveSnapshot;
+    try {
+      if (!effectiveSnapshot) {
+        effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
+      } else if (!await verifyEffectivePayrollSnapshot(scope, current)) {
+        return res.status(409).json({
+          status: "error",
+          code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+          message: "Pinned effective payroll snapshot is invalid",
+        });
+      }
+    } catch (error) {
+      return operationFailure(res, error);
+    }
+    const revisionChecksum = effectiveSnapshot.checksum;
+    const employeeIds = [
+      ...new Set((effectiveSnapshot.lines ?? []).map((line: any) => String(line.employeeId))),
+    ];
+    try {
+      const run = await runPayrollAtomicTransaction(async (session) => {
+        const closedRun = await PayrollRunModel.findOneAndUpdate(
+          {
+            _id: current._id,
+            ...legacyRegularRunFilter(req),
+            ...LEGACY_RUN_ONLY,
+            status: "review",
+            version: Number(current.version ?? 0),
+          },
+          { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date(), effectiveSnapshot } },
+          { new: true, ...(session ? { session } : {}) },
+        );
+        if (!closedRun) return null;
+        // Mongo transactions require sequential operations on one session.
+        for (const employeeId of employeeIds) {
+          await PayslipPublicationModel.findOneAndUpdate(
+            { ...scope, runId: String(closedRun._id), employeeId },
+            { $set: { ...scope, runId: String(closedRun._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } },
+            {
+              upsert: true,
+              new: true,
+              setDefaultsOnInsert: true,
+              ...(session ? { session } : {}),
+            },
+          );
+        }
+        return closedRun;
+      });
+      if (!run) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
+      return res.json({ status: "success", data: run });
+    } catch (error) {
+      return operationFailure(res, error);
+    }
   },  async resetPeriod(req: AuthenticatedRequest, res: Response) {
-    const periodFilter = legacyPeriodScope(req);
-    const runFilter = legacyRegularRunFilter(req);
-    const run = await PayrollRunModel.findOne(runFilter).sort(LEGACY_RUN_ORDER).lean();
-    const [deletedRun, results, adjustments, audits] = await Promise.all([
-      run ? PayrollRunModel.deleteOne({ _id: run._id, ...runFilter }) : Promise.resolve({ deletedCount: 0 }),
-      AttendancePeriodResultModel.deleteMany(periodFilter),
-      PayrollAdjustmentModel.deleteMany(periodFilter),
-      PayrollAuditModel.deleteMany(periodFilter),
-    ]);
-    await audit(req, req.params.periodKey, "reset", { hadRun: Boolean(run), results: results.deletedCount, adjustments: adjustments.deletedCount, auditsRemoved: audits.deletedCount });
-    return res.json({ status: "success", deleted: { run: deletedRun.deletedCount, results: results.deletedCount, adjustments: adjustments.deletedCount } });
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    try {
+      const result = await resetPayrollPeriod(scope, req.params.periodKey, req.user!.id);
+      return res.json({ status: "success", deleted: result.deleted });
+    } catch (error) {
+      return operationFailure(res, error);
+    }
   },  async getLineDetail(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req));
+    const canReadAny = permissions.has("*") || permissions.has("payroll:read") || permissions.has("payroll:manage");
+    if (!canReadAny && req.user!.id !== req.params.employeeId) {
+      return res.status(403).json({
+        status: "error",
+        code: "PAYROLL_PERMISSION_DENIED",
+        message: "You can only view your own payroll line",
+      });
+    }
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
     if (!run) return res.status(404).json({ status: "error", code: "PAYROLL_RUN_NOT_FOUND", message: "Payroll run not found" });
-    const revision: any = run.activeRevisionId
-      ? await PayrollCalculationRevisionModel.findOne({ _id: run.activeRevisionId, ...scope }).lean()
-      : null;
-    const systemLines = (revision?.lines ?? run.lines ?? []).filter(
+    let effective;
+    try {
+      effective = await loadAuthoritativePayrollLines(scope, run);
+    } catch (error) {
+      return operationFailure(res, error);
+    }
+    const effectiveLine = effective.effectiveLines.find(
       (item: any) => String(item.employeeId) === req.params.employeeId,
     );
-    if (!systemLines.length) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND", message: "Payroll line not found" });
-    const [effectiveLine] = await projectPayrollLinesWithStoredOverrides(scope, run, systemLines);
+    if (!effectiveLine) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND", message: "Payroll line not found" });
+    if (!canReadAny) {
+      const publication = await PayslipPublicationModel.findOne({
+        ...scope,
+        runId: req.params.id,
+        employeeId: req.params.employeeId,
+        status: "published",
+      }).lean();
+      if (
+        !publication
+        || !["closed", "paid"].includes(run.status)
+        || !publicationMatchesEffectivePayroll(publication.revisionChecksum, run, effective)
+      ) {
+        return res.status(404).json({ status: "error", code: "PAYSLIP_NOT_PUBLISHED" });
+      }
+    }
     return res.json({ status: "success", data: effectiveLine });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
-    const publications = await PayslipPublicationModel.find({
-      companyCode: tenant(req),
-      runId: String(data._id),
-      status: "published"
-    }).select("employeeId").lean();
-    (data as any).publishedEmployeeIds = publications.map((p) => p.employeeId);
-    (data as any).effectiveLines = await projectPayrollLinesWithStoredOverrides(
-      { companyCode: tenant(req), branchId: req.user?.branchId || "" },
-      data,
-      data.lines ?? [],
-    );
+    try {
+      const effective = await loadAuthoritativePayrollLines(
+        { companyCode: tenant(req), branchId: req.user?.branchId || "" },
+        data,
+      );
+      const publications = ["closed", "paid"].includes(data.status)
+        ? await PayslipPublicationModel.find({
+            companyCode: tenant(req),
+            branchId: req.user?.branchId || "",
+            runId: String(data._id),
+            status: "published",
+          }).select("employeeId revisionChecksum").lean()
+        : [];
+      (data as any).publishedEmployeeIds = publications
+        .filter((publication) => publicationMatchesEffectivePayroll(
+          publication.revisionChecksum,
+          data,
+          effective,
+        ))
+        .map((publication) => publication.employeeId);
+      (data as any).lines = effective.sourceLines;
+      if (effective.sourceTotals !== undefined) (data as any).totals = effective.sourceTotals;
+      (data as any).effectiveLines = effective.effectiveLines;
+      (data as any).effectiveChecksum = effective.effectiveChecksum;
+    } catch (error) {
+      return operationFailure(res, error);
+    }
     return res.json({ status: "success", data });
   },
 };

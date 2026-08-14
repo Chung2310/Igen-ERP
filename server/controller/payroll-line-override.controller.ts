@@ -36,7 +36,7 @@ export const payrollLineOverrideController = {
           scope(req),
           req.params.periodKey,
           req.user!.id,
-          req.body.rows ?? [],
+          req.body?.rows,
         ),
       });
     } catch (error) {

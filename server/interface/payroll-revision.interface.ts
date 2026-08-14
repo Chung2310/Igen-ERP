@@ -12,6 +12,14 @@ export type PayrollLineSnapshot = {
   warnings: string[];
   formulaApplications?: Array<{ code: string; name: string; version: number; bucket: string; applied: boolean; value: number; variables: Record<string, number>; trace: string[] }>;
   periodInput?: { version: number; values: Record<string, number>; provenance: Record<string, string> };
+  /** Payment instructions captured with the calculation so later exports never read a mutable profile. */
+  payment?: {
+    method: "transfer" | "cash";
+    bankName?: string;
+    bankCode?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+  };
   /** Full Vietnam breakdown (insurance funds, tax brackets, employer cost) when a policy applied. */
   vietnam?: Record<string, unknown>;
 };

@@ -24,7 +24,10 @@ export function resolvePayrollLineOverride(
   net: number;
   provenance: PayrollLineOverrideProvenance;
 } {
-  const values: PayrollLineSystemValues = { ...system };
+  const values: PayrollLineSystemValues = {
+    ...system,
+    customValues: { ...(system.customValues ?? {}) },
+  };
   const provenance: PayrollLineOverrideProvenance = {
     baseSalary: "system",
     adjustedBase: "system",
@@ -38,6 +41,9 @@ export function resolvePayrollLineOverride(
     otherDeductions: "system",
     advances: "system",
     hiddenIncome: "system",
+    customValues: Object.fromEntries(
+      Object.keys(system.customValues ?? {}).map((code) => [code, "system"]),
+    ),
   };
 
   for (const field of PAYROLL_LINE_OVERRIDE_FIELDS) {
@@ -47,7 +53,14 @@ export function resolvePayrollLineOverride(
     }
   }
 
-  const deductionTotal = DEDUCTION_FIELDS.reduce((total, field) => total + values[field], 0);
+  for (const [code, value] of Object.entries(override.customValues ?? {})) {
+    values.customValues![code] = value;
+    provenance.customValues[code] = "manual_override";
+  }
+
+  const deductionTotal = Math.round(
+    DEDUCTION_FIELDS.reduce((total, field) => total + values[field], 0),
+  );
   const net = Math.max(0, Math.round(
     values.adjustedBase + values.overtime + values.bonusTotal + values.hiddenIncome - deductionTotal,
   ));

@@ -133,10 +133,17 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       setCustomVariables((Array.isArray(variables) ? variables : []).filter((item: any) => item.status === "active"));
     } catch { setCustomVariables([]); }
   };
+  const clearLocalOverrideState = () => {
+    setInputDrafts({});
+    setInputErrors({});
+    setLineOverrides([]);
+    setInputSaveOpen(false);
+    setInputReason("");
+  };
   const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
   useEffect(() => { void reload(); void loadLineOverrides(); }, [period]);
   useEffect(() => { void loadPolicies(); }, []);
-  useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); setInputDrafts({}); setInputErrors({}); }, [period]);
+  useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
 
   const exportCsv = () => { const rows = run?.lines || results; const csv = ["employeeId,adjustedBase,overtime,net", ...rows.map((line: any) => [line.employeeId, line.calculation?.adjustedBase || "", line.calculation?.overtime || "", line.calculation?.net || ""].join(","))].join("\\n"); const blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}.csv`; anchor.click(); URL.revokeObjectURL(url); };
   const exportExcel = () => {
@@ -165,9 +172,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
     XLSX.writeFile(workbook, `bang-luong-${period}.xlsx`);
   };
-  const action = async (fn: () => Promise<unknown>, success: string) => {
+  const action = async (fn: () => Promise<unknown>, success: string, onSuccess?: () => void | Promise<void>) => {
     try {
       await fn();
+      await onSuccess?.();
       toast.success(success);
       await reload();
     } catch (error) {
@@ -181,12 +189,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     : run?.status === "review" ? 1
     : run || allLocked || results.length > 0 ? 0
     : -1;
+  const inlineEditable = canManage && run?.status === "draft";
 
   const runRows = useMemo(() => {
     if (!run) return [];
     return (run.effectiveLines ?? []).map((line: any) => {
       const originalResult = results.find((r) => r.employeeId === line.employeeId);
-      const preview = previewPayrollLine(line, inputDrafts[String(line.employeeId)]);
+      const preview = previewPayrollLine(line, inlineEditable ? inputDrafts[String(line.employeeId)] : undefined);
       const segment = line.segmentLines?.[0] ?? {};
       return {
         ...line,
@@ -200,7 +209,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         vietnam: segment.vietnam,
       };
     });
-  }, [run, results, inputDrafts]);
+  }, [run, results, inputDrafts, inlineEditable]);
 
   const draftRows = useMemo(() => results.map((row: any) => ({
     employeeId: row.employeeId,
@@ -251,6 +260,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setProcessingPayroll(true);
     try {
       await payrollService.processPeriod(period);
+      clearLocalOverrideState();
+      await loadLineOverrides();
       toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
       await reload();
     } catch (error) {
@@ -306,7 +317,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
   };
 
-  const inlineEditable = canManage && run?.status === "draft";
   const persistedOverride = (employeeId: string) => lineOverrides.find((item: any) => String(item.employeeId) === String(employeeId)) ?? {};
   const renderResultCell = (row: any, field: PayrollLineOverrideField, systemValue: number, effectiveValue: number) => {
     const employeeId = String(row.employeeId);
@@ -373,7 +383,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
@@ -465,14 +475,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
@@ -560,8 +570,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         : `${Number(line[field.key]).toLocaleString()} đ`}</td>)}
                     {customVariables.map((variable: any) => {
                       const field = `custom.${variable.code}` as const;
-                      const systemValue = Number(variable.defaultValue ?? 0);
-                      const effectiveValue = Number(line.effectiveValues?.customValues?.[variable.code] ?? systemValue);
+                      const systemValue = Number(line.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0);
+                      const effectiveValue = Number(line.customValues?.[variable.code] ?? systemValue);
                       return inlineEditable
                         ? renderResultCell(line, field, systemValue, effectiveValue)
                         : <td key={field} className="p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
@@ -576,7 +586,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr className="border-t bg-slate-50 font-bold text-slate-700">
                     <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
                     {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0).toLocaleString()} đ</td>)}
-                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.effectiveValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0).toLocaleString()}</td>)}
+                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0).toLocaleString()}</td>)}
                     <td className="p-3 text-right text-rose-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} đ</td>
                   </tr>
@@ -653,7 +663,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       onCancel={() => setResetConfirmOpen(false)}
       onConfirm={async () => {
         setResetting(true);
-        await action(() => payrollService.reset(period), "Đã xóa kỳ lương");
+        await action(() => payrollService.reset(period), "Đã xóa kỳ lương", clearLocalOverrideState);
         setResetting(false);
         setResetConfirmOpen(false);
       }}
@@ -665,7 +675,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       onConfirm={async (reason) => {
         if (!run?._id) return;
         setReopening(true);
-        await action(() => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }), "Đã mở lại kỳ lương về Nháp");
+        await action(
+          () => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }),
+          "Đã mở lại kỳ lương về Nháp",
+          async () => { clearLocalOverrideState(); await loadLineOverrides(); },
+        );
         setReopening(false);
         setReopenOpen(false);
       }}
@@ -683,6 +697,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         await action(
           () => payrollService.markPaid(String(run._id), { expectedVersion: Number(run.version) }),
           "Đã chuyển kỳ lương sang Đã thanh toán",
+          clearLocalOverrideState,
         );
         setMarkingPaid(false);
         setMarkPaidConfirmOpen(false);

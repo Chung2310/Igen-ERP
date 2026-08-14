@@ -66,4 +66,24 @@ describe("resolvePayrollLineOverride", () => {
     expect(result.net).toBe(18_625_000);
     expect(result.provenance.hiddenIncome).toBe("system");
   });
+
+  it("rounds the derived deduction total with the same currency semantics as net pay", () => {
+    const result = resolvePayrollLineOverride({
+      ...system,
+      adjustedBase: 1_000,
+      overtime: 0,
+      bonusTotal: 0,
+      hiddenIncome: 0,
+      penaltyTotal: 10.4,
+      socialInsurance: 20.4,
+      healthInsurance: 0,
+      unemploymentInsurance: 0,
+      personalIncomeTax: 0,
+      otherDeductions: 0,
+      advances: 0,
+    }, {});
+
+    expect(result.deductionTotal).toBe(31);
+    expect(result.net).toBe(969);
+  });
 });

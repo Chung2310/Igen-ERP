@@ -136,4 +136,58 @@ describe("payroll line derived preview", () => {
       net: 10_900_000,
     });
   });
+
+  it("rounds deductions and previews custom drafts and restores against system custom values", () => {
+    const line = {
+      systemValues: {
+        baseSalary: 1_000,
+        adjustedBase: 1_000,
+        overtime: 0,
+        bonusTotal: 0,
+        penaltyTotal: 10.4,
+        socialInsurance: 20.4,
+        healthInsurance: 0,
+        unemploymentInsurance: 0,
+        personalIncomeTax: 0,
+        otherDeductions: 0,
+        advances: 0,
+        hiddenIncome: 0,
+        customValues: { sales: 125 },
+      },
+      effectiveValues: {
+        baseSalary: 1_000,
+        adjustedBase: 1_000,
+        overtime: 0,
+        bonusTotal: 0,
+        penaltyTotal: 10.4,
+        socialInsurance: 20.4,
+        healthInsurance: 0,
+        unemploymentInsurance: 0,
+        personalIncomeTax: 0,
+        otherDeductions: 0,
+        advances: 0,
+        hiddenIncome: 0,
+        customValues: { sales: 300 },
+      },
+    };
+    const restored = restoreLineOverrideDraftField(
+      setLineOverrideDraftValue(emptyDrafts, "employee-a", "custom.sales", 450),
+      "employee-a",
+      "custom.sales",
+    )["employee-a"];
+
+    expect(previewPayrollLine(line, restored)).toMatchObject({
+      values: { customValues: { sales: 125 } },
+      deductionTotal: 31,
+      net: 969,
+    });
+
+    const changed = setLineOverrideDraftValue(
+      emptyDrafts,
+      "employee-a",
+      "custom.sales",
+      450,
+    )["employee-a"];
+    expect(previewPayrollLine(line, changed).values.customValues).toEqual({ sales: 450 });
+  });
 });

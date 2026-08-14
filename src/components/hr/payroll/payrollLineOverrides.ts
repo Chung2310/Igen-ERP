@@ -22,7 +22,10 @@ export type PayrollLineOverrideDraft = {
 
 export type PayrollLineOverrideDrafts = Record<string, PayrollLineOverrideDraft>;
 
-export type PayrollLineValues = Record<PayrollResultField, number> & { hiddenIncome: number };
+export type PayrollLineValues = Record<PayrollResultField, number> & {
+  hiddenIncome: number;
+  customValues?: Record<string, number>;
+};
 
 export function setLineOverrideDraftValue(
   drafts: PayrollLineOverrideDrafts,
@@ -128,14 +131,25 @@ export function previewPayrollLine(
   line: { systemValues: PayrollLineValues; effectiveValues: PayrollLineValues },
   draft?: PayrollLineOverrideDraft,
 ) {
-  const values: PayrollLineValues = { ...line.effectiveValues };
+  const values: PayrollLineValues = {
+    ...line.effectiveValues,
+    customValues: { ...(line.effectiveValues.customValues ?? {}) },
+  };
   for (const field of draft?.clearFields ?? []) {
-    if (!field.startsWith("custom.")) values[field as PayrollResultField] = line.systemValues[field as PayrollResultField];
+    if (field.startsWith("custom.")) {
+      const code = field.slice("custom.".length);
+      values.customValues![code] = Number(line.systemValues.customValues?.[code] ?? 0);
+    } else {
+      values[field as PayrollResultField] = line.systemValues[field as PayrollResultField];
+    }
   }
   for (const [field, value] of Object.entries(draft?.values ?? {})) {
-    if (!field.startsWith("custom.")) values[field as PayrollResultField] = value;
+    if (field.startsWith("custom.")) values.customValues![field.slice("custom.".length)] = value;
+    else values[field as PayrollResultField] = value;
   }
-  const deductionTotal = DEDUCTION_FIELDS.reduce((total, field) => total + values[field], 0);
+  const deductionTotal = Math.round(
+    DEDUCTION_FIELDS.reduce((total, field) => total + values[field], 0),
+  );
   const net = Math.max(0, Math.round(
     values.adjustedBase + values.overtime + values.bonusTotal + values.hiddenIncome - deductionTotal,
   ));

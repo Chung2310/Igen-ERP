@@ -269,6 +269,35 @@ describe("payroll calculate endpoint", () => {
     expect(line.vietnam.tax.deductions.dependents).toBe(4_400_000);
   });
 
+  it("stores the selected payroll profile payment instructions on the immutable revision line", async () => {
+    arrangeHappyPath();
+    mocks.profileFind.mockReturnValue(lean([{
+      employeeId: "employee-a",
+      status: "active",
+      effectiveFrom: new Date("2026-01-01"),
+      paymentMethod: "transfer",
+      bankName: "Vietcombank",
+      bankCode: "VCB",
+      bankAccountNumber: "0123456789",
+      bankAccountHolder: "EMPLOYEE A",
+      participatesInsurance: true,
+      taxMethod: "progressive",
+      residencyStatus: "resident",
+      hasWithholdingCommitment: false,
+    }]));
+
+    await payrollController.calculateRun(request({ expectedVersion: 1 }, { "idempotency-key": "calc-payment" }), response());
+
+    const line = mocks.revisionFindOneAndUpdate.mock.calls[0][1].$set.lines[0];
+    expect(line.payment).toEqual({
+      method: "transfer",
+      bankName: "Vietcombank",
+      bankCode: "VCB",
+      bankAccountNumber: "0123456789",
+      bankAccountHolder: "EMPLOYEE A",
+    });
+  });
+
   it("warns instead of failing when an employee has no payroll profile", async () => {
     arrangeHappyPath();
 
