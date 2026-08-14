@@ -770,7 +770,9 @@ export default function UserAdminTab() {
               <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
             </div>
             <button
+              disabled={!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))}
               onClick={() => {
+                if (!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))) return;
                 setEditingRole(null);
                 setRoleSlug("");
                 setRoleDisplayName("");
