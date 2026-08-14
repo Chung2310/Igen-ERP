@@ -141,6 +141,9 @@ describe("PayrollTab editable payroll results", () => {
     expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
     expect(screen.queryByText("Chưa phát hành")).toBeNull();
     expect(screen.queryByText("e1")).toBeNull();
+    expect(screen.getAllByRole("columnheader")[0].className).toContain("text-center");
+    expect(screen.getAllByRole("columnheader")[1].className).toContain("text-center");
+    expect(screen.getByRole("cell", { name: /Nguyễn Văn A/ }).className).toContain("text-center");
 
     expect(screen.getByText("custom-variable-catalog")).toBeTruthy();
     for (const field of PAYROLL_RESULT_FIELDS) {
