@@ -9,6 +9,7 @@ import { PayrollPeriodInputModel } from "../model/payroll-period-input.model";
 import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
 import { resolvePayrollPeriodInputs } from "./payroll-period-input-resolver.service";
 import { PayrollDependentModel, PayrollProfileModel } from "../model/payroll-profile.model";
+import { calculateProgressiveTax } from "./payroll-vietnam.service";
 import {
   countDependents,
   profileWarnings,
@@ -222,6 +223,16 @@ const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, 
   }
 
   const gross = values.adjustedBase + values.overtime + values.bonusTotal + values.hiddenIncome;
+  const sourceTax = source.tax ?? {};
+  const sourceTaxDeductions = sourceTax.deductions ?? {};
+  const taxableIncome = Math.max(0, values.adjustedBase + values.overtime + values.bonusTotal
+    + sum((item) => item?.income?.taxableAllowances)
+    - amount(sourceTaxDeductions.personal) - amount(sourceTaxDeductions.dependents)
+    - employeeInsurance - amount(sourceTaxDeductions.other));
+  const taxMethod = sourceTax.method ?? "progressive";
+  const recalculatedTax = taxMethod === "progressive" && Array.isArray(sourceTax.brackets)
+    ? calculateProgressiveTax(sourceTax.brackets.map((item: any) => ({ upTo: item.upTo, rate: amount(item.rate) })), taxableIncome).tax
+    : values.personalIncomeTax;
   const employerOtherCosts = sources.reduce((total, item) => total + Math.max(
     0,
     amount(item?.employerCost) - amount(item?.income?.totalIncome) - amount(item?.insurance?.employerTotal),
@@ -244,11 +255,11 @@ const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, 
     },
     insurance: { ...(source.insurance ?? {}), funds, employeeTotal: employeeInsurance, employerTotal: employerInsurance },
     tax: {
-      ...(source.tax ?? {}),
+      ...sourceTax,
       deductions: taxDeductions,
-      assessableIncome: sum((item) => item?.tax?.assessableIncome),
+      assessableIncome: taxableIncome,
       brackets: [...bracketsByKey.values()],
-      tax: values.personalIncomeTax,
+      tax: recalculatedTax,
     },
     deductions: {
       ...(source.deductions ?? {}),
@@ -272,6 +283,10 @@ export function projectPayrollEmployeeWithOverride(segmentLines: any[], override
     + resolved.values.overtime
     + resolved.values.bonusTotal
     + resolved.values.hiddenIncome;
+  const vietnam = effectiveVietnam(segmentLines, resolved.values, resolved.deductionTotal, resolved.net);
+  const effectiveTax = amount(vietnam?.tax?.tax ?? resolved.values.personalIncomeTax);
+  const deductionTotal = resolved.deductionTotal - resolved.values.personalIncomeTax + effectiveTax;
+  const net = Math.max(0, Math.round(gross - deductionTotal));
   const calculation = {
     ...(segmentLines[0]?.calculation ?? {}),
     monthlySalary: resolved.values.baseSalary,
@@ -288,15 +303,11 @@ export function projectPayrollEmployeeWithOverride(segmentLines: any[], override
     otherDeductions: resolved.values.otherDeductions,
     advances: resolved.values.advances,
     gross,
-    deductions: resolved.deductionTotal,
-    net: resolved.net,
+    deductions: deductionTotal,
+    net,
   };
-  const vietnam = effectiveVietnam(
-    segmentLines,
-    resolved.values,
-    resolved.deductionTotal,
-    resolved.net,
-  );
+  if (vietnam) vietnam.deductions.total = deductionTotal;
+  if (vietnam) vietnam.netPay = net;
   return {
     employeeId: String(segmentLines[0]?.employeeId ?? override?.employeeId ?? ""),
     ...(segmentLines[0]?.employeeName ? { employeeName: segmentLines[0].employeeName } : {}),
@@ -308,8 +319,8 @@ export function projectPayrollEmployeeWithOverride(segmentLines: any[], override
     overrideValues,
     effectiveValues,
     overrideVersion: amount(override?.version),
-    deductionTotal: resolved.deductionTotal,
-    net: resolved.net,
+    deductionTotal,
+    net,
     provenance: resolved.provenance,
   };
 }
