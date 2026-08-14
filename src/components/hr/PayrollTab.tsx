@@ -271,7 +271,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
     setProcessingPayroll(true);
     try {
-      await payrollService.processPeriod(period);
+      if (run?.activeRevisionId) await payrollService.calculateRun(String(run._id), Number(run.version));
+      else await payrollService.processPeriod(period);
       clearLocalOverrideState();
       await loadLineOverrides();
       toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
@@ -494,7 +495,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
@@ -552,7 +553,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
                   <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
-                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className="border-l-2 border-cyan-200 bg-cyan-50 p-2 text-center font-bold text-cyan-800">Các khoản có thể chỉnh sửa</th>
+                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l-2 p-2 text-center font-bold ${inlineEditable ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
                   <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
                 </tr>
