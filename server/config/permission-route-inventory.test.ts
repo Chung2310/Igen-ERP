@@ -100,9 +100,9 @@ describe("permission route inventory", () => {
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
     const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
-    // 218 findings remain after reviewed router-level guards and wrappers are
-    // resolved; each remaining mutation is tracked for a follow-up route fix.
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 218, fingerprint: "e3cddd970738a3046ae9d74d2943bfafc763cafa03da6c31c86a7c96686d6ce3" });
+    // Remaining findings are explicit follow-up work; scanner improvements
+    // resolve inherited auth and legacy module permission aliases.
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 163, fingerprint: "970644d7dedd29f19c0dcd24f040ad6a71743207c41daba9f9def3193d79f41e" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {

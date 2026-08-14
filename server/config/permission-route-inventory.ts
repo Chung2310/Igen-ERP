@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isCanonicalPermission } from "./permission-catalog";
+import { isCanonicalPermission, LEGACY_PERMISSION_MAP } from "./permission-catalog";
 
 export type PermissionRouteDiagnosticKind = "missing-auth" | "missing-permission" | "unknown-permission";
 export interface PermissionRouteDiagnostic { sourceFile: string; line: number; method: string; path: string; kind: PermissionRouteDiagnosticKind; message: string; }
@@ -29,6 +29,12 @@ function permissionCodesFromMiddleware(middleware: string, constants: Readonly<R
     for (const identifier of match[1].matchAll(/\b[A-Z][A-Z0-9_]*\b|\b[a-z][A-Za-z0-9_$]*\b/g)) { const values = resolve(identifier[0]); if (values) codes.push(...values); }
   }
   for (const identifier of middleware.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) { const values = resolve(identifier[0]); if (values) codes.push(...values); }
+  // Resolve the common module permission table form without importing code:
+  // `requireAnyPermission([...STUDENT_AREA_PERMISSIONS.batch.manage])`.
+  for (const reference of middleware.matchAll(/\b[A-Z][A-Z0-9_]*_PERMISSIONS\.([A-Za-z_$][\w$]*)\.(read|manage)\b/g)) {
+    const legacy = `${reference[1]}:${reference[2]}`;
+    codes.push(LEGACY_PERMISSION_MAP[legacy] ?? legacy);
+  }
   return [...new Set(codes)];
 }
 function middlewareTokens(args: string): string {
@@ -73,10 +79,10 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const remainder = source.slice(match.index! + match[0].length, close);
     const middleware = middlewareTokens(remainder);
     const routerUseMiddleware = [...prefix.matchAll(new RegExp(`\\b${router}\\.use\\s*\\(([^;]*)`, "g"))].map((item) => item[1]).join(",");
-    const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])];
+    const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])].map((code) => LEGACY_PERMISSION_MAP[code] ?? code);
     const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(middleware);
     const hasInheritedPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(routerUseMiddleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(routerUseMiddleware));
-    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\brequireAuth\b/.test(source);
+    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b|\bauthMiddleware\b|\badmin[A-Za-z]*AuthMiddleware\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\b(?:requireAuth|authMiddleware|admin[A-Za-z]*AuthMiddleware)\b/.test(source);
     const line = lineAt(source, match.index!);
     const exception = publicException(sourceFile, router, mount, method, routePath);
     const base = { sourceFile, line, method, path: routePath };
