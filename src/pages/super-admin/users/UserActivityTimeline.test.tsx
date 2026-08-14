@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { superAdminUserAccessService } from "../../../services/superAdminUserAccessService";
 import { UserActivityTimeline } from "./UserActivityTimeline";
@@ -34,5 +34,20 @@ describe("UserActivityTimeline", () => {
     await screen.findByText("Cập nhật người dùng");
     fireEvent.change(screen.getByLabelText("Loại hoạt động"), { target: { value: "security" } });
     await waitFor(() => expect(superAdminUserAccessService.activity).toHaveBeenLastCalledWith("ACME", "user-1", expect.objectContaining({ category: "security", page: 1 })));
+  });
+
+  it("debounces text search", async () => {
+    vi.useFakeTimers();
+    try {
+      render(<UserActivityTimeline tenantId="ACME" userId="user-1" />);
+      await vi.runAllTimersAsync();
+      vi.mocked(superAdminUserAccessService.activity).mockClear();
+      fireEvent.change(screen.getByLabelText("Tìm kiếm hoạt động"), { target: { value: "đơn hàng" } });
+      expect(superAdminUserAccessService.activity).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(400); });
+      expect(superAdminUserAccessService.activity).toHaveBeenCalledWith("ACME", "user-1", expect.objectContaining({ search: "đơn hàng" }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

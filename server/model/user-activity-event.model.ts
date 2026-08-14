@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { Schema, Types, model } from "mongoose";
 
 export const USER_ACTIVITY_RETENTION_DAYS = 90;
-export const USER_ACTIVITY_CATEGORIES = ["authentication", "data", "communication", "configuration", "security", "business"] as const;
+export const USER_ACTIVITY_CATEGORIES = ["authentication", "view", "search", "data", "communication", "configuration", "security", "business"] as const;
 export type UserActivityCategory = (typeof USER_ACTIVITY_CATEGORIES)[number];
 
 export interface IUserActivityEvent {
   eventId: string;
   userId: Types.ObjectId;
   companyCode: string;
+  branchId?: Types.ObjectId;
   actionType: string;
   category: UserActivityCategory;
   result: "success" | "failure";
@@ -17,6 +18,9 @@ export interface IUserActivityEvent {
   description: string;
   sourceIp?: string;
   userAgent?: string;
+  deviceSummary?: string;
+  correlationId?: string;
+  durationMs?: number;
   occurredAt: Date;
   expiresAt: Date;
 }
@@ -26,12 +30,14 @@ const schema = new Schema<IUserActivityEvent>({
   eventId: { type: String, required: true, unique: true, immutable },
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable },
   companyCode: { type: String, required: true, index: true, immutable },
+  branchId: { type: Schema.Types.ObjectId, ref: "Branch", immutable },
   actionType: { type: String, required: true, index: true, immutable },
   category: { type: String, enum: USER_ACTIVITY_CATEGORIES, required: true, index: true, immutable },
   result: { type: String, enum: ["success", "failure"], required: true, immutable },
   method: { type: String, immutable }, route: { type: String, immutable },
   description: { type: String, required: true, immutable },
-  sourceIp: { type: String, immutable }, userAgent: { type: String, immutable },
+  sourceIp: { type: String, immutable }, userAgent: { type: String, immutable }, deviceSummary: { type: String, immutable },
+  correlationId: { type: String, immutable }, durationMs: { type: Number, immutable },
   occurredAt: { type: Date, required: true, default: Date.now, immutable },
   expiresAt: { type: Date, required: true, immutable },
 }, { collection: "user_activity_events", timestamps: false, strict: true });
@@ -51,6 +57,10 @@ export const UserActivityEventModel = Object.freeze({
     const occurredAt = event.occurredAt || new Date();
     return RawUserActivityEventModel.create({ ...event, eventId: event.eventId || randomUUID(), occurredAt, expiresAt: event.expiresAt || activityExpiresAt(occurredAt) });
   },
+  insertMany: (events: any[]) => RawUserActivityEventModel.insertMany(events.map((event) => {
+    const occurredAt = event.occurredAt || new Date();
+    return { ...event, eventId: event.eventId || randomUUID(), occurredAt, expiresAt: event.expiresAt || activityExpiresAt(occurredAt) };
+  }), { ordered: false }),
   find: (filter: Record<string, unknown>, options: { skip: number; limit: number }) => RawUserActivityEventModel.find(filter).sort({ occurredAt: -1 }).skip(options.skip).limit(options.limit).lean().exec(),
   countDocuments: (filter: Record<string, unknown>) => RawUserActivityEventModel.countDocuments(filter).exec(),
 });

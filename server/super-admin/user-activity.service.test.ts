@@ -12,11 +12,13 @@ test("lists tenant-scoped activity with date, category and pagination", async ()
     },
   });
 
-  const result = await service.list({ tenantId: "ACME", userId: "u1", from: "2026-07-01", to: "2026-07-03", category: "security", page: 2, limit: 1 });
+  const result = await service.list({ tenantId: "ACME", userId: "u1", from: "2026-07-01", to: "2026-07-03", category: "security", result: "failure", search: "đăng nhập", page: 2, limit: 1 });
 
   assert.equal(String(filter.userId), "u1");
   assert.equal(filter.companyCode, "ACME");
   assert.equal(filter.category, "security");
+  assert.equal(filter.result, "failure");
+  assert.equal(filter.description.$options, "i");
   assert.equal(filter.occurredAt.$gte.toISOString(), "2026-07-01T00:00:00.000Z");
   assert.equal(filter.occurredAt.$lte.toISOString(), "2026-07-03T23:59:59.999Z");
   assert.deepEqual(paging, { skip: 1, limit: 1 });
