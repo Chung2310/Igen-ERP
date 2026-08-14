@@ -78,7 +78,7 @@ export function normalizeWorkerLaborContractInput(input: WorkerLaborContractInpu
     endDate,
     status: (["draft", "active", "terminated"].includes(String(input.status))
       ? String(input.status)
-      : "draft") as WorkerLaborContractStatus,
+      : "active") as WorkerLaborContractStatus,
     note: String(input.note || "").trim(),
   };
 }

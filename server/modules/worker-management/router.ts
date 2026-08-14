@@ -7,6 +7,7 @@ import { workerQrAttendanceRoutes, workerQrAttendancePublicRoutes } from "./rout
 import { workerDashboardRoutes } from "./routes/worker-dashboard.routes";
 import { workerNotificationRoutes } from "./routes/worker-notification.routes";
 import { workerStandardFieldRoutes } from "./routes/worker-standard-field.routes";
+import { laborPartnerRoutes } from "./labor-partners/routes/labor-partner.routes";
 
 export const workerManagementRouter = Router();
 
@@ -18,3 +19,4 @@ workerManagementRouter.use("/worker-management/qr-attendance", workerQrAttendanc
 workerManagementRouter.use("/worker-management/dashboard", workerDashboardRoutes);
 workerManagementRouter.use("/worker-management/notifications", workerNotificationRoutes);
 workerManagementRouter.use("/worker-management/standard-fields", workerStandardFieldRoutes);
+workerManagementRouter.use("/worker-management/partners", laborPartnerRoutes);

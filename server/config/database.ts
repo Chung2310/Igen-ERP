@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
 import { RolePermissionModel } from "../model/role-permission.model";
-import { PERMISSION_CATALOG, PERMISSION_CODES, normalizeStoredPermissions } from "./permission-catalog";
+import { LABOR_PARTNER_PERMISSION_CATALOG, PERMISSION_CATALOG, PERMISSION_CODES, normalizeStoredPermissions } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
 import { migrateLegacyPayrollRunStatuses } from "../model/payroll-run-status-migration";
 import {
@@ -113,7 +113,7 @@ async function seedPermissions() {
       code: { $in: ["crm:read", "crm:manage", "marketing:post"] }
     });
 
-    const catalogPermissions = PERMISSION_CATALOG.map((entry) => ({
+    const catalogPermissions = [...PERMISSION_CATALOG, ...LABOR_PARTNER_PERMISSION_CATALOG].map((entry) => ({
       code: entry.code,
       name: entry.label,
       module: entry.code.split(":")[0],

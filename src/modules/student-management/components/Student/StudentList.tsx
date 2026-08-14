@@ -1,7 +1,7 @@
 import { Search, Filter, GraduationCap, Phone } from 'lucide-react';
 import { Student } from '../../types';
 import { LuxuryCard } from '../ui/LuxuryCard';
-import { cn, formatVND } from '../../lib/utils';
+import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 
 interface StudentListProps {
@@ -83,7 +83,7 @@ export function StudentList({ students, onSelectStudent }: StudentListProps) {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider mb-0.5">Ngày sinh</p>
-                    <p className="text-sm font-medium text-slate-500">{student.birthday || 'N/A'}</p>
+                    <p className="text-sm font-medium text-slate-500">{student.birthday ? formatDisplayDate(student.birthday) : 'N/A'}</p>
                   </div>
                 </div>
 
