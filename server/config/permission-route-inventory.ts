@@ -15,6 +15,7 @@ export const PUBLIC_ROUTE_EXCEPTIONS: readonly PublicRouteException[] = [
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/checkin", reason: "public QR attendance scan" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/device/forget", reason: "public QR attendance device flow" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "GET", path: "/session-info", reason: "public QR attendance scan" },
+  { sourceFile: "server/router/wallet.router.ts", router: "walletRouter", mount: "", method: "POST", path: "/webhook", reason: "signed PayOS webhook" },
 ] as const;
 
 const lineAt = (source: string, offset: number) => source.slice(0, offset).split(/\r?\n/).length;
@@ -59,6 +60,10 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
       const values = [...alias[2].matchAll(/["']([^"']+)["']/g)].map((value) => value[1]);
       for (const identifier of alias[2].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (scopedConstants[identifier[0]]) values.push(...scopedConstants[identifier[0]]);
       if (values.length) scopedConstants[alias[1]] = [...new Set(values)];
+    }
+    for (const alias of prefix.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*\([^)]*\)\s*=>\s*require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
+      const values = permissionCodesFromMiddleware(`requirePermission(${alias[2]})`, scopedConstants);
+      if (values.length) scopedConstants[alias[1]] = values;
     }
     // Resolve small named wrappers used by routers to keep middleware readable,
     // e.g. `const read = requirePermission("x")` followed by
