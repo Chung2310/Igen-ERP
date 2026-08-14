@@ -86,6 +86,19 @@ describe("PayrollTab formula library feature flag", () => {
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
   });
 
+  it("shows only the employee name in the adjustment employee dropdown", async () => {
+    mockPayrollResponses();
+    const user = userEvent.setup();
+
+    render(<PayrollTab canManage />);
+
+    await user.click(await screen.findByRole("button", { name: /Tạo điều chỉnh/i }));
+    const employeeOption = screen.getByRole("option", { name: employee.employeeName }) as HTMLOptionElement;
+
+    expect(employeeOption.textContent).toBe(employee.employeeName);
+    expect(employeeOption.value).toBe(employee.employeeId);
+  });
+
   it("saves dirty input rows once with a trimmed shared reason without recalculating payroll", async () => {
     const firstEmployee = payrollEmployee("e1");
     const secondEmployee = payrollEmployee("e2");
