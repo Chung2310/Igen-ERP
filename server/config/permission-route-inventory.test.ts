@@ -23,6 +23,16 @@ describe("permission route inventory", () => {
     ]);
   });
 
+  it("resolves a local permission alias used as route middleware", () => {
+    const [route] = scanPermissionRouteSource(`
+      const RETAIL_MANAGE_PERMISSION = "retail:manage";
+      const operate = requirePermission([RETAIL_MANAGE_PERMISSION]);
+      router.post("/x", operate, handler);
+    `, "fixture.router.ts");
+    expect(route.permissionCodes).toEqual(["retail:manage"]);
+    expect(route.diagnostics).toEqual([]);
+  });
+
   it("reports missing and unknown guards with source, method, and path", () => {
     const diagnostics: PermissionRouteDiagnostic[] = scanPermissionRouteSource(
       `
@@ -56,6 +66,11 @@ describe("permission route inventory", () => {
     // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
     const baselineIdentity = diagnostics.map(({ sourceFile, line, method, path, kind }) => ({ sourceFile, line, method, path, kind }));
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 367, fingerprint: "3713f2579d9c1df57bbc211582c4e3c427a4b2f3ee0e3d3205d889d30b8a21e3" });
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 274, fingerprint: "6e974988a30a4aff5f8ac4681248787874766f166bbe4b141497146a2a13a267" });
+  });
+
+  it("does not report a false unknown permission for retail order routes", () => {
+    const diagnostics = permissionRouteDiagnostics(process.cwd()).filter((item) => item.sourceFile.endsWith("server/modules/retail/routes/retail-order.routes.ts"));
+    expect(diagnostics.filter((item) => item.kind === "unknown-permission")).toEqual([]);
   });
 });
