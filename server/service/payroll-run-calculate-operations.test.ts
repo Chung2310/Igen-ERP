@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { calculateDetailedPayrollBatch, calculateRun } from "./payroll-run-calculation.service";
+import { projectPayrollRevisionWithOverrides } from "./payroll-run-calculate-operations.service";
 
 const employee = (employeeId: string, monthlySalary: number) => ({
   employeeId,
@@ -101,5 +102,39 @@ describe("calculateRun for a whole run", () => {
     expect(saved).toHaveLength(1);
     expect(saved[0].key).toBe("key-1");
     expect(saved[0].value.status).toBe("completed");
+  });
+
+  it("keeps recalculated system lines immutable while applying an existing override to the returned revision", async () => {
+    const repos = repositories();
+    const completed: any = await calculateRun({
+      ...repos,
+      input: async () => [{
+        ...employee("emp-1", 10_000_000),
+        allowances: 700_000,
+        bonuses: 500_000,
+        deductions: 25_000,
+      }],
+      expectedVersion: 1,
+    });
+    const storedSystemLine = structuredClone(completed.lines[0]);
+    const storedChecksum = completed.checksum;
+
+    const projected: any = projectPayrollRevisionWithOverrides(completed, [{
+      employeeId: "emp-1",
+      adjustedBase: 8_000_000,
+      bonusTotal: 0,
+      version: 4,
+    }]);
+
+    expect(completed.lines[0]).toEqual(storedSystemLine);
+    expect(completed.checksum).toBe(storedChecksum);
+    expect(projected.checksum).toBe(storedChecksum);
+    expect(projected.lines[0]).toMatchObject({
+      overrideVersion: 4,
+      overrideValues: { adjustedBase: 8_000_000, bonusTotal: 0 },
+      effectiveValues: { adjustedBase: 8_000_000, bonusTotal: 0 },
+    });
+    expect(projected.lines[0].systemValues.adjustedBase).toBe(storedSystemLine.calculation.adjustedBase);
+    expect(projected.lines[0].net).toBeLessThan(storedSystemLine.calculation.net);
   });
 });

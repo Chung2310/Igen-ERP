@@ -37,7 +37,7 @@ import {
   PayrollOperationError,
   syncAttendance as syncOperationalPayrollAttendance,
 } from "../service/payroll-run-operations.service";
-import { calculateOperationalRun } from "../service/payroll-run-calculate-operations.service";
+import { calculateOperationalRun, projectPayrollLinesWithStoredOverrides } from "../service/payroll-run-calculate-operations.service";
 import { createPayrollPayment, transitionPayrollPayment } from "../service/payroll-payment-operations.service";
 import type { PayrollPaymentAction } from "../service/payroll-payment.service";
 import {
@@ -598,7 +598,12 @@ export const payrollController = {
     if (existing) {
       const run = await PayrollRunModel.findOneAndUpdate({ _id: existing._id }, { $set: { lines } }, { new: true }).lean();
       await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length, recalculated: true });
-      return res.json({ status: "success", data: run });
+      const effectiveLines = await projectPayrollLinesWithStoredOverrides(
+        { companyCode: tenant(req), branchId },
+        req.params.periodKey,
+        lines,
+      );
+      return res.json({ status: "success", data: { ...run, lines: effectiveLines } });
     }
     const run = await PayrollRunModel.create({ companyCode: tenant(req), branchId, periodKey: req.params.periodKey, type: "regular", status: "draft", createdBy: req.user!.id, lines });
     await audit(req, req.params.periodKey, "calculate", { lineCount: lines.length });
@@ -986,7 +991,8 @@ export const payrollController = {
       } },
     });
     if (!line) return res.status(404).json({ status: "error", code: "PAYROLL_LINE_NOT_FOUND", message: "Payroll line not found" });
-    return res.json({ status: "success", data: line });
+    const [effectiveLine] = await projectPayrollLinesWithStoredOverrides(scope, run.periodKey, [line]);
+    return res.json({ status: "success", data: effectiveLine });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
@@ -996,6 +1002,11 @@ export const payrollController = {
       status: "published"
     }).select("employeeId").lean();
     (data as any).publishedEmployeeIds = publications.map((p) => p.employeeId);
+    (data as any).lines = await projectPayrollLinesWithStoredOverrides(
+      { companyCode: tenant(req), branchId: req.user?.branchId || "" },
+      data.periodKey,
+      data.lines ?? [],
+    );
     return res.json({ status: "success", data });
   },
 };

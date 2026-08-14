@@ -21,13 +21,140 @@ import { resolvePersistedPayrollPolicy } from "../config/payroll-default-policy"
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
+import { PayrollLineOverrideModel } from "../model/payroll-line-override.model";
 import { UserModel } from "../model/user.model";
 import { resolveDetailedPayrollInput } from "./payroll-effective-input.service";
 import { calculateRun, type DetailedCalculationInput } from "./payroll-run-calculation.service";
 import { createPayrollRevisionRepositories } from "./payroll-revision.repository";
 import { PayrollOperationError, type PayrollOperationScope } from "./payroll-run-operations.service";
+import { PAYROLL_LINE_OVERRIDE_FIELDS, type PayrollLineOverrideValues, type PayrollLineSystemValues } from "../interface/payroll-line-override.interface";
+import { resolvePayrollLineOverride } from "./payroll-line-override-resolver.service";
 
 const isoDate = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
+
+const amount = (value: unknown) => {
+  const normalized = Number(value ?? 0);
+  return Number.isFinite(normalized) ? normalized : 0;
+};
+
+const insuranceFundAmount = (vietnam: any, code: string) => {
+  const funds = Array.isArray(vietnam?.insurance?.funds) ? vietnam.insurance.funds : [];
+  return amount(funds.find((fund: any) => fund.code === code)?.employeeAmount);
+};
+
+/** Adapts an immutable calculation snapshot to the manual-override component contract. */
+export function normalizePayrollLineSystemValues(line: any): PayrollLineSystemValues {
+  const calculation = line?.calculation ?? {};
+  const vietnam = line?.vietnam ?? calculation.vietnam ?? {};
+  const adjustments = amount(calculation.adjustments);
+  const adjustedBase = amount(calculation.adjustedBase);
+  const overtime = amount(calculation.overtime);
+  const bonusTotal = amount(
+    calculation.bonusTotal
+      ?? vietnam?.income?.bonuses
+      ?? (amount(calculation.bonuses) + Math.max(adjustments, 0)),
+  );
+  const penaltyTotal = amount(calculation.penaltyTotal ?? Math.max(-adjustments, 0));
+  const gross = amount(calculation.gross ?? vietnam?.income?.totalIncome);
+  const otherDeductions = amount(
+    calculation.otherDeductions
+      ?? Math.max(0, amount(vietnam?.deductions?.other) - penaltyTotal),
+  );
+
+  return {
+    baseSalary: amount(calculation.baseSalary ?? calculation.monthlySalary),
+    adjustedBase,
+    overtime,
+    bonusTotal,
+    penaltyTotal,
+    socialInsurance: amount(calculation.socialInsurance ?? insuranceFundAmount(vietnam, "social")),
+    healthInsurance: amount(calculation.healthInsurance ?? insuranceFundAmount(vietnam, "health")),
+    unemploymentInsurance: amount(calculation.unemploymentInsurance ?? insuranceFundAmount(vietnam, "unemployment")),
+    personalIncomeTax: amount(calculation.personalIncomeTax ?? vietnam?.tax?.tax),
+    otherDeductions,
+    advances: amount(calculation.advances ?? vietnam?.deductions?.advances),
+    hiddenIncome: Math.max(0, gross - adjustedBase - overtime - bonusTotal),
+  };
+}
+
+const overrideProjection = (override: any): PayrollLineOverrideValues => {
+  if (!override) return {};
+  const values: PayrollLineOverrideValues = {};
+  for (const field of PAYROLL_LINE_OVERRIDE_FIELDS) {
+    if (override[field] !== undefined) values[field] = amount(override[field]);
+  }
+  if (override.customValues !== undefined) {
+    const customValues = override.customValues instanceof Map
+      ? Object.fromEntries(override.customValues.entries())
+      : { ...override.customValues };
+    values.customValues = Object.fromEntries(
+      Object.entries(customValues).map(([key, value]) => [key, amount(value)]),
+    );
+  }
+  return values;
+};
+
+export function projectPayrollLineWithOverride(line: any, override?: any) {
+  const systemValues = normalizePayrollLineSystemValues(line);
+  const overrideValues = overrideProjection(override);
+  const resolved = resolvePayrollLineOverride(systemValues, overrideValues);
+  const effectiveValues = {
+    ...resolved.values,
+    ...(overrideValues.customValues ? { customValues: overrideValues.customValues } : {}),
+  };
+  return {
+    ...line,
+    calculation: {
+      ...(line?.calculation ?? {}),
+      baseSalary: resolved.values.baseSalary,
+      monthlySalary: resolved.values.baseSalary,
+      adjustedBase: resolved.values.adjustedBase,
+      overtime: resolved.values.overtime,
+      bonusTotal: resolved.values.bonusTotal,
+      penaltyTotal: resolved.values.penaltyTotal,
+      socialInsurance: resolved.values.socialInsurance,
+      healthInsurance: resolved.values.healthInsurance,
+      unemploymentInsurance: resolved.values.unemploymentInsurance,
+      personalIncomeTax: resolved.values.personalIncomeTax,
+      otherDeductions: resolved.values.otherDeductions,
+      advances: resolved.values.advances,
+      deductions: resolved.deductionTotal,
+      net: resolved.net,
+    },
+    systemValues,
+    overrideValues,
+    effectiveValues,
+    overrideVersion: amount(override?.version),
+    deductionTotal: resolved.deductionTotal,
+    net: resolved.net,
+    provenance: resolved.provenance,
+  };
+}
+
+export function projectPayrollRevisionWithOverrides(revision: any, overrides: any[]) {
+  const overrideByEmployee = new Map(overrides.map((item) => [String(item.employeeId), item]));
+  return {
+    ...revision,
+    lines: (revision?.lines ?? []).map((line: any) => (
+      projectPayrollLineWithOverride(line, overrideByEmployee.get(String(line.employeeId)))
+    )),
+  };
+}
+
+export async function projectPayrollLinesWithStoredOverrides(
+  scope: PayrollOperationScope,
+  periodKey: string,
+  lines: any[],
+) {
+  const employeeIds = [...new Set(lines.map((line) => String(line.employeeId)))];
+  if (!employeeIds.length) return [];
+  const overrides = await PayrollLineOverrideModel.find({
+    ...scope,
+    periodKey,
+    employeeId: { $in: employeeIds },
+  }).lean();
+  return projectPayrollRevisionWithOverrides({ lines }, overrides as any[]).lines;
+}
 
 const ADJUSTMENT_BUCKET = {
   allowance: "allowances",
@@ -175,7 +302,13 @@ export async function calculateOperationalRun(
       throw new PayrollOperationError("PAYROLL_IDEMPOTENCY_CONFLICT", "Idempotency key was used for another request", 409);
     }
     const replayed: any = await PayrollRunModel.findOne({ _id: runId, ...scope }).lean();
-    return { revision: replay.result, runVersion: replayed?.version };
+    const revision = replayed?.periodKey
+      ? {
+          ...replay.result,
+          lines: await projectPayrollLinesWithStoredOverrides(scope, replayed.periodKey, replay.result.lines ?? []),
+        }
+      : replay.result;
+    return { revision, runVersion: replayed?.version };
   }
   const result: any = await calculateRun({
     idempotencyKey,
@@ -213,5 +346,11 @@ export async function calculateOperationalRun(
     },
   });
 
-  return { revision: result, runVersion: run?.version };
+  const revision = run?.periodKey
+    ? {
+        ...result,
+        lines: await projectPayrollLinesWithStoredOverrides(scope, run.periodKey, result?.lines ?? []),
+      }
+    : result;
+  return { revision, runVersion: run?.version };
 }

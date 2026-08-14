@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   periodInputFind: vi.fn(),
   customVariableFind: vi.fn(),
   evaluatePayrollFormulas: vi.fn(),
+  lineOverrideFind: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -53,6 +54,7 @@ vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mo
 vi.mock("../model/payroll-formula.model", () => ({ PayrollFormulaModel: { find: mocks.formulaFind } }));
 vi.mock("../model/payroll-period-input.model", () => ({ PayrollPeriodInputModel: { find: mocks.periodInputFind } }));
 vi.mock("../model/payroll-custom-variable.model", () => ({ PayrollCustomVariableModel: { find: mocks.customVariableFind } }));
+vi.mock("../model/payroll-line-override.model", () => ({ PayrollLineOverrideModel: { find: mocks.lineOverrideFind } }));
 vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
 
 import { payrollController } from "./payroll.controller";
@@ -104,6 +106,7 @@ const arrangeHappyPath = () => {
   mocks.formulaFind.mockReturnValue(sortLean([]));
   mocks.periodInputFind.mockReturnValue(lean([]));
   mocks.customVariableFind.mockReturnValue(lean([]));
+  mocks.lineOverrideFind.mockReturnValue(lean([]));
   mocks.evaluatePayrollFormulas.mockReturnValue({
     applications: [{ code: "operational-formula" }],
     totals: { allowance: 0, bonus: 0, deduction: 0, adjustment: 0 },
@@ -301,7 +304,7 @@ describe("payroll calculate endpoint", () => {
     expect(mocks.auditCreate).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({
       status: "success",
-      data: { revision: { id: "revision-2", status: "completed" }, runVersion: 1 },
+      data: { revision: { id: "revision-2", status: "completed", lines: [] }, runVersion: 1 },
     });
   });
 

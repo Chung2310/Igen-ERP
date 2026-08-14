@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   periodInputFind: vi.fn(),
   customVariableFind: vi.fn(),
   evaluatePayrollFormulas: vi.fn(),
+  lineOverrideFind: vi.fn(),
+  publicationFind: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -35,6 +37,8 @@ vi.mock("../model/payroll-adjustment.model", () => ({ PayrollAdjustmentModel: { 
 vi.mock("../model/payroll-formula.model", () => ({ PayrollFormulaModel: { find: mocks.formulaFind } }));
 vi.mock("../model/payroll-period-input.model", () => ({ PayrollPeriodInputModel: { find: mocks.periodInputFind } }));
 vi.mock("../model/payroll-custom-variable.model", () => ({ PayrollCustomVariableModel: { find: mocks.customVariableFind } }));
+vi.mock("../model/payroll-line-override.model", () => ({ PayrollLineOverrideModel: { find: mocks.lineOverrideFind } }));
+vi.mock("../model/payslip-publication.model", () => ({ PayslipPublicationModel: { find: mocks.publicationFind } }));
 vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
 vi.mock("../model/company.model", () => ({
   CompanyModel: { findOne: mocks.companyFindOne },
@@ -107,6 +111,8 @@ describe("legacy payroll period branch scope", () => {
     });
     mocks.periodInputFind.mockReturnValue(lean([]));
     mocks.customVariableFind.mockReturnValue(lean([]));
+    mocks.lineOverrideFind.mockReturnValue(lean([]));
+    mocks.publicationFind.mockReturnValue({ select: vi.fn().mockReturnValue(lean([])) });
   });
 
   it("scopes snapshot source reads and attendance upserts to the authenticated branch", async () => {
@@ -227,5 +233,86 @@ describe("legacy payroll period branch scope", () => {
       allowances: 100_000, bonuses: 200_000, otherDeductions: 300_000, adjustments: 400_000,
     });
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("returns scoped effective payroll lines without mutating stored system values", async () => {
+    const systemLine = {
+      employeeId: "employee-a",
+      employeeName: "Employee A",
+      calculation: {
+        monthlySalary: 20_000_000,
+        adjustedBase: 18_000_000,
+        overtime: 1_000_000,
+        bonuses: 500_000,
+        allowances: 700_000,
+        adjustments: 0,
+        otherDeductions: 25_000,
+        gross: 20_200_000,
+        deductions: 1_075_000,
+        net: 19_125_000,
+      },
+      vietnam: {
+        income: { bonuses: 500_000, totalIncome: 20_200_000 },
+        insurance: { funds: [
+          { code: "social", employeeAmount: 400_000 },
+          { code: "health", employeeAmount: 100_000 },
+          { code: "unemployment", employeeAmount: 50_000 },
+        ] },
+        tax: { tax: 200_000 },
+        deductions: { other: 25_000, advances: 300_000, total: 1_075_000 },
+        netPay: 19_125_000,
+      },
+    };
+    const storedLine = structuredClone(systemLine);
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      type: "regular",
+      status: "draft",
+      lines: [systemLine],
+    }));
+    mocks.lineOverrideFind.mockReturnValue(lean([{
+      employeeId: "employee-a",
+      adjustedBase: 17_000_000,
+      bonusTotal: 0,
+      socialInsurance: 250_000,
+      version: 3,
+    }]));
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(mocks.lineOverrideFind).toHaveBeenCalledWith({
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-07",
+      employeeId: { $in: ["employee-a"] },
+    });
+    const returnedLine = res.json.mock.calls[0][0].data.lines[0];
+    expect(returnedLine).toMatchObject({
+      systemValues: {
+        adjustedBase: 18_000_000,
+        bonusTotal: 500_000,
+        socialInsurance: 400_000,
+        hiddenIncome: 700_000,
+      },
+      overrideValues: {
+        adjustedBase: 17_000_000,
+        bonusTotal: 0,
+        socialInsurance: 250_000,
+      },
+      effectiveValues: {
+        adjustedBase: 17_000_000,
+        bonusTotal: 0,
+        socialInsurance: 250_000,
+        hiddenIncome: 700_000,
+      },
+      overrideVersion: 3,
+      deductionTotal: 925_000,
+      net: 17_775_000,
+    });
+    expect(systemLine).toEqual(storedLine);
   });
 });
