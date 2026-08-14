@@ -854,6 +854,18 @@ export default function UserAdminTab() {
                   }))
                 ];
 
+                const canEditRole = (roleInfo: { role: string; level: number }) => {
+                  const currentRole = userProfile?.role;
+                  if (!currentRole || roleInfo.role === "superadmin") return false;
+                  if (currentRole === "superadmin" || currentRole === "admin") {
+                    return roleInfo.role !== "admin";
+                  }
+                  if (roleInfo.role === currentRole) return false;
+                  const callerLevel = rolePermissionsList.find((item) => item.role === currentRole)?.level
+                    ?? ({ manager: 3, branch_owner: 2, teacher: 4, user: 4 }[currentRole] ?? 4);
+                  return roleInfo.level > callerLevel;
+                };
+
                 return rolesToDisplay.map((roleInfo) => {
                   return (
                     <div key={roleInfo.role} className="bg-white border border-gray-150 hover:border-indigo-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-4">
@@ -900,7 +912,7 @@ export default function UserAdminTab() {
 
                       {/* Actions */}
                       <div className="border-t border-gray-100 pt-3 flex justify-end gap-2 mt-auto">
-                        {roleInfo.role !== "admin" && (
+                        {canEditRole(roleInfo) && (
                           <button
                             onClick={() => {
                               setEditingRole(roleInfo as any);
