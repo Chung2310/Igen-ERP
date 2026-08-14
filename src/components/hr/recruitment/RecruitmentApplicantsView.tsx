@@ -219,6 +219,7 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
         <ApplicantDetailPanel
           applicant={selected}
           jobs={jobs}
+          canManage={canManage}
           onClose={() => setSelected(null)}
         />
       )}

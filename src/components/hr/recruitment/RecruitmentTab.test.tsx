@@ -10,6 +10,8 @@ vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   listJobs: vi.fn(), getPipeline: vi.fn(), listApplicants: vi.fn(), listInterviews: vi.fn(),
   createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
   uploadPublicFile: vi.fn(), deleteTemporaryPublicFile: vi.fn(),
+  applicantHistory: vi.fn(), getApplicantAttachment: vi.fn(),
+  uploadApplicantAttachment: vi.fn(), deleteAttachment: vi.fn(),
 } }));
 
 const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0, companyCode: "ACME", branchId: "branch-a", createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
@@ -27,6 +29,8 @@ describe("RecruitmentTab", () => {
     vi.mocked(recruitmentApi.updateJob).mockResolvedValue({ ...job, title: "Senior Developer", version: 1 });
     vi.mocked(recruitmentApi.updateApplicant).mockResolvedValue({ ...applicant, fullName: "Nguyễn An Updated", version: 1 });
     vi.mocked(recruitmentApi.uploadPublicFile).mockImplementation(async (file) => ({ url: `https://cloud.test/${file.name}`, publicId: `public/${file.name}`, originalName: file.name, size: file.size }));
+    vi.mocked(recruitmentApi.applicantHistory).mockResolvedValue([]);
+    vi.mocked(recruitmentApi.getApplicantAttachment).mockResolvedValue(null);
   });
 
   it("loads jobs and exposes all recruitment views", async () => {
@@ -51,6 +55,26 @@ describe("RecruitmentTab", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Phỏng vấn" }));
     expect(screen.queryByRole("button", { name: "Lên lịch phỏng vấn" })).toBeNull();
+  });
+
+  it("does not expose applicant attachment mutations to read-only users", async () => {
+    vi.mocked(recruitmentApi.listApplicants).mockResolvedValue([applicant]);
+    vi.mocked(recruitmentApi.getApplicantAttachment).mockResolvedValue({
+      _id: "attachment",
+      originalName: "cv.pdf",
+      size: 1_024,
+      version: 0,
+    } as any);
+    render(<RecruitmentTab canManage={false} />);
+
+    await screen.findByText("Developer");
+    await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Nguyễn An" }));
+
+    await screen.findByRole("dialog");
+    expect(screen.queryByLabelText("CV")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Xóa" })).toBeNull();
+    expect(screen.getByRole("button", { name: /tải xuống/i })).toBeTruthy();
   });
 
   it("uploads a JD immediately and fills its public link before creating", async () => {

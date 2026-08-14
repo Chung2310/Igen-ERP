@@ -8,9 +8,9 @@ describe("retail subtab permissions", () => {
     ]);
   });
 
-  it("allows read-only users to access operational retail tabs without settings", () => {
+  it("limits read-only users to read-safe retail tabs", () => {
     expect(getAllowedRetailTabSlugs(["retail:read"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang",
+      "hoa-don", "bao-cao",
     ]);
   });
 
