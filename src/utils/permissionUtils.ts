@@ -90,6 +90,12 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     group: "Quản lý đối tác",
     description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng",
   },
+  "labor-partner:read": { label: "Xem đối tác lao động", group: "Đối tác lao động", description: "Xem đối tác cung ứng, lao động giới thiệu và các kỳ hoa hồng lao động" },
+  "labor-partner:manage": { label: "Quản lý đối tác lao động", group: "Đối tác lao động", description: "Thêm, sửa đối tác và gắn nguồn giới thiệu cho lao động" },
+  "labor-partner-policy:manage": { label: "Cấu hình chính sách hoa hồng lao động", group: "Đối tác lao động", description: "Tạo phiên bản chính sách, ngưỡng giờ, đơn giá và quy tắc tính" },
+  "labor-partner-settlement:calculate": { label: "Tính đối soát hoa hồng lao động", group: "Đối tác lao động", description: "Tạo và tính lại kỳ đối soát khi còn nháp" },
+  "labor-partner-settlement:approve": { label: "Duyệt đối soát hoa hồng lao động", group: "Đối tác lao động", description: "Duyệt, hủy và tạo điều chỉnh cho kỳ đối soát" },
+  "labor-partner-payout:manage": { label: "Ghi nhận chi trả hoa hồng lao động", group: "Đối tác lao động", description: "Ghi nhận và đảo các lần thanh toán hoa hồng" },
   "custom-field:manage": { label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Cấu hình trường dữ liệu tùy chỉnh của module học viên" },
   "student-settings:manage": { label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module học viên" },
   "company-smtp:manage": { label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử SMTP doanh nghiệp" },
@@ -175,56 +181,19 @@ export const PERMISSION_TRANSLATIONS: Record<string, { label: string; group?: st
     description: "Tạo vai trò tùy chỉnh, thiết lập phân quyền chi tiết cho nhân viên",
   },
 };
+/** @deprecated Permission metadata is supplied by the backend catalog. */
+export const DEFAULT_SYSTEM_PERMISSIONS: PermissionDefinition[] = [];
 
-export const DEFAULT_SYSTEM_PERMISSIONS = Object.entries(PERMISSION_TRANSLATIONS)
-  .filter(([code]) => code !== "*")
-  .map(([code, val]) => ({
-    _id: code,
-    code,
-    name: val.label,
-    group: val.group || "Hệ thống",
-    description: val.description,
-  }));
-
-/**
- * Trả về tên hiển thị tiếng Việt thân thiện người dùng cho mã quyền.
- */
 export function getPermissionLabel(code: string, fallbackName?: string): string {
-  if (!code) return "";
-  if (code === "*") return "Toàn quyền hệ thống";
-  const mapped = PERMISSION_TRANSLATIONS[code];
-  if (mapped?.label) {
-    return mapped.label;
-  }
-  if (fallbackName && fallbackName !== code) {
-    return fallbackName;
-  }
-  return code
-    .replace(/^([a-z]+):([a-z]+)$/i, (_, mod, act) => {
-      const actMap: Record<string, string> = { read: "Xem", manage: "Quản lý", post: "Đăng bài" };
-      return `${actMap[act] || act} ${mod.toUpperCase()}`;
-    });
+  return fallbackName && fallbackName !== code ? fallbackName : code;
 }
 
-/**
- * Trả về mô tả tiếng Việt dễ hiểu cho mã quyền.
- */
-export function getPermissionDescription(code: string, fallbackDesc?: string): string {
-  if (!code) return "";
-  const mapped = PERMISSION_TRANSLATIONS[code];
-  if (mapped?.description) {
-    return mapped.description;
-  }
+export function getPermissionDescription(_code: string, fallbackDesc?: string): string {
   return fallbackDesc || "";
 }
 
-/**
- * Trả về tên vai trò tiếng Việt thân thiện người dùng.
- */
 export function getRoleDisplayName(role: string, customDisplayName?: string): string {
-  if (customDisplayName && customDisplayName !== role) {
-    return customDisplayName;
-  }
+  if (customDisplayName && customDisplayName !== role) return customDisplayName;
   const roleMap: Record<string, string> = {
     superadmin: "Quản trị viên cấp cao",
     admin: "Quản trị viên doanh nghiệp",

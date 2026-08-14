@@ -8,9 +8,9 @@ import { validateAdjustment, validateCollection, validateExtension, validateReas
 
 test("receivable routes expose documented endpoints with exact permission classes", () => {
   assert.deepEqual(FINANCE_RECEIVABLE_ROUTE_PERMISSIONS, {
-    "GET /": "receivable:read", "GET /aging": "receivable:read", "GET /by-customer": "receivable:read", "GET /:id": "receivable:read",
-    "POST /:id/payments": "receivable:collect", "POST /:id/adjustments": "receivable:adjust", "POST /:id/write-off": "receivable:adjust",
-    "POST /:id/suspend": "receivable:adjust", "POST /:id/extend": "receivable:adjust", "POST /:id/entries/:entryId/reversal": "receivable:adjust",
+    "GET /": "finance:read", "GET /aging": "finance:read", "GET /by-customer": "finance:read", "GET /:id": "finance:read",
+    "POST /:id/payments": "finance:manage", "POST /:id/adjustments": "finance:manage", "POST /:id/write-off": "finance:manage",
+    "POST /:id/suspend": "finance:manage", "POST /:id/extend": "finance:manage", "POST /:id/entries/:entryId/reversal": "finance:manage",
   });
   const routes = financeReceivableRoutes.stack.filter((layer: any) => layer.route).map((layer: any) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
   assert.deepEqual(routes, Object.keys(FINANCE_RECEIVABLE_ROUTE_PERMISSIONS));

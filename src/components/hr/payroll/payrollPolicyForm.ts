@@ -81,7 +81,9 @@ export function validatePayrollPolicyStep(form: PayrollPolicyForm, step: number)
     if (!form.name.trim()) errors.name = "Vui lòng nhập tên công thức";
     if (!form.effectiveFrom) errors.effectiveFrom = "Vui lòng chọn ngày bắt đầu";
     if (form.effectiveTo && form.effectiveTo < form.effectiveFrom) errors.effectiveTo = "Ngày kết thúc phải sau ngày bắt đầu";
-    (["baseSalary", "regionalMinimumWage", "socialCapMultiplier", "unemploymentCapMultiplier"] as const).forEach((key) => { if (invalidNumber(form[key])) errors[key] = "Giá trị không được âm"; });
+    (["baseSalary", "regionalMinimumWage"] as const).forEach((key) => { if (invalidNumber(form[key])) errors[key] = "Giá trị không được âm"; });
+    if (!Number.isFinite(form.socialCapMultiplier) || form.socialCapMultiplier < 1) errors.socialCapMultiplier = "Hệ số trần BHXH/BHYT phải từ 1 trở lên.";
+    if (!Number.isFinite(form.unemploymentCapMultiplier) || form.unemploymentCapMultiplier < 1) errors.unemploymentCapMultiplier = "Hệ số trần BHTN phải từ 1 trở lên.";
   }
   if (step === 1) (Object.keys(form.funds) as FundCode[]).forEach((code) => {
     if (invalidPercent(form.funds[code].employeeRate)) errors[`funds.${code}.employeeRate`] = "Tỷ lệ phải từ 0 đến 100%";

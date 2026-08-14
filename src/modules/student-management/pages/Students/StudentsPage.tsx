@@ -48,6 +48,19 @@ interface BulkDeletePreview {
   blockedCount: number;
 }
 
+type StudentSortOption =
+  | 'newest'
+  | 'oldest'
+  | 'name-asc'
+  | 'name-desc'
+  | 'registration-newest'
+  | 'registration-oldest';
+
+function toTimestamp(value?: Date | string) {
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
 // Tab phân loại ảo, luôn có bên cạnh các phân loại khóa học động
 const TAB_ALL = 'Tất cả';
 const TAB_UNASSIGNED = 'Chưa xếp lớp';
@@ -83,6 +96,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortBy, setSortBy] = useState<StudentSortOption>('newest');
   const [rankFilter] = useState('Tất cả hạng');
   const [feeStatusFilter, setFeeStatusFilter] = useState('Tất cả học phí');
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,11 +124,16 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       setCurrentPage(1);
     }, 0);
     return () => clearTimeout(timer);
-  }, [category, selectedStatus, searchQuery, startDate, endDate, rankFilter, feeStatusFilter, selectedCenter]);
+  }, [category, selectedStatus, searchQuery, startDate, endDate, sortBy, rankFilter, feeStatusFilter, selectedCenter]);
 
   // Helper to parse DD/MM/YYYY to Date object
   const parseDate = (dateStr: string) => {
     if (!dateStr) return new Date(0);
+    const isoParts = dateStr.split('-');
+    if (isoParts.length === 3 && isoParts[0].length === 4) {
+      const [year, month, day] = isoParts.map(Number);
+      return new Date(year, month - 1, day);
+    }
     const parts = dateStr.split('/');
     if (parts.length < 3) return new Date(0);
     const [day, month, year] = parts.map(Number);
@@ -187,13 +206,11 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     if (startDate || endDate) {
       const regDate = parseDate(student.registrationDate);
       if (startDate) {
-        const [sYear, sMonth, sDay] = startDate.split('-').map(Number);
-        const start = new Date(sYear, sMonth - 1, sDay);
+        const start = parseDate(startDate);
         if (regDate < start) return false;
       }
       if (endDate) {
-        const [eYear, eMonth, eDay] = endDate.split('-').map(Number);
-        const end = new Date(eYear, eMonth - 1, eDay);
+        const end = parseDate(endDate);
         end.setHours(23, 59, 59, 999);
         if (regDate > end) return false;
       }
@@ -226,8 +243,30 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     return true;
   });
 
-  const totalPages = Math.ceil(filteredStudents.length / pageSize);
-  const paginatedStudents = filteredStudents.slice(
+  const sortedStudents = [...filteredStudents].sort((left, right) => {
+    if (sortBy === 'name-asc' || sortBy === 'name-desc') {
+      const result = (left.fullName || '').localeCompare(right.fullName || '', 'vi', {
+        sensitivity: 'base',
+      });
+      return sortBy === 'name-asc' ? result : -result;
+    }
+
+    const leftRegistration = parseDate(left.registrationDate).getTime();
+    const rightRegistration = parseDate(right.registrationDate).getTime();
+    const leftCreated = left.createdAt ? toTimestamp(left.createdAt) : leftRegistration;
+    const rightCreated = right.createdAt ? toTimestamp(right.createdAt) : rightRegistration;
+    const leftTime = sortBy.startsWith('registration') ? leftRegistration : leftCreated;
+    const rightTime = sortBy.startsWith('registration') ? rightRegistration : rightCreated;
+    if (leftTime !== rightTime) {
+      return sortBy.endsWith('oldest') ? leftTime - rightTime : rightTime - leftTime;
+    }
+    return (left.fullName || '').localeCompare(right.fullName || '', 'vi', {
+      sensitivity: 'base',
+    });
+  });
+
+  const totalPages = Math.ceil(sortedStudents.length / pageSize);
+  const paginatedStudents = sortedStudents.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -341,19 +380,19 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           paidSoFar.toLocaleString('vi-VN'),
           remaining.toLocaleString('vi-VN'),
         ] : []),
-        student.registrationDate,
+        formatDisplayDate(student.registrationDate),
         ...(usesEducationBilling ? [feeStatusStr] : []),
         (Array.isArray(student.status) ? student.status : [student.status])
           .map((status) => getOperationalStatusLabel(entityLabel.preset, status))
           .join(', '),
         getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp',
         student.createdByName || 'Chưa xác định',
-        student.birthday || '',
+        formatDisplayDate(student.birthday),
         student.idCard || '',
         student.email || '',
         student.referral || '',
         student.address || '',
-        student.enrollmentDate || '',
+        formatDisplayDate(student.enrollmentDate),
         student.idCardFrontFile?.url || '',
         student.idCardBackFile?.url || '',
         student.portraitFile?.url || ''
@@ -376,7 +415,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       { wch: 30 }, { wch: 30 }, { wch: 30 }
     ];
 
-    const data = filteredStudents.map(getRowData);
+    const data = sortedStudents.map(getRowData);
 
     try {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -406,14 +445,14 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       return;
     }
 
-    const rowsHtml = filteredStudents.map(student => {
+    const rowsHtml = sortedStudents.map(student => {
       const cats = Array.from(studentCategories.get(student.id) || []);
       return `
       <tr>
         <td style="padding: 10px; border: 1px solid #ddd;">${student.fullName}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.phone}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${cats.length > 0 ? cats.join(', ') : (student.rank || '')}</td>
-        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.registrationDate}</td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${formatDisplayDate(student.registrationDate)}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${(Array.isArray(student.status) ? student.status : [student.status]).map((status) => getOperationalStatusLabel(entityLabel.preset, status)).join(', ')}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${getBatchLabels(student.id).join(', ') || 'Chưa xếp lớp'}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${student.createdByName || 'Chưa xác định'}</td>
@@ -555,7 +594,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Filters Bar */}
-      <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-5 filters-bar">
+      <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6 filters-bar">
         <div className="space-y-0.5">
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
           <div className="relative">
@@ -577,9 +616,10 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Từ ngày</label>
           <div className="relative">
             <input
-              type="date"
+              type="text"
+              inputMode="numeric"
+              placeholder="DD/MM/YYYY"
               value={startDate}
-              placeholder="Từ ngày..."
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full h-7 pl-2.5 pr-7 bg-slate-50 border border-slate-200 rounded-md text-[11px] font-medium focus:outline-none focus:border-cyan-600 transition-all"
             />
@@ -590,13 +630,34 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Đến ngày</label>
           <div className="relative">
             <input
-              type="date"
+              type="text"
+              inputMode="numeric"
+              placeholder="DD/MM/YYYY"
               value={endDate}
-              placeholder="Đến ngày..."
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full h-7 pl-2.5 pr-7 bg-slate-50 border border-slate-200 rounded-md text-[11px] font-medium focus:outline-none focus:border-cyan-600 transition-all"
             />
             <CalendarIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Sắp xếp</label>
+          <div className="relative">
+            <select
+              aria-label="Sắp xếp danh sách học viên"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as StudentSortOption)}
+              className="w-full h-7 px-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] appearance-none focus:outline-none focus:border-cyan-600 truncate pr-7"
+            >
+              <option value="newest">Mới thêm trước</option>
+              <option value="oldest">Cũ nhất trước</option>
+              <option value="name-asc">Họ tên A - Z</option>
+              <option value="name-desc">Họ tên Z - A</option>
+              <option value="registration-newest">Ngày đăng ký mới nhất</option>
+              <option value="registration-oldest">Ngày đăng ký cũ nhất</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
@@ -714,7 +775,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                         {student.birthday && (
                           <>
                             <span className="text-slate-200">•</span>
-                            <span>NS: {student.birthday}</span>
+                            <span>NS: {formatDisplayDate(student.birthday)}</span>
                           </>
                         )}
                       </div>

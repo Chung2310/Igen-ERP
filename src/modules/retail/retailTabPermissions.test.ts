@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 
 describe("retail subtab permissions", () => {
-  it("allows operators to run every operational tab but not settings", () => {
-    expect(getAllowedRetailTabSlugs(["retail:operate"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang",
+  it("allows retail managers to use every retail tab", () => {
+    expect(getAllowedRetailTabSlugs(["retail:manage"])).toEqual([
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });
 
-  it("allows managers to access customers and settings", () => {
-    expect(getAllowedRetailTabSlugs(["retail:manager"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "nhac-cong-no", "cai-dat",
+  it("limits read-only users to read-safe retail tabs", () => {
+    expect(getAllowedRetailTabSlugs(["retail:read"])).toEqual([
+      "hoa-don", "bao-cao",
     ]);
   });
 
   it("treats wildcard permission as manager access", () => {
     expect(getAllowedRetailTabSlugs(["*"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "nhac-cong-no", "cai-dat",
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
     ]);
   });
 });

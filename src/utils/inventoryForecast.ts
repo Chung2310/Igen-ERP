@@ -6,6 +6,7 @@ import {
   ProductItem,
   StockLog,
 } from "../types";
+import type { InventoryBalance } from "../services/inventoryReceivingService";
 
 const HISTORY_DAYS = 30;
 const FORECAST_DAYS = 30;
@@ -263,4 +264,31 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
     warningItems,
     hasHistoricalDemand,
   };
+}
+
+/** Forecast theo tồn khả dụng thực tế của từng SKU/biến thể trong kho mới. */
+export function buildWarehouseInventoryForecast(balances: InventoryBalance[], stockLogs: StockLog[]): InventoryForecastSummary {
+  const products: ProductItem[] = balances.map((balance) => ({
+    id: balance._id,
+    sku: balance.sku,
+    name: balance.productName || balance.sku,
+    category: "",
+    unit: "",
+    stock: Math.max(0, Number(balance.quantity || 0) - Number(balance.reservedQuantity || 0)),
+    minStockAlert: Number(balance.minStock || 0),
+    price: 0,
+    status: "Active",
+    demandForecast: "Ổn định",
+    imageUrl: balance.variantMediaUrl || balance.productMediaUrl || "",
+  }));
+  const summary = buildInventoryForecast(products, stockLogs);
+  const maxBySku = new Map(balances.filter((balance) => Number(balance.maxStock || 0) > 0).map((balance) => [balance.sku, Number(balance.maxStock)]));
+  const maxRecommendations = summary.items
+    .filter((item) => (maxBySku.get(item.sku) || Number.POSITIVE_INFINITY) < item.currentStock)
+    .map((item) => ({
+      id: `${item.productId}-max-stock`, sku: item.sku, productName: item.name, tone: "info" as const,
+      title: `Tồn ${item.sku} vượt mức tối đa`,
+      body: `Tồn khả dụng ${item.currentStock} đang vượt ngưỡng tối đa ${maxBySku.get(item.sku)}. Cân nhắc điều chuyển, khuyến mãi hoặc tạm dừng nhập thêm.`,
+    }));
+  return { ...summary, recommendations: [...summary.recommendations, ...maxRecommendations].slice(0, 6) };
 }

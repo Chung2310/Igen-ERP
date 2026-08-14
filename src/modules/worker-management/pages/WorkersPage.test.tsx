@@ -9,7 +9,7 @@ vi.mock("../hooks/useWorkers", () => workersHook);
 // The add modal now renders the shared shell, which reads auth for
 // custom-field management and mounts the shared custom-field section.
 vi.mock("../../../context/AuthContext", () => ({
-  useAuth: () => ({ userProfile: { permissions: ["worker:manage"] } }),
+  useAuth: () => ({ userProfile: { permissions: ["people:manage"] } }),
 }));
 vi.mock("../../student-management/custom-fields/CustomFieldsSection", () => ({
   CustomFieldsSection: () => null,

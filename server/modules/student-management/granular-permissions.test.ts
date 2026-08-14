@@ -6,16 +6,16 @@ import { STUDENT_AREA_PERMISSIONS } from "./permissions";
 const source = (file: string) => fs.readFileSync(file, "utf8");
 
 test("operational policies combine umbrella and granular permissions", () => {
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS.course.read, ["student:read", "student:manage", "course:read", "course:manage"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS.course.manage, ["student:manage", "course:manage"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-profile"].manage, ["student:manage", "student-profile:manage"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS.assignment.read, ["student:read", "student:manage", "assignment:read", "assignment:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS.course.read, ["people:read", "people:manage", "course:read", "course:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS.course.manage, ["people:manage", "course:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-profile"].manage, ["people:manage", "student-profile:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS.assignment.read, ["people:read", "people:manage", "assignment:read", "assignment:manage"]);
 });
 
 test("configuration policies are independent from the umbrella", () => {
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS["custom-field"].manage, ["custom-field:manage"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-settings"].manage, ["student-settings:manage"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS["company-smtp"].manage, ["company-smtp:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS["custom-field"].manage, ["settings:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-settings"].manage, ["settings:manage"]);
+  assert.deepEqual(STUDENT_AREA_PERMISSIONS["company-smtp"].manage, ["settings:manage"]);
 });
 
 test("configuration routes no longer hard-code role names", () => {
@@ -42,5 +42,5 @@ test("entity preset is writable by superadmin only", () => {
   // Role admin không còn được cấp mặc định quyền sửa cấu hình này
   const auth = source("server/middleware/auth.ts");
   const adminBlock = auth.slice(auth.indexOf("admin: ["), auth.indexOf("branch_owner: ["));
-  assert.doesNotMatch(adminBlock, /"student-settings:manage"/);
+  assert.doesNotMatch(adminBlock, /"settings:manage"/);
 });

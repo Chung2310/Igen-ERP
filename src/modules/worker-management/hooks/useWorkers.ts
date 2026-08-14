@@ -96,6 +96,19 @@ export function useWorkers(scope?: WorkerScope) {
     [branchId, companyCode, reload],
   );
 
+  const deleteWorkers = useCallback(
+    async (ids: string[]) => {
+      if (!companyCode) throw new Error("Vui lòng chọn công ty.");
+      const result = await workerApi.bulkDelete(ids, {
+        companyCode,
+        ...(branchId ? { branchId } : {}),
+      });
+      await reload();
+      return result;
+    },
+    [branchId, companyCode, reload],
+  );
+
   return {
     workers,
     loading,
@@ -104,6 +117,7 @@ export function useWorkers(scope?: WorkerScope) {
     importWorkers,
     updateWorker,
     deleteWorker,
+    deleteWorkers,
     reload,
   };
 }

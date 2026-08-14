@@ -20,7 +20,7 @@ export function getAllowedStudentTabSlugs(
   preset: "student" | "candidate" | "worker" | "customer",
   role?: string,
 ) {
-  const hasUmbrella = permissions.some((code) => ["*", "student:read", "student:manage", "teacher:operate"].includes(code));
+  const hasUmbrella = permissions.some((code) => ["*", "people:read", "people:manage", "people:manage"].includes(code));
   const isTeacherOnly = role === "teacher";
   return ORDERED_TABS.flatMap(([slug, area]) => {
     // Các thao tác của giảng viên đều bắt đầu từ lớp học được phân công;

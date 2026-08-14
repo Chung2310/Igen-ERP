@@ -129,7 +129,7 @@ export async function listReceipts(rawScope: Scope, query: any = {}) {
   const scope = normalizeScope(rawScope);
   const page = Math.max(1, Number(query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-  const filter: any = { ...scope, ...(query.status && ["draft", "confirmed", "cancelled"].includes(String(query.status)) ? { status: String(query.status) } : {}) };
+  const filter: any = { ...scope, ...(query.status && ["draft", "pending", "receiving", "confirmed", "cancelled"].includes(String(query.status)) ? { status: String(query.status) } : {}) };
   const [items, total] = await Promise.all([GoodsReceiptModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), GoodsReceiptModel.countDocuments(filter)]);
   return { items, total, page, limit };
 }
@@ -145,18 +145,18 @@ export async function createReceipt(rawScope: Scope, input: any, actor: Actor) {
   const items = await resolveReceiptItems(scope.companyCode, normalizeItems(input?.items));
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const receipt = await GoodsReceiptModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), receiptCode: await receiptCode(scope), supplierId, supplierName: supplier.name, status: "draft", receivedAt: input?.receivedAt ? new Date(input.receivedAt) : undefined, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, createdBy: actorId(actor), createdByName: actor.email || actor.id, version: 0 });
-  return confirmReceipt(rawScope, String(receipt._id), actor);
+  return receipt.toObject();
 }
 
 export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) {
   const scope = normalizeScope(rawScope);
   if (!Types.ObjectId.isValid(id)) throw new ReceivingValidationError("Phiếu nhập không hợp lệ.");
   return runInTransaction(async (session) => {
-    const receipt: any = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "draft" }).session(session || null);
+    const receipt: any = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "receiving" }).session(session || null);
     if (!receipt) {
       const confirmed = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session || null).lean();
       if (confirmed) return confirmed;
-      throw new ReceivingValidationError("Phiếu nhập không thể xác nhận hoặc không tồn tại.");
+      throw new ReceivingValidationError("Phiếu nhập phải ở trạng thái Đang nhập kho mới có thể hoàn thành.");
     }
     const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: receipt.warehouseId, direction: "in", purpose: "purchase", sourceType: "goods-receipt", sourceId: String(receipt._id), sourceCode: receipt.receiptCode, idempotencyKey: `goods-receipt:${receipt._id}:confirm`, operatorName: actor.email || actor.id || "", items: receipt.items.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost, lineTotal: item.lineTotal })), reason: `Nhập hàng ${receipt.receiptCode}`, session, writeLegacyStockLog: true });
     receipt.status = "confirmed"; receipt.confirmedBy = actorId(actor); receipt.confirmedByName = actor.email || actor.id; receipt.confirmedAt = new Date(); receipt.version += 1; await receipt.save({ session });
@@ -165,10 +165,24 @@ export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) 
   });
 }
 
+export async function submitReceipt(rawScope: Scope, id: string, actor: Actor) {
+  const scope = normalizeScope(rawScope);
+  const receipt = await GoodsReceiptModel.findOneAndUpdate({ _id: id, ...scope, status: "draft" }, { $set: { status: "pending" }, $inc: { version: 1 } }, { new: true }).lean();
+  if (!receipt) throw new ReceivingValidationError("Chỉ có thể gửi xác nhận phiếu đang ở trạng thái Nháp.");
+  return receipt;
+}
+
+export async function startReceiving(rawScope: Scope, id: string, actor: Actor) {
+  const scope = normalizeScope(rawScope);
+  const receipt = await GoodsReceiptModel.findOneAndUpdate({ _id: id, ...scope, status: "pending" }, { $set: { status: "receiving" }, $inc: { version: 1 } }, { new: true }).lean();
+  if (!receipt) throw new ReceivingValidationError("Chỉ có thể bắt đầu nhập kho với phiếu Chờ xác nhận.");
+  return receipt;
+}
+
 export async function cancelReceipt(rawScope: Scope, id: string, reason: unknown, actor: Actor) {
   const scope = normalizeScope(rawScope);
   const cancelReason = text(reason, "Lý do hủy", true);
-  const receipt = await GoodsReceiptModel.findOneAndUpdate({ _id: id, ...scope, status: "draft" }, { $set: { status: "cancelled", cancelledBy: actorId(actor), cancelledAt: new Date(), cancelReason }, $inc: { version: 1 } }, { new: true }).lean();
-  if (!receipt) throw new ReceivingValidationError("Chỉ được hủy phiếu nhập đang ở trạng thái nháp.");
+  const receipt = await GoodsReceiptModel.findOneAndUpdate({ _id: id, ...scope, status: { $in: ["draft", "pending"] } }, { $set: { status: "cancelled", cancelledBy: actorId(actor), cancelledAt: new Date(), cancelReason }, $inc: { version: 1 } }, { new: true }).lean();
+  if (!receipt) throw new ReceivingValidationError("Chỉ được hủy phiếu ở trạng thái Nháp hoặc Chờ xác nhận.");
   return receipt;
 }

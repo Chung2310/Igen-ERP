@@ -36,7 +36,7 @@ const emptyJob = {
 };
 const statusLabel: Record<RecruitmentJobStatus, string> = jobStatusLabels;
 
-export default function RecruitmentJobsView() {
+export default function RecruitmentJobsView({ canManage }: { canManage: boolean }) {
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -104,13 +104,15 @@ export default function RecruitmentJobsView() {
             </option>
           ))}
         </select>
-        <button
-          className={`${primaryButton} ml-auto`}
-          onClick={() => setEditing(null)}
-        >
-          <Plus className="h-4 w-4" />
-          Tạo tin
-        </button>
+        {canManage && (
+          <button
+            className={`${primaryButton} ml-auto`}
+            onClick={() => setEditing(null)}
+          >
+            <Plus className="h-4 w-4" />
+            Tạo tin
+          </button>
+        )}
       </div>
       <ViewState
         loading={loading}
@@ -131,19 +133,23 @@ export default function RecruitmentJobsView() {
                 <th className="px-4 py-3">Số lượng</th>
                 <th className="px-4 py-3">Hạn nộp</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
+                {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {jobs.map((job) => (
                 <tr key={job._id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <button
-                      className="font-semibold text-cyan-800 hover:underline"
-                      onClick={() => setEditing(job)}
-                    >
-                      {job.title || "Chưa đặt tên"}
-                    </button>
+                    {canManage ? (
+                      <button
+                        className="font-semibold text-cyan-800 hover:underline"
+                        onClick={() => setEditing(job)}
+                      >
+                        {job.title || "Chưa đặt tên"}
+                      </button>
+                    ) : (
+                      <div className="font-semibold text-slate-900">{job.title || "Chưa đặt tên"}</div>
+                    )}
                     <div className="text-xs text-slate-500">{job.code}</div>
                   </td>
                   <td className="px-4 py-3">{job.department || "-"}</td>
@@ -156,30 +162,36 @@ export default function RecruitmentJobsView() {
                       : "-"}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      aria-label={`Trạng thái ${job.code}`}
-                      className={`${fieldClass} min-w-32 py-2`}
-                      value={job.status}
-                      disabled={changingStatusJobId === job._id}
-                      onChange={(event) => void changeStatus(job, event.target.value as RecruitmentJobStatus)}
-                    >
-                      {Object.entries(statusLabel).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <button
-                        title="Xóa"
-                        className={secondaryButton}
-                        onClick={() => remove(job)}
+                    {canManage ? (
+                      <select
+                        aria-label={`Trạng thái ${job.code}`}
+                        className={`${fieldClass} min-w-32 py-2`}
+                        value={job.status}
+                        disabled={changingStatusJobId === job._id}
+                        onChange={(event) => void changeStatus(job, event.target.value as RecruitmentJobStatus)}
                       >
-                        <Archive className="h-4 w-4" />
-                      </button>
-                      <button type="button" title={`Sửa tin tuyển dụng ${job.code}`} aria-label={`Sửa tin tuyển dụng ${job.code}`} className={secondaryButton} onClick={() => setEditing(job)}><Pencil className="h-4 w-4" /></button>
-                    </div>
+                        {Object.entries(statusLabel).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      statusLabel[job.status]
+                    )}
                   </td>
+                  {canManage && (
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          title="Xóa"
+                          className={secondaryButton}
+                          onClick={() => remove(job)}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </button>
+                        <button type="button" title={`Sửa tin tuyển dụng ${job.code}`} aria-label={`Sửa tin tuyển dụng ${job.code}`} className={secondaryButton} onClick={() => setEditing(job)}><Pencil className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

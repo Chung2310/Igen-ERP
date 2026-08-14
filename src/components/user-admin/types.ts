@@ -27,6 +27,7 @@ export interface UserTableProps {
   onToggleActionMenu: (uid: string) => void;
   onEditUser: (user: UserProfile) => void;
   onDeleteUser: (user: UserProfile) => void;
+  onViewActivity: (user: UserProfile) => void;
 }
 
 export interface CompanyFormState {

@@ -28,4 +28,34 @@ describe("calculateDetailedPayroll", () => {
     expect(result.totals.grossPay).toBeGreaterThan(0);
     expect(result.totals.netPay).toBe(result.totals.grossPay);
   });
+
+  it("copies payment instructions into every immutable segment line", () => {
+    const payment = {
+      method: "transfer" as const,
+      bankName: "Vietcombank",
+      bankCode: "VCB",
+      bankAccountNumber: "0123456789",
+      bankAccountHolder: "EMPLOYEE ONE",
+    };
+    const result = calculateDetailedPayroll({
+      employeeId: "employee-1",
+      standardDays: 26,
+      standardHours: 208,
+      workedMinutes: 208 * 60,
+      shortageMinutes: 0,
+      paidLeaveMinutesByRate: [],
+      overtime: [],
+      allowances: 0,
+      bonuses: 0,
+      deductions: 0,
+      adjustments: 0,
+      segments: [
+        { sourceId: "old", start: "2026-07-01", end: "2026-07-15", monthlySalary: 26_000_000 },
+        { sourceId: "new", start: "2026-07-16", end: "2026-07-31", monthlySalary: 30_000_000 },
+      ],
+      payment,
+    });
+
+    expect(result.lines.map((line) => line.payment)).toEqual([payment, payment]);
+  });
 });

@@ -13,7 +13,7 @@ import { calculateOrderTotals } from "./retail-pricing.service";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 import { applyOrderStockOut, revertOrderStock } from "./retail-stock.service";
 import { issueRetailInvoice } from "./retail-invoice.service";
-import { businessDateInVietnam } from "./cashier-shift.service";
+import { assertRetailShiftOperational, businessDateInVietnam } from "./cashier-shift.service";
 import { buildOrderListQuery } from "./retail-query.service";
 import type { PostReceivableEntryInput } from "../interfaces/retail-receivable.interface";
 import { enqueueTierRefresh, processTierRefreshBySourceKey } from "./retail-customer-tier.service";
@@ -243,6 +243,7 @@ export const RetailOrderService = {
         if (order.status === "completed" && !canManage) throw Object.assign(new Error("Chỉ quản lý được hủy đơn hoàn tất."), { status: 403 });
         if (order.paidAmount > order.refundedAmount && !shift) throw Object.assign(new Error("Bạn chưa mở ca bán hàng."), { code: "SHIFT_NOT_OPEN", status: 409 });
         const remainingRefund = order.paidAmount - order.refundedAmount;
+        if (remainingRefund > 0) assertRetailShiftOperational(shift);
         const refunds = remainingRefund > 0 ? normalizePayments(input.refunds || [], remainingRefund) : { payments: [], total: 0 };
         if (refunds.total !== remainingRefund) throw new Error("Phải ghi nhận đủ số tiền hoàn khi hủy đơn.");
         if (order.stockApplied && !order.stockRevertedAt) { await revertOrderStock(scope, String(order._id), order.orderCode, order.items, actorName(actor), session); order.stockRevertedAt = new Date(); }

@@ -3,7 +3,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const authMock = vi.hoisted(() => ({ permissions: ["worker:manage", "custom-field:manage"] as string[] }));
+const authMock = vi.hoisted(() => ({ permissions: ["people:manage", "settings:manage"] as string[] }));
 vi.mock("../../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { permissions: authMock.permissions } }),
 }));
@@ -75,7 +75,7 @@ const fill = (label: string | RegExp, value: string) =>
 const save = () => fireEvent.click(screen.getByRole("button", { name: "Lưu hồ sơ" }));
 
 beforeEach(() => {
-  authMock.permissions = ["worker:manage", "custom-field:manage"];
+  authMock.permissions = ["people:manage", "settings:manage"];
 });
 afterEach(() => {
   cleanup();
@@ -168,6 +168,20 @@ describe("AddWorkerModal", () => {
     expect(toast.success).toHaveBeenCalled();
   });
 
+  it("forwards the selected referral partner separately from the worker profile", async () => {
+    const { onSubmit } = setup({
+      partners: [{ _id: "partner-1", code: "P-01", name: "Đối tác A", phone: "0900000000", status: "active" }],
+    });
+    fill("Họ và tên *", "Trần Thị B");
+    fill("Số điện thoại *", "0988888888");
+    fireEvent.change(screen.getByLabelText("Đối tác giới thiệu"), { target: { value: "Đối tác A" } });
+    fireEvent.click(screen.getByRole("option", { name: "P-01 · Đối tác A" }));
+    save();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][1]).toBe("partner-1");
+  });
+
   it("surfaces a submit failure in the shared error panel and stays open", async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error("Trùng hồ sơ trên máy chủ"));
     const { onClose } = setup({ onSubmit });
@@ -195,7 +209,7 @@ describe("AddWorkerModal", () => {
   });
 
   it("hides archived restoration from users without manage permission", () => {
-    authMock.permissions = ["worker:read"];
+    authMock.permissions = ["people:read"];
     setup({
       profileFields: [...baseFields, { key: "address", label: "Địa chỉ", isRequired: false, isVisible: true, isArchived: true }],
       onRestoreProfileField: vi.fn(),

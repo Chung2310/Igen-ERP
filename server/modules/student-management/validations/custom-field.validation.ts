@@ -12,7 +12,9 @@ const MAX_FILE_SIZE_MB = 100;
 
 const safePatternSchema = Joi.string().max(MAX_CUSTOM_FIELD_PATTERN_LENGTH).custom((value, helpers) => (
   isSafeCustomFieldPattern(value) ? value : helpers.error("string.pattern.unsafe")
-));
+)).messages({
+  "string.pattern.unsafe": "Biểu thức kiểm tra không an toàn hoặc quá phức tạp.",
+});
 
 const optionSchema = Joi.object({
   label: Joi.string().trim().min(1).required(),

@@ -2,8 +2,8 @@ import React from "react";
 import { Shield, X, RefreshCw } from "lucide-react";
 import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
-import { getPermissionLabel, getPermissionDescription, PERMISSION_TRANSLATIONS } from "../../utils/permissionUtils";
-import { sortPermissionsForRoleEditor } from "./rolePresentation";
+import { getPermissionLabel, getPermissionDescription } from "../../utils/permissionUtils";
+import { groupPermissionsForRoleEditor } from "./rolePresentation";
 
 export interface RoleModalProps {
   open: boolean;
@@ -145,22 +145,23 @@ export function RoleModal({
                   Vai trò Superadmin tự động có tất cả quyền trong hệ thống và không thể thay đổi.
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[58vh] min-h-[280px] overflow-y-auto p-1 pr-2">
-                  {(() => {
-                    const groupsMap = new Map<string, Permission[]>();
-                    sortPermissionsForRoleEditor(systemPermissions).forEach((perm) => {
-                      const groupName = perm.group || PERMISSION_TRANSLATIONS[perm.code]?.group || "Khác";
-                      const list = groupsMap.get(groupName) || [];
-                      list.push(perm);
-                      groupsMap.set(groupName, list);
-                    });
-
-                    return Array.from(groupsMap.entries()).map(([groupName, perms]) => (
-                      <div key={groupName} className="space-y-2">
-                        <h6 className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50/80 px-3 py-1 rounded-lg border border-indigo-100/80">
-                          {groupName}
-                        </h6>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                <div className="grid max-h-[58vh] min-h-[280px] grid-cols-1 items-start gap-3 overflow-y-auto p-1 pr-2 lg:grid-cols-2">
+                  {groupPermissionsForRoleEditor(systemPermissions).map(({ name: groupName, permissions: perms }, groupIndex) => {
+                    const headingId = `permission-module-${groupIndex}`;
+                    const selectedCount = selectedPermissions.includes("*")
+                      ? perms.length
+                      : perms.filter((permission) => selectedPermissions.includes(permission.code)).length;
+                    return (
+                      <section key={groupName} aria-labelledby={headingId} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 shadow-sm">
+                        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                          <h6 id={headingId} className="text-xs font-extrabold uppercase tracking-wider text-indigo-700">
+                            {groupName}
+                          </h6>
+                          <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 font-mono text-[10px] font-bold text-indigo-700" aria-label={`${selectedCount} trên ${perms.length} quyền đã chọn`}>
+                            {selectedCount}/{perms.length}
+                          </span>
+                        </header>
+                        <div className="space-y-2 p-3">
                           {perms.map((perm) => {
                             const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
                             const labelText = getPermissionLabel(perm.code, perm.name);
@@ -187,6 +188,7 @@ export function RoleModal({
                               >
                                 <input
                                   type="checkbox"
+                                  aria-label={labelText}
                                   checked={isChecked}
                                   disabled={selectedPermissions.includes("*")}
                                   readOnly
@@ -198,7 +200,7 @@ export function RoleModal({
                                   {descText && (
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
                                   )}
-                                  {(perm.code === "student:read" || perm.code === "student:manage") && (
+                                  {(perm.code === "people:read" || perm.code === "people:manage") && (
                                     <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>
                                   )}
                                 </div>
@@ -206,9 +208,9 @@ export function RoleModal({
                             );
                           })}
                         </div>
-                      </div>
-                    ));
-                  })()}
+                      </section>
+                    );
+                  })}
                 </div>
               )}
             </div>

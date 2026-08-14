@@ -1,8 +1,4 @@
-/**
- * Danh mục quyền hệ thống — nguồn sự thật duy nhất cho các mã quyền
- * được `requirePermission` enforce và UI super-admin hiển thị.
- * Mã quyền phải khớp chính xác chuỗi dùng trong middleware/route.
- */
+/** Canonical permission catalog shared by authorization and permission-management UIs. */
 export interface PermissionCatalogEntry {
   code: string;
   label: string;
@@ -10,70 +6,148 @@ export interface PermissionCatalogEntry {
   description?: string;
 }
 
+type PermissionAction = "read" | "manage";
+
+const AREA_DEFINITIONS = [
+  ["dashboard", "Tổng quan"],
+  ["people", "Con người"],
+  ["relationship", "Quan hệ"],
+  ["hr", "Nhân sự"],
+  ["timekeeping", "Chấm công"],
+  ["payroll", "Tiền lương"],
+  ["work", "Công việc"],
+  ["inventory", "Kho & sản phẩm"],
+  ["retail", "Bán lẻ"],
+  ["finance", "Tài chính"],
+  ["resource", "Tài nguyên"],
+  ["chat", "Trò chuyện"],
+  ["recruitment", "Tuyển dụng"],
+  ["settings", "Cấu hình"],
+  ["access", "Người dùng & vai trò"],
+] as const;
+
+/** The stable generic permission catalog introduced by the authorization cleanup. */
+export const PERMISSION_CATALOG: PermissionCatalogEntry[] = AREA_DEFINITIONS.flatMap(([area, group]) => [
+  { code: `${area}:read`, label: `Xem ${group.toLocaleLowerCase("vi")}`, group },
+  { code: `${area}:manage`, label: `Quản lý ${group.toLocaleLowerCase("vi")}`, group },
+]);
+
+/** Labor-partner permissions remain explicit because the labor workflow has separate controls. */
+export const LABOR_PARTNER_PERMISSION_CATALOG: PermissionCatalogEntry[] = [
+  { code: "labor-partner:read", label: "Xem đối tác lao động", group: "Đối tác lao động" },
+  { code: "labor-partner:manage", label: "Quản lý đối tác lao động", group: "Đối tác lao động" },
+  { code: "labor-partner-policy:manage", label: "Cấu hình chính sách hoa hồng lao động", group: "Đối tác lao động" },
+  { code: "labor-partner-settlement:calculate", label: "Tính đối soát hoa hồng lao động", group: "Đối tác lao động" },
+  { code: "labor-partner-settlement:approve", label: "Duyệt đối soát hoa hồng lao động", group: "Đối tác lao động" },
+  { code: "labor-partner-payout:manage", label: "Ghi nhận chi trả hoa hồng lao động", group: "Đối tác lao động" },
+];
+
+const CATALOG_PERMISSION_CODES = new Set(PERMISSION_CATALOG.map((entry) => entry.code));
+const LABOR_PARTNER_PERMISSION_CODES = LABOR_PARTNER_PERMISSION_CATALOG.map((entry) => entry.code);
+
+/** Accepted codes include the explicit labor workflow aliases for role assignment and route auditing. */
+export const PERMISSION_CODES = [...PERMISSION_CATALOG.map((entry) => entry.code), ...LABOR_PARTNER_PERMISSION_CODES];
+
+export const LEGACY_PERMISSION_MAP: Readonly<Record<string, string>> = {
+  "student:read": "people:read",
+  "student:manage": "people:manage",
+  "worker:read": "people:read",
+  "worker:manage": "people:manage",
+  "teacher:operate": "people:manage",
+  "student-profile:read": "people:read",
+  "student-profile:manage": "people:manage",
+  "course:read": "people:read",
+  "course:manage": "people:manage",
+  "batch:read": "people:read",
+  "batch:manage": "people:manage",
+  "exam:read": "people:read",
+  "exam:manage": "people:manage",
+  "payment:read": "people:read",
+  "payment:manage": "people:manage",
+  "student-notification:read": "people:read",
+  "student-notification:manage": "people:manage",
+  "student-resource:read": "people:read",
+  "student-resource:manage": "people:manage",
+  "assignment:read": "people:read",
+  "assignment:manage": "people:manage",
+  "partner:read": "relationship:read",
+  "partner:manage": "relationship:manage",
+  "customer:read": "relationship:read",
+  "customer:manage": "relationship:manage",
+  "candidate:read": "relationship:read",
+  "candidate:manage": "relationship:manage",
+  "user:read": "access:read",
+  "user:manage": "access:manage",
+  "role:manage": "access:manage",
+  "face:manage": "access:manage",
+  "kanban:read": "work:read",
+  "kanban:manage": "work:manage",
+  "project:read": "work:read",
+  "project:manage": "work:manage",
+  "stock:read": "inventory:read",
+  "stock:manage": "inventory:manage",
+  "product:manage": "inventory:manage",
+  "wallet:read": "finance:read",
+  "wallet:manage": "finance:manage",
+  "receivable:read": "finance:read",
+  "receivable:collect": "finance:manage",
+  "receivable:adjust": "finance:manage",
+  "payroll:prepare": "payroll:manage",
+  "payroll:pay": "payroll:manage",
+  "leave:approve": "timekeeping:manage",
+  "retail:operate": "retail:read",
+  "retail:manager": "retail:manage",
+  "company-email:manage": "settings:manage",
+  "company-smtp:manage": "settings:manage",
+  "company-payment:manage": "settings:manage",
+  "student-settings:manage": "settings:manage",
+  "custom-field:manage": "settings:manage",
+  "settings:manage": "settings:manage",
+  // Keep labor-specific role values accepted while storing the generic relationship scope.
+  "labor-partner:read": "relationship:read",
+  "labor-partner:manage": "relationship:manage",
+  "labor-partner-policy:manage": "relationship:manage",
+  "labor-partner-settlement:calculate": "relationship:manage",
+  "labor-partner-settlement:approve": "relationship:manage",
+  "labor-partner-payout:manage": "relationship:manage",
+};
+
+export const RETIRED_STUDENT_PERMISSIONS = Object.keys(LEGACY_PERMISSION_MAP).filter((code) =>
+  /^(student|student-profile|course|batch|exam|payment|student-notification|student-resource|assignment):/.test(code),
+);
+
+export function isCanonicalPermission(code: string): boolean {
+  return CATALOG_PERMISSION_CODES.has(code) || LABOR_PARTNER_PERMISSION_CODES.includes(code);
+}
+
+export function normalizeStoredPermissions(
+  codes: readonly string[] = [],
+  options: { allowWildcard?: boolean } = {},
+): string[] {
+  const normalized = new Set<string>();
+  for (const code of codes) {
+    if (code === "*") {
+      if (options.allowWildcard) normalized.add(code);
+      continue;
+    }
+    const mapped = LEGACY_PERMISSION_MAP[code] ?? (CATALOG_PERMISSION_CODES.has(code) ? code : undefined);
+    if (mapped) normalized.add(mapped);
+  }
+
+  for (const code of [...normalized]) {
+    const [area, action] = code.split(":") as [string, PermissionAction];
+    if (action === "manage") normalized.delete(`${area}:read`);
+  }
+  return [...normalized].sort();
+}
+
+export function expandEffectivePermissions(codes: readonly string[]): Set<string> {
+  const expanded = new Set(codes);
+  for (const code of codes) {
+    if (code.endsWith(":manage")) expanded.add(`${code.slice(0, -":manage".length)}:read`);
+  }
+  return expanded;
+}
+
+/** @deprecated Use `recruitment:manage` directly. */
 export const RECRUITMENT_PERMISSION = "recruitment:manage";
-
-export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
-  { code: "dashboard:read", label: "Xem tổng quan", group: "Tổng quan" },
-  { code: "user:read", label: "Xem người dùng", group: "Người dùng" },
-  { code: "user:manage", label: "Quản lý người dùng", group: "Người dùng" },
-  { code: "face:manage", label: "Quản lý dữ liệu khuôn mặt", group: "Người dùng" },
-  { code: "kanban:read", label: "Xem công việc", group: "Công việc & Dự án" },
-  { code: "kanban:manage", label: "Quản lý công việc", group: "Công việc & Dự án" },
-  { code: "project:read", label: "Xem dự án", group: "Công việc & Dự án" },
-  { code: "project:manage", label: "Quản lý dự án", group: "Công việc & Dự án" },
-  { code: "stock:read", label: "Xem kho", group: "Kho & Sản phẩm" },
-  { code: "stock:manage", label: "Quản lý kho", group: "Kho & Sản phẩm" },
-  { code: "hr:read", label: "Xem nhân sự", group: "Nhân sự" },
-  { code: "timekeeping:read", label: "Xem chấm công", group: "Nhân sự" },
-  { code: "timekeeping:manage", label: "Quản lý & duyệt chấm công", group: "Nhân sự" },
-  { code: "leave:approve", label: "Duyệt đơn nghỉ phép", group: "Nhân sự" },
-  { code: "payroll:read", label: "Xem bảng lương", group: "Nhân sự" },
-  { code: "payroll:prepare", label: "Chuẩn bị dữ liệu lương", group: "Nhân sự", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
-  { code: "payroll:manage", label: "Quản lý & tính lương", group: "Nhân sự" },
-  { code: "payroll:pay", label: "Thanh toán bảng lương", group: "Nhân sự" },
-  // Each business module exposes its own umbrella permissions. Student area permissions are
-  // grouped here - see RETIRED_PERMISSION_CODES below.
-  { code: "student:read", label: "Xem học viên", group: "Học viên" },
-  { code: "student:manage", label: "Quản lý học viên", group: "Học viên" },
-  { code: "teacher:operate", label: "Vận hành lớp được phân công", group: "Học viên", description: "Điểm danh, giao/nộp hộ/chấm bài tập và cập nhật chất lượng học viên trong lớp mình dạy." },
-  { code: "worker:read", label: "Xem lao động", group: "Lao động" },
-  { code: "worker:manage", label: "Quản lý lao động", group: "Lao động" },
-  { code: "customer:read", label: "Xem khách hàng", group: "Khách hàng" },
-  { code: "customer:manage", label: "Quản lý khách hàng", group: "Khách hàng" },
-  { code: "candidate:read", label: "Xem ứng viên", group: "Ứng viên" },
-  { code: "candidate:manage", label: "Quản lý ứng viên", group: "Ứng viên" },
-  { code: "custom-field:manage", label: "Quản lý trường dữ liệu tùy chỉnh", group: "Cấu hình dữ liệu", description: "Tạo, sửa, lưu trữ và xóa trường dữ liệu tùy chỉnh của module học viên." },
-  { code: "student-settings:manage", label: "Cấu hình module học viên", group: "Cấu hình hệ thống", description: "Thiết lập cách vận hành module quản lý học viên." },
-  { code: "company-smtp:manage", label: "Cấu hình SMTP doanh nghiệp", group: "Cấu hình hệ thống", description: "Xem, cập nhật, xác minh và gửi thử bằng máy chủ SMTP doanh nghiệp." },
-  { code: "company-payment:manage", label: "Cấu hình thanh toán doanh nghiệp", group: "Cấu hình hệ thống", description: "Cài đặt tài khoản VietQR và cấu hình thanh toán chung của doanh nghiệp." },
-  { code: "partner:read", label: "Xem đối tác & cộng tác viên", group: "Đối tác" },
-  { code: "partner:manage", label: "Quản lý đối tác & hoa hồng", group: "Đối tác" },
-  { code: "chat:read", label: "Xem trò chuyện", group: "Trò chuyện" },
-  { code: "resource:read", label: "Xem tài nguyên", group: "Tài nguyên" },
-  { code: "resource:manage", label: "Quản lý tài nguyên & kết nối Google Drive", group: "Tài nguyên" },
-  { code: "retail:operate", label: "Vận hành bán lẻ", group: "Bán lẻ" },
-  { code: "retail:manager", label: "Quản lý bán lẻ", group: "Bán lẻ" },
-  { code: "receivable:read", label: "Xem công nợ", group: "Tài chính" },
-  { code: "receivable:collect", label: "Thu tiền công nợ", group: "Tài chính" },
-  { code: "receivable:adjust", label: "Điều chỉnh công nợ", group: "Tài chính", description: "Ghi điều chỉnh, xóa nợ và đảo bút toán; mọi thao tác cần lý do và audit." },
-  { code: "company-email:manage", label: "Quản lý email chúc mừng", group: "Nhân sự" },
-  { code: RECRUITMENT_PERMISSION, label: "Quản lý tuyển dụng", group: "Nhân sự" },
-];
-
-export const PERMISSION_CODES = PERMISSION_CATALOG.map((entry) => entry.code);
-
-/**
- * Các mã quyền chi tiết của module học viên/lao động đã bị gộp vào `student:read` /
- * `student:manage`. Giữ danh sách để (1) xóa khỏi bảng Permission và (2) nâng cấp các
- * vai trò/tài khoản cũ đang giữ mã chi tiết sang mã tổng tương ứng khi khởi động.
- */
-export const RETIRED_STUDENT_PERMISSIONS = [
-  "student-profile:read", "student-profile:manage",
-  "course:read", "course:manage",
-  "batch:read", "batch:manage",
-  "exam:read", "exam:manage",
-  "payment:read", "payment:manage",
-  "student-notification:read", "student-notification:manage",
-  "student-resource:read", "student-resource:manage",
-  "assignment:read", "assignment:manage",
-];

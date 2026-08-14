@@ -70,6 +70,14 @@ export const productCatalogController = {
     }
   },
 
+  deleteResource: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      res.json({ success: true, data: await ProductCatalogResourceService.delete(companyCode(req), req.params.kind, req.params.id) });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   list: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       res.json({ success: true, data: await ProductCatalogService.list(companyCode(req), query(req)) });

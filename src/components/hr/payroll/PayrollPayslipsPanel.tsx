@@ -1,9 +1,12 @@
-import { Download } from "lucide-react";
+import { Download, Send } from "lucide-react";
 
 const ALLOWED_RUN_STATUSES = new Set(["closed", "paid"]);
 
 export function PayrollPayslipsPanel({
+  canManage,
+  publishedCount,
   runStatus,
+  onPublish,
   onExport,
 }: {
   canManage: boolean;
@@ -21,6 +24,15 @@ export function PayrollPayslipsPanel({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        {canManage && canReleasePayslips && (
+          <button
+            type="button"
+            onClick={onPublish}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white cursor-pointer hover:bg-cyan-700"
+          >
+            <Send size={15} /> {publishedCount > 0 ? "Phát hành lại phiếu lương" : "Phát hành phiếu lương"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onExport("detailed")}

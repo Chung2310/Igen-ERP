@@ -10,8 +10,8 @@ export async function requireTeacherOperation(req: AuthRequest, res: Response, n
     const user = req.user;
     if (!user) return res.status(401).json({ success: false, error: "Chưa xác thực." });
     const permissions = await getEffectivePermissions(user.uid, user.role, user.companyCode || user.centerId);
-    if (hasAnyPermission(permissions, ["student:manage", "worker:manage"])) return next();
-    if (!hasAnyPermission(permissions, ["teacher:operate"])) {
+    if (hasAnyPermission(permissions, ["people:manage", "people:manage"])) return next();
+    if (!hasAnyPermission(permissions, ["people:manage"])) {
       return res.status(403).json({ success: false, error: "Tài khoản chưa có quyền thao tác giảng dạy." });
     }
 

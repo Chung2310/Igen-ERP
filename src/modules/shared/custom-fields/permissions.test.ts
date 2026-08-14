@@ -17,9 +17,9 @@ describe("custom field frontend contracts", () => {
 
   it("allows only field-management roles", () => {
     expect(canManageCustomFields(["*"])).toBe(true);
-    expect(canManageCustomFields(["custom-field:manage"])).toBe(true);
-    expect(canManageCustomFields(["student:manage"])).toBe(false);
-    expect(canManageCustomFields(["student:read"])).toBe(false);
+    expect(canManageCustomFields(["settings:manage"])).toBe(true);
+    expect(canManageCustomFields(["people:manage"])).toBe(false);
+    expect(canManageCustomFields(["people:read"])).toBe(false);
     expect(canManageCustomFields([])).toBe(false);
     expect(canManageCustomFields(null)).toBe(false);
     expect(canManageCustomFields()).toBe(false);
