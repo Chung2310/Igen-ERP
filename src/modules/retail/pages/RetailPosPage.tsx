@@ -49,6 +49,10 @@ export default function RetailPosPage() {
   const [drafts, setDrafts] = React.useState<RetailOrder[]>([]);
   const [draft, setDraft] = React.useState<RetailOrder | null>(null);
   const [shift, setShift] = React.useState<RetailShift | null>(null);
+  const [openingFloat, setOpeningFloat] = React.useState(0);
+  const [terminalId, setTerminalId] = React.useState("");
+  const [openingShift, setOpeningShift] = React.useState(false);
+  const [shiftError, setShiftError] = React.useState("");
   const [q, setQ] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -73,6 +77,19 @@ export default function RetailPosPage() {
     }
     setMessage("");
     setPaying(true);
+  };
+  const openShift = async () => {
+    if (!scope || !Number.isSafeInteger(openingFloat) || openingFloat < 0) return;
+    setOpeningShift(true);
+    setShiftError("");
+    try {
+      const opened = await retailShiftsApi.open(scope, { openingFloat, terminalId: terminalId.trim() || undefined });
+      setShift(opened);
+    } catch (error) {
+      setShiftError(error instanceof Error ? error.message : "Không thể mở ca bán hàng.");
+    } finally {
+      setOpeningShift(false);
+    }
   };
   const refreshOffline = React.useCallback(() => { if (offlineScope) void queueRef.current.list(offlineScope).then((items) => setOfflineItems(items.filter((item) => item.status !== "synced"))); }, [offlineScope?.companyCode, offlineScope?.branchId, offlineScope?.userId]);
   useRetailPosShortcuts(
@@ -140,6 +157,25 @@ export default function RetailPosPage() {
   React.useEffect(() => { refreshOffline(); }, [refreshOffline]);
 
   if (!scope) return <Notice />;
+
+  if (!shift) return (
+    <section className="mx-auto flex min-h-[65vh] w-full max-w-xl items-center justify-center p-5">
+      <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-amber-950">Mở ca bán hàng</h1>
+        <p className="mt-2 text-sm text-amber-800">Bạn cần mở ca trước khi quét sản phẩm, tạo đơn hoặc thanh toán.</p>
+        {shiftError && <p role="alert" className="mt-4 rounded-xl bg-rose-100 p-3 text-sm text-rose-700">{shiftError}</p>}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-slate-700">Tiền đầu ca
+            <input aria-label="Tiền đầu ca" type="number" min="0" step="1" value={openingFloat} onChange={(event) => setOpeningFloat(Number(event.target.value || 0))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2" />
+          </label>
+          <label className="text-sm font-medium text-slate-700">Mã quầy (không bắt buộc)
+            <input aria-label="Mã quầy (không bắt buộc)" value={terminalId} onChange={(event) => setTerminalId(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2" />
+          </label>
+        </div>
+        <button type="button" disabled={openingShift || !Number.isSafeInteger(openingFloat) || openingFloat < 0} onClick={() => void openShift()} className="mt-5 w-full rounded-xl bg-cyan-600 px-4 py-3 font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50">{openingShift ? "Đang mở ca..." : "Mở ca ngay"}</button>
+      </div>
+    </section>
+  );
 
   const scan = async (barcode: string) => {
     try {
