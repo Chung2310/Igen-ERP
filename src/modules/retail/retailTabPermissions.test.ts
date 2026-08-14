@@ -8,9 +8,9 @@ describe("retail subtab permissions", () => {
     ]);
   });
 
-  it("allows managers to access customers and settings", () => {
-    expect(getAllowedRetailTabSlugs(["retail:manage"])).toEqual([
-      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang", "cai-dat",
+  it("allows read-only users to access operational retail tabs without settings", () => {
+    expect(getAllowedRetailTabSlugs(["retail:read"])).toEqual([
+      "ban-hang", "don-hang", "ca-ban-hang", "hoa-don", "bao-cao", "khach-hang",
     ]);
   });
 
