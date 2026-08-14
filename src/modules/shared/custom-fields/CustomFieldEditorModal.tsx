@@ -99,12 +99,6 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
     let validation: Record<string, unknown> | undefined;
     if (form.type === "text") {
       validation = { minLength: numberOrUndefined(form.minLength), maxLength: numberOrUndefined(form.maxLength) };
-    } else if (form.type === "phone") {
-      validation = { minLength: 10, maxLength: 11, pattern: "^[0-9]+$" };
-    } else if (form.type === "email") {
-      validation = { pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" };
-    } else if (form.type === "url") {
-      validation = { pattern: "^https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)$" };
     }
     if (["percent", "currency"].includes(form.type)) validation = { min: numberOrUndefined(form.min), max: numberOrUndefined(form.max), decimals: numberOrUndefined(form.decimals) };
     if (form.type === "dateTime") validation = { minDateTime: form.minDateTime || undefined, maxDateTime: form.maxDateTime || undefined };
