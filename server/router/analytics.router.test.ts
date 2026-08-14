@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { analyticsRouter } from "./analytics.router";
 
 describe("analytics router", () => {
-  const routeMiddlewareNames = (path: string) => {
-    const layer = analyticsRouter.stack.find((entry: any) => entry.route?.path === path);
-    return layer?.route.stack.map((entry: any) => entry.handle.name);
+  const routeMiddlewareNames = (path: string, method = "get") => {
+    const normalizedMethod = method.toLowerCase();
+    return analyticsRouter.stack
+      .filter((entry: any) => entry.route?.path === path && entry.route.methods?.[normalizedMethod])
+      .flatMap((entry: any) => entry.route.stack.map((routeLayer: any) => routeLayer.handle.name));
   };
 
   it("keeps authentication at router level", () => {
@@ -21,9 +23,8 @@ describe("analytics router", () => {
   });
 
   it("requires dashboard:manage for operating-expense mutations", () => {
-    for (const path of ["/operating-expenses", "/operating-expenses/:id"]) {
-      expect(routeMiddlewareNames(path), `missing dashboard manage guard on ${path}`).toContain("managePermissionGuard");
-    }
+    expect(routeMiddlewareNames("/operating-expenses", "post"), "missing dashboard manage guard on POST /operating-expenses").toContain("managePermissionGuard");
+    expect(routeMiddlewareNames("/operating-expenses/:id", "delete"), "missing dashboard manage guard on DELETE /operating-expenses/:id").toContain("managePermissionGuard");
   });
 
   it("uses the canonical dashboard permissions and keeps controller queries company-scoped", () => {
