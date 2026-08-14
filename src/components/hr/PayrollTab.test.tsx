@@ -13,6 +13,7 @@ const getLineOverrides = vi.hoisted(() => vi.fn());
 const getPeriodInputVariables = vi.hoisted(() => vi.fn());
 const bulkSaveLineOverrides = vi.hoisted(() => vi.fn());
 const review = vi.hoisted(() => vi.fn());
+const reviewRun = vi.hoisted(() => vi.fn());
 
 vi.mock("../../services/payrollService", () => ({
   payrollService: {
@@ -24,6 +25,7 @@ vi.mock("../../services/payrollService", () => ({
     getPeriodInputVariables,
     bulkSaveLineOverrides,
     review,
+    reviewRun,
   },
 }));
 vi.mock("../../pages/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -103,6 +105,7 @@ function arrange(run = draftRun()) {
   ]);
   bulkSaveLineOverrides.mockResolvedValue([]);
   review.mockResolvedValue({});
+  reviewRun.mockResolvedValue({});
 }
 
 function saveReasonInput() {
@@ -279,7 +282,7 @@ describe("PayrollTab read-only payroll results", () => {
 
   it("drops an unsaved draft when review succeeds and renders the authoritative effective values", async () => {
     arrange();
-    getRun.mockResolvedValueOnce(draftRun()).mockResolvedValue(draftRun("review"));
+    getRun.mockResolvedValueOnce({ ...draftRun(), activeRevisionId: "revision-1" }).mockResolvedValue({ ...draftRun("review"), activeRevisionId: "revision-1" });
     const user = userEvent.setup();
     render(<PayrollTab canManage />);
 
@@ -289,7 +292,7 @@ describe("PayrollTab read-only payroll results", () => {
     expect(screen.getByLabelText("net-e1").textContent).toContain("10.900.000");
 
     await user.click(screen.getByRole("button", { name: /Ki.*tra/ }));
-    await waitFor(() => expect(review).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1"));
 
     const row = (await screen.findByText("Nguyễn Văn A")).closest("tr");
     if (!row) throw new Error("Payroll employee row is not present");
