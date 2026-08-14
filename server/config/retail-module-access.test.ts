@@ -20,9 +20,9 @@ test("legacy module fallback still enables existing modules", () => {
 });
 
 test("retail manager capability implies operate capability", () => {
-  assert.equal(hasRetailCapability({ permissions: ["retail:manager"] }, "operate"), true);
-  assert.equal(hasRetailCapability({ permissions: ["retail:operate"] }, "manager"), false);
-  assert.equal(hasRetailCapability({ permissions: ["retail:operate"] }, "operate"), true);
+  assert.equal(hasRetailCapability({ permissions: ["retail:manage"] }, "operate"), true);
+  assert.equal(hasRetailCapability({ permissions: ["retail:manage"] }, "manager"), false);
+  assert.equal(hasRetailCapability({ permissions: ["retail:manage"] }, "operate"), true);
 });
 
 test("admin and superadmin have retail manager capability", () => {

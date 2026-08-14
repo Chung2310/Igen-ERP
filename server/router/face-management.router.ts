@@ -21,7 +21,7 @@ const imageUpload = multer({
 
 const access = [
   requireAuth as any,
-  requirePermission("face:manage") as any,
+  requirePermission("access:manage") as any,
   requireCompanyAccess(UserModel, "id") as any,
   requireHierarchyAccess("id") as any,
 ];

@@ -25,11 +25,13 @@ import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
+import { UserActivityTimeline } from "./super-admin/users/UserActivityTimeline";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
   const { activeBranchId } = useBranch();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [activityUser, setActivityUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -757,6 +759,7 @@ export default function UserAdminTab() {
                 onToggleActionMenu={(uid) => setOpenActionMenuId(openActionMenuId === uid ? null : uid)}
                 onEditUser={openEditUserModal}
                 onDeleteUser={handleDeleteUser}
+                onViewActivity={(user) => { setOpenActionMenuId(null); setActivityUser(user); }}
               />
             )}
           </div>
@@ -793,31 +796,31 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
-                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],
+                  branch_owner: ["access:read", "access:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "people:read", "people:manage", "resource:read", "chat:read", "work:read", "work:manage"],
                   manager: [
-                    "user:read", "user:manage",
+                    "access:read", "access:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read", "project:manage",
-                    "stock:read", "stock:manage",
-                    "student:read", "student:manage",
+                    "work:read", "work:manage",
+                    "work:read", "work:manage",
+                    "inventory:read", "inventory:manage",
+                    "people:read", "people:manage",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
-                    "wallet:read"
+                    "finance:read"
                   ],
                   user: [
-                    "user:read",
+                    "access:read",
                     "timekeeping:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read",
-                    "stock:read",
-                    "student:read",
+                    "work:read", "work:manage",
+                    "work:read",
+                    "inventory:read",
+                    "people:read",
                     "resource:read",
                     "chat:read",
-                    "wallet:read"
+                    "finance:read"
                   ],
-                  teacher: ["student:read", "teacher:operate"]
+                  teacher: ["people:read", "people:manage"]
                 };
 
                 const defaultRolesList = [
@@ -1049,6 +1052,15 @@ export default function UserAdminTab() {
           }
         }}
       />
+
+      {activityUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-label="Lịch sử hoạt động người dùng">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-slate-900 p-5 text-white shadow-2xl">
+            <div className="mb-4 flex items-center justify-between"><div><h3 className="font-bold">Lịch sử hoạt động</h3><p className="text-sm text-slate-400">{activityUser.displayName || activityUser.email}</p></div><button type="button" onClick={() => setActivityUser(null)} aria-label="Đóng lịch sử hoạt động" className="rounded-lg p-2 hover:bg-white/10"><X className="h-5 w-5" /></button></div>
+            <UserActivityTimeline tenantId={activityUser.companyCode || userProfile?.companyCode || ""} userId={activityUser.uid} loadActivity={userProfile?.role === "superadmin" ? undefined : async (_tenantId, userId, filters) => authService.getUserActivity(userId, filters as any)} />
+          </div>
+        </div>
+      )}
 
       {/* Custom confirm dialog */}
       {confirmState && (

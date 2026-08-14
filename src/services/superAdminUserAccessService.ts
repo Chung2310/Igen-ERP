@@ -1,7 +1,7 @@
 export interface SuperAdminUser { _id: string; email: string; displayName?: string; role: string; status?: string; lockedAt?: string; permissions?: string[]; }
 export interface UserSearchResult { data: SuperAdminUser[]; total: number; page: number; limit: number; }
-export type UserActivityCategory = "authentication" | "data" | "communication" | "configuration" | "security" | "business";
-export interface UserActivityEvent { eventId: string; userId: string; companyCode: string; actionType: string; category: UserActivityCategory; result: "success" | "failure"; method?: string; route?: string; description: string; sourceIp?: string; userAgent?: string; occurredAt: string; }
+export type UserActivityCategory = "authentication" | "view" | "search" | "data" | "communication" | "configuration" | "security" | "business";
+export interface UserActivityEvent { eventId: string; userId: string; companyCode: string; actionType: string; category: UserActivityCategory; result: "success" | "failure"; method?: string; route?: string; description: string; sourceIp?: string; userAgent?: string; deviceSummary?: string; durationMs?: number; occurredAt: string; }
 export interface UserActivityResult { data: UserActivityEvent[]; total: number; page: number; limit: number; }
 export interface PermissionCatalogEntry { code: string; label: string; group: string; }
 export interface ActiveImpersonation { actionId: string; actorId: string; targetUserId: string; reason?: string; startedAt?: string; expiresAt: string; }
@@ -19,11 +19,13 @@ export const superAdminUserAccessService = {
   activeImpersonation: (tenantId: string, userId: string) => request<{ active: ActiveImpersonation | null }>(`/users/${encodeURIComponent(userId)}/impersonation?tenantId=${encodeURIComponent(tenantId)}`),
   search: (tenantId: string, filters: { page?: number; limit?: number; q?: string } = {}) => request<UserSearchResult>(`/users?${new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20), ...(filters.q ? { q: filters.q } : {}) })}`),
   detail: (tenantId: string, userId: string) => request<SuperAdminUser>(`/users/${encodeURIComponent(userId)}?tenantId=${encodeURIComponent(tenantId)}`),
-  activity: (tenantId: string, userId: string, filters: { from?: string; to?: string; category?: UserActivityCategory | ""; page?: number; limit?: number } = {}) => {
+  activity: (tenantId: string, userId: string, filters: { from?: string; to?: string; category?: UserActivityCategory | ""; result?: "success" | "failure" | ""; search?: string; page?: number; limit?: number } = {}) => {
     const query = new URLSearchParams({ tenantId, page: String(filters.page || 1), limit: String(filters.limit || 20) });
     if (filters.from) query.set("from", filters.from);
     if (filters.to) query.set("to", filters.to);
     if (filters.category) query.set("category", filters.category);
+    if (filters.result) query.set("result", filters.result);
+    if (filters.search) query.set("search", filters.search);
     return request<UserActivityResult>(`/users/${encodeURIComponent(userId)}/activity?${query}`);
   },
   lock: (tenantId: string, userId: string, input: Mutation) => mutate(tenantId, userId, "/lock", input),

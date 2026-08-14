@@ -65,7 +65,7 @@ const extensionBody = Joi.object({
 hrContractRouter.use(requireAuth as any, requireModule("hr"));
 hrContractRouter.post(
   "/upload",
-  requirePermission("user:manage") as any,
+  requirePermission("access:manage") as any,
   validateRequest({
     body: Joi.object({
       file: Joi.string().required(),
@@ -89,13 +89,13 @@ hrContractRouter.get(
 );
 hrContractRouter.post(
   "/",
-  requirePermission("user:manage") as any,
+  requirePermission("access:manage") as any,
   validateRequest({ body: contractBody }),
   hrContractController.create as any,
 );
 hrContractRouter.patch(
   "/:id",
-  requirePermission("user:manage") as any,
+  requirePermission("access:manage") as any,
   validateRequest({ params: Joi.object({ id }), body: updateBody }),
   hrContractController.update as any,
 );
@@ -106,7 +106,7 @@ hrContractRouter.get(
 );
 hrContractRouter.post(
   "/:id/extensions",
-  requirePermission("user:manage") as any,
+  requirePermission("access:manage") as any,
   validateRequest({ params: Joi.object({ id }), body: extensionBody }),
   hrContractController.extend as any,
 );

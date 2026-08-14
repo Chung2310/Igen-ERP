@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PayrollPolicyConfirmDialog } from "./PayrollPolicyConfirmDialog";
+
+afterEach(cleanup);
 
 describe("PayrollPolicyConfirmDialog", () => {
   it("renders impact and invokes cancel and confirm", () => {
@@ -18,5 +20,13 @@ describe("PayrollPolicyConfirmDialog", () => {
     render(<PayrollPolicyConfirmDialog title="Xóa" description="Công thức VN" confirmLabel="Xóa công thức" tone="danger" pending error="Không thể xóa" onCancel={vi.fn()} onConfirm={vi.fn()}/>);
     expect(screen.getByRole("alert").textContent).toContain("Không thể xóa");
     expect((screen.getByRole("button", { name: "Đang xử lý..." }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("supports a clear custom label for the cancel action", () => {
+    const onCancel = vi.fn();
+    render(<PayrollPolicyConfirmDialog title="Bỏ thay đổi?" description="Dữ liệu chưa được lưu" confirmLabel="Bỏ thay đổi" cancelLabel="Tiếp tục chỉnh sửa" tone="warning" pending={false} onCancel={onCancel} onConfirm={vi.fn()}/>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục chỉnh sửa" }));
+    expect(onCancel).toHaveBeenCalledOnce();
   });
 });

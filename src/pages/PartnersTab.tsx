@@ -7,7 +7,7 @@ export default function PartnersTab() {
   const canManagePartners =
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
-    hasPermission("partner:manage");
+    hasPermission("relationship:manage");
   const selectedCenter =
     userProfile?.role === "superadmin"
       ? undefined

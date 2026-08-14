@@ -746,7 +746,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               >
                 {(run?.lines || results).map((r: any) => (
                   <option key={r.employeeId} value={r.employeeId}>
-                    {r.employeeName || r.employeeId} ({r.employeeId})
+                    {r.employeeName || r.employeeId}
                   </option>
                 ))}
               </select>

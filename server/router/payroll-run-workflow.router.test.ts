@@ -45,7 +45,7 @@ describe("payroll workflow route guards", () => {
     ["POST", "/payments/:id/cancel"],
     ["POST", "/payments/:id/reverse"],
   ])("guards %s %s with payroll:pay", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:pay");
+    expect(permissionOf(method, path)).toBe("payroll:manage");
   });
 
   it.each([

@@ -12,11 +12,11 @@ export function calculateExpectedCash(input: CashInputs) { return input.openingF
 export function varianceNeedsReason(variance: number, threshold: number) { return Math.abs(variance) > threshold; }
 export const invalidOpeningFloatError = () => new ValidationError(
   "SHIFT_OPENING_FLOAT_INVALID",
-  "Quỹ đầu ca phải lớn hơn 0.",
+  "Quỹ đầu ca phải là số nguyên không âm.",
 );
 export function parseOpeningFloat(value: unknown) {
   const openingFloat = Number(value);
-  if (!Number.isSafeInteger(openingFloat) || openingFloat <= 0) throw invalidOpeningFloatError();
+  if (!Number.isSafeInteger(openingFloat) || openingFloat < 0) throw invalidOpeningFloatError();
   return openingFloat;
 }
 export const missingVarianceReasonError = () => new ValidationError(

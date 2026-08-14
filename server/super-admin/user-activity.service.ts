@@ -33,6 +33,14 @@ export function createUserActivityService(deps: any) {
       const filter: any = { userId: input.userId, occurredAt: { $gte: from, $lte: to } };
       if (input.tenantId !== "SYSTEM") filter.companyCode = input.tenantId;
       if (input.category) filter.category = input.category;
+      if (input.result) {
+        if (!["success", "failure"].includes(input.result)) throw new Error("Invalid activity result");
+        filter.result = input.result;
+      }
+      if (input.search?.trim()) {
+        const escaped = String(input.search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").slice(0, 100);
+        filter.description = { $regex: escaped, $options: "i" };
+      }
       const [data, total] = await Promise.all([
         deps.activities.find(filter, { skip: (page - 1) * limit, limit }),
         deps.activities.count(filter),

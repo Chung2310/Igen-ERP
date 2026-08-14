@@ -7,7 +7,7 @@ import { idParamSchema } from "../validations/student.validation";
 import { requirePermission } from "../../../middleware/auth";
 
 const router = Router();
-const requireManage = requirePermission("partner:manage") as any;
+const requireManage = requirePermission("relationship:manage") as any;
 
 router.use(authMiddleware);
 

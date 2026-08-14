@@ -10,7 +10,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(financeRemindersApi.listRuns).m
 
 describe("FinanceRemindersPage", () => {
   it("opens run deliveries and allows adjusters to retry failures and run manually", async () => {
-    render(<FinanceRemindersPage permissions={["receivable:adjust"]} />);
+    render(<FinanceRemindersPage permissions={["finance:manage"]} />);
     fireEvent.click(await screen.findByRole("button", { name: /2026-08-12/ }));
     expect(await screen.findByText("timeout")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry d1" })).toBeTruthy();
@@ -18,7 +18,7 @@ describe("FinanceRemindersPage", () => {
   });
 
   it("keeps operational commands hidden for read-only users", async () => {
-    render(<FinanceRemindersPage permissions={["receivable:read"]} />);
+    render(<FinanceRemindersPage permissions={["finance:read"]} />);
     expect(await screen.findByRole("button", { name: /2026-08-12/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Chạy nhắc nợ" })).toBeNull();
   });
