@@ -67,7 +67,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:manage" || permission === "retail:manage")),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:read" || permission === "retail:manage")),
   },
   {
     tab: "TÀI CHÍNH",
@@ -75,7 +75,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance:read", "finance:manage", "finance:manage"].includes(permission))),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance:read", "finance:manage"].includes(permission))),
   },
   {
     tab: "QUẢN LÝ KHÁCH HÀNG",

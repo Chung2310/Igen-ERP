@@ -10,6 +10,8 @@ vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   listJobs: vi.fn(), getPipeline: vi.fn(), listApplicants: vi.fn(), listInterviews: vi.fn(),
   createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
   uploadPublicFile: vi.fn(), deleteTemporaryPublicFile: vi.fn(),
+  applicantHistory: vi.fn(), getApplicantAttachment: vi.fn(),
+  uploadApplicantAttachment: vi.fn(), deleteAttachment: vi.fn(),
 } }));
 
 const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0, companyCode: "ACME", branchId: "branch-a", createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
@@ -27,6 +29,8 @@ describe("RecruitmentTab", () => {
     vi.mocked(recruitmentApi.updateJob).mockResolvedValue({ ...job, title: "Senior Developer", version: 1 });
     vi.mocked(recruitmentApi.updateApplicant).mockResolvedValue({ ...applicant, fullName: "Nguyễn An Updated", version: 1 });
     vi.mocked(recruitmentApi.uploadPublicFile).mockImplementation(async (file) => ({ url: `https://cloud.test/${file.name}`, publicId: `public/${file.name}`, originalName: file.name, size: file.size }));
+    vi.mocked(recruitmentApi.applicantHistory).mockResolvedValue([]);
+    vi.mocked(recruitmentApi.getApplicantAttachment).mockResolvedValue(null);
   });
 
   it("loads jobs and exposes all recruitment views", async () => {
@@ -37,8 +41,44 @@ describe("RecruitmentTab", () => {
     expect(screen.getByRole("button", { name: "Phỏng vấn" })).toBeTruthy();
   });
 
+  it("hides recruitment management actions from read-only users", async () => {
+    render(<RecruitmentTab canManage={false} />);
+
+    expect(await screen.findByText("Developer")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tạo tin" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sửa tin tuyển dụng DEV" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Trạng thái DEV" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
+    expect(await screen.findByText("Chưa có ứng viên trong chi nhánh này.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Thêm ứng viên" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Phỏng vấn" }));
+    expect(screen.queryByRole("button", { name: "Lên lịch phỏng vấn" })).toBeNull();
+  });
+
+  it("does not expose applicant attachment mutations to read-only users", async () => {
+    vi.mocked(recruitmentApi.listApplicants).mockResolvedValue([applicant]);
+    vi.mocked(recruitmentApi.getApplicantAttachment).mockResolvedValue({
+      _id: "attachment",
+      originalName: "cv.pdf",
+      size: 1_024,
+      version: 0,
+    } as any);
+    render(<RecruitmentTab canManage={false} />);
+
+    await screen.findByText("Developer");
+    await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Nguyễn An" }));
+
+    await screen.findByRole("dialog");
+    expect(screen.queryByLabelText("CV")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Xóa" })).toBeNull();
+    expect(screen.getByRole("button", { name: /tải xuống/i })).toBeTruthy();
+  });
+
   it("uploads a JD immediately and fills its public link before creating", async () => {
-    render(<RecruitmentTab />); await screen.findByText("Developer");
+    render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Tạo tin" }));
     await userEvent.type(screen.getByLabelText("Mã tin"), "QA");
     await userEvent.type(screen.getByLabelText("Tên vị trí"), "QA Engineer");
@@ -50,7 +90,7 @@ describe("RecruitmentTab", () => {
   });
 
   it("uploads a CV immediately and fills its public link before creating", async () => {
-    render(<RecruitmentTab />); await screen.findByText("Developer");
+    render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
     await userEvent.click(await screen.findByRole("button", { name: "Thêm ứng viên" }));
     await userEvent.selectOptions(screen.getByLabelText("Tin tuyển dụng"), "job");
@@ -63,7 +103,7 @@ describe("RecruitmentTab", () => {
 
   it("updates a job status from the jobs list instead of the detail dialog", async () => {
     vi.mocked(recruitmentApi.changeJobStatus).mockResolvedValue({ ...job, status: "paused", version: 1 });
-    render(<RecruitmentTab />);
+    render(<RecruitmentTab canManage />);
     await screen.findByText("Developer");
 
     const statusSelect = screen.getByRole("combobox", { name: "Trạng thái DEV" }) as HTMLSelectElement;
@@ -78,7 +118,7 @@ describe("RecruitmentTab", () => {
     expect(within(screen.getByRole("dialog")).queryByLabelText("Trạng thái")).toBeNull();
   });
   it("edits an existing job with its version", async () => {
-    render(<RecruitmentTab />); await screen.findByText("Developer");
+    render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
     const title = screen.getByLabelText("Tên vị trí"); await userEvent.clear(title); await userEvent.type(title, "Senior Developer");
     await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
@@ -88,7 +128,7 @@ describe("RecruitmentTab", () => {
 
   it("edits an applicant and displays its Vietnamese outcome", async () => {
     vi.mocked(recruitmentApi.listApplicants).mockResolvedValue([applicant]);
-    render(<RecruitmentTab />); await screen.findByText("Developer"); await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
+    render(<RecruitmentTab canManage />); await screen.findByText("Developer"); await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
     expect(await screen.findByText("Đang xử lý")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Sửa ứng viên Nguyễn An" }));
     const name = screen.getByLabelText("Họ tên"); await userEvent.clear(name); await userEvent.type(name, "Nguyễn An Updated");
