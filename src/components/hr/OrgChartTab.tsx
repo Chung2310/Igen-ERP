@@ -1718,7 +1718,7 @@ export default function OrgChartTab({
 
               <div className="space-y-4 text-xs text-slate-655 text-slate-600">
                 <div className="grid grid-cols-2 gap-3"><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Trang thai</span><strong>{selectedEmp.status === "online" ? "Dang hoat dong" : "Ngoai tuyen"}</strong></div><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Cap nhan su</span><strong>Cap {selectedEmp.level || missingValue}</strong></div></div>
-                <div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Luong thang</span><strong>{selectedEmp.monthlySalary ? selectedEmp.monthlySalary.toLocaleString("vi-VN") + " VND" : missingValue}</strong></div>
+                <div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Luong thang</span><strong>{selectedEmp.monthlySalary != null ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(selectedEmp.monthlySalary)) : missingValue}</strong></div>
                 <div className="flex items-center gap-3">
                   <Building2 className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                   <div>

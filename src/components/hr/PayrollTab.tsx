@@ -25,6 +25,7 @@ import {
 } from "./payroll/payrollLineOverrides";
 
 type SortDir = "asc" | "desc";
+const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
 
 function EmptyState({ icon: Icon, title, hint }: { icon: typeof Inbox; title: string; hint?: string }) {
   return (
@@ -140,7 +141,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setInputSaveOpen(false);
     setInputReason("");
   };
-  const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
+  const reload = async () => {
+    try { setRun(await payrollService.getRun(period)); }
+    catch { /* Keep the last authoritative run visible instead of falling back to the draft input table. */ }
+    try { setResults(await payrollService.getResults(period)); } catch { setResults([]); }
+    try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); }
+  };
   useEffect(() => { void reload(); void loadLineOverrides(); }, [period]);
   useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
@@ -257,6 +263,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
   const processPeriod = async (propagateError = false) => {
     if (processingPayroll) return;
+    if (run && run.status !== "draft") {
+      const message = "Kỳ lương đã ở bước kiểm tra/chốt. Hãy mở lại kỳ trước khi tính lại.";
+      toast.warning(message);
+      if (propagateError) throw new Error(message);
+      return;
+    }
     setProcessingPayroll(true);
     try {
       await payrollService.processPeriod(period);
@@ -343,7 +355,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         className={`w-full rounded-md border px-2 py-1 text-right text-xs outline-none ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-cyan-400 bg-cyan-50" : "border-slate-200"}`}
       />
       <div className="mt-1 flex items-center justify-between gap-1 text-[9px]">
-        <span className={isDirty ? "font-bold text-amber-700" : hasPersisted ? "font-semibold text-cyan-700" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${Number(systemValue).toLocaleString()}`}</span>
+        <span className={isDirty ? "font-bold text-amber-700" : hasPersisted ? "font-semibold text-cyan-700" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${formatVnd(Number(systemValue))}`}</span>
         {field === "adjustedBase" && <button aria-label={`Chi tiết adjustedBase-${employeeId}`} type="button" onClick={() => void openFormulaRow(row)} className="text-slate-500 underline cursor-pointer">Chi tiết</button>}
         {hasPersisted && !draft?.clearFields.includes(field) && <button aria-label={`Khôi phục ${field}-${employeeId}`} type="button" onClick={() => setInputDrafts(current => restoreLineOverrideDraftField(current, employeeId, field))} className="text-cyan-700 underline cursor-pointer">Khôi phục</button>}
       </div>
@@ -444,7 +456,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs text-slate-500 font-medium">{run ? "Tổng thực nhận" : "Tổng lương cơ bản"}</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalNet : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} đ</p>
+          <p className="mt-1 text-lg font-bold text-slate-900">{formatVnd(run ? totalNet : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs text-slate-500 font-medium">Số nhân viên</p>
@@ -456,7 +468,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs text-slate-500 font-medium">Tổng lương cơ bản</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0)).toLocaleString()} đ</p>
+          <p className="mt-1 text-lg font-bold text-slate-900">{formatVnd(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p>
         </div>
       </div>
     )}
@@ -563,8 +575,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
                       ? renderResultCell(line, field.key, Number(line.systemValues[field.key]), Number(line[field.key]))
                         : <td key={field.key} className="border-l border-slate-100 p-3 text-right text-slate-600">{field.key === "adjustedBase"
-                        ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line[field.key]).toLocaleString()} đ</button>
-                        : `${Number(line[field.key]).toLocaleString()} đ`}</td>)}
+                        ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{formatVnd(Number(line[field.key]))}</button>
+                        : formatVnd(Number(line[field.key]))}</td>)}
                     {customVariables.map((variable: any) => {
                       const field = `custom.${variable.code}` as const;
                       const systemValue = Number(line.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0);
@@ -573,8 +585,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         ? renderResultCell(line, field, systemValue, effectiveValue)
                         : <td key={field} className="border-l border-slate-100 p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
                     })}
-                    <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{Number(line.deductionTotal).toLocaleString()} đ</span></td>
-                    <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{Number(line.net).toLocaleString()} đ</span></td>
+                    <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
+                    <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -582,10 +594,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 <tfoot>
                   <tr className="border-t bg-slate-50 font-bold text-slate-700">
                     <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
-                    {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0).toLocaleString()} đ</td>)}
-                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0).toLocaleString()}</td>)}
-                    <td className="p-3 text-right text-rose-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} đ</td>
+                    {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0))}</td>)}
+                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0))}</td>)}
+                    <td className="p-3 text-right text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
+                    <td className="p-3 text-right text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
                   </tr>
                 </tfoot>
               )}
@@ -613,7 +625,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                       <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
-                      <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
+                    <td className="p-3 text-right text-slate-600">{formatVnd(Number(row.monthlySalary))}</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${

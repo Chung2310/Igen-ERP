@@ -4,6 +4,7 @@ import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 
 type Payslip = { runId: string; periodKey?: string; employeeId: string; employeeName?: string; netPay: number; paidAmount: number; balance: number };
+const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
 
 export default function EmployeePayslips() {
   const [items, setItems] = useState<Payslip[]>([]);
@@ -65,9 +66,9 @@ export default function EmployeePayslips() {
             >
               <div className="space-y-1">
                 <p className="font-semibold text-slate-800 text-sm md:text-base">Kỳ lương tháng {item.periodKey}</p>
-                <p className="text-sm font-bold text-cyan-600">Thực nhận: {item.netPay.toLocaleString()} đ</p>
+                <p className="text-sm font-bold text-cyan-600">Thực nhận: {formatVnd(item.netPay)}</p>
                 <p className="text-xs text-slate-400">
-                  Đã trả {item.paidAmount.toLocaleString()} đ · Còn lại {item.balance.toLocaleString()} đ
+                  Đã trả {formatVnd(item.paidAmount)} · Còn lại {formatVnd(item.balance)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -115,7 +116,7 @@ export default function EmployeePayslips() {
             ) : (
               (() => {
                 const detail = buildPayrollDetails(selectedItem.attendance, selectedItem.calculation, selectedItem.vietnam);
-                const money = (value: number) => value.toLocaleString() + " đ";
+                const money = formatVnd;
                 return (
                   <div className="space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">
