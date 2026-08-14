@@ -1,78 +1,61 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isCanonicalPermission, LEGACY_PERMISSION_MAP } from "./permission-catalog";
+import { isCanonicalPermission } from "./permission-catalog";
 
 export type PermissionRouteDiagnosticKind = "missing-auth" | "missing-permission" | "unknown-permission";
+export interface PermissionRouteDiagnostic { sourceFile: string; line: number; method: string; path: string; kind: PermissionRouteDiagnosticKind; message: string; }
+export interface PermissionRouteRecord { sourceFile: string; line: number; method: string; path: string; isMutation: boolean; hasAuthenticationGuard: boolean; permissionCodes: string[]; diagnostics: PermissionRouteDiagnostic[]; }
 
-export interface PermissionRouteDiagnostic {
-  sourceFile: string;
-  line: number;
-  method: string;
-  path: string;
-  kind: PermissionRouteDiagnosticKind;
-  message: string;
-}
-
-export interface PermissionRouteRecord {
-  sourceFile: string;
-  line: number;
-  method: string;
-  path: string;
-  isMutation: boolean;
-  hasAuthenticationGuard: boolean;
-  permissionCodes: string[];
-  diagnostics: PermissionRouteDiagnostic[];
-}
-
-/** Deliberately small and reviewed list of endpoints that are public by protocol design. */
-export const PUBLIC_ROUTE_EXCEPTIONS = [
-  /\/webhooks?(?:\/|$)/i,
-  /\/oauth(?:\/|$)/i,
-  /\/callback(?:\/|$)/i,
-  /\/qr(?:\/|$).*attendance/i,
+export interface PublicRouteException { sourceFile: string; mount: string; method: string; path: string; reason: string; }
+/** Reviewed protocol exceptions. Keep each endpoint explicit and auditable. */
+export const PUBLIC_ROUTE_EXCEPTIONS: readonly PublicRouteException[] = [
+  { sourceFile: "server/router/webhook.router.ts", mount: "/webhook", method: "POST", path: "/payment", reason: "signed payment-provider webhook" },
+  { sourceFile: "server/modules/student-management/routes/webhook.routes.ts", mount: "/student-management", method: "POST", path: "/payment", reason: "validated payment webhook" },
+  { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", mount: "/worker-management/qr-attendance", method: "POST", path: "/checkin", reason: "public QR attendance scan" },
+  { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", mount: "/worker-management/qr-attendance", method: "POST", path: "/device/forget", reason: "public QR attendance device flow" },
+  { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", mount: "/worker-management/qr-attendance", method: "GET", path: "/session-info", reason: "public QR attendance scan" },
 ] as const;
 
-function isPublicException(routePath: string): boolean {
-  return PUBLIC_ROUTE_EXCEPTIONS.some((pattern) => pattern.test(routePath));
-}
+const lineAt = (source: string, offset: number) => source.slice(0, offset).split(/\r?\n/).length;
+const isPublicException = (file: string, method: string, routePath: string) => PUBLIC_ROUTE_EXCEPTIONS.some((item) => item.sourceFile === file && item.method === method && item.path === routePath);
 
-function lineAt(source: string, offset: number): number {
-  return source.slice(0, offset).split(/\r?\n/).length;
-}
-
-function permissionCodesFromMiddleware(middleware: string): string[] {
+function permissionCodesFromMiddleware(middleware: string, constants: Readonly<Record<string, string[]>>): string[] {
   const codes: string[] = [];
-  const callPattern = /require(?:Any)?Permission\s*\(([^)]*)\)/g;
-  for (const match of middleware.matchAll(callPattern)) {
-    for (const value of match[1].matchAll(/['"]([^'"]+)['"]/g)) codes.push(value[1]);
+  for (const match of middleware.matchAll(/require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
+    for (const value of match[1].matchAll(/["']([^"']+)["']/g)) codes.push(value[1]);
+    for (const identifier of match[1].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (constants[identifier[0]]) codes.push(...constants[identifier[0]]);
   }
   return [...new Set(codes)];
 }
 
-/** Scan a router source string without importing/executing application code. */
-export function scanPermissionRouteSource(source: string, sourceFile: string): PermissionRouteRecord[] {
+/** Scan router source without importing or executing application code. */
+export function scanPermissionRouteSource(source: string, sourceFile: string, constants: Readonly<Record<string, string[]>> = {}): PermissionRouteRecord[] {
   const records: PermissionRouteRecord[] = [];
   const routePattern = /\b[A-Za-z_$][\w$]*\.(get|post|put|patch|delete)\s*\(\s*(['"])([^'"]+)\2\s*,/gi;
   for (const match of source.matchAll(routePattern)) {
     const method = match[1].toUpperCase();
     const routePath = match[3];
-    const start = match.index! + match[0].length;
-    const remainder = source.slice(start, source.indexOf(";", start) < 0 ? source.length : source.indexOf(";", start));
-    const permissionCodes = permissionCodesFromMiddleware(remainder);
-    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b/.test(remainder);
-    const diagnostics: PermissionRouteDiagnostic[] = [];
+    const open = source.indexOf("(", match.index!);
+    let depth = 0; let quote = ""; let close = source.length - 1;
+    for (let cursor = open; cursor < source.length; cursor += 1) {
+      const character = source[cursor];
+      if (quote) { if (character === quote && source[cursor - 1] !== "\\") quote = ""; continue; }
+      if (character === "\"" || character === "'") { quote = character; continue; }
+      if (character === "(") depth += 1;
+      if (character === ")" && --depth === 0) { close = cursor; break; }
+    }
+    const remainder = source.slice(match.index! + match[0].length, close);
+    const permissionCodes = permissionCodesFromMiddleware(remainder, constants);
+    const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(remainder);
+    const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b/.test(remainder) || /\.use\s*\([^;]*\brequireAuth\b/.test(source);
     const line = lineAt(source, match.index!);
     const base = { sourceFile, line, method, path: routePath };
-
-    if (method !== "GET" && !isPublicException(routePath)) {
+    const diagnostics: PermissionRouteDiagnostic[] = [];
+    if (method !== "GET" && !isPublicException(sourceFile, method, routePath)) {
       if (!hasAuthenticationGuard) diagnostics.push({ ...base, kind: "missing-auth", message: "Mutation route has no authentication guard." });
-      if (permissionCodes.length === 0) diagnostics.push({ ...base, kind: "missing-permission", message: "Mutation route has no canonical permission guard." });
+      if (permissionCodes.length === 0) diagnostics.push({ ...base, kind: hasPermissionGuard ? "unknown-permission" : "missing-permission", message: hasPermissionGuard ? "Permission guard uses an unresolved/non-canonical code." : "Mutation route has no canonical permission guard." });
     }
-    for (const code of permissionCodes) {
-      if (!isCanonicalPermission(code) && !LEGACY_PERMISSION_MAP[code]) {
-        diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown permission code: ${code}.` });
-      }
-    }
+    for (const code of permissionCodes) if (!isCanonicalPermission(code)) diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown or non-canonical permission code: ${code}.` });
     records.push({ sourceFile, line, method, path: routePath, isMutation: method !== "GET", hasAuthenticationGuard, permissionCodes, diagnostics });
   }
   return records;
@@ -83,13 +66,29 @@ function sourceFiles(root: string): string[] {
   return fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(root, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);
+    return entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") && (/router|routes/i.test(entry.name) || /[\\/]routes[\\/]/i.test(full)) ? [full] : [];
+  });
+}
+
+function allTypeScriptFiles(root: string): string[] {
+  if (!fs.existsSync(root)) return [];
+  return fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(root, entry.name);
+    if (entry.isDirectory()) return allTypeScriptFiles(full);
     return entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") ? [full] : [];
   });
 }
 
 export function scanPermissionRouteInventory(projectRoot = process.cwd()): PermissionRouteRecord[] {
   const roots = [path.join(projectRoot, "server", "router"), path.join(projectRoot, "server", "modules")];
-  return roots.flatMap(sourceFiles).flatMap((file) => scanPermissionRouteSource(fs.readFileSync(file, "utf8"), path.relative(projectRoot, file)));
+  const files = roots.flatMap(sourceFiles);
+  const constantFiles = roots.flatMap(allTypeScriptFiles);
+  const constants: Record<string, string[]> = {};
+  for (const file of constantFiles) for (const match of fs.readFileSync(file, "utf8").matchAll(/(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*([^;\n]+)/g)) {
+    const values = [...match[2].matchAll(/["']([^"']+:[^"']+)["']/g)].map((value) => value[1]);
+    if (values.length) constants[match[1]] = values;
+  }
+  return files.flatMap((file) => scanPermissionRouteSource(fs.readFileSync(file, "utf8"), path.relative(projectRoot, file).replaceAll(path.sep, "/"), constants));
 }
 
 export function permissionRouteDiagnostics(projectRoot = process.cwd()): PermissionRouteDiagnostic[] {

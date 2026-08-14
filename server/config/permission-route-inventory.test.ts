@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  permissionRouteDiagnostics,
+  scanPermissionRouteInventory,
   scanPermissionRouteSource,
   type PermissionRouteDiagnostic,
 } from "./permission-route-inventory";
@@ -37,10 +39,23 @@ describe("permission route inventory", () => {
 
   it("allows explicitly documented public webhook exceptions", () => {
     const [route] = scanPermissionRouteSource(
-      `router.post("/webhooks/payos", handler);`,
-      "payments.router.ts",
+      `router.post("/payment", handler);`,
+      "server/router/webhook.router.ts",
     );
 
     expect(route.diagnostics).toEqual([]);
+  });
+
+  it("scans the repository router inventory and keeps the current baseline explicit", () => {
+    const routes = scanPermissionRouteInventory(process.cwd());
+    const diagnostics = permissionRouteDiagnostics(process.cwd());
+    expect(routes.length).toBeGreaterThan(0);
+    expect(diagnostics.every((item) => item.sourceFile && item.method && item.path && item.kind)).toBe(true);
+    // This is an audit contract: existing gaps remain visible until route-fix tasks remove them.
+    expect(diagnostics.length).toBeGreaterThan(0);
+    expect(diagnostics.some((item) => item.kind === "unknown-permission")).toBe(true);
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceFile: "server/router/notification.router.ts", method: "POST", path: "/", kind: "missing-permission" }),
+    ]));
   });
 });
