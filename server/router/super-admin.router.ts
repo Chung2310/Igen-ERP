@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getDeploymentEnv } from "../config/env";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { requirePrivilegedSession, requireRealSuperAdmin } from "../middleware/super-admin-auth";
 import { superAdminAuthService } from "../service/super-admin-auth.service";
 import { createTenantRouter } from "./super-admin-tenant.router";
@@ -77,7 +77,7 @@ superAdminRouter.post(
   }
 );
 
-superAdminRouter.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any);
+superAdminRouter.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any, requirePermission("access:manage") as any);
 superAdminRouter.get("/environment", (_req, res) => res.json({ environment: getDeploymentEnv() }));
 superAdminRouter.get("/admins", async (_req, res) => res.json({ admins: await superAdminAccountService.list() }));
 superAdminRouter.post("/admins", validateRequest(createSuperAdminSchema), async (req: any, res) => {
