@@ -1,6 +1,6 @@
 import { Router } from "express";
 import Joi from "joi";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { analyticsController } from "../controller/analytics.controller";
 
@@ -65,32 +65,38 @@ const operatingExpenseSchema = {
 };
 
 /**
- * Khu vực Phân tích & Báo cáo — chỉ dành cho admin/superadmin.
+ * Khu vực Phân tích & Báo cáo — dùng quyền dashboard canonical.
  *
  * Gate đặt ở cấp router (không phải từng route) để mọi endpoint thêm về sau đều
  * được bảo vệ mặc định, không phụ thuộc việc người viết có nhớ gắn middleware hay không.
  *
- * Vì chỉ admin/superadmin truy cập được, mọi truy vấn bên trong luôn ở phạm vi
- * toàn công ty (companyCode lấy từ token). `branchId` nếu có chỉ là bộ lọc hiển
+ * Mọi truy vấn bên trong luôn ở phạm vi công ty (companyCode lấy từ token).
+ * `branchId` nếu có chỉ là bộ lọc hiển
  * thị, không phải ranh giới bảo mật — khác với các module dùng chung cho
  * branch_owner. Xem docs/admin-analytics/research.md mục 3.3.
  */
-analyticsRouter.use(requireAuth as any, requireRole(["admin", "superadmin"]) as any);
+const readPermission = requirePermission("dashboard:read");
+const managePermission = requirePermission("dashboard:manage");
+async function readPermissionGuard(req: any, res: any, next: any) { return readPermission(req, res, next); }
+async function managePermissionGuard(req: any, res: any, next: any) { return managePermission(req, res, next); }
+
+analyticsRouter.use(requireAuth as any);
 
 // Metadata: báo cáo nào đang dùng được, nguồn dữ liệu nào còn thiếu điều kiện
-analyticsRouter.get("/meta", analyticsController.getMeta as any);
+analyticsRouter.get("/meta", readPermissionGuard as any, analyticsController.getMeta as any);
 
 // Doanh thu học phí + bán hàng theo thời gian, kèm so sánh kỳ trước
 analyticsRouter.get(
   "/revenue",
+  readPermissionGuard as any,
   validateRequest(revenueSchema),
   analyticsController.getRevenue as any
 );
 
-analyticsRouter.get("/receivables", validateRequest(receivablesSchema), analyticsController.getReceivables as any);
-analyticsRouter.get("/expenses", validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
-analyticsRouter.get("/operating-expenses", validateRequest(dateRangeSchema), analyticsController.listOperatingExpenses as any);
-analyticsRouter.post("/operating-expenses", validateRequest(operatingExpenseSchema), analyticsController.createOperatingExpense as any);
-analyticsRouter.delete("/operating-expenses/:id", analyticsController.voidOperatingExpense as any);
-analyticsRouter.get("/pnl", validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);
-analyticsRouter.get("/export", validateRequest(exportSchema), analyticsController.exportReport as any);
+analyticsRouter.get("/receivables", readPermissionGuard as any, validateRequest(receivablesSchema), analyticsController.getReceivables as any);
+analyticsRouter.get("/expenses", readPermissionGuard as any, validateRequest(dateRangeSchema), analyticsController.getExpenses as any);
+analyticsRouter.get("/operating-expenses", readPermissionGuard as any, validateRequest(dateRangeSchema), analyticsController.listOperatingExpenses as any);
+analyticsRouter.post("/operating-expenses", managePermissionGuard as any, validateRequest(operatingExpenseSchema), analyticsController.createOperatingExpense as any);
+analyticsRouter.delete("/operating-expenses/:id", managePermissionGuard as any, analyticsController.voidOperatingExpense as any);
+analyticsRouter.get("/pnl", readPermissionGuard as any, validateRequest(dateRangeSchema), analyticsController.getProfitAndLoss as any);
+analyticsRouter.get("/export", readPermissionGuard as any, validateRequest(exportSchema), analyticsController.exportReport as any);

@@ -5,10 +5,10 @@ import { financeReminderRoutes, FINANCE_REMINDER_ROUTE_PERMISSIONS } from "./rou
 
 test("reminder routes expose history, detail, manual run, and retry with exact permissions", () => {
   assert.deepEqual(FINANCE_REMINDER_ROUTE_PERMISSIONS, {
-    "GET /runs": "receivable:read",
-    "GET /runs/:id": "receivable:read",
-    "POST /runs": "receivable:adjust",
-    "POST /deliveries/:id/retry": "receivable:adjust",
+    "GET /runs": "finance:read",
+    "GET /runs/:id": "finance:read",
+    "POST /runs": "finance:manage",
+    "POST /deliveries/:id/retry": "finance:manage",
   });
   const routes = financeReminderRoutes.stack
     .filter((layer: any) => layer.route)

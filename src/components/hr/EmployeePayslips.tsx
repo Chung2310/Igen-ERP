@@ -37,6 +37,13 @@ export default function EmployeePayslips() {
     }
   };
 
+  const printPayslip = async (item: Payslip) => {
+    const blob = await payrollService.printPayslip(item.runId, item.employeeId);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   if (loading) return <div className="p-5 text-sm text-slate-500">Đang tải phiếu lương...</div>;
   if (error) return <div className="p-5 text-sm text-rose-600">{error}</div>;
 
@@ -81,7 +88,7 @@ export default function EmployeePayslips() {
                   className="rounded-lg border p-2 text-slate-600 hover:bg-slate-50 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(payrollService.printPayslip(item.runId, item.employeeId), "_blank", "noopener,noreferrer");
+                    void printPayslip(item);
                   }}
                 >
                   <Printer size={16} />

@@ -9,7 +9,7 @@ import { toast } from "../../pages/Toast";
 
 const workspaceState = vi.hoisted(() => ({
   showWorkers: false,
-  userProfile: { role: "admin", companyCode: "LABOR", permissions: ["worker:read", "worker:manage"] } as any,
+  userProfile: { role: "admin", companyCode: "LABOR", permissions: ["people:read", "people:manage"] } as any,
   centers: [] as Array<{ uid: string; displayName: string }>,
   projectFetch: vi.fn().mockResolvedValue({
     data: [{ _id: "project-1", name: "Project Alpha", code: "PA" }],
@@ -67,7 +67,7 @@ afterEach(() => {
   vi.clearAllMocks();
   cleanup();
   workspaceState.showWorkers = false;
-  workspaceState.userProfile = { role: "admin", companyCode: "LABOR", permissions: ["worker:read", "worker:manage"] };
+  workspaceState.userProfile = { role: "admin", companyCode: "LABOR", permissions: ["people:read", "people:manage"] };
   workspaceState.centers = [];
 });
 
@@ -143,7 +143,7 @@ describe("WorkerWorkspace", () => {
 
   it("does not expose the previous company's projects while a new scope loads", async () => {
     workspaceState.showWorkers = true;
-    workspaceState.userProfile = { role: "superadmin", permissions: ["worker:read", "worker:manage"] };
+    workspaceState.userProfile = { role: "superadmin", permissions: ["people:read", "people:manage"] };
     workspaceState.centers = [
       { uid: "COMPANY-A", displayName: "Company A" },
       { uid: "COMPANY-B", displayName: "Company B" },

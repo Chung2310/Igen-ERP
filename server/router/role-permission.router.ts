@@ -1,10 +1,15 @@
 import { Router } from "express";
 import Joi from "joi";
 import { rolePermissionController } from "../controller/role-permission.controller";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { isCanonicalPermission } from "../config/permission-catalog";
 
 export const rolePermissionRouter = Router();
+
+// Superadmin is the documented control-plane exception: the controller may use
+// its explicit companyCode. Non-superadmin requests are tenant-scoped by the
+// controller after these canonical access permission guards run.
 
 const saveRolePermissionSchema = {
   body: Joi.object({
@@ -12,8 +17,11 @@ const saveRolePermissionSchema = {
     role: Joi.string().required().messages({
       "any.required": "Vai trò là bắt buộc.",
     }),
-    permissions: Joi.array().items(Joi.string()).required().messages({
+    permissions: Joi.array().items(Joi.string().custom((value, helpers) =>
+      value !== "*" && isCanonicalPermission(value) ? value : helpers.error("any.invalid")
+    )).required().messages({
       "any.required": "Mảng danh sách mã quyền permissions là bắt buộc.",
+      "any.invalid": "Danh sách chứa mã quyền không hợp lệ.",
     }),
     level: Joi.number().integer().min(1).required().messages({
       "any.required": "Cấp bậc vai trò (level) là bắt buộc.",
@@ -48,7 +56,7 @@ const rolePermissionParamsSchema = {
 rolePermissionRouter.post(
   "/",
   requireAuth as any,
-  requireRole(["superadmin", "admin"]) as any,
+  requirePermission("access:manage") as any,
   validateRequest(saveRolePermissionSchema),
   rolePermissionController.save as any
 );
@@ -57,6 +65,7 @@ rolePermissionRouter.post(
 rolePermissionRouter.get(
   "/",
   requireAuth as any,
+  requirePermission("access:read") as any,
   validateRequest(getRolePermissionsQuerySchema),
   rolePermissionController.getList as any
 );
@@ -65,6 +74,7 @@ rolePermissionRouter.get(
 rolePermissionRouter.get(
   "/:role",
   requireAuth as any,
+  requirePermission("access:read") as any,
   validateRequest(rolePermissionParamsSchema),
   rolePermissionController.getDetail as any
 );
@@ -73,7 +83,7 @@ rolePermissionRouter.get(
 rolePermissionRouter.delete(
   "/:role",
   requireAuth as any,
-  requireRole(["superadmin", "admin"]) as any,
+  requirePermission("access:manage") as any,
   validateRequest(rolePermissionParamsSchema),
   rolePermissionController.delete as any
 );

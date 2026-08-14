@@ -16,6 +16,7 @@ import batchRoutes from "./batch.routes";
 import scheduleRoutes from "./schedule.routes";
 import partnerRoutes from "./partner.routes";
 import { logger } from "../config/logger";
+import { requirePermission } from "../../../middleware/auth";
 
 const router = Router();
 
@@ -40,7 +41,7 @@ import { EmailService } from "../services/email.service";
 import { AuthService } from "../services/auth.service";
 import { companyEmailService } from "../../../service/company-email.service";
 
-router.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
+router.post("/send-email", authMiddleware as unknown as RequestHandler, requirePermission("settings:manage") as RequestHandler, async (req: AuthRequest, res) => {
   try {
     const { to, subject, html, check } = req.body;
 
@@ -87,7 +88,7 @@ router.post("/send-email", authMiddleware as unknown as RequestHandler, async (r
 
 
 // Endpoint to log client-side crashes and runtime errors
-router.post("/log-client-error", (req, res) => {
+router.post("/log-client-error", authMiddleware as unknown as RequestHandler, requirePermission("people:read") as RequestHandler, (req, res) => {
   const { error, info } = req.body;
   const logMessage = `[${new Date().toISOString()}] CLIENT ERROR: ${error}\nINFO: ${JSON.stringify(info)}\n\n`;
   try {

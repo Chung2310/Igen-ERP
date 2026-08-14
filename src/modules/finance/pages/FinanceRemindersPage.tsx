@@ -5,7 +5,7 @@ import {
   type ReminderRunDetail,
 } from "../api/financeReminders.api";
 const permitted = (permissions: readonly string[]) =>
-  permissions.includes("*") || permissions.includes("receivable:adjust");
+  permissions.includes("*") || permissions.includes("finance:manage");
 export default function FinanceRemindersPage({
   permissions,
 }: {

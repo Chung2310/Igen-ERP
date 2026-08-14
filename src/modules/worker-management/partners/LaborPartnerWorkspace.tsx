@@ -13,7 +13,19 @@ import { LaborPartnerKpiPanel } from "./components/LaborPartnerKpiPanel";
 
 type WorkspaceTab = "partners" | "policies" | "kpi" | "settlements";
 const today = () => new Date().toISOString().slice(0, 10);
-const has = (permissions: readonly string[] | undefined, permission: string) => Boolean(permissions?.includes("*") || permissions?.includes(permission));
+const LABOR_PERMISSION_FALLBACKS: Record<string, readonly string[]> = {
+  "labor-partner:read": ["relationship:read", "relationship:manage"],
+  "labor-partner:manage": ["relationship:manage"],
+  "labor-partner-policy:manage": ["relationship:manage"],
+  "labor-partner-settlement:calculate": ["relationship:manage"],
+  "labor-partner-settlement:approve": ["relationship:manage"],
+  "labor-partner-payout:manage": ["relationship:manage"],
+};
+const has = (permissions: readonly string[] | undefined, permission: string) => Boolean(
+  permissions?.includes("*") ||
+  permissions?.includes(permission) ||
+  LABOR_PERMISSION_FALLBACKS[permission]?.some((fallback) => permissions?.includes(fallback)),
+);
 
 export function LaborPartnerWorkspace() {
   const { userProfile } = useAuth();

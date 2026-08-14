@@ -28,52 +28,10 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
   return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
 };
 
-/**
- * Quyền đọc tối thiểu theo model. Cố ý KHÔNG liệt kê `hr-leave-templates` và
- * `hr-leave-applications`: nộp đơn từ là quyền mặc định của mọi nhân viên đã đăng nhập —
- * ai cũng phải tải được biểu mẫu và xem đơn của chính mình. Việc thu hẹp phạm vi do
- * crudController đảm nhiệm (người không có `leave:approve` bị ép `filters.employeeId`
- * về chính mình), còn duyệt đơn và đăng biểu mẫu bị `canApproveLeave` chặn riêng.
- */
-const CRUD_MODEL_READ_PERMISSION: Record<string, string | string[]> = {
-  products: "stock:read",
-  categories: "stock:read",
-  "stock-logs": "stock:read",
-  "kanban-tasks": "kanban:read",
-  projects: "project:read",
-  "hr-calendar-events": "timekeeping:read",
-  "timekeeping-logs": ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
-  workflows: "hr:read",
-  "training-courses": "hr:read",
-  "training-enrollments": "hr:read",
-  users: "user:read",
-};
+type CrudPermissionRequirement = string | string[];
+type CrudSelfServicePolicy = "self-service";
 
-const CRUD_MODEL_MANAGE_PERMISSION: Record<string, string | string[]> = {
-  products: "stock:manage",
-  categories: "stock:manage",
-  "stock-logs": "stock:manage",
-  "kanban-tasks": "kanban:manage",
-  projects: "project:manage",
-  "hr-calendar-events": "timekeeping:manage",
-  "timekeeping-logs": ["timekeeping:manage", "payroll:manage"],
-  users: "user:manage",
-};
-
-const crudReadPermissionGuard = (req: any, res: any, next: any) => {
-  const code = CRUD_MODEL_READ_PERMISSION[String(req.params.modelName || "").toLowerCase()];
-  return code ? requirePermission(code)(req, res, next) : next();
-};
-
-const crudManagePermissionGuard = (req: any, res: any, next: any) => {
-  const modelName = String(req.params.modelName || "").toLowerCase();
-  const code = modelName === "timekeeping-logs" && req.method !== "PATCH"
-    ? "timekeeping:manage"
-    : CRUD_MODEL_MANAGE_PERMISSION[modelName];
-  return code ? requirePermission(code)(req, res, next) : next();
-};
-
-const SUPPORTED_MODELS = [
+export const SUPPORTED_CRUD_MODELS = [
   "products",
   "categories",
   "stock-logs",
@@ -87,11 +45,62 @@ const SUPPORTED_MODELS = [
   "hr-leave-templates",
   "hr-leave-applications",
   "timekeeping-logs",
-];
+] as const;
+
+/**
+ * Every generic CRUD model has an explicit policy. Leave self-service routes
+ * are still authenticated by requireAuth; ownership and approval scope are
+ * enforced by crudController.
+ */
+export const CRUD_MODEL_PERMISSION_POLICY: Record<string, {
+  read: CrudPermissionRequirement | CrudSelfServicePolicy;
+  manage: CrudPermissionRequirement | CrudSelfServicePolicy;
+}> = {
+  products: { read: "inventory:read", manage: "inventory:manage" },
+  categories: { read: "inventory:read", manage: "inventory:manage" },
+  "stock-logs": { read: "inventory:read", manage: "inventory:manage" },
+  "kanban-tasks": { read: "work:read", manage: "work:manage" },
+  projects: { read: "work:read", manage: "work:manage" },
+  "training-courses": { read: "hr:read", manage: "hr:manage" },
+  "training-enrollments": { read: "hr:read", manage: "hr:manage" },
+  workflows: { read: "hr:read", manage: "hr:manage" },
+  users: { read: "access:read", manage: "access:manage" },
+  "hr-calendar-events": { read: "timekeeping:read", manage: "timekeeping:manage" },
+  "hr-leave-templates": { read: "self-service", manage: "timekeeping:manage" },
+  "hr-leave-applications": { read: "self-service", manage: "self-service" },
+  "timekeeping-logs": {
+    read: ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
+    manage: ["timekeeping:manage", "payroll:manage"],
+  },
+};
+
+const rejectUnknownCrudPolicy = (res: any) => res.status(403).json({
+  status: "error",
+  message: "Không có chính sách quyền cho model CRUD này.",
+});
+
+const runCrudPermissionPolicy = (action: "read" | "manage", req: any, res: any, next: any) => {
+  const modelName = String(req.params.modelName || "").toLowerCase();
+  const policy = CRUD_MODEL_PERMISSION_POLICY[modelName];
+  if (!policy) return rejectUnknownCrudPolicy(res);
+
+  let requirement = policy[action];
+  if (modelName === "timekeeping-logs" && action === "manage" && req.method !== "PATCH") {
+    requirement = "timekeeping:manage";
+  }
+  if (requirement === "self-service") return next();
+  return requirePermission(requirement)(req, res, next);
+};
+
+export const crudReadPermissionGuard = (req: any, res: any, next: any) =>
+  runCrudPermissionPolicy("read", req, res, next);
+
+export const crudManagePermissionGuard = (req: any, res: any, next: any) =>
+  runCrudPermissionPolicy("manage", req, res, next);
 
 const listSchema = {
   params: Joi.object({
-    modelName: Joi.string().valid(...SUPPORTED_MODELS).required().messages({
+    modelName: Joi.string().valid(...SUPPORTED_CRUD_MODELS).required().messages({
       "any.only": "Tên Model không được hỗ trợ hoặc không hợp lệ.",
       "any.required": "Tên Model là tham số bắt buộc.",
     }),
@@ -106,7 +115,7 @@ const listSchema = {
 
 const getByIdSchema = {
   params: Joi.object({
-    modelName: Joi.string().valid(...SUPPORTED_MODELS).required().messages({
+    modelName: Joi.string().valid(...SUPPORTED_CRUD_MODELS).required().messages({
       "any.only": "Tên Model không được hỗ trợ hoặc không hợp lệ.",
       "any.required": "Tên Model là tham số bắt buộc.",
     }),
@@ -119,7 +128,7 @@ const getByIdSchema = {
 
 const createSchema = {
   params: Joi.object({
-    modelName: Joi.string().valid(...SUPPORTED_MODELS).required().messages({
+    modelName: Joi.string().valid(...SUPPORTED_CRUD_MODELS).required().messages({
       "any.only": "Tên Model không được hỗ trợ hoặc không hợp lệ.",
       "any.required": "Tên Model là tham số bắt buộc.",
     }),
@@ -132,7 +141,7 @@ const createSchema = {
 
 const updateSchema = {
   params: Joi.object({
-    modelName: Joi.string().valid(...SUPPORTED_MODELS).required().messages({
+    modelName: Joi.string().valid(...SUPPORTED_CRUD_MODELS).required().messages({
       "any.only": "Tên Model không được hỗ trợ hoặc không hợp lệ.",
       "any.required": "Tên Model là tham số bắt buộc.",
     }),
@@ -149,7 +158,7 @@ const updateSchema = {
 
 const deleteSchema = {
   params: Joi.object({
-    modelName: Joi.string().valid(...SUPPORTED_MODELS).required().messages({
+    modelName: Joi.string().valid(...SUPPORTED_CRUD_MODELS).required().messages({
       "any.only": "Tên Model không được hỗ trợ hoặc không hợp lệ.",
       "any.required": "Tên Model là tham số bắt buộc.",
     }),

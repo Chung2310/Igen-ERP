@@ -192,7 +192,7 @@ async function handleError(res: Response, error: any) {
 
 kanbanRouter.use(requireAuth as any);
 
-kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (req.user?.branchId) {
@@ -232,7 +232,7 @@ kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: 
   }
 });
 
-kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const companyCode = req.user?.companyCode || "SYSTEM";
     const status = normalizeStatus(req.body.status);
@@ -371,7 +371,7 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
   }
 });
 
-kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.delete("/tasks/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
@@ -390,7 +390,7 @@ kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, asy
   }
 });
 
-kanbanRouter.get("/projects", requirePermission("project:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/projects", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (req.user?.branchId) {
@@ -412,7 +412,7 @@ kanbanRouter.get("/projects", requirePermission("project:read") as any, async (r
   }
 });
 
-kanbanRouter.post("/projects", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/projects", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const companyCode = req.user?.companyCode || "SYSTEM";
     const name = String(req.body.name || "").trim();
@@ -446,7 +446,7 @@ kanbanRouter.post("/projects", requirePermission("project:manage") as any, async
   }
 });
 
-kanbanRouter.patch("/projects/:id", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.patch("/projects/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const project: any = await ProjectModel.findOne({ _id: req.params.id, ...projectScope(req) }).lean();
     if (!project) throw httpError(404, "Không tìm thấy dự án.");
@@ -469,7 +469,7 @@ kanbanRouter.patch("/projects/:id", requirePermission("project:manage") as any, 
   } catch (error) { return handleError(res, error); }
 });
 
-kanbanRouter.delete("/projects/:id", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.delete("/projects/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...projectScope(req) });
     if (!project) throw httpError(404, "Không tìm thấy dự án.");

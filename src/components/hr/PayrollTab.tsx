@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
+import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlags";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
@@ -12,7 +13,16 @@ import { getPayrollProcessingAction, hasActivePolicyForMonth } from "./payroll/p
 import { PayrollPolicyManager } from "./payroll/PayrollPolicyManager";
 import { PayrollFormulaLibrary } from "./payroll/PayrollFormulaLibrary";
 import { PayrollCustomVariableManager } from "./payroll/PayrollCustomVariableManager";
-import { buildDirtyRows, removeDraftField, restoreDraftField, retainFailedDrafts, setDraftValue, type InlineInputDrafts } from "./payroll/payrollInlineInputs";
+import {
+  PAYROLL_RESULT_FIELDS,
+  buildLineOverrideRows,
+  previewPayrollLine,
+  restoreLineOverrideDraftField,
+  retainFailedLineOverrideDrafts,
+  setLineOverrideDraftValue,
+  type PayrollLineOverrideDrafts,
+  type PayrollLineOverrideField,
+} from "./payroll/payrollLineOverrides";
 
 type SortDir = "asc" | "desc";
 
@@ -80,15 +90,6 @@ const STEPS = [
   { key: "paid", label: "Đã thanh toán" },
 ] as const;
 
-const INPUT_FIELDS = [
-  { key: "agreedSalary", label: "Lương thỏa thuận", source: "monthlySalary", unit: "đ" },
-  { key: "reconciledDays", label: "Ngày đối soát", source: "workedDays", unit: "ngày" },
-  { key: "reconciledHours", label: "Giờ đối soát", source: "workedHours", unit: "giờ" },
-  { key: "allowance", label: "Phụ cấp", source: "allowance", unit: "đ" },
-  { key: "bonus", label: "Thưởng", source: "bonus", unit: "đ" },
-  { key: "deduction", label: "Khấu trừ", source: "deduction", unit: "đ" },
-] as const;
-
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
@@ -108,8 +109,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [processingPayroll, setProcessingPayroll] = useState(false);
   const [payrollPolicies, setPayrollPolicies] = useState<any[]>([]);
   const [policiesLoaded, setPoliciesLoaded] = useState(false);
-  const [periodInputs, setPeriodInputs] = useState<any>({ items: [], variables: [], editable: true, needsRefresh: false });
-  const [inputDrafts, setInputDrafts] = useState<InlineInputDrafts>({});
+  const [lineOverrides, setLineOverrides] = useState<any[]>([]);
+  const [customVariables, setCustomVariables] = useState<any[]>([]);
+  const [inputDrafts, setInputDrafts] = useState<PayrollLineOverrideDrafts>({});
   const [inputErrors, setInputErrors] = useState<Record<string, string>>({});
   const [inputSaveOpen, setInputSaveOpen] = useState(false);
   const [inputReason, setInputReason] = useState("");
@@ -124,11 +126,24 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [adjSaving, setAdjSaving] = useState(false);
 
   const loadPolicies = async () => { setPoliciesLoaded(false); try { setPayrollPolicies(await payrollService.getPolicies()); } catch { setPayrollPolicies([]); } finally { setPoliciesLoaded(true); } };
-  const loadPeriodInputs = async () => { try { setPeriodInputs(await payrollService.getPeriodInputs(period)); } catch { setPeriodInputs({ items: [], variables: [], editable: true, needsRefresh: false }); } };
+  const loadLineOverrides = async () => {
+    try { setLineOverrides(await payrollService.getLineOverrides(period)); } catch { setLineOverrides([]); }
+    try {
+      const variables = await payrollService.getPeriodInputVariables();
+      setCustomVariables((Array.isArray(variables) ? variables : []).filter((item: any) => item.status === "active"));
+    } catch { setCustomVariables([]); }
+  };
+  const clearLocalOverrideState = () => {
+    setInputDrafts({});
+    setInputErrors({});
+    setLineOverrides([]);
+    setInputSaveOpen(false);
+    setInputReason("");
+  };
   const reload = async () => { try { setRun(await payrollService.getRun(period)); } catch { setRun(null); } try { setResults(await payrollService.getResults(period)); } catch { setResults([]); } try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); } };
-  useEffect(() => { void reload(); void loadPeriodInputs(); }, [period]);
+  useEffect(() => { void reload(); void loadLineOverrides(); }, [period]);
   useEffect(() => { void loadPolicies(); }, []);
-  useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); setInputDrafts({}); setInputErrors({}); }, [period]);
+  useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
 
   const exportCsv = () => { const rows = run?.lines || results; const csv = ["employeeId,adjustedBase,overtime,net", ...rows.map((line: any) => [line.employeeId, line.calculation?.adjustedBase || "", line.calculation?.overtime || "", line.calculation?.net || ""].join(","))].join("\\n"); const blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `payroll-${period}.csv`; anchor.click(); URL.revokeObjectURL(url); };
   const exportExcel = () => {
@@ -157,9 +172,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
     XLSX.writeFile(workbook, `bang-luong-${period}.xlsx`);
   };
-  const action = async (fn: () => Promise<unknown>, success: string) => {
+  const action = async (fn: () => Promise<unknown>, success: string, onSuccess?: () => void | Promise<void>) => {
     try {
       await fn();
+      await onSuccess?.();
       toast.success(success);
       await reload();
     } catch (error) {
@@ -173,40 +189,27 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     : run?.status === "review" ? 1
     : run || allLocked || results.length > 0 ? 0
     : -1;
+  const inlineEditable = canManage && run?.status === "draft";
 
   const runRows = useMemo(() => {
     if (!run) return [];
-    return run.lines.map((line: any) => {
+    return (run.effectiveLines ?? []).map((line: any) => {
       const originalResult = results.find((r) => r.employeeId === line.employeeId);
-      const details = buildPayrollDetails({}, line.calculation || {}, line.vietnam);
+      const preview = previewPayrollLine(line, inlineEditable ? inputDrafts[String(line.employeeId)] : undefined);
+      const segment = line.segmentLines?.[0] ?? {};
       return {
+        ...line,
+        ...preview.values,
         employeeId: line.employeeId,
         employeeName: line.employeeName || originalResult?.employeeName || "",
-        baseSalary: originalResult?.monthlySalary || line.calculation?.monthlySalary || 0,
-        adjustedBase: line.calculation?.adjustedBase || 0,
-        overtime: line.calculation?.overtime || 0,
-        // Thưởng = khoản thưởng đã duyệt + phần điều chỉnh dương; Phạt = khấu trừ đã duyệt + phần điều chỉnh âm.
-        bonusTotal: Number(line.calculation?.bonuses || 0) + Math.max(Number(line.calculation?.adjustments || 0), 0),
-        penaltyTotal: Number(line.calculation?.otherDeductions || 0) + Math.max(-Number(line.calculation?.adjustments || 0), 0),
-        net: line.calculation?.net || 0,
-        socialInsurance: details.deductionBreakdown.socialInsurance,
-        healthInsurance: details.deductionBreakdown.healthInsurance,
-        unemploymentInsurance: details.deductionBreakdown.unemploymentInsurance,
-        personalIncomeTax: details.deductionBreakdown.personalIncomeTax,
-        otherDeductions: details.deductionBreakdown.otherDeductions,
-        advances: details.deductionBreakdown.advances,
-        deductionTotal: details.deductionBreakdown.total || 0,
-        gross: line.calculation?.gross || 0,
-        workedDays: line.calculation?.workedDays || 0,
-        workedHours: Number(line.calculation?.workedMinutes || 0) / 60,
-        monthlySalary: originalResult?.monthlySalary || line.calculation?.monthlySalary || 0,
-        allowance: Number(line.calculation?.allowances || 0),
-        bonus: Number(line.calculation?.bonuses || 0),
-        deduction: Number(line.calculation?.otherDeductions || 0),
-        vietnam: line.vietnam || details.vietnam || {},
+        deductionTotal: preview.deductionTotal,
+        net: preview.net,
+        calculation: segment.calculation,
+        attendance: segment.attendance,
+        vietnam: segment.vietnam,
       };
     });
-  }, [run, results]);
+  }, [run, results, inputDrafts, inlineEditable]);
 
   const draftRows = useMemo(() => results.map((row: any) => ({
     employeeId: row.employeeId,
@@ -257,6 +260,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setProcessingPayroll(true);
     try {
       await payrollService.processPeriod(period);
+      clearLocalOverrideState();
+      await loadLineOverrides();
       toast.success(run ? "Đã cập nhật bảng lương" : "Đã tính bảng lương");
       await reload();
     } catch (error) {
@@ -312,54 +317,56 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     }
   };
 
-  const inlineEditable = canManage && periodInputs.editable && (!run || run.status === "draft");
-  const persistedInput = (employeeId: string) => periodInputs.items.find((item: any) => String(item.employeeId) === String(employeeId)) ?? {};
-  const persistedFieldValue = (employeeId: string, field: string) => {
-    const item = persistedInput(employeeId);
-    return field.startsWith("custom.") ? item.customValues?.[field.slice(7)] : item[field];
-  };
-  const renderInputCell = (row: any, field: string, sourceValue: number, unit: string) => {
+  const persistedOverride = (employeeId: string) => lineOverrides.find((item: any) => String(item.employeeId) === String(employeeId)) ?? {};
+  const renderResultCell = (row: any, field: PayrollLineOverrideField, systemValue: number, effectiveValue: number) => {
     const employeeId = String(row.employeeId);
     const draft = inputDrafts[employeeId];
     const isDirty = Boolean(draft && (Object.prototype.hasOwnProperty.call(draft.values, field) || draft.clearFields.includes(field)));
-    const persisted = persistedFieldValue(employeeId, field);
-    const hasPersisted = persisted !== undefined && persisted !== null;
-    const value = draft && Object.prototype.hasOwnProperty.call(draft.values, field) ? draft.values[field] : draft?.clearFields.includes(field) ? "" : hasPersisted ? persisted : "";
+    const persisted = persistedOverride(employeeId);
+    const hasPersisted = field.startsWith("custom.")
+      ? Object.prototype.hasOwnProperty.call(persisted.customValues ?? {}, field.slice("custom.".length))
+      : Object.prototype.hasOwnProperty.call(persisted, field);
+    const value = draft && Object.prototype.hasOwnProperty.call(draft.values, field)
+      ? draft.values[field]
+      : draft?.clearFields.includes(field)
+        ? systemValue
+        : effectiveValue;
     return <td key={field} className={`min-w-[145px] p-2 align-top ${isDirty ? "bg-amber-50" : hasPersisted ? "bg-cyan-50/70" : ""}`}>
       <input
         aria-label={`${field}-${employeeId}`}
         type="number"
         min="0"
         step="any"
-        disabled={!inlineEditable || inputSaving}
+        disabled={inputSaving}
         value={value}
-        placeholder={String(sourceValue ?? 0)}
-        onChange={(event) => setInputDrafts(current => event.target.value === "" ? removeDraftField(current, employeeId, field) : setDraftValue(current, employeeId, field, Number(event.target.value)))}
-        className={`w-full rounded-md border px-2 py-1 text-right text-xs outline-none disabled:bg-transparent ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-cyan-400 bg-cyan-50" : "border-slate-200"}`}
+        onChange={(event) => setInputDrafts(current => setLineOverrideDraftValue(current, employeeId, field, event.target.value === "" ? 0 : Number(event.target.value)))}
+        className={`w-full rounded-md border px-2 py-1 text-right text-xs outline-none ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-cyan-400 bg-cyan-50" : "border-slate-200"}`}
       />
       <div className="mt-1 flex items-center justify-between gap-1 text-[9px]">
-        <span className={isDirty ? "font-bold text-amber-700" : hasPersisted ? "font-semibold text-cyan-700" : "text-slate-400"}>{isDirty ? "Chưa lưu" : hasPersisted ? `Nguồn: ${Number(sourceValue ?? 0).toLocaleString()} ${unit}` : `Nguồn: ${Number(sourceValue ?? 0).toLocaleString()} ${unit}`}</span>
-        {inlineEditable && hasPersisted && !draft?.clearFields.includes(field) && <button type="button" onClick={() => setInputDrafts(current => restoreDraftField(current, employeeId, field))} className="text-cyan-700 underline cursor-pointer">Hoàn tác</button>}
+        <span className={isDirty ? "font-bold text-amber-700" : hasPersisted ? "font-semibold text-cyan-700" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${Number(systemValue).toLocaleString()}`}</span>
+        {field === "adjustedBase" && <button aria-label={`Chi tiết adjustedBase-${employeeId}`} type="button" onClick={() => void openFormulaRow(row)} className="text-slate-500 underline cursor-pointer">Chi tiết</button>}
+        {hasPersisted && !draft?.clearFields.includes(field) && <button aria-label={`Khôi phục ${field}-${employeeId}`} type="button" onClick={() => setInputDrafts(current => restoreLineOverrideDraftField(current, employeeId, field))} className="text-cyan-700 underline cursor-pointer">Khôi phục</button>}
       </div>
     </td>;
   };
 
-  const saveInlineInputs = async () => {
+  const saveLineOverrides = async () => {
     if (!inputReason.trim()) { toast.error("Vui lòng nhập lý do đối soát"); return; }
     setInputSaving(true);
     try {
-      const response = await payrollService.bulkSavePeriodInputs(period, buildDirtyRows(inputDrafts, periodInputs.items, inputReason));
-      const results = Array.isArray(response) ? response : [];
-      const retained = retainFailedDrafts(inputDrafts, results);
+      const versionSources = lineOverrides.length ? lineOverrides : (run?.effectiveLines ?? []);
+      const response = await payrollService.bulkSaveLineOverrides(period, buildLineOverrideRows(inputDrafts, versionSources, inputReason));
+      const saveResults = Array.isArray(response) ? response : [];
+      const retained = retainFailedLineOverrideDrafts(inputDrafts, saveResults);
       setInputDrafts(retained.drafts);
       setInputErrors(retained.errors);
-      await loadPeriodInputs();
+      await loadLineOverrides();
       await reload();
       const failed = Object.keys(retained.errors).length;
       if (failed) toast.error(`${failed} nhân viên chưa lưu được; các dòng thành công đã được cập nhật`);
-      else { toast.success("Đã lưu dữ liệu đầu vào. Hãy cập nhật lại bảng lương khi sẵn sàng."); setInputSaveOpen(false); setInputReason(""); }
+      else { toast.success("Đã lưu điều chỉnh kết quả lương"); setInputSaveOpen(false); setInputReason(""); }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không thể lưu dữ liệu đầu vào");
+      toast.error(error instanceof Error ? error.message : "Không thể lưu điều chỉnh kết quả lương");
     } finally { setInputSaving(false); }
   };
 
@@ -376,9 +383,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.lines?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
-    {canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
+    {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
     {canManage && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -468,14 +475,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương")} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button onClick={() => void action(() => payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
@@ -517,10 +524,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         </div>
       </div>
 
-      {(periodInputs.needsRefresh || Object.keys(inputDrafts).length > 0) && (
+      {run && Object.keys(inputDrafts).length > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
           <span className="text-xs font-semibold text-amber-800">
-            {Object.keys(inputDrafts).length > 0 ? `${Object.keys(inputDrafts).length} nhân viên có thay đổi chưa lưu` : "Bảng lương cần cập nhật"}
+            {`${Object.keys(inputDrafts).length} nhân viên có thay đổi chưa lưu`}
           </span>
           {inlineEditable && Object.keys(inputDrafts).length > 0 && <button type="button" onClick={() => setInputSaveOpen(true)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-700 cursor-pointer">Lưu thay đổi</button>}
         </div>
@@ -531,75 +538,52 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           {run ? (
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
+                <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
+                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-left font-bold">Thông tin nhân viên</th>
+                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className="border-l-2 border-cyan-200 bg-cyan-50 p-2 text-center font-bold text-cyan-800">Các khoản có thể chỉnh sửa</th>
+                  <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
+                  <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
+                </tr>
                 <tr className="border-b text-xs text-slate-500">
-                  <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  {inlineEditable && INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
-                  {inlineEditable && periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
-                  <SortHeader label="Lương cơ bản" sortKey="baseSalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Lương điều chỉnh" sortKey="adjustedBase" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Tăng ca" sortKey="overtime" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Thưởng" sortKey="bonusTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Phạt" sortKey="penaltyTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="BHXH" sortKey="socialInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="BHYT" sortKey="healthInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="BHTN" sortKey="unemploymentInsurance" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Thuế TNCN" sortKey="personalIncomeTax" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Khấu trừ khác" sortKey="otherDeductions" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <SortHeader label="Tạm ứng" sortKey="advances" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
+                  {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={14 + (inlineEditable ? INPUT_FIELDS.length + periodInputs.variables.length : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={14 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="p-3 font-medium text-slate-700">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{line.employeeName || "Chưa có tên"}</span>
-                        {run?.publishedEmployeeIds?.includes(line.employeeId) ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-[9px] font-semibold text-emerald-700 border border-emerald-100">Đã phát hành</span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-semibold text-slate-500 border border-slate-200">Chưa phát hành</span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{line.employeeId}</div>
+                    <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700">
+                      <div>{line.employeeName || "Chưa có tên"}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
-                    {inlineEditable && INPUT_FIELDS.map(field => renderInputCell(line, field.key, Number(line[field.source] ?? 0), field.unit))}
-                    {inlineEditable && periodInputs.variables.map((variable: any) => renderInputCell(line, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
-                    <td className="p-3 text-right text-slate-600">{Number(line.baseSalary).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600"><button onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line.adjustedBase).toLocaleString()} đ</button></td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.overtime).toLocaleString()} đ</td>
-                    <td className={`p-3 text-right ${line.bonusTotal > 0 ? "font-semibold text-emerald-700" : "text-slate-400"}`}>{Number(line.bonusTotal).toLocaleString()} đ</td>
-                    <td className={`p-3 text-right ${line.penaltyTotal > 0 ? "font-semibold text-rose-700" : "text-slate-400"}`}>{Number(line.penaltyTotal).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.socialInsurance).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.healthInsurance).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.unemploymentInsurance).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.personalIncomeTax).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.otherDeductions).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-slate-600">{Number(line.advances).toLocaleString()} đ</td>
-                    <td className="p-3 text-right font-semibold text-rose-700">{Number(line.deductionTotal).toLocaleString()} đ</td>
-                    <td className="p-3 text-right font-bold text-slate-900">{Number(line.net).toLocaleString()} đ</td>
+                    {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
+                      ? renderResultCell(line, field.key, Number(line.systemValues[field.key]), Number(line[field.key]))
+                      : <td key={field.key} className="p-3 text-right text-slate-600">{field.key === "adjustedBase"
+                        ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{Number(line[field.key]).toLocaleString()} đ</button>
+                        : `${Number(line[field.key]).toLocaleString()} đ`}</td>)}
+                    {customVariables.map((variable: any) => {
+                      const field = `custom.${variable.code}` as const;
+                      const systemValue = Number(line.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0);
+                      const effectiveValue = Number(line.customValues?.[variable.code] ?? systemValue);
+                      return inlineEditable
+                        ? renderResultCell(line, field, systemValue, effectiveValue)
+                        : <td key={field} className="p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
+                    })}
+                    <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{Number(line.deductionTotal).toLocaleString()} đ</span></td>
+                    <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{Number(line.net).toLocaleString()} đ</span></td>
                   </tr>
                 ))}
               </tbody>
               {filteredSortedRunRows.length > 0 && (
                 <tfoot>
                   <tr className="border-t bg-slate-50 font-bold text-slate-700">
-                    <td colSpan={inlineEditable ? 1 + INPUT_FIELDS.length + periodInputs.variables.length : 1} className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.baseSalary, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.adjustedBase, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.overtime, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-emerald-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.bonusTotal, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right text-rose-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.penaltyTotal, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.socialInsurance, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.healthInsurance, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.unemploymentInsurance, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.personalIncomeTax, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.otherDeductions, 0).toLocaleString()} đ</td>
-                    <td className="p-3 text-right">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.advances, 0).toLocaleString()} đ</td>
+                    <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
+                    {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0).toLocaleString()} đ</td>)}
+                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0).toLocaleString()}</td>)}
                     <td className="p-3 text-right text-rose-700">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0).toLocaleString()} đ</td>
                     <td className="p-3 text-right text-slate-900">{filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0).toLocaleString()} đ</td>
                   </tr>
@@ -615,8 +599,6 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  {INPUT_FIELDS.map(field => <th key={field.key} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{field.label}</th>)}
-                  {periodInputs.variables.map((variable: any) => <th key={variable.code} className="min-w-[145px] p-3 text-right font-semibold text-slate-500">{variable.name}</th>)}
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
@@ -624,15 +606,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4 + INPUT_FIELDS.length + periodInputs.variables.length}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={4 + INPUT_FIELDS.length + periodInputs.variables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={4}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div><div className="text-[10px] text-slate-400">{row.employeeId}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
-                      {INPUT_FIELDS.map(field => renderInputCell(row, field.key, Number(row[field.source] ?? 0), field.unit))}
-                      {periodInputs.variables.map((variable: any) => renderInputCell(row, `custom.${variable.code}`, Number(variable.defaultValue ?? 0), variable.unit === "percent" ? "%" : variable.unit === "hours" ? "giờ" : "đ"))}
+                      <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
                       <td className="p-3 text-right text-slate-600">{Number(row.monthlySalary).toLocaleString()} đ</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
@@ -664,7 +644,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           </div>
           <div className="flex justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50 px-5 py-3">
             <button disabled={inputSaving} onClick={() => setInputSaveOpen(false)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50 cursor-pointer">Hủy</button>
-            <button disabled={inputSaving || !inputReason.trim()} onClick={() => void saveInlineInputs()} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">
+            <button disabled={inputSaving || !inputReason.trim()} onClick={() => void saveLineOverrides()} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">
               {inputSaving && <RefreshCw size={14} className="animate-spin" />} Lưu thay đổi
             </button>
           </div>
@@ -680,7 +660,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       onCancel={() => setResetConfirmOpen(false)}
       onConfirm={async () => {
         setResetting(true);
-        await action(() => payrollService.reset(period), "Đã xóa kỳ lương");
+        await action(() => payrollService.reset(period), "Đã xóa kỳ lương", clearLocalOverrideState);
         setResetting(false);
         setResetConfirmOpen(false);
       }}
@@ -692,7 +672,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       onConfirm={async (reason) => {
         if (!run?._id) return;
         setReopening(true);
-        await action(() => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }), "Đã mở lại kỳ lương về Nháp");
+        await action(
+          () => payrollService.reopen(String(run._id), { expectedVersion: Number(run.version), reason }),
+          "Đã mở lại kỳ lương về Nháp",
+          async () => { clearLocalOverrideState(); await loadLineOverrides(); },
+        );
         setReopening(false);
         setReopenOpen(false);
       }}
@@ -710,6 +694,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         await action(
           () => payrollService.markPaid(String(run._id), { expectedVersion: Number(run.version) }),
           "Đã chuyển kỳ lương sang Đã thanh toán",
+          clearLocalOverrideState,
         );
         setMarkingPaid(false);
         setMarkPaidConfirmOpen(false);
@@ -758,7 +743,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               >
                 {(run?.lines || results).map((r: any) => (
                   <option key={r.employeeId} value={r.employeeId}>
-                    {r.employeeName || r.employeeId} ({r.employeeId})
+                    {r.employeeName || r.employeeId}
                   </option>
                 ))}
               </select>

@@ -52,16 +52,16 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
  */
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "TỔNG QUAN": ["dashboard:read"],
-  "NHÂN SỰ": ["hr:read", "user:read", "kanban:read", "project:read", "timekeeping:read"],
-  "ĐỐI TÁC": ["partner:read", "labor-partner:read"],
-  "KHO & SẢN PHẨM": ["stock:read"],
-  "QUẢN LÝ HỌC VIÊN": ["student:read", "student:manage"],
-  "QUẢN LÝ LAO ĐỘNG": ["worker:read", "worker:manage"],
-  "QUẢN LÝ KHÁCH HÀNG": ["customer:read", "customer:manage"],
-  "QUẢN LÝ ỨNG VIÊN": ["candidate:read", "candidate:manage"],
+  "NHÂN SỰ": ["hr:read", "access:read", "work:read", "timekeeping:read"],
+  "ĐỐI TÁC": ["relationship:read", "labor-partner:read"],
+  "KHO & SẢN PHẨM": ["inventory:read"],
+  "QUẢN LÝ HỌC VIÊN": ["people:read", "people:manage"],
+  "QUẢN LÝ LAO ĐỘNG": ["people:read", "people:manage"],
+  "QUẢN LÝ KHÁCH HÀNG": ["relationship:read", "relationship:manage"],
+  "QUẢN LÝ ỨNG VIÊN": ["relationship:read", "relationship:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
-  "BÁN LẺ": ["retail:operate", "retail:manager"],
-  "TÀI CHÍNH": ["receivable:read", "receivable:collect", "receivable:adjust"],
+  "BÁN LẺ": ["retail:read", "retail:manage"],
+  "TÀI CHÍNH": ["finance:read", "finance:manage"],
   "TRÒ CHUYỆN": ["chat:read"],
 };
 

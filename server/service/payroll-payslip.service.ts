@@ -1,7 +1,13 @@
 import type { PayrollLineSnapshot } from "../interface/payroll-revision.interface";
 
 type PayslipRun = { _id?: unknown; id?: string; status?: string; periodKey?: string; activeRevisionChecksum?: string };
-type Payment = { employeeId: string; amount: number; status?: string };
+type PaymentAllocation = { employeeId: string; amount: number };
+type Payment = {
+  employeeId?: string;
+  amount?: number;
+  lines?: PaymentAllocation[];
+  status?: string;
+};
 
 export type PayrollPayslipView = {
   runId: string;
@@ -24,7 +30,15 @@ export function buildPayslip(run: PayslipRun, line: PayrollLineSnapshot, payment
   }
   const runId = String(run._id ?? run.id ?? "");
   const netPay = Number(line.calculation.net ?? line.calculation.netPay ?? 0);
-  const paidAmount = payments.filter((payment) => payment.employeeId === line.employeeId && payment.status === "confirmed").reduce((sum, payment) => sum + payment.amount, 0);
+  const paidAmount = payments.reduce((sum, payment) => {
+    if (payment.status !== "confirmed") return sum;
+    if (Array.isArray(payment.lines)) {
+      return sum + payment.lines
+        .filter((allocation) => allocation.employeeId === line.employeeId)
+        .reduce((allocated, allocation) => allocated + allocation.amount, 0);
+    }
+    return payment.employeeId === line.employeeId ? sum + Number(payment.amount ?? 0) : sum;
+  }, 0);
   return {
     runId,
     periodKey: run.periodKey,

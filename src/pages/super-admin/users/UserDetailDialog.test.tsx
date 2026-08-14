@@ -27,7 +27,7 @@ const user = {
   displayName: "Mai Nguyễn",
   role: "admin",
   status: "active",
-  permissions: ["user:read"],
+  permissions: ["access:read"],
 };
 
 afterEach(cleanup);
@@ -36,7 +36,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(superAdminUserAccessService.detail).mockResolvedValue(user);
   vi.mocked(superAdminUserAccessService.activity).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
-  vi.mocked(superAdminUserAccessService.permissionCatalog).mockResolvedValue({ catalog: [{ code: "user:read", label: "Xem người dùng", group: "Người dùng" }] });
+  vi.mocked(superAdminUserAccessService.permissionCatalog).mockResolvedValue({ catalog: [{ code: "access:read", label: "Xem người dùng", group: "Người dùng" }] });
   vi.mocked(superAdminUserAccessService.activeImpersonation).mockResolvedValue({ active: null });
 });
 
@@ -86,7 +86,7 @@ describe("UserDetailDialog", () => {
     await completeStepUp();
 
     await waitFor(() => expect(superAdminUserAccessService.assignRole).toHaveBeenCalledWith(
-      "SYSTEM", "user-1", "user", ["user:read"], expect.objectContaining({
+      "SYSTEM", "user-1", "user", ["access:read"], expect.objectContaining({
         reason: "Điều chỉnh trách nhiệm", password: "S3cret!", token: "123456", step: expect.any(Number),
       }),
     ));

@@ -21,10 +21,12 @@ import {
 export default function ApplicantDetailPanel({
   applicant,
   jobs,
+  canManage,
   onClose,
 }: {
   applicant: RecruitmentApplicant;
   jobs: RecruitmentJob[];
+  canManage: boolean;
   onClose: () => void;
 }) {
   const [history, setHistory] = useState<RecruitmentHistory[]>([]);
@@ -48,7 +50,7 @@ export default function ApplicantDetailPanel({
     void load();
   }, [applicant._id]);
   const upload = async (file?: File) => {
-    if (!file) return;
+    if (!canManage || !file) return;
     const message = validateRecruitmentFile(file);
     if (message) {
       setError(message);
@@ -74,6 +76,7 @@ export default function ApplicantDetailPanel({
     }
   };
   const remove = async (file: RecruitmentAttachment) => {
+    if (!canManage) return;
     if (!confirm(`Xóa ${file.originalName}?`)) return;
     try {
       await recruitmentApi.deleteAttachment(file._id);
@@ -135,17 +138,19 @@ export default function ApplicantDetailPanel({
       <div className="mt-5 border-t border-slate-200 pt-4">
         <div className="mb-3 flex items-center justify-between">
           <h4 className="text-sm font-bold text-slate-800">CV và hồ sơ</h4>
-          <label className={`${primaryButton} cursor-pointer`}>
-            <Upload className="h-4 w-4" />
-            Tải tệp lên
-            <input
-              aria-label="CV"
-              type="file"
-              accept={RECRUITMENT_FILE_ACCEPT}
-              className="hidden"
-              onChange={(e) => upload(e.target.files?.[0])}
-            />
-          </label>
+          {canManage && (
+            <label className={`${primaryButton} cursor-pointer`}>
+              <Upload className="h-4 w-4" />
+              Tải tệp lên
+              <input
+                aria-label="CV"
+                type="file"
+                accept={RECRUITMENT_FILE_ACCEPT}
+                className="hidden"
+                onChange={(e) => upload(e.target.files?.[0])}
+              />
+            </label>
+          )}
         </div>
         {!attachment ? (
           <p className="text-sm text-slate-500">Chưa có tệp đính kèm.</p>
@@ -170,13 +175,15 @@ export default function ApplicantDetailPanel({
                 >
                   <Download className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  className={secondaryButton}
-                  onClick={() => remove(file)}
-                >
-                  Xóa
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    className={secondaryButton}
+                    onClick={() => remove(file)}
+                  >
+                    Xóa
+                  </button>
+                )}
               </div>
             ))}
           </div>

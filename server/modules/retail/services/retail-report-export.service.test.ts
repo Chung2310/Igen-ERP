@@ -214,7 +214,7 @@ test("export reuses authenticated scope, effective manager capability, and summa
 
   await controller.export(
     {
-      user: { role: "user", companyCode: "ACME", branchId: "branch-1", permissions: ["retail:operate"] },
+      user: { role: "user", companyCode: "ACME", branchId: "branch-1", permissions: ["retail:manage"] },
       query: {
         companyCode: "ACME",
         branchId: "branch-1",

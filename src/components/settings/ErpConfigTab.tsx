@@ -38,8 +38,8 @@ export default function ErpConfigTab() {
   // Loại hình doanh nghiệp chỉ SuperAdmin sửa được; doanh nghiệp chỉ xem (chỉ-đọc)
   const canViewStudentSettings =
     userProfile?.role === "superadmin" || userProfile?.role === "admin";
-  const canManageSmtp = hasPermission("company-smtp:manage");
-  const canManageCompanyModules = canViewStudentSettings || canManageSmtp || hasPermission("company-payment:manage");
+  const canManageSmtp = hasPermission("settings:manage");
+  const canManageCompanyModules = canViewStudentSettings || canManageSmtp || hasPermission("settings:manage");
 
   useEffect(() => {
     if (canManageLocation) {
@@ -197,7 +197,7 @@ export default function ErpConfigTab() {
       {activeTab === "companyModules" && canManageCompanyModules && (
         <div className="space-y-5">
           {canViewStudentSettings && <StudentManagementErpSettings />}
-          {hasPermission("company-payment:manage") && <CompanyPaymentSettingsTab />}
+          {hasPermission("settings:manage") && <CompanyPaymentSettingsTab />}
           {canManageSmtp && <CompanySmtpSettingsTab />}
         </div>
       )}

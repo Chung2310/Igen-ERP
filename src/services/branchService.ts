@@ -26,6 +26,8 @@ export interface BranchInput {
   isActive?: boolean;
 }
 
+export interface BranchOwnerInput { displayName: string; email: string; password: string; phone?: string; birthDate?: string; qualification?: string; }
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", "Bearer " + (getAccessToken() || ""));
@@ -40,5 +42,7 @@ export const branchService = {
   currentIp: () => request<{ ip: string }>("/api/v1/auth/current-ip"),
   list: () => request<BranchRecord[]>("/api/v1/auth/branches"),
   create: (input: Required<Pick<BranchInput, "code" | "name">> & Omit<BranchInput, "code" | "name">) => request<BranchRecord>("/api/v1/auth/branches", { method: "POST", body: JSON.stringify(input) }),
+  createOwner: (id: string, input: BranchOwnerInput) => request<{ branch: BranchRecord; owner: { _id: string } }>(`/api/v1/auth/branches/${encodeURIComponent(id)}/owner`, { method: "POST", body: JSON.stringify(input) }),
+  removePending: (id: string) => request<BranchRecord>(`/api/v1/auth/branches/${encodeURIComponent(id)}/pending`, { method: "DELETE" }),
   update: (id: string, input: BranchInput) => request<BranchRecord>("/api/v1/auth/branches/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(input) }),
 };

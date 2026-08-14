@@ -82,7 +82,9 @@ describe("crudController payroll period guard branch scope", () => {
     await crudController.update(req, res);
 
     expect(mocks.timekeepingFindOne).toHaveBeenCalledWith({
-      _id: "branch-b-log", companyCode: "ACME", branchId: "branch-a",
+      _id: "branch-b-log",
+      companyCode: "ACME",
+      branchId: { $in: ["branch-a", null, undefined] },
     });
     expect(res.status).toHaveBeenCalledWith(404);
     expect(mocks.crudUpdate).not.toHaveBeenCalled();

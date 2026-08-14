@@ -3,7 +3,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const authMock = vi.hoisted(() => ({ permissions: ["worker:manage", "custom-field:manage"] as string[] }));
+const authMock = vi.hoisted(() => ({ permissions: ["people:manage", "settings:manage"] as string[] }));
 vi.mock("../../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { permissions: authMock.permissions } }),
 }));
@@ -75,7 +75,7 @@ const fill = (label: string | RegExp, value: string) =>
 const save = () => fireEvent.click(screen.getByRole("button", { name: "Lưu hồ sơ" }));
 
 beforeEach(() => {
-  authMock.permissions = ["worker:manage", "custom-field:manage"];
+  authMock.permissions = ["people:manage", "settings:manage"];
 });
 afterEach(() => {
   cleanup();
@@ -209,7 +209,7 @@ describe("AddWorkerModal", () => {
   });
 
   it("hides archived restoration from users without manage permission", () => {
-    authMock.permissions = ["worker:read"];
+    authMock.permissions = ["people:read"];
     setup({
       profileFields: [...baseFields, { key: "address", label: "Địa chỉ", isRequired: false, isVisible: true, isArchived: true }],
       onRestoreProfileField: vi.fn(),

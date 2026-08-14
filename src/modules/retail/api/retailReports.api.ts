@@ -60,14 +60,6 @@ function throwIfExportAborted(signal?: AbortSignal) {
 }
 
 export const retailReportsApi = {
-  async remindOverdueDebt(scope: RetailScope): Promise<{ overdueOrders: number; recipients: number; created: number; duplicates: number }> {
-    const response = await apiFetch<{ success: true; data: { overdueOrders: number; recipients: number; created: number; duplicates: number } }>("/retail/reports/debt-reminders/run", {
-      method: "POST",
-      params: { companyCode: scope.companyCode, branchId: scope.branchId },
-    });
-    return response.data;
-  },
-
   async summary(scope: RetailScope, filters: RetailReportFilters): Promise<RetailReport> {
     const response = await apiFetch<{ success: true; data: RetailReport }>("/retail/reports/summary", {
       params: reportParams(scope, filters),

@@ -36,3 +36,12 @@ export function sortPermissionsForRoleEditor<T extends { code: string; group?: s
     return left.code.endsWith(":read") ? -1 : right.code.endsWith(":read") ? 1 : left.code.localeCompare(right.code);
   });
 }
+
+export function groupPermissionsForRoleEditor<T extends { code: string; group?: string }>(permissions: readonly T[]) {
+  const groups = new Map<string, T[]>();
+  for (const permission of sortPermissionsForRoleEditor(permissions)) {
+    const name = permission.group?.trim() || "Khác";
+    groups.set(name, [...(groups.get(name) || []), permission]);
+  }
+  return Array.from(groups, ([name, groupedPermissions]) => ({ name, permissions: groupedPermissions }));
+}
