@@ -39,6 +39,7 @@ const DATE_PATTERN = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])\/\d{4}$/;
 const TEMPLATE_HEADERS = [
   "Họ và tên",
   "Số điện thoại",
+  "Mã đối tác giới thiệu",
   "Ngày sinh",
   "CCCD / CMND",
   "Email",
@@ -80,6 +81,7 @@ function mapHeaders(row: unknown[]): Record<string, number> {
     if (!value) return;
     if (value.includes("họ và tên") || value.includes("họ tên") || value.includes("ho ten") || value === "tên" || value === "ten") map.fullName = index;
     else if (value.includes("số điện thoại") || value.includes("điện thoại") || value.includes("dien thoai") || value === "sdt" || value === "sđt") map.phone = index;
+    else if (value.includes("mã đối tác") || value.includes("ma doi tac") || value.includes("partner code")) map.partnerCode = index;
     else if (value.includes("ngày sinh") || value.includes("ngay sinh") || value.includes("năm sinh")) map.birthday = index;
     else if (value.includes("cccd") || value.includes("cmnd") || value.includes("định danh") || value.includes("dinh danh")) map.idCard = index;
     else if (value.includes("email")) map.email = index;
@@ -129,6 +131,7 @@ export function parseWorkerSheet(sheet: unknown[][]): { rows: WorkerImportRow[];
     const data: BulkWorkerInput = {
       fullName: cell("fullName"),
       phone: normalizeImportPhone(cell("phone")),
+      partnerCode: cell("partnerCode").toUpperCase(),
       birthday: cell("birthday"),
       idCard: cell("idCard"),
       email: cell("email"),
@@ -201,11 +204,11 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
     try {
       const worksheet = XLSX.utils.aoa_to_sheet([
         TEMPLATE_HEADERS,
-        ["Nguyễn Văn A", "0912345678", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", "Chính thức", "Việt Nam", "", "", ""],
-        ["Trần Thị B", "0987654321", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Người nước ngoài", "Nhật Bản", "GPLD-2026-001", "31/12/2027", "Biết tiếng Nhật"],
+        ["Nguyễn Văn A", "0912345678", "", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", "Chính thức", "Việt Nam", "", "", ""],
+        ["Trần Thị B", "0987654321", "", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Người nước ngoài", "Nhật Bản", "GPLD-2026-001", "31/12/2027", "Biết tiếng Nhật"],
       ]);
       worksheet["!cols"] = [
-        { wch: 22 }, { wch: 16 }, { wch: 13 }, { wch: 18 },
+        { wch: 22 }, { wch: 16 }, { wch: 24 }, { wch: 13 }, { wch: 18 },
         { wch: 24 }, { wch: 32 }, { wch: 16 }, { wch: 18 },
         { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 24 },
       ];
@@ -216,6 +219,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
         ["Không cần nhập mã công ty hay chi nhánh — hệ thống tự gán theo phạm vi bạn đang xem."],
         ["Số điện thoại trùng với lao động đã có trong hệ thống sẽ bị bỏ qua và báo lại ở bước cuối."],
         ["Loại lao động nhận: Chính thức, Thời vụ, Người nước ngoài. Bỏ trống sẽ hiểu là Chính thức."],
+        ["Mã đối tác giới thiệu không bắt buộc. Nếu nhập, mã phải trùng với một đối tác đang hoạt động trong công ty/chi nhánh hiện tại."],
         ["Số GPLĐ / visa và ngày hết hạn chỉ áp dụng cho loại Người nước ngoài, các loại khác sẽ bỏ qua."],
       ]);
       guide["!cols"] = [{ wch: 110 }];
@@ -363,6 +367,18 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
                     </table>
                   </div>
                 )}
+                {result.referralErrors && result.referralErrors.length > 0 && (
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left">
+                    <p className="text-xs font-bold text-amber-700">Một số lao động chưa được gắn đối tác</p>
+                    <ul className="mt-2 space-y-1 text-xs font-medium text-amber-700">
+                      {result.referralErrors.map((item) => (
+                        <li key={`${item.workerId}-${item.partnerCode}`}>
+                          Mã {item.partnerCode}: {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : rows.length === 0 ? (
               <div className="space-y-6">
@@ -450,12 +466,13 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
 
                 <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
                   <div className="max-h-[350px] overflow-x-auto">
-                    <table className="w-full min-w-[860px] text-left text-xs">
+                    <table className="w-full min-w-[980px] text-left text-xs">
                       <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50">
                         <tr>
                           <th className="w-12 px-4 py-3 text-center font-bold text-slate-400">Dòng</th>
                           <th className="w-44 px-4 py-3 font-bold text-slate-400">Họ và tên</th>
                           <th className="w-32 px-4 py-3 font-bold text-slate-400">Số điện thoại</th>
+                          <th className="w-36 px-3 py-3 font-bold text-slate-400">Mã đối tác</th>
                           <th className="w-28 px-3 py-3 font-bold text-slate-400">Ngày sinh</th>
                           <th className="w-40 px-3 py-3 font-bold text-slate-400">CCCD / CMND</th>
                           <th className="px-4 py-3 font-bold text-slate-400">Trạng thái / Chi tiết lỗi</th>
@@ -470,6 +487,9 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
                             </td>
                             <td className="px-4 py-3 text-slate-600">
                               {row.data.phone || <span className="italic text-slate-300">Trống</span>}
+                            </td>
+                            <td className="px-3 py-3 text-slate-600">
+                              {row.data.partnerCode || <span className="italic text-slate-300">Không chọn</span>}
                             </td>
                             <td className="px-3 py-3 text-slate-600">
                               {row.data.birthday || <span className="italic text-slate-300">—</span>}

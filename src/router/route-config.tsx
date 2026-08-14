@@ -34,7 +34,11 @@ export const APP_ROUTES: AppRoute[] = [
       userProfile.role === "admin" ||
       Boolean(
         userProfile.permissions?.includes("*") ||
-        userProfile.permissions?.includes("relationship:read"),
+        userProfile.permissions?.some((permission) =>
+          userProfile.businessType === "labor"
+            ? ["labor-partner:read", "relationship:read"].includes(permission)
+            : ["partner:read", "relationship:read"].includes(permission),
+        ),
       ),
   },
   {

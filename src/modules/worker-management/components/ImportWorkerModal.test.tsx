@@ -149,6 +149,7 @@ describe("ImportWorkerModal", () => {
     expect(onImport).toHaveBeenCalledWith(
       [expect.objectContaining({ fullName: "Nguyễn Văn A", phone: "0912345678" })],
       "project-1",
+      expect.any(File),
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   });

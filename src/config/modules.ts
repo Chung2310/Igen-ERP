@@ -53,7 +53,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "TỔNG QUAN": ["dashboard:read"],
   "NHÂN SỰ": ["hr:read", "access:read", "work:read", "timekeeping:read"],
-  "ĐỐI TÁC": ["relationship:read"],
+  "ĐỐI TÁC": ["relationship:read", "labor-partner:read"],
   "KHO & SẢN PHẨM": ["inventory:read"],
   "QUẢN LÝ HỌC VIÊN": ["people:read", "people:manage"],
   "QUẢN LÝ LAO ĐỘNG": ["people:read", "people:manage"],

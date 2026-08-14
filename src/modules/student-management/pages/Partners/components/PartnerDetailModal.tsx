@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api';
 import { ErpModal, ErpCard, ErpLoadingState, ErpEmptyState } from '../../../components/Erp/ErpUI';
-import { formatVND, cn, getBankDisplayName } from '../../../lib/utils';
+import { formatVND, cn, getBankDisplayName, formatDisplayDate } from '../../../lib/utils';
 import { AddPayoutModal } from './AddPayoutModal';
 import { Handshake, Phone, Mail, Landmark, FileText, Plus, Landmark as BankIcon, Users, CheckCircle } from 'lucide-react';
 import { Partner, PartnerPayout, PartnerReferredStudent } from '../../../types';
@@ -236,7 +236,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                           <tr key={student._id} className="hover:bg-slate-50/50 transition-all text-slate-700">
                             <td className="py-4 px-6 font-bold text-slate-900">{student.fullName}</td>
                             <td className="py-4 px-6">{student.phone}</td>
-                            <td className="py-4 px-6">{student.registrationDate}</td>
+                            <td className="py-4 px-6">{formatDisplayDate(student.registrationDate)}</td>
                             <td className="py-4 px-6">{getStatusBadge(student.status)}</td>
                             <td className="py-4 px-6 text-right font-black text-cyan-600">
                               {formatVND(String(student.commission))}
