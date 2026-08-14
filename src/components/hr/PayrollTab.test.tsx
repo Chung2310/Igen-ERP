@@ -14,6 +14,7 @@ const getPeriodInputVariables = vi.hoisted(() => vi.fn());
 const bulkSaveLineOverrides = vi.hoisted(() => vi.fn());
 const review = vi.hoisted(() => vi.fn());
 const reviewRun = vi.hoisted(() => vi.fn());
+const closeRun = vi.hoisted(() => vi.fn());
 
 vi.mock("../../services/payrollService", () => ({
   payrollService: {
@@ -26,6 +27,7 @@ vi.mock("../../services/payrollService", () => ({
     bulkSaveLineOverrides,
     review,
     reviewRun,
+    closeRun,
   },
 }));
 vi.mock("../../pages/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -71,7 +73,9 @@ const effectiveLine = (employeeId: string, changes: Record<string, unknown> = {}
 
 const draftRun = (status = "draft") => ({
   _id: "run-1",
+  version: 2,
   status,
+  activeRevisionId: undefined as string | undefined,
   publishedEmployeeIds: [],
   lines: [
     { employeeId: "e1", calculation: { monthlySalary: 12_000_000 } },
@@ -106,6 +110,7 @@ function arrange(run = draftRun()) {
   bulkSaveLineOverrides.mockResolvedValue([]);
   review.mockResolvedValue({});
   reviewRun.mockResolvedValue({});
+  closeRun.mockResolvedValue({});
 }
 
 function saveReasonInput() {
@@ -246,19 +251,29 @@ describe("PayrollTab editable payroll results", () => {
     const footer = custom.closest("table")?.querySelector("tfoot");
     if (!(footer instanceof HTMLElement)) throw new Error("Payroll footer is not present");
     expect((custom as HTMLInputElement).value).toBe("300");
-    expect(within(footer).getByText("350")).toBeTruthy();
+    expect(within(footer).getByText(/350/)).toBeTruthy();
 
     await user.clear(custom);
     await user.type(custom, "450");
-    expect(within(footer).getByText("500")).toBeTruthy();
+    expect(within(footer).getByText(/500/)).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Khôi phục custom.sales-e1" }));
     expect((custom as HTMLInputElement).value).toBe("125");
-    expect(within(footer).getByText("175")).toBeTruthy();
+    expect(within(footer).getByText(/175/)).toBeTruthy();
   });
 });
 
 describe("PayrollTab read-only payroll results", () => {
+  it("sends the current run version when closing a revision-backed payroll run", async () => {
+    arrange({ ...draftRun("review"), activeRevisionId: "revision-1" });
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    await user.click(await screen.findByRole("button", { name: "Chốt kỳ" }));
+
+    await waitFor(() => expect(closeRun).toHaveBeenCalledWith("run-1", 2));
+  });
+
   afterEach(() => {
     cleanup();
     vi.resetAllMocks();
@@ -274,7 +289,7 @@ describe("PayrollTab read-only payroll results", () => {
 
     const row = (await screen.findByText("Nguyễn Văn A")).closest("tr");
     if (!row) throw new Error("Payroll employee row is not present");
-    expect(within(row).getByText("700.000 đ")).toBeTruthy();
+    expect(within(row).getByText(/700\.000/)).toBeTruthy();
     expect(within(row).queryByRole("spinbutton")).toBeNull();
     expect(within(row).queryByRole("button", { name: /Khôi phục/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
@@ -292,12 +307,12 @@ describe("PayrollTab read-only payroll results", () => {
     expect(screen.getByLabelText("net-e1").textContent).toContain("10.900.000");
 
     await user.click(screen.getByRole("button", { name: /Ki.*tra/ }));
-    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1"));
+    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1", 2));
 
     const row = (await screen.findByText("Nguyễn Văn A")).closest("tr");
     if (!row) throw new Error("Payroll employee row is not present");
     await waitFor(() => expect(within(row).queryByRole("spinbutton")).toBeNull());
-    expect(within(row).getByText("700.000 đ")).toBeTruthy();
+    expect(within(row).getByText(/700\.000/)).toBeTruthy();
     expect(screen.queryByText(/nhân viên có thay đổi chưa lưu/)).toBeNull();
   });
 
