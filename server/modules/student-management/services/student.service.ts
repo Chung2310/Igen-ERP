@@ -139,7 +139,7 @@ async function ensureUniqueFieldsInScope(
   branchId?: string,
   excludeId?: string
 ) {
-  const checks: Array<{ field: "email" | "phone" | "idCard"; value: string; message: string }> = [
+  const checks: Array<{ field: "email" | "phone"; value: string; message: string }> = [
     {
       field: "email",
       value: normalizeEmail(String(data.email || "")),
@@ -149,11 +149,6 @@ async function ensureUniqueFieldsInScope(
       field: "phone",
       value: normalizePhone(String(data.phone || "")),
       message: "Số điện thoại này đã tồn tại trong trung tâm hiện tại. Vui lòng kiểm tra lại!",
-    },
-    {
-      field: "idCard",
-      value: normalizeIdCard(String(data.idCard || "")),
-      message: "CCCD/CMND này đã tồn tại trong trung tâm hiện tại. Vui lòng kiểm tra lại!",
     },
   ];
 
@@ -398,32 +393,53 @@ export class StudentService {
 
   static async deleteStudent(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
     logger.info(`[Student] Deleting student: id=${id}, ownerId=${ownerId}`);
-    const impact = await this.getDeletionImpact(ownerId, [id], branchId);
-    const blocked = impact.items.find(item => item.studentId === id && item.reasons.length > 0);
-    if (blocked) {
-      const error = new Error(`Không thể xóa ${blocked.name} vì đang có ${blocked.reasons.map(reason => reason.label).join(", ")}.`);
-      (error as Error & { status: number; code: string }).status = 409;
-      (error as Error & { status: number; code: string }).code = "STUDENT_IN_USE";
-      throw error;
-    }
     const query: Record<string, unknown> = {
       _id: id,
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const deletedStudent = await Student.findOneAndDelete(query);
-    if (deletedStudent) {
-      logger.info(`[Student] Student deleted successfully: id=${id}`);
-      try {
-        await Payment.deleteMany({ studentId: id });
-        await Batch.updateMany({ learnerIds: id }, { $pull: { learnerIds: id } });
-      } catch (err) {
-        logger.error(`[Student] Failed to clean up associated records for deleted student: %o`, err);
-      }
-    } else {
+    const student = await Student.findOne(query);
+    if (!student) {
       logger.warn(`[Student] Student delete failed/not found: id=${id}, ownerId=${ownerId}`);
+      return null;
     }
+
+    await this.removeOperationalStudentData(ownerId, id, branchId);
+    const deletedStudent = await Student.findOneAndDelete(query);
+    logger.info(`[Student] Student deleted successfully: id=${id}; payment receipts retained`);
     return deletedStudent;
+  }
+
+  /** Remove operational records while retaining Payment receipts for financial reconciliation. */
+  private static async removeOperationalStudentData(ownerId: string | string[], studentId: string, branchId?: string) {
+    const scope = { ...buildOwnerScopeQuery(ownerId), ...buildBranchScopeQuery(branchId) };
+    const studentScope = { studentId, ...scope };
+
+    await Promise.all([
+      Batch.updateMany({ ...scope, learnerIds: studentId }, { $pull: { learnerIds: studentId } }),
+      Batch.updateMany({ ...scope, "attendanceSessions.records.studentId": studentId }, { $pull: { "attendanceSessions.$[].records": { studentId } } }),
+      BatchMiniTest.updateMany({ ...scope, "results.studentId": studentId }, { $pull: { results: { studentId } } }),
+      BatchEnrollment.deleteMany(studentScope),
+      StudentBatchEnrollment.deleteMany(studentScope),
+      StudentQualityRecord.deleteMany(studentScope),
+      ClassWaitlistEntry.deleteMany(studentScope),
+      StudentProgressionDecision.deleteMany(studentScope),
+      StudentDeviceModel.deleteMany(studentScope),
+      StudentVerificationCodeModel.deleteMany(studentScope),
+      StudentAttendanceAttemptModel.deleteMany(studentScope),
+      StudentFaceEnrollmentAuditModel.deleteMany(studentScope),
+      // Submission has no tenant fields; student ids are globally unique.
+      SubmissionModel.deleteMany({ studentId }),
+    ]);
+
+    const exams = await Exam.find({ ...scope, "results.studentId": studentId });
+    await Promise.all(exams.map(async (exam) => {
+      exam.results = exam.results.filter((result) => result.studentId !== studentId);
+      exam.studentCount = exam.results.length;
+      exam.passCount = exam.results.filter((result) => result.outcome === "Đậu").length;
+      exam.failCount = exam.results.filter((result) => result.outcome === "Trượt").length;
+      await exam.save();
+    }));
   }
 
   static async getDeletionImpact(ownerId: string | string[], ids: string[], branchId?: string): Promise<StudentDeletionImpact> {
@@ -505,23 +521,19 @@ export class StudentService {
       if (resolvedIds.includes(result.studentId)) add(result.studentId, "mini-tests", "bài kiểm tra", test.title);
     }));
 
-    const deletableIds = items.filter(item => item.reasons.length === 0).map(item => item.studentId);
-    const blockedIds = items.filter(item => item.reasons.length > 0).map(item => item.studentId);
-    return { items, deletableIds, blockedIds };
+    // Related operational data is cleaned up on deletion. Payment receipts are retained,
+    // so references must inform the UI but must not block deleting the student.
+    return { items, deletableIds: resolvedIds, blockedIds: [] };
   }
 
   static async bulkDeleteStudents(ownerId: string | string[], ids: string[], branchId?: string): Promise<{ deletedCount: number; deletedIds: string[]; blocked: StudentDeletionImpactItem[] }> {
     const impact = await this.getDeletionImpact(ownerId, ids, branchId);
-    const resolvedIds = impact.deletableIds;
-    const blocked = impact.items.filter(item => item.reasons.length > 0);
-    if (resolvedIds.length === 0) return { deletedCount: 0, deletedIds: [], blocked };
-
-    const result = await Student.deleteMany({
-      _id: { $in: resolvedIds },
-      ...buildOwnerScopeQuery(ownerId),
-      ...buildBranchScopeQuery(branchId),
-    });
-    return { deletedCount: result.deletedCount || 0, deletedIds: resolvedIds, blocked };
+    const deletedIds: string[] = [];
+    for (const id of impact.deletableIds) {
+      const deleted = await this.deleteStudent(ownerId, id, branchId);
+      if (deleted) deletedIds.push(id);
+    }
+    return { deletedCount: deletedIds.length, deletedIds, blocked: [] };
   }
 
   static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string, branchId?: string, creatorName?: string) {
@@ -540,16 +552,14 @@ export class StudentService {
 
     const seenPhonesInBatch = new Set<string>();
     const seenEmailsInBatch = new Set<string>();
-    const seenIdCardsInBatch = new Set<string>();
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const existingStudents = await Student.find(query).select("phone email idCard");
+    const existingStudents = await Student.find(query).select("phone email");
     const existingPhones = new Set(existingStudents.map((s) => normalizePhone(s.phone)));
     const existingEmails = new Set(existingStudents.map((s) => normalizeEmail(s.email || "")).filter(Boolean));
-    const existingIdCards = new Set(existingStudents.map((s) => normalizeIdCard(s.idCard || "")).filter(Boolean));
 
     // Chỉ truy vấn lớp khi file thực sự có cột/mã lớp. Nhập học viên thuần túy
     // không cần phụ thuộc vào collection lớp (và tránh một truy vấn không cần thiết).
@@ -601,7 +611,13 @@ export class StudentService {
       const defaultStatus = businessType === "driving" ? "Chờ KSK" : "Đang học";
       const status = String(data.status || defaultStatus).trim();
 
-      if (email && seenEmailsInBatch.has(email)) {
+      if (!email) {
+        errors.push({ row: rowNum, name: fullName, phone, reason: "Email không được để trống." });
+        skippedCount++;
+        continue;
+      }
+
+      if (seenEmailsInBatch.has(email)) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Email bị trùng lặp trong file import." });
         skippedCount++;
         continue;
@@ -612,23 +628,10 @@ export class StudentService {
         skippedCount++;
         continue;
       }
-      if (email) seenEmailsInBatch.add(email);
+      seenEmailsInBatch.add(email);
 
-      if (email && existingEmails.has(email)) {
+      if (existingEmails.has(email)) {
         errors.push({ row: rowNum, name: fullName, phone, reason: "Email đã tồn tại trong trung tâm hiện tại." });
-        skippedCount++;
-        continue;
-      }
-
-      if (idCard && seenIdCardsInBatch.has(idCard)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "CCCD/CMND bị trùng lặp trong file import." });
-        skippedCount++;
-        continue;
-      }
-      if (idCard) seenIdCardsInBatch.add(idCard);
-
-      if (idCard && existingIdCards.has(idCard)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "CCCD/CMND đã tồn tại trong trung tâm hiện tại." });
         skippedCount++;
         continue;
       }
@@ -652,7 +655,7 @@ export class StudentService {
         fullName,
         slug: slugify(fullName),
         phone,
-        email: email || undefined,
+        email,
         referral,
         birthday,
         idCard,
@@ -723,13 +726,11 @@ export class StudentService {
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const existingStudents = await Student.find(query).select("phone email idCard");
+    const existingStudents = await Student.find(query).select("phone email");
     const existingPhones = new Set(existingStudents.map((student) => normalizePhone(student.phone)));
     const existingEmails = new Set(existingStudents.map((student) => normalizeEmail(student.email || "")).filter(Boolean));
-    const existingIdCards = new Set(existingStudents.map((student) => normalizeIdCard(student.idCard || "")).filter(Boolean));
     const seenPhones = new Set<string>();
     const seenEmails = new Set<string>();
-    const seenIdCards = new Set<string>();
     const errors: BulkStudentValidationError[] = [];
 
     const addError = (index: number, data: BulkStudentInput, reason: string) => {
@@ -745,22 +746,17 @@ export class StudentService {
     studentsData.forEach((data, index) => {
       const phone = normalizePhone(String(data.phone || ""));
       const email = normalizeEmail(String(data.email || ""));
-      const idCard = normalizeIdCard(String(data.idCard || ""));
-
       if (phone) {
         if (seenPhones.has(phone)) addError(index, data, "Số điện thoại bị trùng lặp trong file import.");
         else if (existingPhones.has(phone)) addError(index, data, "Số điện thoại đã tồn tại trong trung tâm hiện tại.");
         seenPhones.add(phone);
       }
-      if (email) {
+      if (!email) {
+        addError(index, data, "Email không được để trống.");
+      } else {
         if (seenEmails.has(email)) addError(index, data, "Email bị trùng lặp trong file import.");
         else if (existingEmails.has(email)) addError(index, data, "Email đã tồn tại trong trung tâm hiện tại.");
         seenEmails.add(email);
-      }
-      if (idCard) {
-        if (seenIdCards.has(idCard)) addError(index, data, "CCCD/CMND bị trùng lặp trong file import.");
-        else if (existingIdCards.has(idCard)) addError(index, data, "CCCD/CMND đã tồn tại trong trung tâm hiện tại.");
-        seenIdCards.add(idCard);
       }
     });
 

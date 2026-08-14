@@ -99,13 +99,15 @@ it("scopes the update preload query to the selected branch", async () => {
 it("scopes delete and bulk-delete selection queries to the selected branch", async () => {
   const findOneAndDelete = vi.spyOn(Student as any, "findOneAndDelete").mockResolvedValue(null);
   const find = vi.spyOn(Student as any, "find").mockImplementation(() => ({ select: async () => [] }));
+  const findOne = vi.spyOn(Student as any, "findOne").mockResolvedValue(null);
   const firstId = "507f1f77bcf86cd799439011";
   const secondId = "507f1f77bcf86cd799439012";
 
   await StudentService.deleteStudent(ownerScope, "student-a", branchA);
   await StudentService.bulkDeleteStudents(ownerScope, [firstId, secondId], branchA);
 
-  assert.deepEqual(findOneAndDelete.mock.calls[0]?.[0], expectedOwnerAndBranchScope({ _id: "student-a" }));
+  assert.deepEqual(findOne.mock.calls[0]?.[0], expectedOwnerAndBranchScope({ _id: "student-a" }));
+  assert.equal(findOneAndDelete.mock.calls.length, 0);
   assert.deepEqual(find.mock.calls[0]?.[0], expectedOwnerAndBranchScope({ _id: { $in: [firstId, secondId] } }));
 });
 

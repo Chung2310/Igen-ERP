@@ -30,7 +30,7 @@ export function canManageFaces(
       (profile.role === "superadmin" ||
         profile.role === "admin" ||
         profile.permissions?.includes("*") ||
-        profile.permissions?.includes("face:manage")),
+        profile.permissions?.includes("access:manage")),
   );
 }
 

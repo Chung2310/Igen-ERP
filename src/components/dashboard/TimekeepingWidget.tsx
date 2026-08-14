@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Clock } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import AttendanceCameraModal from "../attendance/AttendanceCameraModal";
+import { ATTENDANCE_FACE_CHECK_ENABLED } from "../../config/attendanceFaceCheck";
 
 export function getTimekeepingStatusDisplay(
   hasCheckIn: boolean,
@@ -77,12 +78,19 @@ export function TimekeepingWidget({
     setChecking(type);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        pendingCoordsRef.current = {
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        setChecking(null);
-        setCameraAction(type);
+        pendingCoordsRef.current = coords;
+        if (ATTENDANCE_FACE_CHECK_ENABLED) {
+          setChecking(null);
+          setCameraAction(type);
+          return;
+        }
+        void submitAttendance(type, coords)
+          .catch((error) => toast.error(error instanceof Error ? error.message : "Không thể chấm công."))
+          .finally(() => setChecking(null));
       },
       (error) => {
         setChecking(null);
@@ -105,15 +113,13 @@ export function TimekeepingWidget({
     );
   };
 
-  const handleCameraCapture = async (image: Blob) => {
-    const type = cameraAction;
-    const coords = pendingCoordsRef.current;
-    if (!type || !coords) {
-      throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
-    }
-
+  const submitAttendance = async (
+    type: "in" | "out",
+    coords: { latitude: number; longitude: number },
+    image?: Blob,
+  ) => {
     const formData = new FormData();
-    formData.append("file", image, "attendance.jpg");
+    if (image) formData.append("file", image, "attendance.jpg");
     formData.append("latitude", String(coords.latitude));
     formData.append("longitude", String(coords.longitude));
     formData.append("deviceInfo", navigator.userAgent);
@@ -142,6 +148,15 @@ export function TimekeepingWidget({
     pendingCoordsRef.current = null;
     onRefresh();
     window.dispatchEvent(new CustomEvent("timekeeping-mutation"));
+  };
+
+  const handleCameraCapture = async (image: Blob) => {
+    const type = cameraAction;
+    const coords = pendingCoordsRef.current;
+    if (!type || !coords) {
+      throw new Error("Thiếu vị trí GPS, vui lòng thử lại từ đầu.");
+    }
+    await submitAttendance(type, coords, image);
   };
 
   const hasCheckIn = !!todayTimekeeping?.checkIn;

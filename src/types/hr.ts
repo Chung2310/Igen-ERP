@@ -99,6 +99,13 @@ export interface Project {
   name: string;
   companyCode: string;
   creatorUid: string;
+  status: "not_started" | "in_progress" | "paused" | "completed" | "cancelled";
+  priority: "low" | "medium" | "high" | "urgent";
+  startAt?: string;
+  dueAt?: string;
+  completedAt?: string | null;
+  attachments: TaskAttachment[];
+  progress: { completed: number; total: number; percent: number };
   createdAt: any;
 }
 

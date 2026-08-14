@@ -34,7 +34,11 @@ export const APP_ROUTES: AppRoute[] = [
       userProfile.role === "admin" ||
       Boolean(
         userProfile.permissions?.includes("*") ||
-        userProfile.permissions?.includes("partner:read"),
+        userProfile.permissions?.some((permission) =>
+          userProfile.businessType === "labor"
+            ? ["labor-partner:read", "relationship:read"].includes(permission)
+            : ["partner:read", "relationship:read"].includes(permission),
+        ),
       ),
   },
   {
@@ -67,7 +71,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:operate" || permission === "retail:manager")),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:read" || permission === "retail:manage")),
   },
   {
     tab: "TÀI CHÍNH",
@@ -75,7 +79,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["receivable:read", "receivable:collect", "receivable:adjust"].includes(permission))),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance:read", "finance:manage"].includes(permission))),
   },
   {
     tab: "QUẢN LÝ KHÁCH HÀNG",

@@ -48,6 +48,9 @@ test("invoice snapshot contains printable transaction data without unit cost", (
     taxAmount: 6_800,
     shippingFee: 20_000,
     grandTotal: 111_800,
+    paidAmount: 111_800,
+    dueAmount: 0,
+    paymentStatus: "paid",
     payments: [{ method: "cash", amount: 111_800, tenderedAmount: 120_000, changeAmount: 8_200 }],
   }, { id: "cashier-1", displayName: "Thu ngân A" }, {
     legalName: "Igen Technology Co., Ltd",
@@ -62,6 +65,9 @@ test("invoice snapshot contains printable transaction data without unit cost", (
   assert.equal(snapshot.shippingFee, 20_000);
   assert.equal(snapshot.businessDate, "2026-08-10");
   assert.equal(snapshot.cashierName, "Thu ngân A");
+  assert.equal(snapshot.paidAmount, 111_800);
+  assert.equal(snapshot.dueAmount, 0);
+  assert.equal(snapshot.paymentStatus, "paid");
   assert.equal(snapshot.payments[0].changeAmount, 8_200);
   assert.equal("unitCost" in snapshot.items[0], false);
   assert.equal("category" in snapshot.items[0], false);
@@ -73,4 +79,31 @@ test("invoice snapshot contains printable transaction data without unit cost", (
     branchAddress: "1 Nguyen Hue",
     branchPhone: "0901000000",
   });
+});
+
+test("invoice PDF payment rows localize partial and full debt", () => {
+  const rows = invoiceService.invoicePdfPaymentRows;
+  assert.deepEqual(rows({ grandTotal: 100_000, paidAmount: 40_000, dueAmount: 60_000, payments: [{ method: "transfer", amount: 40_000 }] }), [
+    { label: "Chuyển khoản", amount: 40_000 },
+    { label: "Còn nợ", amount: 60_000 },
+  ]);
+  assert.deepEqual(rows({ grandTotal: 100_000, payments: [] }), [{ label: "Ghi nợ toàn bộ", amount: 100_000 }]);
+  assert.ok(rows({ grandTotal: 100_000, paidAmount: 100_000, dueAmount: 0, paymentStatus: "refunded", payments: [{ method: "cash", amount: 100_000 }] }).some((row: any) => row.label === "Đã hoàn tiền"));
+});
+
+test("invoice snapshot rejects fractional VND and inconsistent payment totals", () => {
+  const build = (overrides: any) => invoiceService.buildRetailInvoiceSnapshot({
+    customerName: "A", items: [], subtotal: 100_000, orderDiscount: 0, taxRate: 0, taxAmount: 0,
+    shippingFee: 0, grandTotal: 100_000, paidAmount: 40_000, dueAmount: 60_000, paymentStatus: "partial", payments: [],
+    ...overrides,
+  }, { displayName: "Thu ngân" }, { legalName: "A", storeName: "A", branchCode: "B", branchName: "B" });
+  assert.throws(() => build({ paidAmount: 40_000.5, dueAmount: 59_999.5 }), /INVALID_INVOICE_VND/);
+  assert.throws(() => build({ paidAmount: 40_000, dueAmount: 50_000 }), /INVALID_INVOICE_PAYMENT_TOTAL/);
+});
+
+test("legacy invoice cashier projection replaces an email without mutating snapshot", () => {
+  const invoice = { issuedBy: "u1", snapshot: { cashierName: "cashier@example.com" } };
+  const projected = invoiceService.projectLegacyInvoiceCashier(invoice, "Nguyễn An");
+  assert.equal(projected.snapshot.cashierName, "Nguyễn An");
+  assert.equal(invoice.snapshot.cashierName, "cashier@example.com");
 });

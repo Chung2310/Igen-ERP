@@ -45,7 +45,7 @@ describe("payroll workflow route guards", () => {
     ["POST", "/payments/:id/cancel"],
     ["POST", "/payments/:id/reverse"],
   ])("guards %s %s with payroll:pay", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:pay");
+    expect(permissionOf(method, path)).toBe("payroll:manage");
   });
 
   it.each([
@@ -67,9 +67,20 @@ describe("payroll workflow route guards", () => {
     expect(permissionOf(method, path)).toBe("payroll:read");
   });
 
+  it.each([
+    ["GET", "/runs/:id/lines/:employeeId"],
+    ["GET", "/runs/:id/payslips/:employeeId/print"],
+  ])("leaves authenticated self-service authorization to the controller for %s %s", (method, path) => {
+    expect(permissionOf(method, path)).toBeUndefined();
+  });
+
   it("never exposes a workflow route without a permission guard", () => {
     const unguarded = (payrollRouter as any).stack
       .filter((item: any) => item.route?.path?.startsWith("/runs") || item.route?.path?.startsWith("/payments"))
+      .filter((item: any) => ![
+        "/runs/:id/lines/:employeeId",
+        "/runs/:id/payslips/:employeeId/print",
+      ].includes(item.route.path))
       .filter((item: any) => !item.route.stack.some((handler: any) => guards.has(handler.handle)))
       .map((item: any) => item.route.path);
 

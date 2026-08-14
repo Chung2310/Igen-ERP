@@ -1,5 +1,5 @@
 import React from "react";
-import { BellRing, Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { retailReportsApi } from "../api/retailReports.api";
 import RetailKpiGrid from "../components/reports/RetailKpiGrid";
 import RetailReportFilters from "../components/reports/RetailReportFilters";
@@ -93,7 +93,7 @@ function RetailReportsSkeleton() {
 }
 
 export default function RetailReportsPage() {
-  const { scope, userProfile } = useRetailScope();
+  const { scope } = useRetailScope();
   const [filters, setFilters] = React.useState<RetailReportFilterValue>(readFiltersFromUrl);
   const [report, setReport] = React.useState<RetailReport | null>(null);
   const [reportScopeKey, setReportScopeKey] = React.useState("");
@@ -101,10 +101,9 @@ export default function RetailReportsPage() {
   const [loadError, setLoadError] = React.useState<{ scopeKey: string; message: string } | null>(null);
   const [exportError, setExportError] = React.useState("");
   const [exporting, setExporting] = React.useState(false);
-  const [reminding, setReminding] = React.useState(false);
-  const [reminderMessage, setReminderMessage] = React.useState("");
   const [reloadToken, setReloadToken] = React.useState(0);
   const requestSequence = React.useRef(0);
+  const summaryLoadingRef = React.useRef(false);
   const exportSequence = React.useRef(0);
   const exportController = React.useRef<AbortController | null>(null);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId}` : "";
@@ -112,7 +111,6 @@ export default function RetailReportsPage() {
   const exportContextKeyRef = React.useRef("");
   const visibleReport = scopeKey && reportScopeKey === scopeKey ? report : null;
   const visibleLoadError = loadError?.scopeKey === scopeKey ? loadError.message : "";
-  const manager = userProfile?.role === "admin" || userProfile?.role === "superadmin" || userProfile?.permissions?.some((permission) => permission === "*" || permission === "retail:manager");
 
   React.useLayoutEffect(() => {
     writeFiltersToUrl(filters);
@@ -134,14 +132,26 @@ export default function RetailReportsPage() {
   }, [exportContextKey]);
 
   React.useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "visible" || !scopeKey || summaryLoadingRef.current) return;
+      setReloadToken((value) => value + 1);
+    };
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [scopeKey]);
+
+  React.useEffect(() => {
     const requestId = ++requestSequence.current;
     if (!scope) {
+      summaryLoadingRef.current = false;
       setLoading(false);
       setLoadError(null);
       return undefined;
     }
 
     const requestedScopeKey = `${scope.companyCode}:${scope.branchId}`;
+    summaryLoadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     void retailReportsApi.summary(scope, filters)
@@ -155,7 +165,10 @@ export default function RetailReportsPage() {
         setLoadError({ scopeKey: requestedScopeKey, message: errorMessage(cause, "Không tải được báo cáo bán lẻ.") });
       })
       .finally(() => {
-        if (requestSequence.current === requestId) setLoading(false);
+        if (requestSequence.current === requestId) {
+          summaryLoadingRef.current = false;
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -189,22 +202,6 @@ export default function RetailReportsPage() {
     }
   };
 
-  const remindOverdueDebt = async () => {
-    if (!scope || reminding) return;
-    setReminding(true);
-    setReminderMessage("");
-    try {
-      const result = await retailReportsApi.remindOverdueDebt(scope);
-      setReminderMessage(result.created > 0
-        ? `Đã tạo ${result.created} thông báo cho ${result.overdueOrders} đơn quá hạn.`
-        : `Không có thông báo mới; ${result.duplicates} lượt đã được nhắc hôm nay.`);
-    } catch (cause) {
-      setReminderMessage(errorMessage(cause, "Không thể tạo thông báo công nợ."));
-    } finally {
-      setReminding(false);
-    }
-  };
-
   if (!scope) {
     return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-800">Vui lòng chọn chi nhánh để xem báo cáo.</div>;
   }
@@ -217,15 +214,6 @@ export default function RetailReportsPage() {
           <p className="text-sm text-slate-500">Doanh thu, thanh toán, ca bán hàng và công nợ của chi nhánh hiện tại.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {manager && <button
-            type="button"
-            disabled={reminding}
-            onClick={() => void remindOverdueDebt()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <BellRing aria-hidden="true" className="h-4 w-4" />
-            {reminding ? "Đang nhắc..." : "Nhắc công nợ"}
-          </button>}
           <button
             type="button"
             aria-label="Tải lại báo cáo"
@@ -260,7 +248,6 @@ export default function RetailReportsPage() {
       )}
 
       {exportError && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">{exportError}</div>}
-      {reminderMessage && <div role="status" className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-medium text-cyan-800">{reminderMessage}</div>}
 
       {!visibleReport && !visibleLoadError && <RetailReportsSkeleton />}
 

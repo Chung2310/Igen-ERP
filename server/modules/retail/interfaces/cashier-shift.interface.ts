@@ -8,6 +8,7 @@ export interface ICashierShift {
   cashMovements: CashMovement[]; grossSales: number; collectedAmount: number; newDebtAmount: number;
   refundedAmount: number; netCollectedAmount: number; methodTotals: ShiftMethodTotal[]; expectedCash: number;
   countedCash?: number; varianceAmount?: number; varianceReason?: string; status: CashierShiftStatus;
+  workShiftId?: string; workShiftCode?: string; workShiftName?: string; scheduledStartAt?: Date; scheduledEndAt?: Date; operationalEndsAt?: Date;
   businessDate: string; closedAt?: Date; closedBy?: string; approvedBy?: string; approvedByName?: string; approvedAt?: Date;
   createdAt?: Date; updatedAt?: Date;
 }

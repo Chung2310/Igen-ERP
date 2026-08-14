@@ -12,7 +12,6 @@ export interface IStudentProgressionDecision extends Document {
   sourceEnrollmentId?: string;
   studentId: string;
   intent: ProgressionIntent;
-  teacherConfirmed: boolean;
   teacherNote: string;
   eligible: boolean;
   eligibilityReasons: string[];

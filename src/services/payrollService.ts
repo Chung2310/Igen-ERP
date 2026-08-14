@@ -17,6 +17,8 @@ export const payrollService = {
   getPeriodInputs: (periodKey: string) => request(`/periods/${periodKey}/inputs`),
   savePeriodInput: (periodKey: string, employeeId: string, payload: unknown) => request(`/periods/${periodKey}/inputs/${employeeId}`, { method: "PUT", body: JSON.stringify(payload) }),
   bulkSavePeriodInputs: (periodKey: string, rows: unknown[]) => request(`/periods/${periodKey}/inputs`, { method: "PUT", body: JSON.stringify({ rows }) }),
+  getLineOverrides: (periodKey: string) => request(`/periods/${periodKey}/line-overrides`),
+  bulkSaveLineOverrides: (periodKey: string, rows: unknown[]) => request(`/periods/${periodKey}/line-overrides`, { method: "PUT", body: JSON.stringify({ rows }) }),
   getPeriodInputVariables: () => request("/period-input-variables"),
   createPeriodInputVariable: (payload: unknown) => request("/period-input-variables", { method: "POST", body: JSON.stringify(payload) }),
   activatePeriodInputVariable: (id: string) => request(`/period-input-variables/${id}/activate`, { method: "POST" }),
@@ -35,8 +37,11 @@ export const payrollService = {
   lock: (periodKey: string) => request(`/periods/${periodKey}/lock`, { method: "POST" }),
   createRun: (periodKey: string) => request(`/periods/${periodKey}/run`, { method: "POST" }),
   processPeriod: (periodKey: string) => request(`/periods/${periodKey}/process`, { method: "POST" }),
+  calculateRun: (runId: string, expectedVersion: number) => request(`/runs/${runId}/calculate`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
   review: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
+  reviewRun: (runId: string) => request(`/runs/${runId}/review`, { method: "POST" }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
+  closeRun: (runId: string) => request(`/runs/${runId}/close`, { method: "POST" }),
   reopen: (runId: string, payload: { expectedVersion: number; reason: string }) => request(`/runs/${runId}/reopen`, { method: "POST", body: JSON.stringify(payload) }),
   markPaid: (runId: string, payload: { expectedVersion: number }) => request(`/runs/${runId}/mark-paid`, { method: "POST", body: JSON.stringify(payload) }),
   reset: (periodKey: string) => request(`/periods/${periodKey}`, { method: "DELETE" }),
@@ -50,7 +55,16 @@ export const payrollService = {
   cancelPayment: (paymentId: string) => request(`/payments/${paymentId}/cancel`, { method: "POST" }),
   reversePayment: (paymentId: string) => request(`/payments/${paymentId}/reverse`, { method: "POST" }), publishPayslips: (runId: string, employeeIds?: string[]) => request(`/runs/${runId}/payslips/publish`, { method: "POST", body: JSON.stringify({ employeeIds }) }),
   getEmployeePayslips: () => request("/employee/me/payslips"),
-  printPayslip: (runId: string, employeeId: string) => `/api/v1/payroll/runs/${runId}/payslips/${employeeId}/print`,
+  printPayslip: async (runId: string, employeeId: string) => {
+    const response = await fetch(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}/print`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.message || "Unable to print payslip");
+    }
+    return response.blob();
+  },
   exportWorkbook: async (runId: string, type: "detailed" | "insurance" | "pit" | "bank_transfer") => {
     const response = await fetch(`/api/v1/payroll/runs/${runId}/exports`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify({ type }) });
     if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.message || "Payroll export failed"); }

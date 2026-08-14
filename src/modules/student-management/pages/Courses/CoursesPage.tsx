@@ -574,7 +574,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <h4 className={cn('text-sm font-black line-clamp-1 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-850 group-hover:text-slate-950')}>{course.title}</h4>
 
                   <div className={cn('grid grid-cols-2 gap-y-2.5 gap-x-2 pt-2 text-[10px] font-bold border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-550 border-slate-100')}>
-                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {course.duration}</div>
+                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
                       <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-slate-400" /> {course.fee}</div>
                     )}
@@ -672,7 +672,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                         {course.category}
                       </span>
                     </td>
-                    <td className="py-2 px-4 font-bold">{course.duration}</td>
+                    <td className="py-2 px-4 font-bold">{course.duration} buổi</td>
                     <td className="py-2 px-4 font-bold">{usesCourseFeePolicy ? course.fee : 'Không áp dụng'}</td>
                     <td className="py-2 px-4 font-bold">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
                     <td className="py-2 px-4">
@@ -789,7 +789,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   {renderFieldActions('duration')}
                   <ErpField label={getFieldLabel('duration', copy.durationLabel)}>
                     <ErpInput
-                      type="text"
+                      type="number"
+                      min="1"
                       required={isFieldRequired('duration', true)}
                       placeholder={getFieldPlaceholder('duration', courseDurationPlaceholder)}
                       value={newCourse.duration}
@@ -807,6 +808,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
                     <ErpInput
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
                       required={isFieldRequired('fee', true)}
                       placeholder={getFieldPlaceholder('fee', copy.feePlaceholder)}
                       value={newCourse.fee}
@@ -1116,8 +1119,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời lượng</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.duration}</p>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số buổi học</label>
+                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.duration} buổi</p>
               </div>
               {usesCourseFeePolicy && (
                 <div>

@@ -7,6 +7,14 @@ export function getAccessToken(): string | null {
 }
 
 export const authService = {
+  async getUserActivity(userId: string, filters: Record<string, string | number | undefined> = {}): Promise<any> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") query.set(key, String(value));
+    const res = await fetch(`/api/v1/auth/users/${encodeURIComponent(userId)}/activity?${query}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Không thể tải lịch sử hoạt động.");
+    return data;
+  },
   // Đăng ký bằng Email & Mật khẩu
   async registerWithEmail(email: string, password: string, displayName: string): Promise<any> {
     const res = await fetch("/api/v1/auth/register", {
@@ -208,7 +216,7 @@ export const authService = {
   },
 
   // Cập nhật vai trò người dùng
-  async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
+  async updateUserRole(uid: string, newRole: "user" | "teacher" | "manager" | "admin" | "superadmin"): Promise<void> {
     const res = await fetch(`/api/v1/auth/users/${uid}`, {
       method: "PATCH",
       headers: {
@@ -351,7 +359,7 @@ export const authService = {
     displayName: string,
     email: string,
     password: string,
-    role: "user" | "manager" | "branch_owner" | "admin",
+    role: "user" | "teacher" | "manager" | "branch_owner" | "admin",
     companyCode: string,
     companyName: string,
     parentId?: string,

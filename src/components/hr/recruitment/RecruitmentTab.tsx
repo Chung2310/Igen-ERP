@@ -11,7 +11,7 @@ const tabs = [
   { id: "interviews" as const, label: "Phỏng vấn", icon: CalendarClock },
 ];
 
-export default function RecruitmentTab() {
+export default function RecruitmentTab({ canManage = false }: { canManage?: boolean }) {
   const [view, setView] = useState<View>("jobs");
   const subTabsRef = useRef<HTMLDivElement>(null);
   
@@ -66,9 +66,9 @@ export default function RecruitmentTab() {
       </button>
     </div>
     <div className="min-h-0 flex-1 overflow-auto">
-      {view === "jobs" && <RecruitmentJobsView />}
-      {view === "applicants" && <RecruitmentApplicantsView />}
-      {view === "interviews" && <RecruitmentInterviewsView />}
+      {view === "jobs" && <RecruitmentJobsView canManage={canManage} />}
+      {view === "applicants" && <RecruitmentApplicantsView canManage={canManage} />}
+      {view === "interviews" && <RecruitmentInterviewsView canManage={canManage} />}
     </div>
   </section>;
 }

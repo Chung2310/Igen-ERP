@@ -40,6 +40,8 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
+import { KanbanProjectSummary } from "./KanbanProjectSummary";
+import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -624,6 +626,7 @@ export default function KanbanTab({
   activeBranchId,
 }: KanbanTabProps) {
   const [tasks, setTasks] = useState<HRTask[]>([]);
+  const tasksRef = React.useRef<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
@@ -647,8 +650,15 @@ export default function KanbanTab({
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectStatus, setNewProjectStatus] = useState<Project["status"]>("not_started");
+  const [newProjectPriority, setNewProjectPriority] = useState<Project["priority"]>("medium");
+  const [newProjectStartAt, setNewProjectStartAt] = useState("");
+  const [newProjectDueAt, setNewProjectDueAt] = useState("");
+  const [newProjectAttachments, setNewProjectAttachments] = useState<TaskAttachment[]>([]);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+  const projectRequestGeneration = React.useRef(0);
 
   const subTabsRef = React.useRef<HTMLDivElement>(null);
   const scrollSubTabs = (direction: "left" | "right") => {
@@ -682,6 +692,16 @@ export default function KanbanTab({
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const applyTaskMutation = (updateTasks: (current: HRTask[]) => HRTask[], affectedProjectIds: Array<string | undefined>) => {
+    const nextTasks = updateTasks(tasksRef.current);
+    tasksRef.current = nextTasks;
+    setTasks(nextTasks);
+    setProjects((currentProjects) => updateProjectProgressFromTasks(currentProjects, nextTasks, affectedProjectIds));
+    void fetchProjects();
+  };
+
   const fetchTasks = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
@@ -701,6 +721,7 @@ export default function KanbanTab({
         ...item,
         id: item._id,
       })) as HRTask[];
+      tasksRef.current = tasksData;
       setTasks(tasksData);
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
@@ -709,11 +730,13 @@ export default function KanbanTab({
 
   const fetchProjects = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
+    const requestGeneration = ++projectRequestGeneration.current;
     try {
       const url = activeBranchId
         ? `/api/v1/kanban/projects?branchId=${activeBranchId}`
         : "/api/v1/kanban/projects";
       const res = await fetch(url, {
+        cache: "no-store",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -722,18 +745,17 @@ export default function KanbanTab({
         throw new Error("Không thể tải danh sách dự án");
       }
       const json = await res.json();
+      if (!shouldApplyProjectResponse(requestGeneration, projectRequestGeneration.current)) return;
       const projData: Project[] = (json.data || []).map((item: any) => ({
         ...item,
         id: item._id,
       }));
       setProjects(projData.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
 
-      const expanded: Record<string, boolean> = {};
-      projData.forEach(p => {
-        expanded[p.id] = true;
+      setExpandedProjects((current) => {
+        if (Object.keys(current).length > 0) return current;
+        return Object.fromEntries([...projData.map((project) => [project.id, true]), ["unassigned", true]]);
       });
-      expanded["unassigned"] = true;
-      setExpandedProjects(expanded);
     } catch (error) {
       console.error("Lỗi khi tải danh sách dự án:", error);
     }
@@ -750,12 +772,16 @@ export default function KanbanTab({
   useEffect(() => {
     const off = socketService.on("kanban:task-created", (data: any) => {
       fetchTasks();
+      fetchProjects();
       toast.success(
         `Bạn có task mới từ quy trình «${data?.workflowName || ""}»: ${data?.title || ""}`
       );
     });
-    return off;
-  }, [fetchTasks, selectedCompanyCode]);
+    const offTaskUpdated = socketService.on("kanban:task-updated", fetchProjects);
+    const offTaskDeleted = socketService.on("kanban:task-deleted", fetchProjects);
+    const offProjectUpdated = socketService.on("kanban:project-updated", fetchProjects);
+    return () => { off(); offTaskUpdated(); offTaskDeleted(); offProjectUpdated(); };
+  }, [fetchTasks, fetchProjects, selectedCompanyCode]);
 
   // Deep-link từ tab Quy trình: mở modal chi tiết đúng task được trỏ tới
   useEffect(() => {
@@ -969,7 +995,7 @@ export default function KanbanTab({
         } as HRTask;
 
         toast.success("Đã thêm công việc thành công!");
-        setTasks(prev => [...prev, createdTask]);
+        applyTaskMutation((current) => [...current, createdTask], [createdTask.projectId]);
       } else {
         const changes: string[] = [];
         if ((selectedKanbanTask.title || "") !== editTitle.trim()) {
@@ -1059,7 +1085,7 @@ export default function KanbanTab({
         }
 
         toast.success("Đã lưu thay đổi công việc!");
-        setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } as HRTask : t));
+        applyTaskMutation((current) => current.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } as HRTask : t), [selectedKanbanTask.projectId, updatedFields.projectId]);
       }
       setSelectedKanbanTask(null);
     } catch (error: any) {
@@ -1081,11 +1107,16 @@ export default function KanbanTab({
         companyCode: compCode,
         branchId: activeBranchId || undefined,
         creatorUid: userProfile?.uid || "",
+        status: newProjectStatus,
+        priority: newProjectPriority,
+        startAt: editingProjectId ? (newProjectStartAt || null) : (newProjectStartAt || undefined),
+        dueAt: editingProjectId ? (newProjectDueAt || null) : (newProjectDueAt || undefined),
+        attachments: newProjectAttachments,
         createdAt: new Date().toISOString()
       };
 
-      const res = await fetch("/api/v1/kanban/projects", {
-        method: "POST",
+      const res = await fetch(editingProjectId ? `/api/v1/kanban/projects/${editingProjectId}` : "/api/v1/kanban/projects", {
+        method: editingProjectId ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -1099,15 +1130,15 @@ export default function KanbanTab({
       }
 
       const json = await res.json();
-      const createdProj = {
-        ...newProj,
-        id: json.data._id,
-      };
+      ++projectRequestGeneration.current;
+      const createdProj = { ...json.data, id: json.data._id };
 
-      toast.success("Đã tạo dự án mới thành công!");
-      setProjects(prev => [createdProj, ...prev]);
+      toast.success(editingProjectId ? "Đã cập nhật dự án!" : "Đã tạo dự án mới thành công!");
+      setProjects(prev => mergeSavedProject(prev, json.data, editingProjectId));
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
+      setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]);
+      setEditingProjectId(null);
       setIsNewProjectModalOpen(false);
     } catch (error: any) {
       console.error("Lỗi khi tạo dự án:", error);
@@ -1183,7 +1214,7 @@ export default function KanbanTab({
         throw new Error(err.message || "Cập nhật trạng thái thất bại");
       }
 
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
+      applyTaskMutation((current) => current.map(t => t.id === id ? { ...t, ...updateData } : t), [taskObj?.projectId]);
       toast.success("Đã cập nhật trạng thái công việc!");
     } catch (error: any) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
@@ -1253,7 +1284,7 @@ export default function KanbanTab({
         throw new Error(err.message || "Cập nhật trạng thái thất bại");
       }
 
-      setTasks(prev => prev.map(x => (x.id === t.id ? { ...x, ...updateData } : x)));
+      applyTaskMutation((current) => current.map(x => (x.id === t.id ? { ...x, ...updateData } : x)), [t.projectId]);
       setQuickDone(null);
       toast.success("Đã hoàn thành công việc!");
     } catch (error) {
@@ -1296,7 +1327,8 @@ export default function KanbanTab({
         throw new Error(err.message || "Xóa công việc thất bại");
       }
 
-      setTasks(prev => prev.filter(t => t.id !== id));
+      const deletedTask = tasksRef.current.find((task) => task.id === id);
+      applyTaskMutation((current) => current.filter(t => t.id !== id), [deletedTask?.projectId]);
       toast.success("Đã xóa công việc thành công!");
       return true;
     } catch (error: any) {
@@ -1329,7 +1361,9 @@ export default function KanbanTab({
 
       setProjects(prev => prev.filter(p => p.id !== id));
       // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
-      setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
+      const nextTasks = tasksRef.current.map(t => (t.projectId === id ? { ...t, projectId: "" } : t));
+      tasksRef.current = nextTasks;
+      setTasks(nextTasks);
       toast.success("Đã xóa dự án thành công!");
     } catch (error: any) {
       console.error("Lỗi khi xóa dự án:", error);
@@ -1418,7 +1452,7 @@ export default function KanbanTab({
                 <>
                   <button
                     type="button"
-                    onClick={() => setIsNewProjectModalOpen(true)}
+                    onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
                     className="px-4 py-2 border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
@@ -1488,7 +1522,7 @@ export default function KanbanTab({
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             <Target className="h-4 w-4 text-indigo-600 shrink-0" />
-                            <h3 className="font-bold text-slate-800 text-sm truncate">{proj.name}</h3>
+                            <div className="min-w-0 flex-1"><h3 className="font-bold text-slate-800 text-sm truncate">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
                             <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 font-mono text-[9px] font-bold rounded-full">
                               {projTasks.length} việc
                             </span>
@@ -1496,7 +1530,7 @@ export default function KanbanTab({
                           <div className="flex items-center gap-4 text-[10px] text-gray-400 font-medium">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
                             {isManager && (
-                              <button
+                              <><button type="button" onClick={(e) => { e.stopPropagation(); setEditingProjectId(proj.id); setNewProjectName(proj.name); setNewProjectStatus(proj.status || "not_started"); setNewProjectPriority(proj.priority || "medium"); setNewProjectStartAt(proj.startAt ? getLocalDatetimeString(new Date(proj.startAt)) : ""); setNewProjectDueAt(proj.dueAt ? getLocalDatetimeString(new Date(proj.dueAt)) : ""); setNewProjectAttachments(proj.attachments || []); setIsNewProjectModalOpen(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title="Sửa dự án"><FileText className="h-3.5 w-3.5" /></button><button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1506,7 +1540,7 @@ export default function KanbanTab({
                                 title="Xóa dự án"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              </button></>
                             )}
                           </div>
                         </div>
@@ -1514,6 +1548,7 @@ export default function KanbanTab({
                         {/* Project Tasks Body */}
                         {isExpanded && (
                           <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                            <KanbanProjectSummary project={proj} expanded />
                             <TaskTable
                               tasks={projTasks}
                               showProjectColumn={false}
@@ -2078,7 +2113,7 @@ export default function KanbanTab({
             <div className="flex justify-between items-center pb-3 border-b border-gray-150">
               <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
                 <Target className="h-4 w-4 text-indigo-655" />
-                Tạo Dự Án Mới
+                {editingProjectId ? "Cập nhật dự án" : "Tạo dự án mới"}
               </h4>
               <button
                 type="button"
@@ -2101,6 +2136,15 @@ export default function KanbanTab({
                   className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="font-bold text-gray-500">Trạng thái<select value={newProjectStatus} onChange={(e) => setNewProjectStatus(e.target.value as Project["status"])} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800"><option value="not_started">Chưa bắt đầu</option><option value="in_progress">Đang thực hiện</option><option value="paused">Tạm dừng</option><option value="cancelled">Đã hủy</option></select></label>
+                <label className="font-bold text-gray-500">Độ ưu tiên<select value={newProjectPriority} onChange={(e) => setNewProjectPriority(e.target.value as Project["priority"])} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800"><option value="low">Thấp</option><option value="medium">Trung bình</option><option value="high">Cao</option><option value="urgent">Khẩn cấp</option></select></label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="font-bold text-gray-500">Thời gian bắt đầu<input type="datetime-local" value={newProjectStartAt} onChange={(e) => setNewProjectStartAt(e.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800" /></label>
+                <label className="font-bold text-gray-500">Hạn cuối<input type="datetime-local" value={newProjectDueAt} onChange={(e) => setNewProjectDueAt(e.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800" /></label>
+              </div>
+              <div><label className="block font-bold text-gray-500 mb-1.5">Tài liệu</label><AttachmentEditor attachments={newProjectAttachments} onChange={setNewProjectAttachments} /></div>
             </div>
 
             <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">

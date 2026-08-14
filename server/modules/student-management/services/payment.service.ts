@@ -8,6 +8,8 @@ interface PaymentFilters {
   page?: number | string;
   limit?: number | string;
   studentId?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface PaymentCreateData {
@@ -142,8 +144,8 @@ export class PaymentService {
 
   static async getPayments(ownerId: string | string[], filters: PaymentFilters, branchId?: string) {
     logger.info(`[Payment] Fetching payments for ownerId=${ownerId} with filters: ${JSON.stringify(filters)}`);
-    const page = filters.page ? parseInt(String(filters.page)) : 1;
-    const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
+    const page = Math.max(1, filters.page ? parseInt(String(filters.page)) || 1 : 1);
+    const limit = Math.min(5000, Math.max(1, filters.limit ? parseInt(String(filters.limit)) || 100 : 100));
     const skip = (page - 1) * limit;
 
     const query: Record<string, unknown> = {
@@ -153,6 +155,20 @@ export class PaymentService {
       query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
     if (filters.studentId) query.studentId = filters.studentId;
+
+    const startDate = parsePaymentDate(filters.startDate);
+    const endDate = parsePaymentDate(filters.endDate);
+    if (startDate && endDate && startDate > endDate) throw new Error("Ngày bắt đầu không được sau ngày kết thúc.");
+    if (startDate || endDate) {
+      const range: Record<string, Date> = {};
+      if (startDate) range.$gte = startDate;
+      if (endDate) {
+        const rangeEnd = new Date(endDate);
+        rangeEnd.setHours(23, 59, 59, 999);
+        range.$lte = rangeEnd;
+      }
+      query.paidOn = range;
+    }
 
     const total = await Payment.countDocuments(query);
     const payments = await Payment.find(query)

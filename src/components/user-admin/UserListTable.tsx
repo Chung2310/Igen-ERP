@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
+import { Activity, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
 import { UserTableProps } from "./types";
 import { getRoleDisplayName } from "../../utils/permissionUtils";
 
@@ -15,6 +15,7 @@ export function UserListTable({
   onToggleActionMenu,
   onEditUser,
   onDeleteUser,
+  onViewActivity,
 }: UserTableProps) {
   return (
     <div className="max-w-full rounded-2xl border border-gray-150 bg-white shadow-xs" style={{ overflow: "clip" }}>
@@ -138,6 +139,7 @@ export function UserListTable({
 
                         {openActionMenuId === usr.uid && (
                           <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg">
+                            <button type="button" onClick={() => onViewActivity(usr)} className="flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-cyan-50"><Activity className="h-3.5 w-3.5 text-cyan-600" />Xem hoạt động</button>
                             <button
                               type="button"
                               onClick={() => onEditUser(usr)}

@@ -339,7 +339,7 @@ test("all six models expose customFields as Mixed with an empty default", () => 
 
 test("all six create and update Joi schemas accept customFields but reject unrelated top-level keys", () => {
   const createCases = [
-    [createStudentSchema, { fullName: "A", phone: "0900000000", registrationDate: "2026-07-18", customFields: { nickname: "A" } }],
+    [createStudentSchema, { fullName: "A", phone: "0900000000", email: "student@example.com", registrationDate: "2026-07-18", customFields: { nickname: "A" } }],
     [createCourseSchema, { code: "C1", title: "Course", category: "General", duration: "3 months", customFields: { level: "a" } }],
     [createBatchSchema, { code: "B1", courseId: "course", daysOfWeek: [1], startTime: "08:00", endTime: "09:00", startDate: "2026-07-18", endDate: "2026-08-18", customFields: { room: "A" } }],
     [createExamSchema, { name: "Exam", status: "Sắp diễn ra", tentativeDate: "2026-07-18", location: "HCM", customFields: { note: "A" } }],

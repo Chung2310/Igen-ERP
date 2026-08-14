@@ -620,7 +620,7 @@ function ExamProgressionModal({ exam, students, batches, classrooms, onClose }: 
     if (!exam.batchId || !progression?.selectedRoadmapId || !progression.targetStep || !targetBatchId || !selectedIds.length) return;
     setSaving(true);
     try {
-      await Promise.all(selectedIds.map((studentId) => saveProgression(exam.batchId!, studentId, { roadmapId: progression.selectedRoadmapId, intent: "continue", teacherConfirmed: true, teacherNote: "Đạt kết quả thi", overrideEligible: true, overrideReason: "Đạt kết quả thi" })));
+      await Promise.all(selectedIds.map((studentId) => saveProgression(exam.batchId!, studentId, { roadmapId: progression.selectedRoadmapId, intent: "continue", teacherNote: "Đạt kết quả thi", overrideEligible: true, overrideReason: "Đạt kết quả thi" })));
       const waitlist = await getWaitlist({ page: 1, limit: 100, roadmapId: progression.selectedRoadmapId, targetStepId: progression.targetStep.id, batchId: exam.batchId });
       const entryIds = waitlist.items.filter((item) => selectedIds.includes(item.studentId)).map((item) => item.id);
       if (entryIds.length !== selectedIds.length) throw new Error("Không thể tạo đủ danh sách học viên để xếp lớp.");

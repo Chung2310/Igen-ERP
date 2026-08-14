@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { notificationController } from "../controller/notification.controller";
 import {
@@ -22,6 +22,7 @@ notificationRouter.get(
 notificationRouter.post(
   "/",
   requireAuth as any,
+  requirePermission("chat:manage") as any,
   validateRequest(createNotificationSchema),
   notificationController.create as any
 );
@@ -30,6 +31,7 @@ notificationRouter.post(
 notificationRouter.patch(
   "/read-all",
   requireAuth as any,
+  requirePermission("chat:read") as any,
   notificationController.markAllRead as any
 );
 
@@ -37,6 +39,7 @@ notificationRouter.patch(
 notificationRouter.patch(
   "/:id/read",
   requireAuth as any,
+  requirePermission("chat:read") as any,
   validateRequest(notificationIdParamsSchema),
   notificationController.markRead as any
 );
@@ -45,6 +48,7 @@ notificationRouter.patch(
 notificationRouter.delete(
   "/:id",
   requireAuth as any,
+  requirePermission("chat:manage") as any,
   validateRequest(notificationIdParamsSchema),
   notificationController.delete as any
 );

@@ -25,11 +25,13 @@ import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
+import { UserActivityTimeline } from "./super-admin/users/UserActivityTimeline";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
   const { activeBranchId } = useBranch();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [activityUser, setActivityUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -300,6 +302,7 @@ export default function UserAdminTab() {
   const getAvailableRoles = () => {
     const defaultRoles = [
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
+      { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4 },
       { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 },
       { role: "branch_owner", displayName: "BRANCH OWNER", level: 2 }
     ];
@@ -317,7 +320,7 @@ export default function UserAdminTab() {
 
     // Merge with custom roles
     const customRoles = rolePermissionsList
-      .filter(rp => !["user", "manager", "admin", "superadmin"].includes(rp.role))
+      .filter(rp => !["user", "teacher", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
         displayName: getRoleDisplayName(rp.role, rp.displayName),
@@ -384,7 +387,7 @@ export default function UserAdminTab() {
     safeUserPage * USERS_PER_PAGE
   );
 
-  const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "manager" | "admin" | "superadmin") => {
+  const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "teacher" | "manager" | "admin" | "superadmin") => {
     if (targetUid === userProfile?.uid) {
       toast.warning("Bạn không thể tự thay đổi vai trò của chính mình!");
       return;
@@ -403,9 +406,9 @@ export default function UserAdminTab() {
       setUsersList((prev) =>
         prev.map((u) => {
           if (u.uid === targetUid) {
-            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
-            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
-            const title = newRole === "admin" ? "CEO" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
+            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : "Nhân viên"));
+            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : "Nhân viên"));
+            const title = newRole === "admin" ? "CEO" : (newRole === "manager" ? "Quản lý phòng ban" : (newRole === "teacher" ? "Giảng viên" : "Nhân viên"));
             return { ...u, role: newRole, department: dept, division: div, jobTitle: title };
           }
           return u;
@@ -756,6 +759,7 @@ export default function UserAdminTab() {
                 onToggleActionMenu={(uid) => setOpenActionMenuId(openActionMenuId === uid ? null : uid)}
                 onEditUser={openEditUserModal}
                 onDeleteUser={handleDeleteUser}
+                onViewActivity={(user) => { setOpenActionMenuId(null); setActivityUser(user); }}
               />
             )}
           </div>
@@ -766,7 +770,9 @@ export default function UserAdminTab() {
               <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
             </div>
             <button
+              disabled={!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))}
               onClick={() => {
+                if (!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))) return;
                 setEditingRole(null);
                 setRoleSlug("");
                 setRoleDisplayName("");
@@ -792,40 +798,42 @@ export default function UserAdminTab() {
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
                   admin: ["*"],
-                  branch_owner: ["user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"],
+                  branch_owner: ["access:read", "access:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "people:read", "people:manage", "resource:read", "chat:read", "work:read", "work:manage"],
                   manager: [
-                    "user:read", "user:manage",
+                    "access:read", "access:manage",
                     "timekeeping:read", "timekeeping:manage",
                     "payroll:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read", "project:manage",
-                    "stock:read", "stock:manage",
-                    "student:read", "student:manage",
+                    "work:read", "work:manage",
+                    "work:read", "work:manage",
+                    "inventory:read", "inventory:manage",
+                    "people:read", "people:manage",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
-                    "wallet:read"
+                    "finance:read"
                   ],
                   user: [
-                    "user:read",
+                    "access:read",
                     "timekeeping:read",
-                    "kanban:read", "kanban:manage",
-                    "project:read",
-                    "stock:read",
-                    "student:read",
+                    "work:read", "work:manage",
+                    "work:read",
+                    "inventory:read",
+                    "people:read",
                     "resource:read",
                     "chat:read",
-                    "wallet:read"
-                  ]
+                    "finance:read"
+                  ],
+                  teacher: ["people:read", "people:manage"]
                 };
 
                 const defaultRolesList = [
                   { role: "admin", displayName: getRoleDisplayName("admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
                   { role: "manager", displayName: getRoleDisplayName("manager"), level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
                   { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
+                  { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.teacher },
                   { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "user"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {
@@ -847,6 +855,18 @@ export default function UserAdminTab() {
                     _id: cr._id
                   }))
                 ];
+
+                const canEditRole = (roleInfo: { role: string; level: number }) => {
+                  const currentRole = userProfile?.role;
+                  if (!currentRole || roleInfo.role === "superadmin") return false;
+                  if (currentRole === "superadmin" || currentRole === "admin") {
+                    return roleInfo.role !== "admin";
+                  }
+                  if (roleInfo.role === currentRole) return false;
+                  const callerLevel = rolePermissionsList.find((item) => item.role === currentRole)?.level
+                    ?? ({ manager: 3, branch_owner: 2, teacher: 4, user: 4 }[currentRole] ?? 4);
+                  return roleInfo.level > callerLevel;
+                };
 
                 return rolesToDisplay.map((roleInfo) => {
                   return (
@@ -894,7 +914,7 @@ export default function UserAdminTab() {
 
                       {/* Actions */}
                       <div className="border-t border-gray-100 pt-3 flex justify-end gap-2 mt-auto">
-                        {roleInfo.role !== "admin" && (
+                        {canEditRole(roleInfo) && (
                           <button
                             onClick={() => {
                               setEditingRole(roleInfo as any);
@@ -1046,6 +1066,15 @@ export default function UserAdminTab() {
           }
         }}
       />
+
+      {activityUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-label="Lịch sử hoạt động người dùng">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-slate-900 p-5 text-white shadow-2xl">
+            <div className="mb-4 flex items-center justify-between"><div><h3 className="font-bold">Lịch sử hoạt động</h3><p className="text-sm text-slate-400">{activityUser.displayName || activityUser.email}</p></div><button type="button" onClick={() => setActivityUser(null)} aria-label="Đóng lịch sử hoạt động" className="rounded-lg p-2 hover:bg-white/10"><X className="h-5 w-5" /></button></div>
+            <UserActivityTimeline tenantId={activityUser.companyCode || userProfile?.companyCode || ""} userId={activityUser.uid} loadActivity={userProfile?.role === "superadmin" ? undefined : async (_tenantId, userId, filters) => authService.getUserActivity(userId, filters as any)} />
+          </div>
+        </div>
+      )}
 
       {/* Custom confirm dialog */}
       {confirmState && (

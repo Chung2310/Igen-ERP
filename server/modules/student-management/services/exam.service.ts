@@ -50,6 +50,19 @@ function examDateToIso(value?: string) {
   return "";
 }
 
+/** Cho phép thi sớm tối đa 15% số buổi theo lịch của lớp. */
+function assertExamDateIsEligible(batch: { startDate: string; endDate: string; daysOfWeek?: number[] }, value?: string) {
+  const examDate = examDateToIso(value);
+  if (!examDate) return;
+  const sessionDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+  if (!sessionDates.length) return;
+  const earliestIndex = Math.max(0, Math.ceil(sessionDates.length * 0.85) - 1);
+  const earliestDate = sessionDates[earliestIndex];
+  if (examDate < earliestDate) {
+    throw new Error(`Lịch thi chỉ được sớm tối đa 15% tiến độ lớp, từ ngày ${earliestDate.split("-").reverse().join("/")}.`);
+  }
+}
+
 /** Chỉ chấm khi tới ngày thi, lớp đã hết buổi và toàn bộ buổi đã chốt điểm danh. */
 async function assertExamReadyToGrade(exam: Pick<IExam, "batchId" | "tentativeDate" | "officialDate">, ownerId: string | string[], branchId?: string) {
   if (!exam.batchId) return;
@@ -63,15 +76,11 @@ async function assertExamReadyToGrade(exam: Pick<IExam, "batchId" | "tentativeDa
   if (examDate && today < examDate) throw new Error("Chưa đến ngày thi, chưa thể nhập kết quả.");
 
   const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
-  const futureSessions = scheduledDates.filter((date) => date > today);
-  if (futureSessions.length) throw new Error(`Lớp còn ${futureSessions.length} buổi theo lịch. Chỉ chấm sau buổi học cuối.`);
-
-  const requiredDates = new Set(scheduledDates.filter((date) => date <= today));
   const confirmedDates = new Set((batch.attendanceSessions || [])
-    .filter((session) => requiredDates.has(session.date) && session.records.length > 0)
+    .filter((session) => scheduledDates.includes(session.date) && session.records.length > 0)
     .map((session) => session.date));
-  const missingAttendance = requiredDates.size - confirmedDates.size;
-  if (missingAttendance > 0) throw new Error(`Còn ${missingAttendance} buổi chưa chốt điểm danh. Hãy hoàn tất điểm danh trước khi chấm thi.`);
+  const requiredSessions = Math.ceil(scheduledDates.length * 0.85);
+  if (confirmedDates.size < requiredSessions) throw new Error(`Cần chốt ít nhất ${requiredSessions}/${scheduledDates.length} buổi học (85%) trước khi nhập kết quả thi.`);
 }
 
 /** Tự đóng lớp sau khi toàn bộ kỳ thi của lớp đã có kết quả. */
@@ -181,6 +190,7 @@ export class ExamService {
     const batch = await Batch.findOne({ _id: batchId, ownerId, branchId: writeData.branchId });
     if (!batch) throw new Error("Không tìm thấy lớp học của lịch thi.");
     assertBatchReadyForExam(batch);
+    assertExamDateIsEligible(batch, String(writeData.tentativeDate || ""));
     const maxScore = Number(writeData.maxScore || 100);
     const passScore = writeData.passScore === undefined ? Math.ceil(maxScore / 2) : Number(writeData.passScore);
     if (!Number.isFinite(passScore) || passScore < 0 || passScore > maxScore) throw new Error("Ngưỡng đạt phải nằm trong khoảng 0 đến thang điểm.");
@@ -305,6 +315,12 @@ export class ExamService {
     const expectedVersion = expectedVersionOf(data);
     const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existingExam.ownerId) } : context;
     const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existingExam, data);
+    const nextBatchId = String(writeData.batchId || existingExam.batchId || "");
+    if (nextBatchId) {
+      const batch = await Batch.findOne({ _id: nextBatchId, ...(ownerId === "ALL" ? {} : { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId }), ...(branchId ? { branchId } : {}) });
+      if (!batch) throw new Error("Không tìm thấy lớp học của lịch thi.");
+      assertExamDateIsEligible(batch, String(writeData.tentativeDate || existingExam.tentativeDate || ""));
+    }
     const nextMaxScore = writeData.maxScore === undefined ? Number(existingExam.maxScore || 100) : Number(writeData.maxScore);
     const nextPassScore = writeData.passScore === undefined ? Number(existingExam.passScore ?? Math.ceil(nextMaxScore / 2)) : Number(writeData.passScore);
     if (!Number.isFinite(nextPassScore) || nextPassScore < 0 || nextPassScore > nextMaxScore) throw new Error("Ngưỡng đạt phải nằm trong khoảng 0 đến thang điểm.");

@@ -1,6 +1,7 @@
 import { WorkerModel } from "../models/worker.model";
 import { WorkerProjectModel } from "../models/worker-project.model";
 import type { WorkerScope } from "../contracts";
+import { WorkerLaborContractService } from "./worker-labor-contract.service";
 
 export async function getWorkerDashboard(scope: WorkerScope) {
   const query = { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), deletedAt: null };
@@ -61,7 +62,10 @@ export async function getWorkerDashboard(scope: WorkerScope) {
     quota: p.quota || 0,
   }));
 
+  const contractAlerts = await WorkerLaborContractService.expiringSummary(scope);
+
   return {
+    contractAlerts,
     totalWorkers,
     activeWorkers,
     projects,

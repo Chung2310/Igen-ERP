@@ -3,6 +3,8 @@ import { Building2, Edit3, LocateFixed, Plus, Power, Search, X } from "lucide-re
 import { useAuth } from "../../context/AuthContext";
 import { branchService, type BranchInput, type BranchRecord } from "../../services/branchService";
 import { toast } from "../../pages/Toast";
+import { toAttendanceNetwork } from "../../utils/attendanceNetwork";
+import { UserFormModal } from "../user-admin/UserFormModal";
 
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
@@ -29,6 +31,18 @@ export default function BranchManagementTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [locating, setLocating] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState<BranchRecord | null>(null);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerBirthDate, setOwnerBirthDate] = useState("");
+  const [ownerQualification, setOwnerQualification] = useState("");
+  const [ownerDepartment, setOwnerDepartment] = useState("");
+  const [ownerJobDescriptionLink, setOwnerJobDescriptionLink] = useState("");
+  const [ownerJobDescriptionUploadToken, setOwnerJobDescriptionUploadToken] = useState("");
+  const [ownerMonthlySalary, setOwnerMonthlySalary] = useState("");
+  const [savingOwner, setSavingOwner] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -58,10 +72,39 @@ export default function BranchManagementTab() {
       const data = editing ? await branchService.update(editing._id, payload) : await branchService.create(payload);
       setBranches((current) => editing ? current.map((branch) => branch._id === data._id ? data : branch) : [data, ...current]);
       closeForm();
+      if (!editing) {
+        setPendingBranch(data);
+        setOwnerName(""); setOwnerEmail(""); setOwnerPassword(""); setOwnerPhone(""); setOwnerBirthDate(""); setOwnerQualification("");
+        return;
+      }
       window.dispatchEvent(new CustomEvent("branch-change", { detail: { branchId: data.isActive ? data._id : "" } }));
       toast.success(editing ? "Đã cập nhật chi nhánh." : "Đã tạo chi nhánh.");
     } catch (error: any) { toast.error(error.message || "Không thể lưu chi nhánh."); }
     finally { setSaving(false); }
+  };
+  const cancelOwner = async () => {
+    if (!pendingBranch) return;
+    setSavingOwner(true);
+    try {
+      await branchService.removePending(pendingBranch._id);
+      setBranches((current) => current.filter((branch) => branch._id !== pendingBranch._id));
+      setPendingBranch(null);
+      toast.success("Đã hủy tạo chi nhánh.");
+    } catch (error: any) { toast.error(error.message || "Không thể hủy chi nhánh mới."); }
+    finally { setSavingOwner(false); }
+  };
+  const saveOwner = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pendingBranch) return;
+    setSavingOwner(true);
+    try {
+      const result = await branchService.createOwner(pendingBranch._id, { displayName: ownerName, email: ownerEmail, password: ownerPassword, phone: ownerPhone || undefined, birthDate: ownerBirthDate || undefined, qualification: ownerQualification || undefined });
+      setBranches((current) => current.map((branch) => branch._id === result.branch._id ? result.branch : branch));
+      setPendingBranch(null);
+      window.dispatchEvent(new CustomEvent("branch-change", { detail: { branchId: result.branch._id } }));
+      toast.success("Đã tạo chi nhánh và Chủ chi nhánh.");
+    } catch (error: any) { toast.error(error.message || "Không thể tạo Chủ chi nhánh."); }
+    finally { setSavingOwner(false); }
   };
   const captureLocationAndIp = async () => {
     setLocating(true);
@@ -81,7 +124,7 @@ export default function BranchManagementTab() {
       ...current,
       latitude: position.status === "fulfilled" ? String(position.value.coords.latitude) : current.latitude,
       longitude: position.status === "fulfilled" ? String(position.value.coords.longitude) : current.longitude,
-      allowedPublicIps: ipResult.status === "fulfilled" ? [...new Set([...current.allowedPublicIps.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), ipResult.value.ip])].join("\n") : current.allowedPublicIps,
+      allowedPublicIps: ipResult.status === "fulfilled" ? [...new Set([...current.allowedPublicIps.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), toAttendanceNetwork(ipResult.value.ip)])].join("\n") : current.allowedPublicIps,
     }));
     if (position.status === "rejected") toast.error(geolocationErrorMessage(position.reason));
     if (ipResult.status === "rejected") toast.error("Không thể lấy IP mạng hiện tại.");
@@ -112,10 +155,27 @@ export default function BranchManagementTab() {
         <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-bold text-slate-600">Địa chỉ<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /></label><label className="block text-xs font-bold text-slate-600">Số điện thoại<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /></label></div>
         <div className="rounded-xl border border-cyan-100 bg-cyan-50/50 p-4"><div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-black text-slate-700">Cấu hình chấm công</h4><p className="text-[10px] text-slate-500">Bắt buộc để nhân viên chấm công.</p></div><button type="button" onClick={() => void captureLocationAndIp()} disabled={locating} className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><LocateFixed className="h-3.5 w-3.5" />{locating ? "Đang lấy..." : "Lấy vị trí & IP hiện tại"}</button></div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="text-[11px] font-bold text-slate-600">Vĩ độ<input aria-label="Vĩ độ" type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label><label className="text-[11px] font-bold text-slate-600">Kinh độ<input aria-label="Kinh độ" type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label><label className="text-[11px] font-bold text-slate-600">Bán kính (m)<input aria-label="Bán kính" type="number" min="1" value={form.allowedRadius} onChange={(e) => setForm({ ...form, allowedRadius: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-xs" /></label></div>
-          <label className="mt-3 block text-[11px] font-bold text-slate-600">IP công cộng được phép<textarea aria-label="IP công cộng được phép" rows={3} value={form.allowedPublicIps} onChange={(e) => setForm({ ...form, allowedPublicIps: e.target.value })} placeholder="Mỗi IP một dòng" className="mt-1 w-full rounded-lg border p-2 font-mono text-xs" /><span className="mt-1 block font-normal text-slate-500">Hỗ trợ cả IPv4 và IPv6. Địa chỉ dạng 2405:... là IPv6 hợp lệ.</span></label>
+          <label className="mt-3 block text-[11px] font-bold text-slate-600">IP công cộng được phép<textarea aria-label="IP công cộng được phép" rows={3} value={form.allowedPublicIps} onChange={(e) => setForm({ ...form, allowedPublicIps: e.target.value })} placeholder="Mỗi IP một dòng" className="mt-1 w-full rounded-lg border p-2 font-mono text-xs" /><span className="mt-1 block font-normal text-slate-500">IPv4 được kiểm tra chính xác; IPv6 dùng chung mạng /64 cho các thiết bị cùng Wi-Fi.</span></label>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={closeForm} className="rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-bold text-slate-600">Hủy</button><button type="submit" disabled={saving} className="rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "Đang lưu..." : editing ? "Lưu cập nhật" : "Tạo chi nhánh"}</button></div>
     </form></div>}
+    <UserFormModal
+      open={!!pendingBranch} onClose={() => void cancelOwner()} editingUser={null}
+      userDisplayName={ownerName} setUserDisplayName={setOwnerName} userEmail={ownerEmail} setUserEmail={setOwnerEmail}
+      userPhone={ownerPhone} setUserPhone={setOwnerPhone} userBirthDate={ownerBirthDate} setUserBirthDate={setOwnerBirthDate}
+      userPassword={ownerPassword} setUserPassword={setOwnerPassword} userRole="branch_owner" setUserRole={() => undefined}
+      userCompanyCode={userProfile?.companyCode || ""} setUserCompanyCode={() => undefined}
+      userBranchId={pendingBranch?._id || ""} setUserBranchId={() => undefined}
+      userParentId={userProfile?.uid || ""} setUserParentId={() => undefined}
+      userDepartment={ownerDepartment} setUserDepartment={setOwnerDepartment}
+      userQualification={ownerQualification} setUserQualification={setOwnerQualification}
+      userJobDescriptionLink={ownerJobDescriptionLink} setUserJobDescriptionLink={setOwnerJobDescriptionLink}
+      setUserJobDescriptionUploadToken={setOwnerJobDescriptionUploadToken}
+      userMonthlySalary={ownerMonthlySalary} setUserMonthlySalary={setOwnerMonthlySalary}
+      getAvailableRoles={() => [{ role: "branch_owner", displayName: "Chủ chi nhánh", level: 2 }]}
+      userProfile={userProfile} companies={[]} branches={pendingBranch ? [pendingBranch] : []} usersList={userProfile ? [userProfile] : []}
+      onSubmit={saveOwner} submittingUser={savingOwner} lockRole lockCompany lockBranch lockParent
+    />
   </section>;
 }

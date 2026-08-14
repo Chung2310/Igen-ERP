@@ -13,7 +13,7 @@ const EXPECTED_CODES = [
   "student-notification:read", "student-notification:manage",
   "student-resource:read", "student-resource:manage",
   "assignment:read", "assignment:manage",
-  "custom-field:manage", "student-settings:manage", "company-smtp:manage",
+  "settings:manage", "settings:manage", "settings:manage",
 ];
 
 test("catalog exposes every granular student permission with user-facing metadata", () => {
@@ -30,12 +30,12 @@ test("catalog exposes every granular student permission with user-facing metadat
 
 test("permission policy accepts wildcard or any matching permission", () => {
   assert.equal(hasAnyPermission(new Set(["*"]), ["course:manage"]), true);
-  assert.equal(hasAnyPermission(new Set(["course:read"]), ["student:read", "course:read"]), true);
-  assert.equal(hasAnyPermission(new Set(["batch:read"]), ["student:read", "course:read"]), false);
+  assert.equal(hasAnyPermission(new Set(["course:read"]), ["people:read", "course:read"]), true);
+  assert.equal(hasAnyPermission(new Set(["batch:read"]), ["people:read", "course:read"]), false);
 });
 
 test("company admin has access to every enabled business module", () => {
-  for (const permission of ["student:manage", "worker:manage", "customer:manage", "candidate:manage"]) {
+  for (const permission of ["people:manage", "people:manage", "relationship:manage", "relationship:manage"]) {
     assert.equal(hasAnyPermission(new Set(DEFAULT_ROLE_PERMISSIONS.admin), [permission]), true);
   }
 });

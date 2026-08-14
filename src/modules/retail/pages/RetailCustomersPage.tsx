@@ -36,7 +36,7 @@ export default function RetailCustomersPage() {
     userProfile?.role === "admin" ||
     userProfile?.role === "superadmin" ||
     (userProfile?.permissions || []).some(
-      (permission) => permission === "*" || permission === "retail:manager",
+      (permission) => permission === "*" || permission === "retail:manage",
     );
 
   const load = React.useCallback(async () => {

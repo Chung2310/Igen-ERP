@@ -3,5 +3,5 @@ import { resourceImportController } from "../controller/resource-import.controll
 import { requirePermission } from "../middleware/auth";
 
 export const resourceImportRouter = Router();
-resourceImportRouter.use(requirePermission("stock:manage") as any);
+resourceImportRouter.use(requirePermission("inventory:manage") as any);
 resourceImportRouter.post("/complete", resourceImportController.complete as any);

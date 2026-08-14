@@ -24,6 +24,7 @@ import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
+import { toIsoDate } from "../utils/contractDate";
 import type {
   Worker,
   WorkerAttendanceLog,
@@ -574,11 +575,12 @@ export function WorkerProjectsPage({
           title={editing ? "Chỉnh sửa dự án" : "Thêm dự án"}
           onClose={() => setFormOpen(false)}
         >
-          <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={submit} className="grid gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Mã dự án">
                 <input
                   value={form.code}
+                  placeholder="VD: DA-2026-001"
                   onChange={(event) =>
                     setForm((value) => ({ ...value, code: event.target.value }))
                   }
@@ -588,6 +590,7 @@ export function WorkerProjectsPage({
               <Field label="Tên dự án">
                 <input
                   value={form.name}
+                  placeholder="VD: Dự án nhà máy Bắc Ninh"
                   onChange={(event) =>
                     setForm((value) => ({ ...value, name: event.target.value }))
                   }
@@ -599,6 +602,7 @@ export function WorkerProjectsPage({
                   type="number"
                   min="0"
                   value={form.quota}
+                  placeholder="Không giới hạn"
                   onChange={(event) =>
                     setForm((value) => ({ ...value, quota: event.target.value }))
                   }
@@ -625,12 +629,14 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày bắt đầu">
                 <input
-                  type="date"
-                  value={form.startDate}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDate(form.startDate)}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      startDate: event.target.value,
+                      startDate: toIsoDate(event.target.value),
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
@@ -638,12 +644,14 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày kết thúc">
                 <input
-                  type="date"
-                  value={form.endDate}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDate(form.endDate)}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      endDate: event.target.value,
+                      endDate: toIsoDate(event.target.value),
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
@@ -679,6 +687,7 @@ export function WorkerProjectsPage({
             <Field label="Địa điểm">
               <input
                 value={form.location}
+                placeholder="VD: Nhà máy, công trường..."
                 onChange={(event) =>
                   setForm((value) => ({
                     ...value,
@@ -688,7 +697,7 @@ export function WorkerProjectsPage({
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
               />
             </Field>
-            <div className="space-y-1">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-800">
                 Giới hạn điểm danh bằng GPS (tùy chọn)
               </span>
@@ -761,7 +770,7 @@ export function WorkerProjectsPage({
                 )}
               </div>
             </div>
-            <fieldset>
+            <fieldset className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
               <legend className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
                 Ngày hoạt động
               </legend>
@@ -790,16 +799,22 @@ export function WorkerProjectsPage({
                 })}
               </div>
             </fieldset>
-            <Field label="Ghi chú">
+            <div className="grid gap-1.5">
+              <label htmlFor="worker-project-note" className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                Ghi chú
+              </label>
               <textarea
+                id="worker-project-note"
                 value={form.note}
                 onChange={(event) =>
                   setForm((value) => ({ ...value, note: event.target.value }))
                 }
-                className="input min-h-20"
+                rows={2}
+                placeholder="Nhập ghi chú cho dự án (không bắt buộc)"
+                className="block min-h-16 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
               />
-            </Field>
-            <div className="flex justify-end gap-4 border-t border-slate-100 pt-4">
+            </div>
+            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur">
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
@@ -989,7 +1004,7 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
   const exportExcel = () => {
     const data = rows.map(({ log, worker }, index) => ({
       "STT": index + 1,
-      "Ngày": log.date,
+      "Ngày": formatDate(log.date),
       "Họ và tên": worker?.fullName || "Không xác định",
       "Số điện thoại": worker?.phone || "",
       "Giờ vào": formatAttendanceTime(log.checkIn?.time),
@@ -1009,8 +1024,8 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
 
   return <div className="space-y-3">
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(from)} onChange={(e) => setFrom(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
+      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(to)} onChange={(e) => setTo(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
       <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Hôm nay</button>
       <button type="button" onClick={exportExcel} disabled={loading || rows.length === 0} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
     </div>
@@ -1102,7 +1117,7 @@ function Modal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         >
           <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
             <h2 className="text-base font-bold text-slate-800">{title}</h2>
@@ -1115,7 +1130,7 @@ function Modal({
               <X className="h-4 w-4 text-slate-400" />
             </button>
           </div>
-          <div className="space-y-4 overflow-y-auto p-6">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
         </motion.div>
       </div>
     </AnimatePresence>

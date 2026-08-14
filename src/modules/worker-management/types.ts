@@ -1,5 +1,70 @@
 export type WorkerStatus = "active" | "inactive" | "placed";
 
+/** Loại lao động: chính thức, thời vụ, người nước ngoài. */
+export type WorkerLaborType = "official" | "seasonal" | "foreign";
+
+export const workerLaborTypeLabel: Record<WorkerLaborType, string> = {
+  official: "Chính thức",
+  seasonal: "Thời vụ",
+  foreign: "Người nước ngoài",
+};
+
+/** Hợp đồng lao động — mỗi bản ghi là một kỳ trong chuỗi gia hạn. */
+export type WorkerLaborContractStatus =
+  | "draft"
+  | "active"
+  | "renewed"
+  | "expired"
+  | "terminated";
+
+export const workerContractStatusLabel: Record<WorkerLaborContractStatus, string> = {
+  draft: "Nháp",
+  active: "Đang hiệu lực",
+  renewed: "Đã gia hạn",
+  expired: "Đã hết hạn",
+  terminated: "Đã chấm dứt",
+};
+
+export type WorkerContractAlertLevel = "ok" | "expiring" | "expired";
+
+export type WorkerLaborContract = {
+  _id: string;
+  workerId: string;
+  code: string;
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  status: WorkerLaborContractStatus;
+  note?: string;
+  rootContractId: string;
+  previousContractId?: string | null;
+  sequence: number;
+  previousEndDate?: string;
+  renewedAt?: string | null;
+  renewedBy?: string;
+  lockedAt?: string | null;
+  alertLevel?: WorkerContractAlertLevel;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type WorkerLaborContractInput = {
+  workerId?: string;
+  code: string;
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  status?: WorkerLaborContractStatus;
+  note?: string;
+};
+
+export type WorkerContractAlertSummary = {
+  alertDays: number;
+  expiringCount: number;
+  expiredCount: number;
+  items: WorkerLaborContract[];
+};
+
 export type WorkerScope = {
   companyCode: string;
   branchId?: string;
@@ -14,6 +79,10 @@ export type WorkerProfileFieldKey =
   | "registrationDate"
   | "address"
   | "status"
+  | "laborType"
+  | "nationality"
+  | "workPermitNumber"
+  | "workPermitExpiry"
   | "note";
 
 export type WorkerProfileFieldConfig = {
@@ -32,12 +101,17 @@ export type WorkerProjectSummary = {
 export type BulkWorkerInput = {
   fullName: string;
   phone: string;
+  partnerCode?: string;
   email?: string;
   idCard?: string;
   birthday?: string;
   address?: string;
   note?: string;
   registrationDate?: string;
+  laborType?: WorkerLaborType;
+  nationality?: string;
+  workPermitNumber?: string;
+  workPermitExpiry?: string;
 };
 
 export type WorkerBulkImportError = {
@@ -47,18 +121,34 @@ export type WorkerBulkImportError = {
   reason: string;
 };
 
+export type WorkerBulkImportReferralError = {
+  workerId: string;
+  partnerCode: string;
+  reason: string;
+};
+
 export type WorkerBulkImportResult = {
   importedCount: number;
   skippedCount: number;
   errors: WorkerBulkImportError[];
+  referralErrors?: WorkerBulkImportReferralError[];
+};
+
+export type WorkerBulkDeleteResult = {
+  deletedCount: number;
 };
 
 export type Worker = {
   _id: string;
   fullName: string;
   phone?: string;
+  partnerCode?: string;
   email?: string;
   status: WorkerStatus;
+  laborType?: WorkerLaborType;
+  nationality?: string;
+  workPermitNumber?: string;
+  workPermitExpiry?: string;
   note?: string;
   branchId?: string;
   address?: string;
@@ -77,6 +167,10 @@ export type WorkerInput = Pick<
   | "phone"
   | "email"
   | "status"
+  | "laborType"
+  | "nationality"
+  | "workPermitNumber"
+  | "workPermitExpiry"
   | "note"
   | "branchId"
   | "address"

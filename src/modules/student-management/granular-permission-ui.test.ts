@@ -4,17 +4,17 @@ import test from "node:test";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 
 test("umbrella read keeps all operational tabs visible", () => {
-  const tabs = getAllowedStudentTabSlugs(["student:read"], "student");
-  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
+  const tabs = getAllowedStudentTabSlugs(["people:read"], "student");
+  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "lo-trinh-va-cho-lop", "bao-luu-hoc-lai", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
 });
 
 test("umbrella manage keeps all operational tabs visible", () => {
-  const tabs = getAllowedStudentTabSlugs(["student:manage"], "student");
-  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
+  const tabs = getAllowedStudentTabSlugs(["people:manage"], "student");
+  assert.deepEqual(tabs, ["tong-quan", "khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "lo-trinh-va-cho-lop", "bao-luu-hoc-lai", "hoc-vien", "hoc-phi", "lich-thi", "phong-hoc", "tai-nguyen", "thong-bao"]);
 });
 
 test("worker preset hides student-only tabs", () => {
-  assert.deepEqual(getAllowedStudentTabSlugs(["student:read"], "worker"), ["tong-quan", "khoa-hoc", "hoc-vien", "thong-bao"]);
+  assert.deepEqual(getAllowedStudentTabSlugs(["people:read"], "worker"), ["tong-quan", "khoa-hoc", "bao-luu-hoc-lai", "hoc-vien", "thong-bao"]);
 });
 
 // Mã quyền chi tiết theo khu vực đã bị gộp vào student:read/student:manage — giữ lại
@@ -22,6 +22,10 @@ test("worker preset hides student-only tabs", () => {
 test("retired granular permissions no longer grant access", () => {
   assert.deepEqual(getAllowedStudentTabSlugs(["course:read"], "student"), []);
   assert.deepEqual(getAllowedStudentTabSlugs(["payment:read", "exam:manage"], "student"), []);
+  assert.deepEqual(
+    getAllowedStudentTabSlugs(["people:read", "people:manage"], "student", "teacher"),
+    ["khoa-hoc", "lop-hoc", "chat-luong-hoc-vien", "hoc-vien", "lich-thi", "tai-nguyen", "thong-bao"],
+  );
 });
 
 test("SMTP settings do not hard-code admin role", () => {

@@ -5,6 +5,7 @@ import { UserModel } from "../model/user.model";
 import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
+import { expandEffectivePermissions, LEGACY_PERMISSION_MAP, normalizeStoredPermissions } from "../config/permission-catalog";
 
 const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
@@ -18,6 +19,7 @@ export interface AuthenticatedRequest extends Request {
     branchId?: string;
     sessionId?: string;
     authLevel?: string;
+    displayName?: string;
   };
   resource?: any; // Để đính kèm tài nguyên sau khi qua requireCompanyAccess
 }
@@ -47,35 +49,20 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
-  admin: [
-    "*",
-    "user:read", "user:manage",
-    "face:manage",
-    "kanban:read", "kanban:manage",
-    "project:read", "project:manage",
-    "stock:read", "stock:manage",
-    "hr:read", "student:read", "student:manage", "partner:read", "partner:manage", "timekeeping:read", "timekeeping:manage", "leave:approve", "payroll:read", "payroll:prepare", "payroll:manage", "payroll:pay",
-    "chat:read", "resource:read", "resource:manage", "company-email:manage", "recruitment:manage",
-    // student-settings:manage không nằm ở đây: loại hình doanh nghiệp chỉ SuperAdmin sửa
-    "custom-field:manage", "company-smtp:manage", "company-payment:manage"
-  ],
+  admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll:manage", "work:manage", "inventory:manage", "retail:manage", "finance:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
   branch_owner: [
-    "dashboard:read", "user:read", "user:manage", "hr:read", "timekeeping:read", "timekeeping:manage", "student:read", "student:manage", "resource:read", "chat:read", "kanban:read", "kanban:manage"
+    "dashboard:read", "access:manage", "hr:read", "timekeeping:manage", "people:manage", "resource:read", "chat:read", "work:manage"
   ],
   manager: [
-    "dashboard:read", "user:read", "user:manage",
-    "kanban:read", "kanban:manage",
-    "project:read", "project:manage",
-    "stock:read",
-    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read", "custom-field:manage"
+    "dashboard:read", "access:manage", "work:manage", "inventory:read",
+    "hr:read", "people:read", "timekeeping:read", "chat:read", "resource:read", "settings:manage"
   ],
   user: [
-    "user:read",
-    "kanban:read", "kanban:manage",
-    "project:read",
-    "stock:read",
-    "hr:read", "student:read", "timekeeping:read", "chat:read", "resource:read"
-  ]
+    "access:read", "work:manage", "inventory:read", "hr:read", "people:read", "timekeeping:read", "chat:read", "resource:read"
+  ],
+  // Giảng viên chỉ làm việc trong khu vực học viên. Quyền teacher:operate
+  // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
+  teacher: ["people:manage"]
 };
 
 /**
@@ -86,7 +73,8 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   admin: 1,
   branch_owner: 2,
   manager: 3,
-  user: 4
+  user: 4,
+  teacher: 4
 };
 
 /**
@@ -113,7 +101,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
-    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId").lean();
+    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId displayName").lean();
     if (!userDoc) {
       return res.status(401).json({ status: "error", message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại." });
     }
@@ -141,6 +129,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       branchId,
       sessionId: decoded.sid,
       authLevel: decoded.authLevel,
+      displayName: String(userDoc.displayName || "").trim() || undefined,
     };
 
     // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
@@ -184,7 +173,7 @@ export async function getEffectivePermissions(
   role: string,
   companyCode?: string
 ): Promise<Set<string>> {
-  if (role === "superadmin" || role === "admin") {
+  if (role === "superadmin") {
     return new Set(["*"]);
   }
 
@@ -210,11 +199,13 @@ export async function getEffectivePermissions(
     rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
   }
 
-  return new Set([...customPermissions, ...rolePermissions]);
+  return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));
 }
 
 export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPermissions: readonly string[]) {
-  return allPermissions.has("*") || requiredPermissions.some((permission) => allPermissions.has(permission));
+  return allPermissions.has("*") || requiredPermissions.some((permission) =>
+    allPermissions.has(permission) || Boolean(LEGACY_PERMISSION_MAP[permission] && allPermissions.has(LEGACY_PERMISSION_MAP[permission])),
+  );
 }
 
 export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);

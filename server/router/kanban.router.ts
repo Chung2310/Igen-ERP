@@ -8,6 +8,7 @@ import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
 import { sourceUploadFinalizer } from "../service/source-upload-finalizer.service";
+import { calculateProjectProgress, deriveProjectLifecycle, newUploadAttachments, validateProjectPayload } from "../service/kanban-project.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
@@ -128,6 +129,34 @@ async function finalizeTaskAttachments(req: AuthenticatedRequest, task: any) {
   });
 }
 
+function projectScope(req: AuthenticatedRequest) {
+  return { ...companyFilter(req), ...(req.user?.branchId ? { branchId: req.user.branchId } : {}) };
+}
+
+async function finalizeProjectAttachments(req: AuthenticatedRequest, project: any, existingAttachments: any[] = []) {
+  await sourceUploadFinalizer.finalize({ companyCode: project.companyCode, branchId: project.branchId || req.user?.branchId, actorId: req.user?.id || "", actorName: req.user?.email }, {
+    entityType: "kanban-project", entityId: String(project._id), entityLabel: project.name, sourceRecordId: String(project._id),
+    uploads: newUploadAttachments(project.attachments || [], existingAttachments).map((attachment: any) => ({ uploadToken: attachment.uploadToken, sourceField: `attachments.${(project.attachments || []).findIndex((item: any) => item.id === attachment.id)}` })),
+  });
+}
+
+async function projectProgress(companyCode: string, projectId: string) {
+  const tasks = await KanbanTaskModel.find({ companyCode, projectId }).select("status").lean();
+  return calculateProjectProgress(tasks as any[]);
+}
+
+async function syncProjectLifecycle(companyCode: string, projectIds: Array<string | undefined>) {
+  for (const projectId of [...new Set(projectIds.filter(Boolean))] as string[]) {
+    const project: any = await ProjectModel.findOne({ _id: projectId, companyCode }).select("status").lean();
+    if (!project) continue;
+    const lifecycle = deriveProjectLifecycle(project.status, await projectProgress(companyCode, projectId));
+    if (lifecycle) {
+      const updated: any = await ProjectModel.findOneAndUpdate({ _id: projectId, companyCode }, { $set: lifecycle }, { new: true });
+      if (updated) emitToCompany(companyCode, "kanban:project-updated", updated.toObject());
+    }
+  }
+}
+
 function changesFor(oldTask: any, update: any) {
   const labels: Record<string, string> = {
     title: "Tên việc",
@@ -163,7 +192,7 @@ async function handleError(res: Response, error: any) {
 
 kanbanRouter.use(requireAuth as any);
 
-kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (req.user?.branchId) {
@@ -203,7 +232,7 @@ kanbanRouter.get("/tasks", requirePermission("kanban:read") as any, async (req: 
   }
 });
 
-kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const companyCode = req.user?.companyCode || "SYSTEM";
     const status = normalizeStatus(req.body.status);
@@ -238,6 +267,7 @@ kanbanRouter.post("/tasks", requirePermission("kanban:manage") as any, async (re
       history: [{ time: now.toISOString(), user: await actorName(req), action: "Tạo công việc mới" }],
     });
     await finalizeTaskAttachments(req, task);
+    await syncProjectLifecycle(companyCode, [task.projectId]);
     await kanbanAuditService.recordTaskMutation({
       action: "created",
       actorId: req.user?.id || "",
@@ -316,6 +346,7 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     if (!updated) throw httpError(409, "Công việc vừa được thay đổi. Vui lòng tải lại.");
 
     await finalizeTaskAttachments(req, updated);
+    await syncProjectLifecycle(task.companyCode, [task.projectId, updated.projectId]);
     await kanbanAuditService.recordTaskMutation({
       action: "updated",
       actorId: req.user?.id || "",
@@ -340,10 +371,11 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
   }
 });
 
-kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.delete("/tasks/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    await syncProjectLifecycle(task.companyCode, [task.projectId]);
     await kanbanAuditService.recordTaskMutation({
       action: "deleted",
       actorId: req.user?.id || "",
@@ -358,7 +390,7 @@ kanbanRouter.delete("/tasks/:id", requirePermission("kanban:manage") as any, asy
   }
 });
 
-kanbanRouter.get("/projects", requirePermission("project:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/projects", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (req.user?.branchId) {
@@ -366,25 +398,40 @@ kanbanRouter.get("/projects", requirePermission("project:read") as any, async (r
     } else if (req.query.branchId) {
       filter.branchId = req.query.branchId;
     }
-    const projects = await ProjectModel.find(filter).sort("-createdAt").lean();
-    return res.json({ status: "success", data: projects });
+    const projects: any[] = await ProjectModel.find(filter).sort("-createdAt").lean();
+    const ids = projects.map((project) => String(project._id));
+    const companyCodes = [...new Set(projects.map((project) => project.companyCode))];
+    const grouped = ids.length ? await KanbanTaskModel.aggregate([
+      { $match: { projectId: { $in: ids }, companyCode: { $in: companyCodes } } },
+      { $group: { _id: "$projectId", statuses: { $push: "$status" } } },
+    ]) : [];
+    const progressById = new Map(grouped.map((group: any) => [String(group._id), calculateProjectProgress(group.statuses.map((status: string) => ({ status })))]));
+    return res.json({ status: "success", data: projects.map((project) => ({ ...project, progress: progressById.get(String(project._id)) || calculateProjectProgress([]) })) });
   } catch (error) {
     return handleError(res, error);
   }
 });
 
-kanbanRouter.post("/projects", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.post("/projects", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const companyCode = req.user?.companyCode || "SYSTEM";
     const name = String(req.body.name || "").trim();
     if (!name) throw httpError(400, "Tên dự án là bắt buộc.");
+    const attachments = sanitizeAttachments(req.body.attachments) || [];
+    try { validateProjectPayload({ ...req.body, attachments }); } catch (error: any) { throw httpError(400, error.message); }
     const project = await ProjectModel.create({
       name,
       companyCode,
       branchId: req.user?.branchId || req.body.branchId || "",
       creatorUid: req.user?.id,
+      status: req.body.status || "not_started",
+      priority: req.body.priority || "medium",
+      startAt: req.body.startAt || undefined,
+      dueAt: req.body.dueAt || undefined,
+      attachments,
       createdAt: new Date()
     });
+    await finalizeProjectAttachments(req, project);
     await kanbanAuditService.recordProjectMutation({
       action: "created",
       actorId: req.user?.id || "",
@@ -399,9 +446,32 @@ kanbanRouter.post("/projects", requirePermission("project:manage") as any, async
   }
 });
 
-kanbanRouter.delete("/projects/:id", requirePermission("project:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.patch("/projects/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
+    const project: any = await ProjectModel.findOne({ _id: req.params.id, ...projectScope(req) }).lean();
+    if (!project) throw httpError(404, "Không tìm thấy dự án.");
+    const update: any = {};
+    for (const key of ["name", "status", "priority", "startAt", "dueAt", "attachments"]) if (req.body[key] !== undefined) update[key] = req.body[key];
+    if (update.name !== undefined) { update.name = String(update.name).trim(); if (!update.name) throw httpError(400, "Tên dự án là bắt buộc."); }
+    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];
+    const progress = await projectProgress(project.companyCode, req.params.id);
+    try { validateProjectPayload({ ...project, ...update, status: update.status }, progress); } catch (error: any) { throw httpError(400, error.message); }
+    for (const key of ["startAt", "dueAt"]) if (update[key] === "" || update[key] === null) update[key] = null;
+    if (update.status === "completed") update.completedAt = new Date();
+    else if (update.status !== undefined) update.completedAt = null;
+    const lifecycle = deriveProjectLifecycle(update.status ?? project.status, progress);
+    if (lifecycle) Object.assign(update, lifecycle);
+    const updated: any = await ProjectModel.findOneAndUpdate({ _id: req.params.id, ...projectScope(req) }, { $set: update }, { new: true, runValidators: true });
+    await finalizeProjectAttachments(req, updated, project.attachments || []);
+    await kanbanAuditService.recordProjectMutation({ action: "updated", actorId: req.user?.id || "", companyCode: project.companyCode, correlationId: correlationId(req), before: project, project: updated.toObject() });
+    emitToCompany(project.companyCode, "kanban:project-updated", updated.toObject());
+    return res.json({ status: "success", data: { ...updated.toObject(), progress } });
+  } catch (error) { return handleError(res, error); }
+});
+
+kanbanRouter.delete("/projects/:id", requirePermission("work:manage") as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...projectScope(req) });
     if (!project) throw httpError(404, "Không tìm thấy dự án.");
     await kanbanAuditService.recordProjectMutation({
       action: "deleted",

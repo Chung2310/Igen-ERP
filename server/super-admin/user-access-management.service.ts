@@ -2,7 +2,7 @@ import { UserModel } from "../model/user.model";
 import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { SuperAdminImpersonationModel } from "../model/super-admin-impersonation.model";
 import { auditService } from "../service/audit.service";
-import { PERMISSION_CODES } from "../config/permission-catalog";
+import { PERMISSION_CODES, normalizeStoredPermissions } from "../config/permission-catalog";
 
 const scoped = (tenantId: string) => tenantId === "SYSTEM" ? {} : { companyCode: tenantId };
 export function createUserAccessManagementService(deps: any) {
@@ -23,7 +23,7 @@ export function createUserAccessManagementService(deps: any) {
       if (invalid.length) throw new Error(`Unknown permission codes: ${invalid.join(", ")}`);
       const current = await user(data);
       if (current.role === "superadmin") throw new Error("The sole Super Admin role cannot be changed");
-      return this.update({ ...data, patch: { role: data.role, permissions } });
+      return this.update({ ...data, patch: { role: data.role, permissions: normalizeStoredPermissions(permissions) } });
     },
     async startImpersonation(data: any) {
       if (!data.reason?.trim()) throw new Error("A written reason is required");

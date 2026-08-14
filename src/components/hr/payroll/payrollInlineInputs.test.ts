@@ -26,6 +26,50 @@ describe("payroll inline inputs", () => {
     ]);
   });
 
+  it("builds a payload row for each employee with fixed and custom overrides", () => {
+    const drafts = setDraftValue(
+      setDraftValue(
+        setDraftValue(setDraftValue({}, "e1", "agreedSalary", 15000000), "e1", "bonus", 0),
+        "e1",
+        "reconciledDays",
+        22.5,
+      ),
+      "e1",
+      "custom.sales",
+      12,
+    );
+    const twoEmployees = setDraftValue(drafts, "e2", "agreedSalary", 15000000);
+
+    expect(buildDirtyRows(twoEmployees, [{ employeeId: "e1", version: 3 }, { employeeId: "e2", version: 7 }], "  \u0110\u1ed1i so\u00e1t th\u00e1ng 8  ")).toEqual([
+      {
+        employeeId: "e1",
+        expectedVersion: 3,
+        reason: "\u0110\u1ed1i so\u00e1t th\u00e1ng 8",
+        agreedSalary: 15000000,
+        reconciledDays: 22.5,
+        bonus: 0,
+        customValues: { sales: 12 },
+        clearFields: [],
+      },
+      {
+        employeeId: "e2",
+        expectedVersion: 7,
+        reason: "\u0110\u1ed1i so\u00e1t th\u00e1ng 8",
+        agreedSalary: 15000000,
+        clearFields: [],
+      },
+    ]);
+  });
+
+  it("builds a restoration payload with clear fields and no values", () => {
+    const drafts = setDraftValue(setDraftValue({}, "e1", "allowance", 500), "e1", "custom.sales", 12);
+    const restored = restoreDraftField(restoreDraftField(drafts, "e1", "allowance"), "e1", "custom.sales");
+
+    expect(buildDirtyRows(restored, [{ employeeId: "e1", version: 7 }], "reason")).toEqual([
+      { employeeId: "e1", expectedVersion: 7, reason: "reason", clearFields: ["allowance", "custom.sales"] },
+    ]);
+  });
+
   it("clears successful drafts and retains failed rows", () => {
     const drafts = setDraftValue(setDraftValue({}, "e1", "bonus", 1), "e2", "deduction", 2);
     expect(retainFailedDrafts(drafts, [{ employeeId: "e1", status: "success" }, { employeeId: "e2", status: "error", message: "conflict" }])).toEqual({

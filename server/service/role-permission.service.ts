@@ -1,5 +1,6 @@
 import { RolePermissionModel } from "../model/role-permission.model";
 import { IRolePermission } from "../interface/role-permission.interface";
+import { normalizeStoredPermissions } from "../config/permission-catalog";
 
 export const rolePermissionService = {
   /**
@@ -15,7 +16,7 @@ export const rolePermissionService = {
     });
 
     if (rolePermission) {
-      rolePermission.permissions = permissions;
+      rolePermission.permissions = normalizeStoredPermissions(permissions);
       rolePermission.level = level;
       rolePermission.displayName = displayName;
       rolePermission.updatedAt = new Date();
@@ -23,7 +24,7 @@ export const rolePermissionService = {
       rolePermission = new RolePermissionModel({
         companyCode: normalizedCompany,
         role,
-        permissions,
+        permissions: normalizeStoredPermissions(permissions),
         level,
         displayName,
         createdAt: new Date(),

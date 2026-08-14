@@ -4,6 +4,7 @@ import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 
 type Payslip = { runId: string; periodKey?: string; employeeId: string; employeeName?: string; netPay: number; paidAmount: number; balance: number };
+const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
 
 export default function EmployeePayslips() {
   const [items, setItems] = useState<Payslip[]>([]);
@@ -37,6 +38,13 @@ export default function EmployeePayslips() {
     }
   };
 
+  const printPayslip = async (item: Payslip) => {
+    const blob = await payrollService.printPayslip(item.runId, item.employeeId);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   if (loading) return <div className="p-5 text-sm text-slate-500">Đang tải phiếu lương...</div>;
   if (error) return <div className="p-5 text-sm text-rose-600">{error}</div>;
 
@@ -58,9 +66,9 @@ export default function EmployeePayslips() {
             >
               <div className="space-y-1">
                 <p className="font-semibold text-slate-800 text-sm md:text-base">Kỳ lương tháng {item.periodKey}</p>
-                <p className="text-sm font-bold text-cyan-600">Thực nhận: {item.netPay.toLocaleString()} đ</p>
+                <p className="text-sm font-bold text-cyan-600">Thực nhận: {formatVnd(item.netPay)}</p>
                 <p className="text-xs text-slate-400">
-                  Đã trả {item.paidAmount.toLocaleString()} đ · Còn lại {item.balance.toLocaleString()} đ
+                  Đã trả {formatVnd(item.paidAmount)} · Còn lại {formatVnd(item.balance)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -81,7 +89,7 @@ export default function EmployeePayslips() {
                   className="rounded-lg border p-2 text-slate-600 hover:bg-slate-50 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(payrollService.printPayslip(item.runId, item.employeeId), "_blank", "noopener,noreferrer");
+                    void printPayslip(item);
                   }}
                 >
                   <Printer size={16} />
@@ -108,7 +116,7 @@ export default function EmployeePayslips() {
             ) : (
               (() => {
                 const detail = buildPayrollDetails(selectedItem.attendance, selectedItem.calculation, selectedItem.vietnam);
-                const money = (value: number) => value.toLocaleString() + " đ";
+                const money = formatVnd;
                 return (
                   <div className="space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4">

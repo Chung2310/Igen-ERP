@@ -9,7 +9,7 @@ vi.mock("../../../context/BranchContext", () => ({
   useBranch: () => ({ activeBranchId: "B1" }),
 }));
 vi.mock("../../../context/AuthContext", () => ({
-  useAuth: () => ({ userProfile: { companyCode: "ACME", permissions: ["retail:manager"] } }),
+  useAuth: () => ({ userProfile: { companyCode: "ACME", permissions: ["retail:manage"] } }),
 }));
 vi.mock("../api/retailSettings.api", () => ({
   retailSettingsApi: { get: vi.fn(), update: vi.fn() },

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   paymentCreate: vi.fn(),
   paymentFindOneAndUpdate: vi.fn(),
   auditCreate: vi.fn(),
+  lineOverrideFind: vi.fn(),
+  transactionRunner: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -26,8 +28,17 @@ vi.mock("../model/payroll-payment.model", () => ({
   },
 }));
 vi.mock("../model/payroll-audit.model", () => ({ PayrollAuditModel: { create: mocks.auditCreate } }));
+vi.mock("../model/payroll-line-override.model", () => ({
+  PayrollLineOverrideModel: { find: mocks.lineOverrideFind },
+}));
+vi.mock("../service/payroll-transaction.service", () => ({
+  runPayrollAtomicTransaction: mocks.transactionRunner,
+}));
 
 import { payrollController } from "./payroll.controller";
+import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
+import { calculateEffectivePayrollChecksum } from "../service/payroll-effective-line.service";
+import { projectPayrollRevisionWithOverrides } from "../service/payroll-run-calculate-operations.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 const lean = <T>(value: T) => ({ lean: vi.fn().mockResolvedValue(value) });
@@ -42,12 +53,23 @@ const request = (body: any, params: any = { id: "run-a" }, user: any = { id: "ca
   ({ body, params, headers, query: {}, user }) as any;
 
 const revisionLines = [
-  { employeeId: "emp-1", calculation: { net: 10_000_000 } },
-  { employeeId: "emp-2", calculation: { net: 6_000_000 } },
+  { employeeId: "emp-1", calculation: { monthlySalary: 10_000_000, adjustedBase: 10_000_000, gross: 10_000_000, net: 10_000_000 } },
+  { employeeId: "emp-2", calculation: { monthlySalary: 6_000_000, adjustedBase: 6_000_000, gross: 6_000_000, net: 6_000_000 } },
 ];
+const revisionTotals = { grossPay: 16_000_000, deductions: 0, netPay: 16_000_000 };
+const revisionChecksum = calculatePayrollChecksum({ lines: revisionLines, totals: revisionTotals });
+const effectiveLines = projectPayrollRevisionWithOverrides({ lines: revisionLines }, []).effectiveLines;
+const effectiveSnapshot = {
+  sourceRevisionId: "revision-1",
+  sourceRevisionChecksum: revisionChecksum,
+  checksum: calculateEffectivePayrollChecksum(revisionChecksum, effectiveLines),
+  lines: effectiveLines,
+  pinnedAt: new Date("2026-08-01T00:00:00.000Z"),
+};
 const closedRun = (overrides: any = {}) => ({
   _id: "run-a", ...scope, periodKey: "2026-07", status: "closed",
-  activeRevisionId: "revision-1", version: 8, lines: [], ...overrides,
+  type: "regular", activeRevisionId: "revision-1", activeRevisionChecksum: revisionChecksum,
+  version: 8, lines: [], effectiveSnapshot, ...overrides,
 });
 const validBody = (overrides: any = {}) => ({
   amount: 16_000_000, idempotencyKey: "pay-1",
@@ -58,14 +80,25 @@ const validBody = (overrides: any = {}) => ({
 const arrangeRun = (run: any = closedRun(), confirmed: any[] = []) => {
   mocks.paymentFindOne.mockReturnValue(lean(null));
   mocks.runFindOne.mockReturnValue(lean(run));
-  mocks.revisionFindOne.mockReturnValue(lean({ _id: "revision-1", status: "completed", lines: revisionLines }));
+  mocks.revisionFindOne.mockReturnValue(lean({
+    _id: "revision-1",
+    runId: "run-a",
+    status: "completed",
+    lines: revisionLines,
+    totals: revisionTotals,
+    checksum: revisionChecksum,
+  }));
+  mocks.lineOverrideFind.mockReturnValue(lean([]));
   mocks.paymentFind.mockReturnValue(selectLean(confirmed));
   mocks.paymentCreate.mockImplementation(async (value: any) => ({ _id: "payment-1", ...value }));
   mocks.auditCreate.mockResolvedValue({});
 };
 
 describe("creating a payroll payment", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.transactionRunner.mockImplementation((operation: any) => operation(undefined));
+  });
 
   it("allocates against the active calculation revision, not the legacy run lines", async () => {
     arrangeRun(closedRun({ lines: [{ employeeId: "legacy", calculation: { net: 1 } }] }));
@@ -73,15 +106,48 @@ describe("creating a payroll payment", () => {
 
     await payrollController.createPayment(request(validBody()), res);
 
-    expect(mocks.revisionFindOne).toHaveBeenCalledWith({ _id: "revision-1", ...scope });
+    expect(mocks.revisionFindOne).toHaveBeenCalledWith({ _id: "revision-1", runId: "run-a", ...scope });
     expect(mocks.paymentCreate).toHaveBeenCalledWith(expect.objectContaining({
       ...scope, runId: "run-a", amount: 16_000_000, status: "draft", createdBy: "cashier",
     }));
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it("limits settlement against the pinned effective override net instead of the immutable system net", async () => {
+    arrangeRun(closedRun({
+      effectiveSnapshot: {
+        sourceRevisionId: "revision-1",
+        sourceRevisionChecksum: revisionChecksum,
+        checksum: "placeholder",
+        lines: [],
+      },
+    }));
+    const { createPayrollEffectiveLineLoader } = await import("../service/payroll-effective-line.service");
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => ({
+        _id: "revision-1", runId: "run-a", status: "completed",
+        lines: revisionLines, totals: revisionTotals, checksum: revisionChecksum,
+      }),
+      getOverrides: async () => [{ employeeId: "emp-1", adjustedBase: 8_000_000, version: 2 }],
+    });
+    const effectiveSnapshot = await loader.createSnapshot(scope, closedRun({ status: "draft" }));
+    mocks.runFindOne.mockReturnValue(lean(closedRun({ effectiveSnapshot })));
+    const res = response();
+
+    await payrollController.createPayment(request(validBody()), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_NET" }));
+    expect(mocks.paymentCreate).not.toHaveBeenCalled();
+  });
+
   it("falls back to the legacy run lines when the run has no revision", async () => {
-    arrangeRun(closedRun({ activeRevisionId: undefined, lines: revisionLines }));
+    arrangeRun(closedRun({
+      activeRevisionId: undefined,
+      activeRevisionChecksum: undefined,
+      effectiveSnapshot: undefined,
+      lines: revisionLines,
+    }));
 
     await payrollController.createPayment(request(validBody()), response());
 
@@ -189,20 +255,74 @@ describe("payment lifecycle transitions", () => {
     lines: [{ employeeId: "emp-1", amount: 10_000_000 }], ...overrides,
   });
 
-  const arrangeTransition = (payment: any, run: any, confirmedAfter: any[]) => {
+  const arrangeTransition = (payment: any, run: any, confirmedBefore: any[]) => {
     mocks.paymentFindOne.mockReturnValue(lean(payment));
     mocks.paymentFindOneAndUpdate.mockImplementation((_filter: any, update: any) => lean({ ...payment, ...update.$set }));
     mocks.runFindOne.mockReturnValue(lean(run));
-    mocks.revisionFindOne.mockReturnValue(lean({ _id: "revision-1", status: "completed", lines: revisionLines }));
-    mocks.paymentFind.mockReturnValue(selectLean(confirmedAfter));
+    mocks.runFindOneAndUpdate.mockImplementation((_filter: any, update: any) => lean({
+      ...run,
+      version: update.$inc ? Number(run.version) + 1 : Number(run.version) + 1,
+      ...(update.$set ?? {}),
+    }));
+    mocks.revisionFindOne.mockReturnValue(lean({
+      _id: "revision-1",
+      runId: "run-a",
+      status: "completed",
+      lines: revisionLines,
+      totals: revisionTotals,
+      checksum: revisionChecksum,
+    }));
+    mocks.lineOverrideFind.mockReturnValue(lean([]));
+    mocks.paymentFind.mockReturnValue(selectLean(confirmedBefore));
     mocks.auditCreate.mockResolvedValue({});
   };
 
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.transactionRunner.mockImplementation((operation: any) => operation(undefined));
+  });
+
+  it("revalidates the payable balance before confirming so parallel drafts cannot overpay", async () => {
+    arrangeTransition(
+      draftPayment({
+        amount: 16_000_000,
+        lines: [
+          { employeeId: "emp-1", amount: 10_000_000 },
+          { employeeId: "emp-2", amount: 6_000_000 },
+        ],
+      }),
+      closedRun(),
+      [{
+        _id: "payment-2",
+        status: "confirmed",
+        lines: [
+          { employeeId: "emp-1", amount: 10_000_000 },
+          { employeeId: "emp-2", amount: 6_000_000 },
+        ],
+      }],
+    );
+    const res = response();
+
+    await payrollController.confirmPayment(request({}, { id: "payment-1" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_PAYMENT_EXCEEDS_NET" }));
+    expect(mocks.paymentFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not confirm a payment after the payroll run leaves closed status", async () => {
+    arrangeTransition(draftPayment(), closedRun({ status: "review" }), []);
+    const res = response();
+
+    await payrollController.confirmPayment(request({}, { id: "payment-1" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_RUN_NOT_PAYABLE" }));
+    expect(mocks.paymentFindOneAndUpdate).not.toHaveBeenCalled();
+  });
 
   it("confirming a part of the payroll keeps the run closed", async () => {
     arrangeTransition(draftPayment(), closedRun(), [
-      { status: "confirmed", lines: [{ employeeId: "emp-1", amount: 10_000_000 }] },
     ]);
     const res = response();
 
@@ -213,21 +333,44 @@ describe("payment lifecycle transitions", () => {
       { $set: expect.objectContaining({ status: "confirmed", confirmedBy: "cashier", confirmedAt: expect.any(Date), paymentDate: expect.any(Date) }) },
       { new: true },
     );
-    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "run-a", ...scope, status: "closed", version: 8 },
+      { $inc: { version: 1 } },
+      { new: true },
+    );
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success", runStatus: "closed" }));
   });
 
   it("confirming the last outstanding amount moves the run to paid", async () => {
     arrangeTransition(draftPayment({ amount: 6_000_000, lines: [{ employeeId: "emp-2", amount: 6_000_000 }] }), closedRun(), [
       { status: "confirmed", lines: [{ employeeId: "emp-1", amount: 10_000_000 }] },
-      { status: "confirmed", lines: [{ employeeId: "emp-2", amount: 6_000_000 }] },
     ]);
 
     await payrollController.confirmPayment(request({}, { id: "payment-1" }), response());
 
-    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: "run-a", ...scope, status: "closed" },
-      { $set: { status: "paid" }, $inc: { version: 1 } },
+    expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
+      { _id: "run-a", ...scope, status: "closed", version: 9 },
+      { $set: { status: "paid" } },
+      { new: true },
+    );
+  });
+
+  it("sums duplicate employee allocations when deriving the paid run status", async () => {
+    arrangeTransition(draftPayment({
+      amount: 16_000_000,
+      lines: [
+        { employeeId: "emp-1", amount: 4_000_000 },
+        { employeeId: "emp-1", amount: 6_000_000 },
+        { employeeId: "emp-2", amount: 6_000_000 },
+      ],
+    }), closedRun(), []);
+
+    await payrollController.confirmPayment(request({}, { id: "payment-1" }), response());
+
+    expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
+      { _id: "run-a", ...scope, status: "closed", version: 9 },
+      { $set: { status: "paid" } },
+      { new: true },
     );
   });
 
@@ -241,9 +384,10 @@ describe("payment lifecycle transitions", () => {
       { $set: expect.objectContaining({ status: "reversed", reversedBy: "cashier", reversedAt: expect.any(Date) }) },
       { new: true },
     );
-    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: "run-a", ...scope, status: "paid" },
-      { $set: { status: "closed" }, $inc: { version: 1 } },
+    expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
+      { _id: "run-a", ...scope, status: "paid", version: 9 },
+      { $set: { status: "closed" } },
+      { new: true },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       action: "payment",
@@ -254,6 +398,24 @@ describe("payment lifecycle transitions", () => {
         correlationId: "trace-pay",
       }),
     }));
+  });
+
+  it.each(["draft", "review"])("does not reverse a confirmed payment while its run is %s", async (status) => {
+    const payment = draftPayment({ status: "confirmed" });
+    arrangeTransition(payment, closedRun({ status }), [{
+      status: "confirmed",
+      lines: payment.lines,
+    }]);
+    const res = response();
+
+    await payrollController.reversePayment(request({}, { id: "payment-1" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: "PAYROLL_PAYMENT_RUN_STATE_INVALID",
+    }));
+    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.paymentFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("cancelling a draft payment leaves the run status untouched", async () => {
@@ -299,7 +461,8 @@ describe("payment lifecycle transitions", () => {
     await payrollController.confirmPayment(request({}, { id: "payment-1" }), res);
 
     expect(res.status).toHaveBeenCalledWith(409);
-    expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(mocks.runFindOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
   });
 
   it("uses the supplied confirmation date over the current time", async () => {

@@ -187,7 +187,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           {
             name: file.name,
             url: data.url,
-            type: file.type,
+            type: file.type || "application/octet-stream",
             uploadToken: data.uploadToken,
           },
         ]);
@@ -201,6 +201,48 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     }
   };
 
+  const handleMultipleAssignmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`Tệp ${file.name} vượt quá giới hạn 20MB.`);
+          continue;
+        }
+        const data = await authService.uploadManagedFile(file, "student.assignment");
+        setNewAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type || "application/octet-stream", uploadToken: data.uploadToken }]);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tải tệp đính kèm.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleMultipleManualProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`Tệp ${file.name} vượt quá giới hạn 20MB.`);
+          continue;
+        }
+        const data = await authService.uploadManagedFile(file, "student.submission");
+        setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type || "application/octet-stream", uploadToken: data.uploadToken }]);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tải minh chứng.");
+    } finally {
+      setUploading(false);
+      if (manualFileInputRef.current) manualFileInputRef.current.value = "";
+    }
+  };
+
   const handleManualProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -208,7 +250,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
     try {
       if (file.size > 20 * 1024 * 1024) throw new Error("Dung lượng tệp đính kèm không vượt quá 20MB.");
       const data = await authService.uploadManagedFile(file, "student.submission");
-      setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type, uploadToken: data.uploadToken }]);
+      setManualAttachments((current) => [...current, { name: file.name, url: data.url, type: file.type || "application/octet-stream", uploadToken: data.uploadToken }]);
     } catch (err: any) { toast.error(err.message || "Lỗi tải minh chứng."); }
     finally { setUploading(false); if (manualFileInputRef.current) manualFileInputRef.current.value = ""; }
   };
@@ -417,7 +459,8 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     <input
                       type="file"
                       ref={fileInputRef}
-                      onChange={handleFileUpload}
+                      onChange={handleMultipleAssignmentUpload}
+                      multiple
                       className="hidden"
                     />
                     <button
@@ -678,7 +721,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     ) : (
                       <div className="p-8 text-center bg-white border border-slate-150 rounded-2xl flex flex-col items-center justify-center">
                         <Clock className="h-10 w-10 text-slate-200 mb-2" />
-                        <input ref={manualFileInputRef} type="file" onChange={handleManualProofUpload} className="hidden" />
+                        <input ref={manualFileInputRef} type="file" multiple onChange={handleMultipleManualProofUpload} className="hidden" />
                         <p className="mb-3 text-[11px] text-slate-500">Nhân viên có thể tải bài làm nhận trực tiếp và lưu hộ học viên.</p>
                         <button type="button" onClick={() => manualFileInputRef.current?.click()} disabled={uploading} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-300 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">{uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}Tải minh chứng bài làm</button>
                         {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><button type="button" onClick={() => setPreviewFile(file)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-600 hover:text-indigo-600" title="Xem trước"><span className="truncate">{file.name}</span><Eye className="h-3 w-3 shrink-0" /></button><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}

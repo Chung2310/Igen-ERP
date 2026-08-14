@@ -330,7 +330,10 @@ export function createCustomFieldValueValidator(repository: CustomFieldValueRepo
     }
     const definitionsByKey = new Map(definitions.map(definition => [definition.key, definition]));
     for (const key of keys) {
-      if (!definitionsByKey.has(key)) {
+      const isOrphanedExistingValue = input.mode === "update"
+        && input.existingValues
+        && Object.prototype.hasOwnProperty.call(input.existingValues, key);
+      if (!definitionsByKey.has(key) && !isOrphanedExistingValue) {
         throw new Error(`Trường tùy chỉnh "${key}" không được định nghĩa.`);
       }
     }

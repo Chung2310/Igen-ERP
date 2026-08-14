@@ -83,7 +83,7 @@ export const retailOrderController = {
       const shift = await CashierShiftService.current(retailScope, (req as any).user);
       res.json({ success: true, data: await RetailOrderService.cancel(retailScope, req.params.id, req.body || {}, (req as any).user, shift || undefined, await hasEffectiveRetailCapability((req as any).user || {}, "manager")) });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(error.status || 400).json({ success: false, error: error.message, ...(error.code ? { code: error.code } : {}) });
     }
   },
 };

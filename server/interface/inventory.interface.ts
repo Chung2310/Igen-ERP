@@ -4,7 +4,7 @@ export type WarehouseKind = "selling" | "central" | "defective" | "warranty" | "
 export type InventoryMovementDirection = "in" | "out";
 export type InventoryMovementPurpose = "sale" | "cancel" | "purchase" | "sales-return" | "supplier-return" | "transfer" | "count" | "opening" | "other";
 export type SupplierStatus = "active" | "inactive";
-export type GoodsReceiptStatus = "draft" | "confirmed" | "cancelled";
+export type GoodsReceiptStatus = "draft" | "pending" | "receiving" | "confirmed" | "cancelled";
 
 export interface IWarehouse extends Document {
   companyCode: string;
@@ -27,6 +27,8 @@ export interface IInventoryBalance extends Document {
   sku: string;
   quantity: number;
   reservedQuantity: number;
+  minStock?: number;
+  maxStock?: number;
   averageCost: number;
   version: number;
   createdAt?: Date;

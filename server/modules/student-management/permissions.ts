@@ -5,8 +5,8 @@
  */
 // Shared workflow internals accept the permission of the active module. Module guards
 // still isolate student and worker tenants before these permissions are evaluated.
-const STUDENT_READ = ["student:read", "student:manage", "worker:read", "worker:manage"];
-const STUDENT_MANAGE = ["student:manage", "worker:manage"];
+const STUDENT_READ = ["people:read", "people:manage", "people:read", "people:manage", "people:manage"];
+const STUDENT_MANAGE = ["people:manage", "people:manage"];
 
 export const STUDENT_AREA_PERMISSIONS = {
   "student-profile": { read: STUDENT_READ, manage: STUDENT_MANAGE },
@@ -20,7 +20,7 @@ export const STUDENT_AREA_PERMISSIONS = {
   assignment: { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "student-quality": { read: STUDENT_READ, manage: STUDENT_MANAGE },
   "learning-roadmap": { read: STUDENT_READ, manage: STUDENT_MANAGE },
-  "custom-field": { read: ["custom-field:manage"], manage: ["custom-field:manage"] },
-  "student-settings": { read: ["student-settings:manage"], manage: ["student-settings:manage"] },
-  "company-smtp": { read: ["company-smtp:manage"], manage: ["company-smtp:manage"] },
+  "custom-field": { read: ["settings:manage"], manage: ["settings:manage"] },
+  "student-settings": { read: ["settings:manage"], manage: ["settings:manage"] },
+  "company-smtp": { read: ["settings:manage"], manage: ["settings:manage"] },
 } as const;

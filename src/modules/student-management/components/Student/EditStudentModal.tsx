@@ -4,7 +4,7 @@ import { X, Save, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { Student, Partner } from '../../types';
-import { cn, toInputDate, toDisplayDate } from '../../lib/utils';
+import { cn, toDisplayDate } from '../../lib/utils';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { useAuth } from '../../../../context/AuthContext';
 import { FormInput } from './components/StudentFormFields';
@@ -106,6 +106,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
   const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    if (entityLabel.preset === 'student') return ['fullName', 'phone', 'email'].includes(fieldKey);
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
@@ -162,10 +163,10 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
           phone: student.phone || '',
           referral: student.referral || '',
           partnerId: student.partnerId || '',
-          birthday: student.birthday || '',
+          birthday: toDisplayDate(student.birthday || ''),
           idCard: student.idCard || '',
-          registrationDate: student.registrationDate || '',
-          enrollmentDate: student.enrollmentDate || '',
+          registrationDate: toDisplayDate(student.registrationDate || ''),
+          enrollmentDate: toDisplayDate(student.enrollmentDate || ''),
           fee: student.fee || '',
           address: student.address || '',
           status: Array.isArray(student.status) ? student.status : (student.status ? [student.status] : []),
@@ -179,7 +180,8 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
     e.preventDefault();
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
-      if (f.isVisible && !f.isArchived && f.isRequired) {
+      const required = entityLabel.preset === 'student' ? ['fullName', 'phone', 'email'].includes(f.key) : f.isRequired;
+      if (f.isVisible && !f.isArchived && required) {
         if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
         if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
         if (f.key === 'referral' && !formData.referral && referralMode === 'custom') missingFields.push(f.label);
@@ -202,7 +204,6 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
       {
         email: formData.email,
         phone: formData.phone,
-        idCard: formData.idCard,
       },
       student?.id,
       'general'
@@ -361,10 +362,10 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     <FormInput
                       label={getFieldLabel('birthday', 'Ngày sinh')}
                       name="birthday"
-                      type="date"
-                      value={toInputDate(formData.birthday)}
+                      value={toDisplayDate(formData.birthday)}
                       onChange={handleInputChange}
                       required={isFieldRequired('birthday', false)}
+                      placeholder="DD/MM/YYYY"
                     />
                   </div>
                 )}
@@ -402,10 +403,10 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                     <FormInput
                       label={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
                       name="enrollmentDate"
-                      type="date"
-                      value={toInputDate(formData.enrollmentDate)}
+                      value={toDisplayDate(formData.enrollmentDate)}
                       onChange={handleInputChange}
                       required={isFieldRequired('enrollmentDate', false)}
+                      placeholder="DD/MM/YYYY"
                     />
                   </div>
                 )}

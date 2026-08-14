@@ -20,7 +20,7 @@ import { buildDocumentTitle, getSeoForPath, resolveSeoUrl } from "./src/seo/seo-
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "./src/config/brand";
 import { selectiveBodyParser } from "./server/middleware/body-limit";
 import { globalApiRateLimiter } from "./server/middleware/rate-limit";
-import { userActivityMiddleware } from "./server/middleware/user-activity";
+import { flushUserActivityQueue, userActivityMiddleware } from "./server/middleware/user-activity";
 import { requestContextMiddleware } from "./server/middleware/request-context";
 import { apiNotFound } from "./server/middleware/api-not-found";
 import { apiErrorHandler } from "./server/middleware/api-error-handler";
@@ -391,6 +391,18 @@ async function startServer() {
       console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
     }
   });
+
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    httpServer.close(async () => {
+      await flushUserActivityQueue();
+      process.exit(0);
+    });
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
 }
 
 startServer();

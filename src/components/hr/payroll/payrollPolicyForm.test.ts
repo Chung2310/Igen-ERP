@@ -64,4 +64,15 @@ describe("payroll policy form", () => {
     form.overtime.weekday = 0.5;
     expect(validatePayrollPolicyStep(form, 3)).toHaveProperty("overtime.weekday");
   });
+
+  it("explains that insurance cap multipliers must be at least one", () => {
+    const form = createDefaultPayrollPolicyForm();
+    form.socialCapMultiplier = 0;
+    form.unemploymentCapMultiplier = 0;
+
+    expect(validatePayrollPolicyStep(form, 0)).toMatchObject({
+      socialCapMultiplier: "Hệ số trần BHXH/BHYT phải từ 1 trở lên.",
+      unemploymentCapMultiplier: "Hệ số trần BHTN phải từ 1 trở lên.",
+    });
+  });
 });
