@@ -38,6 +38,10 @@ function permissionCodesFromMiddleware(middleware: string, constants: Readonly<R
     const legacy = `${reference[1]}:${reference[2]}`;
     codes.push(LEGACY_PERMISSION_MAP[legacy] ?? legacy);
   }
+  for (const reference of middleware.matchAll(/\b[A-Z][A-Z0-9_]*_PERMISSIONS\["([^"]+)"\]\.(read|manage)\b/g)) {
+    const legacy = `${reference[1]}:${reference[2]}`;
+    codes.push(LEGACY_PERMISSION_MAP[legacy] ?? legacy);
+  }
   return [...new Set(codes)];
 }
 function middlewareTokens(args: string): string {
