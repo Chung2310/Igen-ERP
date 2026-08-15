@@ -1,6 +1,18 @@
 import { Schema, model } from "mongoose";
 import { IProject } from "../interface/project.interface";
 
+const ProjectAttachmentSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
+    size: { type: Number },
+    uploadToken: { type: String },
+  },
+  { _id: false }
+);
+
 const ProjectSchema = new Schema<IProject>({
   name: { type: String, required: true, index: true },
   companyCode: { type: String, required: true, index: true },
@@ -11,7 +23,7 @@ const ProjectSchema = new Schema<IProject>({
   startAt: Date,
   dueAt: Date,
   completedAt: { type: Date, default: null },
-  attachments: [{ id: String, name: String, url: String, type: String, size: Number, uploadToken: String }],
+  attachments: { type: [ProjectAttachmentSchema], default: [] },
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
