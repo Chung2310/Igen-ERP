@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Download, Upload } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type {
   RecruitmentApplicant,
   RecruitmentAttachment,
@@ -44,7 +45,7 @@ export default function ApplicantDetailPanel({
         setHistory(nextHistory);
         setAttachment(nextAttachment);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(getApiErrorMessage(e, "Không thể tải lịch sử ứng viên.")))
       .finally(() => setLoading(false));
   useEffect(() => {
     void load();
@@ -64,7 +65,7 @@ export default function ApplicantDetailPanel({
       );
       await load();
     } catch (e: any) {
-      setError(e.message);
+      setError(getApiErrorMessage(e, "Không thể cập nhật ứng viên."));
     }
   };
   const download = async (file: RecruitmentAttachment) => {
@@ -72,7 +73,7 @@ export default function ApplicantDetailPanel({
       const result = await recruitmentApi.downloadAttachment(file._id);
       window.open(result.signedUrl, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      setError(e.message);
+      setError(getApiErrorMessage(e, "Không thể thêm tệp đính kèm."));
     }
   };
   const remove = async (file: RecruitmentAttachment) => {
@@ -82,7 +83,7 @@ export default function ApplicantDetailPanel({
       await recruitmentApi.deleteAttachment(file._id);
       await load();
     } catch (e: any) {
-      setError(e.message);
+      setError(getApiErrorMessage(e, "Không thể xóa tệp đính kèm."));
     }
   };
   return (

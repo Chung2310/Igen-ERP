@@ -5,6 +5,7 @@ import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { TrainingCourseModel } from "../model/training-course.model";
+import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { crudResourceFinalizationService } from "../service/crud-resource-finalization.service";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
@@ -165,6 +166,25 @@ export const crudController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
 
+      if (modelName === "training-enrollments") {
+        let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        if (!isSupervisor && req.user?.id) {
+          const userDoc = await UserModel.findById(req.user.id).select("level").lean();
+          if (userDoc && typeof userDoc.level === "number" && userDoc.level <= 3) {
+            isSupervisor = true;
+          }
+        }
+        if (!isSupervisor) {
+          const enrollment = await TrainingEnrollmentModel.findOne({ _id: id, companyCode }).lean();
+          if (enrollment && enrollment.uid !== req.user?.id) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn không có quyền xem tiến trình học tập của người khác.",
+            });
+          }
+        }
+      }
+
       const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
@@ -219,6 +239,19 @@ export const crudController = {
             status: "error",
             message: "Bạn không thể gán vai trò có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.",
           });
+        }
+      }
+
+      if (modelName === "training-enrollments") {
+        let isSupervisor = ["superadmin", "admin", "manager"].includes(req.user?.role || "user");
+        if (!isSupervisor && req.user?.id) {
+          const userDoc = await UserModel.findById(req.user.id).select("level").lean();
+          if (userDoc && typeof userDoc.level === "number" && userDoc.level <= 3) {
+            isSupervisor = true;
+          }
+        }
+        if (!isSupervisor) {
+          req.body.uid = req.user!.id;
         }
       }
 
@@ -392,6 +425,25 @@ export const crudController = {
         }
       }
 
+      if (modelName === "training-enrollments") {
+        let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        if (!isSupervisor && req.user?.id) {
+          const userDoc = await UserModel.findById(req.user.id).select("level").lean();
+          if (userDoc && typeof userDoc.level === "number" && userDoc.level <= 3) {
+            isSupervisor = true;
+          }
+        }
+        if (!isSupervisor) {
+          const enrollment = await TrainingEnrollmentModel.findOne({ _id: id, companyCode }).lean();
+          if (enrollment && enrollment.uid !== req.user?.id) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn không có quyền cập nhật tiến trình học tập của người khác.",
+            });
+          }
+        }
+      }
+
       if (modelName === "hr-calendar-events") {
         const LEAVE_TYPES = ["leave", "wfh", "exception"];
         const event = await HRCalendarEventModel.findOne({ _id: id, companyCode }).lean();
@@ -542,6 +594,22 @@ export const crudController = {
           return res.status(403).json({
             status: "error",
             message: "Bạn không có quyền xóa khóa học này vì không phải là người tạo.",
+          });
+        }
+      }
+
+      if (modelName === "training-enrollments") {
+        let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        if (!isSupervisor && req.user?.id) {
+          const userDoc = await UserModel.findById(req.user.id).select("level").lean();
+          if (userDoc && typeof userDoc.level === "number" && userDoc.level <= 3) {
+            isSupervisor = true;
+          }
+        }
+        if (!isSupervisor) {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không có quyền xóa tiến trình học tập.",
           });
         }
       }

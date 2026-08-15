@@ -4,6 +4,7 @@ import { Camera, CheckCircle2, RefreshCw, ScanFace, Trash2, X } from 'lucide-rea
 import { Student } from '../../../types';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
+import { getApiErrorMessage } from '../../../../../utils/errorMessage';
 import {
   cameraErrorMessage,
   captureFaceJpeg,
@@ -98,7 +99,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
       setCapture({ blob, url });
       stopCamera();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể chụp ảnh.');
+      setError(getApiErrorMessage(err, 'Không thể chụp ảnh.'));
     }
   };
 
@@ -129,7 +130,7 @@ export function FaceEnrollmentTab({ student, onUpdated }: FaceEnrollmentTabProps
       await fetchStatus();
       onUpdated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể lưu khuôn mặt. Vui lòng thử lại.');
+      setError(getApiErrorMessage(err, 'Không thể lưu khuôn mặt. Vui lòng thử lại.'));
     } finally {
       setSubmitting(false);
     }

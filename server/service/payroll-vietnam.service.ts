@@ -145,6 +145,7 @@ export function calculatePersonalIncomeTax(policy: IPayrollPolicy, args: {
     method: args.method,
     deductions: { personal: policy.personalDeduction, dependents, insurance, other, total },
     assessableIncome,
+    schedule: policy.taxBrackets.map((bracket) => ({ ...bracket })),
     brackets: progressive.details,
     tax: progressive.tax,
   };

@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
+import { retailShiftsApi } from "../api/retailShifts.api";
 import RetailPosPage from "./RetailPosPage";
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
@@ -33,6 +34,20 @@ beforeEach(() => {
 });
 
 describe("RetailPosPage", () => {
+  it("guides cashier to open a shift before using POS", async () => {
+    const open = vi.fn().mockResolvedValue({ _id: "s2", shiftCode: "CA-2", cashierId: "u1", cashierName: "Thu ngÃ¢n", openingFloat: 500_000, businessDate: "2026-08-10", status: "open" });
+    (retailShiftsApi as any).open = open;
+    vi.mocked(retailShiftsApi.current).mockResolvedValueOnce(null);
+    render(<RetailPosPage />);
+
+    expect(await screen.findByRole("heading", { name: "Mở ca bán hàng" })).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Tiền đầu ca"), "500000");
+    await userEvent.click(screen.getByRole("button", { name: "Mở ca ngay" }));
+
+    await waitFor(() => expect(open).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, { openingFloat: 500_000, terminalId: undefined }));
+    expect(await screen.findByText(/CA-2/)).toBeTruthy();
+  });
+
   it("keeps payment dialog closed and guides cashier to select a customer", async () => {
     render(<RetailPosPage />);
     await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));

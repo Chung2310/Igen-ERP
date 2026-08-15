@@ -17,9 +17,13 @@ describe("generic CRUD permission policy", () => {
   });
 
   it("assigns HR permissions to training and workflow mutations", () => {
-    for (const modelName of ["training-courses", "training-enrollments", "workflows"]) {
+    for (const modelName of ["training-courses", "workflows"]) {
       expect(policy[modelName]).toMatchObject({ read: "hr:read", manage: "hr:manage" });
     }
+  });
+
+  it("assigns self-service permissions to training enrollments", () => {
+    expect(policy["training-enrollments"]).toMatchObject({ read: "self-service", manage: "self-service" });
   });
 
   it("assigns timekeeping management to leave templates and retains leave self-service", () => {

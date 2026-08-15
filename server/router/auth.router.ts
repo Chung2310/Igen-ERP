@@ -263,7 +263,7 @@ const registerUserSchema = {
   }),
 };
 
-// Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và quyền user:manage)
+// Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và quyền access:manage)
 authRouter.post("/register-user", requireAuth as any, requirePermission("access:manage") as any, validateRequest(registerUserSchema), authController.registerUser as any);
 
 const getUsersSchema = {
@@ -276,7 +276,7 @@ const getUsersSchema = {
 // Lấy danh sách thành viên cùng công ty cho tất cả user (để dùng trong tính năng chia sẻ tài nguyên, chat...)
 authRouter.get("/users/colleagues", requireAuth as any, authController.getColleagues as any);
 
-// Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
+// Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền access:read)
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
 // (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
 authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
@@ -437,11 +437,11 @@ const deleteUserSchema = {
   }),
 };
 
-// Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và quyền user:manage)
+// Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và quyền access:manage)
 authRouter.patch("/users/bulk", requireAuth as any, requirePermission("access:manage") as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
 
-// Cập nhật chi tiết một thành viên (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
+// Cập nhật chi tiết một thành viên (yêu cầu Access Token, quyền access:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
 authRouter.patch("/users/:id", requireAuth as any, requirePermission("access:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(updateUserSchema), authController.updateUser as any);
 
-// Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
+// Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token, quyền access:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
 authRouter.delete("/users/:id", requireAuth as any, requirePermission("access:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(deleteUserSchema), authController.deleteUser as any);

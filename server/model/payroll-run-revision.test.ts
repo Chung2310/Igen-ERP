@@ -22,4 +22,29 @@ describe("PayrollRun revision linkage", () => {
     expect(path).toBeDefined();
     expect(path.instance).toBe("Mixed");
   });
+
+  it("preserves empty objects inside an effective snapshot", () => {
+    const snapshotLines = [{
+      employeeId: "employee-a",
+      overrideValues: {},
+      effectiveValues: { customValues: {} },
+      provenance: { customValues: {} },
+    }];
+    const run = new PayrollRunModel({
+      companyCode: "ACME",
+      branchId: "branch-a",
+      periodKey: "2026-08",
+      type: "regular",
+      status: "review",
+      createdBy: "manager-a",
+      effectiveSnapshot: {
+        sourceRevisionChecksum: "source-checksum",
+        checksum: "effective-checksum",
+        lines: snapshotLines,
+        pinnedAt: new Date("2026-08-15T00:00:00.000Z"),
+      },
+    });
+
+    expect(run.toObject().effectiveSnapshot.lines).toEqual(snapshotLines);
+  });
 });

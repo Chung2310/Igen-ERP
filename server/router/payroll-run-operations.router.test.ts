@@ -562,8 +562,8 @@ describe("operational payroll controller and routes", () => {
   });
 
   it("guards line override reads and bulk writes with payroll permissions", () => {
-    expect(permissionOf("GET", "/periods/:periodKey/line-overrides")).toBe("payroll:read");
-    expect(permissionOf("PUT", "/periods/:periodKey/line-overrides")).toBe("payroll:manage");
+    expect(permissionOf("GET", "/periods/:periodKey/line-overrides")).toBe("payroll-period:read");
+    expect(permissionOf("PUT", "/periods/:periodKey/line-overrides")).toBe("payroll-period:manage");
   });
 
   it("never exposes a line override route without a permission guard", () => {

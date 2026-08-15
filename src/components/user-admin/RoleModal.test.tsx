@@ -9,7 +9,7 @@ afterEach(cleanup);
 const permissions = [
   { _id: "1", code: "hr:read", name: "Xem nhân sự", module: "hr", group: "Nhân sự" },
   { _id: "2", code: "hr:manage", name: "Quản lý nhân sự", module: "hr", group: "Nhân sự" },
-  { _id: "3", code: "payroll:read", name: "Xem tiền lương", module: "payroll", group: "Tiền lương" },
+  { _id: "3", code: "payroll-period:read", name: "Xem tiền lương", module: "payroll", group: "Tiền lương" },
 ];
 
 function Harness() {
@@ -45,7 +45,7 @@ describe("RoleModal permission module cards", () => {
     expect(screen.queryByRole("button", { name: /chọn tất cả/i })).toBeNull();
   });
 
-  it("adds read permission when manage permission is selected", () => {
+  it("shows read as included when manage permission is selected", () => {
     render(<Harness />);
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Quản lý nhân sự" }));

@@ -9,9 +9,9 @@ test("student umbrella permissions preserve operational access", () => {
 });
 
 test("retired granular permissions do not grant operational student access", () => {
-  assert.equal(canReadStudentArea(["course:manage"], "course"), false);
+  assert.equal(canReadStudentArea(["course:read"], "course"), false);
   assert.equal(canManageStudentArea(["course:manage"], "course"), false);
-  assert.equal(canReadStudentArea(["course:manage"], "batch"), false);
+  assert.equal(canReadStudentArea(["batch:read"], "batch"), false);
 });
 
 test("student umbrella manage does not grant configuration permissions", () => {

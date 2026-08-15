@@ -14,6 +14,6 @@ describe("partner workspace selection", () => {
   it("requires the labor partner read permission for a labor tenant", () => {
     const route = APP_ROUTES.find((item) => item.tab === "ĐỐI TÁC");
     expect(route?.canAccess?.({ role: "user", businessType: "labor", permissions: ["labor-partner:read"] } as any)).toBe(true);
-    expect(route?.canAccess?.({ role: "user", businessType: "labor", permissions: ["partner:read"] } as any)).toBe(false);
+    expect(route?.canAccess?.({ role: "user", businessType: "labor", permissions: ["relationship:read"] } as any)).toBe(false);
   });
 });

@@ -36,8 +36,8 @@ export const APP_ROUTES: AppRoute[] = [
         userProfile.permissions?.includes("*") ||
         userProfile.permissions?.some((permission) =>
           userProfile.businessType === "labor"
-            ? ["labor-partner:read", "relationship:read"].includes(permission)
-            : ["partner:read", "relationship:read"].includes(permission),
+            ? ["labor-partner:read", "labor-partner:manage"].includes(permission)
+            : ["relationship:read", "relationship:manage"].includes(permission),
         ),
       ),
   },
@@ -79,7 +79,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance:read", "finance:manage"].includes(permission))),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"].includes(permission))),
   },
   {
     tab: "QUẢN LÝ KHÁCH HÀNG",

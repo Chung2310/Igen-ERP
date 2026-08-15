@@ -6,6 +6,7 @@ import {
   startFaceCamera,
   stopMediaStream,
 } from '../../../../../components/settings/faceCamera';
+import { getApiErrorMessage } from '../../../../../utils/errorMessage';
 
 interface FaceCaptureInputProps {
   onCapture: (blob: Blob | null) => void;
@@ -69,7 +70,7 @@ export function FaceCaptureInput({ onCapture, disabled, entityName = 'học viê
       stopCamera();
       onCapture(blob);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể chụp ảnh.');
+      setError(getApiErrorMessage(err, 'Không thể chụp ảnh.'));
     }
   };
 

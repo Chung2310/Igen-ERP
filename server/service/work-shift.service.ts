@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { CompanyModel } from "../model/company.model";
 import { ShiftAssignmentModel, WorkShiftModel } from "../model/work-shift.model";
 import { UserModel } from "../model/user.model";
@@ -24,34 +25,77 @@ export function calculateStandardMinutes(startTime: string, endTime: string, bre
   return Math.max(1, gross - unpaid);
 }
 
-export async function resolveShift(companyCode: string, employeeId: string, workDate: string) {
-  const weekday = weekdayOf(workDate);
-  const assignment = await ShiftAssignmentModel.findOne({
-    companyCode, employeeId, effectiveFrom: { $lte: workDate },
-    $or: [{ effectiveTo: null }, { effectiveTo: "" }, { effectiveTo: { $gte: workDate } }],
-    daysOfWeek: weekday,
-  }).sort({ effectiveFrom: -1 }).lean();
-  const assigned = assignment ? await WorkShiftModel.findOne({ _id: assignment.shiftId, companyCode, isActive: true }).lean() : null;
-  const shift = assigned || await WorkShiftModel.findOne({ companyCode, isDefault: true, isActive: true }).lean();
-  if (shift) return { shift, source: assigned ? "employee" as const : "company" as const, assignmentId: assignment?._id };
+export type WorkHoursConfig = {
+  checkInLimit?: string;
+  checkOutLimit?: string;
+  lunchBreakStart?: string;
+  lunchBreakEnd?: string;
+  workingDays?: number[];
+};
 
-  const [company, user] = await Promise.all([
-    CompanyModel.findOne({ code: companyCode }).select("locationConfig").lean(),
-    UserModel.findById(employeeId).select("workHoursConfig").lean(),
-  ]);
-  const custom = user?.workHoursConfig?.useCustom ? user.workHoursConfig : undefined;
-  const config: { checkInLimit?: string; checkOutLimit?: string; lunchBreakStart?: string; lunchBreakEnd?: string; workingDays?: number[] } = custom || company?.locationConfig || {};
+// Giờ làm cấu hình rời (của nhân viên hoặc của công ty) được dựng thành cùng một
+// hình dạng với WorkShift để mọi nơi tiêu thụ chỉ cần đọc shift, không cần biết nguồn.
+export function buildConfigWorkShift(config: WorkHoursConfig, code: string, name: string) {
   const startTime = config.checkInLimit || "08:30";
   const endTime = config.checkOutLimit || "17:30";
   const breakPeriods = config.lunchBreakStart && config.lunchBreakEnd
     ? [{ name: "Nghỉ trưa", startTime: config.lunchBreakStart, endTime: config.lunchBreakEnd, paid: false }]
     : [];
-  return { shift: { _id: undefined, code: "LEGACY", name: "Giờ làm việc hiện tại", startTime, endTime,
+  return { _id: undefined, code, name, startTime, endTime,
     crossesMidnight: minutesOf(endTime) <= minutesOf(startTime), breakPeriods,
     allowedLateMinutes: 0, allowedEarlyLeaveMinutes: 0,
     standardMinutes: calculateStandardMinutes(startTime, endTime, breakPeriods),
-    workingDays: config.workingDays?.length ? config.workingDays : [1, 2, 3, 4, 5], isDefault: true, isActive: true },
-    source: "legacy" as const };
+    workingDays: config.workingDays?.length ? config.workingDays : [1, 2, 3, 4, 5], isDefault: true, isActive: true };
+}
+
+export type ResolveShiftSources = {
+  customWorkHours: () => Promise<WorkHoursConfig | undefined>;
+  assignment: () => Promise<{ _id?: unknown; shiftId: unknown } | null>;
+  assignedShift: (shiftId: unknown) => Promise<any>;
+  companyShift: () => Promise<any>;
+  companyWorkHours: () => Promise<WorkHoursConfig | undefined>;
+};
+
+// Thứ tự ưu tiên nghiệp vụ: giờ làm việc riêng của nhân viên > ca được phân >
+// ca mặc định công ty > cấu hình giờ làm chung của công ty.
+export async function resolveShiftFromSources(sources: ResolveShiftSources) {
+  const custom = await sources.customWorkHours();
+  if (custom) {
+    return { shift: buildConfigWorkShift(custom, "CUSTOM", "Giờ làm việc riêng"), source: "custom" as const };
+  }
+
+  const assignment = await sources.assignment();
+  const assigned = assignment ? await sources.assignedShift(assignment.shiftId) : null;
+  if (assigned) return { shift: assigned, source: "employee" as const, assignmentId: assignment?._id };
+
+  const companyShift = await sources.companyShift();
+  if (companyShift) return { shift: companyShift, source: "company" as const };
+
+  return {
+    shift: buildConfigWorkShift(await sources.companyWorkHours() ?? {}, "LEGACY", "Giờ làm việc công ty"),
+    source: "legacy" as const,
+  };
+}
+
+export async function resolveShift(companyCode: string, employeeId: string, workDate: string) {
+  const weekday = weekdayOf(workDate);
+  return resolveShiftFromSources({
+    customWorkHours: async () => {
+      if (!Types.ObjectId.isValid(employeeId)) return undefined;
+      const user = await UserModel.findById(employeeId).select("workHoursConfig").lean();
+      return user?.workHoursConfig?.useCustom ? user.workHoursConfig : undefined;
+    },
+    assignment: async () => ShiftAssignmentModel.findOne({
+      companyCode, employeeId, effectiveFrom: { $lte: workDate },
+      $or: [{ effectiveTo: null }, { effectiveTo: "" }, { effectiveTo: { $gte: workDate } }],
+      daysOfWeek: weekday,
+    }).sort({ effectiveFrom: -1 }).lean(),
+    assignedShift: async (shiftId) => WorkShiftModel.findOne({ _id: shiftId as any, companyCode, isActive: true }).lean(),
+    companyShift: async () => WorkShiftModel.findOne({ companyCode, isDefault: true, isActive: true }).lean(),
+    companyWorkHours: async () => (
+      await CompanyModel.findOne({ code: companyCode }).select("locationConfig").lean()
+    )?.locationConfig,
+  });
 }
 
 export function shiftWindow(shift: any, workDate: string) {

@@ -62,15 +62,15 @@ export const CRUD_MODEL_PERMISSION_POLICY: Record<string, {
   "kanban-tasks": { read: "work:read", manage: "work:manage" },
   projects: { read: "work:read", manage: "work:manage" },
   "training-courses": { read: "hr:read", manage: "hr:manage" },
-  "training-enrollments": { read: "hr:read", manage: "hr:manage" },
+  "training-enrollments": { read: "self-service", manage: "self-service" },
   workflows: { read: "hr:read", manage: "hr:manage" },
   users: { read: "access:read", manage: "access:manage" },
   "hr-calendar-events": { read: "timekeeping:read", manage: "timekeeping:manage" },
   "hr-leave-templates": { read: "self-service", manage: "timekeeping:manage" },
   "hr-leave-applications": { read: "self-service", manage: "self-service" },
   "timekeeping-logs": {
-    read: ["timekeeping:read", "timekeeping:manage", "payroll:manage"],
-    manage: ["timekeeping:manage", "payroll:manage"],
+    read: ["timekeeping:read", "timekeeping:manage", "payroll-period:manage"],
+    manage: ["timekeeping:manage", "payroll-period:manage"],
   },
 };
 

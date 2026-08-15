@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_ROLE_PERMISSIONS } from "./auth";
 
-describe("face:manage permission defaults", () => {
+describe("access:manage permission defaults", () => {
   it("grants face management to admin and superadmin defaults", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.superadmin).toContain("*");
     expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("access:manage");

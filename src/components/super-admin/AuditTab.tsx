@@ -1,4 +1,5 @@
 import React from "react";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import {
   FileText,
   Search,
@@ -125,7 +126,7 @@ export function AuditTab() {
       setTotalItems(result.total || 0);
       setPage(pageNumber);
     } catch (e: any) {
-      setError(e.message || "Lỗi khi tải nhật ký kiểm toán.");
+      setError(getApiErrorMessage(e, "Lỗi khi tải nhật ký kiểm toán."));
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import { getAccessToken } from "./authService";
 
 async function request(path: string, init?: RequestInit) {
-  const response = await fetch(`/api/v1/payroll${path}`, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}`, ...(init?.headers || {}) } });
+  const response = await fetch(`/api/v1/payroll${path}`, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}`, ...(init?.headers || {}) } });
   const body = await response.json();
   if (!response.ok) throw Object.assign(new Error(body.message || "Payroll request failed"), { code: body.code, details: body.details });
   return body.data ?? body;
@@ -37,9 +37,11 @@ export const payrollService = {
   lock: (periodKey: string) => request(`/periods/${periodKey}/lock`, { method: "POST" }),
   createRun: (periodKey: string) => request(`/periods/${periodKey}/run`, { method: "POST" }),
   processPeriod: (periodKey: string) => request(`/periods/${periodKey}/process`, { method: "POST" }),
+  calculateRun: (runId: string, expectedVersion: number) => request(`/runs/${runId}/calculate`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
   review: (periodKey: string) => request(`/periods/${periodKey}/approve`, { method: "POST" }),
-  reviewRun: (runId: string) => request(`/runs/${runId}/review`, { method: "POST" }),
+  reviewRun: (runId: string, expectedVersion: number) => request(`/runs/${runId}/review`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
   close: (periodKey: string) => request(`/periods/${periodKey}/close`, { method: "POST" }),
+  closeRun: (runId: string, expectedVersion: number) => request(`/runs/${runId}/close`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
   reopen: (runId: string, payload: { expectedVersion: number; reason: string }) => request(`/runs/${runId}/reopen`, { method: "POST", body: JSON.stringify(payload) }),
   markPaid: (runId: string, payload: { expectedVersion: number }) => request(`/runs/${runId}/mark-paid`, { method: "POST", body: JSON.stringify(payload) }),
   reset: (periodKey: string) => request(`/periods/${periodKey}`, { method: "DELETE" }),

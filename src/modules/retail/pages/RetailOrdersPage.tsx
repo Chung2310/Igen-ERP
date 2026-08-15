@@ -4,11 +4,12 @@ import PaymentDialog from "../components/pos/PaymentDialog";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailOrder, RetailPaymentInput } from "../types";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 export default function RetailOrdersPage() {
   const { scope, userProfile } = useRetailScope(); const manager = userProfile?.role === "admin" || userProfile?.role === "superadmin" || userProfile?.permissions?.some((p) => p === "*" || p === "retail:manage"); const [q, setQ] = React.useState(""); const [status, setStatus] = React.useState(""); const [items, setItems] = React.useState<RetailOrder[]>([]); const [selected, setSelected] = React.useState<RetailOrder | null>(null); const [collecting, setCollecting] = React.useState(false); const [cancelling, setCancelling] = React.useState(false); const [error, setError] = React.useState("");
   const refresh = React.useCallback(() => { if (!scope) return; void retailOrdersApi.list(scope, { q, status: status || undefined }).then((data) => { setItems(data.items); setError(""); }).catch(show); }, [scope?.companyCode, scope?.branchId, q, status]); React.useEffect(() => { const timer = setTimeout(refresh, 250); return () => clearTimeout(timer); }, [refresh]);
-  const show = (cause: unknown) => setError(cause instanceof Error ? cause.message : "Không xử lý được đơn hàng."); if (!scope) return <Notice />;
+  const show = (cause: unknown) => setError(getApiErrorMessage(cause, "Không xử lý được đơn hàng.")); if (!scope) return <Notice />;
   const detail = async (id: string) => { try { setSelected(await retailOrdersApi.detail(scope, id)); } catch (e) { show(e); } };
   const openCollection = () => { if (!selected?.customerId) { setError("Vui lòng chọn khách hàng trước khi thanh toán."); return; } setError(""); setCollecting(true); };
   const collect = async (payments: RetailPaymentInput[]) => { if (!selected) return; try { const updated = await retailOrdersApi.collect(scope, selected._id, payments); setSelected(updated); setCollecting(false); refresh(); } catch (e) { show(e); } };

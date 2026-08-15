@@ -1,153 +1,126 @@
-/** Canonical permission catalog shared by authorization and permission-management UIs. */
-export interface PermissionCatalogEntry {
-  code: string;
+export type PermissionAction = "read" | "manage";
+
+export type PermissionFeatureDefinition = {
+  feature: string;
   label: string;
   group: string;
-  description?: string;
-}
-
-type PermissionAction = "read" | "manage";
-
-const AREA_DEFINITIONS = [
-  ["dashboard", "Tổng quan"],
-  ["people", "Con người"],
-  ["relationship", "Quan hệ"],
-  ["hr", "Nhân sự"],
-  ["timekeeping", "Chấm công"],
-  ["payroll", "Tiền lương"],
-  ["work", "Công việc"],
-  ["inventory", "Kho & sản phẩm"],
-  ["retail", "Bán lẻ"],
-  ["finance", "Tài chính"],
-  ["resource", "Tài nguyên"],
-  ["chat", "Trò chuyện"],
-  ["recruitment", "Tuyển dụng"],
-  ["settings", "Cấu hình"],
-  ["access", "Người dùng & vai trò"],
-] as const;
-
-/** The stable generic permission catalog introduced by the authorization cleanup. */
-export const PERMISSION_CATALOG: PermissionCatalogEntry[] = AREA_DEFINITIONS.flatMap(([area, group]) => [
-  { code: `${area}:read`, label: `Xem ${group.toLocaleLowerCase("vi")}`, group },
-  { code: `${area}:manage`, label: `Quản lý ${group.toLocaleLowerCase("vi")}`, group },
-]);
-
-/** Labor-partner permissions remain explicit because the labor workflow has separate controls. */
-export const LABOR_PARTNER_PERMISSION_CATALOG: PermissionCatalogEntry[] = [
-  { code: "labor-partner:read", label: "Xem đối tác lao động", group: "Đối tác lao động" },
-  { code: "labor-partner:manage", label: "Quản lý đối tác lao động", group: "Đối tác lao động" },
-  { code: "labor-partner-policy:manage", label: "Cấu hình chính sách hoa hồng lao động", group: "Đối tác lao động" },
-  { code: "labor-partner-settlement:calculate", label: "Tính đối soát hoa hồng lao động", group: "Đối tác lao động" },
-  { code: "labor-partner-settlement:approve", label: "Duyệt đối soát hoa hồng lao động", group: "Đối tác lao động" },
-  { code: "labor-partner-payout:manage", label: "Ghi nhận chi trả hoa hồng lao động", group: "Đối tác lao động" },
-];
-
-const CATALOG_PERMISSION_CODES = new Set(PERMISSION_CATALOG.map((entry) => entry.code));
-const LABOR_PARTNER_PERMISSION_CODES = LABOR_PARTNER_PERMISSION_CATALOG.map((entry) => entry.code);
-
-/** Accepted codes include the explicit labor workflow aliases for role assignment and route auditing. */
-export const PERMISSION_CODES = [...PERMISSION_CATALOG.map((entry) => entry.code), ...LABOR_PARTNER_PERMISSION_CODES];
-
-export const LEGACY_PERMISSION_MAP: Readonly<Record<string, string>> = {
-  "student:read": "people:read",
-  "student:manage": "people:manage",
-  "worker:read": "people:read",
-  "worker:manage": "people:manage",
-  "teacher:operate": "people:manage",
-  "student-profile:read": "people:read",
-  "student-profile:manage": "people:manage",
-  "course:read": "people:read",
-  "course:manage": "people:manage",
-  "batch:read": "people:read",
-  "batch:manage": "people:manage",
-  "exam:read": "people:read",
-  "exam:manage": "people:manage",
-  "payment:read": "people:read",
-  "payment:manage": "people:manage",
-  "student-notification:read": "people:read",
-  "student-notification:manage": "people:manage",
-  "student-resource:read": "people:read",
-  "student-resource:manage": "people:manage",
-  "assignment:read": "people:read",
-  "assignment:manage": "people:manage",
-  "partner:read": "relationship:read",
-  "partner:manage": "relationship:manage",
-  "customer:read": "relationship:read",
-  "customer:manage": "relationship:manage",
-  "candidate:read": "relationship:read",
-  "candidate:manage": "relationship:manage",
-  "user:read": "access:read",
-  "user:manage": "access:manage",
-  "role:manage": "access:manage",
-  "face:manage": "access:manage",
-  "kanban:read": "work:read",
-  "kanban:manage": "work:manage",
-  "project:read": "work:read",
-  "project:manage": "work:manage",
-  "stock:read": "inventory:read",
-  "stock:manage": "inventory:manage",
-  "product:manage": "inventory:manage",
-  "wallet:read": "finance:read",
-  "wallet:manage": "finance:manage",
-  "receivable:read": "finance:read",
-  "receivable:collect": "finance:manage",
-  "receivable:adjust": "finance:manage",
-  "payroll:prepare": "payroll:manage",
-  "payroll:pay": "payroll:manage",
-  "leave:approve": "timekeeping:manage",
-  "retail:operate": "retail:read",
-  "retail:manager": "retail:manage",
-  "company-email:manage": "settings:manage",
-  "company-smtp:manage": "settings:manage",
-  "company-payment:manage": "settings:manage",
-  "student-settings:manage": "settings:manage",
-  "custom-field:manage": "settings:manage",
-  "settings:manage": "settings:manage",
-  // Keep labor-specific role values accepted while storing the generic relationship scope.
-  "labor-partner:read": "relationship:read",
-  "labor-partner:manage": "relationship:manage",
-  "labor-partner-policy:manage": "relationship:manage",
-  "labor-partner-settlement:calculate": "relationship:manage",
-  "labor-partner-settlement:approve": "relationship:manage",
-  "labor-partner-payout:manage": "relationship:manage",
+  description: { read: string; manage: string };
 };
 
-export const RETIRED_STUDENT_PERMISSIONS = Object.keys(LEGACY_PERMISSION_MAP).filter((code) =>
-  /^(student|student-profile|course|batch|exam|payment|student-notification|student-resource|assignment):/.test(code),
-);
+export type PermissionCatalogEntry = {
+  code: string;
+  feature: string;
+  action: PermissionAction;
+  label: string;
+  group: string;
+  description: string;
+};
 
-export function isCanonicalPermission(code: string): boolean {
-  return CATALOG_PERMISSION_CODES.has(code) || LABOR_PARTNER_PERMISSION_CODES.includes(code);
+const feature = (feature: string, label: string, group: string): PermissionFeatureDefinition => ({
+  feature,
+  label,
+  group,
+  description: {
+    read: `Xem dữ liệu ${label.toLocaleLowerCase("vi")}`,
+    manage: `Quản lý ${label.toLocaleLowerCase("vi")}`,
+  },
+});
+
+export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
+  feature("dashboard", "Tổng quan", "Tổng quan"),
+  feature("people", "Con người", "Con người"),
+  feature("relationship", "Quan hệ", "Quan hệ"),
+  feature("hr", "Nhân sự", "Nhân sự"),
+  feature("timekeeping", "Chấm công", "Nhân sự"),
+  feature("work", "Công việc", "Công việc"),
+  feature("inventory", "Kho và sản phẩm", "Kho và sản phẩm"),
+  feature("retail", "Bán lẻ", "Bán lẻ"),
+  feature("resource", "Tài nguyên", "Tài nguyên"),
+  feature("chat", "Trò chuyện", "Trò chuyện"),
+  feature("recruitment", "Tuyển dụng", "Tuyển dụng"),
+  feature("settings", "Cấu hình", "Cấu hình"),
+  feature("access", "Người dùng và vai trò", "Quản trị truy cập"),
+  feature("payroll-period", "Kỳ lương", "Tiền lương"),
+  feature("payroll-policy", "Chính sách lương", "Tiền lương"),
+  feature("payroll-payment", "Thanh toán lương", "Tiền lương"),
+  feature("finance-wallet", "Ví tài chính", "Tài chính"),
+  feature("finance-receivable", "Công nợ phải thu", "Tài chính"),
+  feature("labor-partner", "Đối tác lao động", "Đối tác lao động"),
+  feature("labor-partner-policy", "Chính sách hoa hồng lao động", "Đối tác lao động"),
+  feature("labor-partner-settlement", "Đối soát hoa hồng lao động", "Đối tác lao động"),
+  feature("labor-partner-payout", "Chi trả hoa hồng lao động", "Đối tác lao động"),
+];
+
+export const PERMISSION_CATALOG: PermissionCatalogEntry[] = PERMISSION_FEATURES.flatMap((entry) => (
+  (["read", "manage"] as const).map((action) => ({
+    code: `${entry.feature}:${action}`,
+    feature: entry.feature,
+    action,
+    label: action === "read" ? `Xem ${entry.label.toLocaleLowerCase("vi")}` : `Quản lý ${entry.label.toLocaleLowerCase("vi")}`,
+    group: entry.group,
+    description: entry.description[action],
+  }))
+));
+
+export type PermissionCode = `${string}:${PermissionAction}`;
+
+const permissionCodeSet = new Set(PERMISSION_CATALOG.map((entry) => entry.code));
+export const PERMISSION_CODES = PERMISSION_CATALOG.map((entry) => entry.code);
+
+export class PermissionValidationError extends Error {
+  readonly invalidCodes: string[];
+
+  constructor(invalidCodes: string[]) {
+    super(`Mã quyền không hợp lệ: ${invalidCodes.join(", ")}`);
+    this.name = "PermissionValidationError";
+    this.invalidCodes = invalidCodes;
+  }
 }
 
-export function normalizeStoredPermissions(
-  codes: readonly string[] = [],
-  options: { allowWildcard?: boolean } = {},
-): string[] {
-  const normalized = new Set<string>();
-  for (const code of codes) {
-    if (code === "*") {
-      if (options.allowWildcard) normalized.add(code);
-      continue;
-    }
-    const mapped = LEGACY_PERMISSION_MAP[code] ?? (CATALOG_PERMISSION_CODES.has(code) ? code : undefined);
-    if (mapped) normalized.add(mapped);
-  }
-
-  for (const code of [...normalized]) {
-    const [area, action] = code.split(":") as [string, PermissionAction];
-    if (action === "manage") normalized.delete(`${area}:read`);
-  }
-  return [...normalized].sort();
+export function isPermissionCode(code: string): code is PermissionCode {
+  return permissionCodeSet.has(code);
 }
+
+export const isCanonicalPermission = isPermissionCode;
 
 export function expandEffectivePermissions(codes: readonly string[]): Set<string> {
-  const expanded = new Set(codes);
+  const expanded = new Set<string>(codes);
   for (const code of codes) {
     if (code.endsWith(":manage")) expanded.add(`${code.slice(0, -":manage".length)}:read`);
   }
   return expanded;
 }
 
-/** @deprecated Use `recruitment:manage` directly. */
-export const RECRUITMENT_PERMISSION = "recruitment:manage";
+export function compactStoredPermissions(codes: readonly string[] = []): {
+  stored: string[];
+  effective: string[];
+} {
+  const unique = [...new Set(codes)];
+  const invalidCodes = unique.filter((code) => !isPermissionCode(code)).sort();
+  if (invalidCodes.length) throw new PermissionValidationError(invalidCodes);
+
+  const stored = new Set(unique);
+  for (const code of unique) {
+    if (code.endsWith(":manage")) stored.delete(`${code.slice(0, -":manage".length)}:read`);
+  }
+  const sortedStored = [...stored].sort();
+  return {
+    stored: sortedStored,
+    effective: [...expandEffectivePermissions(sortedStored)].sort(),
+  };
+}
+
+export function normalizeStoredPermissions(
+  codes: readonly string[] = [],
+  options: { allowWildcard?: boolean } = {},
+): string[] {
+  const wildcard = codes.includes("*");
+  const withoutWildcard = codes.filter((code) => code !== "*");
+  if (wildcard && !options.allowWildcard) {
+    throw new PermissionValidationError(["*"]);
+  }
+  const stored = compactStoredPermissions(withoutWildcard).stored;
+  return wildcard ? ["*", ...stored].sort() : stored;
+}
+
+export const RECRUITMENT_PERMISSION: PermissionCode = "recruitment:manage";

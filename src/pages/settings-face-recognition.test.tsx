@@ -34,7 +34,7 @@ describe("SettingsTab face recognition navigation", () => {
     expect(screen.getByRole("button", { name: "Nhận diện khuôn mặt" })).toBeTruthy();
   });
 
-  it("shows the tab button with the face:manage permission", () => {
+  it("shows the tab button with the access:manage permission", () => {
     authState.userProfile = { role: "user", permissions: ["access:manage"] };
     render(<SettingsTab />);
     expect(screen.getByRole("button", { name: "Nhận diện khuôn mặt" })).toBeTruthy();

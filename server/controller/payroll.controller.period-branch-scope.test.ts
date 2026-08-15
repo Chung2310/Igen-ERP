@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   lineOverrideFind: vi.fn(),
   publicationFind: vi.fn(),
   revisionFindOne: vi.fn(),
+  repairSnapshot: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -44,6 +45,9 @@ vi.mock("../model/payroll-calculation-revision.model", () => ({
   PayrollCalculationRevisionModel: { findOne: mocks.revisionFindOne },
 }));
 vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
+vi.mock("../service/payroll-effective-snapshot-repair.service", () => ({
+  repairReviewEffectivePayrollSnapshot: mocks.repairSnapshot,
+}));
 vi.mock("../model/company.model", () => ({
   CompanyModel: { findOne: mocks.companyFindOne },
 }));
@@ -71,6 +75,7 @@ vi.mock("../model/payroll-audit.model", () => ({
 import { payrollController } from "./payroll.controller";
 import { DEFAULT_VIETNAM_PAYROLL_POLICY } from "../config/payroll-default-policy";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
+import { createPayrollEffectiveLineLoader } from "../service/payroll-effective-line.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 const branchRequest = (overrides: Record<string, unknown> = {}) => ({
@@ -414,6 +419,86 @@ describe("legacy payroll period branch scope", () => {
       segmentLines: revisionLines,
       calculation: { adjustedBase: 8_000, net: 9_000 },
     });
+  });
+
+  it("returns a typed not-found error when the period has no payroll run", async () => {
+    mocks.runFindOne.mockReturnValue(sortedLean(null));
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      status: "error",
+      code: "PAYROLL_RUN_NOT_FOUND",
+    }));
+  });
+
+  it("repairs a review checksum mismatch once and returns verified effective data", async () => {
+    const lines = [{
+      employeeId: "employee-a",
+      calculation: { monthlySalary: 1000, adjustedBase: 1000, gross: 1000, net: 1000 },
+    }];
+    const totals = { grossPay: 1000, deductions: 0, netPay: 1000 };
+    const sourceChecksum = calculatePayrollChecksum({ lines, totals });
+    const originalRun = {
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "review",
+      version: 3,
+      activeRevisionId: "revision-a",
+      activeRevisionChecksum: sourceChecksum,
+      effectiveSnapshot: {
+        sourceRevisionId: "revision-a",
+        sourceRevisionChecksum: sourceChecksum,
+        checksum: "tampered",
+        lines,
+        pinnedAt: new Date(),
+      },
+    };
+    const revision = {
+      _id: "revision-a",
+      runId: "run-a",
+      status: "completed",
+      lines,
+      totals,
+      checksum: sourceChecksum,
+    };
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => revision,
+      getOverrides: async () => [],
+    });
+    const validSnapshot = await loader.createSnapshot(scope, { ...originalRun, status: "draft" });
+    const repairedRun = { ...originalRun, version: 4, effectiveSnapshot: validSnapshot };
+    mocks.runFindOne.mockReturnValue(sortedLean(originalRun));
+    mocks.revisionFindOne.mockReturnValue(lean(revision));
+    mocks.repairSnapshot.mockResolvedValue(repairedRun);
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(mocks.repairSnapshot).toHaveBeenCalledWith(
+      scope,
+      "run-a",
+      "actor-a",
+      3,
+      undefined,
+    );
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({
+      status: "success",
+      data: expect.objectContaining({
+        _id: "run-a",
+        status: "review",
+        version: 4,
+        effectiveLines: expect.any(Array),
+        effectiveChecksum: validSnapshot.checksum,
+      }),
+    });
+    const returned = res.json.mock.calls[0][0].data;
+    expect(returned.effectiveError).toBeUndefined();
   });
 
   it("does not load or apply regular-period overrides to a supplemental line detail", async () => {

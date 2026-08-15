@@ -49,6 +49,18 @@ describe("permission route inventory", () => {
     ]);
   });
 
+  it("reports authorization actions outside read and manage", () => {
+    const [route] = scanPermissionRouteSource(
+      `router.post("/approve", requireAuth, requirePermission("payroll-period:approve"), handler);`,
+      "fixture.router.ts",
+    );
+
+    expect(route.diagnostics).toContainEqual(expect.objectContaining({
+      kind: "unknown-permission-action",
+      path: "/approve",
+    }));
+  });
+
   it("allows explicitly documented public webhook exceptions", () => {
     const [route] = scanPermissionRouteSource(
       `webhookRouter.post("/payment", handler);`,
@@ -102,7 +114,7 @@ describe("permission route inventory", () => {
     const fingerprint = createHash("sha256").update(JSON.stringify(baselineIdentity)).digest("hex");
     // Remaining findings are explicit follow-up work; scanner improvements
     // resolve inherited auth and legacy module permission aliases.
-    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 96, fingerprint: "74cbe8ceee100f8414f163b6afb2f807960d40edcb12e708debbbbdb1b3fdec7" });
+    expect({ count: baselineIdentity.length, fingerprint }).toEqual({ count: 44, fingerprint: "5e0a3d6ffc1dfe906095ad3a931b7a873867f17d51918969f64cb395af11af3f" });
   });
 
   it("does not report a false unknown permission for retail order routes", () => {

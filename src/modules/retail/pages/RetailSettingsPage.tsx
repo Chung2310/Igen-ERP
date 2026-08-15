@@ -3,6 +3,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useBranch } from "../../../context/BranchContext";
 import { retailSettingsApi } from "../api/retailSettings.api";
 import type { RetailSettings } from "../types";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 const DEFAULT_CUSTOMER_TIERS = [
   { code: "standard", name: "Thành viên", minSpend: 0 },
@@ -25,7 +26,7 @@ export default function RetailSettingsPage() {
     setError("");
     void retailSettingsApi.get({ companyCode, branchId: activeBranchId })
       .then((value) => setSettings(withCustomerTiers(value)))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Không tải được cài đặt."));
+      .catch((cause) => setError(getApiErrorMessage(cause, "Không tải được cài đặt.")));
   }, [companyCode, activeBranchId]);
 
   if (!activeBranchId) return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800">Vui lòng chọn chi nhánh.</div>;
@@ -37,7 +38,7 @@ export default function RetailSettingsPage() {
     try {
       const { companyCode: _companyCode, branchId: _branchId, ...input } = settings;
       setSettings(withCustomerTiers(await retailSettingsApi.update(input, { companyCode, branchId: activeBranchId })));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không lưu được cài đặt."); }
+    } catch (cause) { setError(getApiErrorMessage(cause, "Không lưu được cài đặt.")); }
     finally { setSaving(false); }
   };
 

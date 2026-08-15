@@ -1,6 +1,7 @@
 import { useId, useState, type ChangeEvent } from "react";
 import type { CustomFieldValue, FieldDefinition, FileMetadata } from "./types";
 import { uploadCustomFieldFile } from "./api";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 export type CustomFieldRendererProps = {
   field: FieldDefinition;
@@ -81,7 +82,7 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
       }
       setPendingFiles(null);
     } catch (caught) {
-      setUploadError(caught instanceof Error ? caught.message : "Tải tệp thất bại.");
+      setUploadError(getApiErrorMessage(caught, "Tải tệp thất bại."));
     } finally {
       setUploading(false);
     }
