@@ -169,7 +169,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {MODULE_OPTIONS.map((option) => (
                   <label key={option.key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-800 px-3 py-3 text-sm hover:border-cyan-400/40">
-                    <input type="checkbox" checked={option.moduleKeys.every((key) => selected.includes(key))} onChange={() => toggleModule(option.moduleKeys)} disabled={saving} />
+                    <input type="checkbox" checked={option.moduleKeys.some((key) => selected.includes(key))} onChange={() => toggleModule(option.moduleKeys)} disabled={saving} />
                     {option.label}
                   </label>
                 ))}

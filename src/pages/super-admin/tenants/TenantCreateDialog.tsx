@@ -102,7 +102,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
             <div className="mt-2 grid grid-cols-2 gap-2">
               {MODULE_OPTIONS.map((option) => (
                 <label key={option.key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
-                  <input type="checkbox" checked={option.moduleKeys.every((key) => enabledModules.includes(key))} onChange={() => toggleModule(option.moduleKeys)} />
+                  <input type="checkbox" checked={option.moduleKeys.some((key) => enabledModules.includes(key))} onChange={() => toggleModule(option.moduleKeys)} />
                   {option.label}
                 </label>
               ))}
