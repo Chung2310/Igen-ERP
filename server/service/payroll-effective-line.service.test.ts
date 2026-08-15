@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PayrollRunModel } from "../model/payroll-run.model";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 import {
   calculateEffectivePayrollChecksum,
@@ -124,6 +125,34 @@ describe("authoritative effective payroll line loader", () => {
     expect(loaded.effectiveLines).toEqual(snapshot.lines);
     expect(loaded.effectiveChecksum).toBe(snapshot.checksum);
     expect(getOverrides).not.toHaveBeenCalled();
+  });
+
+  it("verifies a newly pinned snapshot after PayrollRun persistence conversion", async () => {
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => revision,
+      getOverrides: async () => [{
+        employeeId: "employee-a",
+        adjustedBase: 7_000,
+        customValues: {},
+        version: 1,
+      }],
+    });
+    const snapshot = await loader.createSnapshot(scope, run());
+    const document = new PayrollRunModel({
+      ...run({ status: "review" }),
+      createdBy: "manager-a",
+      effectiveSnapshot: snapshot,
+    });
+    const storedSnapshot = document.toObject().effectiveSnapshot;
+
+    const loaded = await loader.load(scope, run({
+      status: "review",
+      effectiveSnapshot: storedSnapshot,
+    }));
+
+    expect(storedSnapshot.lines).toEqual(snapshot.lines);
+    expect(loaded.pinned).toBe(true);
+    expect(loaded.effectiveChecksum).toBe(snapshot.checksum);
   });
 
   it("fails closed when the active revision checksum or pinned effective checksum is invalid", async () => {
