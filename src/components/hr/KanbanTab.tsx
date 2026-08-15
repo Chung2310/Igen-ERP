@@ -852,8 +852,8 @@ export default function KanbanTab({
 
   // Tự động tính số giờ phải làm từ khoảng thời gian người dùng đã chọn
   useEffect(() => {
-    setEditEstTime(calculateEstimatedHours(editStartTime, editEndTime));
-  }, [editStartTime, editEndTime]);
+    setEditEstTime(calculateEstimatedHours(editStartTime, editDueDate));
+  }, [editStartTime, editDueDate]);
 
   // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
   useEffect(() => {

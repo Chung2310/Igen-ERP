@@ -6,7 +6,7 @@ describe("Kanban task estimated-time wiring", () => {
     const source = readFileSync(new URL("./KanbanTab.tsx", import.meta.url), "utf8");
 
     expect(source).toContain('import { calculateEstimatedHours } from "./kanbanTaskTime";');
-    expect(source).toMatch(/setEditEstTime\(calculateEstimatedHours\(editStartTime, editEndTime\)\)/);
-    expect(source).toMatch(/\[editStartTime, editEndTime\]/);
+    expect(source).toMatch(/setEditEstTime\(calculateEstimatedHours\(editStartTime, editDueDate\)\)/);
+    expect(source).toMatch(/\[editStartTime, editDueDate\]/);
   });
 });
