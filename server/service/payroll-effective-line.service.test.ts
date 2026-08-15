@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { deserialize, serialize } from "bson";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 import {
@@ -153,6 +154,34 @@ describe("authoritative effective payroll line loader", () => {
     expect(storedSnapshot.lines).toEqual(snapshot.lines);
     expect(loaded.pinned).toBe(true);
     expect(loaded.effectiveChecksum).toBe(snapshot.checksum);
+  });
+
+  it("stores the same normalized lines that are used for the effective checksum", async () => {
+    const mapLines = lines.map((line, index) => index === 0 ? {
+      ...line,
+      periodInput: {
+        ...line.periodInput,
+        values: new Map([["agreedSalary", 6_000], ["custom.sales", 125]]),
+      },
+    } : line);
+    const mapTotals = totals;
+    const mapChecksum = calculatePayrollChecksum({ lines: mapLines, totals: mapTotals });
+    const mapRevision = { ...revision, lines: mapLines, totals: mapTotals, checksum: mapChecksum };
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => mapRevision,
+      getOverrides: async () => [],
+    });
+    const mapRun = run({ activeRevisionChecksum: mapChecksum });
+
+    const snapshot = await loader.createSnapshot(scope, mapRun);
+    const storedSnapshot = deserialize(serialize(snapshot));
+
+    expect(snapshot.lines).toEqual(storedSnapshot.lines);
+    await expect(loader.load(scope, run({
+      status: "review",
+      activeRevisionChecksum: mapChecksum,
+      effectiveSnapshot: storedSnapshot,
+    }))).resolves.toMatchObject({ pinned: true, effectiveChecksum: snapshot.checksum });
   });
 
   it("fails closed when the active revision checksum or pinned effective checksum is invalid", async () => {
