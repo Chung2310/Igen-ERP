@@ -42,6 +42,7 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
+import { calculateEstimatedHours } from "./kanbanTaskTime";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -848,6 +849,11 @@ export default function KanbanTab({
       setEditStartTime(getLocalDatetimeString());
     }
   }, [editStatus, editStartTime]);
+
+  // Tự động tính số giờ phải làm từ khoảng thời gian người dùng đã chọn
+  useEffect(() => {
+    setEditEstTime(calculateEstimatedHours(editStartTime, editDueDate));
+  }, [editStartTime, editDueDate]);
 
   // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
   useEffect(() => {

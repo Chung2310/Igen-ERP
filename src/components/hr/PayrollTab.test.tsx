@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PAYROLL_RESULT_FIELDS } from "./payroll/payrollLineOverrides";
+import { toast } from "../../pages/Toast";
 import PayrollTab from "./PayrollTab";
 
 const getRun = vi.hoisted(() => vi.fn());
@@ -14,6 +15,7 @@ const getPeriodInputVariables = vi.hoisted(() => vi.fn());
 const bulkSaveLineOverrides = vi.hoisted(() => vi.fn());
 const review = vi.hoisted(() => vi.fn());
 const reviewRun = vi.hoisted(() => vi.fn());
+const closeRun = vi.hoisted(() => vi.fn());
 
 vi.mock("../../services/payrollService", () => ({
   payrollService: {
@@ -26,6 +28,7 @@ vi.mock("../../services/payrollService", () => ({
     bulkSaveLineOverrides,
     review,
     reviewRun,
+    closeRun,
   },
 }));
 vi.mock("../../pages/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -71,7 +74,10 @@ const effectiveLine = (employeeId: string, changes: Record<string, unknown> = {}
 
 const draftRun = (status = "draft") => ({
   _id: "run-1",
+  periodKey: "2026-08",
+  version: 2,
   status,
+  activeRevisionId: undefined as string | undefined,
   publishedEmployeeIds: [],
   lines: [
     { employeeId: "e1", calculation: { monthlySalary: 12_000_000 } },
@@ -90,7 +96,12 @@ const draftRun = (status = "draft") => ({
   ],
 });
 
-function arrange(run = draftRun()) {
+type PayrollRunFixture = Omit<ReturnType<typeof draftRun>, "effectiveLines"> & {
+  effectiveLines?: ReturnType<typeof draftRun>["effectiveLines"];
+  effectiveError?: { code: string; message: string };
+};
+
+function arrange(run: PayrollRunFixture | null = draftRun()) {
   getRun.mockResolvedValue(run);
   getResults.mockResolvedValue([]);
   getAdjustments.mockResolvedValue([]);
@@ -106,6 +117,7 @@ function arrange(run = draftRun()) {
   bulkSaveLineOverrides.mockResolvedValue([]);
   review.mockResolvedValue({});
   reviewRun.mockResolvedValue({});
+  closeRun.mockResolvedValue({});
 }
 
 function saveReasonInput() {
@@ -164,6 +176,61 @@ describe("PayrollTab editable payroll results", () => {
 
     expect(screen.getByLabelText("deductionTotal-e1").tagName).not.toBe("INPUT");
     expect(screen.getByLabelText("net-e1").tagName).not.toBe("INPUT");
+  });
+
+  it("updates the PIT cell when adjusted salary changes in the payroll table", async () => {
+    const zeroTaxValues = values({
+      adjustedBase: 8_000_000,
+      overtime: 0,
+      bonusTotal: 0,
+      penaltyTotal: 0,
+      socialInsurance: 0,
+      healthInsurance: 0,
+      unemploymentInsurance: 0,
+      personalIncomeTax: 0,
+      otherDeductions: 0,
+      hiddenIncome: 0,
+    });
+    const run: any = draftRun();
+    run.effectiveLines[0] = effectiveLine("e1", {
+      policyId: "policy-1",
+      systemValues: zeroTaxValues,
+      effectiveValues: zeroTaxValues,
+      vietnam: {
+        income: { taxableAllowances: 0 },
+        tax: { deductions: { personal: 11_000_000, dependents: 0, other: 0 } },
+      },
+    });
+    arrange(run);
+    getPolicies.mockResolvedValue([{
+      _id: "policy-1",
+      status: "active",
+      effectiveFrom: "2026-01-01",
+      taxBrackets: [
+        { upTo: 5_000_000, rate: 0.05 },
+        { upTo: 10_000_000, rate: 0.1 },
+        { rate: 0.15 },
+      ],
+      roundingUnit: 1,
+    }]);
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    const adjustedBase = await screen.findByLabelText("adjustedBase-e1");
+    await user.clear(adjustedBase);
+    await user.type(adjustedBase, "20000000");
+
+    expect((screen.getByLabelText("personalIncomeTax-e1") as HTMLInputElement).value).toBe("650000");
+    expect(screen.getByLabelText("net-e1").textContent).toContain("19.350.000");
+
+    await user.click(screen.getByRole("button", { name: /L.*u thay/ }));
+    await user.type(saveReasonInput(), "Cáº­p nháº­t lÆ°Æ¡ng chá»‹u thuáº¿");
+    await user.click(saveDialog().getByRole("button", { name: /L.*u thay/ }));
+
+    await waitFor(() => expect(bulkSaveLineOverrides).toHaveBeenCalledWith(expect.any(String), [expect.objectContaining({
+      employeeId: "e1",
+      values: { adjustedBase: 20_000_000, personalIncomeTax: 650_000 },
+    })]));
   });
 
   it("previews derived values, restores a persisted result, and retains only a conflicting employee after bulk save", async () => {
@@ -246,19 +313,29 @@ describe("PayrollTab editable payroll results", () => {
     const footer = custom.closest("table")?.querySelector("tfoot");
     if (!(footer instanceof HTMLElement)) throw new Error("Payroll footer is not present");
     expect((custom as HTMLInputElement).value).toBe("300");
-    expect(within(footer).getByText("350")).toBeTruthy();
+    expect(within(footer).getByText(/350/)).toBeTruthy();
 
     await user.clear(custom);
     await user.type(custom, "450");
-    expect(within(footer).getByText("500")).toBeTruthy();
+    expect(within(footer).getByText(/500/)).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Khôi phục custom.sales-e1" }));
     expect((custom as HTMLInputElement).value).toBe("125");
-    expect(within(footer).getByText("175")).toBeTruthy();
+    expect(within(footer).getByText(/175/)).toBeTruthy();
   });
 });
 
 describe("PayrollTab read-only payroll results", () => {
+  it("sends the current run version when closing a revision-backed payroll run", async () => {
+    arrange({ ...draftRun("review"), activeRevisionId: "revision-1" });
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    await user.click(await screen.findByRole("button", { name: "Chốt kỳ" }));
+
+    await waitFor(() => expect(closeRun).toHaveBeenCalledWith("run-1", 2));
+  });
+
   afterEach(() => {
     cleanup();
     vi.resetAllMocks();
@@ -274,7 +351,7 @@ describe("PayrollTab read-only payroll results", () => {
 
     const row = (await screen.findByText("Nguyễn Văn A")).closest("tr");
     if (!row) throw new Error("Payroll employee row is not present");
-    expect(within(row).getByText("700.000 đ")).toBeTruthy();
+    expect(within(row).getByText(/700\.000/)).toBeTruthy();
     expect(within(row).queryByRole("spinbutton")).toBeNull();
     expect(within(row).queryByRole("button", { name: /Khôi phục/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
@@ -292,13 +369,68 @@ describe("PayrollTab read-only payroll results", () => {
     expect(screen.getByLabelText("net-e1").textContent).toContain("10.900.000");
 
     await user.click(screen.getByRole("button", { name: /Ki.*tra/ }));
-    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1"));
+    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1", 2));
 
     const row = (await screen.findByText("Nguyễn Văn A")).closest("tr");
     if (!row) throw new Error("Payroll employee row is not present");
     await waitFor(() => expect(within(row).queryByRole("spinbutton")).toBeNull());
-    expect(within(row).getByText("700.000 đ")).toBeTruthy();
+    expect(within(row).getByText(/700\.000/)).toBeTruthy();
     expect(screen.queryByText(/nhân viên có thay đổi chưa lưu/)).toBeNull();
+  });
+
+  it("keeps the reviewed workflow state and reports an unexpected reconciliation failure", async () => {
+    const reviewed = { ...draftRun("review"), activeRevisionId: "revision-1", version: 3 };
+    arrange({ ...draftRun(), activeRevisionId: "revision-1" });
+    reviewRun.mockResolvedValue(reviewed);
+    getRun
+      .mockResolvedValueOnce({ ...draftRun(), activeRevisionId: "revision-1" })
+      .mockRejectedValueOnce(Object.assign(new Error("Snapshot checksum mismatch"), {
+        code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+      }));
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    await user.click(await screen.findByRole("button", { name: /Kiểm tra/ }));
+
+    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1", 2));
+    expect(await screen.findByRole("button", { name: /Chốt kỳ/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Kiểm tra/ })).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith("Snapshot checksum mismatch");
+  });
+
+  it("treats PAYROLL_RUN_NOT_FOUND as an empty period without an error toast", async () => {
+    arrange();
+    getRun
+      .mockResolvedValueOnce(draftRun())
+      .mockRejectedValueOnce(Object.assign(new Error("not found"), {
+        code: "PAYROLL_RUN_NOT_FOUND",
+      }));
+
+    render(<PayrollTab canManage={false} />);
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue("2026-08"), { target: { value: "2026-07" } });
+
+    expect(await screen.findByText(/chưa được tính cho kỳ này/i)).toBeTruthy();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows review state but hides unverified payroll values", async () => {
+    arrange({
+      ...draftRun("review"),
+      effectiveLines: undefined,
+      effectiveError: {
+        code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+        message: "Pinned effective payroll snapshot checksum is invalid",
+      },
+    });
+
+    render(<PayrollTab canManage />);
+
+    expect((await screen.findAllByText("Kiểm tra")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("alert").textContent).toContain("Không thể xác thực số liệu bảng lương");
+    expect(screen.queryByText("Nguyễn Văn A")).toBeNull();
+    expect(screen.queryByText("Tổng thực nhận")).toBeNull();
+    expect((screen.getByRole("button", { name: /Chốt kỳ/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("keeps a no-run payroll view read-only for a user without manage permission", async () => {

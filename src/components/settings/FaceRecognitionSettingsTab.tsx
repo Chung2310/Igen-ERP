@@ -9,6 +9,7 @@ import {
 } from "../../services/faceManagementService";
 import type { UserProfile } from "../../types/common";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import FaceEnrollmentCameraModal from "./FaceEnrollmentCameraModal";
 
@@ -56,7 +57,7 @@ export default function FaceRecognitionSettingsTab() {
         });
       } catch (error) {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : "Không thể tải danh sách nhân viên.");
+          setLoadError(getApiErrorMessage(error, "Không thể tải danh sách nhân viên."));
         }
       }
     };

@@ -93,6 +93,48 @@ describe("payroll line override requests", () => {
 });
 
 describe("payroll line derived preview", () => {
+  it("updates PIT in the table when adjusted salary crosses the taxable threshold", () => {
+    const values = {
+      baseSalary: 8_000_000,
+      adjustedBase: 8_000_000,
+      overtime: 0,
+      bonusTotal: 0,
+      penaltyTotal: 0,
+      socialInsurance: 0,
+      healthInsurance: 0,
+      unemploymentInsurance: 0,
+      personalIncomeTax: 0,
+      otherDeductions: 0,
+      advances: 0,
+      hiddenIncome: 0,
+    };
+    const draft = setLineOverrideDraftValue(
+      emptyDrafts,
+      "employee-a",
+      "adjustedBase",
+      20_000_000,
+    )["employee-a"];
+
+    const preview = previewPayrollLine({
+      systemValues: values,
+      effectiveValues: values,
+      vietnam: {
+        income: { taxableAllowances: 0 },
+        tax: { deductions: { personal: 11_000_000, dependents: 0, other: 0 } },
+      },
+    }, draft, {
+      taxBrackets: [
+        { upTo: 5_000_000, rate: 0.05 },
+        { upTo: 10_000_000, rate: 0.1 },
+        { rate: 0.15 },
+      ],
+    });
+
+    expect(preview.values.personalIncomeTax).toBe(650_000);
+    expect(preview.deductionTotal).toBe(650_000);
+    expect(preview.net).toBe(19_350_000);
+  });
+
   it("recalculates deductions and net while preserving hidden system income", () => {
     const line = {
       systemValues: {

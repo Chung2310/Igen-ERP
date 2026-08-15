@@ -3,6 +3,7 @@ import { Search, UserPlus, X } from "lucide-react";
 import { retailCustomersApi } from "../../api/retailCustomers.api";
 import type { RetailCustomer, RetailScope } from "../../types";
 import CreateCustomerDialog from "./CreateCustomerDialog";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 type Props = {
   scope: RetailScope;
@@ -28,7 +29,7 @@ export default function CustomerPicker({ scope, value, onChange }: Props) {
       setSearchCompleted(false);
       void retailCustomersApi.list(scope, { q, limit: 10 })
         .then((result) => { if (active) { setItems(result.items); setSearchCompleted(true); } })
-        .catch((cause) => { if (active) { setItems([]); setSearchCompleted(false); setError(cause instanceof Error ? cause.message : "Không tìm được khách hàng."); } })
+        .catch((cause) => { if (active) { setItems([]); setSearchCompleted(false); setError(getApiErrorMessage(cause, "Không tìm được khách hàng.")); } })
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };

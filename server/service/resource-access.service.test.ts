@@ -49,7 +49,7 @@ describe("resource access", () => {
     const readable = filterReadableResourceItems([
       item({ sourceKey: "allowed" }),
       item({ sourceKey: "wrong-branch", branchId: "branch-b" }),
-      item({ sourceKey: "wrong-permission", requiredPermissions: ["payroll:read"] }),
+      item({ sourceKey: "wrong-permission", requiredPermissions: ["payroll-period:read"] }),
       item({ sourceKey: "personal", managedType: "user", requiredPermissions: [] }),
     ], context);
 

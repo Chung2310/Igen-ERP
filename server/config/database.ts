@@ -2,8 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
-import { RolePermissionModel } from "../model/role-permission.model";
-import { LABOR_PARTNER_PERMISSION_CATALOG, PERMISSION_CATALOG, PERMISSION_CODES, normalizeStoredPermissions } from "./permission-catalog";
+import { PERMISSION_CATALOG, PERMISSION_CODES } from "./permission-catalog";
 import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
 import { migrateLegacyPayrollRunStatuses } from "../model/payroll-run-status-migration";
 import {
@@ -11,6 +10,7 @@ import {
   dropLegacyPayrollOperationJobIdempotencyIndex,
 } from "../model/payroll-branch-index-migration";
 import { dropLegacyStudentAttendanceUniqueIndex } from "../model/student-attendance-index-migration";
+import { resetPermissionsForRegistryVersion } from "../model/permission-registry-reset";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -81,65 +81,19 @@ async function allowMultipleSuperAdmins() {
 
 async function seedPermissions() {
   try {
-    const defaultPermissions = [
-      { code: "access:read", name: "Xem thông tin nhân sự", module: "user", description: "Xem danh sách và sơ đồ nhân sự doanh nghiệp" },
-      { code: "access:manage", name: "Quản trị nhân sự", module: "user", description: "Thêm, sửa, xóa tài khoản thành viên trong doanh nghiệp" },
-      { code: "work:read", name: "Xem Kanban Task", module: "kanban", description: "Xem bảng công việc Kanban" },
-      { code: "work:manage", name: "Quản trị Kanban Task", module: "kanban", description: "Tạo, cập nhật, phân công, kéo thả và xóa Kanban task" },
-      { code: "work:read", name: "Xem Dự án", module: "project", description: "Xem danh sách dự án trong công ty" },
-      { code: "work:manage", name: "Quản trị/Thiết lập Dự án", module: "project", description: "Tạo mới, chỉnh sửa thông tin dự án" },
-      { code: "inventory:read", name: "Xem Nhật ký Kho", module: "stock", description: "Xem lịch sử xuất nhập kho" },
-      { code: "inventory:manage", name: "Quản trị Kho", module: "stock", description: "Tạo phiếu nhập xuất kho hàng" },
-      { code: "hr:read", name: "Xem trang tổng quan Nhân sự", module: "hr", description: "Xem thẻ và biểu đồ nhân sự trên trang Tổng quan" },
-      { code: "timekeeping:read", name: "Xem chấm công (Tổng quan)", module: "hr", description: "Xem thẻ chấm công trên trang Tổng quan" },
-      { code: "timekeeping:manage", name: "Quản lý & duyệt chấm công", module: "hr", description: "Duyệt đơn xin nghỉ, chỉnh sửa bản ghi chấm công và cấu hình vị trí/ca làm việc" },
-      { code: "payroll:read", name: "Xem bảng lương", module: "hr", description: "Xem bảng lương sau khi đã được tính" },
-      { code: "payroll:manage", name: "Chuẩn bị dữ liệu lương", module: "hr", description: "Tạo kỳ lương, đồng bộ và khóa dữ liệu chấm công trước khi tính lương" },
-      { code: "payroll:manage", name: "Quản lý & tính lương", module: "hr", description: "Đồng bộ công, khóa công, tính lương, duyệt và chốt kỳ lương" },
-      { code: "payroll:manage", name: "Payroll payment", module: "hr", description: "Confirm payroll payments" },
-      { code: "settings:manage", name: "Quản lý email chúc mừng", module: "hr", description: "Cấu hình mẫu và theo dõi email sinh nhật, lễ Tết của công ty" },
-      { code: "recruitment:manage", name: "Quản lý tuyển dụng", module: "hr", description: "Quản lý tin tuyển dụng, ứng viên, quy trình và phỏng vấn theo chi nhánh" },
-      { code: "people:read", name: "Xem học viên/khách hàng", module: "student", description: "Xem thẻ học viên/khách hàng và học phí trên trang Tổng quan" },
-      { code: "people:manage", name: "Quản lý học viên/khách hàng", module: "student", description: "Thêm, sửa, xóa học viên, khóa học, lớp, đối tác..." },
-      { code: "relationship:read", name: "Xem đối tác & cộng tác viên", module: "partner", description: "Xem danh sách, chi tiết, số liệu giới thiệu và hoa hồng đối tác" },
-      { code: "relationship:manage", name: "Quản lý đối tác & hoa hồng", module: "partner", description: "Thêm, sửa, xóa, nhập Excel, cấu hình level và ghi nhận chi trả hoa hồng" },
-      { code: "chat:read", name: "Xem trò chuyện (Tổng quan)", module: "chat", description: "Xem thẻ trò chuyện trên trang Tổng quan" },
-      { code: "resource:read", name: "Xem tài nguyên (Tổng quan)", module: "resource", description: "Xem thẻ tài nguyên trên trang Tổng quan" },
-      { code: "resource:manage", name: "Quản lý tài nguyên & kết nối Drive", module: "resource", description: "Kết nối/ngắt kết nối Google Drive doanh nghiệp và quản lý thư viện tài nguyên" }
-    ];
-
-    // Xóa các quyền cũ không còn sử dụng trong dự án
-    await PermissionModel.deleteMany({
-      code: { $in: ["crm:read", "crm:manage", "marketing:post"] }
-    });
-
-    const catalogPermissions = [...PERMISSION_CATALOG, ...LABOR_PARTNER_PERMISSION_CATALOG].map((entry) => ({
+    const catalogPermissions = PERMISSION_CATALOG.map((entry) => ({
       code: entry.code,
       name: entry.label,
-      module: entry.code.split(":")[0],
+      module: entry.feature,
+      group: entry.group,
+      action: entry.action,
       description: entry.description,
     }));
-    const permissionsByCode = new Map([...defaultPermissions, ...catalogPermissions].map((permission) => [permission.code, permission]));
-
-    for (const perm of permissionsByCode.values()) {
-      const result = await PermissionModel.updateOne({ code: perm.code }, { $setOnInsert: perm }, { upsert: true });
+    for (const perm of catalogPermissions) {
+      const result = await PermissionModel.updateOne({ code: perm.code }, { $set: perm }, { upsert: true });
       if (result.upsertedCount) console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
     }
 
-    const normalizePermissionDocuments = async (model: any, allowWildcardFor: (doc: any) => boolean) => {
-      const documents = await model.find({}).select("permissions role");
-      for (const document of documents) {
-        const permissions = normalizeStoredPermissions(document.permissions || [], {
-          allowWildcard: allowWildcardFor(document),
-        });
-        if (JSON.stringify(permissions) !== JSON.stringify(document.permissions || [])) {
-          document.permissions = permissions;
-          await document.save();
-        }
-      }
-    };
-    await normalizePermissionDocuments(RolePermissionModel, (doc) => doc.role === "superadmin");
-    await normalizePermissionDocuments(UserModel, (doc) => doc.role === "superadmin");
     await PermissionModel.deleteMany({ code: { $nin: PERMISSION_CODES } });
   } catch (error) {
     console.error("[Backend Database] Lỗi khi tự động khởi tạo mã quyền:", error);
@@ -193,6 +147,10 @@ export async function connectDB() {
     await dropLegacyStudentAttendanceUniqueIndex();
     await seedSuperAdmin();
     await seedPermissions();
+    const permissionReset = await resetPermissionsForRegistryVersion();
+    if (permissionReset.applied) {
+      console.warn(`[Backend Database] Permission registry clean-break reset applied: ${permissionReset.rolesReset} role(s), ${permissionReset.usersReset} user(s). Administrators must configure permissions again.`);
+    }
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);

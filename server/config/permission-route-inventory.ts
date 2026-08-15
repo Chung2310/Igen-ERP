@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { isCanonicalPermission, LEGACY_PERMISSION_MAP } from "./permission-catalog";
+import { isCanonicalPermission } from "./permission-catalog";
 
-export type PermissionRouteDiagnosticKind = "missing-auth" | "missing-permission" | "unknown-permission";
+export type PermissionRouteDiagnosticKind = "missing-auth" | "missing-permission" | "unknown-permission" | "unknown-permission-action";
 export interface PermissionRouteDiagnostic { sourceFile: string; line: number; method: string; path: string; kind: PermissionRouteDiagnosticKind; message: string; }
 export interface PermissionRouteRecord { sourceFile: string; line: number; method: string; path: string; router: string; mount: string; isMutation: boolean; hasAuthenticationGuard: boolean; permissionCodes: string[]; diagnostics: PermissionRouteDiagnostic[]; }
 
@@ -28,19 +28,18 @@ function permissionCodesFromMiddleware(middleware: string, constants: Readonly<R
   if (/\.\.\.access\b/.test(middleware)) codes.push("access:manage");
   const resolve = (name: string) => Object.prototype.hasOwnProperty.call(constants, name) ? constants[name] : undefined;
   for (const match of middleware.matchAll(/require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
-    for (const value of match[1].matchAll(/["']([^"']+)["']/g)) codes.push(value[1]);
+    for (const value of match[1].matchAll(/["']([^"']+:[^"']+)["']/g)) codes.push(value[1]);
     for (const identifier of match[1].matchAll(/\b[A-Z][A-Z0-9_]*\b|\b[a-z][A-Za-z0-9_$]*\b/g)) { const values = resolve(identifier[0]); if (values) codes.push(...values); }
   }
   for (const identifier of middleware.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) { const values = resolve(identifier[0]); if (values) codes.push(...values); }
   // Resolve the common module permission table form without importing code:
   // `requireAnyPermission([...STUDENT_AREA_PERMISSIONS.batch.manage])`.
   for (const reference of middleware.matchAll(/\b[A-Z][A-Z0-9_]*_PERMISSIONS\.([A-Za-z_$][\w$]*)\.(read|manage)\b/g)) {
-    const legacy = `${reference[1]}:${reference[2]}`;
-    codes.push(LEGACY_PERMISSION_MAP[legacy] ?? legacy);
+    codes.push(`${reference[0].startsWith("STUDENT_AREA_PERMISSIONS") ? "people" : reference[1]}:${reference[2]}`);
   }
   for (const reference of middleware.matchAll(/\b[A-Z][A-Z0-9_]*_PERMISSIONS\["([^"]+)"\]\.(read|manage)\b/g)) {
-    const legacy = `${reference[1]}:${reference[2]}`;
-    codes.push(LEGACY_PERMISSION_MAP[legacy] ?? legacy);
+    const settingsArea = ["custom-field", "student-settings", "company-smtp"].includes(reference[1]);
+    codes.push(`${reference[0].startsWith("STUDENT_AREA_PERMISSIONS") ? (settingsArea ? "settings" : "people") : reference[1]}:${reference[2]}`);
   }
   return [...new Set(codes)];
 }
@@ -63,7 +62,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const prefix = source.slice(0, match.index!);
     for (const declaration of prefix.matchAll(/(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=\s*["']([^"']+:[^"']+)["']/g)) scopedConstants[declaration[1]] = [declaration[2]];
     for (const alias of prefix.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*require(?:Any)?Permission\s*\(([^)]*)\)/g)) {
-      const values = [...alias[2].matchAll(/["']([^"']+)["']/g)].map((value) => value[1]);
+      const values = permissionCodesFromMiddleware(`requirePermission(${alias[2]})`, scopedConstants);
       for (const identifier of alias[2].matchAll(/\b[A-Z][A-Z0-9_]*\b/g)) if (scopedConstants[identifier[0]]) values.push(...scopedConstants[identifier[0]]);
       if (values.length) scopedConstants[alias[1]] = [...new Set(values)];
     }
@@ -90,7 +89,7 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
     const remainder = source.slice(match.index! + match[0].length, close);
     const middleware = middlewareTokens(remainder);
     const routerUseMiddleware = [...prefix.matchAll(new RegExp(`\\b${router}\\.use\\s*\\(([^;]*)`, "g"))].map((item) => item[1]).join(",");
-    const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])].map((code) => LEGACY_PERMISSION_MAP[code] ?? code);
+    const permissionCodes = [...new Set([...permissionCodesFromMiddleware(middleware, scopedConstants), ...permissionCodesFromMiddleware(routerUseMiddleware, scopedConstants)])];
     const hasPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(middleware);
     const hasInheritedPermissionGuard = /\brequirePermission\b|\brequireAnyPermission\b/.test(routerUseMiddleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(routerUseMiddleware));
     const hasAuthenticationGuard = /\brequireAuth\b|\brequirePermission\b|\brequireAnyPermission\b|\bauthMiddleware\b|\badmin[A-Za-z]*AuthMiddleware\b|\brequireTeacherOperation\b|\.\.\.access\b/.test(middleware) || Object.keys(scopedConstants).some((name) => new RegExp(`\\b${name}\\b`).test(middleware)) || /\.use\s*\([^;]*\b(?:requireAuth|requirePermission|authMiddleware|admin[A-Za-z]*AuthMiddleware)\b/.test(source);
@@ -102,7 +101,12 @@ export function scanPermissionRouteSource(source: string, sourceFile: string, co
       if (!hasAuthenticationGuard) diagnostics.push({ ...base, kind: "missing-auth", message: "Mutation route has no authentication guard." });
       if (permissionCodes.length === 0) diagnostics.push({ ...base, kind: hasPermissionGuard || hasInheritedPermissionGuard ? "unknown-permission" : "missing-permission", message: hasPermissionGuard || hasInheritedPermissionGuard ? "Permission guard uses an unresolved/non-canonical code." : "Mutation route has no canonical permission guard." });
     }
-    for (const code of permissionCodes) if (!isCanonicalPermission(code)) diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown or non-canonical permission code: ${code}.` });
+    for (const code of permissionCodes) {
+      const action = code.split(":").at(-1);
+      if (!code.includes(":")) diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown or non-canonical permission code: ${code}.` });
+      else if (action !== "read" && action !== "manage") diagnostics.push({ ...base, kind: "unknown-permission-action", message: `Unsupported permission action: ${code}.` });
+      else if (!isCanonicalPermission(code)) diagnostics.push({ ...base, kind: "unknown-permission", message: `Unknown or non-canonical permission code: ${code}.` });
+    }
     records.push({ sourceFile, line, method, path: routePath, router, mount: mount || exception?.mount || "", isMutation: method !== "GET", hasAuthenticationGuard, permissionCodes, diagnostics });
   }
   return records;

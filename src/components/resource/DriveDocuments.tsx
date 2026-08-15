@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 import { resourceService } from "../../services/resourceService";
 import { toast } from "../../pages/Toast";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { formatDate } from "./resourceHelpers";
 import type { DriveApiFile } from "../../types";
@@ -48,7 +49,7 @@ export const DriveDocuments: React.FC = () => {
             setDriveLink(refreshed.driveFolderLink || "");
           }
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Không tải được danh sách file Google Drive.");
+          setError(getApiErrorMessage(e, "Không tải được danh sách file Google Drive."));
           setFiles([]);
         }
       }

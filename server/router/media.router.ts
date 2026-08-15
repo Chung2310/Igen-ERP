@@ -5,6 +5,7 @@ import { validateRequest } from "../middleware/validation";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import https from "https";
 import http from "http";
+import { permissionForMediaUpload } from "./media-upload-permission";
 
 export const mediaRouter = Router();
 
@@ -77,7 +78,7 @@ const uploadSchema = {
 mediaRouter.post(
   "/upload",
   requireAuth as RequestHandler,
-  requirePermission("resource:manage") as RequestHandler,
+  ((req, res, next) => requirePermission(permissionForMediaUpload(req.body?.sourceType))(req, res, next)) as RequestHandler,
   validateRequest(uploadSchema),
   mediaController.upload as RequestHandler
 );

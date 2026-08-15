@@ -148,9 +148,13 @@ export function RoleModal({
                 <div className="grid max-h-[58vh] min-h-[280px] grid-cols-1 items-start gap-3 overflow-y-auto p-1 pr-2 lg:grid-cols-2">
                   {groupPermissionsForRoleEditor(systemPermissions).map(({ name: groupName, permissions: perms }, groupIndex) => {
                     const headingId = `permission-module-${groupIndex}`;
+                    const isEffectivelySelected = (code: string) => {
+                      if (selectedPermissions.includes("*") || selectedPermissions.includes(code)) return true;
+                      return code.endsWith(":read") && selectedPermissions.includes(code.replace(/:read$/, ":manage"));
+                    };
                     const selectedCount = selectedPermissions.includes("*")
                       ? perms.length
-                      : perms.filter((permission) => selectedPermissions.includes(permission.code)).length;
+                      : perms.filter((permission) => isEffectivelySelected(permission.code)).length;
                     return (
                       <section key={groupName} aria-labelledby={headingId} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 shadow-sm">
                         <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
@@ -163,25 +167,25 @@ export function RoleModal({
                         </header>
                         <div className="space-y-2 p-3">
                           {perms.map((perm) => {
-                            const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
+                            const manageCode = perm.code.endsWith(":read") ? perm.code.replace(/:read$/, ":manage") : "";
+                            const isIncludedByManage = Boolean(manageCode && selectedPermissions.includes(manageCode));
+                            const isChecked = isEffectivelySelected(perm.code);
                             const labelText = getPermissionLabel(perm.code, perm.name);
                             const descText = getPermissionDescription(perm.code, perm.description);
                             return (
                               <div
                                 key={perm.code}
                                 onClick={() => {
-                                  if (selectedPermissions.includes("*")) return;
+                                  if (selectedPermissions.includes("*") || isIncludedByManage) return;
                                   setSelectedPermissions((prev) => {
                                     if (prev.includes(perm.code)) {
                                       return prev.filter((p) => p !== perm.code);
-                                    } else {
-                                      const readCode = perm.code.endsWith(":manage") ? perm.code.replace(/:manage$/, ":read") : "";
-                                      const hasReadPair = systemPermissions.some((item) => item.code === readCode);
-                                      return [...new Set([...prev, perm.code, ...(hasReadPair ? [readCode] : [])])];
                                     }
+                                    const readCode = perm.code.endsWith(":manage") ? perm.code.replace(/:manage$/, ":read") : "";
+                                    return [...prev.filter((code) => code !== readCode), perm.code];
                                   });
                                 }}
-                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${isChecked
+                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl transition-all select-none ${isIncludedByManage ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:border-indigo-300"} ${isChecked
                                     ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
                                     : "bg-white border-gray-150 text-slate-700"
                                   }`}
@@ -190,7 +194,7 @@ export function RoleModal({
                                   type="checkbox"
                                   aria-label={labelText}
                                   checked={isChecked}
-                                  disabled={selectedPermissions.includes("*")}
+                                  disabled={selectedPermissions.includes("*") || isIncludedByManage}
                                   readOnly
                                   className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
                                 />
@@ -199,6 +203,9 @@ export function RoleModal({
                                   <span className="text-[9px] font-mono text-slate-400 mt-0.5 block">{perm.code}</span>
                                   {descText && (
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
+                                  )}
+                                  {isIncludedByManage && (
+                                    <span className="mt-1 block text-[10px] font-medium text-indigo-600">ÄÃ£ bao gá»“m trong quyá»n quáº£n lÃ½</span>
                                   )}
                                   {(perm.code === "people:read" || perm.code === "people:manage") && (
                                     <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>

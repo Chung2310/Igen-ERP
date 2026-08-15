@@ -1,6 +1,7 @@
 import React from "react";
 import { Activity } from "lucide-react";
 import { superAdminUserAccessService, type UserActivityCategory, type UserActivityEvent } from "../../../services/superAdminUserAccessService";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 type Props = { tenantId: string; userId: string; loadActivity?: typeof superAdminUserAccessService.activity };
 
@@ -47,7 +48,7 @@ export function UserActivityTimeline({ tenantId, userId, loadActivity = superAdm
     setError("");
     loadActivity(tenantId, userId, { from, to, category, result, search: debouncedSearch, page, limit })
       .then((result) => { if (active) { setEvents(result.data); setTotal(result.total); } })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Không thể tải lịch sử hoạt động."); })
+      .catch((cause) => { if (active) setError(getApiErrorMessage(cause, "Không thể tải lịch sử hoạt động.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [tenantId, userId, from, to, category, result, debouncedSearch, page, loadActivity]);

@@ -24,7 +24,7 @@ const QuizQuestionSchema = new Schema(
 
 const TrainingCourseSchema = new Schema<ITrainingCourse>({
   title: { type: String, required: true, index: true },
-  description: { type: String, required: true },
+  description: { type: String, required: false },
   category: { type: String, required: true, index: true },
   tags: { type: [String], default: [] },
   isRequired: { type: Boolean, default: false },

@@ -2,6 +2,7 @@ import React from "react";
 import QRCode from "qrcode";
 import { CheckCircle2, Loader2, QrCode, X } from "lucide-react";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 interface WorkerQrSession {
   id: string;
@@ -42,7 +43,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
       setQrDataUrl(dataUrl);
       setStatus(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Không thể tạo phiên QR");
+      setError(getApiErrorMessage(e, "Không thể tạo phiên QR"));
     } finally {
       setBusy(false);
     }
@@ -54,7 +55,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
     try {
       await workerAttendanceApi.closeQrSession(session.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Không thể đóng phiên QR");
+      setError(getApiErrorMessage(e, "Không thể đóng phiên QR"));
     } finally {
       setSession(null);
       setQrDataUrl("");

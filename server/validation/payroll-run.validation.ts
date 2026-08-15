@@ -6,7 +6,7 @@ const validDateOnly = Joi.string().pattern(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/).custo
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
     ? value
     : helpers.error("date.format");
-}).required().messages({ "date.format": "{{#label}} must be a valid ISO date" });
+}).required().messages({ "date.format": "{{#label}} phải là ngày hợp lệ định dạng ISO" });
 
 export const createOperationalRunSchema = Joi.object({
   periodKey: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).required(),
@@ -22,8 +22,8 @@ export const createOperationalRunSchema = Joi.object({
   }
   return value;
 }).messages({
-  "date.order": "endDate must be on or after startDate",
-  "supplemental.reference": "Supplemental runs require parentRunId or supplementalReason",
+  "date.order": "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu",
+  "supplemental.reference": "Kỳ lương bổ sung yêu cầu parentRunId hoặc lý do bổ sung (supplementalReason)",
 });
 
 export const syncAttendanceSchema = Joi.object({ expectedVersion });

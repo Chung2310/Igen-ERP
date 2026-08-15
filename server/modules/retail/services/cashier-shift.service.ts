@@ -5,7 +5,7 @@ import { CashierShiftModel } from "../models/cashier-shift.model";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { resolveShift, scheduledAt, shiftWindow, vietnamWorkDate, weekdayOf } from "../../../service/work-shift.service";
-import { ValidationError } from "../../../errors/app-error";
+import { ConflictError, ValidationError } from "../../../errors/app-error";
 
 type CashInputs = { openingFloat: number; cashCollected: number; cashRefunded: number; movementsIn: number; movementsOut: number };
 export function calculateExpectedCash(input: CashInputs) { return input.openingFloat + input.cashCollected + input.movementsIn - input.movementsOut - input.cashRefunded; }
@@ -36,16 +36,54 @@ export function isRetailShiftOperational(shift: { businessDate?: string; operati
   return now.getTime() <= deadline.getTime();
 }
 export function assertRetailShiftOperational<T extends { businessDate?: string; operationalEndsAt?: Date | string }>(shift: T | null | undefined, now = new Date()): T {
-  if (!shift) throw Object.assign(new Error("Bạn chưa mở ca bán hàng."), { status: 409, code: "SHIFT_NOT_OPEN" });
-  if (!isRetailShiftOperational(shift, now)) throw Object.assign(new Error("Ca bán hàng đã hết thời gian hoạt động. Vui lòng đóng ca cũ."), { status: 409, code: "SHIFT_EXPIRED" });
+  if (!shift) throw new ConflictError("SHIFT_NOT_OPEN", "Bạn chưa mở ca bán hàng.");
+  if (!isRetailShiftOperational(shift, now)) throw new ConflictError("SHIFT_EXPIRED", "Ca bán hàng đã hết thời gian hoạt động. Vui lòng đóng ca cũ.");
   return shift;
 }
-const outsideWorkSchedule = () => Object.assign(new Error("Chỉ được mở ca bán hàng trong giờ làm việc được phân công."), { status: 409, code: "OUTSIDE_WORK_SCHEDULE" });
+const clock = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hour12: false });
+export const formatShiftClock = (value: Date) => clock.format(value);
+
+export type ShiftScheduleRejection = {
+  reason: "non_working_day" | "before_shift" | "after_shift";
+  workDate: string;
+  workShiftCode: string;
+  workShiftName: string;
+  scheduledStartAt?: Date;
+  scheduledEndAt?: Date;
+};
+
+// Người dùng chỉ sửa được lỗi này khi biết ca nào đang áp dụng và khung giờ ra sao,
+// nên ngữ cảnh đi kèm trong details để giao diện dựng thông báo tại chỗ.
+export function shiftScheduleRejectionMessage(details: ShiftScheduleRejection) {
+  const shiftLabel = `ca ${details.workShiftName}`;
+  if (details.reason === "non_working_day") {
+    return `Hôm nay không nằm trong lịch làm việc của ${shiftLabel}. Bạn chỉ mở được ca bán hàng vào ngày làm việc được phân công.`;
+  }
+  const window = `${formatShiftClock(details.scheduledStartAt!)}–${formatShiftClock(details.scheduledEndAt!)}`;
+  return details.reason === "before_shift"
+    ? `Chưa đến giờ làm việc của ${shiftLabel} (${window}). Bạn có thể mở ca bán hàng từ ${formatShiftClock(details.scheduledStartAt!)}.`
+    : `Đã hết giờ làm việc của ${shiftLabel} (${window}). Bạn không thể mở ca bán hàng ngoài khung giờ được phân công.`;
+}
+
+export const outsideWorkScheduleError = (details?: ShiftScheduleRejection) => new ConflictError(
+  "SHIFT_OUTSIDE_WORK_SCHEDULE",
+  details ? shiftScheduleRejectionMessage(details) : "Chỉ được mở ca bán hàng trong giờ làm việc được phân công.",
+  details ? { ...details } : undefined,
+);
+
 export function buildRetailShiftScheduleSnapshot(resolved: Awaited<ReturnType<typeof resolveShift>>, workDate: string, now: Date) {
   const shift = resolved.shift as any;
-  if (!(shift.workingDays || []).includes(weekdayOf(workDate))) throw outsideWorkSchedule();
+  const identity = { workDate, workShiftCode: String(shift.code), workShiftName: String(shift.name) };
+  if (!(shift.workingDays || []).includes(weekdayOf(workDate))) {
+    throw outsideWorkScheduleError({ reason: "non_working_day", ...identity });
+  }
   const { scheduledStartAt, scheduledEndAt } = shiftWindow(shift, workDate);
-  if (now < scheduledStartAt || now > scheduledEndAt) throw outsideWorkSchedule();
+  if (now < scheduledStartAt || now > scheduledEndAt) {
+    throw outsideWorkScheduleError({
+      reason: now < scheduledStartAt ? "before_shift" : "after_shift",
+      ...identity, scheduledStartAt, scheduledEndAt,
+    });
+  }
   return {
     ...(shift._id ? { workShiftId: String(shift._id) } : {}),
     workShiftCode: String(shift.code), workShiftName: String(shift.name), scheduledStartAt, scheduledEndAt,
@@ -61,14 +99,18 @@ export async function resolveRetailShiftSchedule(
   const today = vietnamWorkDate(now);
   const previous = new Date(`${today}T00:00:00.000Z`);
   previous.setUTCDate(previous.getUTCDate() - 1);
+  // Ca xuyên đêm mở sau nửa đêm vẫn thuộc ngày làm việc hôm trước, nên thử cả hai ngày.
+  // Lỗi của hôm nay mới là lỗi người dùng cần đọc, vì vậy giữ lại để ném ra cuối cùng.
+  let rejection: unknown;
   for (const businessDate of [today, previous.toISOString().slice(0, 10)]) {
     try {
       return { businessDate, snapshot: buildRetailShiftScheduleSnapshot(await resolver(companyCode, employeeId, businessDate), businessDate, now) };
     } catch (error: any) {
-      if (error?.code !== "OUTSIDE_WORK_SCHEDULE") throw error;
+      if (error?.code !== "SHIFT_OUTSIDE_WORK_SCHEDULE") throw error;
+      rejection ??= error;
     }
   }
-  throw outsideWorkSchedule();
+  throw rejection ?? outsideWorkScheduleError();
 }
 export function serializeCashierShift(shift: ICashierShift | Record<string, any>, canManage: boolean) {
   const value = typeof (shift as any).toObject === "function" ? (shift as any).toObject() : { ...shift };

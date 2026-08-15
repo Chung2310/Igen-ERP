@@ -29,6 +29,12 @@ export interface PublicMediaAsset {
   bytes: number;
 }
 
+export function normalizeCloudinaryUploadSource(source: string): string {
+  const dataUriHeader = source.match(/^(data:[^;,]+)(?:;[^;]*)*;base64,/i);
+  if (!dataUriHeader) return source;
+  return `${dataUriHeader[1]};base64,${source.slice(dataUriHeader[0].length)}`;
+}
+
 export const cloudinaryService = {
   /**
    * Tải tệp tin (Base64 hoặc URL công khai) lên Cloudinary
@@ -48,7 +54,7 @@ export const cloudinaryService = {
     ensureConfigured();
 
     try {
-      const response = await cloudinary.uploader.upload(fileStr, {
+      const response = await cloudinary.uploader.upload(normalizeCloudinaryUploadSource(fileStr), {
         folder: folder || "igen_erp",
         resource_type: "auto", // Tự động nhận diện ảnh/video
         timeout: 600000, // Tăng timeout lên 10 phút cho video dung lượng lớn

@@ -91,6 +91,23 @@ const STEPS = [
   { key: "paid", label: "Đã thanh toán" },
 ] as const;
 
+const PAYROLL_RUN_STATUSES = new Set(["draft", "review", "closed", "paid"]);
+
+function isPayrollRun(value: unknown): value is {
+  _id: unknown;
+  periodKey: string;
+  status: string;
+  version: number;
+} & Record<string, unknown> {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return candidate._id !== undefined
+    && typeof candidate.periodKey === "string"
+    && typeof candidate.status === "string"
+    && PAYROLL_RUN_STATUSES.has(candidate.status)
+    && typeof candidate.version === "number";
+}
+
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
@@ -143,7 +160,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
   const reload = async () => {
     try { setRun(await payrollService.getRun(period)); }
-    catch { /* Keep the last authoritative run visible instead of falling back to the draft input table. */ }
+    catch (error) {
+      const requestError = error as Error & { code?: string };
+      if (requestError.code === "PAYROLL_RUN_NOT_FOUND") {
+        setRun(null);
+      } else {
+        toast.error(requestError.message || "Không tải được bảng lương; dữ liệu hiển thị có thể đã cũ");
+      }
+    }
     try { setResults(await payrollService.getResults(period)); } catch { setResults([]); }
     try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); }
   };
@@ -188,7 +212,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
   const action = async (fn: () => Promise<unknown>, success: string, onSuccess?: () => void | Promise<void>) => {
     try {
-      await fn();
+      const updated = await fn();
+      if (isPayrollRun(updated)) setRun(updated);
       await onSuccess?.();
       toast.success(success);
       await reload();
@@ -209,7 +234,20 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     if (!run) return [];
     return (run.effectiveLines ?? []).map((line: any) => {
       const originalResult = results.find((r) => r.employeeId === line.employeeId);
-      const preview = previewPayrollLine(line, inlineEditable ? inputDrafts[String(line.employeeId)] : undefined);
+      const [periodYear, periodMonth] = period.split("-").map(Number);
+      const periodEnd = Date.UTC(periodYear, periodMonth, 0);
+      const policy = payrollPolicies.find((item: any) => String(item._id) === String(line.policyId))
+        ?? payrollPolicies.find((item: any) => item.status === "active"
+          && new Date(item.effectiveFrom).getTime() <= periodEnd
+          && (!item.effectiveTo || new Date(item.effectiveTo).getTime() >= periodEnd));
+      const preview = previewPayrollLine(
+        line,
+        inlineEditable ? inputDrafts[String(line.employeeId)] : undefined,
+        {
+          taxBrackets: line.vietnam?.tax?.schedule ?? policy?.taxBrackets,
+          roundingUnit: policy?.roundingUnit,
+        },
+      );
       const segment = line.segmentLines?.[0] ?? {};
       return {
         ...line,
@@ -223,7 +261,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         vietnam: segment.vietnam,
       };
     });
-  }, [run, results, inputDrafts, inlineEditable]);
+  }, [run, results, inputDrafts, inlineEditable, payrollPolicies, period]);
 
   const draftRows = useMemo(() => results.map((row: any) => ({
     employeeId: row.employeeId,
@@ -376,7 +414,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setInputSaving(true);
     try {
       const versionSources = lineOverrides.length ? lineOverrides : (run?.effectiveLines ?? []);
-      const response = await payrollService.bulkSaveLineOverrides(period, buildLineOverrideRows(inputDrafts, versionSources, inputReason));
+      const taxDrivingFields = new Set(["adjustedBase", "overtime", "bonusTotal", "socialInsurance", "healthInsurance", "unemploymentInsurance"]);
+      const previewByEmployee = new Map<string, any>(runRows.map((row: any) => [String(row.employeeId), row]));
+      const effectiveByEmployee = new Map<string, any>((run?.effectiveLines ?? []).map((line: any) => [String(line.employeeId), line]));
+      const rows = buildLineOverrideRows(inputDrafts, versionSources, inputReason).map((row) => {
+        const changesTax = Object.keys(row.values).some((field) => taxDrivingFields.has(field))
+          || row.clearFields.some((field) => taxDrivingFields.has(field));
+        if (!changesTax || row.values.personalIncomeTax !== undefined) return row;
+        const preview = previewByEmployee.get(String(row.employeeId));
+        const currentTax = Number(effectiveByEmployee.get(String(row.employeeId))?.effectiveValues?.personalIncomeTax ?? 0);
+        const previewTax = Number(preview?.personalIncomeTax ?? currentTax);
+        return preview && previewTax !== currentTax
+          ? { ...row, values: { ...row.values, personalIncomeTax: previewTax } }
+          : row;
+      });
+      const response = await payrollService.bulkSaveLineOverrides(period, rows);
       const saveResults = Array.isArray(response) ? response : [];
       const retained = retainFailedLineOverrideDrafts(inputDrafts, saveResults);
       setInputDrafts(retained.drafts);
@@ -391,7 +443,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     } finally { setInputSaving(false); }
   };
 
-  const canSeeTable = canManage || !!run;
+  const effectiveError = run?.effectiveError as { code?: string; message?: string } | undefined;
+  const effectiveDataAvailable = !effectiveError;
+  const canSeeTable = (canManage || !!run) && effectiveDataAvailable;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -404,7 +458,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && effectiveDataAvailable && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
@@ -460,6 +514,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </ol>
     </div>
 
+    {effectiveError && (
+      <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <p className="font-bold">Không thể xác thực số liệu bảng lương</p>
+        <p className="mt-1">Trạng thái kỳ lương vẫn được cập nhật, nhưng số liệu đang được ẩn để tránh hiển thị dữ liệu không đáng tin cậy. Vui lòng liên hệ quản trị viên.</p>
+        <p className="mt-1 text-xs font-mono">{effectiveError.code || "PAYROLL_EFFECTIVE_UNAVAILABLE"}</p>
+      </div>
+    )}
+
     {/* Thẻ tổng quan */}
     {canSeeTable && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -496,28 +558,35 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id), Number(run.version)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button disabled={!effectiveDataAvailable} title={!effectiveDataAvailable ? "Không thể chốt kỳ khi số liệu chưa được xác thực" : undefined} onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
               Chốt kỳ
             </button>
           )}
           {canMarkPayrollPaid(canManage, run?.status) && (
-            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700 font-semibold">
               <CheckCircle2 size={15} /> Đánh dấu đã thanh toán
             </button>
           )}
         </div>
-        {(run?.status === "review" || run?.status === "closed") && (
-          <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100">
-            <RefreshCw size={15} /> Mở lại kỳ
-          </button>
-        )}
+        <div className="flex gap-2">
+          {run && (
+            <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100 font-semibold">
+              <Trash2 size={15} /> Xóa kỳ lương
+            </button>
+          )}
+          {(run?.status === "review" || run?.status === "closed") && (
+            <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100 font-semibold">
+              <RefreshCw size={15} /> Mở lại kỳ
+            </button>
+          )}
+        </div>
       </div>
     )}
 
@@ -554,7 +623,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         </div>
       )}
 
-      <div className="overflow-auto border border-slate-100 rounded-xl max-h-[60vh]">
+      {effectiveDataAvailable && <div className="overflow-auto border border-slate-100 rounded-xl max-h-[60vh]">
         <table className="w-full text-left text-sm border-collapse">
           {run ? (
             <>
@@ -650,7 +719,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </>
           )}
         </table>
-      </div>
+      </div>}
     </div>
     {inputSaveOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => !inputSaving && setInputSaveOpen(false)}>

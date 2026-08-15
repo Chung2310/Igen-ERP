@@ -147,6 +147,52 @@ describe("calculateRun for a whole run", () => {
     });
   });
 
+  it("recalculates and exposes personal income tax after adjusted salary crosses the taxable threshold", () => {
+    const line = {
+      employeeId: "emp-1",
+      calculation: {
+        monthlySalary: 8_000_000,
+        adjustedBase: 8_000_000,
+        gross: 8_000_000,
+        personalIncomeTax: 0,
+        deductions: 0,
+        net: 8_000_000,
+      },
+      vietnam: {
+        workPay: 8_000_000,
+        income: { taxableAllowances: 0, exemptAllowances: 0, bonuses: 0, totalIncome: 8_000_000, taxableIncome: 8_000_000 },
+        insurance: { funds: [], employeeTotal: 0, employerTotal: 0 },
+        tax: {
+          method: "progressive",
+          deductions: { personal: 11_000_000, dependents: 0, insurance: 0, other: 0, total: 11_000_000 },
+          assessableIncome: 0,
+          schedule: [
+            { upTo: 5_000_000, rate: 0.05 },
+            { upTo: 10_000_000, rate: 0.1 },
+            { rate: 0.15 },
+          ],
+          brackets: [],
+          tax: 0,
+        },
+        deductions: { other: 0, advances: 0, total: 0 },
+        netPay: 8_000_000,
+        employerCost: 8_000_000,
+      },
+    };
+
+    const projected: any = projectPayrollRevisionWithOverrides({ lines: [line] }, [{
+      employeeId: "emp-1",
+      adjustedBase: 20_000_000,
+      version: 1,
+    }]).effectiveLines[0];
+
+    expect(projected.vietnam.tax).toMatchObject({ assessableIncome: 9_000_000, tax: 650_000 });
+    expect(projected.effectiveValues.personalIncomeTax).toBe(650_000);
+    expect(projected.calculation.personalIncomeTax).toBe(650_000);
+    expect(projected.deductionTotal).toBe(650_000);
+    expect(projected.net).toBe(19_350_000);
+  });
+
   it("applies an employee override once to aggregated system values across salary segments", () => {
     const segmentLines = [{
       employeeId: "emp-1",

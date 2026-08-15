@@ -33,21 +33,10 @@ export const FINANCE_SUB_TABS = [
 export function getAllowedFinanceTabSlugs(permissions: readonly string[] = []) {
   if (permissions.includes("*")) return FINANCE_SUB_TABS.map((tab) => tab.slug);
   const allowed: Array<(typeof FINANCE_SUB_TABS)[number]["slug"]> = [];
-  if (
-    permissions.some((item) =>
-      ["finance:read", "finance:manage", "finance:manage"].includes(
-        item,
-      ),
-    )
-  )
-    allowed.push("cong-no");
-  if (permissions.includes("finance:read")) allowed.push("tuoi-no");
-  if (
-    permissions.some((item) =>
-      ["finance:read", "finance:manage"].includes(item),
-    )
-  )
-    allowed.push("nhac-no");
+  const canReadReceivables = permissions.some((item) =>
+    ["finance-receivable:read", "finance-receivable:manage"].includes(item),
+  );
+  if (canReadReceivables) allowed.push("cong-no", "tuoi-no", "nhac-no");
   return allowed;
 }
 

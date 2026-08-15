@@ -17,7 +17,7 @@ export interface IQuizQuestion {
 
 export interface ITrainingCourse extends Document {
   title: string;
-  description: string;
+  description?: string;
   category: string;
   tags: string[];
   isRequired: boolean;

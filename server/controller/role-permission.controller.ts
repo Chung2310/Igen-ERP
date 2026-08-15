@@ -20,9 +20,10 @@ export const rolePermissionController = {
       }
 
       const companyCode = user.role === "superadmin" ? (req.body.companyCode || "SYSTEM") : user.companyCode;
-      if (user.role !== "superadmin") {
-        req.body.companyCode = user.companyCode;
+      if (!companyCode) {
+        return res.status(400).json({ status: "error", code: "ROLE_COMPANY_REQUIRED", message: "Mã công ty là bắt buộc." });
       }
+      const saveInput = { ...req.body, companyCode };
 
       // Không cho phép tự chỉnh sửa quyền/cấp bậc của chính vai trò mình đang giữ (chặn leo thang đặc quyền)
       if (user.role !== "superadmin" && req.body.role === user.role) {
@@ -50,8 +51,8 @@ export const rolePermissionController = {
         callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[user.role] || 4);
       }
 
-      const targetLevel = req.body.level;
-      if (user.role !== "superadmin" && user.role !== "admin") {
+      const targetLevel = saveInput.level;
+      if (user.role !== "superadmin") {
         if (typeof targetLevel === "number" && targetLevel <= callerLevel) {
           return res.status(403).json({
             status: "error",
@@ -73,7 +74,7 @@ export const rolePermissionController = {
         });
       }
 
-      const rolePermission = await rolePermissionService.saveRolePermission(req.body);
+      const rolePermission = await rolePermissionService.saveRolePermission(saveInput);
       const affectedUsers = await UserModel.find({ companyCode, role: req.body.role }).select("_id");
       affectedUsers.forEach((affectedUser) => emitToUser(affectedUser._id.toString(), "role_permissions_updated", { userId: affectedUser._id.toString(), companyCode, role: req.body.role }));
       return res.status(200).json({
@@ -85,6 +86,8 @@ export const rolePermissionController = {
       console.error("[rolePermissionController.save] Error:", error);
       return res.status(400).json({
         status: "error",
+        ...(error.code ? { code: error.code } : {}),
+        ...(Array.isArray(error.invalidCodes) ? { invalidCodes: error.invalidCodes } : {}),
         message: error.message || "Không thể cập nhật cấu hình phân quyền vai trò.",
       });
     }

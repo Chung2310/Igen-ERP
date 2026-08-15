@@ -1,14 +1,24 @@
 import { RolePermissionModel } from "../model/role-permission.model";
 import { IRolePermission } from "../interface/role-permission.interface";
-import { normalizeStoredPermissions } from "../config/permission-catalog";
+import { compactStoredPermissions } from "../config/permission-catalog";
+
+export type RolePermissionSaveResult = {
+  rolePermission: IRolePermission;
+  stored: string[];
+  effective: string[];
+};
 
 export const rolePermissionService = {
   /**
    * Tạo mới hoặc cập nhật phân quyền của một vai trò tại doanh nghiệp
    */
-  async saveRolePermission(data: any): Promise<IRolePermission> {
+  async saveRolePermission(data: any): Promise<RolePermissionSaveResult> {
     const { companyCode, role, permissions, level, displayName } = data;
-    const normalizedCompany = companyCode.toUpperCase().trim();
+    const normalizedCompany = String(companyCode ?? "").toUpperCase().trim();
+    if (!normalizedCompany) {
+      throw Object.assign(new Error("Mã công ty là bắt buộc."), { code: "ROLE_COMPANY_REQUIRED" });
+    }
+    const normalized = compactStoredPermissions(permissions);
 
     let rolePermission = await RolePermissionModel.findOne({
       companyCode: normalizedCompany,
@@ -16,7 +26,7 @@ export const rolePermissionService = {
     });
 
     if (rolePermission) {
-      rolePermission.permissions = normalizeStoredPermissions(permissions);
+      rolePermission.permissions = normalized.stored;
       rolePermission.level = level;
       rolePermission.displayName = displayName;
       rolePermission.updatedAt = new Date();
@@ -24,7 +34,7 @@ export const rolePermissionService = {
       rolePermission = new RolePermissionModel({
         companyCode: normalizedCompany,
         role,
-        permissions: normalizeStoredPermissions(permissions),
+        permissions: normalized.stored,
         level,
         displayName,
         createdAt: new Date(),
@@ -32,7 +42,8 @@ export const rolePermissionService = {
       });
     }
 
-    return await rolePermission.save();
+    const saved = await rolePermission.save();
+    return { rolePermission: saved, ...normalized };
   },
 
   /**

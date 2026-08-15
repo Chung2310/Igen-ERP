@@ -7,7 +7,7 @@ import { financeScopeFromRequest, requireFinanceBranch } from "./contracts";
 test("finance module and receivable permissions are registered", () => {
   assert.ok(MODULE_KEYS.includes("finance" as any));
   assert.equal(DEFAULT_MODULE_KEYS.includes("finance" as any), false);
-  for (const permission of ["finance:read", "finance:manage", "finance:manage"]) assert.ok(PERMISSION_CODES.includes(permission), `${permission} missing`);
+  for (const permission of ["finance-receivable:read", "finance-receivable:manage", "finance-receivable:manage"]) assert.ok(PERMISSION_CODES.includes(permission), `${permission} missing`);
 });
 
 test("normal finance users derive scope from actor and cannot override it", () => {
