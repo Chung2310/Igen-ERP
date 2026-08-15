@@ -16,8 +16,6 @@ const REQUIRED_BUSINESS_MODULE: Record<BusinessType, ModuleKey | null> = {
   labor: "worker",
 };
 
-const BUSINESS_MODULES = new Set<ModuleKey>(["student", "worker", "customer", "candidate"]);
-
 export function isBusinessType(value: unknown): value is BusinessType {
   return typeof value === "string" && (BUSINESS_TYPES as readonly string[]).includes(value);
 }
@@ -34,6 +32,6 @@ export function getRequiredBusinessModule(businessType: BusinessType): ModuleKey
   return REQUIRED_BUSINESS_MODULE[businessType];
 }
 
-export function filterModulesForBusinessType(input: unknown, businessType: BusinessType): ModuleKey[] {
+export function filterModulesForBusinessType(input: unknown, _businessType: BusinessType): ModuleKey[] {
   return sanitizeModuleKeys(input);
 }

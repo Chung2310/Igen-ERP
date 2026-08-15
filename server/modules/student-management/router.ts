@@ -36,6 +36,7 @@ export const studentManagementRouter = Router();
 
 const studentModuleGuard = requireModule("student") as RequestHandler;
 const workerModuleGuard = requireModule("worker") as RequestHandler;
+const partnerModuleGuard = requireModule("partner") as RequestHandler;
 export const resolveBusinessModuleKey = (originalUrl: string) =>
   originalUrl.includes("/worker-management/") ? "worker" : "student";
 const requireStudentModule: RequestHandler = (req, res, next) => {
@@ -85,7 +86,7 @@ studentManagementRouter.use("/courses", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/student-resources", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-resource"), resourceRoutes);
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
-studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requirePartnerRead, partnerRoutes);
+studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, partnerModuleGuard, requirePartnerRead, partnerRoutes);
 studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireCustomFieldModule, areaRead("custom-field"), customFieldRoutes);
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
