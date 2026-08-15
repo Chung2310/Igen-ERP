@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import type { Worker, WorkerAttendanceLog } from "../types";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
-import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 export function WorkerTimekeepingPanel({ projectId, workers, canManage = true }: { projectId: string; workers: Worker[]; canManage?: boolean }) {
   const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);

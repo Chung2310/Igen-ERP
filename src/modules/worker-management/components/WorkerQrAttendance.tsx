@@ -2,7 +2,7 @@ import React from "react";
 import QRCode from "qrcode";
 import { CheckCircle2, Loader2, QrCode, X } from "lucide-react";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
-import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 interface WorkerQrSession {
   id: string;

@@ -1,6 +1,6 @@
 ﻿import React from "react";
 import { workerNotificationsApi } from "../api/workerNotifications.api";
-import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 type NotificationItem = { _id?: string; title?: string; content?: string; subject?: string; message?: string };
 export function WorkerNotificationsPage({ canManage = true }: { canManage?: boolean }) {

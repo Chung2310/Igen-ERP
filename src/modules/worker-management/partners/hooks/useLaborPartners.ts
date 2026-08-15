@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { WorkerScope } from "../../types";
 import { laborPartnersApi } from "../api/laborPartners.api";
 import type { LaborPartner } from "../types";
-import { getApiErrorMessage } from "../../../../../utils/errorMessage";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 export function useLaborPartners(scope?: WorkerScope) {
   const [partners, setPartners] = useState<LaborPartner[]>([]);

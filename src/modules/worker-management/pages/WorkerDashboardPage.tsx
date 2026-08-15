@@ -1,5 +1,5 @@
 import React from "react";
-import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { Worker } from "../types";
 import { workerDashboardApi } from "../api/workerDashboard.api";
 import {
