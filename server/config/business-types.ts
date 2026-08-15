@@ -35,8 +35,5 @@ export function getRequiredBusinessModule(businessType: BusinessType): ModuleKey
 }
 
 export function filterModulesForBusinessType(input: unknown, businessType: BusinessType): ModuleKey[] {
-  const sanitized = sanitizeModuleKeys(input);
-  const required = getRequiredBusinessModule(businessType);
-  const filtered = sanitized.filter((key) => !BUSINESS_MODULES.has(key) || key === required);
-  return required && !filtered.includes(required) ? [required, ...filtered] : filtered;
+  return sanitizeModuleKeys(input);
 }
