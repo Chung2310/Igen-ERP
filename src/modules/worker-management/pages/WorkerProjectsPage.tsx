@@ -1,4 +1,5 @@
 import React from "react";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -992,7 +993,7 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
     setLoading(true); setError("");
     workerAttendanceApi.list(projectId, undefined, from || undefined, to || undefined).then((data) => {
       if (!cancelled) setLogs(data);
-    }).catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Không thể tải lịch sử chấm công"); }).finally(() => { if (!cancelled) setLoading(false); });
+    }).catch((e) => { if (!cancelled) setError(getApiErrorMessage(e, "Không thể tải lịch sử chấm công")); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [projectId, from, to]);
 

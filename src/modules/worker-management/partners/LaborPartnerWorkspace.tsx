@@ -10,6 +10,7 @@ import { LaborPartnerSettlementsPanel } from "./components/LaborPartnerSettlemen
 import { LaborPartnerManagementPanel } from "./components/LaborPartnerManagementPanel";
 import { LaborPartnerPoliciesPanel } from "./components/LaborPartnerPoliciesPanel";
 import { LaborPartnerKpiPanel } from "./components/LaborPartnerKpiPanel";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { hasEffectivePermission } from "../../../utils/permissionUtils";
 
 type WorkspaceTab = "partners" | "policies" | "kpi" | "settlements";
@@ -44,7 +45,7 @@ export function LaborPartnerWorkspace() {
   const loadPolicies = useCallback(async () => {
     if (!scope) return setPolicies([]);
     setPolicyError("");
-    try { setPolicies(await laborPartnersApi.listPolicies(scope)); } catch (reason) { setPolicyError(reason instanceof Error ? reason.message : "Không thể tải chính sách hoa hồng."); }
+    try { setPolicies(await laborPartnersApi.listPolicies(scope)); } catch (reason) { setPolicyError(getApiErrorMessage(reason, "Không thể tải chính sách hoa hồng.")); }
   }, [scope?.companyCode, scope?.branchId]);
   useEffect(() => { void loadPolicies(); }, [loadPolicies]);
 

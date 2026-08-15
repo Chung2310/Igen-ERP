@@ -1,4 +1,5 @@
 import React from "react";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertCircle,
@@ -280,7 +281,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
       toast.success(`Đã nhập thành công ${imported.importedCount} lao động.`);
       onSuccess();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Lỗi khi gửi yêu cầu nhập lao động.");
+      setError(getApiErrorMessage(reason, "Lỗi khi gửi yêu cầu nhập lao động."));
     } finally {
       setUploading(false);
     }
