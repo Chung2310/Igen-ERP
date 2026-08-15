@@ -1,7 +1,7 @@
 import React from "react";
 import { X } from "lucide-react";
 import { superAdminTenantService } from "../../../services/superAdminTenantService";
-import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_OPTIONS, type ModuleKey } from "../../../config/modules";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, type BusinessType } from "../../../config/businessTypes";
 
 export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
@@ -15,9 +15,10 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
   const [error, setError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
-  const toggleModule = (key: ModuleKey) => {
-    if (key === getRequiredBusinessModule(businessType)) return;
-    setEnabledModules((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const toggleModule = (moduleKeys: readonly ModuleKey[]) => {
+    setEnabledModules((prev) => moduleKeys.every((key) => prev.includes(key))
+      ? prev.filter((key) => !moduleKeys.includes(key))
+      : [...new Set([...prev, ...moduleKeys])]);
   };
 
   const changeBusinessType = (nextType: BusinessType) => {
@@ -99,10 +100,10 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
           <div>
             <span className="block text-xs font-semibold text-slate-400">Module kích hoạt</span>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, businessType)).map((key) => (
-                <label key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
-                  <input type="checkbox" checked={enabledModules.includes(key)} onChange={() => toggleModule(key)} disabled={key === getRequiredBusinessModule(businessType)} />
-                  {MODULE_LABELS[key]}
+              {MODULE_OPTIONS.map((option) => (
+                <label key={option.key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
+                  <input type="checkbox" checked={option.moduleKeys.every((key) => enabledModules.includes(key))} onChange={() => toggleModule(option.moduleKeys)} />
+                  {option.label}
                 </label>
               ))}
             </div>

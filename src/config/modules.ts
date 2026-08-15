@@ -2,7 +2,7 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate", "partner", "retail", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "partner", "retail", "finance"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
 
@@ -13,8 +13,6 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   chat: "Trò chuyện",
   student: "Quản lý học viên",
   worker: "Quản lý lao động",
-  customer: "Quản lý khách hàng",
-  candidate: "Quản lý ứng viên",
   partner: "Quản lý đối tác",
   retail: "Bán lẻ & POS",
   finance: "Tài chính",
@@ -27,8 +25,6 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   chat: "TRÒ CHUYỆN",
   student: "QUẢN LÝ HỌC VIÊN",
   worker: "QUẢN LÝ LAO ĐỘNG",
-  customer: "QUẢN LÝ KHÁCH HÀNG",
-  candidate: "QUẢN LÝ ỨNG VIÊN",
   partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
   finance: "TÀI CHÍNH",
@@ -41,12 +37,21 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "TRÒ CHUYỆN": "chat",
   "QUẢN LÝ HỌC VIÊN": "student",
   "QUẢN LÝ LAO ĐỘNG": "worker",
-  "QUẢN LÝ KHÁCH HÀNG": "customer",
-  "QUẢN LÝ ỨNG VIÊN": "candidate",
   "ĐỐI TÁC": "partner",
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
 };
+
+export const MODULE_OPTIONS = [
+  { key: "hr", label: MODULE_LABELS.hr, moduleKeys: ["hr"] },
+  { key: "inventory", label: MODULE_LABELS.inventory, moduleKeys: ["inventory"] },
+  { key: "resource", label: MODULE_LABELS.resource, moduleKeys: ["resource"] },
+  { key: "chat", label: MODULE_LABELS.chat, moduleKeys: ["chat"] },
+  { key: "student-worker", label: "Quản lý học viên / lao động", moduleKeys: ["student", "worker"] },
+  { key: "partner", label: MODULE_LABELS.partner, moduleKeys: ["partner"] },
+  { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
+  { key: "finance", label: MODULE_LABELS.finance, moduleKeys: ["finance"] },
+] as const satisfies ReadonlyArray<{ key: string; label: string; moduleKeys: readonly ModuleKey[] }>;
 
 /**
  * Mã quyền tối thiểu (OR — có 1 trong danh sách là đủ) để user được coi là có quyền

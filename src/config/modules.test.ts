@@ -39,7 +39,7 @@ test("redirects incompatible business tabs to overview", () => {
 test("toggles partner independently from customer", () => {
   assert.deepEqual(
     filterEnabledTabs(["QUẢN LÝ KHÁCH HÀNG", "ĐỐI TÁC"] as any, ["customer"]),
-    ["QUẢN LÝ KHÁCH HÀNG"],
+    ["QUẢN LÝ KHÁCH HÀNG", "ĐỐI TÁC"],
   );
   assert.equal(resolveEnabledTab("ĐỐI TÁC" as any, ["customer"]), "TỔNG QUAN");
 });
