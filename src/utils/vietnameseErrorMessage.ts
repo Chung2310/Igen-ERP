@@ -41,6 +41,16 @@ const RULES = [
 export function toVietnameseErrorMessage(message: unknown): string {
   const text = typeof message === "string" ? message.trim() : "";
   if (!text) return FALLBACK;
-  if (VIETNAMESE.test(text)) return text;
+  if (VIETNAMESE.test(text)) {
+    const separator = text.indexOf(":");
+    if (separator > 0) {
+      const summary = text.slice(0, separator).trim();
+      const details = text.slice(separator + 1).trim();
+      if (VIETNAMESE.test(summary) && details && !VIETNAMESE.test(details)) {
+        return `${summary.replace(/[.!?]+$/, "")}.`;
+      }
+    }
+    return text;
+  }
   return RULES.find(({ pattern }) => pattern.test(text))?.message || FALLBACK;
 }

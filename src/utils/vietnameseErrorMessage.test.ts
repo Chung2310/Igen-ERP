@@ -21,4 +21,18 @@ describe("toVietnameseErrorMessage", () => {
     expect(toVietnameseErrorMessage("Something unusual happened in widget parser"))
       .toBe("Đã xảy ra lỗi. Vui lòng thử lại.");
   });
+
+  it("loại bỏ chi tiết kỹ thuật tiếng Anh khỏi thông báo tiếng Việt", () => {
+    expect(toVietnameseErrorMessage(
+      "Tải lên Cloudinary thất bại: Unsupported source URL: data:audio/webm;base64,AAAA",
+    )).toBe("Tải lên Cloudinary thất bại.");
+    expect(toVietnameseErrorMessage(
+      'Lỗi tải "voice.webm": Request failed with status code 400',
+    )).toBe('Lỗi tải "voice.webm".');
+  });
+
+  it("giữ nguyên phần giải thích tiếng Việt sau dấu hai chấm", () => {
+    expect(toVietnameseErrorMessage("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án."))
+      .toBe("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án.");
+  });
 });
