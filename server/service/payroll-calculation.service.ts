@@ -54,8 +54,10 @@ export function calculatePayroll(input: PayrollCalculationInput): PayrollCalcula
 
   const standardMinutes = input.standardHours * 60;
   const regularWorkedValue = (Math.min(input.workedMinutes, standardMinutes) / 60) * hourlyRate;
-  const adjustedBase = Math.min(input.monthlySalary, Math.max(0, money(regularWorkedValue + paidLeaveValue)));
-  const shortageValue = Math.max(0, input.monthlySalary - adjustedBase);
+  const basePay = Math.min(input.monthlySalary, Math.max(0, money(regularWorkedValue + paidLeaveValue)));
+  const commission = Math.max(0, money(input.commission ?? 0));
+  const adjustedBase = basePay + commission;
+  const shortageValue = Math.max(0, input.monthlySalary - basePay);
   const overtime = input.overtime.reduce(
     (total, item) => total + money((item.minutes / 60) * hourlyRate * OVERTIME_MULTIPLIERS[item.category]),
     0,
