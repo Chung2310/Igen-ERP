@@ -1,4 +1,4 @@
-const FALLBACK = "Đã xảy ra lỗi. Vui lòng thử lại.";
+export const DEFAULT_ERROR_MESSAGE = "Đã xảy ra lỗi. Vui lòng thử lại.";
 
 const VIETNAMESE = /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i;
 
@@ -77,9 +77,9 @@ const ACTION_RULES: readonly { pattern: RegExp; message: string }[] = [
   },
 ];
 
-export function toVietnameseErrorMessage(message: unknown): string {
+export function toVietnameseErrorMessage(message: unknown, fallback = DEFAULT_ERROR_MESSAGE): string {
   let text = typeof message === "string" ? message.trim() : "";
-  if (!text) return FALLBACK;
+  if (!text) return fallback;
   try {
     const parsed = JSON.parse(text) as { error?: unknown; message?: unknown };
     const nested = typeof parsed?.error === "string" ? parsed.error : parsed?.message;
@@ -94,5 +94,5 @@ export function toVietnameseErrorMessage(message: unknown): string {
     return text;
   }
   if (rule && !text.includes(":")) return rule.message;
-  return rule?.message || FALLBACK;
+  return rule?.message || fallback;
 }

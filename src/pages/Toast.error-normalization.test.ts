@@ -5,8 +5,8 @@ describe("toast.error Vietnamese normalization wiring", () => {
   it("normalizes only error toast messages", () => {
     const source = readFileSync(new URL("./Toast.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain('import { toVietnameseErrorMessage } from "../utils/vietnameseErrorMessage";');
-    expect(source).toContain("detail: { message: toVietnameseErrorMessage(message), type: 'error', duration }");
+    expect(source).toContain('import { getApiErrorMessage } from "../utils/errorMessage";');
+    expect(source).toContain("detail: { message: getApiErrorMessage(message, \"Đã xảy ra lỗi. Vui lòng thử lại.\"), type: 'error', duration }");
     expect(source).toContain("detail: { message, type: 'success', duration }");
   });
 });

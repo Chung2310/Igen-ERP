@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle, Info, XCircle, X, Wallet } from 'lucide-react';
-import { toVietnameseErrorMessage } from "../utils/vietnameseErrorMessage";
+import { getApiErrorMessage } from "../utils/errorMessage";
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -21,7 +21,7 @@ export const toast = {
     window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message, type: 'success', duration } }));
   },
   error: (message: string, duration = 5000) => {
-    window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message: toVietnameseErrorMessage(message), type: 'error', duration } }));
+    window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message: getApiErrorMessage(message, "Đã xảy ra lỗi. Vui lòng thử lại."), type: 'error', duration } }));
   },
   warning: (message: string, duration = 4000) => {
     window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message, type: 'warning', duration } }));
