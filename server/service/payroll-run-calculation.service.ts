@@ -16,6 +16,7 @@ export type DetailedCalculationInput = DetailedPayrollInput & {
   bonuses: number;
   deductions: number;
   adjustments: number;
+  commission?: number;
   formulaApplications?: PayrollLineSnapshot["formulaApplications"];
   periodInput?: PayrollLineSnapshot["periodInput"];
   payment?: PayrollLineSnapshot["payment"];
@@ -60,6 +61,7 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       bonuses: input.bonuses * ratio,
       deductions: input.deductions * ratio,
       adjustments: input.adjustments * ratio,
+      commission: (input.commission ?? 0) * ratio,
     });
     const vietnam = input.vietnam && calculateVietnamPayroll(input.vietnam.policy, {
       workPay: calculation.adjustedBase,
@@ -85,8 +87,8 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
     return {
       employeeId: input.employeeId,
       calculation: vietnam
-        ? { ...calculation, ...adjustmentEcho, gross: vietnam.income.totalIncome, deductions: vietnam.deductions.total, net: vietnam.netPay, monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) }
-        : { ...calculation, ...adjustmentEcho, deductions: Math.round(input.deductions * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
+        ? { ...calculation, ...adjustmentEcho, commission: Math.round((input.commission ?? 0) * ratio), gross: vietnam.income.totalIncome, deductions: vietnam.deductions.total, net: vietnam.netPay, monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) }
+        : { ...calculation, ...adjustmentEcho, commission: Math.round((input.commission ?? 0) * ratio), deductions: Math.round(input.deductions * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
       ...(vietnam ? { vietnam } : {}),
       sourceIds: [segment.sourceId],
       effectiveSegments: [{ sourceId: segment.sourceId, start: segment.start, end: segment.end }],

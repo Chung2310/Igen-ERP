@@ -28,5 +28,6 @@ export function getRequiredBusinessModule(type: BusinessType): ModuleKey | null 
 }
 
 export function isModuleAllowedForBusinessType(_key: ModuleKey, _type: BusinessType): boolean {
-  return true;
+  const required = getRequiredBusinessModule(_type);
+  return _key !== "student" && _key !== "worker" || _key === required;
 }

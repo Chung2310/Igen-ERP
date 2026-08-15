@@ -16,8 +16,8 @@ test("falls compatibility-only business types and legacy presets back to educati
   assert.equal(resolveBusinessType(undefined, "worker"), "labor");
 });
 
-test("allows student, worker, customer, and candidate to be configured freely", () => {
-  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "education"), ["student", "worker", "hr", "chat"]);
-  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "labor"), ["student", "worker", "hr", "chat"]);
+test("keeps only the business type module while preserving shared modules", () => {
+  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "education"), ["student", "hr", "chat"]);
+  assert.deepEqual(filterModulesForBusinessType(["student", "worker", "hr", "chat"], "labor"), ["worker", "hr", "chat"]);
 });
 
