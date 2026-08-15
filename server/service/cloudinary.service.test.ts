@@ -15,7 +15,26 @@ vi.mock("cloudinary", () => ({
   },
 }));
 
-import { cloudinaryService } from "./cloudinary.service";
+import { cloudinaryService, normalizeCloudinaryUploadSource } from "./cloudinary.service";
+
+describe("normalizeCloudinaryUploadSource", () => {
+  it("removes MediaRecorder codec parameters from audio data URIs", () => {
+    expect(normalizeCloudinaryUploadSource("data:audio/webm;codecs=opus;base64,GkXfo59C"))
+      .toBe("data:audio/webm;base64,GkXfo59C");
+  });
+
+  it("removes quoted codec parameters from video data URIs", () => {
+    expect(normalizeCloudinaryUploadSource('data:video/webm;codecs="vp8,opus";base64,GkXfo59C'))
+      .toBe("data:video/webm;base64,GkXfo59C");
+  });
+
+  it("does not alter ordinary URLs or codec-free data URIs", () => {
+    expect(normalizeCloudinaryUploadSource("https://example.com/audio.webm"))
+      .toBe("https://example.com/audio.webm");
+    expect(normalizeCloudinaryUploadSource("data:audio/webm;base64,GkXfo59C"))
+      .toBe("data:audio/webm;base64,GkXfo59C");
+  });
+});
 
 describe("cloudinaryService private evidence", () => {
   beforeEach(() => {
