@@ -205,7 +205,7 @@ export function RoleModal({
                                     <span className="text-[10px] text-gray-500 mt-0.5 block leading-normal line-clamp-2">{descText}</span>
                                   )}
                                   {isIncludedByManage && (
-                                    <span className="mt-1 block text-[10px] font-medium text-indigo-600">ÄÃ£ bao gá»“m trong quyá»n quáº£n lÃ½</span>
+                                    <span className="mt-1 block text-[10px] font-medium text-indigo-600">Đã bao gồm trong quyền quản lý</span>
                                   )}
                                   {(perm.code === "people:read" || perm.code === "people:manage") && (
                                     <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>
