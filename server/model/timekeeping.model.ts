@@ -34,7 +34,7 @@ const TimekeepingLogSchema = new Schema<ITimekeepingLog>({
   scheduledEndAt: Date,
   standardMinutes: Number,
   breakPeriods: { type: [{ name: String, startTime: String, endTime: String, paid: Boolean }], default: undefined, _id: false },
-  assignmentSource: { type: String, enum: ["employee", "company", "legacy"] },
+  assignmentSource: { type: String, enum: ["custom", "employee", "company", "legacy"] },
 });
 
 // Composite unique index for one timekeeping entry per user per day
