@@ -104,6 +104,19 @@ export function useWorkerProjects(scope?: WorkerScope) {
     [reload, requireScope],
   );
 
+  const addWorkers = useCallback(
+    async (id: string, workerIds: string[]) => {
+      const project = await workerProjectsApi.addWorkers(
+        id,
+        workerIds,
+        requireScope(),
+      );
+      await reload();
+      return project;
+    },
+    [reload, requireScope],
+  );
+
   const removeWorker = useCallback(
     async (id: string, workerId: string) => {
       const project = await workerProjectsApi.removeWorker(
@@ -125,6 +138,7 @@ export function useWorkerProjects(scope?: WorkerScope) {
     updateProject,
     deleteProject,
     addWorker,
+    addWorkers,
     removeWorker,
     reload,
   };

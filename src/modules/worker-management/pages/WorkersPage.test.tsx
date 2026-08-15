@@ -165,7 +165,7 @@ describe("worker profile ownership", () => {
     render(<WorkersPage />);
     const user = userEvent.setup();
     await user.click(screen.getByTitle("Sửa thông tin"));
-    await user.click(screen.getByRole("button", { name: "Chỉnh sửa" }));
+    expect(screen.getByRole("button", { name: "Hủy sửa" })).toBeTruthy();
     fireEvent.change(screen.getByDisplayValue("Nguyễn Văn A"), { target: { value: "Nguyễn Văn B" } });
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(hookValue.updateWorker).toHaveBeenCalledWith("worker-1", expect.objectContaining({ fullName: "Nguyễn Văn B" })));

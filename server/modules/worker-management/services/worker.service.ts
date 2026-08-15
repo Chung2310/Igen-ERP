@@ -39,6 +39,7 @@ export type BulkWorkerInput = {
   registrationDate?: unknown;
   status?: unknown;
   laborType?: unknown;
+  commissionScheme?: unknown;
   nationality?: unknown;
   workPermitNumber?: unknown;
   workPermitExpiry?: unknown;
@@ -46,13 +47,13 @@ export type BulkWorkerInput = {
 };
 
 export type WorkerBulkImportError = { row: number; name: string; phone: string; reason: string };
-export type WorkerBulkImportReferralError = { workerId: string; partnerCode: string; reason: string };
+export type WorkerBulkImportReferralError = { workerId: string; partnerCode: string; scheme?: "official_monthly" | "seasonal_hourly"; reason: string };
 
 export type WorkerBulkImportResult = {
   importedCount: number;
   skippedCount: number;
   errors: WorkerBulkImportError[];
-  importedWorkers?: Array<{ workerId: string; partnerCode: string; laborType: WorkerLaborType; registrationDate: string }>;
+  importedWorkers?: Array<{ workerId: string; partnerCode: string; laborType: WorkerLaborType; commissionScheme?: "official_monthly" | "seasonal_hourly"; registrationDate: string }>;
   referralErrors?: WorkerBulkImportReferralError[];
 };
 
@@ -157,16 +158,21 @@ export class WorkerService {
       companyCode: scope.companyCode,
       ...(scope.branchId ? { branchId: scope.branchId } : {}),
       deletedAt: null,
-    }).select("_id code").lean();
-    const codeByPartnerId = new Map(partners.map((partner: any) => [String(partner._id), partner.code]));
-    const codeByWorkerId = new Map<string, string>();
+    }).select("_id code name").lean();
+    const partnerById = new Map(partners.map((partner: any) => [String(partner._id), { code: partner.code, name: partner.name }]));
+    const partnerByWorkerId = new Map<string, { code: string; name: string }>();
     for (const referral of referrals as any[]) {
-      const code = codeByPartnerId.get(String(referral.partnerId));
-      if (code && !codeByWorkerId.has(String(referral.workerId))) codeByWorkerId.set(String(referral.workerId), code);
+      const partner = partnerById.get(String(referral.partnerId));
+      if (partner && !partnerByWorkerId.has(String(referral.workerId))) partnerByWorkerId.set(String(referral.workerId), partner);
     }
     return workers.map((worker: any) => ({
       ...worker,
-      ...(codeByWorkerId.has(String(worker._id)) ? { partnerCode: codeByWorkerId.get(String(worker._id)) } : {}),
+      ...(partnerByWorkerId.has(String(worker._id))
+        ? {
+            partnerCode: partnerByWorkerId.get(String(worker._id))!.code,
+            partnerName: partnerByWorkerId.get(String(worker._id))!.name,
+          }
+        : {}),
     }));
   }
   static async create(scope: WorkerScope, input: WorkerInput) {
@@ -252,6 +258,7 @@ export class WorkerService {
           : {}),
         status,
         laborType: normalizeLaborType(row.laborType),
+        ...(row.commissionScheme ? { commissionScheme: String(row.commissionScheme).trim() } : {}),
         ...(row.nationality ? { nationality: String(row.nationality).trim() } : {}),
         ...(normalizeLaborType(row.laborType) === "foreign"
           ? {
@@ -285,12 +292,17 @@ export class WorkerService {
     }
 
     const importedWorkers = inserted
-      .map((worker: any, index: number) => ({
-        workerId: String(worker._id),
-        partnerCode: String((valid[index] as any).partnerCode || "").trim().toUpperCase(),
-        laborType: (valid[index] as any).laborType as WorkerLaborType,
-        registrationDate: String((valid[index] as any).registrationDate || ""),
-      }))
+      .map((worker: any, index: number) => {
+        const rawScheme = String((valid[index] as any).commissionScheme || "");
+        const commissionScheme: "official_monthly" | "seasonal_hourly" | undefined = rawScheme === "official_monthly" || rawScheme === "seasonal_hourly" ? rawScheme : undefined;
+        return {
+          workerId: String(worker._id),
+          partnerCode: String((valid[index] as any).partnerCode || "").trim().toUpperCase(),
+          laborType: (valid[index] as any).laborType as WorkerLaborType,
+          ...(commissionScheme ? { commissionScheme } : {}),
+          registrationDate: String((valid[index] as any).registrationDate || ""),
+        };
+      })
       .filter((item) => item.partnerCode);
 
     return {

@@ -6,10 +6,12 @@ import { WorkerReferralModel } from "../models/worker-referral.model";
 import { LaborPartnerSettlementModel } from "../models/settlement.model";
 import { LaborPartnerCommissionLineModel } from "../models/commission-line.model";
 import { LaborPartnerError, actorSnapshot, normalizeDate, requiredObjectId, scopeQuery, type LaborPartnerScope } from "../contracts";
+import { runInTransaction } from "../../../../config/database";
 import { mergeAttendanceIntervals } from "./calculation/attendance-interval-merger";
 import { calculateOfficialMilestones } from "./calculation/official-calculator";
 import { calculateSeasonalCommission } from "./calculation/seasonal-calculator";
 import { resolveSettlementPeriod } from "./calculation/date-cycle";
+import { supportsCommissionScheme } from "./policy-compatibility";
 
 type ManualSettlementEntry = { referralId: string; officialMonths?: number; seasonalHours?: number };
 type CalculateInput = { partnerId: string; periodAnchor: string; manualEntries?: ManualSettlementEntry[]; force?: boolean };
@@ -17,8 +19,6 @@ type AttendanceRow = { _id: unknown; workerId: unknown; projectId: unknown; date
 
 const id = (value: unknown) => String(value || "");
 const activeAt = (referral: any, date: string) => referral.effectiveFrom <= date && (!referral.effectiveTo || referral.effectiveTo >= date);
-
-function supportsScheme(policy: any, scheme: string) { return scheme === "official_monthly" ? policy.official?.enabled : policy.seasonal?.enabled; }
 
 export const LaborPartnerSettlementCalculationService = {
   async recalculate(scope: LaborPartnerScope, settlementId: string, actor?: Record<string, unknown>) {
@@ -38,10 +38,16 @@ export const LaborPartnerSettlementCalculationService = {
     const policyPeriods = new Map<string, { policy: any; start: string; end: string }>();
     for (const referral of referrals) {
       const policy: any = referral.policyId;
-      if (!policy || policy.status !== "active") continue;
+      if (!policy) throw new LaborPartnerError("POLICY_NOT_ACTIVE", "Nguồn giới thiệu chưa có chính sách hoa hồng.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme });
       const period = resolveSettlementPeriod(anchor, policy.settlementCycle);
       if (!activeAt(referral, period.start) && !activeAt(referral, period.end)) continue;
-      if (supportsScheme(policy, referral.commissionScheme)) policyPeriods.set(id(policy._id), { policy, ...period });
+      if (policy.status !== "active") throw new LaborPartnerError("POLICY_NOT_ACTIVE", "Nguồn giới thiệu đang gắn chính sách chưa hoạt động.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme });
+      if (!supportsCommissionScheme(policy, referral.commissionScheme)) throw new LaborPartnerError("POLICY_SCHEME_MISMATCH", "Nguồn giới thiệu đang gắn chính sách không phù hợp với cơ chế hoa hồng.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme, policyId: id(policy._id) });
+      const existingPeriod = [...policyPeriods.values()][0];
+      if (existingPeriod && (existingPeriod.start !== period.start || existingPeriod.end !== period.end)) {
+        throw new LaborPartnerError("MIXED_SETTLEMENT_CYCLE", "Các chính sách của đối tác có kỳ đối soát khác nhau; hãy dùng cùng kỳ hoặc tách đối soát.", 409, { existingPeriod: { start: existingPeriod.start, end: existingPeriod.end }, conflictingPeriod: period, referralId: id(referral._id), policyId: id(policy._id) });
+      }
+      policyPeriods.set(id(policy._id), { policy, ...period });
     }
     if (!policyPeriods.size) throw new LaborPartnerError("SETTLEMENT_HAS_NO_ELIGIBLE_LINES", "Không có policy hiệu lực cho kỳ đối soát này.", 409);
     const periodStart = [...policyPeriods.values()].map((item) => item.start).sort()[0];
@@ -140,21 +146,23 @@ export const LaborPartnerSettlementCalculationService = {
     const seasonalLines = lines.filter((line) => line.scheme === "seasonal_hourly");
     const seasonalAmount = seasonalLines.reduce((total, line) => total + line.amount, 0);
     const seasonalMinutes = seasonalLines.reduce((total, line) => total + Number(line.eligibleMinutes || 0), 0);
-    const session = await mongoose.startSession();
-    try {
-      let settlement: any;
-      await session.withTransaction(async () => {
-        const next = { periodStart, periodEnd, cutoffAt: new Date(), status: "calculated", manualEntries, officialAmount, seasonalMinutes, seasonalAmount, adjustmentAmount: 0, totalAmount: officialAmount + seasonalAmount, paidAmount: 0, balanceAmount: officialAmount + seasonalAmount, policySnapshots: [...policyPeriods.values()].map((item) => item.policy), warnings, calculatedBy: actorSnapshot(actor), calculatedAt: new Date(), approvedBy: null, approvedAt: null, voidReason: "" };
-        if (existing && input.force) {
-          settlement = await (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: existing._id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] } }, { $set: next, $inc: { version: 1 } }, { new: true, session });
-          if (!settlement) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Kỳ đối soát đã thay đổi, vui lòng tải lại trước khi tính lại.", 409);
-          await (LaborPartnerCommissionLineModel as any).deleteMany({ settlementId: settlement._id }, { session });
-        } else {
-          [settlement] = await LaborPartnerSettlementModel.create([{ companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), partnerId, settlementKey: key, revision: 1, ...next, version: 1 }], { session });
-        }
-        await LaborPartnerCommissionLineModel.create(lines.map((line) => ({ ...line, settlementId: settlement._id, partnerId, status: "draft" })), { session });
-      });
-      return { settlement, reused: false };
-    } finally { await session.endSession(); }
+    let settlement: any;
+    await runInTransaction(async (session) => {
+      const next = { periodStart, periodEnd, cutoffAt: new Date(), status: "calculated", manualEntries, officialAmount, seasonalMinutes, seasonalAmount, adjustmentAmount: 0, totalAmount: officialAmount + seasonalAmount, paidAmount: 0, balanceAmount: officialAmount + seasonalAmount, policySnapshots: [...policyPeriods.values()].map((item) => item.policy), warnings, calculatedBy: actorSnapshot(actor), calculatedAt: new Date(), approvedBy: null, approvedAt: null, voidReason: "" };
+      const options = session ? { session } : undefined;
+      if (existing && input.force) {
+        const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: existing._id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] } }, { $set: next, $inc: { version: 1 } }, { new: true });
+        if (session) query.session(session);
+        settlement = await query;
+        if (!settlement) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Kỳ đối soát đã thay đổi, vui lòng tải lại trước khi tính lại.", 409);
+        const deleteQuery = (LaborPartnerCommissionLineModel as any).deleteMany({ settlementId: settlement._id });
+        if (session) deleteQuery.session(session);
+        await deleteQuery;
+      } else {
+        [settlement] = await LaborPartnerSettlementModel.create([{ companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), partnerId, settlementKey: key, revision: 1, ...next, version: 1 }], options as any);
+      }
+      await LaborPartnerCommissionLineModel.create(lines.map((line) => ({ ...line, settlementId: settlement._id, partnerId, status: "draft" })), options as any);
+    });
+    return { settlement, reused: false };
   },
 };
