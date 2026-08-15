@@ -40,14 +40,14 @@ export default function HRTab() {
   // must also be able to view/manage everyone's attendance, not just their own -
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
   const isCompanyAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
-  const hasContractPermissions = !isCompanyAdmin && (hasPermission("contracts:read") || hasPermission("contracts:manage"));
-  const canViewAllAttendance = (isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll:manage")) && !hasContractPermissions;
+  const hasContractPermissions = false;
+  const canViewAllAttendance = (isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll-period:manage")) && !hasContractPermissions;
   const canManageAttendance = (isManager || hasPermission("timekeeping:manage")) && !hasContractPermissions;
-  const canEditAttendance = (canManageAttendance || hasPermission("payroll:manage")) && !hasContractPermissions;
+  const canEditAttendance = (canManageAttendance || hasPermission("payroll-period:manage")) && !hasContractPermissions;
   const canManageOrgChart = isManager || hasPermission("access:manage");
   const canManageKanban = isManager || hasPermission("work:manage");
   const isPayrollManager = userProfile?.role === "superadmin" || userProfile?.role === "admin";
-  const canViewPayroll = isPayrollManager || hasPermission("payroll:read") || hasPermission("payroll:manage");
+  const canViewPayroll = isPayrollManager || hasPermission("payroll-period:read") || hasPermission("payroll-period:manage");
   const canManageCelebration = userProfile?.role === "admin" || hasPermission("settings:manage");
   const hasRecruitmentAccess = canAccessRecruitment(userProfile?.role, hasPermission);
   const canManageRecruitment =
@@ -292,7 +292,7 @@ export default function HRTab() {
 
         {subTab === "PAYROLL" && (
           canViewPayroll ? (
-            <PayrollTab canManage={isPayrollManager || hasPermission("payroll:manage")} />
+            <PayrollTab canManage={isPayrollManager || hasPermission("payroll-period:manage")} />
           ) : (
             <EmployeePayslips />
           )

@@ -116,7 +116,7 @@ const countStandardDays = (period: string, workingDays: number[], calendarRules:
 const canManagePayroll = async (req: AuthenticatedRequest) => {
   const { id: userId, role, companyCode } = req.user!;
   const permissions = await getEffectivePermissions(userId, role, companyCode);
-  return permissions.has("*") || permissions.has("payroll:manage");
+  return permissions.has("*") || permissions.has("payroll-period:manage");
 };
 const legacyPeriodScope = (req: AuthenticatedRequest) => ({
   companyCode: tenant(req),
@@ -739,9 +739,9 @@ export const payrollController = {
   async printPayslip(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     
-    // Check permission: must have payroll:read/manage, OR be printing their own payslip
+    // Check permission: must have payroll-period:read/manage, OR be printing their own payslip
     const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req));
-    const canReadAny = permissions.has("*") || permissions.has("payroll:read") || permissions.has("payroll:manage");
+    const canReadAny = permissions.has("*") || permissions.has("payroll-payment:read") || permissions.has("payroll-payment:manage");
     if (!canReadAny && req.user!.id !== req.params.employeeId) {
       return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bạn chỉ có thể xem phiếu lương của chính mình." });
     }
@@ -772,7 +772,7 @@ export const payrollController = {
   },  async exportPayroll(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const type = req.body?.type; if (!["detailed", "insurance", "pit", "bank_transfer"].includes(type)) return validationFailure(res, "Invalid export type");
-    if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll:manage")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll:pay" }); }
+    if (type === "bank_transfer") { const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req)); if (!permissions.has("*") && !permissions.has("payroll-payment:manage")) return res.status(403).json({ status: "error", code: "PAYROLL_PERMISSION_DENIED", message: "Bank transfer export requires payroll-payment:manage" }); }
     const run = await PayrollRunModel.findOne({ _id: req.params.id, ...scope }).lean();
     if (!run || !["closed", "paid"].includes(run.status)) return res.status(409).json({ status: "error", code: "PAYROLL_RUN_NOT_CLOSED" });
     let effective;
@@ -1160,7 +1160,7 @@ export const payrollController = {
     const scope = operationalScope(req);
     if (!scope) return validationFailure(res, "Authenticated company and branch are required");
     const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, tenant(req));
-    const canReadAny = permissions.has("*") || permissions.has("payroll:read") || permissions.has("payroll:manage");
+    const canReadAny = permissions.has("*") || permissions.has("payroll-payment:read") || permissions.has("payroll-payment:manage");
     if (!canReadAny && req.user!.id !== req.params.employeeId) {
       return res.status(403).json({
         status: "error",

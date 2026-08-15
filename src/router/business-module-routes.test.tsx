@@ -23,8 +23,8 @@ describe("business module routing", () => {
   it("grants finance route access to either finance permission", () => {
     const route = APP_ROUTES.find((item) => item.tab === "TÀI CHÍNH");
     expect(route).toBeDefined();
-    expect(route?.canAccess?.({ role: "user", permissions: ["finance:read"] } as any)).toBe(true);
-    expect(route?.canAccess?.({ role: "user", permissions: ["finance:manage"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: ["finance-receivable:read"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: ["finance-receivable:manage"] } as any)).toBe(true);
     expect(route?.canAccess?.({ role: "user", permissions: [] } as any)).toBe(false);
   });
 });

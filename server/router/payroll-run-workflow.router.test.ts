@@ -32,20 +32,20 @@ describe("payroll workflow route guards", () => {
     ["POST", "/runs/:id/review"],
     ["POST", "/runs/:id/close"],
     ["POST", "/runs/:id/reopen"],
-    ["POST", "/runs/:id/mark-paid"],
     ["POST", "/runs/:id/calculate"],
     ["POST", "/runs/:id/recalculate"],
-  ])("guards %s %s with payroll:manage", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:manage");
+  ])("guards %s %s with payroll-period:manage", (method, path) => {
+    expect(permissionOf(method, path)).toBe("payroll-period:manage");
   });
 
   it.each([
+    ["POST", "/runs/:id/mark-paid"],
     ["POST", "/runs/:id/payments"],
     ["POST", "/payments/:id/confirm"],
     ["POST", "/payments/:id/cancel"],
     ["POST", "/payments/:id/reverse"],
-  ])("guards %s %s with payroll:pay", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:manage");
+  ])("guards %s %s with payroll-payment:manage", (method, path) => {
+    expect(permissionOf(method, path)).toBe("payroll-payment:manage");
   });
 
   it.each([
@@ -55,16 +55,22 @@ describe("payroll workflow route guards", () => {
     ["PATCH", "/policies/:id"],
     ["POST", "/policies/:id/clone"],
     ["DELETE", "/policies/:id"],
-  ])("guards %s %s with payroll:manage", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:manage");
+  ])("guards %s %s with payroll-policy:manage", (method, path) => {
+    expect(permissionOf(method, path)).toBe("payroll-policy:manage");
   });
 
   it.each([
     ["GET", "/runs/:id/audit"],
-    ["GET", "/runs/:id/payments"],
-    ["GET", "/policies"],
   ])("lets payroll readers call %s %s", (method, path) => {
-    expect(permissionOf(method, path)).toBe("payroll:read");
+    expect(permissionOf(method, path)).toBe("payroll-period:read");
+  });
+
+  it("uses payroll-payment:read for payment history", () => {
+    expect(permissionOf("GET", "/runs/:id/payments")).toBe("payroll-payment:read");
+  });
+
+  it("uses payroll-policy:read for policies", () => {
+    expect(permissionOf("GET", "/policies")).toBe("payroll-policy:read");
   });
 
   it.each([

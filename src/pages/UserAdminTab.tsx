@@ -802,14 +802,14 @@ export default function UserAdminTab() {
                   manager: [
                     "access:read", "access:manage",
                     "timekeeping:read", "timekeeping:manage",
-                    "payroll:read",
+                    "payroll-period:read",
                     "work:read", "work:manage",
                     "work:read", "work:manage",
                     "inventory:read", "inventory:manage",
                     "people:read", "people:manage",
                     "resource:read", "resource:manage",
                     "chat:read", "chat:manage",
-                    "finance:read"
+                    "finance-receivable:read"
                   ],
                   user: [
                     "access:read",
@@ -820,7 +820,7 @@ export default function UserAdminTab() {
                     "people:read",
                     "resource:read",
                     "chat:read",
-                    "finance:read"
+                    "finance-receivable:read"
                   ],
                   teacher: ["people:read", "people:manage"]
                 };

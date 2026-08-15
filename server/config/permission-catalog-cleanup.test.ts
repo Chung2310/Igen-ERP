@@ -1,42 +1,64 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   PERMISSION_CATALOG,
-  LEGACY_PERMISSION_MAP,
-  normalizeStoredPermissions,
+  PERMISSION_FEATURES,
+  PermissionValidationError,
+  compactStoredPermissions,
   expandEffectivePermissions,
+  isPermissionCode,
 } from "./permission-catalog";
 
-test("catalog contains exactly fifteen read/manage pairs", () => {
-  assert.equal(PERMISSION_CATALOG.length, 30);
-  const groups = new Map<string, Set<string>>();
-  for (const entry of PERMISSION_CATALOG) {
-    const [area, action] = entry.code.split(":");
-    const actions = groups.get(area) || new Set<string>();
-    actions.add(action);
-    groups.set(area, actions);
+const EXPECTED_FEATURES = [
+  "access", "chat", "dashboard", "finance-receivable", "finance-wallet", "hr",
+  "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
+  "labor-partner-settlement", "payroll-payment", "payroll-period", "payroll-policy",
+  "people", "recruitment", "relationship", "resource", "retail", "settings",
+  "timekeeping", "work",
+];
+
+describe("permission registry", () => {
+it("contains exactly one read/manage pair for every approved feature", () => {
+  expect(PERMISSION_FEATURES.map((entry) => entry.feature).sort()).toEqual(EXPECTED_FEATURES);
+  expect(PERMISSION_CATALOG).toHaveLength(EXPECTED_FEATURES.length * 2);
+  for (const feature of EXPECTED_FEATURES) {
+    expect(
+      PERMISSION_CATALOG.filter((entry) => entry.feature === feature).map((entry) => entry.action).sort(),
+    ).toEqual(["manage", "read"]);
   }
-  assert.equal(groups.size, 15);
-  for (const actions of groups.values()) {
-    assert.deepEqual([...actions].sort(), ["manage", "read"]);
-  }
+  expect(new Set(PERMISSION_CATALOG.map((entry) => entry.code)).size).toBe(PERMISSION_CATALOG.length);
 });
 
-test("legacy grouped and sensitive permissions map to canonical permissions", () => {
-  assert.equal(LEGACY_PERMISSION_MAP["student:manage"], "people:manage");
-  assert.equal(LEGACY_PERMISSION_MAP["worker:read"], "people:read");
-  assert.equal(LEGACY_PERMISSION_MAP["partner:manage"], "relationship:manage");
-  assert.equal(LEGACY_PERMISSION_MAP["payroll:pay"], "payroll:manage");
-  assert.equal(LEGACY_PERMISSION_MAP["receivable:adjust"], "finance:manage");
+it("recognizes only registered read/manage codes", () => {
+  expect(isPermissionCode("payroll-period:read")).toBe(true);
+  expect(isPermissionCode("payroll-period:manage")).toBe(true);
+  expect(isPermissionCode("payroll-payment:manage")).toBe(true);
+  expect(isPermissionCode("labor-partner-settlement:manage")).toBe(true);
+  expect(isPermissionCode("payroll:pay")).toBe(false);
+  expect(isPermissionCode("unknown:manage")).toBe(false);
 });
 
-test("normalization maps, minimizes, and controls wildcard", () => {
-  assert.deepEqual(normalizeStoredPermissions(["student:read", "student:manage"]), ["people:manage"]);
-  assert.deepEqual(normalizeStoredPermissions(["*", "hr:read"]), ["hr:read"]);
-  assert.deepEqual(normalizeStoredPermissions(["*"], { allowWildcard: true }), ["*"]);
-  assert.deepEqual(normalizeStoredPermissions(["unknown:manage"]), []);
+it("compacts redundant read while returning effective permissions", () => {
+  expect(compactStoredPermissions([
+    "hr:read",
+    "hr:manage",
+    "payroll-payment:read",
+  ])).toEqual({
+    stored: ["hr:manage", "payroll-payment:read"],
+    effective: ["hr:manage", "hr:read", "payroll-payment:read"],
+  });
 });
 
-test("manage expands to read at runtime", () => {
-  assert.deepEqual([...expandEffectivePermissions(["hr:manage"])].sort(), ["hr:manage", "hr:read"]);
+it("rejects every invalid code instead of silently dropping it", () => {
+  expect(() => compactStoredPermissions(["hr:read", "student:manage", "finance:collect"]))
+    .toThrowError(expect.objectContaining({
+      name: PermissionValidationError.name,
+      invalidCodes: ["finance:collect", "student:manage"],
+    }));
+});
+
+it("manage expands to read without crossing feature boundaries", () => {
+  expect(
+    [...expandEffectivePermissions(["finance-wallet:manage", "finance-receivable:read"])].sort(),
+  ).toEqual(["finance-receivable:read", "finance-wallet:manage", "finance-wallet:read"]);
+});
 });

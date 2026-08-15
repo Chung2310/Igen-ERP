@@ -91,7 +91,7 @@ studentManagementRouter.use("/student-management/custom-fields", authMiddleware 
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
 studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
 // Cấu hình trường có sẵn: GET mở cho mọi tài khoản trong công ty (ai cũng cần để
-// dựng form), PUT đã gác quyền custom-field:manage bên trong route.
+// dựng form), PUT đã gác quyền settings:manage bên trong route.
 studentManagementRouter.use("/student-management/standard-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, standardFieldRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/student-quality", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-quality"), studentQualityRoutes);

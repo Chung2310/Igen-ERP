@@ -20,8 +20,8 @@ test("partners use standalone read and manage permissions", () => {
   assert.match(routes, /requirePermission\("relationship:manage"\)/);
   assert.doesNotMatch(routes, /requirePermission\("people:manage"\)/);
   for (const source of [catalog, seed, uiCatalog]) {
-    assert.match(source, /partner:read/);
-    assert.match(source, /partner:manage/);
+    assert.match(source, /relationship:read/);
+    assert.match(source, /relationship:manage/);
   }
 
   const adminPermissions = auth.match(/admin:\s*\[([\s\S]*?)\r?\n\s*\],\r?\n\s*branch_owner:/)?.[1] || "";

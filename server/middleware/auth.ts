@@ -5,7 +5,7 @@ import { UserModel } from "../model/user.model";
 import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
-import { expandEffectivePermissions, LEGACY_PERMISSION_MAP, normalizeStoredPermissions } from "../config/permission-catalog";
+import { expandEffectivePermissions, normalizeStoredPermissions } from "../config/permission-catalog";
 
 const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
@@ -49,18 +49,18 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
-  admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll:manage", "work:manage", "inventory:manage", "retail:manage", "finance:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
+  admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll-period:manage", "payroll-policy:manage", "payroll-payment:manage", "finance-wallet:manage", "finance-receivable:manage", "labor-partner:manage", "labor-partner-policy:manage", "labor-partner-settlement:manage", "labor-partner-payout:manage", "work:manage", "inventory:manage", "retail:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
   branch_owner: [
     "dashboard:read", "access:manage", "hr:read", "timekeeping:manage", "people:manage", "resource:read", "chat:read", "work:manage"
   ],
   manager: [
-    "dashboard:read", "access:manage", "work:manage", "inventory:read",
+    "dashboard:read", "access:read", "work:manage", "inventory:read",
     "hr:read", "people:read", "timekeeping:read", "chat:read", "resource:read", "settings:manage"
   ],
   user: [
     "access:read", "work:manage", "inventory:read", "hr:read", "people:read", "timekeeping:read", "chat:read", "resource:read"
   ],
-  // Giảng viên chỉ làm việc trong khu vực học viên. Quyền teacher:operate
+  // Giảng viên chỉ làm việc trong khu vực học viên. Quyền people:manage
   // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
   teacher: ["people:manage"]
 };
@@ -203,9 +203,7 @@ export async function getEffectivePermissions(
 }
 
 export function hasAnyPermission(allPermissions: ReadonlySet<string>, requiredPermissions: readonly string[]) {
-  return allPermissions.has("*") || requiredPermissions.some((permission) =>
-    allPermissions.has(permission) || Boolean(LEGACY_PERMISSION_MAP[permission] && allPermissions.has(LEGACY_PERMISSION_MAP[permission])),
-  );
+  return allPermissions.has("*") || requiredPermissions.some((permission) => allPermissions.has(permission));
 }
 
 export const requireAnyPermission = (permissions: string[]) => requirePermission(permissions);
@@ -214,7 +212,7 @@ export const requireAnyPermission = (permissions: string[]) => requirePermission
  * Middleware yêu cầu mã quyền động (PBAC)
  * Kiểm tra kết hợp quyền tùy chỉnh của user và cấu hình RolePermission trong database của doanh nghiệp.
  * Truyền một mảng để yêu cầu "có ít nhất một trong các mã quyền" (OR), ví dụ khi hai nhóm quyền
- * khác nhau trên UI cùng cấp quyền truy cập một tài nguyên dùng chung (vd: hr:read và user:read
+ * khác nhau trên UI cùng cấp quyền truy cập một tài nguyên dùng chung (vd: hr:read và access:read
  * cùng cho phép xem danh sách nhân sự).
  */
 export function requirePermission(requiredPermission: string | string[]) {

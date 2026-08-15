@@ -1,31 +1,22 @@
-import assert from "node:assert/strict";
 import fs from "node:fs";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { DEFAULT_ROLE_PERMISSIONS } from "../middleware/auth";
-import { LEGACY_PERMISSION_MAP } from "./permission-catalog";
-import { PERMISSION_TRANSLATIONS } from "../../src/utils/permissionUtils";
+import { PERMISSION_CODES } from "./permission-catalog";
 
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
-describe("payroll prepare permission registration", () => {
-  it("registers and seeds payroll:prepare as a distinct operational permission", () => {
-    assert.equal(LEGACY_PERMISSION_MAP["payroll:prepare"], "payroll:manage");
-    assert.ok(PERMISSION_TRANSLATIONS["payroll:prepare"]);
-    assert.ok(DEFAULT_ROLE_PERMISSIONS.admin.includes("payroll:manage"));
+describe("payroll permission registration", () => {
+  it("registers separate period, policy, and payment pairs for administrators", () => {
+    for (const feature of ["payroll-period", "payroll-policy", "payroll-payment"]) {
+      expect(PERMISSION_CODES).toContain(`${feature}:read`);
+      expect(PERMISSION_CODES).toContain(`${feature}:manage`);
+      expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain(`${feature}:manage`);
+    }
   });
 
-  it("registers payroll payment permission and grants it to admins", () => {
-    assert.equal(LEGACY_PERMISSION_MAP["payroll:pay"], "payroll:manage");
-    assert.ok(PERMISSION_TRANSLATIONS["payroll:pay"]);
-    assert.ok(DEFAULT_ROLE_PERMISSIONS.admin.includes("payroll:manage"));
-  });
-
-  it("keeps legacy manage permissions while operational routes require prepare directly", () => {
+  it("guards payroll run creation with period management", () => {
     const router = read("server/router/payroll.router.ts");
-
-    assert.match(router, /post\("\/runs", requirePermission\("payroll:manage"\)/);
-    assert.match(router, /post\("\/periods\/:periodKey\/run", requirePermission\("payroll:manage"\)/);
-    assert.doesNotMatch(router, /requirePermission\(\[[^\]]*"payroll:manage"[^\]]*"payroll:manage"/);
+    expect(router).toMatch(/post\("\/runs", requirePermission\("payroll-period:manage"\)/);
+    expect(router).toMatch(/post\("\/periods\/:periodKey\/run", requirePermission\("payroll-period:manage"\)/);
   });
 });
-
