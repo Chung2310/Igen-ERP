@@ -69,6 +69,11 @@ const schema = new Schema<PayrollRunDocument>({
     netPay: { type: Number, required: true, min: 0, default: 0 },
   },
   createdBy: { type: String, required: true }, reviewedBy: String, rejectedBy: String, rejectionReason: String, approvedBy: String, closedBy: String, closedAt: Date,
-}, { timestamps: true, optimisticConcurrency: true, versionKey: "version" });
+}, {
+  timestamps: true,
+  optimisticConcurrency: true,
+  versionKey: "version",
+  minimize: false,
+});
 schema.index({ companyCode: 1, branchId: 1, startDate: 1, endDate: 1, type: 1 });
 export const PayrollRunModel = model<PayrollRunDocument>("PayrollRun", schema);
