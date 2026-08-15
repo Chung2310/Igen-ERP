@@ -109,6 +109,7 @@ export type BulkWorkerInput = {
   note?: string;
   registrationDate?: string;
   laborType?: WorkerLaborType;
+  commissionScheme?: "official_monthly" | "seasonal_hourly";
   nationality?: string;
   workPermitNumber?: string;
   workPermitExpiry?: string;
@@ -124,6 +125,7 @@ export type WorkerBulkImportError = {
 export type WorkerBulkImportReferralError = {
   workerId: string;
   partnerCode: string;
+  scheme?: "official_monthly" | "seasonal_hourly";
   reason: string;
 };
 
@@ -143,6 +145,7 @@ export type Worker = {
   fullName: string;
   phone?: string;
   partnerCode?: string;
+  partnerName?: string;
   email?: string;
   status: WorkerStatus;
   laborType?: WorkerLaborType;

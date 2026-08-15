@@ -52,6 +52,17 @@ async function assertWorkersInScope(
     if (!worker) throw new Error("Worker not found.");
   }
 }
+
+async function assertWorkersInScopeBulk(
+  scope: WorkerScope,
+  workerIds: Types.ObjectId[],
+) {
+  const count = await WorkerModel.countDocuments({
+    _id: { $in: workerIds },
+    ...buildWorkerQuery(scope),
+  });
+  if (count !== workerIds.length) throw new Error("Worker not found.");
+}
 export const WorkerProjectService = {
   async list(scope: WorkerScope, queryFilters: any = {}) {
     const baseQuery = buildWorkerProjectQuery(scope);
@@ -140,6 +151,21 @@ export const WorkerProjectService = {
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $addToSet: { workerIds: new Types.ObjectId(workerId) } },
       { new: true }
+    );
+    if (!project) {
+      throw new Error("Không tìm thấy dự án hoặc bạn không có quyền cập nhật.");
+    }
+    return project;
+  },
+
+  async addWorkers(scope: WorkerScope, id: string, workerIds: string[]) {
+    const ids = [...new Set(workerIds.map((workerId) => String(workerId)))].map((workerId) => new Types.ObjectId(workerId));
+    await assertWorkersInScopeBulk(scope, ids);
+    const baseQuery = buildWorkerProjectQuery(scope);
+    const project = await WorkerProjectModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(id), ...baseQuery },
+      { $addToSet: { workerIds: { $each: ids } } },
+      { new: true },
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền cập nhật.");

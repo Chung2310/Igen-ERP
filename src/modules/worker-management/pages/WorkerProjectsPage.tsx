@@ -190,7 +190,7 @@ export function WorkerProjectsPage({
     createProject,
     updateProject,
     deleteProject,
-    addWorker,
+    addWorkers,
     removeWorker,
   } = useWorkerProjects(scope);
   const { workers } = useWorkers(scope);
@@ -214,7 +214,9 @@ export function WorkerProjectsPage({
   const memberTarget = memberTargetId
     ? projects.find((project) => project._id === memberTargetId) || null
     : null;
-  const [workerId, setWorkerId] = React.useState("");
+  const [memberSearch, setMemberSearch] = React.useState("");
+  const [selectedWorkerIds, setSelectedWorkerIds] = React.useState<string[]>([]);
+  const [memberBusy, setMemberBusy] = React.useState(false);
   const [attendanceProject, setAttendanceProject] = React.useState<WorkerProject | null>(null);
   const [viewAttendanceProject, setViewAttendanceProject] = React.useState<WorkerProject | null>(null);
   const [locating, setLocating] = React.useState(false);
@@ -335,18 +337,27 @@ export function WorkerProjectsPage({
   const availableWorkers = memberTarget
     ? workers.filter((worker) => !memberTarget.workerIds.includes(worker._id))
     : [];
+  const filteredAvailableWorkers = availableWorkers.filter((worker) => {
+    const needle = memberSearch.trim().toLowerCase();
+    return !needle || [worker.fullName, worker.partnerCode, worker.phone].some((value) => String(value || "").toLowerCase().includes(needle));
+  });
 
-  const addMember = async () => {
-    if (!memberTarget || !workerId) return;
+  const addMembers = async () => {
+    if (!memberTarget || !selectedWorkerIds.length) return;
+    setMemberBusy(true);
     try {
-      await addWorker(memberTarget._id, workerId);
-      setWorkerId("");
+      await addWorkers(memberTarget._id, selectedWorkerIds);
+      setSelectedWorkerIds([]);
+      setMemberSearch("");
+      toast.success(`Đã thêm ${selectedWorkerIds.length} lao động vào dự án.`);
     } catch (reason) {
       toast.error(
         reason instanceof Error
           ? reason.message
           : "Không thể thêm lao động vào dự án.",
       );
+    } finally {
+      setMemberBusy(false);
     }
   };
 
@@ -389,7 +400,8 @@ export function WorkerProjectsPage({
           title="Quản lý lao động"
           onClick={() => {
             setMemberTargetId(project._id);
-            setWorkerId("");
+            setMemberSearch("");
+            setSelectedWorkerIds([]);
           }}
         >
           <Users className="h-3.5 w-3.5" />
@@ -880,31 +892,56 @@ export function WorkerProjectsPage({
           title={`Quản lý lao động · ${memberTarget.code}`}
           onClose={() => setMemberTargetId(null)}
         >
-          <div className="flex gap-2">
-            <label className="sr-only" htmlFor="worker-project-member">
-              Thêm lao động
-            </label>
-            <select
-              id="worker-project-member"
-              value={workerId}
-              onChange={(event) => setWorkerId(event.target.value)}
-              className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
-            >
-              <option value="">Chọn lao động...</option>
-              {availableWorkers.map((worker) => (
-                <option key={worker._id} value={worker._id}>
-                  {worker.fullName}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!workerId}
-              onClick={() => void addMember()}
-              className="flex items-center gap-1 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
-            >
-              <UserPlus className="h-3.5 w-3.5" /> Thêm vào dự án
-            </button>
+          <div className="rounded-xl border border-cyan-100 bg-cyan-50/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-black text-slate-700">Thêm nhiều lao động</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">Chọn một hoặc nhiều người rồi thêm cùng lúc.</p>
+              </div>
+              <span className="text-xs font-bold text-cyan-700">Đã chọn {selectedWorkerIds.length}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                value={memberSearch}
+                onChange={(event) => setMemberSearch(event.target.value)}
+                placeholder="Tìm tên, mã hoặc số điện thoại..."
+                className="h-9 min-w-[220px] flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-600"
+              />
+              <button
+                type="button"
+                onClick={() => setSelectedWorkerIds((current) => [...new Set([...current, ...filteredAvailableWorkers.map((worker) => worker._id)])])}
+                disabled={!filteredAvailableWorkers.length}
+                className="h-9 rounded-lg border border-cyan-200 px-3 text-xs font-bold text-cyan-700 disabled:opacity-50"
+              >
+                Chọn tất cả
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWorkerIds([])}
+                disabled={!selectedWorkerIds.length}
+                className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
+              >
+                Bỏ chọn
+              </button>
+              <button
+                type="button"
+                disabled={!selectedWorkerIds.length || memberBusy}
+                onClick={() => void addMembers()}
+                className="inline-flex h-9 items-center gap-1 rounded-lg bg-cyan-600 px-3 text-xs font-bold text-white disabled:opacity-50"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> {memberBusy ? "Đang thêm..." : "Thêm đã chọn"}
+              </button>
+            </div>
+            <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+              {filteredAvailableWorkers.length ? filteredAvailableWorkers.map((worker) => {
+                const checked = selectedWorkerIds.includes(worker._id);
+                return <label key={worker._id} className="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50">
+                  <input type="checkbox" checked={checked} onChange={() => setSelectedWorkerIds((current) => checked ? current.filter((id) => id !== worker._id) : [...current, worker._id])} />
+                  <span className="text-xs font-bold text-slate-700">{worker.fullName}</span>
+                  <span className="text-[11px] text-slate-400">{worker.partnerCode || worker.phone || ""}</span>
+                </label>;
+              }) : <p className="px-3 py-4 text-center text-xs text-slate-400">Không còn lao động phù hợp để thêm.</p>}
+            </div>
           </div>
           <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
             {memberTarget.workerIds.length ? (

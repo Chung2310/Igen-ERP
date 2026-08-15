@@ -15,6 +15,8 @@ const schema = new Schema<ILaborPartner>({
   bankAccountNo: { type: String, trim: true, default: "" },
   bankAccountName: { type: String, trim: true, default: "" },
   defaultPolicyId: { type: Schema.Types.ObjectId, ref: "LaborPartnerCommissionPolicy", default: null },
+  defaultOfficialPolicyId: { type: Schema.Types.ObjectId, ref: "LaborPartnerCommissionPolicy", default: null },
+  defaultSeasonalPolicyId: { type: Schema.Types.ObjectId, ref: "LaborPartnerCommissionPolicy", default: null },
   status: { type: String, enum: ["active", "inactive"], default: "active", index: true },
   note: { type: String, trim: true, default: "" },
   deletedAt: { type: Date, default: null, index: true },

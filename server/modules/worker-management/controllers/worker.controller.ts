@@ -3,7 +3,7 @@ import {
   WorkerScopeError,
   workerScopeFromRequest,
 } from "../contracts";
-import { WorkerService } from "../services/worker.service";
+import { WorkerService, type WorkerBulkImportReferralError } from "../services/worker.service";
 import { importResourceService } from "../../../service/import-resource.service";
 import { WorkerReferralService } from "../labor-partners/services/worker-referral.service";
 
@@ -67,7 +67,7 @@ export const workerController = {
         rows,
         typeof body.projectId === "string" ? body.projectId : undefined,
       );
-      const referralErrors: Array<{ workerId: string; partnerCode: string; reason: string }> = [];
+      const referralErrors: WorkerBulkImportReferralError[] = [];
       const actor = (req as any).user || {};
       for (const importedWorker of result.importedWorkers || []) {
         try {
@@ -76,6 +76,7 @@ export const workerController = {
           referralErrors.push({
             workerId: importedWorker.workerId,
             partnerCode: importedWorker.partnerCode,
+            scheme: importedWorker.commissionScheme || (importedWorker.laborType === "seasonal" ? "seasonal_hourly" : "official_monthly"),
             reason: error instanceof Error ? error.message : "Không thể gắn đối tác cho lao động.",
           });
         }

@@ -80,6 +80,19 @@ export const workerProjectsApi = {
     ).data;
   },
 
+  async addWorkers(id: string, workerIds: string[], scope: WorkerScope) {
+    return (
+      await workerApiFetch<{ data: WorkerProject }>(
+        `${WORKER_PROJECTS_BASE}/${id}/workers/bulk`,
+        {
+          method: "POST",
+          body: JSON.stringify({ workerIds }),
+          params: scopeParams(scope),
+        },
+      )
+    ).data;
+  },
+
   async removeWorker(id: string, workerId: string, scope: WorkerScope) {
     return (
       await workerApiFetch<{ data: WorkerProject }>(

@@ -16,6 +16,7 @@
     "migrate:canonical-enrollments": "tsx tools/migrate-canonical-batch-enrollments.ts",
     "migrate:legacy-products-to-catalog": "tsx server/scripts/migrate-legacy-products-to-catalog.ts",
     "migrate:inventory-foundation": "tsx server/scripts/migrate-legacy-products-to-catalog.ts",
+    "backfill:partner-scheme-policies": "tsx server/scripts/backfill-labor-partner-scheme-policies.ts",
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
     "stress:staging": "tsx tools/controlled-staging-stress-test.ts",
     "load:production": "tsx tools/production-stepped-load-test.ts",

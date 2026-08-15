@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Save, Target } from "lucide-react";
+import { ArrowRight, RefreshCw, Save, Target } from "lucide-react";
 import type { WorkerScope } from "../../types";
 import { laborPartnersApi } from "../api/laborPartners.api";
 import type { LaborPartnerKpiRow } from "../types";
@@ -14,7 +14,7 @@ const statusLabel: Record<LaborPartnerKpiRow["status"], string> = {
   incomplete: "Chưa đạt",
 };
 
-export function LaborPartnerKpiPanel({ scope, canManage }: { scope: WorkerScope; canManage: boolean }) {
+export function LaborPartnerKpiPanel({ scope, canManage, onOpenSettlements }: { scope: WorkerScope; canManage: boolean; onOpenSettlements?: () => void }) {
   const [month, setMonth] = useState(currentMonth());
   const [items, setItems] = useState<LaborPartnerKpiRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -61,8 +61,8 @@ export function LaborPartnerKpiPanel({ scope, canManage }: { scope: WorkerScope;
 
   return <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="flex items-center gap-2 font-black text-slate-800"><Target className="h-5 w-5 text-cyan-600" /> KPI giới thiệu</h2><p className="mt-1 text-xs leading-5 text-slate-500">Đặt chỉ tiêu số lao động cần giới thiệu theo từng tháng và theo dõi kết quả thực tế.</p></div>
-      <div className="flex items-center gap-2"><label className="grid gap-1 text-xs font-bold text-slate-600">Tháng theo dõi<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm" /></label><button type="button" onClick={() => void load()} className="mt-5 rounded-lg border border-slate-200 p-2 text-slate-500" aria-label="Làm mới"><RefreshCw className="h-4 w-4" /></button></div>
+      <div><h2 className="flex items-center gap-2 font-black text-slate-800"><Target className="h-5 w-5 text-cyan-600" /> KPI giới thiệu</h2><p className="mt-1 text-xs leading-5 text-slate-500">Đặt chỉ tiêu số lao động cần giới thiệu theo từng tháng và theo dõi kết quả thực tế.</p><p className="mt-1 text-xs font-medium text-amber-700">Lưu ở đây chỉ là chỉ tiêu KPI, không phải giờ làm hoặc số tháng tính hoa hồng.</p></div>
+      <div className="flex items-end gap-2"><label className="grid gap-1 text-xs font-bold text-slate-600">Tháng theo dõi<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm" /></label><button type="button" onClick={() => void load()} className="rounded-lg border border-slate-200 p-2 text-slate-500" aria-label="Làm mới"><RefreshCw className="h-4 w-4" /></button>{onOpenSettlements && <button type="button" onClick={onOpenSettlements} className="inline-flex h-9 items-center gap-1 rounded-lg border border-violet-200 px-3 text-xs font-bold text-violet-700 hover:bg-violet-50">Nhập giờ/tháng <ArrowRight className="h-3.5 w-3.5" /></button>}</div>
     </div>
     <div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Tổng chỉ tiêu</p><p className="mt-1 text-lg font-black text-slate-800">{summary.target} người</p></div><div className="rounded-xl bg-cyan-50 p-3"><p className="text-xs text-cyan-700">Đã giới thiệu</p><p className="mt-1 text-lg font-black text-cyan-800">{summary.actual} người</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs text-emerald-700">Đối tác đạt KPI</p><p className="mt-1 text-lg font-black text-emerald-800">{summary.achieved}</p></div></div>
     {message && <p role="status" className="mt-3 text-sm font-medium text-cyan-700">{message}</p>}

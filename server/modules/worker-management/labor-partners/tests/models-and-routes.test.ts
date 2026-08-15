@@ -12,9 +12,11 @@ describe("labor partner persistence and routes", () => {
   it("stores no commission price default on partners", () => {
     expect(LaborPartnerModel.schema.path("commissionValue")).toBeUndefined();
     expect(LaborPartnerModel.schema.path("defaultPolicyId")).toBeTruthy();
+    expect(LaborPartnerModel.schema.path("defaultOfficialPolicyId")).toBeTruthy();
+    expect(LaborPartnerModel.schema.path("defaultSeasonalPolicyId")).toBeTruthy();
   });
   it("accepts a partner without a default policy", () => {
-    const result = createLaborPartnerSchema.validate({ code: "P-001", name: "Đối tác mẫu", phone: "0900000000", defaultPolicyId: "" });
+    const result = createLaborPartnerSchema.validate({ code: "P-001", name: "Đối tác mẫu", phone: "0900000000", defaultPolicyId: "", defaultOfficialPolicyId: "", defaultSeasonalPolicyId: "" });
     expect(result.error).toBeUndefined();
   });
   it("keeps configurable policy values in a versioned policy model", () => {

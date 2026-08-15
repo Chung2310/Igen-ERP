@@ -14,6 +14,8 @@ export interface ILaborPartner extends Document {
   bankAccountNo?: string;
   bankAccountName?: string;
   defaultPolicyId?: Types.ObjectId | null;
+  defaultOfficialPolicyId?: Types.ObjectId | null;
+  defaultSeasonalPolicyId?: Types.ObjectId | null;
   status: "active" | "inactive";
   note?: string;
   deletedAt?: Date | null;

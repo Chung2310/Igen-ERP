@@ -118,6 +118,7 @@ export default function WorkersPage({
     updateWorker,
     deleteWorker,
     deleteWorkers,
+    reload,
   } = useWorkers(scope);
   const [laborPartners, setLaborPartners] = React.useState<LaborPartner[]>([]);
   const [laborPartnerPolicies, setLaborPartnerPolicies] = React.useState<CommissionPolicy[]>([]);
@@ -151,9 +152,8 @@ export default function WorkersPage({
     const commissionScheme = input.laborType === "seasonal" ? "seasonal_hourly" : "official_monthly";
     const activePolicies = laborPartnerPolicies.filter((policy) => policy.status === "active");
     const compatiblePolicies = activePolicies.filter((policy) => commissionScheme === "seasonal_hourly" ? policy.seasonal.enabled : policy.official.enabled);
-    const policyId = (partner.defaultPolicyId && compatiblePolicies.some((policy) => policy._id === partner.defaultPolicyId)
-      ? partner.defaultPolicyId
-      : compatiblePolicies[0]?._id) || "";
+    const configuredPolicyId = (commissionScheme === "seasonal_hourly" ? partner.defaultSeasonalPolicyId : partner.defaultOfficialPolicyId) || partner.defaultPolicyId;
+    const policyId = (configuredPolicyId && compatiblePolicies.some((policy) => policy._id === configuredPolicyId) ? configuredPolicyId : "") || "";
     if (!policyId) throw new Error("Đối tác chưa có chính sách hoa hồng đang hoạt động phù hợp với loại lao động này. Hãy cấu hình chính sách trước.");
 
     const worker = await createWorker(input);
@@ -168,13 +168,40 @@ export default function WorkersPage({
         effectiveFrom: effectiveDate,
         confirmationSource: "manual",
       });
+      await reload();
+      return { ...worker, partnerCode: partner.code, partnerName: partner.name };
     } catch (reason) {
       toast.warning(reason instanceof Error
         ? `Đã lưu hồ sơ nhưng chưa gắn được đối tác: ${reason.message}`
         : "Đã lưu hồ sơ nhưng chưa gắn được đối tác. Vui lòng kiểm tra lại trong phân hệ Đối tác lao động.");
     }
     return worker;
-  }, [createWorker, laborPartnerPolicies, laborPartners, scope]);
+  }, [createWorker, laborPartnerPolicies, laborPartners, reload, scope]);
+  const updateWorkerWithPartner = React.useCallback(async (workerId: string, input: WorkerInput, partnerId?: string) => {
+    const worker = await updateWorker(workerId, input);
+    if (!scope) return worker;
+    const referrals = await laborPartnersApi.listReferralsForWorker(scope, workerId);
+    const current = referrals.find((item) => item.status === "pending" || item.status === "active");
+    const currentPartnerId = current ? (typeof current.partnerId === "string" ? current.partnerId : current.partnerId._id) : "";
+    if (currentPartnerId === (partnerId || "")) return worker;
+    if (current) {
+      const today = new Date().toISOString().slice(0, 10);
+      const endDate = today < current.effectiveFrom ? current.effectiveFrom : today;
+      await laborPartnersApi.endReferral(scope, currentPartnerId, current._id, endDate);
+    }
+    if (!partnerId) { await reload(); return worker; }
+    const partner = laborPartners.find((item) => item._id === partnerId && item.status === "active");
+    if (!partner) throw new Error("Đối tác giới thiệu không còn hoạt động hoặc không tồn tại.");
+    const commissionScheme = input.laborType === "seasonal" ? "seasonal_hourly" : "official_monthly";
+    const compatiblePolicies = laborPartnerPolicies.filter((policy) => policy.status === "active" && (commissionScheme === "seasonal_hourly" ? policy.seasonal.enabled : policy.official.enabled));
+    const configuredPolicyId = (commissionScheme === "seasonal_hourly" ? partner.defaultSeasonalPolicyId : partner.defaultOfficialPolicyId) || partner.defaultPolicyId;
+    const policyId = (configuredPolicyId && compatiblePolicies.some((policy) => policy._id === configuredPolicyId) ? configuredPolicyId : "") || "";
+    if (!policyId) throw new Error("Đối tác chưa có chính sách hoa hồng phù hợp với loại lao động này.");
+    const effectiveDate = toIsoDate(input.registrationDate);
+    await laborPartnersApi.createReferral(scope, partner._id, { workerId, policyId, commissionScheme, referredAt: effectiveDate, employmentStartDate: effectiveDate, effectiveFrom: effectiveDate, confirmationSource: "manual" });
+    await reload();
+    return { ...worker, partnerCode: partner.code, partnerName: partner.name };
+  }, [laborPartnerPolicies, laborPartners, reload, scope, updateWorker]);
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<WorkerStatus | "all">("all");
   const [project, setProject] = React.useState("all");
@@ -190,6 +217,7 @@ export default function WorkersPage({
   const [selectedWorker, setSelectedWorker] = React.useState<Worker | null>(
     null,
   );
+  const [openWorkerInEdit, setOpenWorkerInEdit] = React.useState(false);
   const [selectedWorkerIds, setSelectedWorkerIds] = React.useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false);
   const [bulkDeleting, setBulkDeleting] = React.useState(false);
@@ -580,7 +608,8 @@ export default function WorkersPage({
                       : [...current, id])}
                     deleting={deleting}
                     confirmDelete={confirmDelete}
-                    onOpen={setSelectedWorker}
+                    onOpen={(worker) => { setOpenWorkerInEdit(false); setSelectedWorker(worker); }}
+                    onEdit={(worker) => { setOpenWorkerInEdit(true); setSelectedWorker(worker); }}
                     onToggleDelete={(id) =>
                       setConfirmDelete(confirmDelete === id ? null : id)
                     }
@@ -627,12 +656,14 @@ export default function WorkersPage({
       <WorkerDetailModal
         worker={selectedWorker}
         workers={workers}
+        partners={laborPartners}
+        initialEditing={openWorkerInEdit}
         profileFields={profileFields}
         scope={scope}
         canManage={canManage}
-        onClose={() => setSelectedWorker(null)}
-        onSubmit={updateWorker}
-        onSuccess={setSelectedWorker}
+        onClose={() => { setSelectedWorker(null); setOpenWorkerInEdit(false); }}
+        onSubmit={updateWorkerWithPartner}
+        onSuccess={(worker) => { setOpenWorkerInEdit(false); setSelectedWorker(worker); }}
       />
       {qrOpen && registrationOwnerId && (
         <RegistrationQrModal
@@ -794,6 +825,7 @@ function WorkerRow({
   deleting,
   confirmDelete,
   onOpen,
+  onEdit,
   onToggleDelete,
   onCancelDelete,
   onDelete,
@@ -805,6 +837,7 @@ function WorkerRow({
   deleting: string | null;
   confirmDelete: string | null;
   onOpen: (worker: Worker) => void;
+  onEdit: (worker: Worker) => void;
   onToggleDelete: (id: string) => void;
   onCancelDelete: () => void;
   onDelete: (worker: Worker) => Promise<void>;
@@ -853,7 +886,7 @@ function WorkerRow({
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"
-            onClick={() => onOpen(worker)}
+            onClick={() => onEdit(worker)}
             title="Sửa thông tin"
             className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
           >

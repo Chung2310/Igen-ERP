@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronDown } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { useAuth } from "../../../context/AuthContext";
 import { EntityAddModal } from "../../shared/components/EntityAddModal";
@@ -464,7 +465,7 @@ export function AddWorkerModal({
   );
 }
 
-function PartnerSearchSelect({
+export function PartnerSearchSelect({
   partners,
   value,
   onChange,
@@ -538,7 +539,10 @@ function PartnerSearchSelect({
         }}
         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-10 text-sm transition-all placeholder:text-slate-300 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
       />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">⌄</span>
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+      />
       {open && (
         <div
           id="referral-partner-options"
