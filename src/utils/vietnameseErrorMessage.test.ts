@@ -38,6 +38,21 @@ describe("toVietnameseErrorMessage", () => {
       .toBe("Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.");
   });
 
+  it.each([
+    ["Unable to print payslip", "Không thể in phiếu lương. Vui lòng thử lại."],
+    ["Payroll export failed", "Không thể xuất bảng lương. Vui lòng thử lại."],
+    ["A written reason is required", "Vui lòng nhập lý do trước khi tiếp tục."],
+    ["Deletion request code not found", "Không tìm thấy yêu cầu xóa dữ liệu. Vui lòng kiểm tra lại mã."],
+    ["HTTP 404", "Không tìm thấy dữ liệu yêu cầu."],
+  ])("dịch lỗi tiếng Anh phổ biến: %s", (input, expected) => {
+    expect(toVietnameseErrorMessage(input)).toBe(expected);
+  });
+
+  it("trích message từ lỗi JSON mà không hiển thị thông tin kỹ thuật", () => {
+    expect(toVietnameseErrorMessage(JSON.stringify({ error: "Unsupported source URL: https://example.com" })))
+      .toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
+  });
+
   it("giữ nguyên phần giải thích tiếng Việt sau dấu hai chấm", () => {
     expect(toVietnameseErrorMessage("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án."))
       .toBe("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án.");

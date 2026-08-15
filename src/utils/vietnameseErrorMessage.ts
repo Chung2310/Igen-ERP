@@ -40,11 +40,31 @@ const RULES = [
 
 const ACTION_RULES: readonly { pattern: RegExp; message: string }[] = [
   {
+    pattern: /unable to print payslip/i,
+    message: "Không thể in phiếu lương. Vui lòng thử lại.",
+  },
+  {
+    pattern: /payroll export failed/i,
+    message: "Không thể xuất bảng lương. Vui lòng thử lại.",
+  },
+  {
+    pattern: /a written reason is required/i,
+    message: "Vui lòng nhập lý do trước khi tiếp tục.",
+  },
+  {
+    pattern: /deletion request code not found/i,
+    message: "Không tìm thấy yêu cầu xóa dữ liệu. Vui lòng kiểm tra lại mã.",
+  },
+  {
+    pattern: /\b(?:http\s*)?404\b|not found/i,
+    message: "Không tìm thấy dữ liệu yêu cầu.",
+  },
+  {
     pattern: /duplicate employee code/i,
     message: "Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.",
   },
   {
-    pattern: /upload failed|unsupported source url|cloudinary|request failed with status code/i,
+    pattern: /upload failed\s*:|unsupported source url|cloudinary|request failed with status code/i,
     message: "Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.",
   },
   {
@@ -58,11 +78,18 @@ const ACTION_RULES: readonly { pattern: RegExp; message: string }[] = [
 ];
 
 export function toVietnameseErrorMessage(message: unknown): string {
-  const text = typeof message === "string" ? message.trim() : "";
+  let text = typeof message === "string" ? message.trim() : "";
   if (!text) return FALLBACK;
+  try {
+    const parsed = JSON.parse(text) as { error?: unknown; message?: unknown };
+    const nested = typeof parsed?.error === "string" ? parsed.error : parsed?.message;
+    if (typeof nested === "string" && nested.trim()) text = nested.trim();
+  } catch {
+    // The message is plain text, which is the normal case.
+  }
   const rule = RULES.find(({ pattern }) => pattern.test(text));
   const actionRule = ACTION_RULES.find(({ pattern }) => pattern.test(text));
-  if (actionRule && text.includes(":")) return actionRule.message;
+  if (actionRule) return actionRule.message;
   if (VIETNAMESE.test(text)) {
     return text;
   }
