@@ -86,10 +86,9 @@ describe("TenantModuleDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Loại hình doanh nghiệp"), { target: { value: "labor" } });
 
-    expect(screen.getByRole("checkbox", { name: "Quản lý học viên" })).toBeTruthy();
-    const worker = screen.getByRole("checkbox", { name: "Quản lý lao động" }) as HTMLInputElement;
-    expect(worker.checked).toBe(true);
-    expect(worker.disabled).toBe(true);
+    const people = screen.getByRole("checkbox", { name: "Quản lý học viên / lao động" }) as HTMLInputElement;
+    expect(people.checked).toBe(true);
+    expect(people.disabled).toBe(false);
   });
 
   it("suspends the tenant with a written reason and no step-up fields", async () => {
