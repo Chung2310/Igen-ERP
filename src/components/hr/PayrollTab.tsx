@@ -629,13 +629,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           {run ? (
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
-                <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="hidden">
                   <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
                   <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l-2 p-2 text-center font-bold ${inlineEditable ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
                   <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
                 </tr>
                 <tr className="border-b text-xs text-slate-500">
+                  <th className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
                   {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-semibold text-slate-500">{variable.name}</th>)}
                   <th className="border-l border-slate-200 p-3 text-right font-semibold text-slate-500">Hoa hồng</th>
