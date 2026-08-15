@@ -219,6 +219,12 @@ export function createPayrollEffectiveLineLoader(
       snapshot.sourceRevisionChecksum !== source.sourceRevisionChecksum
       || (snapshot.sourceRevisionId ?? undefined) !== source.sourceRevisionId
     ) {
+      console.error("[CHECKSUM DEBUG 1]", {
+        snapshotSourceRevisionChecksum: snapshot.sourceRevisionChecksum,
+        sourceRevisionChecksum: source.sourceRevisionChecksum,
+        snapshotSourceRevisionId: snapshot.sourceRevisionId,
+        sourceRevisionId: source.sourceRevisionId,
+      });
       fail(
         "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
         "Pinned payroll source no longer matches the active revision",
@@ -230,6 +236,10 @@ export function createPayrollEffectiveLineLoader(
       effectiveLines,
     );
     if (recomputed !== snapshot.checksum) {
+      console.error("[CHECKSUM DEBUG 2]", {
+        recomputedChecksum: recomputed,
+        snapshotChecksum: snapshot.checksum,
+      });
       fail(
         "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
         "Pinned effective payroll snapshot checksum is invalid",

@@ -527,16 +527,23 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </button>
           )}
           {canMarkPayrollPaid(canManage, run?.status) && (
-            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700 font-semibold">
               <CheckCircle2 size={15} /> Đánh dấu đã thanh toán
             </button>
           )}
         </div>
-        {(run?.status === "review" || run?.status === "closed") && (
-          <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100">
-            <RefreshCw size={15} /> Mở lại kỳ
-          </button>
-        )}
+        <div className="flex gap-2">
+          {run && (
+            <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100 font-semibold">
+              <Trash2 size={15} /> Xóa kỳ lương
+            </button>
+          )}
+          {(run?.status === "review" || run?.status === "closed") && (
+            <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100 font-semibold">
+              <RefreshCw size={15} /> Mở lại kỳ
+            </button>
+          )}
+        </div>
       </div>
     )}
 
