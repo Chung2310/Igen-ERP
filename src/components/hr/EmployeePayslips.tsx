@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Printer, Eye, X } from "lucide-react";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 type Payslip = { runId: string; periodKey?: string; employeeId: string; employeeName?: string; netPay: number; paidAmount: number; balance: number };
 const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
@@ -16,7 +17,7 @@ export default function EmployeePayslips() {
   useEffect(() => {
     void payrollService.getEmployeePayslips()
       .then(setItems)
-      .catch((e) => setError(e instanceof Error ? e.message : "Không thể tải payslip"))
+      .catch((e) => setError(getApiErrorMessage(e, "Không thể tải phiếu lương.")))
       .finally(() => setLoading(false));
   }, []);
 

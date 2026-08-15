@@ -3,6 +3,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { buildPaymentSummary, type RetailPaymentMode } from "../../hooks/retailPayment";
 import type { RetailPaymentInput } from "../../types";
 import CurrencyInput from "./CurrencyInput";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 type Props = { total: number; busy: boolean; customerId?: string; onClose: () => void; onSubmit: (payments: RetailPaymentInput[], dueDate?: string) => Promise<void> };
@@ -19,7 +20,7 @@ export default function ClearPaymentDialog({ total, busy, customerId, onClose, o
   const summary = React.useMemo(() => { try { return buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); } catch { return { collected, due: mode === "debt" ? total : Math.max(0, total - collected), change: 0 }; } }, [total, payments, mode, customerId, dueDate]);
   const selectMode = (next: RetailPaymentMode) => { setMode(next); setError(""); if (next === "full") setPayments(fullCash()); else if (next !== "debt" && payments.length === 0) setPayments(fullCash()); };
   const update = (index: number, patch: Partial<RetailPaymentInput>) => setPayments((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } : row));
-  const submit = async () => { try { buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); setError(""); await onSubmit(submitted, mode === "full" ? undefined : dueDate || undefined); } catch (cause) { setError(cause instanceof Error ? cause.message : "Thanh toán không hợp lệ."); } };
+  const submit = async () => { try { buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); setError(""); await onSubmit(submitted, mode === "full" ? undefined : dueDate || undefined); } catch (cause) { setError(getApiErrorMessage(cause, "Thanh toán không hợp lệ.")); } };
   return <div className="fixed inset-0 z-50 flex items-end justify-center overflow-x-hidden bg-slate-950/50 sm:items-center sm:p-4"><div role="dialog" aria-label="Thanh toán" className="max-h-[95vh] w-full min-w-0 max-w-2xl overflow-x-hidden overflow-y-auto rounded-t-3xl bg-white p-4 sm:rounded-3xl sm:p-5">
     <div className="flex min-w-0 justify-between gap-3"><div className="min-w-0"><h2 className="text-xl font-bold">Thanh toán</h2><p className="break-words text-sm text-slate-500">Cần thu {money(total)}</p></div><button aria-label="Đóng" className="shrink-0" onClick={onClose}><X /></button></div>
     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">{modes.map((item) => <button key={item.value} type="button" aria-pressed={mode === item.value} className={`min-w-0 whitespace-normal rounded-xl border px-3 py-3 text-sm font-bold ${mode === item.value ? "border-cyan-600 bg-cyan-50 text-cyan-800" : "text-slate-600"}`} onClick={() => selectMode(item.value)}>{item.label}</button>)}</div>

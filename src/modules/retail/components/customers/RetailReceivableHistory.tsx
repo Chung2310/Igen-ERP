@@ -2,6 +2,7 @@ import React from "react";
 import { retailReceivablesApi } from "../../api/retailReceivables.api";
 import type { RetailReceivableEntry, RetailScope } from "../../types";
 import RetailCustomerTierPanel from "./RetailCustomerTierPanel";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 const money = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
 const labels: Record<RetailReceivableEntry["type"], string> = { charge: "Phát sinh nợ", payment: "Thu nợ", adjustment: "Điều chỉnh", reversal: "Đảo bút toán" };
@@ -21,14 +22,14 @@ export default function RetailReceivableHistory({ scope, customerId, canManage }
     try {
       const result = await retailReceivablesApi.history(scope, customerId, { type: type || undefined });
       setItems(result.items); setBalance(result.currentBalance); setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được lịch sử công nợ."); }
+    } catch (cause) { setError(getApiErrorMessage(cause, "Không tải được lịch sử công nợ.")); }
   }, [scope.companyCode, scope.branchId, customerId, type]);
   React.useEffect(() => { void load(); }, [load]);
   const submit = async () => {
     try {
       await retailReceivablesApi.adjust(scope, { customerId, amount: Number(amount), reason, direction, idempotencyKey });
       setAdjusting(false); setAmount(""); setReason(""); await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không điều chỉnh được công nợ."); }
+    } catch (cause) { setError(getApiErrorMessage(cause, "Không điều chỉnh được công nợ.")); }
   };
   const openAdjustment = () => { setIdempotencyKey(adjustmentKey()); setAdjusting(true); };
 

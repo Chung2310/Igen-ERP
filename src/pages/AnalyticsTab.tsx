@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { AlertTriangle, BarChart3, Download, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import {
   analyticsService,
@@ -101,7 +102,7 @@ export default function AnalyticsTab() {
         currency: "VND",
       });
     } catch (err) {
-      setError((err as Error).message);
+      setError(getApiErrorMessage(err, "Không thể tải dữ liệu phân tích."));
     } finally {
       setLoading(false);
     }
@@ -119,7 +120,7 @@ export default function AnalyticsTab() {
     try {
       await analyticsService.downloadExport({ ...dateParams, ...scopeParams, granularity: preset.granularity, report: exportReport, format });
     } catch (err) {
-      setError((err as Error).message);
+      setError(getApiErrorMessage(err, "Không thể ghi nhận chi phí vận hành."));
     } finally {
       setExporting(null);
     }
@@ -134,7 +135,7 @@ export default function AnalyticsTab() {
       setExpenseDraft((current) => ({ ...current, description: "", amount: "" }));
       await load();
     } catch (err) {
-      setError((err as Error).message);
+      setError(getApiErrorMessage(err, "Không thể tải dữ liệu doanh thu."));
     } finally {
       setSavingExpense(false);
     }

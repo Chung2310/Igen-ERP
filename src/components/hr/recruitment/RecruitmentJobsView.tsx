@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Archive, Pencil, Plus } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type {
   RecruitmentJob,
   RecruitmentJobStatus,
@@ -50,7 +51,7 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
     try {
       setJobs(await recruitmentApi.listJobs({ search, status }));
     } catch (e: any) {
-      setError(e.message);
+      setError(getApiErrorMessage(e, "Không thể tải danh sách vị trí tuyển dụng."));
     } finally {
       setLoading(false);
     }
@@ -265,7 +266,7 @@ function JobDialog({
       setSaved(true);
       await onSaved();
     } catch (err: any) {
-      setError(err.message);
+      setError(getApiErrorMessage(err, "Không thể cập nhật vị trí tuyển dụng."));
     } finally {
       setSaving(false);
     }
@@ -277,7 +278,7 @@ function JobDialog({
     if (message) return;
     setFile(next); setUploading(true);
     try { const uploaded = await recruitmentApi.uploadPublicFile(next); setForm((old: any) => ({ ...old, jdFileUrl: uploaded.url, jdFilePublicId: uploaded.publicId })); setTemporaryPublicId(uploaded.publicId); }
-    catch (e: any) { setError(e.message); }
+    catch (e: any) { setError(getApiErrorMessage(e, "Không thể lưu vị trí tuyển dụng.")); }
     finally { setUploading(false); }
   };
   const close = () => { if (!saved && temporaryPublicId) void recruitmentApi.deleteTemporaryPublicFile(temporaryPublicId).catch(() => undefined); onClose(); };

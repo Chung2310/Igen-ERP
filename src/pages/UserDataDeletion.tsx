@@ -10,6 +10,7 @@ import {
   Unplug,
 } from "lucide-react";
 import { SEOHead } from "../seo/SEOHead";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import {
   BRAND_NAME,
   SERVICE_WEBSITE_URL,
@@ -71,7 +72,7 @@ export default function UserDataDeletion() {
 
       setStatusResult(result.data);
     } catch (err: any) {
-      setError(err.message || "Unable to check deletion request status.");
+      setError(getApiErrorMessage(err, "Không thể kiểm tra trạng thái yêu cầu xóa dữ liệu."));
     } finally {
       setLoading(false);
     }

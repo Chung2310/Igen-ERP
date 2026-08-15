@@ -2,6 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { retailCustomersApi } from "../../api/retailCustomers.api";
 import type { RetailCustomer, RetailScope } from "../../types";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 type CustomerForm = Pick<RetailCustomer, "name" | "phone" | "email" | "address" | "notes">;
 
@@ -45,7 +46,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     try {
       onCreated(await retailCustomersApi.create(input, scope));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không tạo được khách hàng.");
+      setError(getApiErrorMessage(cause, "Không tạo được khách hàng."));
     } finally {
       setSaving(false);
     }

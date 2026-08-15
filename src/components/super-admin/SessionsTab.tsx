@@ -2,6 +2,7 @@ import React from "react";
 import { Activity, Trash2, Monitor, Calendar, RefreshCw } from "lucide-react";
 import { superAdminAuthService, type SuperAdminSession } from "../../services/superAdminAuthService";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 export function SessionsTab() {
   const [sessions, setSessions] = React.useState<SuperAdminSession[]>([]);
@@ -31,7 +32,7 @@ export function SessionsTab() {
       const data = await superAdminAuthService.listSessions();
       setSessions(data.sessions || []);
     } catch (e: any) {
-      setError(e.message || "Lỗi khi tải danh sách phiên.");
+      setError(getApiErrorMessage(e, "Lỗi khi tải danh sách phiên."));
     } finally {
       setLoading(false);
     }
@@ -46,7 +47,7 @@ export function SessionsTab() {
       setPendingSessionId(null);
       await fetchSessions();
     } catch (e: any) {
-      setError(e.message || "Lỗi khi thu hồi phiên.");
+      setError(getApiErrorMessage(e, "Lỗi khi thu hồi phiên."));
     } finally {
       setRevoking(false);
     }

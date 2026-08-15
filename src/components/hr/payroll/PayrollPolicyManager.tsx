@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Power, PowerOff, Trash2 } from "lucide-react";
 import { toast } from "../../../pages/Toast";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { payrollService } from "../../../services/payrollService";
 import { PayrollPolicyConfirmDialog } from "./PayrollPolicyConfirmDialog";
 import { PayrollPolicyFormModal } from "./PayrollPolicyFormModal";
@@ -51,7 +52,7 @@ export function PayrollPolicyManager({ canManage, onPoliciesChanged, runStatus, 
         try { await onRecalculate(); toast.success("Đã lưu công thức và cập nhật bảng lương"); }
         catch { toast.error("Đã lưu công thức nhưng chưa thể cập nhật bảng lương. Hãy bấm Cập nhật bảng lương để thử lại."); }
       } else toast.success("Đã lưu cấu hình công thức");
-    } catch (error) { setConfirmationError(error instanceof Error ? error.message : "Không thể lưu công thức lương"); }
+    } catch (error) { setConfirmationError(getApiErrorMessage(error, "Không thể lưu công thức lương")); }
     finally { setSaving(false); }
   };
 
@@ -77,7 +78,7 @@ export function PayrollPolicyManager({ canManage, onPoliciesChanged, runStatus, 
       else await payrollService.deletePolicy(confirmation.policy._id);
       toast.success(confirmation.action === "replace" ? "Đã thay thế công thức đang áp dụng" : confirmation.action === "retire" ? "Đã ngưng áp dụng công thức" : "Đã xóa công thức");
       setConfirmation(null); await load(); await onPoliciesChanged?.();
-    } catch (error) { setConfirmationError(error instanceof Error ? error.message : "Không thể cập nhật công thức lương"); }
+    } catch (error) { setConfirmationError(getApiErrorMessage(error, "Không thể cập nhật công thức lương")); }
     finally { setConfirming(false); }
   };
 
