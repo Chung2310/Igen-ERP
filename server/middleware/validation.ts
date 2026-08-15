@@ -12,6 +12,28 @@ interface ValidationSchema {
  */
 function translateJoiError(message: string, label: string, type: string): string {
   const cleanLabel = label.replace(/['"]/g, "");
+  let msg = message.replace(/['"]/g, '"');
+  
+  // Replace the label part
+  msg = msg.replace(new RegExp(`^"${cleanLabel}" `, 'i'), `Trường "${cleanLabel}" `);
+
+  // Common patterns translation
+  msg = msg
+    .replace(/\bis required\b/gi, "là bắt buộc")
+    .replace(/\bmust be a valid email\b/gi, "phải là email hợp lệ")
+    .replace(/\bmust be a valid uri\b/gi, "phải là đường dẫn (URI) hợp lệ")
+    .replace(/\bmust be a number\b/gi, "phải là kiểu số")
+    .replace(/\bmust be an integer\b/gi, "phải là số nguyên")
+    .replace(/\bmust be a string\b/gi, "phải là kiểu chữ")
+    .replace(/\bmust be a boolean\b/gi, "phải là kiểu đúng/sai (boolean)")
+    .replace(/\bmust be one of\b/gi, "phải thuộc một trong các giá trị")
+    .replace(/\blength must be at least (\d+) characters long\b/gi, "phải có ít nhất $1 ký tự")
+    .replace(/\blength must be less than or equal to (\d+) characters long\b/gi, "không được vượt quá $1 ký tự")
+    .replace(/\bmust be greater than or equal to (\d+)\b/gi, "phải lớn hơn hoặc bằng $1")
+    .replace(/\bmust be less than or equal to (\d+)\b/gi, "phải nhỏ hơn hoặc bằng $1")
+    .replace(/\bcontains an invalid value\b/gi, "chứa giá trị không hợp lệ")
+    .replace(/\bis not allowed to be empty\b/gi, "không được để trống");
+
   switch (type) {
     case "any.required":
       return `Trường "${cleanLabel}" là bắt buộc và không thể thiếu.`;
@@ -28,7 +50,7 @@ function translateJoiError(message: string, label: string, type: string): string
     case "object.base":
       return `Trường "${cleanLabel}" phải là một đối tượng (object).`;
     default:
-      return message.replace(/['"]/g, '"');
+      return msg;
   }
 }
 
