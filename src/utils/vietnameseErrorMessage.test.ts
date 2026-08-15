@@ -22,13 +22,35 @@ describe("toVietnameseErrorMessage", () => {
       .toBe("Đã xảy ra lỗi. Vui lòng thử lại.");
   });
 
-  it("loại bỏ chi tiết kỹ thuật tiếng Anh khỏi thông báo tiếng Việt", () => {
+  it("ẩn chi tiết kỹ thuật và hiển thị hướng xử lý bằng tiếng Việt", () => {
     expect(toVietnameseErrorMessage(
       "Tải lên Cloudinary thất bại: Unsupported source URL: data:audio/webm;base64,AAAA",
-    )).toBe("Tải lên Cloudinary thất bại.");
+    )).toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
     expect(toVietnameseErrorMessage(
       'Lỗi tải "voice.webm": Request failed with status code 400',
-    )).toBe('Lỗi tải "voice.webm".');
+    )).toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
+  });
+
+  it("dịch lỗi tiếng Anh thành hướng dẫn ngắn gọn cho người dùng", () => {
+    expect(toVietnameseErrorMessage("Upload failed: Unsupported source URL: https://example.com/file.pdf"))
+      .toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
+    expect(toVietnameseErrorMessage("Request failed with status code 409: Duplicate employee code"))
+      .toBe("Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.");
+  });
+
+  it.each([
+    ["Unable to print payslip", "Không thể in phiếu lương. Vui lòng thử lại."],
+    ["Payroll export failed", "Không thể xuất bảng lương. Vui lòng thử lại."],
+    ["A written reason is required", "Vui lòng nhập lý do trước khi tiếp tục."],
+    ["Deletion request code not found", "Không tìm thấy yêu cầu xóa dữ liệu. Vui lòng kiểm tra lại mã."],
+    ["HTTP 404", "Không tìm thấy dữ liệu yêu cầu."],
+  ])("dịch lỗi tiếng Anh phổ biến: %s", (input, expected) => {
+    expect(toVietnameseErrorMessage(input)).toBe(expected);
+  });
+
+  it("trích message từ lỗi JSON mà không hiển thị thông tin kỹ thuật", () => {
+    expect(toVietnameseErrorMessage(JSON.stringify({ error: "Unsupported source URL: https://example.com" })))
+      .toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
   });
 
   it("giữ nguyên phần giải thích tiếng Việt sau dấu hai chấm", () => {

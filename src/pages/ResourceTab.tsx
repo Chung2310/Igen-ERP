@@ -233,7 +233,7 @@ export default function ResourceTab() {
         if (userRole === "superadmin") {
           data = await authService.getAllUsers();
         } else {
-          // Dùng endpoint /users/colleagues không cần quyền user:read
+          // Dùng endpoint /users/colleagues không cần quyền access:read
           data = await authService.getColleagues();
         }
         setAllStaff(data);

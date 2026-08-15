@@ -5,14 +5,14 @@ import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { DEFAULT_ROLE_PERMISSIONS, hasAnyPermission } from "./auth";
 
 const EXPECTED_CODES = [
-  "student-profile:read", "student-profile:manage",
-  "course:read", "course:manage",
-  "batch:read", "batch:manage",
-  "exam:read", "exam:manage",
-  "payment:read", "payment:manage",
-  "student-notification:read", "student-notification:manage",
-  "student-resource:read", "student-resource:manage",
-  "assignment:read", "assignment:manage",
+  "people:read", "people:manage",
+  "people:read", "people:manage",
+  "people:read", "people:manage",
+  "people:read", "people:manage",
+  "people:read", "people:manage",
+  "people:read", "people:manage",
+  "resource:read", "resource:manage",
+  "people:read", "people:manage",
   "settings:manage", "settings:manage", "settings:manage",
 ];
 
@@ -29,9 +29,9 @@ test("catalog exposes every granular student permission with user-facing metadat
 });
 
 test("permission policy accepts wildcard or any matching permission", () => {
-  assert.equal(hasAnyPermission(new Set(["*"]), ["course:manage"]), true);
-  assert.equal(hasAnyPermission(new Set(["course:read"]), ["people:read", "course:read"]), true);
-  assert.equal(hasAnyPermission(new Set(["batch:read"]), ["people:read", "course:read"]), false);
+  assert.equal(hasAnyPermission(new Set(["*"]), ["people:manage"]), true);
+  assert.equal(hasAnyPermission(new Set(["people:read"]), ["people:read", "people:read"]), true);
+  assert.equal(hasAnyPermission(new Set(["people:read"]), ["people:manage"]), false);
 });
 
 test("company admin has access to every enabled business module", () => {

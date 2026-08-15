@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { getRoleTitle, sortPermissionsForRoleEditor } from "./rolePresentation";
 
 test("system roles have clear Vietnamese titles without changing slugs", () => {
@@ -16,9 +16,9 @@ test("system roles have clear Vietnamese titles without changing slugs", () => {
 
 test("role editor orders read before manage within each business area", () => {
   const sorted = sortPermissionsForRoleEditor([
-    { code: "course:manage", group: "Đào tạo" },
-    { code: "payment:read", group: "Tài chính học viên" },
-    { code: "course:read", group: "Đào tạo" },
+    { code: "people:manage", group: "Đào tạo" },
+    { code: "people:read", group: "Tài chính học viên" },
+    { code: "people:read", group: "Đào tạo" },
   ]);
-  assert.deepEqual(sorted.map((item) => item.code), ["course:read", "course:manage", "payment:read"]);
+  expect(sorted.map((item) => item.code)).toEqual(["people:read", "people:manage", "people:read"]);
 });

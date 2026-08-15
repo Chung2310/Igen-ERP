@@ -1,4 +1,4 @@
-const FALLBACK = "Đã xảy ra lỗi. Vui lòng thử lại.";
+export const DEFAULT_ERROR_MESSAGE = "Đã xảy ra lỗi. Vui lòng thử lại.";
 
 const VIETNAMESE = /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i;
 
@@ -38,19 +38,61 @@ const RULES = [
   },
 ] as const;
 
-export function toVietnameseErrorMessage(message: unknown): string {
-  const text = typeof message === "string" ? message.trim() : "";
-  if (!text) return FALLBACK;
+const ACTION_RULES: readonly { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /unable to print payslip/i,
+    message: "Không thể in phiếu lương. Vui lòng thử lại.",
+  },
+  {
+    pattern: /payroll export failed/i,
+    message: "Không thể xuất bảng lương. Vui lòng thử lại.",
+  },
+  {
+    pattern: /a written reason is required/i,
+    message: "Vui lòng nhập lý do trước khi tiếp tục.",
+  },
+  {
+    pattern: /deletion request code not found/i,
+    message: "Không tìm thấy yêu cầu xóa dữ liệu. Vui lòng kiểm tra lại mã.",
+  },
+  {
+    pattern: /\b(?:http\s*)?404\b|not found/i,
+    message: "Không tìm thấy dữ liệu yêu cầu.",
+  },
+  {
+    pattern: /duplicate employee code/i,
+    message: "Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.",
+  },
+  {
+    pattern: /upload failed\s*:|unsupported source url|cloudinary|request failed with status code/i,
+    message: "Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.",
+  },
+  {
+    pattern: /duplicate (?:key|value)|already exists|already been taken/i,
+    message: "Thông tin này đã tồn tại. Vui lòng kiểm tra và nhập giá trị khác.",
+  },
+  {
+    pattern: /invalid|required|validation failed/i,
+    message: "Thông tin nhập vào chưa đúng hoặc còn thiếu. Vui lòng kiểm tra lại.",
+  },
+];
+
+export function toVietnameseErrorMessage(message: unknown, fallback = DEFAULT_ERROR_MESSAGE): string {
+  let text = typeof message === "string" ? message.trim() : "";
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text) as { error?: unknown; message?: unknown };
+    const nested = typeof parsed?.error === "string" ? parsed.error : parsed?.message;
+    if (typeof nested === "string" && nested.trim()) text = nested.trim();
+  } catch {
+    // The message is plain text, which is the normal case.
+  }
+  const rule = RULES.find(({ pattern }) => pattern.test(text));
+  const actionRule = ACTION_RULES.find(({ pattern }) => pattern.test(text));
+  if (actionRule) return actionRule.message;
   if (VIETNAMESE.test(text)) {
-    const separator = text.indexOf(":");
-    if (separator > 0) {
-      const summary = text.slice(0, separator).trim();
-      const details = text.slice(separator + 1).trim();
-      if (VIETNAMESE.test(summary) && details && !VIETNAMESE.test(details)) {
-        return `${summary.replace(/[.!?]+$/, "")}.`;
-      }
-    }
     return text;
   }
-  return RULES.find(({ pattern }) => pattern.test(text))?.message || FALLBACK;
+  if (rule && !text.includes(":")) return rule.message;
+  return rule?.message || fallback;
 }

@@ -44,7 +44,7 @@ async function withServer(run: (base: string) => Promise<void>) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("worker HTTP routes", () => {
-  it("allows worker:read to list but not mutate", async () => {
+  it("allows people:read to list but not mutate", async () => {
     vi.spyOn(WorkerService, "list").mockResolvedValue([] as any);
     await withServer(async (base) => {
       const list = await fetch(base, { headers: { "x-permissions": "people:read" } });
@@ -55,7 +55,7 @@ describe("worker HTTP routes", () => {
     });
   });
 
-  it("allows worker:manage and preserves create 201", async () => {
+  it("allows people:manage and preserves create 201", async () => {
     vi.spyOn(WorkerService, "create").mockResolvedValue({ _id: "w1", fullName: "A" } as any);
     await withServer(async (base) => {
       const response = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-permissions": "people:manage", "x-company": "acme", "x-branch": " B1 " }, body: JSON.stringify({ fullName: "A" }) });

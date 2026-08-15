@@ -193,7 +193,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const copy = getBatchPageCopy(entityLabel.preset);
   const statusLabel = (status: BatchStatus) => getBatchStatusLabel(entityLabel.preset, status);
   const { userProfile: user } = useAuth();
-  const hasTeacherOperation = Boolean(user?.permissions?.includes('*') || user?.permissions?.includes('teacher:operate'));
+  const hasTeacherOperation = Boolean(user?.permissions?.includes('*') || user?.permissions?.includes('people:manage'));
   const { activeBranchId } = useBranch();
   const {
     fields: stdFields,

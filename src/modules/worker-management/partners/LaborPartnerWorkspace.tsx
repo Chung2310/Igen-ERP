@@ -10,22 +10,11 @@ import { LaborPartnerSettlementsPanel } from "./components/LaborPartnerSettlemen
 import { LaborPartnerManagementPanel } from "./components/LaborPartnerManagementPanel";
 import { LaborPartnerPoliciesPanel } from "./components/LaborPartnerPoliciesPanel";
 import { LaborPartnerKpiPanel } from "./components/LaborPartnerKpiPanel";
+import { hasEffectivePermission } from "../../../utils/permissionUtils";
 
 type WorkspaceTab = "partners" | "policies" | "kpi" | "settlements";
 const today = () => new Date().toISOString().slice(0, 10);
-const LABOR_PERMISSION_FALLBACKS: Record<string, readonly string[]> = {
-  "labor-partner:read": ["relationship:read", "relationship:manage"],
-  "labor-partner:manage": ["relationship:manage"],
-  "labor-partner-policy:manage": ["relationship:manage"],
-  "labor-partner-settlement:calculate": ["relationship:manage"],
-  "labor-partner-settlement:approve": ["relationship:manage"],
-  "labor-partner-payout:manage": ["relationship:manage"],
-};
-const has = (permissions: readonly string[] | undefined, permission: string) => Boolean(
-  permissions?.includes("*") ||
-  permissions?.includes(permission) ||
-  LABOR_PERMISSION_FALLBACKS[permission]?.some((fallback) => permissions?.includes(fallback)),
-);
+const has = hasEffectivePermission;
 
 export function LaborPartnerWorkspace() {
   const { userProfile } = useAuth();
@@ -48,8 +37,8 @@ export function LaborPartnerWorkspace() {
 
   const canManagePartners = has(userProfile?.permissions, "labor-partner:manage");
   const canManagePolicies = has(userProfile?.permissions, "labor-partner-policy:manage");
-  const canCalculate = has(userProfile?.permissions, "labor-partner-settlement:calculate");
-  const canApprove = has(userProfile?.permissions, "labor-partner-settlement:approve");
+  const canCalculate = has(userProfile?.permissions, "labor-partner-settlement:manage");
+  const canApprove = has(userProfile?.permissions, "labor-partner-settlement:manage");
   const canPayout = has(userProfile?.permissions, "labor-partner-payout:manage");
 
   const loadPolicies = useCallback(async () => {

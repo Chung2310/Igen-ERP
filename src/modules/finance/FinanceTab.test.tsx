@@ -7,16 +7,15 @@ describe("Finance workspace routing and permissions", () => {
   it("registers the Finance application route for every receivable permission", () => {
     const route = APP_ROUTES.find((item) => item.tab === "TÀI CHÍNH");
     expect(route).toBeDefined();
-    for (const permission of ["finance:read", "finance:manage", "finance:manage"]) {
+    for (const permission of ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"]) {
       expect(route?.canAccess?.({ role: "user", permissions: [permission] } as any)).toBe(true);
     }
     expect(route?.canAccess?.({ role: "user", permissions: [] } as any)).toBe(false);
   });
 
-  it("shows receivables to readers and reminder operations only to adjusters", () => {
-    expect(getAllowedFinanceTabSlugs(["finance:read"])).toEqual(["cong-no", "tuoi-no", "nhac-no"]);
-    expect(getAllowedFinanceTabSlugs(["finance:manage"])).toEqual(["cong-no"]);
-    expect(getAllowedFinanceTabSlugs(["finance:manage"])).toEqual(["cong-no", "nhac-no"]);
+  it("shows every receivable view to read or manage permissions", () => {
+    expect(getAllowedFinanceTabSlugs(["finance-receivable:read"])).toEqual(["cong-no", "tuoi-no", "nhac-no"]);
+    expect(getAllowedFinanceTabSlugs(["finance-receivable:manage"])).toEqual(["cong-no", "tuoi-no", "nhac-no"]);
     expect(getAllowedFinanceTabSlugs(["*"])).toEqual(FINANCE_SUB_TABS.map((tab) => tab.slug));
   });
 
