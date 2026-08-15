@@ -1,7 +1,7 @@
 import { getAccessToken } from "./authService";
 
 async function request(path: string, init?: RequestInit) {
-  const response = await fetch(`/api/v1/payroll${path}`, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}`, ...(init?.headers || {}) } });
+  const response = await fetch(`/api/v1/payroll${path}`, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}`, ...(init?.headers || {}) } });
   const body = await response.json();
   if (!response.ok) throw Object.assign(new Error(body.message || "Payroll request failed"), { code: body.code, details: body.details });
   return body.data ?? body;
