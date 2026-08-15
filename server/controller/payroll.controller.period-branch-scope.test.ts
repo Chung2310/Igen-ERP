@@ -416,6 +416,71 @@ describe("legacy payroll period branch scope", () => {
     });
   });
 
+  it("returns a typed not-found error when the period has no payroll run", async () => {
+    mocks.runFindOne.mockReturnValue(sortedLean(null));
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      status: "error",
+      code: "PAYROLL_RUN_NOT_FOUND",
+    }));
+  });
+
+  it("preserves review metadata and reports effective data failure", async () => {
+    const lines = [{
+      employeeId: "employee-a",
+      calculation: { monthlySalary: 1000, adjustedBase: 1000, gross: 1000, net: 1000 },
+    }];
+    const totals = { grossPay: 1000, deductions: 0, netPay: 1000 };
+    const sourceChecksum = calculatePayrollChecksum({ lines, totals });
+    mocks.runFindOne.mockReturnValue(sortedLean({
+      _id: "run-a",
+      ...scope,
+      periodKey: "2026-07",
+      type: "regular",
+      status: "review",
+      version: 3,
+      activeRevisionId: "revision-a",
+      activeRevisionChecksum: sourceChecksum,
+      effectiveSnapshot: {
+        sourceRevisionId: "revision-a",
+        sourceRevisionChecksum: sourceChecksum,
+        checksum: "tampered",
+        lines,
+        pinnedAt: new Date(),
+      },
+    }));
+    mocks.revisionFindOne.mockReturnValue(lean({
+      _id: "revision-a",
+      runId: "run-a",
+      status: "completed",
+      lines,
+      totals,
+      checksum: sourceChecksum,
+    }));
+    const res = response();
+
+    await payrollController.getRun(branchRequest(), res);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({
+      status: "success",
+      data: expect.objectContaining({
+        _id: "run-a",
+        status: "review",
+        version: 3,
+        effectiveError: expect.objectContaining({
+          code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+        }),
+      }),
+    });
+    const returned = res.json.mock.calls[0][0].data;
+    expect(returned.effectiveLines).toBeUndefined();
+  });
+
   it("does not load or apply regular-period overrides to a supplemental line detail", async () => {
     const supplementalLine = {
       employeeId: "employee-a",

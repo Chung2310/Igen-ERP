@@ -219,7 +219,10 @@ export function createPayrollEffectiveLineLoader(
       snapshot.sourceRevisionChecksum !== source.sourceRevisionChecksum
       || (snapshot.sourceRevisionId ?? undefined) !== source.sourceRevisionId
     ) {
-      console.error("[CHECKSUM DEBUG 1]", {
+      console.error("[Payroll] Effective snapshot mismatch", {
+        stage: "source-checksum",
+        runId: String(run._id ?? run.id ?? ""),
+        periodKey: run.periodKey,
         snapshotSourceRevisionChecksum: snapshot.sourceRevisionChecksum,
         sourceRevisionChecksum: source.sourceRevisionChecksum,
         snapshotSourceRevisionId: snapshot.sourceRevisionId,
@@ -236,9 +239,14 @@ export function createPayrollEffectiveLineLoader(
       effectiveLines,
     );
     if (recomputed !== snapshot.checksum) {
-      console.error("[CHECKSUM DEBUG 2]", {
+      console.error("[Payroll] Effective snapshot mismatch", {
+        stage: "effective-checksum",
+        runId: String(run._id ?? run.id ?? ""),
+        periodKey: run.periodKey,
         recomputedChecksum: recomputed,
         snapshotChecksum: snapshot.checksum,
+        sourceRevisionChecksum: source.sourceRevisionChecksum,
+        effectiveLineCount: effectiveLines.length,
       });
       fail(
         "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",

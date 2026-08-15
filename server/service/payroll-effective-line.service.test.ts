@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { calculatePayrollChecksum } from "./payroll-checksum.service";
 import {
   calculateEffectivePayrollChecksum,
@@ -64,6 +64,8 @@ const run = (changes: Record<string, unknown> = {}) => ({
 });
 
 describe("authoritative effective payroll line loader", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("validates the scoped active revision and materializes one override-aware compatible employee line", async () => {
     const getRevision = vi.fn(async () => revision);
     const getOverrides = vi.fn(async () => [{
@@ -138,6 +140,57 @@ describe("authoritative effective payroll line loader", () => {
       status: "closed",
       effectiveSnapshot: { ...snapshot, checksum: "tampered" },
     }))).rejects.toMatchObject({ code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH", status: 409 });
+  });
+
+  it("logs run context when the pinned source checksum no longer matches", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => revision,
+      getOverrides: async () => [],
+    });
+    const snapshot = await loader.createSnapshot(scope, run());
+
+    await expect(loader.load(scope, run({
+      status: "review",
+      effectiveSnapshot: { ...snapshot, sourceRevisionChecksum: "stale-source" },
+    }))).rejects.toMatchObject({ code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH" });
+
+    expect(errorLog).toHaveBeenCalledWith(
+      "[Payroll] Effective snapshot mismatch",
+      expect.objectContaining({
+        stage: "source-checksum",
+        runId: "run-a",
+        periodKey: "2026-07",
+        snapshotSourceRevisionChecksum: "stale-source",
+      }),
+    );
+    errorLog.mockRestore();
+  });
+
+  it("logs run context when the pinned effective checksum is invalid", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const loader = createPayrollEffectiveLineLoader({
+      getRevision: async () => revision,
+      getOverrides: async () => [],
+    });
+    const snapshot = await loader.createSnapshot(scope, run());
+
+    await expect(loader.load(scope, run({
+      status: "review",
+      effectiveSnapshot: { ...snapshot, checksum: "tampered" },
+    }))).rejects.toMatchObject({ code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH" });
+
+    expect(errorLog).toHaveBeenCalledWith(
+      "[Payroll] Effective snapshot mismatch",
+      expect.objectContaining({
+        stage: "effective-checksum",
+        runId: "run-a",
+        periodKey: "2026-07",
+        recomputedChecksum: snapshot.checksum,
+        snapshotChecksum: "tampered",
+      }),
+    );
+    errorLog.mockRestore();
   });
 
   it("keeps pre-upgrade reviewed runs readable when no manual override ever existed", async () => {
