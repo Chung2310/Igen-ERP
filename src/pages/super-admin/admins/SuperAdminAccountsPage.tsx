@@ -1,17 +1,18 @@
 import React from "react";
 import { Plus, ShieldCheck, X } from "lucide-react";
 import { superAdminAccountService, type SuperAdminAccount } from "../../../services/superAdminAccountService";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 export function SuperAdminAccountsPage() {
   const [admins, setAdmins] = React.useState<SuperAdminAccount[]>([]);
   const [open, setOpen] = React.useState(false), [loading, setLoading] = React.useState(true), [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
   const [form, setForm] = React.useState({ displayName: "", email: "", password: "" });
-  React.useEffect(() => { superAdminAccountService.list().then(setAdmins).catch((e) => setError(e.message)).finally(() => setLoading(false)); }, []);
+  React.useEffect(() => { superAdminAccountService.list().then(setAdmins).catch((e) => setError(getApiErrorMessage(e, "Không thể tải danh sách quản trị viên."))).finally(() => setLoading(false)); }, []);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError("");
     try { const admin = await superAdminAccountService.create(form); setAdmins((items) => [admin, ...items]); setOpen(false); setForm({ displayName: "", email: "", password: "" }); }
-    catch (e: any) { setError(e.message || "Không thể tạo Super Admin."); } finally { setSaving(false); }
+    catch (e: any) { setError(getApiErrorMessage(e, "Không thể tạo tài khoản quản trị viên.")); } finally { setSaving(false); }
   };
   return <section className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-black">Tài khoản Super Admin</h2><p className="mt-1 text-sm text-slate-400">Chỉ Super Admin đã xác thực mới có thể tạo thêm tài khoản.</p></div><button onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950"><Plus className="h-4 w-4"/>Tạo Super Admin</button></div>

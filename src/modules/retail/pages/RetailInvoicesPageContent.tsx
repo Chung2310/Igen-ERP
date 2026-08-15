@@ -5,6 +5,7 @@ import ReceiptPrintView from "../components/pos/ReceiptPrintView";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailInvoice } from "../types";
 import { invoicePaymentRows, invoicePaymentSummary } from "../components/pos/invoicePaymentDisplay";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -21,7 +22,7 @@ export default function RetailInvoicesPageContent() {
     if (!scope) return;
     const timer = setTimeout(() => void retailInvoicesApi.list(scope, { q, status: status || undefined })
       .then((data) => setItems(data.items))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Không tải được hóa đơn.")), 250);
+      .catch((cause) => setError(getApiErrorMessage(cause, "Không tải được hóa đơn."))), 250);
     return () => clearTimeout(timer);
   }, [scope?.companyCode, scope?.branchId, q, status]);
 
@@ -33,7 +34,7 @@ export default function RetailInvoicesPageContent() {
       setSelected(invoice);
       return invoice;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không tải được hóa đơn.");
+      setError(getApiErrorMessage(cause, "Không tải được hóa đơn."));
       return null;
     }
   };
@@ -45,7 +46,7 @@ export default function RetailInvoicesPageContent() {
     setDownloadingId(id);
     setError("");
     try { await retailInvoicesApi.downloadPdf(scope, id); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được PDF hóa đơn."); }
+    catch (cause) { setError(getApiErrorMessage(cause, "Không tải được PDF hóa đơn.")); }
     finally { setDownloadingId(""); }
   };
 

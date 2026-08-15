@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle, Loader2, Send, Trash2, UploadCloud, UserPlus } from "lucide-react";
 import { toast } from "./Toast";
+import { getApiErrorMessage } from "../utils/errorMessage";
 import { ENTITY_LABEL_PRESETS, type EntityPreset } from "../modules/student-management/config/entityLabels";
 
 interface IUploadedFile {
@@ -91,7 +92,7 @@ export default function PublicRegisterPage() {
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
         setPreset(json.data.entityPreset as EntityPreset);
       } catch (error) {
-        if (!cancelled) setConfigError(error instanceof Error ? error.message : "Không tải được biểu mẫu.");
+        if (!cancelled) setConfigError(getApiErrorMessage(error, "Không tải được biểu mẫu."));
       } finally {
         if (!cancelled) setLoading(false);
       }

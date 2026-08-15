@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getStudentQuality, type StudentQualityFilters } from "../api/studentQuality.api";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { StudentQualityListResponse } from "../types";
 
 const EMPTY_RESPONSE: StudentQualityListResponse = {
@@ -26,7 +27,7 @@ export function useStudentQuality(filters: StudentQualityFilters) {
       const response = await getStudentQuality(filters);
       if (currentRequest === requestId.current) setData(response);
     } catch (fetchError) {
-      if (currentRequest === requestId.current) setError(fetchError instanceof Error ? fetchError.message : "Không thể tải dữ liệu chất lượng học viên.");
+      if (currentRequest === requestId.current) setError(getApiErrorMessage(fetchError, "Không thể tải dữ liệu chất lượng học viên."));
     } finally {
       if (currentRequest === requestId.current && !options.silent) setLoading(false);
     }

@@ -1,4 +1,5 @@
 import React from "react";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { Worker } from "../types";
 import { workerDashboardApi } from "../api/workerDashboard.api";
 import {
@@ -56,7 +57,7 @@ export function WorkerDashboardPage({
         if (active) setStats((prev) => ({ ...prev, ...value }));
       })
       .catch((e) => {
-        if (active) setError(e instanceof Error ? e.message : "Không thể tải dashboard");
+        if (active) setError(getApiErrorMessage(e, "Không thể tải bảng điều khiển"));
       })
       .finally(() => {
         if (active) setLoading(false);

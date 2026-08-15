@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, RefreshCw, X } from "lucide-react";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import {
   cameraErrorMessage,
   captureFaceJpeg,
@@ -79,7 +80,7 @@ export default function AttendanceCameraModal({
       setCapture({ blob, url });
       stopCamera();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể chụp ảnh.");
+      setError(getApiErrorMessage(err, "Không thể chụp ảnh."));
     }
   };
 
@@ -98,7 +99,7 @@ export default function AttendanceCameraModal({
       await onCapture(capture.blob);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Không thể Check-${action}. Vui lòng thử lại.`);
+      setError(getApiErrorMessage(err, `Không thể Check-${action}. Vui lòng thử lại.`));
     } finally {
       setSubmitting(false);
     }

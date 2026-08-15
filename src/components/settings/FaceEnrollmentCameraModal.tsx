@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, RefreshCw, X } from "lucide-react";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import type { UserProfile } from "../../types/common";
 import {
   cameraErrorMessage,
@@ -74,7 +75,7 @@ export default function FaceEnrollmentCameraModal({
       setCapture({ blob, url });
       stopCamera();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể chụp ảnh.");
+      setError(getApiErrorMessage(err, "Không thể chụp ảnh."));
     }
   };
 
@@ -92,7 +93,7 @@ export default function FaceEnrollmentCameraModal({
       await onSubmit(capture.blob);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lưu khuôn mặt. Vui lòng thử lại.");
+      setError(getApiErrorMessage(err, "Không thể lưu khuôn mặt. Vui lòng thử lại."));
     } finally {
       setSubmitting(false);
     }

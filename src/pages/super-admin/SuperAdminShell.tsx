@@ -1,4 +1,5 @@
 import { superAdminRequest } from "../../services/superAdminRequest";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import React from "react";
 import { EnvironmentBanner } from "../../components/super-admin/EnvironmentBanner";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
@@ -47,7 +48,7 @@ export default function SuperAdminShell() {
         clearPendingSuperAdminChallenge(sessionStorage);
         setChallenge("");
         setStage("password");
-        setError(cause.message || "Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.");
+        setError(getApiErrorMessage(cause, "Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại."));
       });
   }, [pendingChallenge, stage]);
 
@@ -89,7 +90,7 @@ export default function SuperAdminShell() {
         setStage("totp");
       }
     } catch (e: any) {
-      setError(e.message || "Đăng nhập thất bại");
+      setError(getApiErrorMessage(e, "Đăng nhập thất bại"));
     }
   };
 
@@ -114,7 +115,7 @@ export default function SuperAdminShell() {
       setCode("");
       setStage("authenticated");
     } catch (e: any) {
-      setError(e.message || "Xác minh thất bại");
+      setError(getApiErrorMessage(e, "Xác minh thất bại"));
     }
   };
 

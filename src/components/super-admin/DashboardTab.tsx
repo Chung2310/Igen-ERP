@@ -1,4 +1,5 @@
 import React from "react";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 import {
   Users,
   Building,
@@ -93,7 +94,7 @@ export function DashboardTab() {
       );
       setData(summary);
     } catch (e: any) {
-      setError(e.message || "Lỗi khi lấy dữ liệu tổng hợp.");
+      setError(getApiErrorMessage(e, "Lỗi khi lấy dữ liệu tổng hợp."));
     } finally {
       setLoading(false);
     }

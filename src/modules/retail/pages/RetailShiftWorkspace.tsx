@@ -4,6 +4,7 @@ import CurrencyInput from "../components/pos/CurrencyInput";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailShift } from "../types";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
+import { getApiErrorMessage } from "../../../utils/errorMessage";
 
 const money = (value = 0) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
 const statusLabel = (value: RetailShift["status"]) => ({ open: "Đang mở", closed: "Đã đóng", reconciled: "Đã đối soát trước đây" })[value];
@@ -23,7 +24,7 @@ export default function RetailShiftWorkspace() {
   const [reasonError, setReasonError] = React.useState(false);
   const [submitting, setSubmitting] = React.useState<"open" | "close" | null>(null);
   const reasonRef = React.useRef<HTMLInputElement>(null);
-  const showError = React.useCallback((cause: unknown) => setError(cause), []);
+  const showError = React.useCallback((cause: unknown) => setError(getApiErrorMessage(cause, "Không thể xử lý ca bán hàng.")), []);
   const refreshHistory = React.useCallback(async () => {
     if (!scope) return;
     try {
@@ -36,7 +37,7 @@ export default function RetailShiftWorkspace() {
   if (!scope) return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800">Vui lòng chọn chi nhánh.</div>;
 
   const open = async () => { setSubmitting("open"); try { const result = await retailShiftsApi.open(scope, { openingFloat, terminalId: terminalId.trim() || undefined }); setShift(result); setError(null); void refreshHistory(); } catch (cause) { showError(cause); } finally { setSubmitting(null); } };
-  const close = async () => { if (!shift) return; setSubmitting("close"); setReasonError(false); try { const result = await retailShiftsApi.close(scope, shift._id, { countedCash, varianceReason: varianceReason.trim() || undefined }); setClosedShift(result); setShift(null); setError(null); void refreshHistory(); } catch (cause) { showError(cause); if (cause instanceof Error && cause.message.toLocaleLowerCase("vi").includes("lý do")) { setReasonError(true); requestAnimationFrame(() => reasonRef.current?.focus()); } } finally { setSubmitting(null); } };
+  const close = async () => { if (!shift) return; setSubmitting("close"); setReasonError(false); try { const result = await retailShiftsApi.close(scope, shift._id, { countedCash, varianceReason: varianceReason.trim() || undefined }); setClosedShift(result); setShift(null); setError(null); void refreshHistory(); } catch (cause) { const message = getApiErrorMessage(cause, "Không thể đóng ca bán hàng."); showError(message); if (message.toLocaleLowerCase("vi").includes("lý do")) { setReasonError(true); requestAnimationFrame(() => reasonRef.current?.focus()); } } finally { setSubmitting(null); } };
   const expired = Boolean(shift?.operationalEndsAt && new Date(shift.operationalEndsAt).getTime() < Date.now());
 
   return <section className="mx-auto max-w-5xl space-y-5"><header><h1 className="text-xl font-bold">Ca bán hàng</h1><p className="text-sm text-slate-500">Mở ca nhanh, kiểm đếm mù và lưu kết quả để rà soát.</p></header><ShiftScheduleNotice error={error} />{closedShift ? <ClosingResult shift={closedShift} onNew={() => { setClosedShift(null); setOpeningFloat(0); setTerminalId(""); setCountedCash(0); setVarianceReason(""); }} /> : !shift ? <div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Mở ca mới</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><CurrencyInput label="Tiền đầu ca" value={openingFloat} onChange={setOpeningFloat} /><Field label="Mã quầy (không bắt buộc)" value={terminalId} onChange={setTerminalId} /></div><button disabled={submitting === "open" || openingFloat < 0} className="mt-4 rounded-xl bg-cyan-600 px-5 py-2.5 font-bold text-white disabled:opacity-50" onClick={() => void open()}>{submitting === "open" ? "Đang mở ca…" : "Mở ca"}</button></div> : <div className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><div className="flex justify-between items-start"><div><h2 className="font-bold">{shift.shiftCode}</h2><p className="text-sm text-slate-500">{shift.businessDate} · {shift.cashierName}</p></div><Status value={shift.status} /></div>{expired && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">Ca đã hết thời gian hoạt động</p>}</div><div className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Đóng ca — kiểm đếm mù</h3><p className="mt-1 text-sm text-slate-500">Số kỳ vọng chỉ hiện sau khi gửi kiểm đếm.</p><div className="mt-4"><CurrencyInput label="Tiền thực đếm" value={countedCash} onChange={setCountedCash} /></div><Field ref={reasonRef} label="Lý do chênh lệch (nếu có)" value={varianceReason} onChange={setVarianceReason} invalid={reasonError} /><button disabled={submitting === "close"} className="mt-3 rounded-xl bg-slate-900 px-5 py-2.5 font-bold text-white disabled:opacity-50" onClick={() => void close()}>{submitting === "close" ? "Đang đóng ca…" : "Gửi kiểm đếm và đóng ca"}</button></div></div>}<History items={history} total={total} filters={filters} onFilters={setFilters} /></section>;

@@ -2,6 +2,7 @@ import React from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { buildPaymentSummary, type RetailPaymentMode } from "../../hooks/retailPayment";
 import type { RetailPaymentInput } from "../../types";
+import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 type Props = { total: number; busy: boolean; customerId?: string; onClose: () => void; onSubmit: (payments: RetailPaymentInput[], dueDate?: string) => Promise<void> };
@@ -18,7 +19,7 @@ export default function ExplicitPaymentDialog({ total, busy, customerId, onClose
   const summary = React.useMemo(() => { try { return buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); } catch { return { collected, due: mode === "debt" ? total : Math.max(0, total - collected), change: 0 }; } }, [total, payments, mode, customerId, dueDate]);
   const selectMode = (next: RetailPaymentMode) => { setMode(next); setError(""); if (next === "full") setPayments(fullCash()); else if (next !== "debt" && payments.length === 0) setPayments(fullCash()); };
   const update = (index: number, patch: Partial<RetailPaymentInput>) => setPayments((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } : row));
-  const submit = async () => { try { buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); setError(""); await onSubmit(submitted, mode === "full" ? undefined : dueDate || undefined); } catch (cause) { setError(cause instanceof Error ? cause.message : "Thanh toán không hợp lệ."); } };
+  const submit = async () => { try { buildPaymentSummary(total, submitted, { mode, customerId, dueDate }); setError(""); await onSubmit(submitted, mode === "full" ? undefined : dueDate || undefined); } catch (cause) { setError(getApiErrorMessage(cause, "Thanh toán không hợp lệ.")); } };
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4"><div role="dialog" aria-label="Thanh toán" className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
     <div className="flex justify-between"><div><h2 className="text-xl font-bold">Thanh toán</h2><p className="text-sm text-slate-500">Cần thu {money(total)}</p></div><button aria-label="Đóng" onClick={onClose}><X /></button></div>
     <div className="mt-4 grid gap-2 sm:grid-cols-3">{modes.map((item) => <button key={item.value} type="button" aria-pressed={mode === item.value} className={`rounded-xl border px-3 py-3 text-sm font-bold ${mode === item.value ? "border-cyan-600 bg-cyan-50 text-cyan-800" : "text-slate-600"}`} onClick={() => selectMode(item.value)}>{item.label}</button>)}</div>
