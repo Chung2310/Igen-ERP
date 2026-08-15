@@ -2,7 +2,10 @@ import type { ClientSession } from "mongoose";
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
 import { PayrollLineOverrideModel } from "../model/payroll-line-override.model";
 import { PayrollOperationError, type PayrollOperationScope } from "./payroll-run-operations.service";
-import { calculatePayrollChecksum } from "./payroll-checksum.service";
+import {
+  calculatePayrollChecksum,
+  normalizePayrollSnapshotForPersistence,
+} from "./payroll-checksum.service";
 import { projectPayrollRevisionWithOverrides } from "./payroll-run-calculate-operations.service";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
 
@@ -183,11 +186,15 @@ export function createPayrollEffectiveLineLoader(
     session?: ClientSession,
   ) => {
     const current = await loadCurrent(scope, run, session);
+    const lines = normalizePayrollSnapshotForPersistence(current.effectiveLines);
+    if (!Array.isArray(lines)) {
+      throw new TypeError("Effective payroll lines must normalize to an array");
+    }
     return {
       ...(current.sourceRevisionId ? { sourceRevisionId: current.sourceRevisionId } : {}),
       sourceRevisionChecksum: current.sourceRevisionChecksum,
-      checksum: current.effectiveChecksum,
-      lines: current.effectiveLines,
+      checksum: calculateEffectivePayrollChecksum(current.sourceRevisionChecksum, lines),
+      lines,
       pinnedAt: new Date(),
     };
   };

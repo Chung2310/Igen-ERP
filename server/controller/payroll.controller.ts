@@ -56,6 +56,7 @@ import {
   loadAuthoritativePayrollLines,
   verifyEffectivePayrollSnapshot,
 } from "../service/payroll-effective-line.service";
+import { repairReviewEffectivePayrollSnapshot } from "../service/payroll-effective-snapshot-repair.service";
 import type { PayrollWorkflowAction } from "../service/payroll-run-workflow.service";
 import { PayrollPeriodProcessingError, processPayrollPeriod } from "../service/payroll-period-processing.service";
 import { resetPayrollPeriod } from "../service/payroll-period-reset.service";
@@ -1196,7 +1197,7 @@ export const payrollController = {
     }
     return res.json({ status: "success", data: effectiveLine });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
-    const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+    let data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
     if (!data) return res.status(404).json({
       status: "error",
       code: "PAYROLL_RUN_NOT_FOUND",
@@ -1228,6 +1229,34 @@ export const payrollController = {
       (data as any).effectiveChecksum = effective.effectiveChecksum;
     } catch (error) {
       const effectiveError = error as Error & { code?: string };
+      if (data.status === "review" && effectiveError.code === "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH") {
+        try {
+          data = await repairReviewEffectivePayrollSnapshot(
+            { companyCode: tenant(req), branchId: req.user?.branchId || "" },
+            String(data._id),
+            req.user!.id,
+            Number(data.version ?? 0),
+            req.headers?.["x-correlation-id"] as string | undefined,
+          );
+          const repairedEffective = await loadAuthoritativePayrollLines(
+            { companyCode: tenant(req), branchId: req.user?.branchId || "" },
+            data,
+          );
+          (data as any).publishedEmployeeIds = [];
+          (data as any).lines = repairedEffective.sourceLines;
+          if (repairedEffective.sourceTotals !== undefined) (data as any).totals = repairedEffective.sourceTotals;
+          (data as any).effectiveLines = repairedEffective.effectiveLines;
+          (data as any).effectiveChecksum = repairedEffective.effectiveChecksum;
+          return res.json({ status: "success", data });
+        } catch (repairError) {
+          const failedRepair = repairError as Error & { code?: string };
+          (data as any).effectiveError = {
+            code: failedRepair.code ?? "PAYROLL_EFFECTIVE_UNAVAILABLE",
+            message: failedRepair.message ?? "Unable to repair pinned payroll results",
+          };
+          return res.json({ status: "success", data });
+        }
+      }
       const degradedData = data as typeof data & {
         effectiveError?: { code: string; message: string };
       };
