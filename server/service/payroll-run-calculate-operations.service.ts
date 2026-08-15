@@ -30,6 +30,7 @@ import { createPayrollRevisionRepositories } from "./payroll-revision.repository
 import { PayrollOperationError, type PayrollOperationScope } from "./payroll-run-operations.service";
 import { PAYROLL_LINE_OVERRIDE_FIELDS, type PayrollLineOverrideValues, type PayrollLineSystemValues } from "../interface/payroll-line-override.interface";
 import { resolvePayrollLineOverride } from "./payroll-line-override-resolver.service";
+import { getApprovedEmployeeCommissions } from "./payroll-employee-commission.service";
 
 const isoDate = (value: Date | string) => new Date(value).toISOString().slice(0, 10);
 
@@ -414,6 +415,9 @@ export async function buildRunCalculationInputs(
     mongoose.connection.readyState === 1 ? PayrollPeriodInputModel.find({ ...scope, periodKey: run.periodKey, employeeId: { $in: employeeIds } }).lean() : Promise.resolve([]),
     mongoose.connection.readyState === 1 ? PayrollCustomVariableModel.find({ companyCode: scope.companyCode, status: "active" }).lean() : Promise.resolve([]),
   ]);
+  const commissions = mongoose.connection.readyState === 1
+    ? await getApprovedEmployeeCommissions({ companyCode: scope.companyCode, branchId: scope.branchId, periodKey: run.periodKey })
+    : new Map<string, number>();
   const salaryById = new Map((users as any[]).map((user) => [String(user._id), Number(user.monthlySalary || 0)]));
   const groupByEmployee = <T extends { employeeId: unknown }>(rows: T[]) => rows.reduce((map, row) => {
     const key = String(row.employeeId);
@@ -480,6 +484,7 @@ export async function buildRunCalculationInputs(
       bonuses: resolvedPeriod.values.bonus + library.totals.bonus,
       deductions: resolvedPeriod.values.deduction + library.totals.deduction,
       adjustments: employeeAdjustments.adjustments + library.totals.adjustment,
+      commission: commissions.get(employeeId) ?? 0,
       formulaApplications: library.applications,
       periodInput: { version: Number((periodInputByEmployee.get(employeeId) as any)?.version ?? 0), values: { ...resolvedPeriod.values, ...customContext }, provenance: { ...resolvedPeriod.provenance, ...Object.fromEntries(Object.entries(resolvedPeriod.customValues).map(([key,item])=>[key,item.provenance])) } },
       policy: { id: String((policy as any)._id), version: Number((policy as any).version ?? 0), code: policy.code, name: policy.name },

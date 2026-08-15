@@ -256,6 +256,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         employeeName: line.employeeName || originalResult?.employeeName || "",
         deductionTotal: preview.deductionTotal,
         net: preview.net,
+        commission: Number(segment.calculation?.commission ?? 0),
         calculation: segment.calculation,
         attendance: segment.attendance,
         vietnam: segment.vietnam,
@@ -628,15 +629,17 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           {run ? (
             <>
               <thead className="sticky top-0 z-10 bg-slate-50">
-                <tr className="border-b text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="hidden">
                   <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
                   <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l-2 p-2 text-center font-bold ${inlineEditable ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
                   <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
                 </tr>
                 <tr className="border-b text-xs text-slate-500">
+                  <th className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
                   {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-semibold text-slate-500">{variable.name}</th>)}
+                  <th className="border-l border-slate-200 p-3 text-right font-semibold text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
@@ -663,6 +666,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         ? renderResultCell(line, field, systemValue, effectiveValue)
                         : <td key={field} className="border-l border-slate-100 p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
                     })}
+                    <td className="border-l border-slate-100 p-3 text-right text-slate-600">{formatVnd(Number(line.commission))}</td>
                     <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
                     <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
                   </tr>
@@ -674,6 +678,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
                     {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0))}</td>)}
                     {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0))}</td>)}
+                    <td className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.commission ?? 0), 0))}</td>
                     <td className="p-3 text-right text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
                     <td className="p-3 text-right text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
                   </tr>

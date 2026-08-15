@@ -28,7 +28,7 @@ test("resolveEnabledTab redirects a disabled module to overview", () => {
 test("hides student for labor tenants and shows worker", () => {
   assert.deepEqual(
     filterEnabledTabs(["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"] as any, ["student", "worker", "hr"], "labor" as any),
-    ["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
+    ["QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
   );
 });
 

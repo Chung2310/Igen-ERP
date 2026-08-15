@@ -22,6 +22,7 @@ export interface PayrollCalculationInput {
   bonuses: number;
   deductions: number;
   adjustments: number;
+  commission?: number;
 }
 
 export interface PayrollCalculationResult {
