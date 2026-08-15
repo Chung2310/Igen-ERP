@@ -10,6 +10,7 @@ import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { workerManagementRouter } from "../modules/worker-management/router";
+import { laborPartnerRoutes } from "../modules/worker-management/labor-partners/routes/labor-partner.routes";
 import { workerQrAttendancePublicRoutes } from "../modules/worker-management/routes/worker-qr-attendance.routes";
 import { timekeepingRouter } from "./timekeeping.router";
 import { dashboardRouter } from "./dashboard.router";
@@ -126,4 +127,5 @@ apiRouter.use("/finance", requireAuth as any, requireModule("finance"), financeR
 // Lao động quét mã QR từ điện thoại cá nhân — không có session đăng nhập.
 apiRouter.use("/worker-management/qr-attendance", workerQrAttendancePublicRoutes);
 
+apiRouter.use("/worker-management/partners", requireAuth as any, requireModule("partner"), laborPartnerRoutes);
 apiRouter.use("/", requireAuth as any, requireModule("worker"), workerManagementRouter);

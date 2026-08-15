@@ -2,7 +2,7 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate", "retail", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "candidate", "partner", "retail", "finance"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
 
@@ -15,6 +15,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   worker: "Quản lý lao động",
   customer: "Quản lý khách hàng",
   candidate: "Quản lý ứng viên",
+  partner: "Quản lý đối tác",
   retail: "Bán lẻ & POS",
   finance: "Tài chính",
 };
@@ -28,6 +29,7 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   worker: "QUẢN LÝ LAO ĐỘNG",
   customer: "QUẢN LÝ KHÁCH HÀNG",
   candidate: "QUẢN LÝ ỨNG VIÊN",
+  partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
   finance: "TÀI CHÍNH",
 };
@@ -41,6 +43,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "QUẢN LÝ LAO ĐỘNG": "worker",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "QUẢN LÝ ỨNG VIÊN": "candidate",
+  "ĐỐI TÁC": "partner",
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
 };
