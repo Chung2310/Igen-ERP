@@ -170,7 +170,7 @@ const aggregateMetadata = (segmentLines: any[]) => {
   };
 };
 
-const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, deductionTotal: number, net: number) => {
+const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, deductionTotal: number, net: number, recalculateTax: boolean) => {
   const sources = segmentLines.map((line) => line?.vietnam).filter(Boolean);
   const source = sources[0];
   if (!source) return undefined;
@@ -224,15 +224,16 @@ const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, 
 
   const gross = values.adjustedBase + values.overtime + values.bonusTotal + values.hiddenIncome;
   const sourceTax = source.tax ?? {};
-  const sourceTaxDeductions = sourceTax.deductions ?? {};
-  const taxableIncome = Math.max(0, values.adjustedBase + values.overtime + values.bonusTotal
-    + sum((item) => item?.income?.taxableAllowances)
-    - amount(sourceTaxDeductions.personal) - amount(sourceTaxDeductions.dependents)
-    - employeeInsurance - amount(sourceTaxDeductions.other));
+  const assessableIncome = recalculateTax
+    ? Math.max(0, values.adjustedBase + values.overtime + values.bonusTotal
+      + sum((item) => item?.income?.taxableAllowances) - taxDeductions.total)
+    : sum((item) => item?.tax?.assessableIncome);
   const taxMethod = sourceTax.method ?? "progressive";
-  const recalculatedTax = taxMethod === "progressive" && Array.isArray(sourceTax.brackets)
-    ? calculateProgressiveTax(sourceTax.brackets.map((item: any) => ({ upTo: item.upTo, rate: amount(item.rate) })), taxableIncome).tax
-    : values.personalIncomeTax;
+  const schedule = Array.isArray(sourceTax.schedule) ? sourceTax.schedule : sourceTax.brackets;
+  const progressive = recalculateTax && taxMethod === "progressive" && Array.isArray(schedule)
+    ? calculateProgressiveTax(schedule.map((item: any) => ({ upTo: item.upTo, rate: amount(item.rate) })), assessableIncome)
+    : undefined;
+  const effectiveTax = progressive?.tax ?? values.personalIncomeTax;
   const employerOtherCosts = sources.reduce((total, item) => total + Math.max(
     0,
     amount(item?.employerCost) - amount(item?.income?.totalIncome) - amount(item?.insurance?.employerTotal),
@@ -257,9 +258,9 @@ const effectiveVietnam = (segmentLines: any[], values: PayrollLineSystemValues, 
     tax: {
       ...sourceTax,
       deductions: taxDeductions,
-      assessableIncome: taxableIncome,
-      brackets: [...bracketsByKey.values()],
-      tax: recalculatedTax,
+      assessableIncome,
+      brackets: progressive?.details ?? [...bracketsByKey.values()],
+      tax: effectiveTax,
     },
     deductions: {
       ...(source.deductions ?? {}),
@@ -278,13 +279,16 @@ export function projectPayrollEmployeeWithOverride(segmentLines: any[], override
   const systemValues = aggregatePayrollLineSystemValues(segmentLines);
   const overrideValues = overrideProjection(override);
   const resolved = resolvePayrollLineOverride(systemValues, overrideValues);
-  const effectiveValues = resolved.values;
   const gross = resolved.values.adjustedBase
     + resolved.values.overtime
     + resolved.values.bonusTotal
     + resolved.values.hiddenIncome;
-  const vietnam = effectiveVietnam(segmentLines, resolved.values, resolved.deductionTotal, resolved.net);
+  const taxDrivingFields = ["adjustedBase", "overtime", "bonusTotal", "socialInsurance", "healthInsurance", "unemploymentInsurance"] as const;
+  const recalculateTax = overrideValues.personalIncomeTax === undefined
+    && taxDrivingFields.some((field) => overrideValues[field] !== undefined);
+  const vietnam = effectiveVietnam(segmentLines, resolved.values, resolved.deductionTotal, resolved.net, recalculateTax);
   const effectiveTax = amount(vietnam?.tax?.tax ?? resolved.values.personalIncomeTax);
+  const effectiveValues = { ...resolved.values, personalIncomeTax: effectiveTax };
   const deductionTotal = resolved.deductionTotal - resolved.values.personalIncomeTax + effectiveTax;
   const net = Math.max(0, Math.round(gross - deductionTotal));
   const calculation = {
@@ -299,7 +303,7 @@ export function projectPayrollEmployeeWithOverride(segmentLines: any[], override
     socialInsurance: resolved.values.socialInsurance,
     healthInsurance: resolved.values.healthInsurance,
     unemploymentInsurance: resolved.values.unemploymentInsurance,
-    personalIncomeTax: resolved.values.personalIncomeTax,
+    personalIncomeTax: effectiveTax,
     otherDeductions: resolved.values.otherDeductions,
     advances: resolved.values.advances,
     gross,

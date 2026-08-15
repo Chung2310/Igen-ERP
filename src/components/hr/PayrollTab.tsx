@@ -201,7 +201,20 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     if (!run) return [];
     return (run.effectiveLines ?? []).map((line: any) => {
       const originalResult = results.find((r) => r.employeeId === line.employeeId);
-      const preview = previewPayrollLine(line, inlineEditable ? inputDrafts[String(line.employeeId)] : undefined);
+      const [periodYear, periodMonth] = period.split("-").map(Number);
+      const periodEnd = Date.UTC(periodYear, periodMonth, 0);
+      const policy = payrollPolicies.find((item: any) => String(item._id) === String(line.policyId))
+        ?? payrollPolicies.find((item: any) => item.status === "active"
+          && new Date(item.effectiveFrom).getTime() <= periodEnd
+          && (!item.effectiveTo || new Date(item.effectiveTo).getTime() >= periodEnd));
+      const preview = previewPayrollLine(
+        line,
+        inlineEditable ? inputDrafts[String(line.employeeId)] : undefined,
+        {
+          taxBrackets: line.vietnam?.tax?.schedule ?? policy?.taxBrackets,
+          roundingUnit: policy?.roundingUnit,
+        },
+      );
       const segment = line.segmentLines?.[0] ?? {};
       return {
         ...line,
@@ -215,7 +228,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         vietnam: segment.vietnam,
       };
     });
-  }, [run, results, inputDrafts, inlineEditable]);
+  }, [run, results, inputDrafts, inlineEditable, payrollPolicies, period]);
 
   const draftRows = useMemo(() => results.map((row: any) => ({
     employeeId: row.employeeId,
@@ -368,7 +381,21 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     setInputSaving(true);
     try {
       const versionSources = lineOverrides.length ? lineOverrides : (run?.effectiveLines ?? []);
-      const response = await payrollService.bulkSaveLineOverrides(period, buildLineOverrideRows(inputDrafts, versionSources, inputReason));
+      const taxDrivingFields = new Set(["adjustedBase", "overtime", "bonusTotal", "socialInsurance", "healthInsurance", "unemploymentInsurance"]);
+      const previewByEmployee = new Map<string, any>(runRows.map((row: any) => [String(row.employeeId), row]));
+      const effectiveByEmployee = new Map<string, any>((run?.effectiveLines ?? []).map((line: any) => [String(line.employeeId), line]));
+      const rows = buildLineOverrideRows(inputDrafts, versionSources, inputReason).map((row) => {
+        const changesTax = Object.keys(row.values).some((field) => taxDrivingFields.has(field))
+          || row.clearFields.some((field) => taxDrivingFields.has(field));
+        if (!changesTax || row.values.personalIncomeTax !== undefined) return row;
+        const preview = previewByEmployee.get(String(row.employeeId));
+        const currentTax = Number(effectiveByEmployee.get(String(row.employeeId))?.effectiveValues?.personalIncomeTax ?? 0);
+        const previewTax = Number(preview?.personalIncomeTax ?? currentTax);
+        return preview && previewTax !== currentTax
+          ? { ...row, values: { ...row.values, personalIncomeTax: previewTax } }
+          : row;
+      });
+      const response = await payrollService.bulkSaveLineOverrides(period, rows);
       const saveResults = Array.isArray(response) ? response : [];
       const retained = retainFailedLineOverrideDrafts(inputDrafts, saveResults);
       setInputDrafts(retained.drafts);
