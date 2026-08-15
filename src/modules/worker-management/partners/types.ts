@@ -10,9 +10,11 @@ export type LaborPartner = {
   email?: string;
   status: "active" | "inactive";
   defaultPolicyId?: string | null;
+  defaultOfficialPolicyId?: string | null;
+  defaultSeasonalPolicyId?: string | null;
   note?: string;
   taxCode?: string; representative?: string; address?: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string;
-  referralSummary?: { active: number; total: number };
+  referralSummary?: { active: number; pending?: number; official?: number; seasonal?: number; total: number };
 };
 
 export type CommissionPolicy = {
@@ -27,7 +29,7 @@ export type CommissionPolicy = {
   seasonal: { enabled: boolean; aggregationScope?: "partner_period" | "partner_project_period" | null; tierMode?: "flat" | "progressive" | null; minHoursPerWorker?: number | null; maxEligibleHoursPerWorker?: number | null; hourRounding: { unitMinutes: 1 | 5 | 15 | 30 | 60; mode: RoundingMode }; moneyRounding: { unitVnd: number; mode: RoundingMode }; tiers: Array<{ minHours: number; maxHours?: number | null; hourlyRate: number }> };
 };
 
-export type WorkerReferral = { _id: string; workerId: string; partnerId: string; policyId: string; commissionScheme: CommissionScheme; referredAt: string; employmentStartDate: string; effectiveFrom: string; effectiveTo?: string | null; status: "pending" | "active" | "ended" | "rejected"; confirmationSource: "contract" | "manual" | "attendance"; note?: string };
+export type WorkerReferral = { _id: string; workerId: string; partnerId: string | { _id: string; code: string; name: string }; policyId: string; commissionScheme: CommissionScheme; referredAt: string; employmentStartDate: string; effectiveFrom: string; effectiveTo?: string | null; status: "pending" | "active" | "ended" | "rejected"; confirmationSource: "contract" | "manual" | "attendance"; note?: string };
 
 export type SettlementStatus = "draft" | "calculated" | "approved" | "partially_paid" | "paid" | "void";
 export type LaborPartnerSettlement = {

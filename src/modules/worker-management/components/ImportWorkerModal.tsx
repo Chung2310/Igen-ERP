@@ -46,6 +46,7 @@ const TEMPLATE_HEADERS = [
   "Địa chỉ",
   "Ngày tiếp nhận",
   "Loại lao động",
+  "Cơ chế hoa hồng (tùy chọn)",
   "Quốc tịch",
   "Số GPLĐ / visa",
   "Ngày hết hạn GPLĐ / visa",
@@ -59,6 +60,14 @@ export function normalizeImportLaborType(value: unknown): WorkerLaborType {
   if (raw.includes("thời vụ") || raw.includes("thoi vu")) return "seasonal";
   if (raw.includes("nước ngoài") || raw.includes("nuoc ngoai")) return "foreign";
   return "official";
+}
+
+export function normalizeImportCommissionScheme(value: unknown): "official_monthly" | "seasonal_hourly" | undefined {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === "official_monthly" || raw.includes("chính thức") || raw.includes("chinh thuc")) return "official_monthly";
+  if (raw === "seasonal_hourly" || raw.includes("thời vụ") || raw.includes("thoi vu")) return "seasonal_hourly";
+  return undefined;
 }
 
 /**
@@ -88,6 +97,7 @@ function mapHeaders(row: unknown[]): Record<string, number> {
     else if (value.includes("địa chỉ") || value.includes("dia chi") || value.includes("nơi ở")) map.address = index;
     else if (value.includes("ngày tiếp nhận") || value.includes("ngay tiep nhan") || value.includes("tiếp nhận")) map.registrationDate = index;
     else if (value.includes("loại lao động") || value.includes("loai lao dong")) map.laborType = index;
+    else if (value.includes("cơ chế hoa hồng") || value.includes("co che hoa hong") || value.includes("commission scheme")) map.commissionScheme = index;
     else if (value.includes("quốc tịch") || value.includes("quoc tich")) map.nationality = index;
     else if (value.includes("hết hạn") || value.includes("het han")) map.workPermitExpiry = index;
     else if (value.includes("gplđ") || value.includes("gpld") || value.includes("giấy phép") || value.includes("giay phep") || value.includes("visa")) map.workPermitNumber = index;
@@ -138,6 +148,7 @@ export function parseWorkerSheet(sheet: unknown[][]): { rows: WorkerImportRow[];
       address: cell("address"),
       registrationDate: cell("registrationDate"),
       laborType: normalizeImportLaborType(cell("laborType")),
+      ...(normalizeImportCommissionScheme(cell("commissionScheme")) ? { commissionScheme: normalizeImportCommissionScheme(cell("commissionScheme")) } : {}),
       nationality: cell("nationality"),
       workPermitNumber: cell("workPermitNumber"),
       workPermitExpiry: cell("workPermitExpiry"),
@@ -150,6 +161,9 @@ export function parseWorkerSheet(sheet: unknown[][]): { rows: WorkerImportRow[];
     // the next legitimate row carrying it would be flagged as a duplicate here
     // but imported fine by the server.
     const errors: string[] = [];
+    if (cell("commissionScheme") && !normalizeImportCommissionScheme(cell("commissionScheme"))) {
+      errors.push("Cơ chế hoa hồng chỉ nhận Chính thức hoặc Thời vụ");
+    }
     if (!data.fullName) {
       errors.push("Họ và tên không được để trống");
     } else if (!data.phone) {
@@ -204,13 +218,13 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
     try {
       const worksheet = XLSX.utils.aoa_to_sheet([
         TEMPLATE_HEADERS,
-        ["Nguyễn Văn A", "0912345678", "", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", "Chính thức", "Việt Nam", "", "", ""],
-        ["Trần Thị B", "0987654321", "", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Người nước ngoài", "Nhật Bản", "GPLD-2026-001", "31/12/2027", "Biết tiếng Nhật"],
+        ["Nguyễn Văn A", "0912345678", "", "25/12/1995", "001234567890", "nva@gmail.com", "123 Lê Lợi, Q.1", "01/08/2026", "Chính thức", "", "Việt Nam", "", "", ""],
+        ["Trần Thị B", "0987654321", "", "10/05/2000", "001234567891", "ttb@gmail.com", "456 Nguyễn Huệ, Hóc Môn", "01/08/2026", "Người nước ngoài", "", "Nhật Bản", "GPLD-2026-001", "31/12/2027", "Biết tiếng Nhật"],
       ]);
       worksheet["!cols"] = [
         { wch: 22 }, { wch: 16 }, { wch: 24 }, { wch: 13 }, { wch: 18 },
         { wch: 24 }, { wch: 32 }, { wch: 16 }, { wch: 18 },
-        { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 24 },
+        { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 24 },
       ];
       const guide = XLSX.utils.aoa_to_sheet([
         ["Lưu ý"],
@@ -219,6 +233,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
         ["Không cần nhập mã công ty hay chi nhánh — hệ thống tự gán theo phạm vi bạn đang xem."],
         ["Số điện thoại trùng với lao động đã có trong hệ thống sẽ bị bỏ qua và báo lại ở bước cuối."],
         ["Loại lao động nhận: Chính thức, Thời vụ, Người nước ngoài. Bỏ trống sẽ hiểu là Chính thức."],
+        ["Cơ chế hoa hồng (tùy chọn): Chính thức hoặc Thời vụ. Nếu bỏ trống, hệ thống suy ra từ Loại lao động."],
         ["Mã đối tác giới thiệu không bắt buộc. Nếu nhập, mã phải trùng với một đối tác đang hoạt động trong công ty/chi nhánh hiện tại."],
         ["Số GPLĐ / visa và ngày hết hạn chỉ áp dụng cho loại Người nước ngoài, các loại khác sẽ bỏ qua."],
       ]);
@@ -373,7 +388,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
                     <ul className="mt-2 space-y-1 text-xs font-medium text-amber-700">
                       {result.referralErrors.map((item) => (
                         <li key={`${item.workerId}-${item.partnerCode}`}>
-                          Mã {item.partnerCode}: {item.reason}
+                          Mã {item.partnerCode} · {item.scheme === "seasonal_hourly" ? "Thời vụ" : "Chính thức"}: {item.reason}
                         </li>
                       ))}
                     </ul>

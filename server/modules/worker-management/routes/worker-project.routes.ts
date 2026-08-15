@@ -9,6 +9,7 @@ import {
   createWorkerProjectSchema,
   updateWorkerProjectSchema,
   addWorkerSchema,
+  addWorkersSchema,
 } from "../validations/worker-project.validation";
 
 export const workerProjectRoutes = Router();
@@ -46,6 +47,14 @@ workerProjectRoutes.delete(
   requirePermission(WORKER_MANAGE_PERMISSION) as any,
   validate(idParamSchema, "params"),
   WorkerProjectController.delete as any
+);
+
+workerProjectRoutes.post(
+  "/:id/workers/bulk",
+  requirePermission(WORKER_MANAGE_PERMISSION) as any,
+  validate(idParamSchema, "params"),
+  validate(addWorkersSchema),
+  WorkerProjectController.addWorkers as any
 );
 
 workerProjectRoutes.post(

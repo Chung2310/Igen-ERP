@@ -21,15 +21,20 @@ function normalizePartnerInput(input: PartnerInput) {
     email: normalizeText(input.email).toLowerCase(), taxCode: normalizeText(input.taxCode), representative: normalizeText(input.representative), address: normalizeText(input.address),
     bankName: normalizeText(input.bankName), bankAccountNo: normalizeText(input.bankAccountNo), bankAccountName: normalizeText(input.bankAccountName),
     ...(input.defaultPolicyId === undefined ? {} : { defaultPolicyId: input.defaultPolicyId ? requiredObjectId(input.defaultPolicyId) : null }),
+    ...(input.defaultOfficialPolicyId === undefined ? {} : { defaultOfficialPolicyId: input.defaultOfficialPolicyId ? requiredObjectId(input.defaultOfficialPolicyId) : null }),
+    ...(input.defaultSeasonalPolicyId === undefined ? {} : { defaultSeasonalPolicyId: input.defaultSeasonalPolicyId ? requiredObjectId(input.defaultSeasonalPolicyId) : null }),
     ...(input.status === undefined ? {} : { status: input.status === "inactive" ? "inactive" : "active" }),
     note: normalizeText(input.note),
   };
 }
 
-async function assertPolicyInScope(scope: LaborPartnerScope, policyId: Types.ObjectId | null | undefined) {
+async function assertPolicyInScope(scope: LaborPartnerScope, policyId: Types.ObjectId | null | undefined, scheme?: "official_monthly" | "seasonal_hourly") {
   if (!policyId) return;
-  const policy = await CommissionPolicyModel.findOne({ _id: policyId, ...scopeQuery(scope) }).lean();
+  const policy = await CommissionPolicyModel.findOne({ _id: policyId, ...scopeQuery(scope), ...(scheme ? { status: "active" } : {}) }).lean();
   if (!policy) throw new LaborPartnerError("POLICY_NOT_FOUND", "Không tìm thấy chính sách hoa hồng.", 404);
+  if (scheme && (scheme === "official_monthly" ? !policy.official?.enabled : !policy.seasonal?.enabled)) {
+    throw new LaborPartnerError("POLICY_SCHEME_MISMATCH", "Chính sách không hỗ trợ đúng cơ chế hoa hồng.", 409);
+  }
 }
 
 export const LaborPartnerService = {
@@ -43,16 +48,40 @@ export const LaborPartnerService = {
       LaborPartnerModel.find(query).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean(),
       LaborPartnerModel.countDocuments(query),
     ]);
-    return { items, page, pageSize, total };
+    const partnerIds = items.map((item: any) => item._id);
+    const referralCounts = partnerIds.length ? await WorkerReferralModel.aggregate([
+      { $match: { partnerId: { $in: partnerIds }, ...scopeQuery(scope) } },
+      { $group: { _id: { partnerId: "$partnerId", status: "$status", scheme: "$commissionScheme" }, count: { $sum: 1 } } },
+    ]) : [];
+    const summary = new Map<string, { active: number; pending: number; official: number; seasonal: number; total: number }>();
+    for (const row of referralCounts as any[]) {
+      const partnerKey = String(row._id.partnerId);
+      const current = summary.get(partnerKey) || { active: 0, pending: 0, official: 0, seasonal: 0, total: 0 };
+      const count = Number(row.count || 0);
+      current.total += count;
+      if (row._id.status === "active") {
+        current.active += count;
+        if (row._id.scheme === "official_monthly") current.official += count;
+        if (row._id.scheme === "seasonal_hourly") current.seasonal += count;
+      }
+      if (row._id.status === "pending") current.pending += count;
+      summary.set(partnerKey, current);
+    }
+    return { items: items.map((item: any) => ({ ...item, referralSummary: summary.get(String(item._id)) || { active: 0, pending: 0, official: 0, seasonal: 0, total: 0 } })), page, pageSize, total };
   },
   async get(scope: LaborPartnerScope, id: string) {
     const partner = await LaborPartnerModel.findOne({ _id: requiredObjectId(id), ...scopeQuery(scope), deletedAt: null }).lean();
     if (!partner) return null;
     const [activeReferrals, totalReferrals] = await Promise.all([
-      WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope), status: { $in: ["pending", "active"] } }),
+      WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope), status: "active" }),
       WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope) }),
     ]);
-    return { ...partner, referralSummary: { active: activeReferrals, total: totalReferrals } };
+    const [official, seasonal, pending] = await Promise.all([
+      WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope), status: "active", commissionScheme: "official_monthly" }),
+      WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope), status: "active", commissionScheme: "seasonal_hourly" }),
+      WorkerReferralModel.countDocuments({ partnerId: partner._id, ...scopeQuery(scope), status: "pending" }),
+    ]);
+    return { ...partner, referralSummary: { active: activeReferrals, pending, official, seasonal, total: totalReferrals } };
   },
   async overview(scope: LaborPartnerScope, id: string) {
     const partner = await this.get(scope, id);
@@ -72,7 +101,11 @@ export const LaborPartnerService = {
   },
   async create(scope: LaborPartnerScope, input: PartnerInput) {
     const data = normalizePartnerInput(input);
-    await assertPolicyInScope(scope, data.defaultPolicyId as Types.ObjectId | undefined);
+    await Promise.all([
+      assertPolicyInScope(scope, data.defaultPolicyId as Types.ObjectId | undefined),
+      assertPolicyInScope(scope, data.defaultOfficialPolicyId as Types.ObjectId | undefined, "official_monthly"),
+      assertPolicyInScope(scope, data.defaultSeasonalPolicyId as Types.ObjectId | undefined, "seasonal_hourly"),
+    ]);
     const existing = await LaborPartnerModel.findOne({ ...scopeQuery(scope), code: data.code, deletedAt: null }).lean();
     if (existing) throw new LaborPartnerError("LABOR_PARTNER_CODE_EXISTS", "Mã đối tác đã tồn tại.", 409);
     return LaborPartnerModel.create({ ...data, companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}) } as any);
@@ -81,7 +114,11 @@ export const LaborPartnerService = {
     const current = await LaborPartnerModel.findOne({ _id: requiredObjectId(id), ...scopeQuery(scope), deletedAt: null });
     if (!current) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", "Không tìm thấy đối tác lao động.", 404);
     const data = normalizePartnerInput({ ...current.toObject(), ...input });
-    await assertPolicyInScope(scope, data.defaultPolicyId as Types.ObjectId | undefined);
+    await Promise.all([
+      assertPolicyInScope(scope, data.defaultPolicyId as Types.ObjectId | undefined),
+      assertPolicyInScope(scope, data.defaultOfficialPolicyId as Types.ObjectId | undefined, "official_monthly"),
+      assertPolicyInScope(scope, data.defaultSeasonalPolicyId as Types.ObjectId | undefined, "seasonal_hourly"),
+    ]);
     const duplicate = await LaborPartnerModel.findOne({ ...scopeQuery(scope), _id: { $ne: current._id }, code: data.code, deletedAt: null }).lean();
     if (duplicate) throw new LaborPartnerError("LABOR_PARTNER_CODE_EXISTS", "Mã đối tác đã tồn tại.", 409);
     Object.assign(current, data);

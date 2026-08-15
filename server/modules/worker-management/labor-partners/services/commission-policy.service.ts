@@ -107,7 +107,7 @@ export const CommissionPolicyService = {
   async activate(scope: LaborPartnerScope, id: string, actor?: Record<string, unknown>) {
     const current = await CommissionPolicyModel.findOne({ _id: requiredObjectId(id), ...scopeQuery(scope) });
     if (!current) throw new LaborPartnerError("POLICY_NOT_FOUND", "Không tìm thấy chính sách.", 404);
-    if (current.status !== "draft") throw new LaborPartnerError("POLICY_VERSION_IMMUTABLE", "Chỉ có thể kích hoạt phiên bản chính sách đang nháp.", 409);
+    if (current.status !== "draft" && current.status !== "retired") throw new LaborPartnerError("POLICY_VERSION_IMMUTABLE", "Chỉ có thể kích hoạt chính sách đang nháp hoặc đã ngừng.", 409);
     validatePolicyConfiguration(current.toObject());
     current.status = "active";
     current.activatedBy = actorSnapshot(actor);

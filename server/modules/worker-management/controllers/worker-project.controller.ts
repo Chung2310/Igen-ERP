@@ -75,6 +75,16 @@ export class WorkerProjectController {
     }
   }
 
+  static async addWorkers(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const scope = getScope(req);
+      const project = await WorkerProjectService.addWorkers(scope, req.params.id, req.body.workerIds);
+      res.json({ success: true, data: project });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async removeWorker(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const scope = getScope(req);

@@ -170,7 +170,12 @@ export async function connectDB() {
     }
   }
 
-  if (!connectionUri.includes("retryWrites=")) {
+  // Local MongoDB standalone deployments do not support retryable writes.
+  // Always normalize the option, including when the supplied URI already
+  // contains retryWrites=true.
+  if (/[?&]retryWrites=[^&]*/i.test(connectionUri)) {
+    connectionUri = connectionUri.replace(/([?&])retryWrites=[^&]*/i, "$1retryWrites=false");
+  } else {
     connectionUri += (connectionUri.includes("?") ? "&" : "?") + "retryWrites=false";
   }
 
