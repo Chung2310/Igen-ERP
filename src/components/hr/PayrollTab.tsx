@@ -488,14 +488,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id), Number(run.version)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
               Chốt kỳ
             </button>
           )}
