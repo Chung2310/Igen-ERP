@@ -119,7 +119,6 @@ timekeepingRouter.get("/attempts", requireAuth as any, requirePermission("timeke
 timekeepingRouter.post(
   "/check-in",
   requireAuth as any,
-  requirePermission("timekeeping:manage") as any,
   attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
   attendanceBranchGate as any,
@@ -131,7 +130,6 @@ timekeepingRouter.post(
 timekeepingRouter.post(
   "/check-out",
   requireAuth as any,
-  requirePermission("timekeeping:manage") as any,
   attendanceImage.single("file"),
   validateRequest(checkInOutSchema),
   attendanceBranchGate as any,
