@@ -38,19 +38,34 @@ const RULES = [
   },
 ] as const;
 
+const ACTION_RULES: readonly { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /duplicate employee code/i,
+    message: "Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.",
+  },
+  {
+    pattern: /upload failed|unsupported source url|cloudinary|request failed with status code/i,
+    message: "Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.",
+  },
+  {
+    pattern: /duplicate (?:key|value)|already exists|already been taken/i,
+    message: "Thông tin này đã tồn tại. Vui lòng kiểm tra và nhập giá trị khác.",
+  },
+  {
+    pattern: /invalid|required|validation failed/i,
+    message: "Thông tin nhập vào chưa đúng hoặc còn thiếu. Vui lòng kiểm tra lại.",
+  },
+];
+
 export function toVietnameseErrorMessage(message: unknown): string {
   const text = typeof message === "string" ? message.trim() : "";
   if (!text) return FALLBACK;
+  const rule = RULES.find(({ pattern }) => pattern.test(text));
+  const actionRule = ACTION_RULES.find(({ pattern }) => pattern.test(text));
+  if (actionRule && text.includes(":")) return actionRule.message;
   if (VIETNAMESE.test(text)) {
-    const separator = text.indexOf(":");
-    if (separator > 0) {
-      const summary = text.slice(0, separator).trim();
-      const details = text.slice(separator + 1).trim();
-      if (VIETNAMESE.test(summary) && details && !VIETNAMESE.test(details)) {
-        return `${summary.replace(/[.!?]+$/, "")}.`;
-      }
-    }
     return text;
   }
-  return RULES.find(({ pattern }) => pattern.test(text))?.message || FALLBACK;
+  if (rule && !text.includes(":")) return rule.message;
+  return rule?.message || FALLBACK;
 }

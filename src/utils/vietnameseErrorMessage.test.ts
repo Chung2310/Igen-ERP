@@ -22,13 +22,20 @@ describe("toVietnameseErrorMessage", () => {
       .toBe("Đã xảy ra lỗi. Vui lòng thử lại.");
   });
 
-  it("loại bỏ chi tiết kỹ thuật tiếng Anh khỏi thông báo tiếng Việt", () => {
+  it("ẩn chi tiết kỹ thuật và hiển thị hướng xử lý bằng tiếng Việt", () => {
     expect(toVietnameseErrorMessage(
       "Tải lên Cloudinary thất bại: Unsupported source URL: data:audio/webm;base64,AAAA",
-    )).toBe("Tải lên Cloudinary thất bại.");
+    )).toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
     expect(toVietnameseErrorMessage(
       'Lỗi tải "voice.webm": Request failed with status code 400',
-    )).toBe('Lỗi tải "voice.webm".');
+    )).toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
+  });
+
+  it("dịch lỗi tiếng Anh thành hướng dẫn ngắn gọn cho người dùng", () => {
+    expect(toVietnameseErrorMessage("Upload failed: Unsupported source URL: https://example.com/file.pdf"))
+      .toBe("Không thể tải tệp lên. Vui lòng chọn tệp khác hoặc thử lại.");
+    expect(toVietnameseErrorMessage("Request failed with status code 409: Duplicate employee code"))
+      .toBe("Mã nhân viên đã tồn tại. Vui lòng kiểm tra và nhập mã khác.");
   });
 
   it("giữ nguyên phần giải thích tiếng Việt sau dấu hai chấm", () => {
