@@ -86,7 +86,7 @@ export const DELETION_SEO: SeoMeta = {
   changeFrequency: "monthly",
 };
 
-export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
+export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, SeoMeta> = {
   "TỔNG QUAN": {
     title: "Tổng quan doanh nghiệp - Dashboard điều hành thông minh",
     description:

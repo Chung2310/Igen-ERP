@@ -14,8 +14,6 @@ import {
   Lock,
   Handshake,
   BriefcaseBusiness,
-  ContactRound,
-  UserSearch,
   ShoppingCart,
   Landmark,
 } from "lucide-react";
@@ -96,18 +94,6 @@ const baseMenuItems: MenuItem[] = [
     label: "TÀI CHÍNH",
     title: "Tài chính",
     icon: Landmark,
-    group: "operations",
-  },
-  {
-    label: "QUẢN LÝ KHÁCH HÀNG",
-    title: "Khách hàng",
-    icon: ContactRound,
-    group: "operations",
-  },
-  {
-    label: "QUẢN LÝ ỨNG VIÊN",
-    title: "Ứng viên",
-    icon: UserSearch,
     group: "operations",
   },
   {

@@ -82,14 +82,6 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"].includes(permission))),
   },
   {
-    tab: "QUẢN LÝ KHÁCH HÀNG",
-    component: lazy(() => import("../modules/customer-management/CustomerManagementTab")),
-  },
-  {
-    tab: "QUẢN LÝ ỨNG VIÊN",
-    component: lazy(() => import("../modules/candidate-management/CandidateManagementTab")),
-  },
-  {
     tab: "PHÂN TÍCH & BÁO CÁO",
     component: lazy(() => import("../pages/AnalyticsTab")),
     canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin",
