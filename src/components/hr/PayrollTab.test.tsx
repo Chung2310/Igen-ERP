@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PAYROLL_RESULT_FIELDS } from "./payroll/payrollLineOverrides";
+import { toast } from "../../pages/Toast";
 import PayrollTab from "./PayrollTab";
 
 const getRun = vi.hoisted(() => vi.fn());
@@ -73,6 +74,7 @@ const effectiveLine = (employeeId: string, changes: Record<string, unknown> = {}
 
 const draftRun = (status = "draft") => ({
   _id: "run-1",
+  periodKey: "2026-08",
   version: 2,
   status,
   activeRevisionId: undefined as string | undefined,
@@ -94,7 +96,12 @@ const draftRun = (status = "draft") => ({
   ],
 });
 
-function arrange(run = draftRun()) {
+type PayrollRunFixture = Omit<ReturnType<typeof draftRun>, "effectiveLines"> & {
+  effectiveLines?: ReturnType<typeof draftRun>["effectiveLines"];
+  effectiveError?: { code: string; message: string };
+};
+
+function arrange(run: PayrollRunFixture | null = draftRun()) {
   getRun.mockResolvedValue(run);
   getResults.mockResolvedValue([]);
   getAdjustments.mockResolvedValue([]);
@@ -369,6 +376,61 @@ describe("PayrollTab read-only payroll results", () => {
     await waitFor(() => expect(within(row).queryByRole("spinbutton")).toBeNull());
     expect(within(row).getByText(/700\.000/)).toBeTruthy();
     expect(screen.queryByText(/nhân viên có thay đổi chưa lưu/)).toBeNull();
+  });
+
+  it("keeps the reviewed workflow state and reports an unexpected reconciliation failure", async () => {
+    const reviewed = { ...draftRun("review"), activeRevisionId: "revision-1", version: 3 };
+    arrange({ ...draftRun(), activeRevisionId: "revision-1" });
+    reviewRun.mockResolvedValue(reviewed);
+    getRun
+      .mockResolvedValueOnce({ ...draftRun(), activeRevisionId: "revision-1" })
+      .mockRejectedValueOnce(Object.assign(new Error("Snapshot checksum mismatch"), {
+        code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+      }));
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    await user.click(await screen.findByRole("button", { name: /Kiểm tra/ }));
+
+    await waitFor(() => expect(reviewRun).toHaveBeenCalledWith("run-1", 2));
+    expect(await screen.findByRole("button", { name: /Chốt kỳ/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Kiểm tra/ })).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith("Snapshot checksum mismatch");
+  });
+
+  it("treats PAYROLL_RUN_NOT_FOUND as an empty period without an error toast", async () => {
+    arrange();
+    getRun
+      .mockResolvedValueOnce(draftRun())
+      .mockRejectedValueOnce(Object.assign(new Error("not found"), {
+        code: "PAYROLL_RUN_NOT_FOUND",
+      }));
+
+    render(<PayrollTab canManage={false} />);
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue("2026-08"), { target: { value: "2026-07" } });
+
+    expect(await screen.findByText(/chưa được tính cho kỳ này/i)).toBeTruthy();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows review state but hides unverified payroll values", async () => {
+    arrange({
+      ...draftRun("review"),
+      effectiveLines: undefined,
+      effectiveError: {
+        code: "PAYROLL_EFFECTIVE_CHECKSUM_MISMATCH",
+        message: "Pinned effective payroll snapshot checksum is invalid",
+      },
+    });
+
+    render(<PayrollTab canManage />);
+
+    expect((await screen.findAllByText("Kiểm tra")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("alert").textContent).toContain("Không thể xác thực số liệu bảng lương");
+    expect(screen.queryByText("Nguyễn Văn A")).toBeNull();
+    expect(screen.queryByText("Tổng thực nhận")).toBeNull();
+    expect((screen.getByRole("button", { name: /Chốt kỳ/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("keeps a no-run payroll view read-only for a user without manage permission", async () => {

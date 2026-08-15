@@ -91,6 +91,23 @@ const STEPS = [
   { key: "paid", label: "Đã thanh toán" },
 ] as const;
 
+const PAYROLL_RUN_STATUSES = new Set(["draft", "review", "closed", "paid"]);
+
+function isPayrollRun(value: unknown): value is {
+  _id: unknown;
+  periodKey: string;
+  status: string;
+  version: number;
+} & Record<string, unknown> {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return candidate._id !== undefined
+    && typeof candidate.periodKey === "string"
+    && typeof candidate.status === "string"
+    && PAYROLL_RUN_STATUSES.has(candidate.status)
+    && typeof candidate.version === "number";
+}
+
 export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
@@ -143,7 +160,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
   const reload = async () => {
     try { setRun(await payrollService.getRun(period)); }
-    catch { /* Keep the last authoritative run visible instead of falling back to the draft input table. */ }
+    catch (error) {
+      const requestError = error as Error & { code?: string };
+      if (requestError.code === "PAYROLL_RUN_NOT_FOUND") {
+        setRun(null);
+      } else {
+        toast.error(requestError.message || "Không tải được bảng lương; dữ liệu hiển thị có thể đã cũ");
+      }
+    }
     try { setResults(await payrollService.getResults(period)); } catch { setResults([]); }
     try { setAdjustments(await payrollService.getAdjustments(period)); } catch { setAdjustments([]); }
   };
@@ -180,7 +204,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   };
   const action = async (fn: () => Promise<unknown>, success: string, onSuccess?: () => void | Promise<void>) => {
     try {
-      await fn();
+      const updated = await fn();
+      if (isPayrollRun(updated)) setRun(updated);
       await onSuccess?.();
       toast.success(success);
       await reload();
@@ -410,7 +435,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     } finally { setInputSaving(false); }
   };
 
-  const canSeeTable = canManage || !!run;
+  const effectiveError = run?.effectiveError as { code?: string; message?: string } | undefined;
+  const effectiveDataAvailable = !effectiveError;
+  const canSeeTable = (canManage || !!run) && effectiveDataAvailable;
 
   return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -423,7 +450,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     </div>
 
-    {run?._id && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && effectiveDataAvailable && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
@@ -479,6 +506,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </ol>
     </div>
 
+    {effectiveError && (
+      <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <p className="font-bold">Không thể xác thực số liệu bảng lương</p>
+        <p className="mt-1">Trạng thái kỳ lương vẫn được cập nhật, nhưng số liệu đang được ẩn để tránh hiển thị dữ liệu không đáng tin cậy. Vui lòng liên hệ quản trị viên.</p>
+        <p className="mt-1 text-xs font-mono">{effectiveError.code || "PAYROLL_EFFECTIVE_UNAVAILABLE"}</p>
+      </div>
+    )}
+
     {/* Thẻ tổng quan */}
     {canSeeTable && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -522,7 +557,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </>
           )}
           {run?.status === "review" && (
-            <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700">
+            <button disabled={!effectiveDataAvailable} title={!effectiveDataAvailable ? "Không thể chốt kỳ khi số liệu chưa được xác thực" : undefined} onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
               Chốt kỳ
             </button>
           )}
@@ -580,7 +615,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         </div>
       )}
 
-      <div className="overflow-auto border border-slate-100 rounded-xl max-h-[60vh]">
+      {effectiveDataAvailable && <div className="overflow-auto border border-slate-100 rounded-xl max-h-[60vh]">
         <table className="w-full text-left text-sm border-collapse">
           {run ? (
             <>
@@ -676,7 +711,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </>
           )}
         </table>
-      </div>
+      </div>}
     </div>
     {inputSaveOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => !inputSaving && setInputSaveOpen(false)}>

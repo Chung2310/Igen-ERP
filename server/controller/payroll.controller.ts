@@ -1197,7 +1197,11 @@ export const payrollController = {
     return res.json({ status: "success", data: effectiveLine });
   },  async getRun(req: AuthenticatedRequest, res: Response) {
     const data = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
-    if (!data) return res.status(404).json({ status: "error", message: "Khong tim thay bang luong." });
+    if (!data) return res.status(404).json({
+      status: "error",
+      code: "PAYROLL_RUN_NOT_FOUND",
+      message: "Không tìm thấy bảng lương.",
+    });
     try {
       const effective = await loadAuthoritativePayrollLines(
         { companyCode: tenant(req), branchId: req.user?.branchId || "" },
@@ -1223,7 +1227,14 @@ export const payrollController = {
       (data as any).effectiveLines = effective.effectiveLines;
       (data as any).effectiveChecksum = effective.effectiveChecksum;
     } catch (error) {
-      return operationFailure(res, error);
+      const effectiveError = error as Error & { code?: string };
+      const degradedData = data as typeof data & {
+        effectiveError?: { code: string; message: string };
+      };
+      degradedData.effectiveError = {
+        code: effectiveError.code ?? "PAYROLL_EFFECTIVE_UNAVAILABLE",
+        message: effectiveError.message ?? "Không đọc được số liệu đã ghim của kỳ lương",
+      };
     }
     return res.json({ status: "success", data });
   },
