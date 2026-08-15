@@ -1,4 +1,5 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import mongoose from "mongoose";
 import { calculatePayrollChecksum, canonicalizePayrollSnapshot } from "./payroll-checksum.service";
 
 describe("payroll checksum", () => {
@@ -9,4 +10,11 @@ describe("payroll checksum", () => {
   it("changes when a payroll amount changes", () => {
     expect(calculatePayrollChecksum({ employeeId: "e1", net: 100 })).not.toBe(calculatePayrollChecksum({ employeeId: "e1", net: 101 }));
   });
+  it("treats mongoose ObjectId and its hex string representation identically", () => {
+    const id = new mongoose.Types.ObjectId();
+    const objWithObjectId = { id: id };
+    const objWithStringId = { id: id.toHexString() };
+    expect(calculatePayrollChecksum(objWithObjectId)).toBe(calculatePayrollChecksum(objWithStringId));
+  });
 });
+

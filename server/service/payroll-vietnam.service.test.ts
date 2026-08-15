@@ -138,6 +138,7 @@ describe("personal income tax", () => {
 
     expect(result.assessableIncome).toBe(0);
     expect(result.tax).toBe(0);
+    expect(result.schedule).toEqual(policy().taxBrackets);
   });
 
   it("withholds a flat rate for short-term contracts above the threshold", () => {

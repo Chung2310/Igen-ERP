@@ -171,6 +171,61 @@ describe("PayrollTab editable payroll results", () => {
     expect(screen.getByLabelText("net-e1").tagName).not.toBe("INPUT");
   });
 
+  it("updates the PIT cell when adjusted salary changes in the payroll table", async () => {
+    const zeroTaxValues = values({
+      adjustedBase: 8_000_000,
+      overtime: 0,
+      bonusTotal: 0,
+      penaltyTotal: 0,
+      socialInsurance: 0,
+      healthInsurance: 0,
+      unemploymentInsurance: 0,
+      personalIncomeTax: 0,
+      otherDeductions: 0,
+      hiddenIncome: 0,
+    });
+    const run: any = draftRun();
+    run.effectiveLines[0] = effectiveLine("e1", {
+      policyId: "policy-1",
+      systemValues: zeroTaxValues,
+      effectiveValues: zeroTaxValues,
+      vietnam: {
+        income: { taxableAllowances: 0 },
+        tax: { deductions: { personal: 11_000_000, dependents: 0, other: 0 } },
+      },
+    });
+    arrange(run);
+    getPolicies.mockResolvedValue([{
+      _id: "policy-1",
+      status: "active",
+      effectiveFrom: "2026-01-01",
+      taxBrackets: [
+        { upTo: 5_000_000, rate: 0.05 },
+        { upTo: 10_000_000, rate: 0.1 },
+        { rate: 0.15 },
+      ],
+      roundingUnit: 1,
+    }]);
+    const user = userEvent.setup();
+    render(<PayrollTab canManage />);
+
+    const adjustedBase = await screen.findByLabelText("adjustedBase-e1");
+    await user.clear(adjustedBase);
+    await user.type(adjustedBase, "20000000");
+
+    expect((screen.getByLabelText("personalIncomeTax-e1") as HTMLInputElement).value).toBe("650000");
+    expect(screen.getByLabelText("net-e1").textContent).toContain("19.350.000");
+
+    await user.click(screen.getByRole("button", { name: /L.*u thay/ }));
+    await user.type(saveReasonInput(), "Cáº­p nháº­t lÆ°Æ¡ng chá»‹u thuáº¿");
+    await user.click(saveDialog().getByRole("button", { name: /L.*u thay/ }));
+
+    await waitFor(() => expect(bulkSaveLineOverrides).toHaveBeenCalledWith(expect.any(String), [expect.objectContaining({
+      employeeId: "e1",
+      values: { adjustedBase: 20_000_000, personalIncomeTax: 650_000 },
+    })]));
+  });
+
   it("previews derived values, restores a persisted result, and retains only a conflicting employee after bulk save", async () => {
     arrange();
     const conflict = "Payroll line override was changed by another user";
