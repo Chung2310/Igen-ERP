@@ -57,6 +57,15 @@ describe("parseWorkerSheet", () => {
     expect(rows[0].data).toMatchObject({ fullName: "Nguyễn Văn A", phone: "0912345678", idCard: "001" });
   });
 
+  it("parses an explicit commission scheme without requiring a partner name", () => {
+    const rows = parseWorkerSheet([
+      ["Họ và tên", "Số điện thoại", "Mã đối tác giới thiệu", "Loại lao động", "Cơ chế hoa hồng"],
+      ["Nguyễn Văn A", "0912345678", "P-001", "Thời vụ", "seasonal_hourly"],
+    ]).rows;
+    expect(rows[0].data).toMatchObject({ partnerCode: "P-001", commissionScheme: "seasonal_hourly" });
+    expect(rows[0].isValid).toBe(true);
+  });
+
   it("reports missing required columns instead of parsing", () => {
     const result = parseWorkerSheet([["Email", "Địa chỉ"], ["a@b.c", "HN"]]);
     expect(result.error).toContain("Họ và tên");

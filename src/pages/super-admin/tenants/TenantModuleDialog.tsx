@@ -1,6 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
-import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_OPTIONS, type ModuleKey } from "../../../config/modules";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
 
@@ -61,11 +61,10 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, saving]);
 
-  const toggleModule = (key: ModuleKey) => {
-    if (key === getRequiredBusinessModule(businessType)) return;
-    setSelected((current) => current.includes(key)
-      ? current.filter((item) => item !== key)
-      : MODULE_KEYS.filter((item) => item === key || current.includes(item)));
+  const toggleModule = (moduleKeys: readonly ModuleKey[]) => {
+    setSelected((current) => moduleKeys.every((key) => current.includes(key))
+      ? current.filter((item) => !moduleKeys.includes(item))
+      : [...new Set([...current, ...moduleKeys])]);
   };
 
   const changeBusinessType = (next: BusinessType) => {
@@ -168,10 +167,10 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
             <div>
               <h4 className="text-sm font-bold">Module được kích hoạt</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, businessType)).map((key) => (
-                  <label key={key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-800 px-3 py-3 text-sm hover:border-cyan-400/40">
-                    <input type="checkbox" checked={selected.includes(key)} onChange={() => toggleModule(key)} disabled={saving || key === getRequiredBusinessModule(businessType)} />
-                    {MODULE_LABELS[key]}
+                {MODULE_OPTIONS.map((option) => (
+                  <label key={option.key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-800 px-3 py-3 text-sm hover:border-cyan-400/40">
+                    <input type="checkbox" checked={option.moduleKeys.every((key) => selected.includes(key))} onChange={() => toggleModule(option.moduleKeys)} disabled={saving} />
+                    {option.label}
                   </label>
                 ))}
               </div>

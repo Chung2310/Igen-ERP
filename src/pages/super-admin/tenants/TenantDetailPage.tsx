@@ -1,7 +1,7 @@
 import React from "react";
 import { superAdminTenantService, type Tenant, type TenantSummary, type TenantUser } from "../../../services/superAdminTenantService";
 import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
-import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { MODULE_KEYS, MODULE_OPTIONS, type ModuleKey } from "../../../config/modules";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getRequiredBusinessModule, isModuleAllowedForBusinessType, resolveBusinessType, type BusinessType } from "../../../config/businessTypes";
 
 function ModulesEditor({ code, current, businessType, onSaved }: { code: string; current: string[]; businessType: BusinessType; onSaved: () => void }) {
@@ -21,9 +21,10 @@ function ModulesEditor({ code, current, businessType, onSaved }: { code: string;
     setSelected(normalizeModules(current, businessType));
   }, [businessType, current, normalizeModules]);
 
-  const toggle = (key: ModuleKey) => {
-    if (key === getRequiredBusinessModule(selectedBusinessType)) return;
-    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const toggle = (moduleKeys: readonly ModuleKey[]) => {
+    setSelected((prev) => moduleKeys.every((key) => prev.includes(key))
+      ? prev.filter((key) => !moduleKeys.includes(key))
+      : [...new Set([...prev, ...moduleKeys])]);
   };
 
   const changeBusinessType = (nextType: BusinessType) => {
@@ -51,10 +52,10 @@ function ModulesEditor({ code, current, businessType, onSaved }: { code: string;
         </select>
       </label>
       <div className="grid grid-cols-2 gap-2">
-        {MODULE_KEYS.filter((key) => isModuleAllowedForBusinessType(key, selectedBusinessType)).map((key) => (
-          <label key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
-            <input type="checkbox" checked={selected.includes(key)} onChange={() => toggle(key)} disabled={key === getRequiredBusinessModule(selectedBusinessType)} />
-            {MODULE_LABELS[key]}
+        {MODULE_OPTIONS.map((option) => (
+          <label key={option.key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs">
+            <input type="checkbox" checked={option.moduleKeys.every((key) => selected.includes(key))} onChange={() => toggle(option.moduleKeys)} />
+            {option.label}
           </label>
         ))}
       </div>

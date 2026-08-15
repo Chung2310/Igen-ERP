@@ -83,3 +83,11 @@ export const addWorkerSchema = Joi.object({
     "string.empty": "Mã nhân công không được để trống.",
   }),
 });
+
+export const addWorkersSchema = Joi.object({
+  workerIds: Joi.array().items(objectIdSchema).min(1).max(2000).unique().required().messages({
+    "any.required": "Cần chọn ít nhất một lao động.",
+    "array.min": "Cần chọn ít nhất một lao động.",
+    "array.max": "Chỉ được thêm tối đa 2.000 lao động mỗi lần.",
+  }),
+});

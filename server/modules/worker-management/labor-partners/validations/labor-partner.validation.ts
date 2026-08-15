@@ -18,6 +18,8 @@ const partnerFields = {
   // The partner form submits an empty string when no default policy is selected.
   // Keep that value valid; the service normalizes it to null before persistence.
   defaultPolicyId: objectId.allow("", null).optional(),
+  defaultOfficialPolicyId: objectId.allow("", null).optional(),
+  defaultSeasonalPolicyId: objectId.allow("", null).optional(),
   status: Joi.string().valid("active", "inactive").optional(),
   note: optionalText,
 };

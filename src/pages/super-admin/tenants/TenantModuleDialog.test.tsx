@@ -47,6 +47,7 @@ describe("TenantModuleDialog", () => {
     expect((screen.getByRole("checkbox", { name: "Nhân sự" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Trò chuyện" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Kho & Sản phẩm" }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByRole("checkbox", { name: "Quản lý đối tác" })).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Tên doanh nghiệp" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "Mã doanh nghiệp" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "Email chủ sở hữu" })).toBeNull();
@@ -85,10 +86,9 @@ describe("TenantModuleDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Loại hình doanh nghiệp"), { target: { value: "labor" } });
 
-    expect(screen.queryByText("Quản lý học viên")).toBeNull();
-    const worker = screen.getByRole("checkbox", { name: "Quản lý lao động" }) as HTMLInputElement;
-    expect(worker.checked).toBe(true);
-    expect(worker.disabled).toBe(true);
+    const people = screen.getByRole("checkbox", { name: "Quản lý học viên / lao động" }) as HTMLInputElement;
+    expect(people.checked).toBe(true);
+    expect(people.disabled).toBe(false);
   });
 
   it("suspends the tenant with a written reason and no step-up fields", async () => {

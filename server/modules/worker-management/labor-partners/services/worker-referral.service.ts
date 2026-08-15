@@ -5,6 +5,8 @@ import { WorkerReferralModel } from "../models/worker-referral.model";
 import { CommissionPolicyModel } from "../models/commission-policy.model";
 import { LaborPartnerError, actorSnapshot, normalizeDate, normalizeText, requiredObjectId, scopeQuery, type CommissionScheme, type LaborPartnerScope } from "../contracts";
 import { buildWorkerQuery } from "../../services/worker.service";
+import { runInTransaction } from "../../../../config/database";
+import { supportsCommissionScheme } from "./policy-compatibility";
 
 type ReferralInput = Record<string, unknown>;
 
@@ -34,6 +36,7 @@ async function assertReferralResources(scope: LaborPartnerScope, partnerId: mong
   if (!partner) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", "Không tìm thấy đối tác lao động.", 404);
   if (!worker) throw new LaborPartnerError("CROSS_SCOPE_RESOURCE_NOT_FOUND", "Không tìm thấy người lao động trong phạm vi hiện tại.", 404);
   if (!policy) throw new LaborPartnerError("POLICY_NOT_ACTIVE", "Chính sách hoa hồng chưa hoạt động hoặc không thuộc phạm vi hiện tại.", 409);
+  if (!supportsCommissionScheme(policy, input.commissionScheme)) throw new LaborPartnerError("POLICY_SCHEME_MISMATCH", "Chính sách không hỗ trợ đúng cơ chế hoa hồng của nguồn giới thiệu.", 409);
 }
 
 function overlapsQuery(scope: LaborPartnerScope, workerId: mongoose.Types.ObjectId, from: string, to: string | null): any {
@@ -52,39 +55,49 @@ export const WorkerReferralService = {
     return WorkerReferralModel.find({ partnerId: partnerObjectId, ...scopeQuery(scope) }).sort({ effectiveFrom: -1 }).lean();
   },
   async getForWorker(scope: LaborPartnerScope, workerId: string) {
-    return WorkerReferralModel.find({ workerId: requiredObjectId(workerId), ...scopeQuery(scope) }).sort({ effectiveFrom: -1 }).lean();
+    return WorkerReferralModel.find({ workerId: requiredObjectId(workerId), ...scopeQuery(scope) })
+      .populate("partnerId", "code name")
+      .sort({ effectiveFrom: -1 })
+      .lean();
   },
   async create(scope: LaborPartnerScope, partnerId: string, input: ReferralInput, actor?: Record<string, unknown>) {
     const partnerObjectId = requiredObjectId(partnerId);
     const data = normalizeReferralInput(input);
     await assertReferralResources(scope, partnerObjectId, data);
-    const session = await mongoose.startSession();
-    try {
-      let created: any;
-      await session.withTransaction(async () => {
-        const overlaps = await WorkerReferralModel.exists(overlapsQuery(scope, data.workerId, data.effectiveFrom, data.effectiveTo)).session(session);
-        if (overlaps) throw new LaborPartnerError("WORKER_REFERRAL_OVERLAP", "Người lao động đã có đối tác giới thiệu hiệu lực trong khoảng thời gian này.", 409);
-        const rows: any = await WorkerReferralModel.create([{ ...data, partnerId: partnerObjectId, companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), status: data.confirmationSource === "manual" ? "pending" : "active", ...(data.confirmationSource === "manual" ? {} : { confirmedBy: actorSnapshot(actor).id, confirmedAt: new Date() }) }] as any, { session });
-        created = rows[0];
-      });
-      return created;
-    } finally { await session.endSession(); }
+    return runInTransaction(async (session) => {
+      const overlapQuery = WorkerReferralModel.exists(overlapsQuery(scope, data.workerId, data.effectiveFrom, data.effectiveTo));
+      if (session) overlapQuery.session(session);
+      const overlaps = await overlapQuery;
+      if (overlaps) throw new LaborPartnerError("WORKER_REFERRAL_OVERLAP", "Người lao động đã có đối tác giới thiệu hiệu lực trong khoảng thời gian này.", 409);
+      const document = { ...data, partnerId: partnerObjectId, companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), status: data.confirmationSource === "manual" ? "pending" : "active", ...(data.confirmationSource === "manual" ? {} : { confirmedBy: actorSnapshot(actor).id, confirmedAt: new Date() }) };
+      const rows: any = session
+        ? await WorkerReferralModel.create([document] as any, { session })
+        : await WorkerReferralModel.create([document] as any);
+      return rows[0];
+    });
   },
   async createForImportedWorker(
     scope: LaborPartnerScope,
-    input: { workerId: string; partnerCode: string; laborType?: string; registrationDate?: string },
+    input: { workerId: string; partnerCode: string; laborType?: string; commissionScheme?: string; registrationDate?: string },
     actor?: Record<string, unknown>,
   ) {
     const code = normalizeText(input.partnerCode).toUpperCase();
     const partner = await LaborPartnerModel.findOne({ code, ...scopeQuery(scope), status: "active", deletedAt: null }).lean() as any;
     if (!partner) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", `Không tìm thấy đối tác có mã ${code}.`, 404);
 
-    const commissionScheme: CommissionScheme = input.laborType === "seasonal" ? "seasonal_hourly" : "official_monthly";
+    const explicitScheme = String(input.commissionScheme || "").trim();
+    const commissionScheme: CommissionScheme = explicitScheme
+      ? explicitScheme === "official_monthly" || explicitScheme === "seasonal_hourly"
+        ? explicitScheme
+        : (() => { throw new LaborPartnerError("IMPORT_SCHEME_INVALID", "Cơ chế hoa hồng trong file import không hợp lệ.", 400); })()
+      : input.laborType === "seasonal" ? "seasonal_hourly" : "official_monthly";
     const compatibleQuery = commissionScheme === "seasonal_hourly" ? { "seasonal.enabled": true } : { "official.enabled": true };
     const policies = await CommissionPolicyModel.find({ ...scopeQuery(scope), status: "active", ...compatibleQuery }).sort({ createdAt: -1 }).lean() as any[];
-    const defaultPolicyId = partner.defaultPolicyId ? String(partner.defaultPolicyId) : "";
-    const policy = policies.find((item) => String(item._id) === defaultPolicyId) || policies[0];
-    if (!policy) throw new LaborPartnerError("POLICY_NOT_ACTIVE", `Đối tác ${code} chưa có chính sách hoa hồng phù hợp.`, 409);
+    const schemeDefault = commissionScheme === "seasonal_hourly" ? partner.defaultSeasonalPolicyId : partner.defaultOfficialPolicyId;
+    const legacyDefault = partner.defaultPolicyId ? String(partner.defaultPolicyId) : "";
+    const policy = policies.find((item) => String(item._id) === String(schemeDefault || ""))
+      || (!schemeDefault ? policies.find((item) => String(item._id) === legacyDefault) : undefined);
+    if (!policy) throw new LaborPartnerError("PARTNER_DEFAULT_POLICY_MISSING", `Đối tác ${code} chưa cấu hình chính sách hoa hồng ${commissionScheme === "seasonal_hourly" ? "thời vụ" : "chính thức"} đang hoạt động.`, 409, { partnerCode: code, scheme: commissionScheme });
 
     const effectiveDate = importDateToIso(input.registrationDate);
     return WorkerReferralService.create(scope, String(partner._id), {

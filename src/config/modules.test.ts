@@ -28,12 +28,16 @@ test("resolveEnabledTab redirects a disabled module to overview", () => {
 test("hides student for labor tenants and shows worker", () => {
   assert.deepEqual(
     filterEnabledTabs(["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"] as any, ["student", "worker", "hr"], "labor" as any),
-    ["QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
+    ["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
   );
 });
 
 test("redirects incompatible business tabs to overview", () => {
-  assert.equal(resolveEnabledTab("QUẢN LÝ HỌC VIÊN" as any, ["student", "worker"], "labor" as any), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("QUẢN LÝ HỌC VIÊN" as any, ["worker"], "labor" as any), "TỔNG QUAN");
+});
+
+test("toggles partner independently", () => {
+  assert.equal(resolveEnabledTab("ĐỐI TÁC" as any, ["customer"]), "TỔNG QUAN");
 });
 
 test("maps read and manage access without duplicate module permissions", () => {

@@ -56,6 +56,19 @@ export async function parseApiErrorResponse(response: Response): Promise<ApiClie
     });
   }
 
+  // Worker-management endpoints use the legacy `{ success: false, error: { code, message } }`
+  // shape. Preserve its domain message instead of collapsing it to the generic fallback.
+  if (isRecord(payload) && payload.success === false && isRecord(payload.error)
+    && typeof payload.error.code === "string" && typeof payload.error.message === "string") {
+    return new ApiClientError({
+      status: response.status,
+      code: payload.error.code,
+      message: payload.error.message,
+      details: isRecord(payload.error.details) ? payload.error.details : undefined,
+      requestId: typeof payload.error.requestId === "string" ? payload.error.requestId : response.headers.get("x-request-id") ?? undefined,
+    });
+  }
+
   if (isRecord(payload) && typeof payload.error === 'string') {
     return new ApiClientError({
       status: response.status,

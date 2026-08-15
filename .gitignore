@@ -19,6 +19,9 @@ nginx/*
 logs/
 scratch/
 scripts/
+!server/scripts/
+server/scripts/*
+!server/scripts/backfill-labor-partner-scheme-policies.ts
 
 # Runtime-generated files and local storage
 server/cache/
