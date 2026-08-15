@@ -30,5 +30,5 @@ export interface ITimekeepingLog extends Document {
   scheduledEndAt?: Date;
   standardMinutes?: number;
   breakPeriods?: { name: string; startTime: string; endTime: string; paid: boolean }[];
-  assignmentSource?: "employee" | "company" | "legacy";
+  assignmentSource?: "custom" | "employee" | "company" | "legacy";
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeError } from "../../../errors/normalize-error";
-import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, parseOpeningFloat, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
+import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, shiftScheduleRejectionMessage, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, parseOpeningFloat, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
 
 test("expected cash uses actual cash flows only", () => {
   assert.equal(calculateExpectedCash({ openingFloat: 500_000, cashCollected: 1_200_000, cashRefunded: 100_000, movementsIn: 50_000, movementsOut: 200_000 }), 1_450_000);
@@ -86,10 +86,41 @@ test("opening snapshots an assigned daytime work schedule", () => {
 
 test("opening rejects times outside the assigned work window and non-working days", () => {
   const resolved = { shift: { code: "HC", name: "HÃ nh chÃ­nh", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] } } as any;
-  const outsideSchedule = (error: unknown) => (error as any).code === "OUTSIDE_WORK_SCHEDULE" && (error as any).status === 409;
-  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-13", new Date("2026-08-13T00:59:59.999Z")), outsideSchedule);
-  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-13", new Date("2026-08-13T10:00:00.001Z")), outsideSchedule);
-  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-16", new Date("2026-08-16T03:00:00.000Z")), outsideSchedule);
+  const outsideSchedule = (reason: string) => (error: unknown) => (error as any).code === "SHIFT_OUTSIDE_WORK_SCHEDULE"
+    && (error as any).status === 409
+    && (error as any).expose === true
+    && (error as any).details?.reason === reason;
+  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-13", new Date("2026-08-13T00:59:59.999Z")), outsideSchedule("before_shift"));
+  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-13", new Date("2026-08-13T10:00:00.001Z")), outsideSchedule("after_shift"));
+  assert.throws(() => buildRetailShiftScheduleSnapshot(resolved, "2026-08-16", new Date("2026-08-16T03:00:00.000Z")), outsideSchedule("non_working_day"));
+});
+
+test("schedule rejections carry the shift window so the UI can explain itself", () => {
+  const details = {
+    reason: "before_shift" as const, workDate: "2026-08-13", workShiftCode: "HC", workShiftName: "Hành chính",
+    scheduledStartAt: new Date("2026-08-13T01:00:00.000Z"), scheduledEndAt: new Date("2026-08-13T10:00:00.000Z"),
+  };
+  assert.equal(
+    shiftScheduleRejectionMessage(details),
+    "Chưa đến giờ làm việc của ca Hành chính (08:00–17:00). Bạn có thể mở ca bán hàng từ 08:00.",
+  );
+  assert.equal(
+    shiftScheduleRejectionMessage({ ...details, reason: "after_shift" }),
+    "Đã hết giờ làm việc của ca Hành chính (08:00–17:00). Bạn không thể mở ca bán hàng ngoài khung giờ được phân công.",
+  );
+  assert.equal(
+    shiftScheduleRejectionMessage({ reason: "non_working_day", workDate: "2026-08-16", workShiftCode: "HC", workShiftName: "Hành chính" }),
+    "Hôm nay không nằm trong lịch làm việc của ca Hành chính. Bạn chỉ mở được ca bán hàng vào ngày làm việc được phân công.",
+  );
+});
+
+test("the rejection surfaced after trying both business dates is today's, not yesterday's", async () => {
+  const shift = { code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [0, 1, 2, 3, 4, 5, 6] };
+  const error = await resolveRetailShiftSchedule("ACME", "emp-1", new Date("2026-08-13T12:00:00.000Z"), async () => ({ shift, source: "company" }) as any)
+    .then(() => null, (cause) => cause);
+  assert.equal(error.code, "SHIFT_OUTSIDE_WORK_SCHEDULE");
+  assert.equal(error.details.workDate, "2026-08-13");
+  assert.equal(error.details.reason, "after_shift");
 });
 
 test("cross-midnight schedules snapshot the next-day employee end as operational deadline", () => {

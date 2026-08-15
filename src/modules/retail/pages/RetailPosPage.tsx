@@ -1,5 +1,6 @@
 import React from "react";
 import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
 import CheckoutSuccessDialog from "../components/pos/CheckoutSuccessDialog";
 import CustomerPicker from "../components/pos/CustomerPicker";
@@ -52,7 +53,7 @@ export default function RetailPosPage() {
   const [openingFloat, setOpeningFloat] = React.useState(0);
   const [terminalId, setTerminalId] = React.useState("");
   const [openingShift, setOpeningShift] = React.useState(false);
-  const [shiftError, setShiftError] = React.useState("");
+  const [shiftError, setShiftError] = React.useState<unknown>(null);
   const [q, setQ] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -81,12 +82,12 @@ export default function RetailPosPage() {
   const openShift = async () => {
     if (!scope || !Number.isSafeInteger(openingFloat) || openingFloat < 0) return;
     setOpeningShift(true);
-    setShiftError("");
+    setShiftError(null);
     try {
       const opened = await retailShiftsApi.open(scope, { openingFloat, terminalId: terminalId.trim() || undefined });
       setShift(opened);
     } catch (error) {
-      setShiftError(error instanceof Error ? error.message : "Không thể mở ca bán hàng.");
+      setShiftError(error);
     } finally {
       setOpeningShift(false);
     }
@@ -163,7 +164,7 @@ export default function RetailPosPage() {
       <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
         <h1 className="text-xl font-bold text-amber-950">Mở ca bán hàng</h1>
         <p className="mt-2 text-sm text-amber-800">Bạn cần mở ca trước khi quét sản phẩm, tạo đơn hoặc thanh toán.</p>
-        {shiftError && <p role="alert" className="mt-4 rounded-xl bg-rose-100 p-3 text-sm text-rose-700">{shiftError}</p>}
+        <ShiftScheduleNotice error={shiftError} />
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">Tiền đầu ca
             <input aria-label="Tiền đầu ca" type="number" min="0" step="1" value={openingFloat} onChange={(event) => setOpeningFloat(Number(event.target.value || 0))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2" />
