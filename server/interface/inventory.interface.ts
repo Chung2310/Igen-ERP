@@ -112,6 +112,7 @@ export interface ISupplier extends Document {
 export interface IGoodsReceiptItem {
   productId: string;
   variantId: string;
+  barcode?: string;
   sku: string;
   trackingMode?: "none" | "quantity" | "lot" | "serial";
   serialNumbers?: string[];

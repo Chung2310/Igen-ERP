@@ -50,7 +50,7 @@ function normalizeItems(input: unknown) {
     const unitCost = Number(raw?.unitCost);
     if (!Number.isFinite(quantity) || quantity <= 0) throw new ReceivingValidationError(`Số lượng dòng ${index + 1} phải lớn hơn 0.`);
     if (!Number.isFinite(unitCost) || unitCost < 0) throw new ReceivingValidationError(`Giá nhập dòng ${index + 1} không hợp lệ.`);
-    return { productId, variantId, quantity, unitCost, note: text(raw?.note, "Ghi chú") || undefined };
+    return { productId, variantId, barcode: text(raw?.barcode, "Mã vạch") || undefined, quantity, unitCost, note: text(raw?.note, "Ghi chú") || undefined };
   });
 }
 
@@ -116,6 +116,9 @@ async function resolveReceiptItems(company: string, rawItems: ReturnType<typeof 
     const variant: any = variantById.get(item.variantId);
     if (!product || !variant || String(variant.productId) !== item.productId) throw new ReceivingValidationError(`Sản phẩm/SKU ${item.variantId} không thuộc công ty hoặc đã ngừng dùng.`);
     return { ...item, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, lineTotal: item.quantity * item.unitCost };
+    const barcode = item.barcode || variant.barcode;
+    if (item.barcode && item.barcode !== variant.barcode) throw new ReceivingValidationError("Mã vạch của SKU " + variant.sku + " không khớp.");
+    return { ...item, barcode, sku: variant.sku, productName: product.name, lineTotal: item.quantity * item.unitCost };
   });
 }
 
