@@ -1,7 +1,7 @@
 import React from "react";
 import { inventorySerialService, type InventorySerialUnit } from "../../../../services/inventorySerialService";
 
-export default function SerialPicker({ productId, variantId, quantity, value, onChange }: { productId: string; variantId?: string; quantity: number; value: string[]; onChange: (serials: string[]) => void }) {
+export default function SerialPicker({ productId, variantId, quantity, value, mode = "serial", onChange }: { productId: string; variantId?: string; quantity: number; value: string[]; mode?: "serial" | "unit_barcode"; onChange: (values: string[]) => void }) {
   const [items, setItems] = React.useState<InventorySerialUnit[]>([]);
   const [error, setError] = React.useState("");
   React.useEffect(() => { let active = true; void inventorySerialService.list({ productId, variantId, status: "in_stock", limit: 100 }).then((result) => { if (active) setItems(result.items); }).catch((problem) => { if (active) setError(problem instanceof Error ? problem.message : "Không thể tải serial."); }); return () => { active = false; }; }, [productId, variantId]);

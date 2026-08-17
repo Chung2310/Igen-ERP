@@ -36,12 +36,16 @@ export function tierRefreshForOrderChange(action: "confirm" | "cancel", order: a
   return { customerId, sourceKey: `retail-order:${order._id}:tier-${action}` };
 }
 
-export function validateRetailSerialItems(items: Array<{ quantity: number; trackingMode?: string; serialNumbers?: string[] }>) {
+export function validateRetailSerialItems(items: Array<{ quantity: number; trackingMode?: string; serialNumbers?: string[]; internalBarcodes?: string[] }>) {
   for (const item of items) {
     const serials = item.serialNumbers || [];
+    const barcodes = item.internalBarcodes || [];
     if (item.trackingMode === "serial" && serials.length !== Number(item.quantity)) throw new Error("Sản phẩm quản lý IMEI/serial phải chọn đủ mã theo số lượng.");
+    if (item.trackingMode === "unit_barcode" && barcodes.length !== Number(item.quantity)) throw new Error("Sản phẩm quản lý mã vạch phải chọn đủ mã theo số lượng.");
     if (item.trackingMode !== "serial" && serials.length) throw new Error("Sản phẩm này không hỗ trợ IMEI/serial.");
+    if (item.trackingMode !== "unit_barcode" && barcodes.length) throw new Error("Sản phẩm này không hỗ trợ mã vạch từng đơn vị.");
     if (new Set(serials.map((serial) => String(serial).trim().toUpperCase())).size !== serials.length) throw new Error("IMEI/serial trong đơn không được trùng.");
+    if (new Set(barcodes.map((barcode) => String(barcode).trim().toUpperCase())).size !== barcodes.length) throw new Error("Mã vạch trong đơn không được trùng.");
   }
 }
 
@@ -143,6 +147,7 @@ export function snapshotRetailProductForPricing(product: any, item: any) {
     ...(product.trackingMode ? { trackingMode: product.trackingMode } : item.trackingMode ? { trackingMode: item.trackingMode } : {}),
     ...(product.variantId || item.variantId ? { variantId: String(product.variantId || item.variantId) } : {}),
     ...(Array.isArray(item.serialNumbers) ? { serialNumbers: item.serialNumbers } : {}), discount: item.discount,
+    ...(Array.isArray(item.internalBarcodes) ? { internalBarcodes: item.internalBarcodes } : {}),
     note: text(item.note) || undefined,
   };
 }
@@ -198,6 +203,7 @@ export const RetailOrderService = {
     assertHeldDraftCapacity(used.length);
     const occupied = new Set(used.map((item: any) => Number(item.heldSlot)));
     const [{ pricing }, customer] = await Promise.all([priceInput(scope, input), resolveOrderCustomer(scope, input.customerId)]);
+    requireRetailPaymentCustomer(customer?._id);
     for (let slot = 1; slot <= 5; slot += 1) {
       if (occupied.has(slot)) continue;
       try {
@@ -234,7 +240,7 @@ export const RetailOrderService = {
       const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).session(session).lean(); if (!branch) throw new Error("Chi nhánh bán hàng không hợp lệ.");
       const scopeKey = monthlyScope(shift.businessDate); const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { new: true, upsert: true, session }); const orderCode = formatRetailDocumentCode(settings.orderPrefix, branch.code, scopeKey, counter!.seq);
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
-      await claimSerialsForOrder(scope, draft.items as any, String(draft._id), actorId(actor), session, actorName(actor));
+      await claimSerialsForOrder(scope, draft.items as any, String(draft._id), String(draft.customerId), actorId(actor), session, actorName(actor));
       Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 }); await draft.save({ session });
       await publishRetailOrderEvent("confirmed", scope, draft, actor, { session });
       await enqueueOrderTierRefresh(scope, "confirm", draft, session);

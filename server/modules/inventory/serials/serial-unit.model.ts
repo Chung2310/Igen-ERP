@@ -16,6 +16,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   status: { type: String, enum: ["in_stock", "sold", "returned", "defective", "repairing", "scrapped"], required: true, default: "in_stock", index: true },
   currentDocumentType: { type: String, trim: true },
   currentDocumentId: { type: String, index: true },
+  customerId: { type: String, index: true },
   createdBy: { type: String, required: true },
   updatedBy: { type: String, required: true },
 }, { timestamps: true });

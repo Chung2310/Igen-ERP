@@ -1,7 +1,7 @@
 import { apiFetch } from "../modules/shared/lib/apiFetch";
 
 export type SerialUnitStatus = "in_stock" | "sold" | "returned" | "defective" | "repairing" | "scrapped";
-export interface InventorySerialUnit { _id: string; companyCode: string; branchId: string; warehouseId?: string; productId: string; variantId?: string; sku: string; productName: string; serialNumber: string; normalizedSerialNumber: string; status: SerialUnitStatus; currentDocumentType?: string; currentDocumentId?: string; createdAt: string; updatedAt: string }
+export interface InventorySerialUnit { _id: string; companyCode: string; branchId: string; warehouseId?: string; productId: string; variantId?: string; sku: string; productName: string; internalBarcode: string; normalizedInternalBarcode: string; serialNumber: string; normalizedSerialNumber: string; status: SerialUnitStatus; currentDocumentType?: string; currentDocumentId?: string; createdAt: string; updatedAt: string }
 export interface InventorySerialEvent { _id: string; serialUnitId: string; serialNumber: string; eventType: string; fromStatus?: SerialUnitStatus; toStatus: SerialUnitStatus; documentType?: string; documentId?: string; reason?: string; actorName: string; occurredAt: string }
 type Envelope<T> = { status: "success"; data: T };
 type ListResult = { items: InventorySerialUnit[]; total: number; page: number; limit: number };
