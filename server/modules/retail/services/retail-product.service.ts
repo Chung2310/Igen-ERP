@@ -1,4 +1,6 @@
 import { ProductModel } from "../../../model/product.model";
+import { ProductCatalogLegacyMappingModel } from "../../../model/product-catalog-legacy-mapping.model";
+import { ProductVariantModel } from "../../../model/product-variant.model";
 import type { RetailBranchScope } from "../contracts";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -29,13 +31,23 @@ export const RetailProductService = {
     ];
     const [items, total] = await Promise.all([
       ProductModel.find(filter)
-        .select("sku barcode name category brand unit stock price imageUrl")
+        .select("sku barcode name category brand unit stock price imageUrl trackingMode variantId")
         .sort({ name: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
       ProductModel.countDocuments(filter),
     ]);
-    return { items, total, page, limit };
+    const legacyIds = items.map((item: any) => String(item._id));
+    const mappings = await ProductCatalogLegacyMappingModel.find({ companyCode: scope.companyCode, legacyProductId: { $in: legacyIds }, $or: [{ legacyBranchId: scope.branchId }, { legacyBranchId: { $exists: false } }] }).select("legacyProductId variantId").lean();
+    const variantIds = mappings.map((mapping: any) => String(mapping.variantId));
+    const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, _id: { $in: variantIds }, status: "active" }).select("sku barcode trackingMode productId").lean();
+    const variantById = new Map(variants.map((variant: any) => [String(variant._id), variant]));
+    const mappingByLegacyId = new Map(mappings.map((mapping: any) => [String(mapping.legacyProductId), mapping]));
+    return { items: items.map((item: any) => {
+      const mapping = mappingByLegacyId.get(String(item._id));
+      const variant = mapping ? variantById.get(String(mapping.variantId)) : undefined;
+      return { ...item, ...(variant ? { variantId: String(variant._id), trackingMode: variant.trackingMode, sku: variant.sku, barcode: variant.barcode || item.barcode } : {}) };
+    }), total, page, limit };
   },
 };

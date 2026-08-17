@@ -113,6 +113,8 @@ export interface IGoodsReceiptItem {
   productId: string;
   variantId: string;
   sku: string;
+  trackingMode?: "none" | "quantity" | "lot" | "serial";
+  serialNumbers?: string[];
   productName: string;
   quantity: number;
   unitCost: number;

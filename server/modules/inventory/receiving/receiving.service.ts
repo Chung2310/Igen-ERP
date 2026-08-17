@@ -7,6 +7,8 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 import { SupplierModel } from "../../../model/supplier.model";
 import { getWarehouse } from "../warehouse/warehouse.service";
 import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
+import { validateReceivingSerialLines } from "../serials/serial-receiving-validation";
+import { registerSerialBatch } from "../serials/serial-unit.service";
 
 export class ReceivingValidationError extends Error { statusCode = 400; }
 
@@ -113,7 +115,7 @@ async function resolveReceiptItems(company: string, rawItems: ReturnType<typeof 
     const product: any = productById.get(item.productId);
     const variant: any = variantById.get(item.variantId);
     if (!product || !variant || String(variant.productId) !== item.productId) throw new ReceivingValidationError(`Sản phẩm/SKU ${item.variantId} không thuộc công ty hoặc đã ngừng dùng.`);
-    return { ...item, sku: variant.sku, productName: product.name, lineTotal: item.quantity * item.unitCost };
+    return { ...item, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, lineTotal: item.quantity * item.unitCost };
   });
 }
 
@@ -142,7 +144,9 @@ export async function createReceipt(rawScope: Scope, input: any, actor: Actor) {
   if (!supplier) throw new ReceivingValidationError("Không tìm thấy nhà cung cấp đang hoạt động.");
   const warehouse = input?.warehouseId ? await getWarehouse(scope.companyCode, scope.branchId, String(input.warehouseId)) : await (await import("../warehouse/warehouse.service")).ensureDefaultWarehouse(scope.companyCode, scope.branchId);
   if (!warehouse) throw new ReceivingValidationError("Không tìm thấy kho nhập.");
-  const items = await resolveReceiptItems(scope.companyCode, normalizeItems(input?.items));
+  const rawItems = normalizeItems(input?.items);
+  const items = (await resolveReceiptItems(scope.companyCode, rawItems)).map((item: any, index) => ({ ...item, serialNumbers: Array.isArray(input?.items?.[index]?.serialNumbers) ? input.items[index].serialNumbers : undefined }));
+  validateReceivingSerialLines(items as any);
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const receipt = await GoodsReceiptModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), receiptCode: await receiptCode(scope), supplierId, supplierName: supplier.name, status: "draft", receivedAt: input?.receivedAt ? new Date(input.receivedAt) : undefined, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, createdBy: actorId(actor), createdByName: actor.email || actor.id, version: 0 });
   return receipt.toObject();
@@ -160,6 +164,7 @@ export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) 
     }
     const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: receipt.warehouseId, direction: "in", purpose: "purchase", sourceType: "goods-receipt", sourceId: String(receipt._id), sourceCode: receipt.receiptCode, idempotencyKey: `goods-receipt:${receipt._id}:confirm`, operatorName: actor.email || actor.id || "", items: receipt.items.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost, lineTotal: item.lineTotal })), reason: `Nhập hàng ${receipt.receiptCode}`, session, writeLegacyStockLog: true });
     receipt.status = "confirmed"; receipt.confirmedBy = actorId(actor); receipt.confirmedByName = actor.email || actor.id; receipt.confirmedAt = new Date(); receipt.version += 1; await receipt.save({ session });
+    for (const item of receipt.items as any[]) if (item.trackingMode === "serial") await registerSerialBatch({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(receipt.warehouseId) }, { productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, serialNumbers: item.serialNumbers, documentType: "goods-receipt", documentId: String(receipt._id) }, { id: actorId(actor), name: actor.email || actor.id || "" }, session);
     void movement;
     return receipt.toObject();
   });

@@ -3,7 +3,7 @@ import { apiFetch } from "../modules/shared/lib/apiFetch";
 export type Supplier = { _id: string; code: string; name: string; taxCode?: string; phone?: string; email?: string; address?: string; paymentTerms?: string; notes?: string; status: "active" | "inactive" };
 export type Warehouse = { _id: string; branchId: string; code: string; name: string; kind: string; isDefault: boolean; isActive: boolean };
 export type InventoryBalance = { _id: string; warehouseId: string; productId: string; variantId?: string; sku: string; productName?: string; productMediaUrl?: string; variantMediaUrl?: string; variantName?: string; quantity: number; reservedQuantity: number; minStock?: number; maxStock?: number; averageCost: number };
-export type GoodsReceiptItem = { productId: string; variantId: string; sku?: string; productName?: string; quantity: number; unitCost: number; lineTotal?: number; note?: string };
+export type GoodsReceiptItem = { productId: string; variantId: string; sku?: string; productName?: string; quantity: number; unitCost: number; lineTotal?: number; note?: string; trackingMode?: "none" | "quantity" | "lot" | "serial"; serialNumbers?: string[] };
 export type GoodsReceipt = { _id: string; receiptCode: string; supplierId: string; supplierName: string; warehouseId: string; status: "draft" | "pending" | "receiving" | "confirmed" | "cancelled"; receivedAt?: string; items: Array<GoodsReceiptItem & { sku: string; productName: string; lineTotal: number }>; subtotal: number; notes?: string; createdAt: string };
 type Envelope<T> = { status: string; data: T };
 

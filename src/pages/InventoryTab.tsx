@@ -23,6 +23,7 @@ import { ViewToggle } from "../components/inventory/ViewToggle";
 import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV2Section";
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
+import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -653,6 +654,7 @@ export default function InventoryTab() {
           setSubTab("XUẤT HÀNG");
         }} />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
+        {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">

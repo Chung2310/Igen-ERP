@@ -58,4 +58,10 @@ describe("retail cart", () => {
     expect(adjusted.shippingFee).toBe(12_000);
     expect(adjusted.quoteDirty).toBe(true);
   });
+
+  it("keeps selected serials on the cart line", () => {
+    const state = retailCartReducer({ ...empty, lines: [{ product: { ...product, trackingMode: "serial" }, quantity: 2, discount: { type: "amount", value: 0 } }] }, { type: "serials", productId: "p1", serialNumbers: ["IMEI-1", "IMEI-2"] });
+    expect(state.lines[0].serialNumbers).toEqual(["IMEI-1", "IMEI-2"]);
+    expect(state.quoteDirty).toBe(true);
+  });
 });

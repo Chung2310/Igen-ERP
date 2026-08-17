@@ -18,6 +18,7 @@ import { buildOrderListQuery } from "./retail-query.service";
 import type { PostReceivableEntryInput } from "../interfaces/retail-receivable.interface";
 import { enqueueTierRefresh, processTierRefreshBySourceKey } from "./retail-customer-tier.service";
 import { publishRetailOrderEvent } from "./retail-order-events";
+import { claimSerialsForOrder, releaseSerialsForOrder } from "./retail-serial-order.service";
 
 export function receivableEntriesForOrderChange(action: "confirm" | "collect" | "cancel", order: any, collectedAmount: number): PostReceivableEntryInput[] {
   const orderId = String(order._id);
@@ -33,6 +34,15 @@ export function tierRefreshForOrderChange(action: "confirm" | "cancel", order: a
   const customerId = String(order.customerId || "");
   if (!customerId) return null;
   return { customerId, sourceKey: `retail-order:${order._id}:tier-${action}` };
+}
+
+export function validateRetailSerialItems(items: Array<{ quantity: number; trackingMode?: string; serialNumbers?: string[] }>) {
+  for (const item of items) {
+    const serials = item.serialNumbers || [];
+    if (item.trackingMode === "serial" && serials.length !== Number(item.quantity)) throw new Error("Sản phẩm quản lý IMEI/serial phải chọn đủ mã theo số lượng.");
+    if (item.trackingMode !== "serial" && serials.length) throw new Error("Sản phẩm này không hỗ trợ IMEI/serial.");
+    if (new Set(serials.map((serial) => String(serial).trim().toUpperCase())).size !== serials.length) throw new Error("IMEI/serial trong đơn không được trùng.");
+  }
 }
 
 async function enqueueOrderTierRefresh(scope: RetailBranchScope, action: "confirm" | "cancel", order: any, session: mongoose.ClientSession) {
@@ -129,7 +139,10 @@ export function snapshotRetailProductForPricing(product: any, item: any) {
   return {
     productId: String(product._id), sku: text(product.sku), productName: text(product.name), unit: text(product.unit),
     ...(text(product.category) ? { category: text(product.category) } : {}), ...(text(product.brand) ? { brand: text(product.brand) } : {}),
-    quantity: Number(item.quantity), unitPrice: Number(product.price || 0), unitCost: Number(product.costPrice || 0), discount: item.discount,
+    quantity: Number(item.quantity), unitPrice: Number(product.price || 0), unitCost: Number(product.costPrice || 0),
+    ...(product.trackingMode ? { trackingMode: product.trackingMode } : item.trackingMode ? { trackingMode: item.trackingMode } : {}),
+    ...(product.variantId || item.variantId ? { variantId: String(product.variantId || item.variantId) } : {}),
+    ...(Array.isArray(item.serialNumbers) ? { serialNumbers: item.serialNumbers } : {}), discount: item.discount,
     note: text(item.note) || undefined,
   };
 }
@@ -143,6 +156,7 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   const byId = new Map(products.map((product: any) => [String(product._id), product]));
   if (byId.size !== new Set(ids).size) throw new Error("Sản phẩm không thuộc chi nhánh đang bán.");
   const items = rawItems.map((item: any) => snapshotRetailProductForPricing(byId.get(String(item.productId)), item));
+  validateRetailSerialItems(items);
   return { settings, pricing: calculateOrderTotals({ items, orderDiscount: input.orderDiscount || { type: "amount", value: 0 }, taxRate: input.taxRate === undefined ? settings.defaultTaxRate : Number(input.taxRate), shippingFee: Number(input.shippingFee || 0), maxDiscountPercent: settings.maxDiscountPercent }) };
 }
 
@@ -220,6 +234,7 @@ export const RetailOrderService = {
       const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).session(session).lean(); if (!branch) throw new Error("Chi nhánh bán hàng không hợp lệ.");
       const scopeKey = monthlyScope(shift.businessDate); const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { new: true, upsert: true, session }); const orderCode = formatRetailDocumentCode(settings.orderPrefix, branch.code, scopeKey, counter!.seq);
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
+      await claimSerialsForOrder(scope, draft.items as any, String(draft._id), actorId(actor), session, actorName(actor));
       Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 }); await draft.save({ session });
       await publishRetailOrderEvent("confirmed", scope, draft, actor, { session });
       await enqueueOrderTierRefresh(scope, "confirm", draft, session);
@@ -246,7 +261,7 @@ export const RetailOrderService = {
         if (remainingRefund > 0) assertRetailShiftOperational(shift);
         const refunds = remainingRefund > 0 ? normalizePayments(input.refunds || [], remainingRefund) : { payments: [], total: 0 };
         if (refunds.total !== remainingRefund) throw new Error("Phải ghi nhận đủ số tiền hoàn khi hủy đơn.");
-        if (order.stockApplied && !order.stockRevertedAt) { await revertOrderStock(scope, String(order._id), order.orderCode, order.items, actorName(actor), session); order.stockRevertedAt = new Date(); }
+        if (order.stockApplied && !order.stockRevertedAt) { await revertOrderStock(scope, String(order._id), order.orderCode, order.items, actorName(actor), session); await releaseSerialsForOrder(scope, String(order._id), actorId(actor), actorName(actor), session); order.stockRevertedAt = new Date(); }
         await enqueueOrderTierRefresh(scope, "cancel", order, session);
         order.refunds.push(...refunds.payments.map((item: any) => ({ method: item.method, amount: item.amount, reference: item.reference, refundedAt: new Date(), refundedBy: actorId(actor), refundedByName: actorName(actor), shiftId: String(shift?._id || ""), businessDate: shift?.businessDate || order.businessDate, reason })));
         order.refundedAmount += refunds.total; order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount); order.status = "cancelled"; order.cancelReason = reason; order.cancelledAt = new Date(); order.version += 1;

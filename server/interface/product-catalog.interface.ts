@@ -1,7 +1,10 @@
 import { Document } from "mongoose";
 
 export type ProductCatalogType = "physical" | "service" | "bundle";
-export type ProductTrackingMode = "none" | "quantity" | "lot" | "serial";
+export type ProductTrackingMode = "none" | "quantity" | "serial" | "lot";
+export interface InventoryTrackingSettings {
+  defaultTrackingMode: ProductTrackingMode;
+}
 export type ProductTemplateFieldType = "text" | "number" | "boolean" | "select" | "multi-select";
 
 export interface ProductTemplateField {

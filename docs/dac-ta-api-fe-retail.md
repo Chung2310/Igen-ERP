@@ -746,3 +746,36 @@ Kết quả dry-run phải có `writes: 0` cùng các số `scanned`, `convertib
 - [ ] POS thao tác được đủ luồng bằng bàn phím, không cần chuột
 ```
 
+# Phụ lục — Quản lý IMEI/Serial
+
+## Cấu hình theo dõi hàng hóa
+
+Mỗi variant có `trackingMode`: `none`, `quantity`, `lot` hoặc `serial`. Variant mới mặc định là `none`; sản phẩm không theo dõi serial tiếp tục bán theo số lượng như trước.
+
+## Registry và vòng đời
+
+Registry `InventorySerialUnit` lưu một mã IMEI/serial cho một đơn vị hàng. Mã được chuẩn hóa trim/uppercase và unique theo `companyCode`. Các trạng thái chính gồm `in_stock`, `sold`, `returned`, `defective`, `repairing`, `scrapped`.
+
+Mọi chuyển trạng thái ghi vào `InventorySerialEvent`. Khi xác nhận nhập kho, serial được tạo ở `in_stock`; khi xác nhận đơn, serial chuyển sang `sold`; khi hủy đơn, serial được trả về `in_stock` bằng event đảo.
+
+## API
+
+```text
+GET  /api/v1/inventory/serials
+GET  /api/v1/inventory/serials/:id
+GET  /api/v1/inventory/serials/:id/history
+POST /api/v1/inventory/serials
+POST /api/v1/inventory/serials/:id/transition
+POST /api/v1/inventory/serials/:id/transfer
+```
+
+`POST /inventory/serials` nhận `serialNumbers[]` để import batch, tối đa 500 mã và transaction toàn batch. `POST /transfer` chỉ cho serial đang `in_stock`, bắt buộc chi nhánh nhận và lý do.
+
+## Migration
+
+```powershell
+npm run backfill:serial-tracking
+npm run backfill:serial-tracking -- --apply
+```
+
+Lệnh đầu chỉ báo cáo (`dry-run`); không tự sinh serial cho dữ liệu tồn cũ vì không thể đoán IMEI hợp lệ.

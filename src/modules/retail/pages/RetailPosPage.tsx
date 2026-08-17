@@ -14,6 +14,7 @@ import ScanFeedback, {
   type ScanFeedbackKind,
 } from "../components/pos/ScanFeedback";
 import RetailOfflineQueuePanel from "../components/pos/RetailOfflineQueuePanel";
+import SerialPicker from "../components/pos/SerialPicker";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -220,6 +221,7 @@ export default function RetailPosPage() {
         },
         quantity: item.quantity,
         discount: { type: "amount", value: item.discountAmount },
+        serialNumbers: item.serialNumbers,
       })),
       customer: value.customerId
         ? {
@@ -518,6 +520,7 @@ function CartPanel({
                 })
               }
             />
+            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
           </div>
         ))}
       </div>
