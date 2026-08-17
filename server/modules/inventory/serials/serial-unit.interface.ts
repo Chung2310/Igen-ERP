@@ -15,6 +15,7 @@ export interface ISerialUnit {
   status: SerialUnitStatus;
   currentDocumentType?: string;
   currentDocumentId?: string;
+  customerId?: string;
   createdBy: string;
   updatedBy: string;
   createdAt: Date;

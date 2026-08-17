@@ -15,6 +15,7 @@ import ScanFeedback, {
 } from "../components/pos/ScanFeedback";
 import RetailOfflineQueuePanel from "../components/pos/RetailOfflineQueuePanel";
 import SerialPicker from "../components/pos/SerialPicker";
+import UnitBarcodePicker from "../components/pos/UnitBarcodePicker";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -241,6 +242,7 @@ export default function RetailPosPage() {
   };
   const saveDraft = async () => {
     if (!cart.lines.length) return;
+    if (!cart.customer?._id) { setMessage("Vui lòng chọn khách hàng trước khi lưu đơn."); return; }
     setBusy(true);
     try {
       const input = buildRetailOrderInput(cart);
@@ -520,7 +522,8 @@ function CartPanel({
                 })
               }
             />
-            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
+            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} mode="serial" onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
+            {line.product.trackingMode === "unit_barcode" && <UnitBarcodePicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.internalBarcodes || []} onChange={(internalBarcodes) => dispatch({ type: "internalBarcodes", productId: line.product._id, internalBarcodes })} />}
           </div>
         ))}
       </div>
