@@ -138,7 +138,7 @@ export default function RetailPosPage() {
     const timer = window.setTimeout(
       () =>
         void retailProductsApi
-          .list(scope, { q })
+          .list(scope, { q, limit: 100 })
           .then((data) => setProducts(data.items))
           .catch(show),
       200,

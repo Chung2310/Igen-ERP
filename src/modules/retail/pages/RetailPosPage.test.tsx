@@ -26,7 +26,7 @@ const invoice = { _id: "i1", invoiceNo: "HD-1", orderId: "o1", orderCode: "DH-1"
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(retailProductsApi.list).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 20 });
+  vi.mocked(retailProductsApi.list).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 100 });
   vi.mocked(retailOrdersApi.list).mockResolvedValue({ items: [], total: 0, page: 1, limit: 5 });
   vi.mocked(retailOrdersApi.quote).mockResolvedValue({ subtotal: 180_000, grandTotal: 209_000 });
   vi.mocked(retailOrdersApi.createDraft).mockResolvedValue({ ...order, status: "draft" });
