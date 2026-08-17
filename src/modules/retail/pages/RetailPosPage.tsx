@@ -527,7 +527,7 @@ function CartPanel({
                 })
               }
             />
-            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product.productId || line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} mode="serial" onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
+            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product.productId || line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
             {line.product.trackingMode === "unit_barcode" && <UnitBarcodePicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.internalBarcodes || []} onChange={(internalBarcodes) => dispatch({ type: "internalBarcodes", productId: line.product._id, internalBarcodes })} />}
           </div>
         ))}
