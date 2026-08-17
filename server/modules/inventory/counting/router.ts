@@ -9,3 +9,4 @@ inventoryCountRouter.patch("/:id/items/:itemId", requirePermission("inventory:ma
 inventoryCountRouter.post("/:id/start", requirePermission("inventory:manage") as any, inventoryCountController.start as any);
 inventoryCountRouter.post("/:id/submit", requirePermission("inventory:manage") as any, inventoryCountController.submit as any);
 inventoryCountRouter.post("/:id/cancel", requirePermission("inventory:manage") as any, inventoryCountController.cancel as any);
+inventoryCountRouter.post("/:id/approve", requirePermission("inventory:manage") as any, inventoryCountController.approve as any);

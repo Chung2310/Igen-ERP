@@ -4,6 +4,7 @@ import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { assertCountTransition, assertEditableStatus, calculateQuantityDelta } from "./inventory-count.rules";
 import type { InventoryCountStatus } from "../../../interface/inventory.interface";
+import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
 
 type Scope = { companyCode: string; branchId: string };
 type Actor = { id?: string; email?: string };
@@ -78,3 +79,44 @@ async function transition(scope: Scope, countId: string, status: InventoryCountS
 export const startCount = (scope: Scope, id: string, actor: Actor) => transition(scope, id, "counting", actor);
 export const submitCount = (scope: Scope, id: string, actor: Actor) => transition(scope, id, "pending_approval", actor);
 export const cancelCount = (scope: Scope, id: string, actor: Actor) => transition(scope, id, "cancelled", actor);
+
+export async function approveCount(scope: Scope, countId: string, actor: Actor) {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const count: any = await InventoryCountModel.findOne({ _id: countId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId }).session(session);
+      if (!count) fail("Không tìm thấy phiếu kiểm kê.", 404);
+      assertCountTransition(count.status as InventoryCountStatus, "completed");
+      const filters = count.items.map((item: any) => ({ productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) }));
+      const balances = await InventoryBalanceModel.find({ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId: count.warehouseId, $or: filters }).session(session).lean();
+      const balanceMap = new Map(balances.map((balance: any) => [String(balance.productId) + ":" + String(balance.variantId || ""), balance]));
+      for (const item of count.items as any[]) {
+        const balance: any = balanceMap.get(String(item.productId) + ":" + String(item.variantId || ""));
+        if (!balance || Number(balance.version) !== Number(item.sourceBalanceVersion)) {
+          count.status = "conflict";
+          await count.save({ session });
+          fail("Tồn kho đã thay đổi sau khi bắt đầu kiểm kê.", 409);
+        }
+      }
+      const items = count.items.filter((item: any) => Number(item.quantityDelta) !== 0);
+      const input = (direction: "in" | "out", selected: any[]) => selected.length ? writeStockMovement({
+        companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId: count.warehouseId,
+        direction, purpose: "count_adjustment", sourceType: "inventory-count", sourceId: String(count._id),
+        sourceCode: count.countCode, idempotencyKey: "inventory-count:" + String(count._id) + ":" + direction,
+        operatorName: nameOf(actor), allowNegativeStock: true, session,
+        reason: "Điều chỉnh theo kiểm kê " + count.countCode,
+        items: selected.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: Math.abs(Number(item.quantityDelta)), unitCost: Number(balanceMap.get(String(item.productId) + ":" + String(item.variantId || ""))?.averageCost || 0) })),
+      }) : Promise.resolve();
+      await input("in", items.filter((item: any) => Number(item.quantityDelta) > 0));
+      await input("out", items.filter((item: any) => Number(item.quantityDelta) < 0));
+      count.status = "completed";
+      count.approvedBy = nameOf(actor);
+      count.approvedAt = new Date();
+      await count.save({ session });
+    });
+    return getCount(scope, countId);
+  } finally {
+    await session.endSession();
+  }
+}
+import mongoose from "mongoose";

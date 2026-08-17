@@ -7,4 +7,7 @@ const root = "/inventory/counts";
 export const inventoryCountService = {
   async create(warehouseId: string) { return (await apiFetch<Envelope<InventoryCount>>(root, { method: "POST", body: JSON.stringify({ warehouseId }) })).data; },
   async updateItem(id: string, itemId: string, countedQuantity: number) { return (await apiFetch<Envelope<InventoryCount>>(root + "/" + id + "/items/" + itemId, { method: "PATCH", body: JSON.stringify({ countedQuantity }) })).data; },
+  async start(id: string) { return (await apiFetch<Envelope<InventoryCount>>(root + "/" + id + "/start", { method: "POST" })).data; },
+  async submit(id: string) { return (await apiFetch<Envelope<InventoryCount>>(root + "/" + id + "/submit", { method: "POST" })).data; },
+  async approve(id: string) { return (await apiFetch<Envelope<InventoryCount>>(root + "/" + id + "/approve", { method: "POST" })).data; },
 };
