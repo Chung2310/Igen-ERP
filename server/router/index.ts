@@ -36,6 +36,7 @@ import { retailRouter } from "../modules/retail/router";
 import { productCatalogRouter } from "../modules/inventory/product-catalog/router";
 import { receivingRouter } from "../modules/inventory/receiving/router";
 import { warehouseRouter } from "../modules/inventory/warehouse/router";
+import { inventoryCountRouter } from "../modules/inventory/counting/router";
 import { financeRouter } from "../modules/finance/router";
 export const apiRouter = Router();
 
@@ -119,6 +120,7 @@ apiRouter.use("/", studentManagementRouter);
 apiRouter.use("/inventory/catalog", requireAuth as any, requireModule("inventory"), productCatalogRouter);
 apiRouter.use("/inventory/receiving", requireAuth as any, requireModule("inventory"), receivingRouter);
 apiRouter.use("/inventory/warehouses", requireAuth as any, requireModule("inventory"), warehouseRouter);
+apiRouter.use("/inventory/counts", requireAuth as any, requireModule("inventory"), inventoryCountRouter);
 apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
 apiRouter.use("/finance", requireAuth as any, requireModule("finance"), financeRouter);
 
