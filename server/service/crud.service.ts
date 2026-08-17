@@ -116,6 +116,9 @@ async function prepareStockLogPayload(
       productName: product.name,
       category: product.category || "Chưa phân loại",
       quantity,
+      ...(Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0
+        ? { unitIdentifiers: [...new Set(item.unitIdentifiers.map((value: unknown) => String(value).trim()).filter(Boolean))] }
+        : {}),
       unitPrice,
       lineTotal: unitPrice * quantity,
       ...(unitCost === undefined ? {} : { unitCost }),
