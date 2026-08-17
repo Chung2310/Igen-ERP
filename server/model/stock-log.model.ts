@@ -11,6 +11,7 @@ const StockLogItemSchema = new Schema(
     lineTotal: { type: Number, min: 0 },
     unitCost: { type: Number, min: 0 },
     category: { type: String, trim: true },
+    unitIdentifiers: { type: [String], default: [] },
   },
   { _id: false }
 );
