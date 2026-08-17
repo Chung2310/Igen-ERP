@@ -11,7 +11,7 @@ const InventoryLedgerEntrySchema = new Schema<IInventoryLedgerEntry>(
     sku: { type: String, required: true, trim: true, uppercase: true, index: true },
     productName: { type: String, required: true, trim: true },
     direction: { type: String, enum: ["in", "out"], required: true, index: true },
-    purpose: { type: String, enum: ["sale", "cancel", "purchase", "sales-return", "supplier-return", "transfer", "count", "opening", "other"], required: true, index: true },
+    purpose: { type: String, enum: ["sale", "cancel", "purchase", "sales-return", "supplier-return", "transfer", "count", "count_adjustment", "opening", "other"], required: true, index: true },
     quantity: { type: Number, required: true, min: 0.000001 },
     quantityDelta: { type: Number, required: true },
     unitCost: { type: Number, required: true, min: 0 },

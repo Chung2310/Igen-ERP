@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { requirePermission } from "../../../middleware/auth";
+import { inventoryCountController } from "./inventory-count.controller";
+export const inventoryCountRouter = Router();
+inventoryCountRouter.get("/", requirePermission("inventory:read") as any, inventoryCountController.list as any);
+inventoryCountRouter.get("/:id", requirePermission("inventory:read") as any, inventoryCountController.get as any);
+inventoryCountRouter.post("/", requirePermission("inventory:manage") as any, inventoryCountController.create as any);
+inventoryCountRouter.patch("/:id/items/:itemId", requirePermission("inventory:manage") as any, inventoryCountController.updateItem as any);
+inventoryCountRouter.post("/:id/start", requirePermission("inventory:manage") as any, inventoryCountController.start as any);
+inventoryCountRouter.post("/:id/submit", requirePermission("inventory:manage") as any, inventoryCountController.submit as any);
+inventoryCountRouter.post("/:id/cancel", requirePermission("inventory:manage") as any, inventoryCountController.cancel as any);
+inventoryCountRouter.post("/:id/approve", requirePermission("inventory:manage") as any, inventoryCountController.approve as any);
