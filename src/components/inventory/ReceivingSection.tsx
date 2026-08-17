@@ -348,6 +348,7 @@ function SupplierManagementModal({
 export function ReceivingSection() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
   const [creatorOpen, setCreatorOpen] = useState(false);
+  const [editingReceipt, setEditingReceipt] = useState<GoodsReceipt | null>(null);
   const [supplierManagementOpen, setSupplierManagementOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [supplierManagementMode, setSupplierManagementMode] = useState<SupplierEditorMode>("create");
@@ -418,10 +419,11 @@ export function ReceivingSection() {
             <ContactRound className="h-4 w-4" />
             Nhà cung cấp
           </button>
-          <button type="button" onClick={() => setCreatorOpen(true)} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
+          <button type="button" onClick={() => { setEditingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
             <PackagePlus className="h-4 w-4" />
             Tạo phiếu nhập mới
           </button>
+          {viewingReceipt?.status === "draft" && <button type="button" onClick={() => { setEditingReceipt(viewingReceipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-50"><Pencil className="h-4 w-4" />Sửa phiếu đang xem</button>}
           <button type="button" onClick={() => void load()} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" title="Làm mới" aria-label="Làm mới">
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -433,7 +435,7 @@ export function ReceivingSection() {
       <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200"><tr><th className="px-4 py-3.5 font-medium">Mã phiếu</th><th className="px-4 py-3.5 font-medium">Nhà cung cấp</th><th className="px-4 py-3.5 font-medium">Ngày tạo</th><th className="px-4 py-3.5 text-right font-medium">Giá trị</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-200">{loading ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr> : receipts.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id} className="hover:bg-slate-50"><td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-600">{receipt.receiptCode}</td><td className="px-4 py-3.5 font-medium text-slate-800">{receipt.supplierName}</td><td className="px-4 py-3.5 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-4 py-3.5 text-right tabular-nums font-semibold text-slate-900">{money(receipt.subtotal)}</td><td className="px-4 py-3.5"><ReceiptStatus status={receipt.status} /></td><td className="px-4 py-3.5 text-right"><span className="inline-flex gap-1"><button type="button" onClick={() => setViewingReceipt(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={() => void submit(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={() => void startReceiving(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span></td></tr>)}</tbody></table></div>
 
       {supplierManagementOpen && <SupplierManagementModal initialSupplier={editingSupplier} initialMode={supplierManagementMode} onClose={() => setSupplierManagementOpen(false)} onSaved={() => void load()} onDeleted={() => void load()} />}
-      {creatorOpen && <ReceiptCreatorModal onClose={() => setCreatorOpen(false)} onSaved={async () => { setCreatorOpen(false); await load(); }} />}
+      {creatorOpen && <ReceiptCreatorModal initialReceipt={editingReceipt} onClose={() => { setCreatorOpen(false); setEditingReceipt(null); }} onSaved={async () => { setCreatorOpen(false); setEditingReceipt(null); await load(); }} />}
       {viewingReceipt && <ReceiptDetailModal receipt={viewingReceipt} onClose={() => setViewingReceipt(null)} />}
     </section>
   );
@@ -506,7 +508,7 @@ function SearchableSelect({ options, value, onChange, onQueryChange, placeholder
   );
 }
 
-function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialReceipt?: GoodsReceipt | null; onClose: () => void; onSaved: () => Promise<void> }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [productDetails, setProductDetails] = useState<Record<string, CatalogProductDetail>>({});
@@ -528,7 +530,12 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
       ]);
       setSuppliers(nextSuppliers);
       setProducts(nextProducts.items);
-      if (nextSuppliers.length > 0) setSupplierId(nextSuppliers[0]._id);
+      if (initialReceipt) {
+        setSupplierId(initialReceipt.supplierId);
+        setNotes(initialReceipt.notes || "");
+        setLines(initialReceipt.items.map((item, index) => ({ ...item, key: `${item.variantId}-${index}`, displayName: item.productName || item.sku })));
+      }
+      if (!initialReceipt && nextSuppliers.length > 0) setSupplierId(nextSuppliers[0]._id);
     } catch (error: any) {
       toast.error(error?.message || "Không thể tải dữ liệu tạo phiếu nhập.");
     }
@@ -623,7 +630,9 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
       }
       setSaving(true);
     try {
-      await inventoryReceivingService.createReceipt({ supplierId, notes: notes.trim() || undefined, items: lines.map(({ key: _key, displayName: _displayName, ...line }) => line) });
+      const payload = { supplierId, notes: notes.trim() || undefined, items: lines.map(({ key: _key, displayName: _displayName, ...line }) => line) };
+      if (initialReceipt) await inventoryReceivingService.updateReceipt(initialReceipt._id, payload);
+      else await inventoryReceivingService.createReceipt(payload);
       toast.success("Đã tạo phiếu nhập ở trạng thái Nháp. Hãy xác nhận để nhập kho.");
       await onSaved();
     } catch (error: any) {
@@ -634,7 +643,7 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
   };
 
   return (
-    <Modal title="Tạo phiếu nhập mới" onClose={onClose} wide>
+    <Modal title={initialReceipt ? `Sửa phiếu nhập ${initialReceipt.receiptCode}` : "Tạo phiếu nhập mới"} onClose={onClose} wide>
       <div className="bg-slate-50/50 -m-5 p-5">
         <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>

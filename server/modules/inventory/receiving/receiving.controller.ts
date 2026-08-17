@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { cancelReceipt, confirmReceipt, createReceipt, createSupplier, deleteSupplier, listReceipts, listSuppliers, startReceiving, submitReceipt, updateSupplier } from "./receiving.service";
+import { cancelReceipt, confirmReceipt, createReceipt, createSupplier, deleteSupplier, listReceipts, listSuppliers, startReceiving, submitReceipt, updateReceipt, updateSupplier } from "./receiving.service";
 
 function actor(req: Request) { const user = (req as any).user || {}; return { id: user.id, email: user.email }; }
 function company(req: Request) { return String((req as any).user?.companyCode || "").trim().toUpperCase(); }
@@ -13,6 +13,7 @@ export const receivingController = {
   deleteSupplier: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await deleteSupplier({ companyCode: company(req) }, req.params.id) }); } catch (error) { return sendError(res, error); } },
   listReceipts: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await listReceipts(scope(req), req.query) }); } catch (error) { return sendError(res, error); } },
   createReceipt: async (req: Request, res: Response) => { try { return res.status(201).json({ status: "success", data: await createReceipt(scope(req), req.body, actor(req)) }); } catch (error) { return sendError(res, error); } },
+  updateReceipt: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await updateReceipt(scope(req), req.params.id, req.body, actor(req)) }); } catch (error) { return sendError(res, error); } },
   submitReceipt: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await submitReceipt(scope(req), req.params.id, actor(req)) }); } catch (error) { return sendError(res, error); } },
   startReceiving: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await startReceiving(scope(req), req.params.id, actor(req)) }); } catch (error) { return sendError(res, error); } },
   confirmReceipt: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await confirmReceipt(scope(req), req.params.id, actor(req)) }); } catch (error) { return sendError(res, error); } },
