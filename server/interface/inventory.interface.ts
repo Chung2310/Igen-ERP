@@ -114,8 +114,9 @@ export interface IGoodsReceiptItem {
   variantId: string;
   barcode?: string;
   sku: string;
-  trackingMode?: "none" | "quantity" | "lot" | "serial";
+  trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial";
   serialNumbers?: string[];
+  unitDetails?: Array<{ internalBarcode: string; serialNumber?: string; imei1?: string; imei2?: string }>;
   productName: string;
   quantity: number;
   unitCost: number;

@@ -588,6 +588,18 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
     setLines((current) => current.map((line) => line.key === key ? { ...line, serialNumbers } : line));
   };
 
+  const updateUnitBarcodes = (key: string, value: string) => {
+    const internalBarcodes = value.split(/[\n,;]+/).map((barcode) => barcode.trim()).filter(Boolean);
+    setLines((current) => current.map((line) => line.key === key ? { ...line, unitDetails: internalBarcodes.map((internalBarcode) => ({ internalBarcode })) } : line));
+  };
+
+  const generateUnitBarcodes = (line: DraftLine) => {
+    const token = line.sku.replace(/[^A-Za-z0-9]+/g, "-").toUpperCase();
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const unitDetails = Array.from({ length: Math.ceil(line.quantity) }, (_, index) => ({ internalBarcode: `IG-${token}-${date}-${String(index + 1).padStart(6, "0")}` }));
+    setLines((current) => current.map((item) => item.key === line.key ? { ...item, unitDetails } : item));
+  };
+
   const saveReceipt = async () => {
     if (!supplierId || lines.length === 0) {
       toast.error("Chọn nhà cung cấp và ít nhất một sản phẩm.");
@@ -599,6 +611,14 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
       });
       if (invalidSerialLine) {
         toast.error(`SKU ${invalidSerialLine.sku} phải có đủ serial duy nhất theo số lượng.`);
+        return;
+      }
+      const invalidUnitLine = lines.filter((line) => line.trackingMode === "unit_barcode").find((line) => {
+        const details = line.unitDetails || [];
+        return !Number.isInteger(line.quantity) || details.length !== line.quantity || new Set(details.map((detail) => detail.internalBarcode.trim().toUpperCase())).size !== details.length;
+      });
+      if (invalidUnitLine) {
+        toast.error(`SKU ${invalidUnitLine.sku} phải có đủ mã vạch nội bộ duy nhất theo số lượng.`);
         return;
       }
       setSaving(true);
@@ -688,7 +708,7 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td><td className="px-4 py-3 text-xs text-slate-600">{line.barcode || "Chưa có mã vạch"}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
-                      <td className="px-4 py-3"><textarea disabled={line.trackingMode !== "serial"} rows={2} value={(line.serialNumbers || []).join("\n")} onChange={(event) => updateSerials(line.key, event.target.value)} placeholder={line.trackingMode === "serial" ? "Mỗi mã một dòng" : "Không áp dụng"} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-100 disabled:text-slate-400" aria-label={`IMEI serial ${line.sku}`} /></td>
+                      <td className="px-4 py-3"><textarea disabled={line.trackingMode !== "serial"} rows={2} value={(line.serialNumbers || []).join("\n")} onChange={(event) => updateSerials(line.key, event.target.value)} placeholder={line.trackingMode === "serial" ? "Mỗi mã một dòng" : "Không áp dụng"} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-100 disabled:text-slate-400" aria-label={`IMEI serial ${line.sku}`} />{line.trackingMode === "unit_barcode" && <div className="mt-2"><textarea rows={2} value={(line.unitDetails || []).map((detail) => detail.internalBarcode).join("\n")} onChange={(event) => updateUnitBarcodes(line.key, event.target.value)} placeholder="Mã vạch từng đơn vị" className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch từng đơn vị ${line.sku}`} /><button type="button" onClick={() => generateUnitBarcodes(line)} className="mt-1 text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh tự động</button></div>}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">

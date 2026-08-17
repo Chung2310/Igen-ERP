@@ -67,7 +67,7 @@ const emptyVariant = (unitCode = DEFAULT_UNIT_CODE, productType: ProductCatalogT
 const typeLabels: Record<ProductCatalogType, string> = { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" };
 const statusLabels: Record<ProductCatalogStatus, string> = { draft: "Nháp", active: "Đang hoạt động", inactive: "Ngừng hoạt động", archived: "Lưu trữ" };
 const unitCategoryLabels: Record<string, string> = { count: "Đếm", weight: "Khối lượng", volume: "Thể tích", length: "Chiều dài", time: "Thời gian", other: "Khác" };
-const trackingLabels: Record<ProductTrackingMode, string> = { quantity: "Số lượng", lot: "Theo lô", serial: "Theo số sê-ri/IMEI", none: "Không theo dõi" };
+const trackingLabels: Record<ProductTrackingMode, string> = { quantity: "Số lượng", unit_barcode: "Theo mã vạch từng đơn vị", lot: "Theo lô", serial: "Theo số sê-ri/IMEI", none: "Không theo dõi" };
 
 function inputClassName(extra = "") {
   return `w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 ${extra}`;

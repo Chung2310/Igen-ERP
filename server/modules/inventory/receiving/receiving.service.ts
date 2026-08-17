@@ -50,7 +50,7 @@ function normalizeItems(input: unknown) {
     const unitCost = Number(raw?.unitCost);
     if (!Number.isFinite(quantity) || quantity <= 0) throw new ReceivingValidationError(`Số lượng dòng ${index + 1} phải lớn hơn 0.`);
     if (!Number.isFinite(unitCost) || unitCost < 0) throw new ReceivingValidationError(`Giá nhập dòng ${index + 1} không hợp lệ.`);
-    return { productId, variantId, barcode: text(raw?.barcode, "Mã vạch") || undefined, quantity, unitCost, note: text(raw?.note, "Ghi chú") || undefined };
+    return { productId, variantId, barcode: text(raw?.barcode, "Mã vạch") || undefined, quantity, unitCost, note: text(raw?.note, "Ghi chú") || undefined, unitDetails: Array.isArray(raw?.unitDetails) ? raw.unitDetails : undefined };
   });
 }
 
@@ -115,10 +115,9 @@ async function resolveReceiptItems(company: string, rawItems: ReturnType<typeof 
     const product: any = productById.get(item.productId);
     const variant: any = variantById.get(item.variantId);
     if (!product || !variant || String(variant.productId) !== item.productId) throw new ReceivingValidationError(`Sản phẩm/SKU ${item.variantId} không thuộc công ty hoặc đã ngừng dùng.`);
-    return { ...item, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, lineTotal: item.quantity * item.unitCost };
     const barcode = item.barcode || variant.barcode;
     if (item.barcode && item.barcode !== variant.barcode) throw new ReceivingValidationError("Mã vạch của SKU " + variant.sku + " không khớp.");
-    return { ...item, barcode, sku: variant.sku, productName: product.name, lineTotal: item.quantity * item.unitCost };
+    return { ...item, barcode, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, lineTotal: item.quantity * item.unitCost };
   });
 }
 
@@ -148,7 +147,7 @@ export async function createReceipt(rawScope: Scope, input: any, actor: Actor) {
   const warehouse = input?.warehouseId ? await getWarehouse(scope.companyCode, scope.branchId, String(input.warehouseId)) : await (await import("../warehouse/warehouse.service")).ensureDefaultWarehouse(scope.companyCode, scope.branchId);
   if (!warehouse) throw new ReceivingValidationError("Không tìm thấy kho nhập.");
   const rawItems = normalizeItems(input?.items);
-  const items = (await resolveReceiptItems(scope.companyCode, rawItems)).map((item: any, index) => ({ ...item, serialNumbers: Array.isArray(input?.items?.[index]?.serialNumbers) ? input.items[index].serialNumbers : undefined }));
+  const items = (await resolveReceiptItems(scope.companyCode, rawItems)).map((item: any, index) => ({ ...item, serialNumbers: Array.isArray(input?.items?.[index]?.serialNumbers) ? input.items[index].serialNumbers : undefined, unitDetails: Array.isArray(input?.items?.[index]?.unitDetails) ? input.items[index].unitDetails : undefined }));
   validateReceivingSerialLines(items as any);
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const receipt = await GoodsReceiptModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), receiptCode: await receiptCode(scope), supplierId, supplierName: supplier.name, status: "draft", receivedAt: input?.receivedAt ? new Date(input.receivedAt) : undefined, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, createdBy: actorId(actor), createdByName: actor.email || actor.id, version: 0 });
@@ -167,7 +166,12 @@ export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) 
     }
     const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: receipt.warehouseId, direction: "in", purpose: "purchase", sourceType: "goods-receipt", sourceId: String(receipt._id), sourceCode: receipt.receiptCode, idempotencyKey: `goods-receipt:${receipt._id}:confirm`, operatorName: actor.email || actor.id || "", items: receipt.items.map((item: any) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost, lineTotal: item.lineTotal })), reason: `Nhập hàng ${receipt.receiptCode}`, session, writeLegacyStockLog: true });
     receipt.status = "confirmed"; receipt.confirmedBy = actorId(actor); receipt.confirmedByName = actor.email || actor.id; receipt.confirmedAt = new Date(); receipt.version += 1; await receipt.save({ session });
-    for (const item of receipt.items as any[]) if (item.trackingMode === "serial") await registerSerialBatch({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(receipt.warehouseId) }, { productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, serialNumbers: item.serialNumbers, documentType: "goods-receipt", documentId: String(receipt._id) }, { id: actorId(actor), name: actor.email || actor.id || "" }, session);
+    for (const item of receipt.items as any[]) if (["serial", "unit_barcode"].includes(item.trackingMode)) {
+      const details = Array.isArray(item.unitDetails) ? item.unitDetails : [];
+      const serialNumbers = item.trackingMode === "serial" ? (item.serialNumbers || []).map((value: string, index: number) => value || details[index]?.internalBarcode) : details.map((detail: any) => detail.internalBarcode);
+      const internalBarcodes = details.map((detail: any) => detail.internalBarcode);
+      await registerSerialBatch({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(receipt.warehouseId) }, { productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, serialNumbers, internalBarcodes, documentType: "goods-receipt", documentId: String(receipt._id) }, { id: actorId(actor), name: actor.email || actor.id || "" }, session);
+    }
     void movement;
     return receipt.toObject();
   });

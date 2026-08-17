@@ -5,19 +5,22 @@ import { SerialUnitModel } from "./serial-unit.model";
 import type { ISerialUnit, SerialUnitStatus } from "./serial-unit.interface";
 import { assertSerialTransition, normalizeSerialNumber } from "./serial-state";
 import { BranchModel } from "../../../model/branch.model";
+import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
-export interface RegisterSerialInput extends Pick<ISerialUnit, "productId" | "sku" | "productName"> { variantId?: string; serialNumber: string; warehouseId?: string; documentType?: string; documentId?: string }
+export interface RegisterSerialInput extends Pick<ISerialUnit, "productId" | "sku" | "productName"> { variantId?: string; internalBarcode?: string; serialNumber: string; warehouseId?: string; documentType?: string; documentId?: string }
 export interface TransitionSerialInput { toStatus: SerialUnitStatus; eventType: string; reason?: string; documentType?: string; documentId?: string }
 export interface TransferSerialInput { toBranchId: string; toWarehouseId?: string; documentType?: string; documentId?: string; reason: string }
-export interface RegisterSerialBatchInput extends Omit<RegisterSerialInput, "serialNumber"> { serialNumbers: string[] }
+export interface RegisterSerialBatchInput extends Omit<RegisterSerialInput, "serialNumber" | "internalBarcode"> { serialNumbers: string[]; internalBarcodes?: string[] }
 
 function scoped(scope: SerialScope) { return { companyCode: scope.companyCode, branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}) }; }
 
 export async function registerSerialUnit(scope: SerialScope, input: RegisterSerialInput, actor: SerialActor, session?: ClientSession) {
   const normalizedSerialNumber = normalizeSerialNumber(input.serialNumber);
-  const query = new SerialUnitModel({ ...scoped(scope), ...input, serialNumber: input.serialNumber.trim(), normalizedSerialNumber, status: "in_stock", createdBy: actor.id, updatedBy: actor.id });
+  const internalBarcode = input.internalBarcode || generateInternalBarcode(input.sku, new Date().toISOString().slice(0, 10).replace(/-/g, ""), Date.now() % 1000000);
+  const normalizedInternalBarcode = normalizeInternalBarcode(internalBarcode);
+  const query = new SerialUnitModel({ ...scoped(scope), ...input, internalBarcode: internalBarcode.trim(), normalizedInternalBarcode, serialNumber: input.serialNumber.trim(), normalizedSerialNumber, status: "in_stock", createdBy: actor.id, updatedBy: actor.id });
   if (session) query.$session(session);
   try {
     const saved = await query.save();
@@ -26,24 +29,29 @@ export async function registerSerialUnit(scope: SerialScope, input: RegisterSeri
     await event.save();
     return saved.toObject();
   } catch (error: any) {
-    if (error?.code === 11000) throw Object.assign(new Error("IMEI/serial đã tồn tại trong doanh nghiệp."), { statusCode: 409, code: "SERIAL_DUPLICATE" });
+    if (error?.code === 11000) throw Object.assign(new Error("Mã vạch nội bộ hoặc IMEI/serial đã tồn tại trong doanh nghiệp."), { statusCode: 409, code: "UNIT_ID_DUPLICATE" });
     throw error;
   }
 }
 
 export async function registerSerialBatch(scope: SerialScope, input: RegisterSerialBatchInput, actor: SerialActor, session?: ClientSession) {
   const serialNumbers = Array.isArray(input.serialNumbers) ? input.serialNumbers : [];
+  const internalBarcodes = Array.isArray(input.internalBarcodes) ? input.internalBarcodes : [];
   if (!serialNumbers.length || serialNumbers.length > 500) throw Object.assign(new Error("Danh sách IMEI/serial phải có từ 1 đến 500 mã."), { statusCode: 400 });
+  const resolvedBarcodes = internalBarcodes.length ? internalBarcodes : serialNumbers.map((_, index) => generateInternalBarcode(input.sku, new Date().toISOString().slice(0, 10).replace(/-/g, ""), Date.now() + index));
+  if (resolvedBarcodes.length !== serialNumbers.length) throw Object.assign(new Error("Danh sách mã vạch nội bộ phải bằng số lượng đơn vị."), { statusCode: 400 });
   const normalized = serialNumbers.map(normalizeSerialNumber);
   if (new Set(normalized).size !== normalized.length) throw Object.assign(new Error("Danh sách IMEI/serial bị trùng."), { statusCode: 400 });
+  const normalizedBarcodes = resolvedBarcodes.map(normalizeInternalBarcode);
+  if (new Set(normalizedBarcodes).size !== normalizedBarcodes.length) throw Object.assign(new Error("Danh sách mã vạch nội bộ bị trùng."), { statusCode: 400 });
   if (session) {
     const created: any[] = [];
-    for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i] }, actor, session));
+    for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i], internalBarcode: resolvedBarcodes[i] }, actor, session));
     return created;
   }
   return runInTransaction(async (transactionSession) => {
     const created: any[] = [];
-    for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i] }, actor, transactionSession));
+    for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i], internalBarcode: resolvedBarcodes[i] }, actor, transactionSession));
     return created;
   });
 }

@@ -8,6 +8,8 @@ export interface ISerialUnit {
   variantId?: string;
   sku: string;
   productName: string;
+  internalBarcode: string;
+  normalizedInternalBarcode: string;
   serialNumber: string;
   normalizedSerialNumber: string;
   status: SerialUnitStatus;

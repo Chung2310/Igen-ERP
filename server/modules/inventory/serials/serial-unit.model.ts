@@ -9,6 +9,8 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   variantId: { type: String, index: true },
   sku: { type: String, required: true, trim: true },
   productName: { type: String, required: true, trim: true },
+  internalBarcode: { type: String, required: true, trim: true },
+  normalizedInternalBarcode: { type: String, required: true, trim: true },
   serialNumber: { type: String, required: true, trim: true },
   normalizedSerialNumber: { type: String, required: true, trim: true },
   status: { type: String, enum: ["in_stock", "sold", "returned", "defective", "repairing", "scrapped"], required: true, default: "in_stock", index: true },
@@ -19,6 +21,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
 }, { timestamps: true });
 
 SerialUnitSchema.index({ companyCode: 1, normalizedSerialNumber: 1 }, { unique: true });
+SerialUnitSchema.index({ companyCode: 1, normalizedInternalBarcode: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, branchId: 1, status: 1 });
 
 export const SerialUnitModel = model<ISerialUnit>("InventorySerialUnit", SerialUnitSchema);
