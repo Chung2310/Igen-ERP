@@ -104,6 +104,7 @@ export type VariantInput = {
   heightMm?: number;
   warrantyMonths?: number;
   mediaIds?: string[];
+  sellingPrice?: number;
 };
 
 type ApiEnvelope<T> = { success: boolean; data: T };
@@ -187,6 +188,14 @@ export const productCatalogService = {
   async updateVariant(id: string, input: Partial<Omit<VariantInput, "sku">>) {
     const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/variants/${id}`, { method: "PATCH", body: JSON.stringify(input) });
     return result.data;
+  },
+  async upsertPrice(variantId: string, sellingPrice: number, costPrice = 0, branchId?: string) {
+    const result = await apiFetch<ApiEnvelope<any>>(`${root}/prices/${variantId}`, { method: "PUT", body: JSON.stringify({ sellingPrice, costPrice, branchId }) });
+    return result.data;
+  },
+  async listPrices() {
+    const result = await apiFetch<ApiEnvelope<{ items: Array<{ variantId: string; sellingPrice: number; costPrice?: number }> }>>(`${root}/prices`);
+    return result.data.items;
   },
 
   async updateVariants(ids: string[], changes: Partial<Pick<ProductVariant, "status" | "trackingMode">>) {

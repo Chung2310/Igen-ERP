@@ -14,8 +14,7 @@ import ScanFeedback, {
   type ScanFeedbackKind,
 } from "../components/pos/ScanFeedback";
 import RetailOfflineQueuePanel from "../components/pos/RetailOfflineQueuePanel";
-import SerialPicker from "../components/pos/SerialPicker";
-import UnitBarcodePicker from "../components/pos/UnitBarcodePicker";
+import { SerialPicker, UnitBarcodePicker } from "../components/pos/RetailUnitPickerDialog";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -283,16 +282,22 @@ export default function RetailPosPage() {
         idempotencyKey: key,
       });
       finish(result);
+      setPaying(false);
     } catch (error) {
       const attempt = await retailOrdersApi
         .idempotency(scope, key)
         .catch(() => null);
-      if (attempt?.status === "completed" && attempt.order && attempt.invoice)
+      if (attempt?.status === "completed" && attempt.order && attempt.invoice) {
         finish({ order: attempt.order, invoice: attempt.invoice });
+        setPaying(false);
+      }
       else if (offlineScope && isRetailNetworkFailure(error)) {
         await queueRef.current.put(createRetailOfflineOrder(offlineScope, { draftId: savedId, input, expectedGrandTotal: cart.quote.grandTotal, payments }, key));
         dispatch({ type: "reset" }); setDraft(null); setPaying(false); setMessage("Đơn đang chờ đồng bộ khi có mạng."); refreshOffline();
-      } else show(error);
+      } else {
+        if (savedId && !draft) await retailOrdersApi.cancel(scope, savedId, { reason: "Tự động hủy draft sau khi thanh toán thất bại." }).catch(() => {});
+        show(error);
+      }
     } finally {
       setBusy(false);
     }
@@ -522,7 +527,7 @@ function CartPanel({
                 })
               }
             />
-            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} mode="serial" onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
+            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product.productId || line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
             {line.product.trackingMode === "unit_barcode" && <UnitBarcodePicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.internalBarcodes || []} onChange={(internalBarcodes) => dispatch({ type: "internalBarcodes", productId: line.product._id, internalBarcodes })} />}
           </div>
         ))}

@@ -9,5 +9,6 @@ export const retailOrdersApi = {
   async confirm(scope: RetailScope, id: string, input: { expectedGrandTotal: number; payments: RetailPaymentInput[]; idempotencyKey: string }) { const response = await apiFetch<{ success: true; data: RetailOrderResult }>(`/retail/orders/${id}/confirm`, { method: "POST", params: scope, body: JSON.stringify(input) }); return response.data; },
   async collect(scope: RetailScope, id: string, payments: RetailPaymentInput[]) { const response = await apiFetch<{ success: true; data: RetailOrder }>(`/retail/orders/${id}/payments`, { method: "POST", params: scope, body: JSON.stringify({ payments }) }); return response.data; },
   async cancel(scope: RetailScope, id: string, input: unknown) { const response = await apiFetch<{ success: true; data: RetailOrder }>(`/retail/orders/${id}/cancel`, { method: "POST", params: scope, body: JSON.stringify(input) }); return response.data; },
+  async deleteCancelled(scope: RetailScope, id: string) { const response = await apiFetch<{ success: true; data: { id: string } }>(`/retail/orders/${id}`, { method: "DELETE", params: scope }); return response.data; },
   async idempotency(scope: RetailScope, key: string) { const response = await apiFetch<{ success: true; data: any }>(`/retail/orders/idempotency/${encodeURIComponent(key)}`, { params: scope }); return response.data; },
 };

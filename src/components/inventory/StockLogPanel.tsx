@@ -141,6 +141,22 @@ export function StockLogPanel({
   const [unitPickerLoading, setUnitPickerLoading] = useState(false);
   const [unitPickerQuery, setUnitPickerQuery] = useState("");
 
+  const selectedLineForPicker = unitPickerIndex !== null ? draftLines[unitPickerIndex] : null;
+  const selectedUnitsForPicker = selectedLineForPicker?.unitIdentifiers || [];
+  const requiredUnitCount = Math.max(1, Number(selectedLineForPicker?.quantity) || 1);
+  const unitPickerQueryNormalized = unitPickerQuery.trim().toLowerCase();
+  const filteredPickerItems = useMemo(
+    () =>
+      unitPickerItems.filter((item) =>
+        unitPickerQueryNormalized
+          ? (item.internalBarcode || "").toLowerCase().includes(unitPickerQueryNormalized) ||
+            (item.normalizedSerialNumber || "").toLowerCase().includes(unitPickerQueryNormalized) ||
+            (item.serialNumber || "").toLowerCase().includes(unitPickerQueryNormalized)
+          : true,
+      ),
+    [unitPickerItems, unitPickerQueryNormalized]
+  );
+
   useEffect(() => {
     if (!outboundOnly) return;
     let active = true;
@@ -298,7 +314,11 @@ export function StockLogPanel({
   };
 
   const updateDraftLine = (index: number, nextLine: DraftLine) => {
-    setDraftLines((current) => current.map((line, lineIndex) => (lineIndex === index ? nextLine : line)));
+    setDraftLines((current) => current.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const quantity = Math.max(0, Number(nextLine.quantity) || 0);
+      return { ...nextLine, unitIdentifiers: nextLine.unitIdentifiers?.slice(0, quantity) };
+    }));
   };
 
   const removeDraftLine = (index: number) => {
@@ -326,7 +346,7 @@ export function StockLogPanel({
     if (outboundOnly) {
       const invalidLine = draftLines.find((line, index) => {
         const availableUnits = unitItemsByLine[index];
-        return availableUnits?.length && (line.unitIdentifiers?.length || 0) !== Number(line.quantity);
+        return availableUnits?.length > 0 && (line.unitIdentifiers?.length || 0) !== Number(line.quantity);
       });
       if (invalidLine) {
         window.alert("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
@@ -830,6 +850,16 @@ export function StockLogPanel({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {unitPickerIndex !== null && selectedLineForPicker && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4"><div><h3 className="text-lg font-bold text-slate-900">Chọn IMEI / mã vạch</h3><p className="mt-1 text-sm text-slate-500">Đã chọn {selectedUnitsForPicker.length} / {requiredUnitCount} đơn vị</p></div><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button></div>
+            <div className="space-y-3 overflow-y-auto p-5"><input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch..." className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />{unitPickerLoading ? <p className="py-8 text-center text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : filteredPickerItems.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Không tìm thấy IMEI / mã vạch phù hợp.</p> : <div className="space-y-2">{filteredPickerItems.map((item) => { const value = item.normalizedInternalBarcode; const checked = selectedUnitsForPicker.includes(value); const disabled = !checked && selectedUnitsForPicker.length >= requiredUnitCount; return <label key={item._id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${checked ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-cyan-200"}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => updateDraftLine(unitPickerIndex, { ...selectedLineForPicker, unitIdentifiers: checked ? selectedUnitsForPicker.filter((unit) => unit !== value) : [...selectedUnitsForPicker, value] })} className="h-4 w-4 accent-cyan-700" /><span className="text-sm text-slate-800">{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</span></label>; })}</div>}</div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4"><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Đóng</button><button type="button" disabled={selectedUnitsForPicker.length !== requiredUnitCount} onClick={() => setUnitPickerIndex(null)} className="rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50">Xác nhận lựa chọn</button></div>
           </div>
         </div>
       )}
