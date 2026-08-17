@@ -595,9 +595,27 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
     setLines((current) => current.map((line) => line.key === key ? { ...line, serialNumbers } : line));
   };
 
+  const updateSerialAt = (key: string, index: number, value: string) => {
+    setLines((current) => current.map((line) => {
+      if (line.key !== key) return line;
+      const serialNumbers = Array.from({ length: Math.ceil(line.quantity) }, (_, serialIndex) => line.serialNumbers?.[serialIndex] || "");
+      serialNumbers[index] = value;
+      return { ...line, serialNumbers };
+    }));
+  };
+
   const updateUnitBarcodes = (key: string, value: string) => {
     const internalBarcodes = value.split(/[\n,;]+/).map((barcode) => barcode.trim()).filter(Boolean);
     setLines((current) => current.map((line) => line.key === key ? { ...line, unitDetails: internalBarcodes.map((internalBarcode) => ({ internalBarcode })) } : line));
+  };
+
+  const updateUnitBarcodeAt = (key: string, index: number, value: string) => {
+    setLines((current) => current.map((line) => {
+      if (line.key !== key) return line;
+      const unitDetails = Array.from({ length: Math.ceil(line.quantity) }, (_, unitIndex) => ({ internalBarcode: line.unitDetails?.[unitIndex]?.internalBarcode || "" }));
+      unitDetails[index] = { internalBarcode: value };
+      return { ...line, unitDetails };
+    }));
   };
 
   const generateUnitBarcodes = (line: DraftLine) => {
@@ -717,7 +735,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td><td className="px-4 py-3 text-xs text-slate-600">{line.barcode || "Chưa có mã vạch"}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
-                      <td className="px-4 py-3"><textarea disabled={line.trackingMode !== "serial"} rows={2} value={(line.serialNumbers || []).join("\n")} onChange={(event) => updateSerials(line.key, event.target.value)} placeholder={line.trackingMode === "serial" ? "Mỗi mã một dòng" : "Không áp dụng"} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-100 disabled:text-slate-400" aria-label={`IMEI serial ${line.sku}`} />{line.trackingMode === "unit_barcode" && <div className="mt-2"><textarea rows={2} value={(line.unitDetails || []).map((detail) => detail.internalBarcode).join("\n")} onChange={(event) => updateUnitBarcodes(line.key, event.target.value)} placeholder="Mã vạch từng đơn vị" className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch từng đơn vị ${line.sku}`} /><button type="button" onClick={() => generateUnitBarcodes(line)} className="mt-1 text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh tự động</button></div>}</td>
+                      <td className="px-4 py-3"><div className="space-y-1.5">{line.trackingMode === "serial" ? Array.from({ length: Math.ceil(line.quantity) }, (_, index) => <input key={`${line.key}-serial-${index}`} value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`IMEI/serial ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`IMEI serial ${line.sku} ${index + 1}`} />) : line.trackingMode === "unit_barcode" ? <>{Array.from({ length: Math.ceil(line.quantity) }, (_, index) => <input key={`${line.key}-barcode-${index}`} value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch từng đơn vị ${line.sku} ${index + 1}`} />)}<button type="button" onClick={() => generateUnitBarcodes(line)} className="text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh tự động</button></> : <span className="text-xs text-slate-400">Không áp dụng</span>}</div></td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">
