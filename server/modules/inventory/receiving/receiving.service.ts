@@ -154,6 +154,25 @@ export async function createReceipt(rawScope: Scope, input: any, actor: Actor) {
   return receipt.toObject();
 }
 
+export async function updateReceipt(rawScope: Scope, id: string, input: any, actor: Actor) {
+  const scope = normalizeScope(rawScope);
+  if (!Types.ObjectId.isValid(id)) throw new ReceivingValidationError("Phiếu nhập không hợp lệ.");
+  const supplierId = text(input?.supplierId, "Nhà cung cấp", true);
+  if (!Types.ObjectId.isValid(supplierId)) throw new ReceivingValidationError("Nhà cung cấp không hợp lệ.");
+  const supplier = await SupplierModel.findOne({ _id: supplierId, companyCode: scope.companyCode, status: "active" }).lean();
+  if (!supplier) throw new ReceivingValidationError("Không tìm thấy nhà cung cấp đang hoạt động.");
+  const current = await GoodsReceiptModel.findOne({ _id: id, ...scope }).lean();
+  if (!current) throw new ReceivingValidationError("Không tìm thấy phiếu nhập.");
+  if (current.status !== "draft") throw new ReceivingValidationError("Chỉ được sửa phiếu nhập ở trạng thái Nháp.");
+  const rawItems = normalizeItems(input?.items);
+  const items = (await resolveReceiptItems(scope.companyCode, rawItems)).map((item: any, index) => ({ ...item, serialNumbers: Array.isArray(input?.items?.[index]?.serialNumbers) ? input.items[index].serialNumbers : undefined, unitDetails: Array.isArray(input?.items?.[index]?.unitDetails) ? input.items[index].unitDetails : undefined }));
+  validateReceivingSerialLines(items as any);
+  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const updated = await GoodsReceiptModel.findOneAndUpdate({ _id: id, ...scope, status: "draft", version: current.version }, { $set: { supplierId, supplierName: supplier.name, items, subtotal, notes: text(input?.notes, "Ghi chú") || undefined, updatedBy: actorId(actor) }, $inc: { version: 1 } }, { new: true, runValidators: true }).lean();
+  if (!updated) throw new ReceivingValidationError("Phiếu nhập đã thay đổi, vui lòng tải lại rồi sửa lại.");
+  return updated;
+}
+
 export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) {
   const scope = normalizeScope(rawScope);
   if (!Types.ObjectId.isValid(id)) throw new ReceivingValidationError("Phiếu nhập không hợp lệ.");
