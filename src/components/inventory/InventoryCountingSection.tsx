@@ -2,7 +2,7 @@ import React from "react";
 import { inventoryCountService, type InventoryCount } from "../../services/inventoryCountService";
 import { toast } from "../../pages/Toast";
 import { BarcodeInput } from "./BarcodeInput";
-import BarcodeScannerDialog from "./InventoryBarcodeScannerDialog";
+const BarcodeScannerDialog = React.lazy(() => import("./InventoryBarcodeScannerDialog"));
 
 export function InventoryCountingSection({ warehouseId }: { warehouseId: string }) {
   const [count, setCount] = React.useState<InventoryCount | null>(null);
@@ -30,6 +30,6 @@ export function InventoryCountingSection({ warehouseId }: { warehouseId: string 
       <div className="flex gap-2">{count.status === "draft" && <button type="button" onClick={() => void update("start")} className="rounded border px-3 py-1 text-sm">Bắt đầu đếm</button>}{count.status === "counting" && <button type="button" onClick={() => void update("submit")} className="rounded bg-amber-600 px-3 py-1 text-sm text-white">Gửi duyệt</button>}{count.status === "pending_approval" && <button type="button" onClick={() => void update("approve")} className="rounded bg-blue-600 px-3 py-1 text-sm text-white">Duyệt điều chỉnh</button>}{(count.status === "draft" || count.status === "counting") && <button type="button" onClick={() => void update("cancel")} className="rounded border border-rose-200 px-3 py-1 text-sm text-rose-700">Hủy phiếu</button>}</div>
       <div className="max-h-80 overflow-auto rounded-md border"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr><th className="p-2">SKU</th><th className="p-2">Mã vạch</th><th className="p-2 text-right">Hệ thống</th><th className="p-2 text-right">Đã đếm</th><th className="p-2 text-right">Chênh</th></tr></thead><tbody>{count.items.map((item) => <tr key={item._id} className="border-t"><td className="p-2 font-mono">{item.sku}</td><td className="p-2">{item.barcode || "—"}</td><td className="p-2 text-right">{item.systemQuantity}</td><td className="p-2 text-right"><input type="number" min="0" disabled={count.status !== "draft" && count.status !== "counting"} value={item.countedQuantity} onChange={(event) => { const quantity = Number(event.target.value); setCount((current) => current ? { ...current, items: current.items.map((line) => line._id === item._id ? { ...line, countedQuantity: quantity, quantityDelta: quantity - line.systemQuantity } : line) } : current); }} onBlur={() => { const line = count.items.find((entry) => entry._id === item._id); if (line) void inventoryCountService.updateItem(count._id, item._id, line.countedQuantity).then(setCount).catch((error: any) => toast.error(error?.message || "Không thể lưu số lượng.")); }} className="w-20 rounded border px-2 py-1 text-right" /></td><td className="p-2 text-right">{item.quantityDelta > 0 ? "+" : ""}{item.quantityDelta}</td></tr>)}</tbody></table></div>
     </>}
-    {camera && <BarcodeScannerDialog onScan={(value) => { setCamera(false); void scan(value); }} onClose={() => setCamera(false)} />}
+    {camera && <React.Suspense fallback={<p className="rounded-xl bg-slate-50 p-3 text-sm">Đang tải bộ quét camera...</p>}><BarcodeScannerDialog onScan={(value) => { setCamera(false); void scan(value); }} onClose={() => setCamera(false)} /></React.Suspense>}
   </section>;
 }
