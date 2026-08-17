@@ -23,7 +23,7 @@ export class ProductCatalogValidationError extends Error {
 }
 
 const PRODUCT_TYPES: ProductCatalogType[] = ["physical", "service", "bundle"];
-const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "serial", "lot"];
+const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "unit_barcode", "serial", "lot"];
 const FIELD_TYPES: ProductTemplateFieldType[] = ["text", "number", "boolean", "select", "multi-select"];
 const PRODUCT_STATUSES = ["draft", "active", "inactive", "archived"] as const;
 const VARIANT_STATUSES = ["active", "inactive", "discontinued"] as const;

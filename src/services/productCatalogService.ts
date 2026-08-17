@@ -2,7 +2,7 @@ import { apiFetch } from "../modules/shared/lib/apiFetch";
 
 export type ProductCatalogType = "physical" | "service" | "bundle";
 export type ProductCatalogStatus = "draft" | "active" | "inactive" | "archived";
-export type ProductTrackingMode = "none" | "quantity" | "lot" | "serial";
+export type ProductTrackingMode = "none" | "quantity" | "unit_barcode" | "lot" | "serial";
 export type ProductResourceKind = "categories" | "brands" | "units" | "attributes";
 
 export type ProductAttributeValue = { code: string; value: string; unitCode?: string };

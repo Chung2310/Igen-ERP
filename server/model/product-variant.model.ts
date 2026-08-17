@@ -13,7 +13,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     optionValues: { type: [OptionSchema], default: [] },
     displayName: { type: String, trim: true, maxlength: 200 },
     unitCode: { type: String, required: true, trim: true, uppercase: true },
-    trackingMode: { type: String, enum: ["none", "quantity", "serial", "lot"], default: "none", required: true },
+    trackingMode: { type: String, enum: ["none", "quantity", "unit_barcode", "serial", "lot"], default: "none", required: true },
     weightGrams: { type: Number, min: 0 },
     lengthMm: { type: Number, min: 0 },
     widthMm: { type: Number, min: 0 },
