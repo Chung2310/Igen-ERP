@@ -9,6 +9,7 @@ export function InventoryCountingSection({ warehouseId }: { warehouseId: string 
   const [counts, setCounts] = React.useState<InventoryCount[]>([]);
   const [camera, setCamera] = React.useState(false);
   React.useEffect(() => { if (warehouseId) void inventoryCountService.list(warehouseId).then(setCounts).catch(() => undefined); }, [warehouseId]);
+  React.useEffect(() => { const sync = () => void inventoryCountService.syncPending(); window.addEventListener("online", sync); sync(); return () => window.removeEventListener("online", sync); }, []);
   const create = async () => { try { const next = await inventoryCountService.create(warehouseId); setCount(next); setCounts((current) => [next, ...current]); } catch (error: any) { toast.error(error?.message || "Không thể tạo phiếu kiểm kê."); } };
   const scan = async (barcode: string) => {
     if (!count) return;
