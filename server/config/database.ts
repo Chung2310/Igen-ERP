@@ -138,7 +138,7 @@ export async function connectDB() {
   console.log(`[Backend Database - v2] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
 
   try {
-    await mongoose.connect(connectionUri);
+    await mongoose.connect(connectionUri, { retryWrites: false });
     console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
     await allowMultipleSuperAdmins();

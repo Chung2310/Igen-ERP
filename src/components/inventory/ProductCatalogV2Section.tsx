@@ -62,6 +62,7 @@ const emptyVariant = (unitCode = DEFAULT_UNIT_CODE, productType: ProductCatalogT
   trackingMode: "none",
   status: "active",
   mediaIds: [],
+  sellingPrice: 0,
 });
 
 const typeLabels: Record<ProductCatalogType, string> = { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" };
@@ -381,6 +382,8 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([]);
   const [variantImages, setVariantImages] = useState<Record<string, string | undefined>>(() => Object.fromEntries((product?.variants || []).map((item) => [item._id, item.mediaIds?.[0]])));
   const [variantQuery, setVariantQuery] = useState("");
+  const [pricesByVariant, setPricesByVariant] = useState<Record<string, number>>({});
+  useEffect(() => { if (!product) return; void productCatalogService.listPrices().then((prices) => setPricesByVariant(Object.fromEntries(prices.map((price) => [price.variantId, price.sellingPrice])))).catch(() => {}); }, [product?._id]);
   const updateVariantImage = async (item: ProductVariant, url: string) => {
     const previousUrl = variantImages[item._id] ?? item.mediaIds?.[0];
     setVariantImages((current) => ({ ...current, [item._id]: url }));
@@ -488,7 +491,9 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
           if (!sku) {
             sku = payload.productCode || `SKU-${generateEAN13().slice(6)}`;
           }
-          await productCatalogService.createProduct({ ...payload, variant: { ...variant, sku, unitCode: variant.unitCode || form.baseUnitCode, trackingMode: form.productType === "service" ? "none" : variant.trackingMode } });
+          const created = await productCatalogService.createProduct({ ...payload, variant: { ...variant, sku, unitCode: variant.unitCode || form.baseUnitCode, trackingMode: form.productType === "service" ? "none" : variant.trackingMode } });
+          const createdVariant = created.variants?.[0];
+          if (createdVariant) await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0));
           toast.success("Đã tạo sản phẩm và SKU đầu tiên.");
         }
       }
@@ -501,7 +506,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
   };
 
   return <Modal title={isEditing ? `Sản phẩm: ${product!.name}` : "Tạo sản phẩm mới"} onClose={onClose} wide>
-    <form onSubmit={submit} className="bg-slate-50/50 -m-5 p-5 space-y-5">
+    <form noValidate onSubmit={submit} className="bg-slate-50/50 -m-5 p-5 space-y-5">
       
       {/* Khối 1: Thông tin cơ bản */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
@@ -629,6 +634,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                   <Field label="Mã SKU (Mặc định)"><input value={variant.sku} onChange={(event) => setVariant({ ...variant, sku: event.target.value })} className={inputClassName()} placeholder="Tự sinh nếu để trống" /></Field>
                   <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} placeholder="Mã vạch sản phẩm" /></Field>
                   <Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => setVariant((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName()} placeholder="Tên hiển thị (Tùy chọn)" /></Field>
+                  <Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => setVariant((current) => ({ ...current, sellingPrice: value }))} className={inputClassName()} placeholder="Nhập giá bán" /></Field>
                   <Field label="Theo dõi kho"><select disabled={form.productType === "service"} value={form.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option><option value="none">Không theo dõi</option></select></Field>
                 </div>
               </div>
@@ -675,13 +681,14 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                   <th className="px-3 py-2.5 w-[50px]">Ảnh</th>
                   <th className="px-3 py-2.5">Mã SKU</th>
                   <th className="px-3 py-2.5">Tên biến thể</th>
+                  <th className="px-3 py-2.5">Giá bán</th>
                   <th className="px-3 py-2.5">Theo dõi kho</th>
                   <th className="px-3 py-2.5">Trạng thái</th>
                   <th className="px-3 py-2.5 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {visibleVariants.length === 0 ? <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500 bg-slate-50/50">Không tìm thấy SKU nào phù hợp.</td></tr> : visibleVariants.map((item) => (
+                {visibleVariants.length === 0 ? <tr><td colSpan={8} className="px-3 py-10 text-center text-sm text-slate-500 bg-slate-50/50">Không tìm thấy SKU nào phù hợp.</td></tr> : visibleVariants.map((item) => (
                   <tr key={item._id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-3 py-2.5 text-center"><input type="checkbox" className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" checked={selectedVariantIds.includes(item._id)} onChange={() => setSelectedVariantIds((current) => current.includes(item._id) ? current.filter((id) => id !== item._id) : [...current, item._id])} aria-label={`Chọn ${item.sku}`} /></td>
                     <td className="px-3 py-2.5"><ImageUploadBox value={variantImages[item._id] ?? item.mediaIds?.[0]} onChange={(url) => void updateVariantImage(item, url)} className="h-10 w-10 !rounded-md" /></td>
@@ -690,6 +697,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                       <div className="mt-0.5 font-sans text-[11px] text-slate-400">{item.barcode || "Chưa có mã vạch"}</div>
                     </td>
                     <td className="px-3 py-2.5 font-medium text-slate-700">{item.displayName || <span className="text-slate-400 font-normal italic">Mặc định</span>}</td>
+                    <td className="px-3 py-2.5 font-semibold text-cyan-700">{pricesByVariant[item._id] ? `${pricesByVariant[item._id].toLocaleString("vi-VN")} ₫` : <span className="font-normal text-rose-500">Chưa có giá</span>}</td>
                     <td className="px-3 py-2.5 text-xs text-slate-500"><span className="bg-slate-100 px-2 py-1 rounded text-slate-600">{trackingLabels[item.trackingMode]}</span></td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${item.status === "active" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : item.status === "inactive" ? "bg-slate-100 text-slate-600 border border-slate-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
@@ -745,13 +753,16 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
     event.preventDefault();
     setSubmitting(true);
     try {
-      const payload = { ...variant, trackingMode: product.productType === "service" ? "none" : variant.trackingMode };
+      const generatedSku = variant.sku.trim() || `${product.productCode || "SKU"}-${generateEAN13().slice(6)}`;
+      const payload = { ...variant, sku: generatedSku, trackingMode: product.productType === "service" ? "none" : variant.trackingMode };
       if (initialVariant) {
-        const { sku: _sku, ...update } = payload;
+        const { sku: _sku, sellingPrice: _sellingPrice, _id: _id, productId: _productId, companyCode: _companyCode, createdAt: _createdAt, updatedAt: _updatedAt, createdBy: _createdBy, updatedBy: _updatedBy, ...update } = payload as any;
         await productCatalogService.updateVariant(initialVariant._id, update);
+        await productCatalogService.upsertPrice(initialVariant._id, Number(variant.sellingPrice || 0));
         toast.success("Đã cập nhật SKU.");
       } else {
-        await productCatalogService.createVariant(product._id, payload);
+        const created = await productCatalogService.createVariant(product._id, payload);
+        await productCatalogService.upsertPrice(created._id, Number(variant.sellingPrice || 0));
         toast.success("Đã thêm mã SKU.");
       }
       await onSaved();
@@ -762,6 +773,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
     }
   };
   return <Modal title={`${isEditing ? "Chỉnh sửa SKU" : "Thêm mã SKU"} cho ${product.name}`} onClose={onClose}><form onSubmit={submit} className="space-y-4">
+    <Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => setVariant((current) => ({ ...current, sellingPrice: value }))} className={inputClassName()} placeholder="Nhập giá bán" /></Field>
     <div className="flex gap-4">
       <div className="flex-shrink-0 w-24">
          <label className="text-xs font-semibold text-slate-700 mb-1 block">Ảnh</label>

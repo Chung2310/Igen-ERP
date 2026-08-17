@@ -86,4 +86,8 @@ export const retailOrderController = {
       res.status(error.status || 400).json({ success: false, error: error.message, ...(error.code ? { code: error.code } : {}) });
     }
   },
+  deleteCancelled: async (req: Request, res: Response) => {
+    try { res.json({ success: true, data: await RetailOrderService.deleteCancelled(scope(req), req.params.id) }); }
+    catch (error: any) { res.status(error.status || 400).json({ success: false, error: error.message }); }
+  },
 };

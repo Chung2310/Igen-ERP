@@ -36,7 +36,7 @@ export interface RetailCustomerDetail {
   payments: unknown[];
 }
 
-export interface RetailProduct { _id: string; sku: string; barcode?: string; name: string; category: string; brand?: string; unit: string; stock: number; price: number; imageUrl?: string; trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial"; variantId?: string }
+export interface RetailProduct { _id: string; productId?: string; sku: string; variantName?: string; barcode?: string; name: string; category: string; brand?: string; unit: string; stock: number; price: number; imageUrl?: string; trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial"; variantId?: string }
 export type RetailDiscountInput = { type: "amount" | "percent"; value: number };
 export interface RetailOrderItemInput { productId: string; quantity: number; discount: RetailDiscountInput; trackingMode?: RetailProduct["trackingMode"]; serialNumbers?: string[]; internalBarcodes?: string[] }
 export interface RetailOrderInput { items: RetailOrderItemInput[]; customerId?: string; orderDiscount: RetailDiscountInput; taxRate: number; shippingFee: number; dueDate?: string }

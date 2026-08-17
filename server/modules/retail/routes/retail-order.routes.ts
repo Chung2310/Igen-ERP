@@ -14,3 +14,4 @@ retailOrderRoutes.patch("/:id", operate, requireOpenShift as any, retailOrderCon
 retailOrderRoutes.post("/:id/confirm", operate, requireOpenShift as any, retailOrderController.confirm as any);
 retailOrderRoutes.post("/:id/payments", operate, requireOpenShift as any, retailOrderController.collect as any);
 retailOrderRoutes.post("/:id/cancel", operate, retailOrderController.cancel as any);
+retailOrderRoutes.delete("/:id", operate, retailOrderController.deleteCancelled as any);

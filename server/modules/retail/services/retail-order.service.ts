@@ -2,6 +2,10 @@ import type { RetailPaymentStatus } from "../interfaces/retail-order.interface";
 import { RETAIL_PAYMENT_METHODS } from "../models/retail-order.model";
 import mongoose, { Types } from "mongoose";
 import { ProductModel } from "../../../model/product.model";
+import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { ProductVariantModel } from "../../../model/product-variant.model";
+import { ProductPriceModel } from "../../../model/product-price.model";
+import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { BranchModel } from "../../../model/branch.model";
 import type { RetailBranchScope } from "../contracts";
 import { RetailOrderModel } from "../models/retail-order.model";
@@ -157,10 +161,17 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   const rawItems = Array.isArray(input.items) ? input.items : [];
   const ids = rawItems.map((item: any) => String(item.productId || ""));
   if (!ids.length || ids.some((id: string) => !Types.ObjectId.isValid(id))) throw new Error("Danh sách sản phẩm không hợp lệ.");
-  const products = await ProductModel.find({ _id: { $in: ids }, ...scope, status: "Active" }).lean();
-  const byId = new Map(products.map((product: any) => [String(product._id), product]));
-  if (byId.size !== new Set(ids).size) throw new Error("Sản phẩm không thuộc chi nhánh đang bán.");
-  const items = rawItems.map((item: any) => snapshotRetailProductForPricing(byId.get(String(item.productId)), item));
+  const variants = await ProductVariantModel.find({ _id: { $in: ids }, companyCode: scope.companyCode, status: "active" }).lean();
+  const byId = new Map(variants.map((variant: any) => [String(variant._id), variant]));
+  const productIds = [...new Set(variants.map((variant: any) => String(variant.productId)))];
+  const products = await ProductCatalogModel.find({ _id: { $in: productIds }, companyCode: scope.companyCode, status: "active" }).lean();
+  const productById = new Map(products.map((product: any) => [String(product._id), product]));
+  const prices = await ProductPriceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids }, status: "active" }).lean();
+  const priceById = new Map(prices.map((price: any) => [String(price.variantId), price]));
+  const balances = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids } }).lean();
+  const balanceById = new Map(balances.map((balance: any) => [String(balance.variantId), balance]));
+  if (byId.size !== new Set(ids).size) throw new Error("SKU không thuộc danh mục đang bán.");
+  const items = rawItems.map((item: any) => { const variant: any = byId.get(String(item.productId)); const product: any = productById.get(String(variant.productId)); const price: any = priceById.get(String(variant._id)); const balance: any = balanceById.get(String(variant._id)); if (!product || !price) throw new Error("Sản phẩm chưa được khai báo giá bán."); const available = Number(balance?.quantity || 0) - Number(balance?.reservedQuantity || 0); if (available < Number(item.quantity)) throw new Error(`Tồn kho của ${product.name} không đủ.`); return { product: { _id: variant._id, sku: variant.sku, name: product.name, unit: variant.unitCode, category: product.categoryCode, brand: product.brandCode, price: price.sellingPrice, costPrice: price.costPrice, trackingMode: variant.trackingMode, variantId: variant._id }, item }; }).map(({ product, item }: any) => snapshotRetailProductForPricing(product, item));
   validateRetailSerialItems(items);
   return { settings, pricing: calculateOrderTotals({ items, orderDiscount: input.orderDiscount || { type: "amount", value: 0 }, taxRate: input.taxRate === undefined ? settings.defaultTaxRate : Number(input.taxRate), shippingFee: Number(input.shippingFee || 0), maxDiscountPercent: settings.maxDiscountPercent }) };
 }
@@ -255,6 +266,20 @@ export const RetailOrderService = {
   async cancel(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any | undefined, canManage: boolean) {
     const reason = String(input.reason || "").trim();
     if (!reason) throw new Error("Lý do hủy là bắt buộc.");
+    const draftToDelete: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "draft" }).lean();
+    if (draftToDelete) {
+      assertHeldDraftAccess(String(draftToDelete.createdBy), actorId(actor), canManage);
+      await RetailOrderModel.deleteOne({ _id: id, ...scope, status: "draft" });
+      return { ...draftToDelete, status: "cancelled", cancelReason: reason, cancelledAt: new Date() };
+    }
+    const topologyInfo = await mongoose.connection.db?.admin().command({ hello: 1 });
+    if (!topologyInfo?.setName && topologyInfo?.msg !== "isdbgrid") {
+      const draft: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "draft" }).lean();
+      if (!draft) throw new Error("Đơn không thể hủy.");
+      assertHeldDraftAccess(String(draft.createdBy), actorId(actor), canManage);
+      await RetailOrderModel.updateOne({ _id: id, ...scope, status: "draft" }, { $set: { status: "cancelled", cancelledAt: new Date(), cancelReason: reason }, $inc: { version: 1 } });
+      return RetailOrderModel.findOne({ _id: id, ...scope }).lean();
+    }
     const session = await mongoose.startSession(); let result: any;
     try {
       await session.withTransaction(async () => {
@@ -279,5 +304,10 @@ export const RetailOrderService = {
     } finally { await session.endSession(); }
     scheduleOrderTierRefreshAfterCommit(scope, "cancel", result);
     return result;
+  },
+  async deleteCancelled(scope: RetailBranchScope, id: string) {
+    const result = await RetailOrderModel.deleteOne({ _id: id, ...scope, status: "cancelled" });
+    if (result.deletedCount !== 1) throw new Error("Chỉ được xóa đơn đã hủy.");
+    return { id };
   },
 };
