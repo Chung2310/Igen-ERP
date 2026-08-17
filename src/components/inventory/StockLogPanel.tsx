@@ -139,6 +139,7 @@ export function StockLogPanel({
   const [unitPickerItems, setUnitPickerItems] = useState<InventorySerialUnit[]>([]);
   const [unitItemsByLine, setUnitItemsByLine] = useState<Record<number, InventorySerialUnit[]>>({});
   const [unitPickerLoading, setUnitPickerLoading] = useState(false);
+  const [unitPickerQuery, setUnitPickerQuery] = useState("");
 
   useEffect(() => {
     if (!outboundOnly) return;
@@ -247,6 +248,9 @@ export function StockLogPanel({
     setDraftNotes("");
     setDraftStatus("Đang chờ");
     setDraftLines([{ productId: "", quantity: "1" }]);
+    setUnitPickerIndex(null);
+    setUnitPickerItems([]);
+    setUnitPickerQuery("");
   };
 
   const openCreateModal = () => {
@@ -305,6 +309,7 @@ export function StockLogPanel({
     const line = draftLines[index];
     if (!line?.productId || !line.sku) return;
     setUnitPickerIndex(index);
+    setUnitPickerQuery("");
     setUnitPickerLoading(true);
     try {
       const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", limit: 100 });
@@ -815,6 +820,7 @@ export function StockLogPanel({
                 {unitPickerIndex !== null && <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4"><div className="mb-2 flex items-center justify-between"><h5 className="text-sm font-bold text-cyan-900">Chọn IMEI / mã vạch xuất kho</h5><button type="button" onClick={() => setUnitPickerIndex(null)} className="text-xs font-semibold text-slate-500">Đóng</button></div>{unitPickerLoading ? <p className="text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : <select multiple value={draftLines[unitPickerIndex]?.unitIdentifiers || []} onChange={(event) => updateDraftLine(unitPickerIndex, { ...draftLines[unitPickerIndex], unitIdentifiers: Array.from(event.target.selectedOptions).map((option) => option.value).slice(0, Number(draftLines[unitPickerIndex]?.quantity) || 0) })} className="min-h-28 w-full rounded-lg border border-cyan-200 bg-white p-2 text-sm">{unitPickerItems.map((item) => <option key={item._id} value={item.normalizedInternalBarcode}>{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</option>)}</select>}<p className="mt-2 text-xs text-cyan-800">Phải chọn đủ số lượng đơn vị trước khi lưu phiếu xuất.</p></div>}
               </div>
 
+              {unitPickerIndex !== null && <input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch trong danh sách..." className="mb-2 w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   Đóng
