@@ -10,7 +10,7 @@ export function normalizeRetailProductSearch(query: any) {
     q: String(query?.q || "").trim(),
     barcode: String(query?.barcode || "").trim(),
     page: Math.max(1, Number(query?.page) || 1),
-    limit: Math.min(100, Math.max(1, Number(query?.limit) || 20)),
+    limit: Math.min(500, Math.max(1, Number(query?.limit) || 20)),
   };
 }
 
