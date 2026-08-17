@@ -59,7 +59,7 @@ const emptyVariant = (unitCode = DEFAULT_UNIT_CODE, productType: ProductCatalogT
   barcode: generateEAN13(),
   displayName: "",
   unitCode,
-  trackingMode: productType === "service" ? "none" : "quantity",
+  trackingMode: "none",
   status: "active",
   mediaIds: [],
 });

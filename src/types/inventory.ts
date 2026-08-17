@@ -1,4 +1,4 @@
-export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "GIAO DỊCH KHO" | "DỰ BÁO" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
+export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
 
 export interface ProductItem {
   id: string;

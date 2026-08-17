@@ -81,6 +81,15 @@ test("invoice snapshot contains printable transaction data without unit cost", (
   });
 });
 
+test("invoice snapshot preserves serial numbers for sold devices", () => {
+  const snapshot = (invoiceService as any).buildRetailInvoiceSnapshot({
+    customerName: "Khách lẻ", items: [{ productId: "p1", sku: "PHONE-1", productName: "Điện thoại", unit: "cái", quantity: 1, trackingMode: "serial", serialNumbers: ["IMEI-001"], unitPrice: 1_000, unitCost: 500, discountAmount: 0, lineTotal: 1_000 }],
+    subtotal: 1_000, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 1_000, paidAmount: 1_000, dueAmount: 0, paymentStatus: "paid", payments: [],
+  }, { id: "cashier-1", displayName: "Thu ngân" }, { legalName: "Igen", storeName: "Igen", branchCode: "CN", branchName: "Chi nhánh" });
+  assert.deepEqual(snapshot.items[0].serialNumbers, ["IMEI-001"]);
+  assert.equal(snapshot.items[0].trackingMode, "serial");
+});
+
 test("invoice PDF payment rows localize partial and full debt", () => {
   const rows = invoiceService.invoicePdfPaymentRows;
   assert.deepEqual(rows({ grandTotal: 100_000, paidAmount: 40_000, dueAmount: 60_000, payments: [{ method: "transfer", amount: 40_000 }] }), [

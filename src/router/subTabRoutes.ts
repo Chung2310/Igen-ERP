@@ -35,6 +35,7 @@ export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
   { slug: "xuat-hang", value: "XUẤT HÀNG" },
   { slug: "giao-dich-kho", value: "GIAO DỊCH KHO" },
   { slug: "du-bao", value: "DỰ BÁO" },
+  { slug: "imei-serial", value: "IMEI / SERIAL" },
 ];
 
 export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [

@@ -23,7 +23,7 @@ export class ProductCatalogValidationError extends Error {
 }
 
 const PRODUCT_TYPES: ProductCatalogType[] = ["physical", "service", "bundle"];
-const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "lot", "serial"];
+const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "serial", "lot"];
 const FIELD_TYPES: ProductTemplateFieldType[] = ["text", "number", "boolean", "select", "multi-select"];
 const PRODUCT_STATUSES = ["draft", "active", "inactive", "archived"] as const;
 const VARIANT_STATUSES = ["active", "inactive", "discontinued"] as const;
@@ -221,10 +221,9 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
   if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Sáº£n pháº©m pháº£i cÃ³ Ã­t nháº¥t má»™t SKU/biáº¿n thá»ƒ.");
   assertNoForbiddenCatalogFields(input);
   const value = input as Record<string, unknown>;
-  const trackingMode = (value.trackingMode || (productType === "service" ? "none" : "quantity")) as ProductTrackingMode;
+  const trackingMode = (value.trackingMode || "none") as ProductTrackingMode;
   if (!TRACKING_MODES.includes(trackingMode)) throw new ProductCatalogValidationError("trackingMode khÃ´ng há»£p lá»‡.");
   if (productType === "service" && trackingMode !== "none") throw new ProductCatalogValidationError("Sáº£n pháº©m dá»‹ch vá»¥ pháº£i cÃ³ trackingMode lÃ  none.");
-  if (productType !== "service" && trackingMode === "none") throw new ProductCatalogValidationError("Sáº£n pháº©m váº­t lÃ½/gÃ³i pháº£i theo dÃµi sá»‘ lÆ°á»£ng, lÃ´ hoáº·c serial.");
   const status = (value.status || "active") as (typeof VARIANT_STATUSES)[number];
   assertVariantStatus(status);
 

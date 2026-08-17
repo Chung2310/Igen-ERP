@@ -3,7 +3,7 @@ import type { RetailCartState } from "./retailCart";
 
 export function buildRetailOrderInput(cart: RetailCartState): RetailOrderInput {
   return {
-    items: cart.lines.map((line) => ({ productId: line.product._id, quantity: line.quantity, discount: line.discount })),
+    items: cart.lines.map((line) => ({ productId: line.product._id, quantity: line.quantity, discount: line.discount, trackingMode: line.product.trackingMode, serialNumbers: line.serialNumbers })),
     ...(cart.customer ? { customerId: cart.customer._id } : {}),
     orderDiscount: cart.orderDiscount,
     taxRate: cart.taxRate,
