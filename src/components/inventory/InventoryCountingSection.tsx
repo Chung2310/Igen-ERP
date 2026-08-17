@@ -2,7 +2,7 @@ import React from "react";
 import { inventoryCountService, type InventoryCount } from "../../services/inventoryCountService";
 import { toast } from "../../pages/Toast";
 import { BarcodeInput } from "./BarcodeInput";
-import BarcodeScannerDialog from "../../modules/retail/components/pos/BarcodeScannerDialog";
+import BarcodeScannerDialog from "./InventoryBarcodeScannerDialog";
 
 export function InventoryCountingSection({ warehouseId }: { warehouseId: string }) {
   const [count, setCount] = React.useState<InventoryCount | null>(null);
