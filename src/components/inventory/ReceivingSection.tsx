@@ -671,7 +671,7 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 font-medium">Sản phẩm</th>
-                    <th className="px-4 py-3 font-medium">SKU</th>
+                    <th className="px-4 py-3 font-medium">SKU</th><th className="px-4 py-3 font-medium">Mã vạch</th>
                     <th className="px-4 py-3 text-right font-medium">Số lượng</th>
                     <th className="px-4 py-3 font-medium">IMEI / serial</th>
                     <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
@@ -686,7 +686,7 @@ function ReceiptCreatorModal({ onClose, onSaved }: { onClose: () => void; onSave
                         <p className="font-medium text-slate-900">{line.productName}</p>
                         <p className="text-xs text-slate-500">{line.displayName}</p>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td><td className="px-4 py-3 text-xs text-slate-600">{line.barcode || "Chưa có mã vạch"}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
                       <td className="px-4 py-3"><textarea disabled={line.trackingMode !== "serial"} rows={2} value={(line.serialNumbers || []).join("\n")} onChange={(event) => updateSerials(line.key, event.target.value)} placeholder={line.trackingMode === "serial" ? "Mỗi mã một dòng" : "Không áp dụng"} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-100 disabled:text-slate-400" aria-label={`IMEI serial ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>

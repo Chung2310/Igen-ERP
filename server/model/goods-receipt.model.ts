@@ -5,6 +5,7 @@ const GoodsReceiptItemSchema = new Schema(
   {
     productId: { type: String, required: true, trim: true },
     variantId: { type: String, required: true, trim: true },
+    barcode: { type: String, trim: true },
     sku: { type: String, required: true, trim: true, uppercase: true },
     trackingMode: { type: String, enum: ["none", "quantity", "lot", "serial"] },
     serialNumbers: { type: [String], default: undefined },
