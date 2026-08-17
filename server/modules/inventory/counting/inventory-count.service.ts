@@ -115,6 +115,9 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor) 
       await count.save({ session });
     });
     return getCount(scope, countId);
+  } catch (error: any) {
+    if (Number(error?.statusCode) === 409) await InventoryCountModel.updateOne({ _id: countId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId }, { $set: { status: "conflict" } });
+    throw error;
   } finally {
     await session.endSession();
   }
