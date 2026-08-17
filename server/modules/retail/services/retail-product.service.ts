@@ -22,7 +22,11 @@ export function buildRetailProductFilter(scope: RetailBranchScope, query: any) {
 export const RetailProductService = {
   async search(scope: RetailBranchScope, query: any) {
     const { q, barcode, page, limit, search } = buildRetailProductFilter(scope, query);
-    const filter: any = { ...scope, status: "Active" };
+    const filter: any = {
+      companyCode: scope.companyCode,
+      status: "Active",
+      $or: [{ branchId: scope.branchId }, { branchId: { $exists: false } }, { branchId: null }],
+    };
     if (barcode) filter.$or = [{ barcode }, { sku: barcode }];
     else if (q) filter.$or = [
       { name: { $regex: search, $options: "i" } },
@@ -39,7 +43,7 @@ export const RetailProductService = {
       ProductModel.countDocuments(filter),
     ]);
     const legacyIds = items.map((item: any) => String(item._id));
-    const mappings = await ProductCatalogLegacyMappingModel.find({ companyCode: scope.companyCode, legacyProductId: { $in: legacyIds }, $or: [{ legacyBranchId: scope.branchId }, { legacyBranchId: { $exists: false } }] }).select("legacyProductId variantId").lean();
+    const mappings = await ProductCatalogLegacyMappingModel.find({ companyCode: scope.companyCode, legacyProductId: { $in: legacyIds }, $or: [{ legacyBranchId: scope.branchId }, { legacyBranchId: { $exists: false } }, { legacyBranchId: null }] }).select("legacyProductId variantId").lean();
     const variantIds = mappings.map((mapping: any) => String(mapping.variantId));
     const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, _id: { $in: variantIds }, status: "active" }).select("sku barcode trackingMode productId").lean();
     const variantById = new Map(variants.map((variant: any) => [String(variant._id), variant]));
