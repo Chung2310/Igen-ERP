@@ -7,6 +7,7 @@ import { assertSerialTransition, normalizeSerialNumber } from "./serial-state";
 import { BranchModel } from "../../../model/branch.model";
 import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
 import { computeWarrantyEnd } from "./warranty-clock";
+import { ProductVariantModel } from "../../../model/product-variant.model";
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
@@ -57,13 +58,17 @@ export async function registerSerialBatch(scope: SerialScope, input: RegisterSer
   });
 }
 
-export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
+export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
   const page = Math.max(1, Number(filters.page) || 1); const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
   const query: any = { ...scoped(scope) };
   if (filters.serial) query.normalizedSerialNumber = normalizeSerialNumber(filters.serial);
   if (filters.sku) query.sku = String(filters.sku).trim();
   if (filters.productId) query.productId = String(filters.productId).trim();
   if (filters.variantId) query.variantId = String(filters.variantId).trim();
+  if (filters.trackingMode) {
+    const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, trackingMode: filters.trackingMode, ...(filters.productId ? { productId: String(filters.productId).trim() } : {}), ...(filters.variantId ? { _id: String(filters.variantId).trim() } : {}), ...(filters.sku ? { sku: String(filters.sku).trim().toUpperCase() } : {}) }).select({ _id: 1 }).lean();
+    query.variantId = { $in: variants.map((variant) => String(variant._id)) };
+  }
   if (filters.status) query.status = filters.status;
   const [items, total] = await Promise.all([
     SerialUnitModel.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
