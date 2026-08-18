@@ -8,6 +8,7 @@ import { BranchModel } from "../../../model/branch.model";
 import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
 import { computeWarrantyEnd } from "./warranty-clock";
 import { ProductVariantModel } from "../../../model/product-variant.model";
+import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
@@ -58,9 +59,10 @@ export async function registerSerialBatch(scope: SerialScope, input: RegisterSer
   });
 }
 
-export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
+export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
   const page = Math.max(1, Number(filters.page) || 1); const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
   const query: any = { ...scoped(scope) };
+  if (filters.forSale) query.warehouseId = String((await ensureDefaultWarehouse(scope.companyCode, scope.branchId))._id);
   if (filters.serial) query.normalizedSerialNumber = normalizeSerialNumber(filters.serial);
   if (filters.sku) query.sku = String(filters.sku).trim();
   if (filters.productId) query.productId = String(filters.productId).trim();

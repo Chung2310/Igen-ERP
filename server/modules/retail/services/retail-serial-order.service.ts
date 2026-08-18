@@ -7,8 +7,10 @@ import type { RetailBranchScope } from "../contracts";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { computeWarrantyEnd } from "../../inventory/serials/warranty-clock";
+import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.service";
 
 export async function claimSerialsForOrder(scope: RetailBranchScope, items: Array<{ productId: string; variantId?: string; trackingMode?: string; serialNumbers?: string[]; internalBarcodes?: string[] }>, orderId: string, customerId: string, actorId: string, session: ClientSession, actorName = actorId) {
+  const defaultWarehouse = await ensureDefaultWarehouse(scope.companyCode, scope.branchId, session);
   const order: any = await RetailOrderModel.findOne({ _id: orderId, companyCode: scope.companyCode, branchId: scope.branchId }).session(session).lean();
   const soldAt = order?.businessDate ? new Date(`${order.businessDate}T00:00:00.000Z`) : new Date();
   for (const item of items) {
@@ -22,8 +24,9 @@ export async function claimSerialsForOrder(scope: RetailBranchScope, items: Arra
     for (const identifier of identifiers) {
       const variant: any = item.variantId ? await ProductVariantModel.findOne({ _id: item.variantId, companyCode: scope.companyCode }).session(session).lean() : null;
       const customerMonths = Number(variant?.warrantyMonths || 0);
+      const serialProductId = variant ? String(variant.productId) : item.productId;
       const claimed = await SerialUnitModel.findOneAndUpdate(
-        { companyCode: scope.companyCode, branchId: scope.branchId, productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}), [identifier.field]: identifier.normalized, status: "in_stock" },
+        { companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(defaultWarehouse._id), productId: serialProductId, ...(item.variantId ? { variantId: item.variantId } : {}), [identifier.field]: identifier.normalized, status: "in_stock" },
         { $set: { status: "sold", currentDocumentType: "retail-order", currentDocumentId: orderId, customerId, updatedBy: actorId, soldAt, soldOrderId: orderId, soldOrderCode: order?.orderCode, soldBranchId: scope.branchId, ...(customerMonths > 0 ? { customerWarranty: { months: customerMonths, startAt: soldAt, endAt: computeWarrantyEnd(soldAt, customerMonths), source: "variant" } } : {}) } },
         { new: true, session },
       );
