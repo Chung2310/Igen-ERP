@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeWarrantyEnd, evaluateCoverage, inheritCustomerWarranty, snapshotCoverage, warrantyGapMonths } from "./warranty-clock";
+import { computeWarrantyEnd, effectiveCustomerWarranty, evaluateCoverage, inheritCustomerWarranty, snapshotCoverage, warrantyGapMonths } from "./warranty-clock";
 
 const unit = (overrides: Record<string, unknown> = {}) => ({
   supplierWarranty: { supplierId: "s1", supplierName: "NCC", receiptId: "r1", receiptCode: "GR-1", months: 12, startAt: new Date("2024-01-31"), startSource: "receipt", endAt: new Date("2025-01-31") },
@@ -40,5 +40,21 @@ describe("warranty clock", () => {
     expect(inherited?.endAt.toISOString()).toBe("2025-06-15T00:00:00.000Z");
     expect(inherited?.source).toBe("inherited");
     expect(inherited?.inheritedFromSerialUnitId).toBe("original-1");
+  });
+
+  it("derives missing customer warranty for a sold unit from the current SKU promise", () => {
+    const soldAt = new Date("2026-08-18T00:00:00.000Z");
+    expect(effectiveCustomerWarranty({ status: "sold", soldAt } as any, 12)).toEqual({
+      months: 12,
+      startAt: soldAt,
+      endAt: new Date("2027-08-18T00:00:00.000Z"),
+      source: "variant",
+    });
+  });
+
+  it("keeps the warranty snapshot already stored on the sold unit", () => {
+    const soldUnit = unit();
+    const existing = soldUnit.customerWarranty;
+    expect(effectiveCustomerWarranty(soldUnit, 24)).toBe(existing);
   });
 });

@@ -10,17 +10,28 @@ export function computeWarrantyEnd(startAt: Date, months: number): Date {
   return result;
 }
 
-function coverage(endAt: Date | undefined, at: Date) {
-  if (!endAt) return { covered: false };
-  const daysLeft = Math.ceil((new Date(endAt).getTime() - at.getTime()) / 86_400_000);
-  return { covered: daysLeft >= 0, endAt: new Date(endAt), daysLeft };
+function coverage(warranty: { startAt?: Date; endAt?: Date } | undefined, at: Date) {
+  if (!warranty?.endAt) return { covered: false };
+  const daysLeft = Math.ceil((new Date(warranty.endAt).getTime() - at.getTime()) / 86_400_000);
+  return { covered: daysLeft >= 0, startAt: warranty.startAt ? new Date(warranty.startAt) : undefined, endAt: new Date(warranty.endAt), daysLeft };
 }
 
 export function evaluateCoverage(unit: ISerialUnit, at: Date) {
-  const customer = coverage(unit.customerWarranty?.endAt, at);
-  const supplier = coverage(unit.supplierWarranty?.endAt, at);
+  const customer = coverage(unit.customerWarranty, at);
+  const supplier = coverage(unit.supplierWarranty, at);
   const costBearer = customer.covered && supplier.covered ? "supplier" : customer.covered ? "shop" : "customer";
   return { customer, supplier, costBearer } as const;
+}
+
+export function effectiveCustomerWarranty(unit: ISerialUnit, promisedMonths: number) {
+  if (unit.customerWarranty) return unit.customerWarranty;
+  if (unit.status !== "sold" || !unit.soldAt || promisedMonths <= 0) return undefined;
+  return {
+    months: promisedMonths,
+    startAt: unit.soldAt,
+    endAt: computeWarrantyEnd(unit.soldAt, promisedMonths),
+    source: "variant" as const,
+  };
 }
 
 export function snapshotCoverage(unit: ISerialUnit, checkedAt = new Date()) {
