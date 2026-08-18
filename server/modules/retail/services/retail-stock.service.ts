@@ -14,7 +14,7 @@ export async function applyOrderStockOut(scope: RetailBranchScope, orderId: stri
     return {
       ...item,
       productId: variant ? String(variant.productId) : item.productId,
-      ...(variant ? { variantId: String(variant._id), legacyProductId: String(variant.productId) } : { legacyProductId: item.productId }),
+      ...(variant ? { variantId: String(variant._id) } : { legacyProductId: item.productId }),
     };
   });
 
@@ -44,7 +44,7 @@ export async function revertOrderStock(scope: RetailBranchScope, orderId: string
     return {
       ...item,
       productId: variant ? String(variant.productId) : item.productId,
-      ...(variant ? { variantId: String(variant._id), legacyProductId: String(variant.productId) } : { legacyProductId: item.productId }),
+      ...(variant ? { variantId: String(variant._id) } : { legacyProductId: item.productId }),
     };
   });
 
