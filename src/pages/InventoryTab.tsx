@@ -25,7 +25,7 @@ import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
-import RepairBoardPage from "../modules/repair/RepairBoardPage";
+import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -83,6 +83,7 @@ export default function InventoryTab() {
   const [searchLog, setSearchLog] = useState("");
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
   const [outboundPrefill, setOutboundPrefill] = useState<{ warehouseId: string; sku: string; nonce: number } | null>(null);
+  const [repairPrefill, setRepairPrefill] = useState<RepairCreatePrefill | null>(null);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -93,6 +94,12 @@ export default function InventoryTab() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const openRepair = (event: Event) => { setRepairPrefill((event as CustomEvent<RepairCreatePrefill>).detail); setSubTab("SỬA CHỮA" as InventorySubTabType); };
+    window.addEventListener("inventory:open-repair", openRepair);
+    return () => window.removeEventListener("inventory:open-repair", openRepair);
+  }, [setSubTab]);
 
   useEffect(() => {
     let unsubscribeCategories = () => { };
@@ -662,7 +669,7 @@ export default function InventoryTab() {
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
         {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
         {(subTab as string) === "BẢO HÀNH" && <WarrantyLookupSection />}
-        {(subTab as string) === "SỬA CHỮA" && <RepairBoardPage />}
+        {(subTab as string) === "SỬA CHỮA" && <RepairBoardPage createPrefill={repairPrefill} onCreatePrefillConsumed={() => setRepairPrefill(null)} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
