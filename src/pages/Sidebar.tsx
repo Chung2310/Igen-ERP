@@ -16,6 +16,7 @@ import {
   BriefcaseBusiness,
   ShoppingCart,
   Landmark,
+  Wrench,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -70,6 +71,12 @@ const baseMenuItems: MenuItem[] = [
     label: "KHO & SẢN PHẨM",
     title: "Kho & Sản phẩm",
     icon: Package,
+    group: "operations",
+  },
+  {
+    label: "SỬA CHỮA & BẢO HÀNH",
+    title: "Sửa chữa & bảo hành",
+    icon: Wrench,
     group: "operations",
   },
   {

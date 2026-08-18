@@ -9,7 +9,13 @@ import { issueRepairPart, listRepairParts, returnRepairPart } from "./repair-par
 export const repairRouter = Router();
 const manage = requirePermission("repair:manage") as any;
 const read = requirePermission("repair:read") as any;
-const scope = (req: any) => { const value = retailScopeFromRequest(req.user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); if (!value.branchId) throw Object.assign(new Error("Chi nhánh là bắt buộc."), { statusCode: 400 }); return value as { companyCode: string; branchId: string }; };
+const scope = (req: any) => {
+  const companyCode = req.query.companyCode || req.headers["x-company-code"] || req.user?.companyCode;
+  const branchId = req.query.branchId || req.headers["x-branch-id"] || req.user?.branchId;
+  const value = retailScopeFromRequest(req.user || {}, { companyCode, branchId });
+  if (!value.branchId) throw Object.assign(new Error("Chi nhánh là bắt buộc."), { statusCode: 400 });
+  return value as { companyCode: string; branchId: string };
+};
 const actor = (req: any) => ({ id: String(req.user?.id || req.user?.uid || ""), name: String(req.user?.email || req.user?.displayName || "") });
 
 repairRouter.post("/tickets/lookup-device", manage, async (req, res, next) => { try { return res.json({ success: true, data: await lookupSoldDevice(scope(req), String(req.body?.serialNumber || "")) }); } catch (error) { next(error); } });

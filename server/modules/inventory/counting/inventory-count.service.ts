@@ -5,6 +5,12 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 import { assertCountTransition, assertEditableStatus, calculateQuantityDelta } from "./inventory-count.rules";
 import type { InventoryCountStatus } from "../../../interface/inventory.interface";
 import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
+import { SerialUnitModel } from "../serials/serial-unit.model";
+import { SerialEventModel } from "../serials/serial-event.model";
+import { normalizeSerialNumber } from "../serials/serial-state";
+import { normalizeInternalBarcode } from "../serials/unit-barcode-validation";
+
+const isUnitTracked = (trackingMode?: string) => trackingMode === "serial" || trackingMode === "unit_barcode";
 
 type Scope = { companyCode: string; branchId: string };
 type Actor = { id?: string; email?: string };
@@ -19,15 +25,30 @@ async function countItems(scope: Scope, warehouseId: string) {
   const variantIds = balances.map((item) => item.variantId).filter(Boolean);
   const [products, variants] = await Promise.all([
     ProductCatalogModel.find({ _id: { $in: productIds }, companyCode: normalizedCompany(scope.companyCode) }).select("name").lean(),
-    ProductVariantModel.find({ _id: { $in: variantIds }, companyCode: normalizedCompany(scope.companyCode) }).select("barcode displayName").lean(),
+    ProductVariantModel.find({ _id: { $in: variantIds }, companyCode: normalizedCompany(scope.companyCode) }).select("barcode displayName trackingMode").lean(),
   ]);
   const productMap = new Map(products.map((item: any) => [String(item._id), item]));
   const variantMap = new Map(variants.map((item: any) => [String(item._id), item]));
+  // Hàng theo dõi từng đơn vị đếm bằng cách quét, nên phải biết trước kho đang ghi những máy nào.
+  const unitTrackedVariantIds = variants.filter((item: any) => isUnitTracked(item.trackingMode)).map((item: any) => String(item._id));
+  const serialUnits = unitTrackedVariantIds.length
+    ? await SerialUnitModel.find({ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId, variantId: { $in: unitTrackedVariantIds }, status: "in_stock" }).select("variantId internalBarcode serialNumber").lean()
+    : [];
+  const unitsByVariant = new Map<string, any[]>();
+  for (const unit of serialUnits as any[]) {
+    const key = String(unit.variantId);
+    unitsByVariant.set(key, [...(unitsByVariant.get(key) || []), unit]);
+  }
   return balances.map((balance: any) => {
     const product: any = productMap.get(String(balance.productId));
     const variant: any = balance.variantId ? variantMap.get(String(balance.variantId)) : undefined;
     const quantity = Number(balance.quantity || 0);
-    return { productId: balance.productId, variantId: balance.variantId, sku: balance.sku, barcode: variant?.barcode, productName: variant?.displayName || product?.name || balance.sku, systemQuantity: quantity, countedQuantity: quantity, quantityDelta: 0, sourceBalanceVersion: Number(balance.version || 0) };
+    const trackingMode = variant?.trackingMode;
+    const base = { productId: balance.productId, variantId: balance.variantId, sku: balance.sku, barcode: variant?.barcode, productName: variant?.displayName || product?.name || balance.sku, systemQuantity: quantity, sourceBalanceVersion: Number(balance.version || 0), trackingMode };
+    if (!isUnitTracked(trackingMode)) return { ...base, countedQuantity: quantity, quantityDelta: 0 };
+    const expectedUnits = (unitsByVariant.get(String(balance.variantId)) || []).map((unit: any) => ({ serialUnitId: String(unit._id), internalBarcode: unit.internalBarcode, serialNumber: unit.serialNumber }));
+    // Chưa quét gì thì coi như chưa đếm được máy nào, lệch âm đúng bằng tồn.
+    return { ...base, expectedUnits, scannedUnitIds: [], countedQuantity: 0, quantityDelta: calculateQuantityDelta(quantity, 0) };
   });
 }
 
@@ -57,6 +78,14 @@ export async function updateCountItem(scope: Scope, countId: string, itemId: str
   assertEditableStatus(count.status as InventoryCountStatus);
   const item: any = count.items.find((entry: any) => String(entry._id) === itemId);
   if (!item) fail("Không tìm thấy dòng kiểm kê.", 404);
+  // Hàng theo dõi từng đơn vị chỉ được đếm bằng quét, gõ tay sẽ phá mất đối chiếu theo máy.
+  if (isUnitTracked(item.trackingMode) && input.countedQuantity !== undefined) fail(`SKU ${item.sku} phải đếm bằng cách quét mã nội bộ/IMEI từng máy.`);
+  if (input.countedQuantity === undefined) {
+    if (input.note !== undefined) item.note = code(input.note) || undefined;
+    count.markModified("items");
+    await count.save();
+    return count.toObject();
+  }
   const counted = Number(input.countedQuantity);
   item.countedQuantity = counted;
   item.quantityDelta = calculateQuantityDelta(Number(item.systemQuantity), counted);
@@ -64,6 +93,53 @@ export async function updateCountItem(scope: Scope, countId: string, itemId: str
   count.markModified("items");
   await count.save();
   return count.toObject();
+}
+
+/** Quét một mã nội bộ/IMEI trong lúc kiểm kê: đánh dấu đã thấy, hoặc xếp vào danh sách ngoài dự kiến. */
+export async function scanCountUnit(scope: Scope, countId: string, rawCode: unknown) {
+  const value = code(rawCode);
+  if (!value) fail("Thiếu mã cần quét.");
+  const count = await InventoryCountModel.findOne({ _id: countId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId });
+  if (!count) fail("Không tìm thấy phiếu kiểm kê.", 404);
+  assertEditableStatus(count.status as InventoryCountStatus);
+
+  const unit: any = await SerialUnitModel.findOne({
+    companyCode: normalizedCompany(scope.companyCode),
+    $or: [{ normalizedSerialNumber: normalizeSerialNumber(value) }, { normalizedInternalBarcode: normalizeInternalBarcode(value) }],
+  }).lean();
+
+  const recordUnexpected = async (reason: "other_warehouse" | "sold" | "unknown" | "wrong_status") => {
+    const scans = (count.unexpectedScans || []) as any[];
+    // Quét lại cùng một mã không nhân bản cảnh báo.
+    if (!scans.some((scan) => scan.code === value)) {
+      scans.push({ code: value, reason, serialUnitId: unit ? String(unit._id) : undefined, sku: unit?.sku, productName: unit?.productName, warehouseId: unit?.warehouseId, status: unit?.status, scannedAt: new Date() });
+      count.unexpectedScans = scans as any;
+      count.markModified("unexpectedScans");
+      await count.save();
+    }
+    return { outcome: "unexpected" as const, reason, count: count.toObject() };
+  };
+
+  if (!unit) return recordUnexpected("unknown");
+  if (unit.status === "sold") return recordUnexpected("sold");
+  if (unit.status !== "in_stock") return recordUnexpected("wrong_status");
+  if (String(unit.warehouseId || "") !== String(count.warehouseId)) return recordUnexpected("other_warehouse");
+
+  const item: any = count.items.find((entry: any) => isUnitTracked(entry.trackingMode) && String(entry.variantId || "") === String(unit.variantId || ""));
+  // Máy đúng kho nhưng SKU của nó không có dòng nào trong phiếu (tồn kho lệch sẵn từ trước).
+  if (!item) return recordUnexpected("unknown");
+
+  const scanned: string[] = Array.isArray(item.scannedUnitIds) ? item.scannedUnitIds : [];
+  if (scanned.includes(String(unit._id))) return { outcome: "duplicate" as const, sku: item.sku, count: count.toObject() };
+  const expected: any[] = Array.isArray(item.expectedUnits) ? item.expectedUnits : [];
+  if (!expected.some((entry) => String(entry.serialUnitId) === String(unit._id))) return recordUnexpected("unknown");
+
+  item.scannedUnitIds = [...scanned, String(unit._id)];
+  item.countedQuantity = item.scannedUnitIds.length;
+  item.quantityDelta = calculateQuantityDelta(Number(item.systemQuantity), item.countedQuantity);
+  count.markModified("items");
+  await count.save();
+  return { outcome: "counted" as const, sku: item.sku, productName: item.productName, count: count.toObject() };
 }
 
 async function transition(scope: Scope, countId: string, status: InventoryCountStatus, actor: Actor) {
@@ -109,6 +185,21 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor) 
       }) : Promise.resolve();
       await input("in", items.filter((item: any) => Number(item.quantityDelta) > 0));
       await input("out", items.filter((item: any) => Number(item.quantityDelta) < 0));
+      // Máy hệ thống ghi còn trong kho nhưng không quét thấy thì đánh thất lạc, nếu không tồn về 0 mà POS vẫn bán được.
+      for (const item of count.items as any[]) {
+        if (!isUnitTracked(item.trackingMode)) continue;
+        const scanned = new Set((item.scannedUnitIds || []).map(String));
+        const missing = (item.expectedUnits || []).filter((entry: any) => !scanned.has(String(entry.serialUnitId)));
+        for (const entry of missing) {
+          const updated = await SerialUnitModel.findOneAndUpdate(
+            { _id: entry.serialUnitId, companyCode: normalizedCompany(scope.companyCode), status: "in_stock" },
+            { $set: { status: "lost", updatedBy: nameOf(actor) } },
+            { new: true, session },
+          );
+          if (!updated) continue;
+          await SerialEventModel.create([{ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, serialUnitId: String(entry.serialUnitId), serialNumber: updated.serialNumber, eventType: "count_lost", fromStatus: "in_stock", toStatus: "lost", documentType: "inventory-count", documentId: String(count._id), reason: `Kiểm kê ${count.countCode} không tìm thấy máy`, actorId: code(actor.id), actorName: nameOf(actor) }], { session });
+        }
+      }
       count.status = "completed";
       count.approvedBy = nameOf(actor);
       count.approvedAt = new Date();

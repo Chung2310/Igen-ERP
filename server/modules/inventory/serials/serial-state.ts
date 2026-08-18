@@ -1,12 +1,14 @@
 import type { SerialUnitStatus } from "./serial-unit.interface";
 
 const allowed: Record<SerialUnitStatus, SerialUnitStatus[]> = {
-  in_stock: ["sold"],
+  in_stock: ["sold", "lost"],
   sold: ["returned", "in_stock", "repairing"],
   returned: ["in_stock", "defective"],
   defective: ["repairing", "scrapped"],
   repairing: ["defective", "in_stock", "sold"],
   scrapped: [],
+  // Kiểm kê không thấy máy thì đánh thất lạc; tìm lại được thì đảo về kho.
+  lost: ["in_stock"],
 };
 
 export function normalizeSerialNumber(value: string): string {
