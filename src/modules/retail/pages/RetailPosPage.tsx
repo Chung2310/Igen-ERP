@@ -1,6 +1,7 @@
 import React from "react";
 import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
+import RetailShiftWorkspace from "./RetailShiftWorkspace";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
 import CheckoutSuccessDialog from "../components/pos/CheckoutSuccessDialog";
 import CustomerPicker from "../components/pos/CustomerPicker";
@@ -14,6 +15,7 @@ import ScanFeedback, {
   type ScanFeedbackKind,
 } from "../components/pos/ScanFeedback";
 import RetailOfflineQueuePanel from "../components/pos/RetailOfflineQueuePanel";
+import { SerialPicker, UnitBarcodePicker } from "../components/pos/RetailUnitPickerDialog";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -26,6 +28,7 @@ import { buildRetailOrderInput } from "../hooks/retailOrderInput";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
 import { createHidScannerBuffer } from "../hooks/retailScannerInput";
+import { retailWarrantyService } from "../../../services/retailWarrantyService";
 import { createIndexedDbRetailOfflineQueue, createMemoryRetailOfflineQueue, createRetailOfflineOrder, type OfflineScope, type RetailOfflineOrder } from "../offline/retailOfflineQueue";
 import { isRetailNetworkFailure, syncRetailOfflineQueue } from "../offline/retailOfflineSync";
 import type {
@@ -36,6 +39,7 @@ import type {
   RetailScope,
   RetailShift,
 } from "../types";
+import { toast } from "../../../pages/Toast";
 
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value) + " ₫";
@@ -55,7 +59,6 @@ export default function RetailPosPage() {
   const [openingShift, setOpeningShift] = React.useState(false);
   const [shiftError, setShiftError] = React.useState<unknown>(null);
   const [q, setQ] = React.useState("");
-  const [message, setMessage] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [paying, setPaying] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
@@ -73,10 +76,9 @@ export default function RetailPosPage() {
   const offlineScope = scope && userProfile?.uid ? { ...scope, userId: userProfile.uid } : null;
   const openPayment = () => {
     if (!cart.customer?._id) {
-      setMessage("Vui lòng chọn khách hàng trước khi thanh toán.");
+      toast.error("Vui lòng chọn khách hàng trước khi thanh toán.");
       return;
     }
-    setMessage("");
     setPaying(true);
   };
   const openShift = async () => {
@@ -113,7 +115,7 @@ export default function RetailPosPage() {
 
   const show = React.useCallback(
     (cause: unknown) =>
-      setMessage(
+      toast.error(
         cause instanceof Error ? cause.message : "Không xử lý được yêu cầu.",
       ),
     [],
@@ -136,7 +138,7 @@ export default function RetailPosPage() {
     const timer = window.setTimeout(
       () =>
         void retailProductsApi
-          .list(scope, { q })
+          .list(scope, { q, limit: 500 })
           .then((data) => setProducts(data.items))
           .catch(show),
       200,
@@ -159,6 +161,10 @@ export default function RetailPosPage() {
 
   if (!scope) return <Notice />;
 
+  if (shift?.operationalEndsAt && new Date(shift.operationalEndsAt).getTime() <= Date.now()) {
+    return <RetailShiftWorkspace />;
+  }
+
   if (!shift) return (
     <section className="mx-auto flex min-h-[65vh] w-full max-w-xl items-center justify-center p-5">
       <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
@@ -180,6 +186,18 @@ export default function RetailPosPage() {
 
   const scan = async (barcode: string) => {
     try {
+      const warranty = await retailWarrantyService.lookup(barcode);
+      if (warranty.found && warranty.status === "sold") {
+        const soldDate = warranty.sold?.at ? new Date(warranty.sold.at).toLocaleDateString("vi-VN") : "không rõ ngày";
+        const endDate = warranty.customerWarranty?.endAt ? new Date(warranty.customerWarranty.endAt).toLocaleDateString("vi-VN") : "không xác định";
+        setScanFeedback({ kind: "warning", text: `Máy đã bán ngày ${soldDate} — còn bảo hành khách đến ${endDate}` });
+        playScanTone("warning");
+        return;
+      }
+      if (warranty.found && warranty.status === "in_stock" && (warranty.gapMonths || 0) > 0) {
+        setScanFeedback({ kind: "warning", text: `Cảnh báo: bảo hành nhà cung cấp ngắn hơn cam kết khách ${warranty.gapMonths} tháng — shop sẽ chịu phần chênh lệch` });
+        playScanTone("warning");
+      }
       const result = await retailProductsApi.list(scope, { barcode, limit: 1 });
       const product = result.items[0];
       if (!product) {
@@ -187,9 +205,54 @@ export default function RetailPosPage() {
         playScanTone("not-found");
         return;
       }
-      const duplicate = cart.lines.some(
-        (line) => line.product._id === product._id,
-      );
+      const line = cart.lines.find((item) => item.product._id === product._id);
+      const unitField =
+        product.trackingMode === "serial"
+          ? ("serialNumbers" as const)
+          : product.trackingMode === "unit_barcode"
+            ? ("internalBarcodes" as const)
+            : null;
+      const scannedUnit =
+        product.trackingMode === "serial"
+          ? product.matchedSerialNumber
+          : product.trackingMode === "unit_barcode"
+            ? product.matchedInternalBarcode
+            : undefined;
+      if (unitField && scannedUnit) {
+        const current = line?.[unitField] || [];
+        if (current.includes(scannedUnit)) {
+          setScanFeedback({
+            kind: "duplicate",
+            text: `${scannedUnit} đã có trong đơn`,
+          });
+          playScanTone("duplicate");
+          return;
+        }
+        const next = [...current, scannedUnit];
+        if (!line) dispatch({ type: "add", product });
+        dispatch({
+          type: "quantity",
+          productId: product._id,
+          quantity: next.length,
+        });
+        dispatch(
+          unitField === "serialNumbers"
+            ? { type: "serials", productId: product._id, serialNumbers: next }
+            : {
+                type: "internalBarcodes",
+                productId: product._id,
+                internalBarcodes: next,
+              },
+        );
+        setQ("");
+        setScanFeedback({
+          kind: "success",
+          text: `Đã thêm ${product.name} (${scannedUnit})`,
+        });
+        playScanTone("success");
+        return;
+      }
+      const duplicate = Boolean(line);
       dispatch({ type: "add", product });
       setQ("");
       const kind = duplicate ? "duplicate" : "success";
@@ -220,6 +283,7 @@ export default function RetailPosPage() {
         },
         quantity: item.quantity,
         discount: { type: "amount", value: item.discountAmount },
+        serialNumbers: item.serialNumbers,
       })),
       customer: value.customerId
         ? {
@@ -235,10 +299,11 @@ export default function RetailPosPage() {
       taxRate: value.taxRate,
       shippingFee: value.shippingFee,
     });
-    setMessage(`Đang xử lý đơn treo #${value._id.slice(-6)}`);
+    toast.info(`Đang xử lý đơn treo #${value._id.slice(-6)}`);
   };
   const saveDraft = async () => {
     if (!cart.lines.length) return;
+    if (!cart.customer?._id) { toast.error("Vui lòng chọn khách hàng trước khi lưu đơn."); return; }
     setBusy(true);
     try {
       const input = buildRetailOrderInput(cart);
@@ -251,7 +316,7 @@ export default function RetailPosPage() {
       dispatch({ type: "reset" });
       setDraft(null);
       refreshDrafts();
-      setMessage("Đã treo đơn. Đơn không giữ tồn kho.");
+      toast.success("Đã treo đơn. Đơn không giữ tồn kho.");
     } catch (error) {
       show(error);
     } finally {
@@ -279,16 +344,25 @@ export default function RetailPosPage() {
         idempotencyKey: key,
       });
       finish(result);
+      setPaying(false);
     } catch (error) {
       const attempt = await retailOrdersApi
         .idempotency(scope, key)
         .catch(() => null);
-      if (attempt?.status === "completed" && attempt.order && attempt.invoice)
+      if (attempt?.status === "completed" && attempt.order && attempt.invoice) {
         finish({ order: attempt.order, invoice: attempt.invoice });
+        setPaying(false);
+      }
       else if (offlineScope && isRetailNetworkFailure(error)) {
         await queueRef.current.put(createRetailOfflineOrder(offlineScope, { draftId: savedId, input, expectedGrandTotal: cart.quote.grandTotal, payments }, key));
-        dispatch({ type: "reset" }); setDraft(null); setPaying(false); setMessage("Đơn đang chờ đồng bộ khi có mạng."); refreshOffline();
-      } else show(error);
+        dispatch({ type: "reset" }); setDraft(null); setPaying(false); toast.info("Đơn đang chờ đồng bộ khi có mạng."); refreshOffline();
+      } else {
+        if (error instanceof Error && /tồn|không đủ/i.test(error.message)) {
+          await retailProductsApi.list(scope, { q, limit: 500 }).then((data) => setProducts(data.items)).catch(() => undefined);
+        }
+        if (savedId && !draft) await retailOrdersApi.cancel(scope, savedId, { reason: "Tự động hủy draft sau khi thanh toán thất bại." }).catch(() => {});
+        show(error);
+      }
     } finally {
       setBusy(false);
     }
@@ -298,13 +372,11 @@ export default function RetailPosPage() {
     setDraft(null);
     setPaying(false);
     refreshDrafts();
-    setMessage("");
   };
   const newOrder = () => {
     dispatch({ type: "reset" });
     setCompleted(null);
     setDraft(null);
-    setMessage("");
   };
   const syncOffline = async (activeScope: OfflineScope) => { const results = await syncRetailOfflineQueue(queueRef.current, activeScope, { check: (key) => retailOrdersApi.idempotency(activeScope, key), send: async (item) => { const payload = item.payload as any; const order = payload.draftId ? { _id: payload.draftId } : await retailOrdersApi.createDraft(activeScope, payload.input); return retailOrdersApi.confirm(activeScope, order._id, { expectedGrandTotal: payload.expectedGrandTotal, payments: payload.payments, idempotencyKey: item.idempotencyKey }); } }); refreshOffline(); return results; };
 
@@ -351,15 +423,21 @@ export default function RetailPosPage() {
           />
         </label>
         {scanFeedback && <ScanFeedback {...scanFeedback} />}
-        <ProductGrid
+      <ProductGrid
           products={products}
-          onAdd={(product) => dispatch({ type: "add", product })}
+          onAdd={(product) => {
+            const current = cart.lines.find((line) => line.product._id === product._id)?.quantity || 0;
+            if (product.stock <= current) {
+              toast.error(`${product.name} không còn đủ tồn khả dụng.`);
+              return;
+            }
+            dispatch({ type: "add", product });
+          }}
         />
       </main>
       <CartPanel
         scope={scope}
         cart={cart}
-        message={message}
         busy={busy}
         canPay={Boolean(shift)}
         dispatch={dispatch}
@@ -406,12 +484,13 @@ function ProductGrid({
       {products.map((product) => (
         <button
           key={product._id}
+          disabled={product.stock <= 0}
           className="rounded-2xl border bg-white p-4 text-left hover:border-cyan-500"
           onClick={() => onAdd(product)}
         >
           <p className="font-bold">{product.name}</p>
           <p className="text-xs text-slate-500">
-            {product.sku} · Tồn {product.stock}
+            {product.sku} · Tồn {product.stock > 0 ? product.stock : "Hết tồn khả dụng"}
           </p>
           <p className="mt-2 font-bold text-cyan-700">{money(product.price)}</p>
         </button>
@@ -445,7 +524,6 @@ function OnlineRetailSync({ scope, sync }: { scope: OfflineScope; sync(scope: Of
 function CartPanel({
   scope,
   cart,
-  message,
   busy,
   canPay,
   dispatch,
@@ -454,7 +532,6 @@ function CartPanel({
 }: {
   scope: RetailScope;
   cart: RetailCartState;
-  message: string;
   busy: boolean;
   canPay: boolean;
   dispatch: React.Dispatch<any>;
@@ -518,6 +595,8 @@ function CartPanel({
                 })
               }
             />
+            {line.product.trackingMode === "serial" && <SerialPicker productId={line.product.productId || line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.serialNumbers || []} onChange={(serialNumbers) => dispatch({ type: "serials", productId: line.product._id, serialNumbers })} />}
+            {line.product.trackingMode === "unit_barcode" && <UnitBarcodePicker productId={line.product._id} variantId={line.product.variantId} quantity={line.quantity} value={line.internalBarcodes || []} onChange={(internalBarcodes) => dispatch({ type: "internalBarcodes", productId: line.product._id, internalBarcodes })} />}
           </div>
         ))}
       </div>
@@ -527,7 +606,6 @@ function CartPanel({
         shippingFee={cart.shippingFee}
         onChange={(value) => dispatch({ type: "orderAdjustments", ...value })}
       />
-      {message && <p className="my-3 text-sm text-cyan-700">{message}</p>}
       <div className="border-t pt-4">
         <div className="flex justify-between text-lg font-bold">
           <span>Tổng tiền</span>

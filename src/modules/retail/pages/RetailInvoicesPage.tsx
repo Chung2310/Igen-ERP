@@ -1,7 +1,7 @@
 import React from "react";
 import { Eye, Printer, X } from "lucide-react";
 import { retailInvoicesApi } from "../api/retailInvoices.api";
-import ReceiptPrintView from "../components/pos/ReceiptPrintView";
+import ReceiptPrintView from "../components/pos/ReceiptPrintViewSerial";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailInvoice } from "../types";
 import { getApiErrorMessage } from "../../../utils/errorMessage";

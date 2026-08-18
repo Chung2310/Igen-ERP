@@ -28,28 +28,40 @@ test("variant validation keeps service products out of stock tracking", () => {
   assert.equal(serviceVariant.trackingMode, "none");
 
   assert.throws(
-    () => normalizeVariantInput({ sku: "SVC-002", unitCode: "HOUR", trackingMode: "quantity" }, "service"),
-    /dịch vụ phải có trackingMode/,
+    () => normalizeVariantInput({ sku: "SVC-002", unitCode: "HOUR", trackingMode: "lot" }, "service"),
+    ProductCatalogValidationError,
   );
 });
 
-test("physical variant requires an explicit stock tracking mode", () => {
-  assert.throws(
-    () => normalizeVariantInput({ sku: "SKU-001", unitCode: "PCS", trackingMode: "none" }, "physical"),
-    /phải theo dõi số lượng/,
-  );
+test("physical variants default to none and allow serial tracking", () => {
+  const defaultVariant = normalizeVariantInput({ sku: "SKU-001", unitCode: "PCS" }, "physical");
+  assert.equal(defaultVariant.trackingMode, "none");
+
+  const untrackedVariant = normalizeVariantInput({ sku: "SKU-002", unitCode: "PCS", trackingMode: "none" }, "physical");
+  assert.equal(untrackedVariant.trackingMode, "none");
+
   const variant = normalizeVariantInput({ sku: "SKU-001", unitCode: "PCS", trackingMode: "serial" }, "physical");
   assert.equal(variant.sku, "SKU-001");
   assert.equal(variant.trackingMode, "serial");
+
+  const quantityVariant = normalizeVariantInput({ sku: "SKU-003", unitCode: "PCS", trackingMode: "quantity" }, "physical");
+  assert.equal(quantityVariant.trackingMode, "quantity");
 });
 
 test("variant identity is normalized and lifecycle values are constrained", () => {
-  const variant = normalizeVariantInput({ sku: " sku-002 ", barcode: " 8930001 ", unitCode: " pcs ", trackingMode: "quantity", status: "inactive" }, "physical");
+  const variant = normalizeVariantInput({ sku: " sku-002 ", barcode: " 8930001 ", unitCode: " pcs ", trackingMode: "serial", status: "inactive" }, "physical");
   assert.equal(variant.sku, "SKU-002");
   assert.equal(variant.barcode, "8930001");
   assert.equal(variant.unitCode, "PCS");
   assert.equal(variant.status, "inactive");
   assert.throws(() => normalizeVariantInput({ sku: "SKU-003", unitCode: "PCS", status: "removed" }, "physical"), /Trạng thái SKU/);
+});
+
+test("variant warranty months are normalized and bounded", () => {
+  const variant = normalizeVariantInput({ sku: "SKU-W", unitCode: "PCS", warrantyMonths: 12, supplierWarrantyMonths: 6 }, "physical");
+  assert.equal(variant.warrantyMonths, 12);
+  assert.equal(variant.supplierWarrantyMonths, 6);
+  assert.throws(() => normalizeVariantInput({ sku: "SKU-W2", unitCode: "PCS", supplierWarrantyMonths: 1201 }, "physical"), ProductCatalogValidationError);
 });
 
 test("product defaults to draft and validates template-required attributes", () => {
@@ -83,4 +95,16 @@ test("product defaults to draft and validates template-required attributes", () 
     /Thiếu thuộc tính bắt buộc/,
   );
   assert.doesNotThrow(() => assertTemplateAttributes({ fields: [{ code: "RAM", label: "RAM", type: "text", required: true, options: [] }] }, [{ code: "RAM", value: "16GB" }]));
+});
+
+test("product customer warranty months are normalized and bounded", () => {
+  const product = normalizeProductInput({
+    name: "iPhone",
+    productType: "physical",
+    categoryCode: "PHONE",
+    baseUnitCode: "PCS",
+    warrantyMonths: 70,
+  });
+  assert.equal(product.warrantyMonths, 70);
+  assert.throws(() => normalizeProductInput({ warrantyMonths: 1201 }, true), ProductCatalogValidationError);
 });

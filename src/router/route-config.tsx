@@ -46,6 +46,10 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/InventoryTab")),
   },
   {
+    tab: "SỬA CHỮA & BẢO HÀNH",
+    component: lazy(() => import("../pages/RepairTab")),
+  },
+  {
     tab: "QUẢN LÝ TÀI NGUYÊN",
     component: lazy(() => import("../pages/ResourceTab")),
   },

@@ -23,7 +23,7 @@ export class ProductCatalogValidationError extends Error {
 }
 
 const PRODUCT_TYPES: ProductCatalogType[] = ["physical", "service", "bundle"];
-const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "lot", "serial"];
+const TRACKING_MODES: ProductTrackingMode[] = ["none", "quantity", "unit_barcode", "serial", "lot"];
 const FIELD_TYPES: ProductTemplateFieldType[] = ["text", "number", "boolean", "select", "multi-select"];
 const PRODUCT_STATUSES = ["draft", "active", "inactive", "archived"] as const;
 const VARIANT_STATUSES = ["active", "inactive", "discontinued"] as const;
@@ -56,6 +56,7 @@ export interface ProductCatalogCreateInput {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status?: (typeof PRODUCT_STATUSES)[number];
   mediaIds?: string[];
   documentIds?: string[];
@@ -78,6 +79,7 @@ export interface ProductCatalogUpdateInput {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status?: (typeof PRODUCT_STATUSES)[number];
   mediaIds?: string[];
   documentIds?: string[];
@@ -95,6 +97,7 @@ export interface ProductVariantInput {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   attributes?: AttributeInput[];
   mediaIds?: string[];
   status?: (typeof VARIANT_STATUSES)[number];
@@ -221,10 +224,9 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
   if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Sáº£n pháº©m pháº£i cÃ³ Ã­t nháº¥t má»™t SKU/biáº¿n thá»ƒ.");
   assertNoForbiddenCatalogFields(input);
   const value = input as Record<string, unknown>;
-  const trackingMode = (value.trackingMode || (productType === "service" ? "none" : "quantity")) as ProductTrackingMode;
+  const trackingMode = (value.trackingMode || "none") as ProductTrackingMode;
   if (!TRACKING_MODES.includes(trackingMode)) throw new ProductCatalogValidationError("trackingMode khÃ´ng há»£p lá»‡.");
   if (productType === "service" && trackingMode !== "none") throw new ProductCatalogValidationError("Sáº£n pháº©m dá»‹ch vá»¥ pháº£i cÃ³ trackingMode lÃ  none.");
-  if (productType !== "service" && trackingMode === "none") throw new ProductCatalogValidationError("Sáº£n pháº©m váº­t lÃ½/gÃ³i pháº£i theo dÃµi sá»‘ lÆ°á»£ng, lÃ´ hoáº·c serial.");
   const status = (value.status || "active") as (typeof VARIANT_STATUSES)[number];
   assertVariantStatus(status);
 
@@ -249,6 +251,7 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
     widthMm: numeric("widthMm"),
     heightMm: numeric("heightMm"),
     warrantyMonths: numeric("warrantyMonths", 1_200),
+    supplierWarrantyMonths: numeric("supplierWarrantyMonths", 1_200),
     attributes: normalizeAttributes(value.attributes),
     mediaIds: stringArray(value.mediaIds, "mediaIds"),
     status,
@@ -277,6 +280,11 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
   }
   for (const field of ["shortDescription", "description", "countryOfOrigin", "manufacturer", "taxCategory"] as const) {
     if (!partial || value[field] !== undefined) output[field] = optionalText(value[field], field, field === "description" ? 20_000 : field === "shortDescription" ? 500 : 200);
+  }
+  if (!partial || value.warrantyMonths !== undefined) {
+    const warrantyMonths = value.warrantyMonths === undefined || value.warrantyMonths === null || value.warrantyMonths === "" ? 0 : Number(value.warrantyMonths);
+    if (!Number.isFinite(warrantyMonths) || warrantyMonths < 0 || warrantyMonths > 1_200) throw new ProductCatalogValidationError("warrantyMonths phải là số từ 0 đến 1200.");
+    output.warrantyMonths = warrantyMonths;
   }
   if (!partial || value.brandCode !== undefined) output.brandCode = value.brandCode === null ? null : value.brandCode ? normalizeCode(value.brandCode, "MÃ£ thÆ°Æ¡ng hiá»‡u") : undefined;
   if (!partial || value.attributes !== undefined) output.attributes = normalizeAttributes(value.attributes);
@@ -697,6 +705,7 @@ export const ProductCatalogService = {
       widthMm: current.widthMm,
       heightMm: current.heightMm,
       warrantyMonths: current.warrantyMonths,
+      supplierWarrantyMonths: current.supplierWarrantyMonths,
       attributes: current.attributes,
       mediaIds: current.mediaIds,
       status: current.status,

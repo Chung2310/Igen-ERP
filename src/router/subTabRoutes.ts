@@ -29,12 +29,15 @@ export const HR_SUB_TAB_ROUTES: SubTabRouteMap<HRSubTabType> = [
 ];
 
 export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
+  { slug: "bao-hanh", value: "BẢO HÀNH" as InventorySubTabType },
+  { slug: "sua-chua", value: "SỬA CHỮA" as InventorySubTabType },
   { slug: "san-pham", value: "SẢN PHẨM" },
   { slug: "kho-hang", value: "KHO HÀNG" },
   { slug: "nhap-hang", value: "NHẬP HÀNG" },
   { slug: "xuat-hang", value: "XUẤT HÀNG" },
   { slug: "giao-dich-kho", value: "GIAO DỊCH KHO" },
   { slug: "du-bao", value: "DỰ BÁO" },
+  { slug: "imei-serial", value: "IMEI / SERIAL" },
 ];
 
 export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [

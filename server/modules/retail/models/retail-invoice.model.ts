@@ -1,6 +1,6 @@
 import { model, Schema } from "mongoose";
 import type { IRetailInvoice } from "../interfaces/retail-invoice.interface";
-const InvoiceItemSchema = new Schema({ productId: String, sku: String, productName: String, unit: String, quantity: Number, unitPrice: Number, discountAmount: Number, lineTotal: Number }, { _id: false });
+const InvoiceItemSchema = new Schema({ productId: String, sku: String, productName: String, unit: String, quantity: Number, trackingMode: { type: String, enum: ["none", "quantity", "unit_barcode", "lot", "serial"] }, variantId: String, serialNumbers: { type: [String], default: undefined }, internalBarcodes: { type: [String], default: undefined }, unitPrice: Number, discountAmount: Number, lineTotal: Number }, { _id: false });
 const integerVnd = { validator: (value: number) => Number.isSafeInteger(value), message: "Amount must be integer VND." };
 const InvoicePaymentSchema = new Schema({ method: String, amount: { type: Number, min: 0, validate: integerVnd }, tenderedAmount: { type: Number, min: 0, validate: integerVnd }, changeAmount: { type: Number, min: 0, validate: integerVnd }, reference: String }, { _id: false });
 const StoreSnapshotSchema = new Schema({ legalName: { type: String, required: true }, taxCode: String, storeName: { type: String, required: true }, branchCode: { type: String, required: true }, branchName: { type: String, required: true }, branchAddress: String, branchPhone: String }, { _id: false });

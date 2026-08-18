@@ -1,7 +1,10 @@
 import { Document } from "mongoose";
 
 export type ProductCatalogType = "physical" | "service" | "bundle";
-export type ProductTrackingMode = "none" | "quantity" | "lot" | "serial";
+export type ProductTrackingMode = "none" | "quantity" | "unit_barcode" | "serial" | "lot";
+export interface InventoryTrackingSettings {
+  defaultTrackingMode: ProductTrackingMode;
+}
 export type ProductTemplateFieldType = "text" | "number" | "boolean" | "select" | "multi-select";
 
 export interface ProductTemplateField {
@@ -43,6 +46,7 @@ export interface IProductCatalog extends Document {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status: "draft" | "active" | "inactive" | "archived";
   mediaIds: string[];
   documentIds: string[];
@@ -71,6 +75,7 @@ export interface IProductVariant extends Document {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   attributes: Array<{ code: string; value: string; unitCode?: string }>;
   mediaIds: string[];
   status: "active" | "inactive" | "discontinued";

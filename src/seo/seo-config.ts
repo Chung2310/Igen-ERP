@@ -242,6 +242,17 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     priority: "0.2",
     changeFrequency: "monthly",
   },
+  "SỬA CHỮA & BẢO HÀNH": {
+    title: "Sửa chữa & Bảo hành - Quản lý và tra cứu thiết bị",
+    description:
+      "Hệ thống quản lý quy trình tiếp nhận, kiểm tra, báo giá, sửa chữa, bàn giao thiết bị bảo hành chuyên nghiệp tích hợp AI.",
+    keywords:
+      "sửa chữa bảo hành, quản lý sửa chữa, phiếu bảo hành, tra cứu IMEI, bảo hành thiết bị, igen erp",
+    path: "/sua-chua-bao-hanh",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "weekly",
+  },
   "TÀI NGUYÊN": {
     title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",
     description:
@@ -275,11 +286,13 @@ export const PUBLIC_SEO_PAGES: SeoMeta[] = [
 ];
 
 export function getSeoForTab(tab: TabType): SeoMeta {
+  const mapped = TAB_SEO_MAP[tab];
+  if (!mapped) return DEFAULT_SEO;
   return {
     ...DEFAULT_SEO,
-    ...TAB_SEO_MAP[tab],
-    image: TAB_SEO_MAP[tab].image || SEO_DEFAULT_IMAGE,
-    type: TAB_SEO_MAP[tab].type || "website",
+    ...mapped,
+    image: mapped.image || SEO_DEFAULT_IMAGE,
+    type: mapped.type || "website",
   };
 }
 

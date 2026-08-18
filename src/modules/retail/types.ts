@@ -36,11 +36,11 @@ export interface RetailCustomerDetail {
   payments: unknown[];
 }
 
-export interface RetailProduct { _id: string; sku: string; barcode?: string; name: string; category: string; brand?: string; unit: string; stock: number; price: number; imageUrl?: string }
+export interface RetailProduct { _id: string; productId?: string; sku: string; variantName?: string; barcode?: string; name: string; category: string; brand?: string; unit: string; stock: number; price: number; imageUrl?: string; trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial"; variantId?: string; matchedSerialNumber?: string; matchedInternalBarcode?: string }
 export type RetailDiscountInput = { type: "amount" | "percent"; value: number };
-export interface RetailOrderItemInput { productId: string; quantity: number; discount: RetailDiscountInput }
+export interface RetailOrderItemInput { productId: string; quantity: number; discount: RetailDiscountInput; trackingMode?: RetailProduct["trackingMode"]; serialNumbers?: string[]; internalBarcodes?: string[] }
 export interface RetailOrderInput { items: RetailOrderItemInput[]; customerId?: string; orderDiscount: RetailDiscountInput; taxRate: number; shippingFee: number; dueDate?: string }
-export interface RetailOrderItem { productId: string; sku: string; productName: string; unit: string; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number }
+export interface RetailOrderItem { productId: string; sku: string; productName: string; unit: string; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number; trackingMode?: RetailProduct["trackingMode"]; serialNumbers?: string[]; internalBarcodes?: string[]; soldAt?: string; customerWarrantyStartAt?: string; customerWarrantyEndAt?: string }
 export interface RetailPaymentInput { method: "cash" | "card" | "transfer" | "ewallet"; amount: number; tenderedAmount?: number; reference?: string }
 export interface RetailOrder { _id: string; orderCode?: string; status: "draft" | "confirmed" | "completed" | "cancelled"; paymentStatus: "unpaid" | "partial" | "paid" | "refunded"; businessDate?: string; customerId?: string; customerName?: string; customerPhone?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount: number; refundedAmount?: number; dueAmount: number; version: number; createdBy: string; createdByName: string }
 export interface RetailStoreSnapshot { legalName: string; taxCode?: string; storeName: string; branchCode: string; branchName: string; branchAddress?: string; branchPhone?: string }

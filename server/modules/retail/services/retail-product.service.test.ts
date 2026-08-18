@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRetailProductFilter, normalizeRetailProductSearch } from "./retail-product.service";
+import { buildRetailProductFilter, matchesScannedUnit, normalizeRetailProductSearch } from "./retail-product.service";
 
 test("product lookup always keeps exact company and branch scope", () => {
   const filter = buildRetailProductFilter(
@@ -21,4 +21,12 @@ test("barcode lookup is exact and normalized", () => {
     page: 1,
     limit: 20,
   });
+});
+
+test("scanned serial unit matches its variant, or its product when variant is absent", () => {
+  assert.equal(matchesScannedUnit(null, { _id: "v1", productId: "p1" }), false);
+  assert.equal(matchesScannedUnit({ variantId: "v1", productId: "p1" }, { _id: "v1", productId: "p1" }), true);
+  assert.equal(matchesScannedUnit({ variantId: "v2", productId: "p1" }, { _id: "v1", productId: "p1" }), false);
+  assert.equal(matchesScannedUnit({ productId: "p1" }, { _id: "v1", productId: "p1" }), true);
+  assert.equal(matchesScannedUnit({ productId: "p2" }, { _id: "v1", productId: "p1" }), false);
 });

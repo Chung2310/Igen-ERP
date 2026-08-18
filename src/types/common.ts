@@ -7,6 +7,7 @@ export type TabType =
   | "NHÂN SỰ"
   | "ĐỐI TÁC"
   | "KHO & SẢN PHẨM"
+  | "SỬA CHỮA & BẢO HÀNH"
   | "QUẢN LÝ TÀI NGUYÊN"
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"

@@ -23,6 +23,7 @@ import { ViewToggle } from "../components/inventory/ViewToggle";
 import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV2Section";
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
+import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -55,7 +56,7 @@ function isCompletedTransactionStatus(status: TransactionStatus | string) {
 function getStockLogItems(log: StockLog) {
   const typedLog = log as StockLog & {
     title?: string;
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
@@ -90,6 +91,7 @@ export default function InventoryTab() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
+
 
   useEffect(() => {
     let unsubscribeCategories = () => { };
@@ -382,14 +384,14 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number }>;
+    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
   }) => {
     const resolvedItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
       if (!product) {
         throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm trong kho." }));
       }
-      return { product, quantity: item.quantity };
+      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
     });
 
     if (isCompletedTransactionStatus(payload.status)) {
@@ -415,6 +417,7 @@ export default function InventoryTab() {
       sku: item.product.sku,
       productName: item.product.name,
       quantity: item.quantity,
+      unitIdentifiers: item.unitIdentifiers,
     }));
 
     // Lưu phiếu vào Firebase
@@ -444,7 +447,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number }>;
+    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
   }) => {
     if (!payload.id) return;
 
@@ -462,7 +465,7 @@ export default function InventoryTab() {
       if (!product) {
         throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm cũ ${item.productName} trong kho.` }));
       }
-      return { product, quantity: item.quantity, type: oldType };
+      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers };
     });
 
     const normalizedNewItems = payload.items.map((item) => {
@@ -470,7 +473,7 @@ export default function InventoryTab() {
       if (!product) {
         throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm mới trong kho." }));
       }
-      return { product, quantity: item.quantity, type: payload.type };
+      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers };
     });
 
     const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);
@@ -513,6 +516,7 @@ export default function InventoryTab() {
       sku: item.product.sku,
       productName: item.product.name,
       quantity: item.quantity,
+      unitIdentifiers: item.unitIdentifiers,
     }));
 
     // Cập nhật phiếu trong Firebase
@@ -544,7 +548,7 @@ export default function InventoryTab() {
       if (!product) {
         throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm ${item.productName} trong kho.` }));
       }
-      return { productId: product.id, quantity: item.quantity };
+      return { productId: product.id, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
     });
 
     await handleUpdateTransaction({
@@ -653,6 +657,7 @@ export default function InventoryTab() {
           setSubTab("XUẤT HÀNG");
         }} />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
+        {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">

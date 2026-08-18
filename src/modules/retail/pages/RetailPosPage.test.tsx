@@ -7,6 +7,16 @@ import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import RetailPosPage from "./RetailPosPage";
+import { toast } from "../../../pages/Toast";
+
+vi.mock("../../../pages/Toast", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  }
+}));
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
 vi.mock("../api/retailProducts.api", () => ({ retailProductsApi: { list: vi.fn() } }));
@@ -26,7 +36,7 @@ const invoice = { _id: "i1", invoiceNo: "HD-1", orderId: "o1", orderCode: "DH-1"
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(retailProductsApi.list).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 20 });
+  vi.mocked(retailProductsApi.list).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 500 });
   vi.mocked(retailOrdersApi.list).mockResolvedValue({ items: [], total: 0, page: 1, limit: 5 });
   vi.mocked(retailOrdersApi.quote).mockResolvedValue({ subtotal: 180_000, grandTotal: 209_000 });
   vi.mocked(retailOrdersApi.createDraft).mockResolvedValue({ ...order, status: "draft" });
@@ -48,6 +58,16 @@ describe("RetailPosPage", () => {
     expect(await screen.findByText(/CA-2/)).toBeTruthy();
   });
 
+  it("routes an expired open shift to the close-shift flow", async () => {
+    vi.mocked(retailShiftsApi.current).mockResolvedValueOnce({ _id: "expired", shiftCode: "CA-CU", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open", operationalEndsAt: "2020-01-01T00:00:00.000Z" } as any);
+    vi.mocked(retailShiftsApi.current).mockResolvedValueOnce({ _id: "expired", shiftCode: "CA-CU", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open", operationalEndsAt: "2020-01-01T00:00:00.000Z" } as any);
+    render(<RetailPosPage />);
+
+    expect(await screen.findByRole("heading", { name: "Ca bán hàng" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Gửi kiểm đếm và đóng ca/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Thanh toán/ })).toBeNull();
+  });
+
   it("keeps payment dialog closed and guides cashier to select a customer", async () => {
     render(<RetailPosPage />);
     await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
@@ -56,7 +76,7 @@ describe("RetailPosPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
 
     expect(screen.queryByTestId("payment-dialog")).toBeNull();
-    expect(await screen.findByText("Vui lòng chọn khách hàng trước khi thanh toán.")).toBeTruthy();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Vui lòng chọn khách hàng trước khi thanh toán."));
   });
 
   it("carries customer and adjustments through quote and checkout to receipt", async () => {

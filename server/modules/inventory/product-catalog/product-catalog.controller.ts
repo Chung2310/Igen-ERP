@@ -2,6 +2,7 @@ import type { NextFunction, Response } from "express";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { ProductCatalogService } from "./product-catalog.service";
 import { ProductCatalogResourceService } from "./product-catalog-resource.service";
+import { ProductPriceService } from "./product-price.service";
 
 function companyCode(req: AuthenticatedRequest): string {
   if (!req.user?.companyCode) {
@@ -22,6 +23,8 @@ function query(req: AuthenticatedRequest): Record<string, unknown> {
 }
 
 export const productCatalogController = {
+  listPrices: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { try { res.json({ success: true, data: await ProductPriceService.list(companyCode(req), String(req.query.branchId || req.user?.branchId || ""), query(req)) }); } catch (error) { next(error); } },
+  upsertPrice: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { try { res.json({ success: true, data: await ProductPriceService.upsert(companyCode(req), String(req.body?.branchId || req.user?.branchId || ""), req.params.variantId, req.body, actor(req)) }); } catch (error) { next(error); } },
   listTemplates: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       res.json({ success: true, data: await ProductCatalogService.listTemplates(companyCode(req), query(req)) });
