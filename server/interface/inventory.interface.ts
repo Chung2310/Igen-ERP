@@ -18,7 +18,25 @@ export interface IInventoryCountItem {
   countedQuantity: number;
   quantityDelta: number;
   sourceBalanceVersion: number;
+  /** SKU theo dõi từng đơn vị thì đếm bằng cách quét mã nội bộ/IMEI, không gõ số lượng. */
+  trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial";
+  /** Máy hệ thống ghi đang nằm trong kho tại lúc tạo phiếu. */
+  expectedUnits?: Array<{ serialUnitId: string; internalBarcode?: string; serialNumber?: string }>;
+  /** Máy thực tế quét được, là tập con của expectedUnits. */
+  scannedUnitIds?: string[];
   note?: string;
+}
+
+/** Mã quét được nhưng không thuộc kho đang kiểm — giữ lại để người duyệt xử lý. */
+export interface IInventoryCountUnexpectedScan {
+  code: string;
+  reason: "other_warehouse" | "sold" | "unknown" | "wrong_status";
+  serialUnitId?: string;
+  sku?: string;
+  productName?: string;
+  warehouseId?: string;
+  status?: string;
+  scannedAt: Date;
 }
 
 export interface IInventoryCount extends Document {
@@ -28,6 +46,7 @@ export interface IInventoryCount extends Document {
   countCode: string;
   status: InventoryCountStatus;
   items: IInventoryCountItem[];
+  unexpectedScans?: IInventoryCountUnexpectedScan[];
   notes?: string;
   createdBy: string;
   submittedBy?: string;

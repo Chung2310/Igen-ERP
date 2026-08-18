@@ -13,7 +13,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   normalizedInternalBarcode: { type: String, required: true, trim: true },
   serialNumber: { type: String, required: true, trim: true },
   normalizedSerialNumber: { type: String, required: true, trim: true },
-  status: { type: String, enum: ["in_stock", "sold", "returned", "defective", "repairing", "scrapped"], required: true, default: "in_stock", index: true },
+  status: { type: String, enum: ["in_stock", "sold", "returned", "defective", "repairing", "scrapped", "lost"], required: true, default: "in_stock", index: true },
   currentDocumentType: { type: String, trim: true },
   currentDocumentId: { type: String, index: true },
   customerId: { type: String, index: true },

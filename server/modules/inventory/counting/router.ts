@@ -6,6 +6,7 @@ inventoryCountRouter.get("/", requirePermission("inventory:read") as any, invent
 inventoryCountRouter.get("/:id", requirePermission("inventory:read") as any, inventoryCountController.get as any);
 inventoryCountRouter.post("/", requirePermission("inventory:manage") as any, inventoryCountController.create as any);
 inventoryCountRouter.patch("/:id/items/:itemId", requirePermission("inventory:manage") as any, inventoryCountController.updateItem as any);
+inventoryCountRouter.post("/:id/scan", requirePermission("inventory:manage") as any, inventoryCountController.scan as any);
 inventoryCountRouter.post("/:id/start", requirePermission("inventory:manage") as any, inventoryCountController.start as any);
 inventoryCountRouter.post("/:id/submit", requirePermission("inventory:manage") as any, inventoryCountController.submit as any);
 inventoryCountRouter.post("/:id/cancel", requirePermission("inventory:manage") as any, inventoryCountController.cancel as any);
