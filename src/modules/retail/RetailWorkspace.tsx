@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { ChartColumn, FileText, ListOrdered, MonitorSmartphone, Settings, Store, Users } from "lucide-react";
+import { ChartColumn, FileText, ListOrdered, MonitorSmartphone, Settings, Store, Users, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
@@ -11,9 +11,11 @@ const OrdersPage = lazy(() => import("./pages/RetailOrdersPage"));
 const ShiftsPage = lazy(() => import("./pages/RetailShiftsPage"));
 const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPageContent"));
 const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
+const WarrantyLookupPage = lazy(() => import("./pages/WarrantyLookupPage"));
 
 type RetailSubTab = "BÁN HÀNG" | "ĐƠN HÀNG" | "CA BÁN HÀNG" | "HÓA ĐƠN" | "BÁO CÁO" | "KHÁCH HÀNG" | "CÀI ĐẶT";
 const SUB_TABS = [
+  { slug: "bao-hanh", value: "BẢO HÀNH" as const, label: "Bảo hành", icon: ShieldCheck },
   { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Bán hàng", icon: Store },
   { slug: "don-hang", value: "ĐƠN HÀNG" as const, label: "Đơn hàng", icon: ListOrdered },
   { slug: "ca-ban-hang", value: "CA BÁN HÀNG" as const, label: "Ca bán hàng", icon: MonitorSmartphone },
@@ -30,7 +32,7 @@ export default function RetailWorkspace() {
       ? ["*"]
       : userProfile?.permissions || [],
   );
-  const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
+  const tabs: any = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
   const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "BÁN HÀNG");
 
   if (!tabs.length) {
@@ -59,6 +61,7 @@ export default function RetailWorkspace() {
           {activeTab === "BÁO CÁO" && <ReportsPage />}
           {activeTab === "KHÁCH HÀNG" && <CustomersPage />}
           {activeTab === "CÀI ĐẶT" && <SettingsPage />}
+          {(activeTab as any) === "BẢO HÀNH" && <WarrantyLookupPage />}
         </Suspense>
       </div>
     </div>

@@ -95,6 +95,7 @@ export interface ProductVariantInput {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   attributes?: AttributeInput[];
   mediaIds?: string[];
   status?: (typeof VARIANT_STATUSES)[number];
@@ -248,6 +249,7 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
     widthMm: numeric("widthMm"),
     heightMm: numeric("heightMm"),
     warrantyMonths: numeric("warrantyMonths", 1_200),
+    supplierWarrantyMonths: numeric("supplierWarrantyMonths", 1_200),
     attributes: normalizeAttributes(value.attributes),
     mediaIds: stringArray(value.mediaIds, "mediaIds"),
     status,
@@ -696,6 +698,7 @@ export const ProductCatalogService = {
       widthMm: current.widthMm,
       heightMm: current.heightMm,
       warrantyMonths: current.warrantyMonths,
+      supplierWarrantyMonths: current.supplierWarrantyMonths,
       attributes: current.attributes,
       mediaIds: current.mediaIds,
       status: current.status,

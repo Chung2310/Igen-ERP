@@ -19,6 +19,7 @@
     "backfill:partner-scheme-policies": "tsx server/scripts/backfill-labor-partner-scheme-policies.ts",
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
     "backfill:serial-tracking": "tsx server/scripts/backfill-serial-tracking.ts",
+    "backfill:warranty-serials": "tsx server/scripts/backfill-warranty-serials.ts",
     "stress:staging": "tsx tools/controlled-staging-stress-test.ts",
     "load:production": "tsx tools/production-stepped-load-test.ts",
     "load:setup": "tsx tools/comprehensive-load/setup-command.ts",

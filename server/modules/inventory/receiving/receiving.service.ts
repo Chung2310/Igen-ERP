@@ -9,6 +9,7 @@ import { getWarehouse } from "../warehouse/warehouse.service";
 import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
 import { validateReceivingSerialLines } from "../serials/serial-receiving-validation";
 import { registerSerialBatch } from "../serials/serial-unit.service";
+import { computeWarrantyEnd } from "../serials/warranty-clock";
 
 export class ReceivingValidationError extends Error { statusCode = 400; }
 
@@ -189,7 +190,9 @@ export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) 
       const details = Array.isArray(item.unitDetails) ? item.unitDetails : [];
       const serialNumbers = item.trackingMode === "serial" ? (item.serialNumbers || []).map((value: string, index: number) => value || details[index]?.internalBarcode) : details.map((detail: any) => detail.internalBarcode);
       const internalBarcodes = details.map((detail: any) => detail.internalBarcode);
-      await registerSerialBatch({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(receipt.warehouseId) }, { productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, serialNumbers, internalBarcodes, documentType: "goods-receipt", documentId: String(receipt._id) }, { id: actorId(actor), name: actor.email || actor.id || "" }, session);
+      const supplierMonths = Number(item.supplierWarrantyMonths ?? item.warrantyMonths ?? 0);
+      const startAt = receipt.receivedAt || receipt.confirmedAt || new Date();
+      await registerSerialBatch({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(receipt.warehouseId) }, { productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, serialNumbers, internalBarcodes, documentType: "goods-receipt", documentId: String(receipt._id), supplierWarranty: supplierMonths > 0 ? { supplierId: receipt.supplierId, supplierName: receipt.supplierName, receiptId: String(receipt._id), receiptCode: receipt.receiptCode, months: supplierMonths, startAt, startSource: "receipt", endAt: computeWarrantyEnd(startAt, supplierMonths) } : undefined }, { id: actorId(actor), name: actor.email || actor.id || "" }, session);
     }
     void movement;
     return receipt.toObject();

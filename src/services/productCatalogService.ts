@@ -47,6 +47,7 @@ export type ProductVariant = {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   mediaIds?: string[];
 };
 
@@ -103,6 +104,7 @@ export type VariantInput = {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   mediaIds?: string[];
   sellingPrice?: number;
 };

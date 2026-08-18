@@ -1,7 +1,16 @@
 import { RetailOrderModel } from "./models/retail-order.model";
+import { SerialUnitModel } from "../inventory/serials/serial-unit.model";
+import { snapshotCoverage } from "../inventory/serials/warranty-clock";
 
 export type RetailScope = { companyCode: string; branchId?: string };
 export type RetailBranchScope = { companyCode: string; branchId: string };
+
+export async function lookupSoldDevice(scope: RetailScope, code: string, at = new Date()) {
+  const normalized = String(code || "").trim().toUpperCase();
+  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, status: "sold", $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalized }] }).lean();
+  if (!unit) return { found: false as const };
+  return { found: true as const, serialUnit: unit, coverage: snapshotCoverage(unit, at), sold: { soldAt: unit.soldAt, orderId: unit.soldOrderId, orderCode: unit.soldOrderCode, branchId: unit.soldBranchId, customerId: unit.customerId } };
+}
 
 type RetailActor = {
   role?: unknown;

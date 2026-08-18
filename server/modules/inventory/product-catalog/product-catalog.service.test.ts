@@ -57,6 +57,13 @@ test("variant identity is normalized and lifecycle values are constrained", () =
   assert.throws(() => normalizeVariantInput({ sku: "SKU-003", unitCode: "PCS", status: "removed" }, "physical"), /Trạng thái SKU/);
 });
 
+test("variant warranty months are normalized and bounded", () => {
+  const variant = normalizeVariantInput({ sku: "SKU-W", unitCode: "PCS", warrantyMonths: 12, supplierWarrantyMonths: 6 }, "physical");
+  assert.equal(variant.warrantyMonths, 12);
+  assert.equal(variant.supplierWarrantyMonths, 6);
+  assert.throws(() => normalizeVariantInput({ sku: "SKU-W2", unitCode: "PCS", supplierWarrantyMonths: 1201 }, "physical"), ProductCatalogValidationError);
+});
+
 test("product defaults to draft and validates template-required attributes", () => {
   const product = normalizeProductInput({
     productCode: "P-001",

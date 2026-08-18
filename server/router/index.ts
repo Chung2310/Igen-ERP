@@ -21,7 +21,7 @@ import { notificationRouter } from "./notification.router";
 import { kanbanRouter } from "./kanban.router";
 import { requireAuth } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
-import { expensiveApiRateLimiter } from "../middleware/rate-limit";
+import { expensiveApiRateLimiter, publicApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
 import { faceManagementRouter } from "./face-management.router";
 import { payrollRouter } from "./payroll.router";
@@ -38,6 +38,8 @@ import { receivingRouter } from "../modules/inventory/receiving/router";
 import { warehouseRouter } from "../modules/inventory/warehouse/router";
 import { inventoryCountRouter } from "../modules/inventory/counting/router";
 import { serialUnitRouter } from "../modules/inventory/serials/router";
+import { repairRouter } from "../modules/repair/router";
+import { repairFeedbackRoutes } from "../modules/repair/repair-feedback.routes";
 import { financeRouter } from "../modules/finance/router";
 export const apiRouter = Router();
 
@@ -123,6 +125,8 @@ apiRouter.use("/inventory/receiving", requireAuth as any, requireModule("invento
 apiRouter.use("/inventory/warehouses", requireAuth as any, requireModule("inventory"), warehouseRouter);
 apiRouter.use("/inventory/counts", requireAuth as any, requireModule("inventory"), inventoryCountRouter);
 apiRouter.use("/inventory/serials", requireAuth as any, requireModule("inventory"), serialUnitRouter);
+apiRouter.use("/repair/feedback", publicApiRateLimiter, repairFeedbackRoutes);
+apiRouter.use("/repair", requireAuth as any, requireModule("repair"), repairRouter);
 apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
 apiRouter.use("/finance", requireAuth as any, requireModule("finance"), financeRouter);
 

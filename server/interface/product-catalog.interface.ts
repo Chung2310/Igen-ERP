@@ -74,6 +74,7 @@ export interface IProductVariant extends Document {
   widthMm?: number;
   heightMm?: number;
   warrantyMonths?: number;
+  supplierWarrantyMonths?: number;
   attributes: Array<{ code: string; value: string; unitCode?: string }>;
   mediaIds: string[];
   status: "active" | "inactive" | "discontinued";
