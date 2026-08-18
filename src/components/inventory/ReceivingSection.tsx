@@ -788,13 +788,14 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                     <th className="px-4 py-3 font-medium">SKU</th>
                     <th className="px-4 py-3 text-right font-medium">Số lượng</th>
                     <th className="px-4 py-3 font-medium">IMEI / serial · Mã vạch nội bộ</th>
+                    <th className="px-4 py-3 text-right font-medium">BH NCC (tháng)</th>
                     <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
                     <th className="px-4 py-3 text-right font-medium">Thành tiền</th>
                     <th className="px-4 py-3 text-right font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
+                  {lines.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
                     <Fragment key={line.key}>
                       <tr className="bg-slate-50/60">
                         <td className="px-4 py-3">
@@ -829,12 +830,14 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                               <input value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch nội bộ ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch nội bộ ${line.sku} đơn vị ${index + 1}`} />
                             </div>
                           </td>
-                          <td colSpan={2} className="px-4 py-2" />
+                        <td className="px-4 py-2" />
+                        <td className="px-4 py-2" />
+                        <td className="px-4 py-2" />
                           <td className="px-4 py-2 text-right"><button type="button" onClick={() => removeUnitAt(line.key, index)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-600" title={`Xóa đơn vị #${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={7} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
+                        <td colSpan={8} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
                       </tr>
                     </Fragment>
                   ) : (
@@ -846,6 +849,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                       <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
                       <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>
+                      <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">
