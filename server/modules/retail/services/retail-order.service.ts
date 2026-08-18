@@ -23,6 +23,7 @@ import type { PostReceivableEntryInput } from "../interfaces/retail-receivable.i
 import { enqueueTierRefresh, processTierRefreshBySourceKey } from "./retail-customer-tier.service";
 import { publishRetailOrderEvent } from "./retail-order-events";
 import { claimSerialsForOrder, releaseSerialsForOrder } from "./retail-serial-order.service";
+import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.service";
 
 export function receivableEntriesForOrderChange(action: "confirm" | "collect" | "cancel", order: any, collectedAmount: number): PostReceivableEntryInput[] {
   const orderId = String(order._id);
@@ -168,7 +169,8 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   const productById = new Map(products.map((product: any) => [String(product._id), product]));
   const prices = await ProductPriceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids }, status: "active" }).lean();
   const priceById = new Map(prices.map((price: any) => [String(price.variantId), price]));
-  const balances = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids } }).lean();
+  const defaultWarehouse = await ensureDefaultWarehouse(scope.companyCode, scope.branchId);
+  const balances = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(defaultWarehouse._id), variantId: { $in: ids } }).lean();
   const balanceById = new Map<string, any>();
   for (const balance of balances as any[]) {
     const key = String(balance.variantId); const current = balanceById.get(key) || { quantity: 0, reservedQuantity: 0 };
