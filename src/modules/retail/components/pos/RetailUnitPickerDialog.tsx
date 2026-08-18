@@ -9,7 +9,7 @@ function Picker({ productId, variantId, quantity, value, onChange, mode }: Props
   const [query, setQuery] = React.useState("");
   const [items, setItems] = React.useState<InventorySerialUnit[]>([]);
   const [error, setError] = React.useState("");
-  React.useEffect(() => { if (!open) return; let active = true; void inventorySerialService.list({ productId, variantId, status: "in_stock", limit: 100 }).then((result) => { if (active) setItems(result.items); }).catch((problem) => { if (active) setError(problem instanceof Error ? problem.message : "Không thể tải dữ liệu tồn kho."); }); return () => { active = false; }; }, [open, productId, variantId]);
+  React.useEffect(() => { if (!open) return; let active = true; void inventorySerialService.list({ productId, variantId, forSale: true, status: "in_stock", limit: 100 }).then((result) => { if (active) setItems(result.items); }).catch((problem) => { if (active) setError(problem instanceof Error ? problem.message : "Không thể tải dữ liệu tồn kho."); }); return () => { active = false; }; }, [open, productId, variantId]);
   const filtered = items.filter((item) => { const text = `${item.serialNumber} ${item.internalBarcode}`.toLowerCase(); return text.includes(query.trim().toLowerCase()); });
   const toggle = (item: InventorySerialUnit) => { const next = mode === "serial" ? item.normalizedSerialNumber : item.normalizedInternalBarcode; if (value.includes(next)) onChange(value.filter((itemValue) => itemValue !== next)); else if (value.length < quantity) onChange([...value, next]); };
   return <>

@@ -9,7 +9,7 @@ type ListResult = { items: InventorySerialUnit[]; total: number; page: number; l
 const root = "/inventory/serials";
 
 export const inventorySerialService = {
-  async list(params: { serial?: string; sku?: string; warehouseId?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
+  async list(params: { serial?: string; sku?: string; warehouseId?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
     const result = await apiFetch<Envelope<ListResult>>(root, { params });
     return result.data;
   },
