@@ -14,6 +14,7 @@ const GoodsReceiptItemSchema = new Schema(
     quantity: { type: Number, required: true, min: 0.000001 },
     unitCost: { type: Number, required: true, min: 0 },
     lineTotal: { type: Number, required: true, min: 0 },
+    supplierWarrantyMonths: { type: Number, min: 0, max: 1200 },
     note: { type: String, trim: true },
   },
   { _id: false },

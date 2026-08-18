@@ -51,7 +51,15 @@ function normalizeItems(input: unknown) {
     const unitCost = Number(raw?.unitCost);
     if (!Number.isFinite(quantity) || quantity <= 0) throw new ReceivingValidationError(`Số lượng dòng ${index + 1} phải lớn hơn 0.`);
     if (!Number.isFinite(unitCost) || unitCost < 0) throw new ReceivingValidationError(`Giá nhập dòng ${index + 1} không hợp lệ.`);
-    return { productId, variantId, barcode: text(raw?.barcode, "Mã vạch") || undefined, quantity, unitCost, note: text(raw?.note, "Ghi chú") || undefined, unitDetails: Array.isArray(raw?.unitDetails) ? raw.unitDetails : undefined };
+    const rawWarrantyMonths = raw?.supplierWarrantyMonths;
+    let supplierWarrantyMonths: number | undefined;
+    if (rawWarrantyMonths !== undefined && rawWarrantyMonths !== null && rawWarrantyMonths !== "") {
+      supplierWarrantyMonths = Number(rawWarrantyMonths);
+      if (!Number.isFinite(supplierWarrantyMonths) || supplierWarrantyMonths < 0 || supplierWarrantyMonths > 1200) {
+        throw new ReceivingValidationError(`Bảo hành nhà cung cấp dòng ${index + 1} phải từ 0 đến 1200 tháng.`);
+      }
+    }
+    return { productId, variantId, barcode: text(raw?.barcode, "Mã vạch") || undefined, quantity, unitCost, supplierWarrantyMonths, note: text(raw?.note, "Ghi chú") || undefined, unitDetails: Array.isArray(raw?.unitDetails) ? raw.unitDetails : undefined };
   });
 }
 
@@ -118,7 +126,9 @@ async function resolveReceiptItems(company: string, rawItems: ReturnType<typeof 
     if (!product || !variant || String(variant.productId) !== item.productId) throw new ReceivingValidationError(`Sản phẩm/SKU ${item.variantId} không thuộc công ty hoặc đã ngừng dùng.`);
     const barcode = item.barcode || variant.barcode;
     if (item.barcode && item.barcode !== variant.barcode) throw new ReceivingValidationError("Mã vạch của SKU " + variant.sku + " không khớp.");
-    return { ...item, barcode, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, lineTotal: item.quantity * item.unitCost };
+    // Không gửi kèm thì chốt theo chính sách bảo hành đang khai ở SKU.
+    const supplierWarrantyMonths = item.supplierWarrantyMonths ?? (Number.isFinite(Number(variant.supplierWarrantyMonths)) ? Number(variant.supplierWarrantyMonths) : undefined);
+    return { ...item, barcode, sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, supplierWarrantyMonths, lineTotal: item.quantity * item.unitCost };
   });
 }
 

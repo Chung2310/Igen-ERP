@@ -121,6 +121,8 @@ export interface IGoodsReceiptItem {
   quantity: number;
   unitCost: number;
   lineTotal: number;
+  /** Số tháng bảo hành nhà cung cấp chốt tại thời điểm nhập; mặc định lấy từ SKU. */
+  supplierWarrantyMonths?: number;
   note?: string;
 }
 
