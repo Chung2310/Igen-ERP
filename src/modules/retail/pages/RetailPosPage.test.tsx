@@ -48,6 +48,16 @@ describe("RetailPosPage", () => {
     expect(await screen.findByText(/CA-2/)).toBeTruthy();
   });
 
+  it("routes an expired open shift to the close-shift flow", async () => {
+    vi.mocked(retailShiftsApi.current).mockResolvedValueOnce({ _id: "expired", shiftCode: "CA-CU", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open", operationalEndsAt: "2020-01-01T00:00:00.000Z" } as any);
+    vi.mocked(retailShiftsApi.current).mockResolvedValueOnce({ _id: "expired", shiftCode: "CA-CU", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open", operationalEndsAt: "2020-01-01T00:00:00.000Z" } as any);
+    render(<RetailPosPage />);
+
+    expect(await screen.findByRole("heading", { name: "Ca bán hàng" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Gửi kiểm đếm và đóng ca/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Thanh toán/ })).toBeNull();
+  });
+
   it("keeps payment dialog closed and guides cashier to select a customer", async () => {
     render(<RetailPosPage />);
     await userEvent.click(await screen.findByRole("button", { name: /SKU-1/ }));
