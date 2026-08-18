@@ -7,6 +7,16 @@ import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import RetailPosPage from "./RetailPosPage";
+import { toast } from "../../../pages/Toast";
+
+vi.mock("../../../pages/Toast", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  }
+}));
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
 vi.mock("../api/retailProducts.api", () => ({ retailProductsApi: { list: vi.fn() } }));
@@ -66,7 +76,7 @@ describe("RetailPosPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Thanh toán" }));
 
     expect(screen.queryByTestId("payment-dialog")).toBeNull();
-    expect(await screen.findByText("Vui lòng chọn khách hàng trước khi thanh toán.")).toBeTruthy();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Vui lòng chọn khách hàng trước khi thanh toán."));
   });
 
   it("carries customer and adjustments through quote and checkout to receipt", async () => {

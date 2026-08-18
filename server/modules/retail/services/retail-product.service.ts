@@ -39,7 +39,15 @@ export const RetailProductService = {
     const variants: any[] = await ProductVariantModel.find(variantFilter).lean();
     const products: any[] = await ProductCatalogModel.find({ companyCode: scope.companyCode, _id: { $in: [...new Set(variants.map((item) => String(item.productId)))] }, status: "active" }).lean();
     const prices: any[] = await ProductPriceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: variantIds }, status: "active" }).lean();
-    const balanceByVariant = new Map(balances.map((item) => [String(item.variantId), item]));
+    const balanceByVariant = new Map<string, any>();
+    for (const item of balances) {
+      const key = String(item.variantId);
+      const current = balanceByVariant.get(key) || { quantity: 0, reservedQuantity: 0, averageCost: 0 };
+      const quantity = Number(item.quantity || 0); const reservedQuantity = Number(item.reservedQuantity || 0);
+      const totalQuantity = current.quantity + quantity;
+      current.averageCost = totalQuantity > 0 ? ((current.averageCost * current.quantity) + (Number(item.averageCost || 0) * quantity)) / totalQuantity : 0;
+      current.quantity = totalQuantity; current.reservedQuantity += reservedQuantity; balanceByVariant.set(key, current);
+    }
     const productById = new Map(products.map((item) => [String(item._id), item]));
     const priceByVariant = new Map(prices.map((item) => [String(item.variantId), item]));
     const items: any[] = variants.map((variant) => { const product = productById.get(String(variant.productId)); const price = priceByVariant.get(String(variant._id)); const balance = balanceByVariant.get(String(variant._id)); if (!product || !price) return null; return { _id: String(variant._id), productId: String(product._id), variantId: String(variant._id), sku: variant.sku, barcode: variant.barcode, name: `${product.name} - ${variant.displayName || variant.sku}`, variantName: variant.displayName || variant.sku, category: product.categoryCode, brand: product.brandCode, unit: variant.unitCode, stock: Number(balance.quantity || 0) - Number(balance.reservedQuantity || 0), price: Number(price.sellingPrice), costPrice: Number(price.costPrice || balance.averageCost || 0), trackingMode: variant.trackingMode, ...(matchesScannedUnit(scannedUnit, variant) ? { matchedSerialNumber: scannedUnit.normalizedSerialNumber, matchedInternalBarcode: scannedUnit.normalizedInternalBarcode } : {}) }; }).filter(Boolean);

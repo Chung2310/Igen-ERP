@@ -169,7 +169,11 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   const prices = await ProductPriceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids }, status: "active" }).lean();
   const priceById = new Map(prices.map((price: any) => [String(price.variantId), price]));
   const balances = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: ids } }).lean();
-  const balanceById = new Map(balances.map((balance: any) => [String(balance.variantId), balance]));
+  const balanceById = new Map<string, any>();
+  for (const balance of balances as any[]) {
+    const key = String(balance.variantId); const current = balanceById.get(key) || { quantity: 0, reservedQuantity: 0 };
+    current.quantity += Number(balance.quantity || 0); current.reservedQuantity += Number(balance.reservedQuantity || 0); balanceById.set(key, current);
+  }
   if (byId.size !== new Set(ids).size) throw new Error("SKU không thuộc danh mục đang bán.");
   const items = rawItems.map((item: any) => { const variant: any = byId.get(String(item.productId)); const product: any = productById.get(String(variant.productId)); const price: any = priceById.get(String(variant._id)); const balance: any = balanceById.get(String(variant._id)); if (!product || !price) throw new Error("Sản phẩm chưa được khai báo giá bán."); const available = Number(balance?.quantity || 0) - Number(balance?.reservedQuantity || 0); if (available < Number(item.quantity)) throw new Error(`Tồn kho của ${product.name} không đủ.`); return { product: { _id: variant._id, sku: variant.sku, name: product.name, unit: variant.unitCode, category: product.categoryCode, brand: product.brandCode, price: price.sellingPrice, costPrice: price.costPrice, trackingMode: variant.trackingMode, variantId: variant._id }, item }; }).map(({ product, item }: any) => snapshotRetailProductForPricing(product, item));
   validateRetailSerialItems(items);
