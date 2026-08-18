@@ -1,6 +1,7 @@
 import React from "react";
 import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
+import RetailShiftWorkspace from "./RetailShiftWorkspace";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
 import CheckoutSuccessDialog from "../components/pos/CheckoutSuccessDialog";
 import CustomerPicker from "../components/pos/CustomerPicker";
@@ -160,6 +161,10 @@ export default function RetailPosPage() {
   React.useEffect(() => { refreshOffline(); }, [refreshOffline]);
 
   if (!scope) return <Notice />;
+
+  if (shift?.operationalEndsAt && new Date(shift.operationalEndsAt).getTime() <= Date.now()) {
+    return <RetailShiftWorkspace />;
+  }
 
   if (!shift) return (
     <section className="mx-auto flex min-h-[65vh] w-full max-w-xl items-center justify-center p-5">
