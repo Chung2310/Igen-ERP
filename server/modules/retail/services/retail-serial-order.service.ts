@@ -9,6 +9,15 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 import { computeWarrantyEnd } from "../../inventory/serials/warranty-clock";
 import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.service";
 
+export function applyClaimedSerialToOrderItem(item: { internalBarcodes?: string[]; soldAt?: Date; customerWarrantyStartAt?: Date; customerWarrantyEndAt?: Date }, claimed: { internalBarcode?: string }, soldAt: Date, customerMonths: number) {
+  const internalBarcodes = claimed.internalBarcode ? [...new Set([...(item.internalBarcodes || []), claimed.internalBarcode])] : item.internalBarcodes;
+  Object.assign(item, {
+    soldAt,
+    ...(internalBarcodes ? { internalBarcodes } : {}),
+    ...(customerMonths > 0 ? { customerWarrantyStartAt: soldAt, customerWarrantyEndAt: computeWarrantyEnd(soldAt, customerMonths) } : {}),
+  });
+}
+
 export async function claimSerialsForOrder(scope: RetailBranchScope, items: Array<{ productId: string; variantId?: string; trackingMode?: string; serialNumbers?: string[]; internalBarcodes?: string[] }>, orderId: string, customerId: string, actorId: string, session: ClientSession, actorName = actorId, orderContext?: { businessDate?: string; orderCode?: string }) {
   const defaultWarehouse = await ensureDefaultWarehouse(scope.companyCode, scope.branchId, session);
   const order: any = await RetailOrderModel.findOne({ _id: orderId, companyCode: scope.companyCode, branchId: scope.branchId }).session(session).lean();
@@ -34,7 +43,7 @@ export async function claimSerialsForOrder(scope: RetailBranchScope, items: Arra
         { new: true, session },
       );
       if (!claimed) throw Object.assign(new Error(`Mã định danh ${identifier.normalized} không còn khả dụng.`), { statusCode: 409, code: "UNIT_NOT_AVAILABLE" });
-      Object.assign(item, { soldAt, ...(customerMonths > 0 ? { customerWarrantyStartAt: soldAt, customerWarrantyEndAt: computeWarrantyEnd(soldAt, customerMonths) } : {}) });
+      applyClaimedSerialToOrderItem(item, claimed, soldAt, customerMonths);
       await SerialEventModel.create([{ companyCode: scope.companyCode, branchId: scope.branchId, serialUnitId: String(claimed._id), serialNumber: claimed.serialNumber, eventType: "sold", fromStatus: "in_stock", toStatus: "sold", documentType: "retail-order", documentId: orderId, actorId, actorName }], { session });
     }
   }
