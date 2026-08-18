@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildMatrixVariantInput } from "./productVariantPayload";
 
-test("matrix-created SKU keeps customer and supplier warranty months", () => {
+test("matrix-created SKU keeps supplier warranty without duplicating product customer warranty", () => {
   const result = buildMatrixVariantInput({
     row: {
       sku: "PHONE-BLACK",
@@ -14,7 +14,6 @@ test("matrix-created SKU keeps customer and supplier warranty months", () => {
     shared: {
       unitCode: "PCS",
       trackingMode: "serial",
-      warrantyMonths: 12,
       supplierWarrantyMonths: 18,
     },
     productCode: "PHONE",
@@ -23,6 +22,6 @@ test("matrix-created SKU keeps customer and supplier warranty months", () => {
     fallbackSku: "PHONE-FALLBACK",
   });
 
-  assert.equal(result.warrantyMonths, 12);
+  assert.equal(result.warrantyMonths, undefined);
   assert.equal(result.supplierWarrantyMonths, 18);
 });

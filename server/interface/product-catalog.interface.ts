@@ -46,6 +46,7 @@ export interface IProductCatalog extends Document {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status: "draft" | "active" | "inactive" | "archived";
   mediaIds: string[];
   documentIds: string[];

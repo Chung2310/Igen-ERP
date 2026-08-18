@@ -34,6 +34,10 @@ export function effectiveCustomerWarranty(unit: ISerialUnit, promisedMonths: num
   };
 }
 
+export function resolveCustomerWarrantyMonths(productMonths: number | undefined, legacyVariantMonths: number | undefined) {
+  return productMonths === undefined || productMonths === null ? Number(legacyVariantMonths || 0) : Number(productMonths || 0);
+}
+
 export function snapshotCoverage(unit: ISerialUnit, checkedAt = new Date()) {
   const evaluated = evaluateCoverage(unit, checkedAt);
   return { customer: evaluated.customer, supplier: { ...evaluated.supplier, supplierId: unit.supplierWarranty?.supplierId, supplierName: unit.supplierWarranty?.supplierName }, costBearer: evaluated.costBearer, checkedAt };

@@ -35,6 +35,7 @@ type ProductForm = {
   manufacturer: string;
   countryOfOrigin: string;
   taxCategory: string;
+  warrantyMonths: number;
   status: ProductCatalogStatus;
   mediaIds: string[];
 };
@@ -51,6 +52,7 @@ const emptyProductForm = (): ProductForm => ({
   manufacturer: "",
   countryOfOrigin: "",
   taxCategory: "",
+  warrantyMonths: 0,
   status: "draft",
   mediaIds: [],
 });
@@ -64,7 +66,6 @@ const emptyVariant = (unitCode = DEFAULT_UNIT_CODE, productType: ProductCatalogT
   status: "active",
   mediaIds: [],
   sellingPrice: 0,
-  warrantyMonths: 0,
   supplierWarrantyMonths: 0,
 });
 
@@ -378,7 +379,7 @@ function ProductViewerModal({ product, resources, onClose }: { product: CatalogP
 
 function ProductEditorModal({ product, resources, onClose, onSaved, onDataChanged, onVariantAction }: { product: CatalogProductDetail | null; resources: Resources; onClose: () => void; onSaved: () => Promise<void>; onDataChanged: () => Promise<void>; onVariantAction: (product: CatalogProductDetail, mode: VariantModalMode, ids?: string[], variant?: ProductVariant) => void }) {
   const [form, setForm] = useState<ProductForm>(() => product ? {
-    productCode: product.productCode, name: product.name, productType: product.productType, categoryCode: product.categoryCode, brandCode: product.brandCode || "", baseUnitCode: product.baseUnitCode, shortDescription: product.shortDescription || "", description: product.description || "", manufacturer: product.manufacturer || "", countryOfOrigin: product.countryOfOrigin || "", taxCategory: product.taxCategory || "", status: product.status, mediaIds: product.mediaIds || [],
+    productCode: product.productCode, name: product.name, productType: product.productType, categoryCode: product.categoryCode, brandCode: product.brandCode || "", baseUnitCode: product.baseUnitCode, shortDescription: product.shortDescription || "", description: product.description || "", manufacturer: product.manufacturer || "", countryOfOrigin: product.countryOfOrigin || "", taxCategory: product.taxCategory || "", warrantyMonths: product.warrantyMonths || 0, status: product.status, mediaIds: product.mediaIds || [],
   } : emptyProductForm());
   const [variant, setVariant] = useState<VariantInput>(() => product ? emptyVariant(product.baseUnitCode, product.productType) : emptyVariant());
   const [submitting, setSubmitting] = useState(false);
@@ -455,6 +456,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
       manufacturer: form.manufacturer || undefined,
       countryOfOrigin: form.countryOfOrigin || undefined,
       taxCategory: form.taxCategory || undefined,
+      warrantyMonths: form.warrantyMonths,
       status: form.status,
       mediaIds: form.mediaIds,
     };
@@ -526,6 +528,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
             <Field label="Danh mục"><select required value={form.categoryCode} onChange={(event) => setField("categoryCode", event.target.value)} className={inputClassName()}><option value="">Chọn danh mục</option>{resources.categories.map((item) => <option key={item._id} value={item.code}>{item.name} ({item.code})</option>)}</select></Field>
             <Field label="Thương hiệu"><select value={form.brandCode} onChange={(event) => setField("brandCode", event.target.value)} className={inputClassName()}><option value="">Không chọn</option>{resources.brands.map((item) => <option key={item._id} value={item.code}>{item.name}</option>)}</select></Field>
             <Field label="Trạng thái"><select value={form.status} onChange={(event) => setField("status", event.target.value as ProductCatalogStatus)} className={inputClassName()}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={form.warrantyMonths} onChange={(value) => setField("warrantyMonths", value)} className={inputClassName()} placeholder="0" /></Field>
           </div>
         </div>
       </div>
@@ -566,7 +569,6 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                     <input type="text" placeholder={`Nhập giá trị ${opt.name} và nhấn Enter...`} className={inputClassName("text-sm shadow-sm")} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleOptionValueAdd(optIndex, e.currentTarget.value); e.currentTarget.value = ''; } }} />
                     <span className="absolute right-3 top-2.5 text-xs text-slate-400">↵ Enter</span>
                   </div>
-                  <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={variant.warrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, warrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
                   <Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, supplierWarrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
                 </div>
               ))}
@@ -790,7 +792,6 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field>
       <Field label="Trạng thái"><select value={variant.status} onChange={(event) => setVariant((current) => ({ ...current, status: event.target.value as VariantInput["status"] }))} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field>
-      <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={variant.warrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, warrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
       <Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, supplierWarrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
     </div>
     <ModalActions onClose={onClose} submitting={submitting} label={isEditing ? "Lưu thay đổi" : "Thêm mã SKU"} />

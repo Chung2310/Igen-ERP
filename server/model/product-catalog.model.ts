@@ -28,6 +28,7 @@ const ProductCatalogSchema = new Schema<IProductCatalog>(
     countryOfOrigin: { type: String, trim: true, maxlength: 120 },
     manufacturer: { type: String, trim: true, maxlength: 200 },
     taxCategory: { type: String, trim: true, uppercase: true },
+    warrantyMonths: { type: Number, min: 0, max: 1_200, default: 0 },
     status: { type: String, enum: ["draft", "active", "inactive", "archived"], default: "draft", required: true },
     mediaIds: { type: [String], default: [] },
     documentIds: { type: [String], default: [] },

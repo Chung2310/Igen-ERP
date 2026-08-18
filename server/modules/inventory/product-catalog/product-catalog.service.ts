@@ -56,6 +56,7 @@ export interface ProductCatalogCreateInput {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status?: (typeof PRODUCT_STATUSES)[number];
   mediaIds?: string[];
   documentIds?: string[];
@@ -78,6 +79,7 @@ export interface ProductCatalogUpdateInput {
   countryOfOrigin?: string;
   manufacturer?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   status?: (typeof PRODUCT_STATUSES)[number];
   mediaIds?: string[];
   documentIds?: string[];
@@ -278,6 +280,11 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
   }
   for (const field of ["shortDescription", "description", "countryOfOrigin", "manufacturer", "taxCategory"] as const) {
     if (!partial || value[field] !== undefined) output[field] = optionalText(value[field], field, field === "description" ? 20_000 : field === "shortDescription" ? 500 : 200);
+  }
+  if (!partial || value.warrantyMonths !== undefined) {
+    const warrantyMonths = value.warrantyMonths === undefined || value.warrantyMonths === null || value.warrantyMonths === "" ? 0 : Number(value.warrantyMonths);
+    if (!Number.isFinite(warrantyMonths) || warrantyMonths < 0 || warrantyMonths > 1_200) throw new ProductCatalogValidationError("warrantyMonths phải là số từ 0 đến 1200.");
+    output.warrantyMonths = warrantyMonths;
   }
   if (!partial || value.brandCode !== undefined) output.brandCode = value.brandCode === null ? null : value.brandCode ? normalizeCode(value.brandCode, "MÃ£ thÆ°Æ¡ng hiá»‡u") : undefined;
   if (!partial || value.attributes !== undefined) output.attributes = normalizeAttributes(value.attributes);
