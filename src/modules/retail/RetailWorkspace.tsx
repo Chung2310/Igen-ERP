@@ -7,7 +7,7 @@ import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 const CustomersPage = lazy(() => import("./pages/RetailCustomersPage"));
 const SettingsPage = lazy(() => import("./pages/RetailSettingsPage"));
 const PosPage = lazy(() => import("./pages/RetailPosPage"));
-const OrdersPage = lazy(() => import("./pages/RetailOrdersPage"));
+const OrdersPage = lazy(() => import("./pages/RetailOrdersPageV2"));
 const ShiftsPage = lazy(() => import("./pages/RetailShiftsPage"));
 const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPageContent"));
 const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
