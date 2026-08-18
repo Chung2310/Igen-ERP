@@ -20,9 +20,12 @@ export function InventoryCountingModal({ warehouseId, warehouseName, onClose, on
   const create = async () => { try { const next = await inventoryCountService.create(warehouseId); setCount(next); setCounts((current) => [next, ...current]); } catch (error: any) { toast.error(error?.message || "Không thể tạo phiếu kiểm kê."); } };
   const scan = async (barcode: string) => {
     if (!count) return;
-    const item = count.items.find((entry) => entry.barcode === barcode);
-    if (!item) { toast.error("Không tìm thấy SKU tương ứng với mã vạch."); return; }
-    try { setCount(await inventoryCountService.updateItem(count._id, item._id, item.countedQuantity + 1)); } catch (error: any) { toast.error(error?.message || "Không thể cập nhật số đếm."); }
+    try {
+      const result = await inventoryCountService.scan(count._id, barcode.trim());
+      setCount(result.count);
+      if (result.outcome === "duplicate") toast.info(`Mã ${barcode} đã được đếm.`);
+      else if (result.outcome === "unexpected") toast.error(`Mã ${barcode} không thuộc danh sách tồn kho của phiếu.`);
+    } catch (error: any) { toast.error(error?.message || "Không thể cập nhật số đếm."); }
   };
   const update = async (action: "start" | "submit" | "approve" | "cancel") => {
     if (!count) return;

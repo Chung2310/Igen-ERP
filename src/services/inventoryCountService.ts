@@ -21,6 +21,7 @@ export const inventoryCountService = {
     try { return (await apiFetch<Envelope<InventoryCount>>(root + "/" + id + "/items/" + itemId, { method: "PATCH", body: JSON.stringify({ countedQuantity }) })).data; }
     catch (error) { if (!navigator.onLine) { const queue = readQueue().filter((item) => !(item.id === id && item.itemId === itemId)); queue.push({ id, itemId, countedQuantity }); writeQueue(queue); } throw error; }
   },
+  async scan(id: string, code: string) { return (await apiFetch<Envelope<ScanResult>>(root + "/" + id + "/scan", { method: "POST", body: JSON.stringify({ code }) })).data; },
   async syncPending() {
     const pending = readQueue(); const remaining: PendingUpdate[] = [];
     for (const item of pending) { try { await this.updateItem(item.id, item.itemId, item.countedQuantity); } catch { remaining.push(item); } }
