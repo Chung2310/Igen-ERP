@@ -19,6 +19,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     widthMm: { type: Number, min: 0 },
     heightMm: { type: Number, min: 0 },
     warrantyMonths: { type: Number, min: 0, max: 1_200 },
+    supplierWarrantyMonths: { type: Number, min: 0, max: 1_200 },
     attributes: { type: [AttributeSchema], default: [] },
     mediaIds: { type: [String], default: [] },
     status: { type: String, enum: ["active", "inactive", "discontinued"], default: "active", required: true },

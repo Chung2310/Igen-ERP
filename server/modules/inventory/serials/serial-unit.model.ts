@@ -17,6 +17,13 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   currentDocumentType: { type: String, trim: true },
   currentDocumentId: { type: String, index: true },
   customerId: { type: String, index: true },
+  supplierWarranty: { type: { supplierId: String, supplierName: String, receiptId: String, receiptCode: String, months: { type: Number, min: 0 }, startAt: Date, startSource: { type: String, enum: ["receipt", "manual"] }, endAt: Date }, required: false },
+  customerWarranty: { type: { months: { type: Number, min: 0 }, startAt: Date, endAt: Date, source: { type: String, enum: ["variant", "manual", "inherited"] }, inheritedFromSerialUnitId: String }, required: false },
+  soldAt: Date,
+  soldOrderId: String,
+  soldOrderCode: String,
+  soldInvoiceId: String,
+  soldBranchId: String,
   createdBy: { type: String, required: true },
   updatedBy: { type: String, required: true },
 }, { timestamps: true });
@@ -24,5 +31,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
 SerialUnitSchema.index({ companyCode: 1, normalizedSerialNumber: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, normalizedInternalBarcode: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, branchId: 1, status: 1 });
+SerialUnitSchema.index({ companyCode: 1, "customerWarranty.endAt": 1 });
+SerialUnitSchema.index({ companyCode: 1, "supplierWarranty.endAt": 1, status: 1 });
 
 export const SerialUnitModel = model<ISerialUnit>("InventorySerialUnit", SerialUnitSchema);

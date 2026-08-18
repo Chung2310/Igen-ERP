@@ -27,6 +27,7 @@ import { buildRetailOrderInput } from "../hooks/retailOrderInput";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
 import { createHidScannerBuffer } from "../hooks/retailScannerInput";
+import { retailWarrantyService } from "../../../services/retailWarrantyService";
 import { createIndexedDbRetailOfflineQueue, createMemoryRetailOfflineQueue, createRetailOfflineOrder, type OfflineScope, type RetailOfflineOrder } from "../offline/retailOfflineQueue";
 import { isRetailNetworkFailure, syncRetailOfflineQueue } from "../offline/retailOfflineSync";
 import type {
@@ -181,6 +182,18 @@ export default function RetailPosPage() {
 
   const scan = async (barcode: string) => {
     try {
+      const warranty = await retailWarrantyService.lookup(barcode);
+      if (warranty.found && warranty.status === "sold") {
+        const soldDate = warranty.sold?.at ? new Date(warranty.sold.at).toLocaleDateString("vi-VN") : "không rõ ngày";
+        const endDate = warranty.customerWarranty?.endAt ? new Date(warranty.customerWarranty.endAt).toLocaleDateString("vi-VN") : "không xác định";
+        setScanFeedback({ kind: "warning", text: `Máy đã bán ngày ${soldDate} — còn bảo hành khách đến ${endDate}` });
+        playScanTone("warning");
+        return;
+      }
+      if (warranty.found && warranty.status === "in_stock" && (warranty.gapMonths || 0) > 0) {
+        setScanFeedback({ kind: "warning", text: `Cảnh báo: bảo hành nhà cung cấp ngắn hơn cam kết khách ${warranty.gapMonths} tháng — shop sẽ chịu phần chênh lệch` });
+        playScanTone("warning");
+      }
       const result = await retailProductsApi.list(scope, { barcode, limit: 1 });
       const product = result.items[0];
       if (!product) {
@@ -188,9 +201,54 @@ export default function RetailPosPage() {
         playScanTone("not-found");
         return;
       }
-      const duplicate = cart.lines.some(
-        (line) => line.product._id === product._id,
-      );
+      const line = cart.lines.find((item) => item.product._id === product._id);
+      const unitField =
+        product.trackingMode === "serial"
+          ? ("serialNumbers" as const)
+          : product.trackingMode === "unit_barcode"
+            ? ("internalBarcodes" as const)
+            : null;
+      const scannedUnit =
+        product.trackingMode === "serial"
+          ? product.matchedSerialNumber
+          : product.trackingMode === "unit_barcode"
+            ? product.matchedInternalBarcode
+            : undefined;
+      if (unitField && scannedUnit) {
+        const current = line?.[unitField] || [];
+        if (current.includes(scannedUnit)) {
+          setScanFeedback({
+            kind: "duplicate",
+            text: `${scannedUnit} đã có trong đơn`,
+          });
+          playScanTone("duplicate");
+          return;
+        }
+        const next = [...current, scannedUnit];
+        if (!line) dispatch({ type: "add", product });
+        dispatch({
+          type: "quantity",
+          productId: product._id,
+          quantity: next.length,
+        });
+        dispatch(
+          unitField === "serialNumbers"
+            ? { type: "serials", productId: product._id, serialNumbers: next }
+            : {
+                type: "internalBarcodes",
+                productId: product._id,
+                internalBarcodes: next,
+              },
+        );
+        setQ("");
+        setScanFeedback({
+          kind: "success",
+          text: `Đã thêm ${product.name} (${scannedUnit})`,
+        });
+        playScanTone("success");
+        return;
+      }
+      const duplicate = Boolean(line);
       dispatch({ type: "add", product });
       setQ("");
       const kind = duplicate ? "duplicate" : "success";

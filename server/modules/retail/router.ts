@@ -8,6 +8,7 @@ import { retailReportRoutes } from "./routes/retail-report.routes";
 import { retailReceivableRoutes } from "./routes/retail-receivable.routes";
 import { retailDebtReminderRoutes } from "./routes/retail-debt-reminder.routes";
 import { registerRetailFinanceSettlementConsumer } from "./consumers/finance-settlement.consumer";
+import { retailWarrantyRoutes } from "./routes/retail-warranty.routes";
 
 export const retailRouter = Router();
 registerRetailFinanceSettlementConsumer();
@@ -19,3 +20,4 @@ retailRouter.use("/retail/invoices", retailInvoiceRoutes);
 retailRouter.use("/retail/reports", retailReportRoutes);
 retailRouter.use("/retail/receivables", retailReceivableRoutes);
 retailRouter.use("/retail/debt-reminders", retailDebtReminderRoutes);
+retailRouter.use("/retail/warranty", retailWarrantyRoutes);

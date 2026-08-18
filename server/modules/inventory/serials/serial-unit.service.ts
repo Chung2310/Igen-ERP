@@ -6,10 +6,11 @@ import type { ISerialUnit, SerialUnitStatus } from "./serial-unit.interface";
 import { assertSerialTransition, normalizeSerialNumber } from "./serial-state";
 import { BranchModel } from "../../../model/branch.model";
 import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
+import { computeWarrantyEnd } from "./warranty-clock";
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
-export interface RegisterSerialInput extends Pick<ISerialUnit, "productId" | "sku" | "productName"> { variantId?: string; internalBarcode?: string; serialNumber: string; warehouseId?: string; documentType?: string; documentId?: string }
+export interface RegisterSerialInput extends Pick<ISerialUnit, "productId" | "sku" | "productName"> { variantId?: string; internalBarcode?: string; serialNumber: string; warehouseId?: string; documentType?: string; documentId?: string; supplierWarranty?: ISerialUnit["supplierWarranty"] }
 export interface TransitionSerialInput { toStatus: SerialUnitStatus; eventType: string; reason?: string; documentType?: string; documentId?: string }
 export interface TransferSerialInput { toBranchId: string; toWarehouseId?: string; documentType?: string; documentId?: string; reason: string }
 export interface RegisterSerialBatchInput extends Omit<RegisterSerialInput, "serialNumber" | "internalBarcode"> { serialNumbers: string[]; internalBarcodes?: string[] }

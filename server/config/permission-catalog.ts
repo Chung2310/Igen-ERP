@@ -51,6 +51,8 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
   feature("labor-partner-payout", "Chi trả hoa hồng lao động", "Đối tác lao động"),
 ];
 
+PERMISSION_FEATURES.push(feature("repair", "Sửa chữa & bảo hành", "Sửa chữa"));
+
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = PERMISSION_FEATURES.flatMap((entry) => (
   (["read", "manage"] as const).map((action) => ({
     code: `${entry.feature}:${action}`,

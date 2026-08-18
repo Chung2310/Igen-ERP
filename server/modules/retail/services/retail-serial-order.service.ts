@@ -4,8 +4,13 @@ import { SerialEventModel } from "../../inventory/serials/serial-event.model";
 import { normalizeSerialNumber } from "../../inventory/serials/serial-state";
 import { normalizeInternalBarcode } from "../../inventory/serials/unit-barcode-validation";
 import type { RetailBranchScope } from "../contracts";
+import { RetailOrderModel } from "../models/retail-order.model";
+import { ProductVariantModel } from "../../../model/product-variant.model";
+import { computeWarrantyEnd } from "../../inventory/serials/warranty-clock";
 
 export async function claimSerialsForOrder(scope: RetailBranchScope, items: Array<{ productId: string; variantId?: string; trackingMode?: string; serialNumbers?: string[]; internalBarcodes?: string[] }>, orderId: string, customerId: string, actorId: string, session: ClientSession, actorName = actorId) {
+  const order: any = await RetailOrderModel.findOne({ _id: orderId, companyCode: scope.companyCode, branchId: scope.branchId }).session(session).lean();
+  const soldAt = order?.businessDate ? new Date(`${order.businessDate}T00:00:00.000Z`) : new Date();
   for (const item of items) {
     if (!["serial", "unit_barcode"].includes(item.trackingMode || "")) continue;
     const serialNumbers = item.serialNumbers || [];
@@ -15,9 +20,11 @@ export async function claimSerialsForOrder(scope: RetailBranchScope, items: Arra
     if (new Set(serialNumbers.map((value) => normalizeSerialNumber(value))).size !== serialNumbers.length) throw Object.assign(new Error("IMEI/serial trong đơn không được trùng."), { statusCode: 400, code: "SERIAL_DUPLICATE" });
     const identifiers = item.trackingMode === "serial" ? serialNumbers.map((value) => ({ value, field: "normalizedSerialNumber" as const, normalized: normalizeSerialNumber(value) })) : internalBarcodes.map((value) => ({ value, field: "normalizedInternalBarcode" as const, normalized: normalizeInternalBarcode(value) }));
     for (const identifier of identifiers) {
+      const variant: any = item.variantId ? await ProductVariantModel.findOne({ _id: item.variantId, companyCode: scope.companyCode }).session(session).lean() : null;
+      const customerMonths = Number(variant?.warrantyMonths || 0);
       const claimed = await SerialUnitModel.findOneAndUpdate(
         { companyCode: scope.companyCode, branchId: scope.branchId, productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}), [identifier.field]: identifier.normalized, status: "in_stock" },
-        { $set: { status: "sold", currentDocumentType: "retail-order", currentDocumentId: orderId, customerId, updatedBy: actorId } },
+        { $set: { status: "sold", currentDocumentType: "retail-order", currentDocumentId: orderId, customerId, updatedBy: actorId, soldAt, soldOrderId: orderId, soldOrderCode: order?.orderCode, soldBranchId: scope.branchId, ...(customerMonths > 0 ? { customerWarranty: { months: customerMonths, startAt: soldAt, endAt: computeWarrantyEnd(soldAt, customerMonths), source: "variant" } } : {}) } },
         { new: true, session },
       );
       if (!claimed) throw Object.assign(new Error(`Mã định danh ${identifier.normalized} không còn khả dụng.`), { statusCode: 409, code: "UNIT_NOT_AVAILABLE" });

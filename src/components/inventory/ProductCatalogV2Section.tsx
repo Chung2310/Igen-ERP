@@ -63,6 +63,8 @@ const emptyVariant = (unitCode = DEFAULT_UNIT_CODE, productType: ProductCatalogT
   status: "active",
   mediaIds: [],
   sellingPrice: 0,
+  warrantyMonths: 0,
+  supplierWarrantyMonths: 0,
 });
 
 const typeLabels: Record<ProductCatalogType, string> = { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" };
@@ -566,6 +568,8 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                     <input type="text" placeholder={`Nhập giá trị ${opt.name} và nhấn Enter...`} className={inputClassName("text-sm shadow-sm")} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleOptionValueAdd(optIndex, e.currentTarget.value); e.currentTarget.value = ''; } }} />
                     <span className="absolute right-3 top-2.5 text-xs text-slate-400">↵ Enter</span>
                   </div>
+                  <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={variant.warrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, warrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
+                  <Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, supplierWarrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
                 </div>
               ))}
             </div>

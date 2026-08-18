@@ -2,10 +2,10 @@ import type { SerialUnitStatus } from "./serial-unit.interface";
 
 const allowed: Record<SerialUnitStatus, SerialUnitStatus[]> = {
   in_stock: ["sold"],
-  sold: ["returned", "in_stock"],
+  sold: ["returned", "in_stock", "repairing"],
   returned: ["in_stock", "defective"],
   defective: ["repairing", "scrapped"],
-  repairing: ["defective", "in_stock"],
+  repairing: ["defective", "in_stock", "sold"],
   scrapped: [],
 };
 

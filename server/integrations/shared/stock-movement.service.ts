@@ -33,7 +33,7 @@ export interface WriteStockMovementInput {
   items: StockMovementItem[];
   allowNegativeStock?: boolean;
   reason?: string;
-  session: ClientSession;
+  session?: ClientSession;
   writeLegacyStockLog?: boolean;
   warehouseId?: string;
 }
