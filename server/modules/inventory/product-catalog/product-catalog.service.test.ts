@@ -96,3 +96,15 @@ test("product defaults to draft and validates template-required attributes", () 
   );
   assert.doesNotThrow(() => assertTemplateAttributes({ fields: [{ code: "RAM", label: "RAM", type: "text", required: true, options: [] }] }, [{ code: "RAM", value: "16GB" }]));
 });
+
+test("product customer warranty months are normalized and bounded", () => {
+  const product = normalizeProductInput({
+    name: "iPhone",
+    productType: "physical",
+    categoryCode: "PHONE",
+    baseUnitCode: "PCS",
+    warrantyMonths: 70,
+  });
+  assert.equal(product.warrantyMonths, 70);
+  assert.throws(() => normalizeProductInput({ warrantyMonths: 1201 }, true), ProductCatalogValidationError);
+});

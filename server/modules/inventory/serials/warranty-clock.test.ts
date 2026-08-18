@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeWarrantyEnd, effectiveCustomerWarranty, evaluateCoverage, inheritCustomerWarranty, snapshotCoverage, warrantyGapMonths } from "./warranty-clock";
+import { computeWarrantyEnd, effectiveCustomerWarranty, evaluateCoverage, inheritCustomerWarranty, resolveCustomerWarrantyMonths, snapshotCoverage, warrantyGapMonths } from "./warranty-clock";
 
 const unit = (overrides: Record<string, unknown> = {}) => ({
   supplierWarranty: { supplierId: "s1", supplierName: "NCC", receiptId: "r1", receiptCode: "GR-1", months: 12, startAt: new Date("2024-01-31"), startSource: "receipt", endAt: new Date("2025-01-31") },
@@ -56,5 +56,11 @@ describe("warranty clock", () => {
     const soldUnit = unit();
     const existing = soldUnit.customerWarranty;
     expect(effectiveCustomerWarranty(soldUnit, 24)).toBe(existing);
+  });
+
+  it("uses the shared product warranty before the legacy SKU warranty", () => {
+    expect(resolveCustomerWarrantyMonths(70, 12)).toBe(70);
+    expect(resolveCustomerWarrantyMonths(undefined, 12)).toBe(12);
+    expect(resolveCustomerWarrantyMonths(0, 12)).toBe(0);
   });
 });

@@ -67,6 +67,7 @@ export type CatalogProduct = {
   manufacturer?: string;
   countryOfOrigin?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   mediaIds: string[];
   documentIds: string[];
 };
@@ -87,6 +88,7 @@ export type ProductInput = {
   manufacturer?: string;
   countryOfOrigin?: string;
   taxCategory?: string;
+  warrantyMonths?: number;
   mediaIds?: string[];
   documentIds?: string[];
   status: ProductCatalogStatus;

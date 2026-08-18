@@ -3,7 +3,7 @@ import type { ProductCatalogType, VariantInput } from "../../services/productCat
 
 type MatrixVariantInput = {
   row: GeneratedVariant;
-  shared: Pick<VariantInput, "unitCode" | "trackingMode" | "warrantyMonths" | "supplierWarrantyMonths">;
+  shared: Pick<VariantInput, "unitCode" | "trackingMode" | "supplierWarrantyMonths">;
   productCode: string;
   baseUnitCode: string;
   productType: ProductCatalogType;
@@ -24,7 +24,6 @@ export function buildMatrixVariantInput({ row, shared, productCode, baseUnitCode
     unitCode: shared.unitCode || baseUnitCode,
     trackingMode: productType === "service" ? "none" : shared.trackingMode,
     weightGrams: row.weightGrams,
-    warrantyMonths: shared.warrantyMonths,
     supplierWarrantyMonths: shared.supplierWarrantyMonths,
     mediaIds: row.mediaIds,
     status: "active",
