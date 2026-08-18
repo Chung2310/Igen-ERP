@@ -2,7 +2,7 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "partner", "retail", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "partner", "retail", "repair", "finance"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
 
@@ -15,6 +15,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   worker: "Quản lý lao động",
   partner: "Quản lý đối tác",
   retail: "Bán lẻ & POS",
+  repair: "Sửa chữa & bảo hành",
   finance: "Tài chính",
 };
 
@@ -27,6 +28,7 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   worker: "QUẢN LÝ LAO ĐỘNG",
   partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
+  repair: "KHO & SẢN PHẨM",
   finance: "TÀI CHÍNH",
 };
 
@@ -50,6 +52,7 @@ export const MODULE_OPTIONS = [
   { key: "student-worker", label: "Quản lý học viên / lao động", moduleKeys: ["student", "worker"] },
   { key: "partner", label: MODULE_LABELS.partner, moduleKeys: ["partner"] },
   { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
+  { key: "repair", label: MODULE_LABELS.repair, moduleKeys: ["repair"] },
   { key: "finance", label: MODULE_LABELS.finance, moduleKeys: ["finance"] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; moduleKeys: readonly ModuleKey[] }>;
 
