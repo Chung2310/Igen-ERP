@@ -17,6 +17,7 @@ import {
   productCatalogService,
 } from "../../services/productCatalogService";
 import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../../hooks/useVariantMatrix";
+import { buildMatrixVariantInput } from "./productVariantPayload";
 
 type Resources = { categories: ProductResource[]; brands: ProductResource[] };
 type VariantModalMode = "single" | "edit" | "bulk-create" | "bulk-edit";
@@ -473,17 +474,14 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                 const skuSuffix = v.optionValues.map(opt => opt.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/(^-|-$)/g, "")).join("-");
                 sku = payload.productCode ? `${payload.productCode}-${skuSuffix}` : `SKU-${skuSuffix}-${generateEAN13().slice(9)}`;
               }
-              return {
-                sku,
-                barcode: v.barcode || undefined,
-                displayName: v.optionValues.map(opt => opt.value).join(" - "),
-                optionValues: v.optionValues,
-                unitCode: variant.unitCode || form.baseUnitCode,
-                trackingMode: form.productType === "service" ? "none" : variant.trackingMode,
-                weightGrams: v.weightGrams,
-                mediaIds: v.mediaIds,
-                status: "active"
-              };
+              return buildMatrixVariantInput({
+                row: { ...v, sku },
+                shared: variant,
+                productCode: payload.productCode || "",
+                baseUnitCode: form.baseUnitCode,
+                productType: form.productType,
+                fallbackSku: sku,
+              });
             }) as any
           });
           toast.success("Đã tạo sản phẩm và hàng loạt SKU.");
@@ -788,7 +786,15 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
         <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} /></Field>
       </div>
     </div>
-    <Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => setVariant((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName()} /></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field><Field label="Trạng thái"><select value={variant.status} onChange={(event) => setVariant((current) => ({ ...current, status: event.target.value as VariantInput["status"] }))} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field></div><ModalActions onClose={onClose} submitting={submitting} label={isEditing ? "Lưu thay đổi" : "Thêm mã SKU"} /></form></Modal>;
+    <Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => setVariant((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName()} /></Field>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field>
+      <Field label="Trạng thái"><select value={variant.status} onChange={(event) => setVariant((current) => ({ ...current, status: event.target.value as VariantInput["status"] }))} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field>
+      <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={variant.warrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, warrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
+      <Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, supplierWarrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
+    </div>
+    <ModalActions onClose={onClose} submitting={submitting} label={isEditing ? "Lưu thay đổi" : "Thêm mã SKU"} />
+  </form></Modal>;
 }
 
 function BulkVariantModal({ product, mode, ids, onClose, onSaved }: { product: CatalogProductDetail; mode: "bulk-create" | "bulk-edit"; ids: string[]; onClose: () => void; onSaved: () => Promise<void> }) {
