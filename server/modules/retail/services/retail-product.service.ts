@@ -5,6 +5,7 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 import { ProductPriceModel } from "../../../model/product-price.model";
 import type { RetailBranchScope } from "../contracts";
 import { SerialUnitModel } from "../../inventory/serials/serial-unit.model";
+import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.service";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -30,7 +31,8 @@ export function buildRetailProductFilter(scope: RetailBranchScope, query: any) {
 export const RetailProductService = {
   async search(scope: RetailBranchScope, query: any) {
     const { q, barcode, page, limit, search } = buildRetailProductFilter(scope, query);
-    const balances: any[] = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, $expr: { $gt: [{ $subtract: ["$quantity", "$reservedQuantity"] }, 0] } }).lean();
+    const defaultWarehouse = await ensureDefaultWarehouse(scope.companyCode, scope.branchId);
+    const balances: any[] = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(defaultWarehouse._id), $expr: { $gt: [{ $subtract: ["$quantity", "$reservedQuantity"] }, 0] } }).lean();
     const variantIds = balances.map((item) => String(item.variantId || "")).filter(Boolean);
     const scannedUnit: any = barcode ? await SerialUnitModel.findOne({ companyCode: scope.companyCode, branchId: scope.branchId, status: "in_stock", $or: [{ normalizedSerialNumber: barcode.toUpperCase() }, { normalizedInternalBarcode: barcode.toUpperCase() }] }).lean() : null;
     const variantFilter: any = { companyCode: scope.companyCode, _id: { $in: variantIds }, status: "active" };

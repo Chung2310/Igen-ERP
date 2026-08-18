@@ -6,7 +6,7 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 
 export async function applyOrderStockOut(scope: RetailBranchScope, orderId: string, orderCode: string, items: RetailOrderItem[], operatorName: string, allowNegativeStock: boolean, session: ClientSession) {
   const variantIds = items.map((item) => String(item.productId));
-  const variants = await ProductVariantModel.find({ _id: { $in: variantIds } }).session(session).lean();
+  const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, _id: { $in: variantIds } }).session(session).lean();
   const variantMap = new Map(variants.map((v: any) => [String(v._id), v]));
 
   const mappedItems = items.map((item) => {
@@ -14,8 +14,7 @@ export async function applyOrderStockOut(scope: RetailBranchScope, orderId: stri
     return {
       ...item,
       productId: variant ? String(variant.productId) : item.productId,
-      variantId: variant ? String(variant._id) : item.productId,
-      legacyProductId: item.productId,
+      ...(variant ? { variantId: String(variant._id), legacyProductId: String(variant.productId) } : { legacyProductId: item.productId }),
     };
   });
 
@@ -37,7 +36,7 @@ export async function applyOrderStockOut(scope: RetailBranchScope, orderId: stri
 
 export async function revertOrderStock(scope: RetailBranchScope, orderId: string, orderCode: string, items: RetailOrderItem[], operatorName: string, session: ClientSession) {
   const variantIds = items.map((item) => String(item.productId));
-  const variants = await ProductVariantModel.find({ _id: { $in: variantIds } }).session(session).lean();
+  const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, _id: { $in: variantIds } }).session(session).lean();
   const variantMap = new Map(variants.map((v: any) => [String(v._id), v]));
 
   const mappedItems = items.map((item) => {
@@ -45,8 +44,7 @@ export async function revertOrderStock(scope: RetailBranchScope, orderId: string
     return {
       ...item,
       productId: variant ? String(variant.productId) : item.productId,
-      variantId: variant ? String(variant._id) : item.productId,
-      legacyProductId: item.productId,
+      ...(variant ? { variantId: String(variant._id), legacyProductId: String(variant.productId) } : { legacyProductId: item.productId }),
     };
   });
 
