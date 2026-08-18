@@ -28,13 +28,14 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   worker: "QUẢN LÝ LAO ĐỘNG",
   partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
-  repair: "KHO & SẢN PHẨM",
+  repair: "SỬA CHỮA & BẢO HÀNH",
   finance: "TÀI CHÍNH",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "NHÂN SỰ": "hr",
   "KHO & SẢN PHẨM": "inventory",
+  "SỬA CHỮA & BẢO HÀNH": "repair",
   "QUẢN LÝ TÀI NGUYÊN": "resource",
   "TRÒ CHUYỆN": "chat",
   "QUẢN LÝ HỌC VIÊN": "student",

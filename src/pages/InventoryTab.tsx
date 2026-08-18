@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles, ShieldCheck, Wrench, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
@@ -24,8 +24,6 @@ import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
-import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
-import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -83,7 +81,6 @@ export default function InventoryTab() {
   const [searchLog, setSearchLog] = useState("");
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
   const [outboundPrefill, setOutboundPrefill] = useState<{ warehouseId: string; sku: string; nonce: number } | null>(null);
-  const [repairPrefill, setRepairPrefill] = useState<RepairCreatePrefill | null>(null);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -95,11 +92,6 @@ export default function InventoryTab() {
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    const openRepair = (event: Event) => { setRepairPrefill((event as CustomEvent<RepairCreatePrefill>).detail); setSubTab("SỬA CHỮA" as InventorySubTabType); };
-    window.addEventListener("inventory:open-repair", openRepair);
-    return () => window.removeEventListener("inventory:open-repair", openRepair);
-  }, [setSubTab]);
 
   useEffect(() => {
     let unsubscribeCategories = () => { };
@@ -630,8 +622,6 @@ export default function InventoryTab() {
               { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
               { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
-              { id: "BẢO HÀNH", label: "Bảo hành", icon: ShieldCheck },
-              { id: "SỬA CHỮA", label: "Sửa chữa", icon: Wrench },
             ].map((tab) => {
               const isActive = subTab === tab.id;
               const Icon = tab.icon;
@@ -668,8 +658,6 @@ export default function InventoryTab() {
         }} />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
         {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
-        {(subTab as string) === "BẢO HÀNH" && <WarrantyLookupSection />}
-        {(subTab as string) === "SỬA CHỮA" && <RepairBoardPage createPrefill={repairPrefill} onCreatePrefillConsumed={() => setRepairPrefill(null)} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
