@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -26,6 +26,27 @@ import {
 import { toast } from "../../pages/Toast";
 
 type DraftLine = GoodsReceiptItem & { key: string; displayName: string };
+
+/** SKU theo dõi tới từng đơn vị thì phiếu phải tách ra mỗi đơn vị một dòng để gán IMEI/mã vạch nội bộ riêng. */
+const unitTracked = (trackingMode?: GoodsReceiptItem["trackingMode"]) => trackingMode === "serial" || trackingMode === "unit_barcode";
+
+const unitCount = (line: DraftLine) => Math.max(0, Math.ceil(line.quantity) || 0);
+
+/** Đưa serialNumbers/unitDetails về đúng độ dài count, giữ nguyên dữ liệu đã nhập. */
+function normalizeUnits(line: DraftLine, count: number): DraftLine {
+  if (!unitTracked(line.trackingMode)) return line;
+  return {
+    ...line,
+    quantity: count,
+    serialNumbers: line.trackingMode === "serial"
+      ? Array.from({ length: count }, (_, index) => line.serialNumbers?.[index] || "")
+      : line.serialNumbers,
+    unitDetails: Array.from({ length: count }, (_, index) => ({
+      ...line.unitDetails?.[index],
+      internalBarcode: line.unitDetails?.[index]?.internalBarcode || "",
+    })),
+  };
+}
 type SupplierForm = {
   name: string;
   taxCode: string;
@@ -443,7 +464,7 @@ export function ReceivingSection() {
 
 function ReceiptStatus({ status }: { status: GoodsReceipt["status"] }) { const details = { draft: ["Nháp", "bg-slate-100 text-slate-600"], pending: ["Chờ xác nhận", "bg-amber-50 text-amber-700"], receiving: ["Đang nhập kho", "bg-sky-50 text-sky-700"], confirmed: ["Hoàn thành", "bg-emerald-50 text-emerald-700"], cancelled: ["Đã hủy", "bg-rose-50 text-rose-700"] } as const; const [label, className] = details[status]; return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}>{label}</span>; }
 function ReceiptActions({ receipt, onView, onSubmit, onStart, onConfirm, onCancel }: { receipt: GoodsReceipt; onView: () => void; onSubmit: () => void; onStart: () => void; onConfirm: () => void; onCancel: () => void }) { return <span className="inline-flex gap-1"><button type="button" onClick={onView} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={onSubmit} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={onStart} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={onConfirm} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span>; }
-function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td><td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div><div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
+function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">BH NCC</th><th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td><td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td><td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div><div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
 
 function SearchableSelect({ options, value, onChange, onQueryChange, placeholder, disabled }: { options: { value: string; label: string }[]; value: string; onChange: (val: string) => void; onQueryChange?: (query: string) => void; placeholder: string; disabled?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -533,7 +554,10 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       if (initialReceipt) {
         setSupplierId(initialReceipt.supplierId);
         setNotes(initialReceipt.notes || "");
-        setLines(initialReceipt.items.map((item, index) => ({ ...item, key: `${item.variantId}-${index}`, displayName: item.productName || item.sku })));
+        setLines(initialReceipt.items.map((item, index) => {
+          const line: DraftLine = { ...item, key: `${item.variantId}-${index}`, displayName: item.productName || item.sku };
+          return unitTracked(line.trackingMode) ? normalizeUnits(line, Math.max(1, Math.round(line.quantity))) : line;
+        }));
       }
       if (!initialReceipt && nextSuppliers.length > 0) setSupplierId(nextSuppliers[0]._id);
     } catch (error: any) {
@@ -554,6 +578,9 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
   const selectedDetail = productId ? productDetails[productId] : undefined;
   const variants = selectedDetail?.variants.filter((item) => item.status === "active") || [];
+  const selectedVariant = variants.find((item) => item._id === variantId);
+  // Hàng theo dõi từng đơn vị chỉ nhận số nguyên; hàng cân/đong mới cần bước lẻ.
+  const quantityStep = !selectedVariant || unitTracked(selectedVariant.trackingMode) ? 1 : 0.001;
   useEffect(() => {
     if (!productId || productDetails[productId]) return;
     void productCatalogService.getProduct(productId).then((detail) => setProductDetails((current) => ({ ...current, [productId]: detail }))).catch(() => undefined);
@@ -574,7 +601,10 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       toast.error(`SKU ${variant.sku} đã có trong danh sách. Hãy chỉnh số lượng trực tiếp ở dòng hiện có.`);
       return;
     }
-    setLines((current) => [...current, { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost, trackingMode: variant.trackingMode }]);
+    const draft: DraftLine = { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost, trackingMode: variant.trackingMode, supplierWarrantyMonths: variant.supplierWarrantyMonths };
+    // Hàng theo dõi từng đơn vị chỉ nhận số nguyên vì mỗi đơn vị là một dòng riêng.
+    const nextLine = unitTracked(draft.trackingMode) ? normalizeUnits(draft, Math.max(1, Math.round(parsedQuantity))) : draft;
+    setLines((current) => [...current, nextLine]);
     setProductId("");
     setVariantId("");
     setQuantity("1");
@@ -590,38 +620,57 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
     setLines((current) => current.map((line) => line.key === key ? { ...line, [field]: numberValue } : line));
   };
 
-  const updateSerials = (key: string, value: string) => {
-    const serialNumbers = value.split(/[\n,;]+/).map((serial) => serial.trim()).filter(Boolean);
-    setLines((current) => current.map((line) => line.key === key ? { ...line, serialNumbers } : line));
-  };
-
   const updateSerialAt = (key: string, index: number, value: string) => {
     setLines((current) => current.map((line) => {
       if (line.key !== key) return line;
-      const serialNumbers = Array.from({ length: Math.ceil(line.quantity) }, (_, serialIndex) => line.serialNumbers?.[serialIndex] || "");
+      const normalized = normalizeUnits(line, unitCount(line));
+      const serialNumbers = [...(normalized.serialNumbers || [])];
       serialNumbers[index] = value;
-      return { ...line, serialNumbers };
+      return { ...normalized, serialNumbers };
     }));
   };
 
-  const updateUnitBarcodes = (key: string, value: string) => {
-    const internalBarcodes = value.split(/[\n,;]+/).map((barcode) => barcode.trim()).filter(Boolean);
-    setLines((current) => current.map((line) => line.key === key ? { ...line, unitDetails: internalBarcodes.map((internalBarcode) => ({ internalBarcode })) } : line));
+  const updateWarrantyMonths = (key: string, value: string) => {
+    const digits = value.replace(/\D/g, "");
+    setLines((current) => current.map((line) => line.key === key ? { ...line, supplierWarrantyMonths: digits === "" ? undefined : Math.min(1200, Number(digits)) } : line));
+  };
+
+  const addUnit = (key: string) => {
+    setLines((current) => current.map((line) => line.key === key ? normalizeUnits(line, unitCount(line) + 1) : line));
+  };
+
+  const removeUnitAt = (key: string, index: number) => {
+    setLines((current) => current.flatMap((line) => {
+      if (line.key !== key) return [line];
+      const normalized = normalizeUnits(line, unitCount(line));
+      const nextCount = unitCount(normalized) - 1;
+      if (nextCount <= 0) return [];
+      return [{
+        ...normalized,
+        quantity: nextCount,
+        serialNumbers: normalized.serialNumbers?.filter((_, serialIndex) => serialIndex !== index),
+        unitDetails: normalized.unitDetails?.filter((_, unitIndex) => unitIndex !== index),
+      }];
+    }));
   };
 
   const updateUnitBarcodeAt = (key: string, index: number, value: string) => {
     setLines((current) => current.map((line) => {
       if (line.key !== key) return line;
-      const unitDetails = Array.from({ length: Math.ceil(line.quantity) }, (_, unitIndex) => ({ internalBarcode: line.unitDetails?.[unitIndex]?.internalBarcode || "" }));
-      unitDetails[index] = { internalBarcode: value };
-      return { ...line, unitDetails };
+      const normalized = normalizeUnits(line, unitCount(line));
+      const unitDetails = [...(normalized.unitDetails || [])];
+      unitDetails[index] = { ...unitDetails[index], internalBarcode: value };
+      return { ...normalized, unitDetails };
     }));
   };
 
   const generateUnitBarcodes = (line: DraftLine) => {
     const token = line.sku.replace(/[^A-Za-z0-9]+/g, "-").toUpperCase();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const unitDetails = Array.from({ length: Math.ceil(line.quantity) }, (_, index) => ({ internalBarcode: `IG-${token}-${date}-${String(index + 1).padStart(6, "0")}` }));
+    const unitDetails = Array.from({ length: unitCount(line) }, (_, index) => ({
+      ...line.unitDetails?.[index],
+      internalBarcode: `IG-${token}-${date}-${String(index + 1).padStart(6, "0")}`,
+    }));
     setLines((current) => current.map((item) => item.key === line.key ? { ...item, unitDetails } : item));
   };
 
@@ -631,16 +680,26 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       return;
     }
       const invalidSerialLine = lines.filter((line) => line.trackingMode === "serial").find((line) => {
-        const serials = line.serialNumbers || [];
-        return !Number.isInteger(line.quantity) || serials.length !== line.quantity || new Set(serials.map((serial) => serial.trim().toUpperCase())).size !== serials.length;
+        const serials = (line.serialNumbers || []).map((serial) => serial.trim());
+        return !Number.isInteger(line.quantity) || serials.length !== line.quantity || serials.some((serial) => !serial) || new Set(serials.map((serial) => serial.toUpperCase())).size !== serials.length;
       });
       if (invalidSerialLine) {
         toast.error(`SKU ${invalidSerialLine.sku} phải có đủ serial duy nhất theo số lượng.`);
         return;
       }
+      // Hàng serial được phép bỏ trống mã nội bộ, nhưng đã cấp thì phải cấp đủ và không trùng.
+      const invalidSerialBarcodeLine = lines.filter((line) => line.trackingMode === "serial").find((line) => {
+        const barcodes = (line.unitDetails || []).map((detail) => (detail.internalBarcode || "").trim());
+        if (barcodes.every((barcode) => !barcode)) return false;
+        return barcodes.length !== line.quantity || barcodes.some((barcode) => !barcode) || new Set(barcodes.map((barcode) => barcode.toUpperCase())).size !== barcodes.length;
+      });
+      if (invalidSerialBarcodeLine) {
+        toast.error(`SKU ${invalidSerialBarcodeLine.sku} đã cấp mã vạch nội bộ thì phải cấp đủ cho mọi đơn vị và không trùng nhau.`);
+        return;
+      }
       const invalidUnitLine = lines.filter((line) => line.trackingMode === "unit_barcode").find((line) => {
-        const details = line.unitDetails || [];
-        return !Number.isInteger(line.quantity) || details.length !== line.quantity || new Set(details.map((detail) => detail.internalBarcode.trim().toUpperCase())).size !== details.length;
+        const details = (line.unitDetails || []).map((detail) => (detail.internalBarcode || "").trim());
+        return !Number.isInteger(line.quantity) || details.length !== line.quantity || details.some((barcode) => !barcode) || new Set(details.map((barcode) => barcode.toUpperCase())).size !== details.length;
       });
       if (invalidUnitLine) {
         toast.error(`SKU ${invalidUnitLine.sku} phải có đủ mã vạch nội bộ duy nhất theo số lượng.`);
@@ -648,7 +707,15 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       }
       setSaving(true);
     try {
-      const payload = { supplierId, notes: notes.trim() || undefined, items: lines.map(({ key: _key, displayName: _displayName, ...line }) => line) };
+      const payload = {
+        supplierId,
+        notes: notes.trim() || undefined,
+        items: lines.map(({ key: _key, displayName: _displayName, ...line }) => {
+          // Không gửi unitDetails rỗng (hàng serial được phép không cấp mã nội bộ).
+          const unitDetails = (line.unitDetails || []).filter((detail) => (detail.internalBarcode || "").trim());
+          return { ...line, unitDetails: unitDetails.length > 0 ? unitDetails : undefined };
+        }),
+      };
       if (initialReceipt) await inventoryReceivingService.updateReceipt(initialReceipt._id, payload);
       else await inventoryReceivingService.createReceipt(payload);
       toast.success("Đã tạo phiếu nhập ở trạng thái Nháp. Hãy xác nhận để nhập kho.");
@@ -697,7 +764,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Số lượng</label>
-                <input type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
+                <input type="number" min={quantityStep} step={quantityStep} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Giá nhập</label>
@@ -718,24 +785,67 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 font-medium">Sản phẩm</th>
-                    <th className="px-4 py-3 font-medium">SKU</th><th className="px-4 py-3 font-medium">Mã vạch</th>
+                    <th className="px-4 py-3 font-medium">SKU</th>
                     <th className="px-4 py-3 text-right font-medium">Số lượng</th>
-                    <th className="px-4 py-3 font-medium">IMEI / serial</th>
+                    <th className="px-4 py-3 font-medium">IMEI / serial · Mã vạch nội bộ</th>
                     <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
                     <th className="px-4 py-3 text-right font-medium">Thành tiền</th>
                     <th className="px-4 py-3 text-right font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => (
+                  {lines.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
+                    <Fragment key={line.key}>
+                      <tr className="bg-slate-50/60">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-900">{line.productName}</p>
+                          <p className="text-xs text-slate-500">{line.displayName}</p>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
+                        
+                        <td className="px-4 py-3 text-right tabular-nums text-sm font-semibold text-slate-800">{unitCount(line)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">{line.trackingMode === "serial" ? "Theo IMEI/sê-ri" : "Theo mã vạch từng đơn vị"}</span>
+                            <button type="button" onClick={() => generateUnitBarcodes(line)} className="text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh mã nội bộ tự động</button>
+                            <label className="flex items-center gap-1 text-[11px] text-slate-500">
+                              BH NCC
+                              <input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-14 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-right tabular-nums text-xs text-slate-700 outline-none focus:border-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} />
+                              tháng
+                            </label>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
+                        <td className="px-4 py-3 text-right"><button type="button" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa cả dòng"><Trash2 className="h-4 w-4" /></button></td>
+                      </tr>
+                      {Array.from({ length: unitCount(line) }, (_, index) => (
+                        <tr key={`${line.key}-unit-${index}`}>
+                          <td colSpan={2} className="py-2 pl-8 pr-4 text-xs font-medium text-slate-500">Đơn vị #{index + 1}</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-xs text-slate-400">1</td>
+                          <td className="px-4 py-2">
+                            <div className="flex flex-wrap gap-2">
+                              {line.trackingMode === "serial" && <input value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`IMEI/serial ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`IMEI serial ${line.sku} đơn vị ${index + 1}`} />}
+                              <input value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch nội bộ ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch nội bộ ${line.sku} đơn vị ${index + 1}`} />
+                            </div>
+                          </td>
+                          <td colSpan={2} className="px-4 py-2" />
+                          <td className="px-4 py-2 text-right"><button type="button" onClick={() => removeUnitAt(line.key, index)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-600" title={`Xóa đơn vị #${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td colSpan={7} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
+                      </tr>
+                    </Fragment>
+                  ) : (
                     <tr key={line.key}>
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-900">{line.productName}</p>
                         <p className="text-xs text-slate-500">{line.displayName}</p>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td><td className="px-4 py-3 text-xs text-slate-600">{line.barcode || "Chưa có mã vạch"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
-                      <td className="px-4 py-3"><div className="space-y-1.5">{line.trackingMode === "serial" ? Array.from({ length: Math.ceil(line.quantity) }, (_, index) => <input key={`${line.key}-serial-${index}`} value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`IMEI/serial ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`IMEI serial ${line.sku} ${index + 1}`} />) : line.trackingMode === "unit_barcode" ? <>{Array.from({ length: Math.ceil(line.quantity) }, (_, index) => <input key={`${line.key}-barcode-${index}`} value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch từng đơn vị ${line.sku} ${index + 1}`} />)}<button type="button" onClick={() => generateUnitBarcodes(line)} className="text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh tự động</button></> : <span className="text-xs text-slate-400">Không áp dụng</span>}</div></td>
+                      <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">
