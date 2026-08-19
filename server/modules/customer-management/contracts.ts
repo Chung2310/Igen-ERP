@@ -1,5 +1,6 @@
 import type { CustomerStatus, CustomerType } from "./interfaces/customer.interface";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
+export { getBillingProfile } from "./billing-profile.service";
 
 export type CustomerBrief = {
   customerId: string;
