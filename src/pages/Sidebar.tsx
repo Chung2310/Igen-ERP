@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Landmark,
   Wrench,
+  ContactRound,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -89,6 +90,12 @@ const baseMenuItems: MenuItem[] = [
     label: "QUẢN LÝ LAO ĐỘNG",
     title: "Lao động",
     icon: BriefcaseBusiness,
+    group: "operations",
+  },
+  {
+    label: "QUẢN LÝ KHÁCH HÀNG",
+    title: "Khách hàng",
+    icon: ContactRound,
     group: "operations",
   },
   {
