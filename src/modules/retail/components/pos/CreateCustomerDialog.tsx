@@ -107,7 +107,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
         role="dialog"
         aria-label="Tạo khách hàng mới"
         aria-modal="true"
-        className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-6"
         onSubmit={(event) => void submit(event)}
       >
         <div className="flex items-center justify-between gap-3">
@@ -163,7 +163,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
           </div>
         )}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button type="button" className="rounded-xl border px-4 py-2.5 font-semibold" onClick={onClose}>
             Hủy
           </button>
