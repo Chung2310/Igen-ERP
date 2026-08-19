@@ -28,4 +28,12 @@ export const customerApi = {
   async createBillingProfile(id: string, input: BillingProfileInput, companyCode?: string) {
     const response = await apiFetch<{ success: true; data: { profile: BillingProfile; warnings: Array<{ code: string; message: string }> } }>(`/customers/${id}/billing-profiles`, { method: "POST", params: { companyCode }, body: JSON.stringify(input) }); return response.data;
   },
+  async getSettings(companyCode: string) {
+    const response = await apiFetch<{ success: true; data: { companyCode: string; customerTiers: Array<{ code: string; name: string; minSpend: number }> } }>("/customers/settings", { params: { companyCode } });
+    return response.data;
+  },
+  async updateSettings(input: { customerTiers: Array<{ code: string; name: string; minSpend: number }> }, companyCode: string) {
+    const response = await apiFetch<{ success: true; data: { companyCode: string; customerTiers: Array<{ code: string; name: string; minSpend: number }> } }>("/customers/settings", { method: "PATCH", params: { companyCode }, body: JSON.stringify(input) });
+    return response.data;
+  },
 };
