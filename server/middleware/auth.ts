@@ -66,6 +66,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("customer:manage");
+DEFAULT_ROLE_PERMISSIONS.admin.push("marketing:manage");
 
 /**
  * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)

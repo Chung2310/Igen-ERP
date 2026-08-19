@@ -11,7 +11,7 @@ import {
 const EXPECTED_FEATURES = [
   "access", "chat", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
   "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
-  "labor-partner-settlement", "payroll-payment", "payroll-period", "payroll-policy",
+  "labor-partner-settlement", "marketing", "payroll-payment", "payroll-period", "payroll-policy",
   "people", "recruitment", "relationship", "repair", "resource", "retail",
   "settings", "timekeeping", "work",
 ];
