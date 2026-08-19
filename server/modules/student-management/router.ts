@@ -51,7 +51,7 @@ const requireStudentModule: RequestHandler = (req, res, next) => {
  * lao động — vốn bị filterModulesForBusinessType loại bỏ module student — luôn nhận 403.
  * Vì vậy chỉ cần một trong hai phân hệ được bật là cho qua.
  */
-const requireCustomFieldModule: RequestHandler = async (req, res, next) => {
+const requireSharedModule: RequestHandler = async (req, res, next) => {
   try {
     const user = (req as { user?: { role?: string; companyCode?: string } }).user;
     if (user?.role === "superadmin") return next();
@@ -87,13 +87,13 @@ studentManagementRouter.use("/student-resources", authMiddleware as unknown as R
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, partnerModuleGuard, requirePartnerRead, partnerRoutes);
-studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireCustomFieldModule, areaRead("custom-field"), customFieldRoutes);
+studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireSharedModule, areaRead("custom-field"), customFieldRoutes);
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
-studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireStudentModule, moduleSettingsRoutes);
+studentManagementRouter.use("/student-management/settings", authMiddleware as unknown as RequestHandler, requireSharedModule, moduleSettingsRoutes);
 // Cấu hình trường có sẵn: GET mở cho mọi tài khoản trong công ty (ai cũng cần để
 // dựng form), PUT đã gác quyền settings:manage bên trong route.
-studentManagementRouter.use("/student-management/standard-fields", authMiddleware as unknown as RequestHandler, requireStudentModule, standardFieldRoutes);
+studentManagementRouter.use("/student-management/standard-fields", authMiddleware as unknown as RequestHandler, requireSharedModule, standardFieldRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 studentManagementRouter.use("/student-quality", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-quality"), studentQualityRoutes);
 studentManagementRouter.use("/learning-roadmaps", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("learning-roadmap"), learningRoadmapRoutes);
