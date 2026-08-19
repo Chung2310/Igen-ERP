@@ -96,6 +96,21 @@ describe("CreateCustomerDialog", () => {
     }, "ACME"));
   });
 
+  it("keeps the VAT dialog scrollable and mobile-friendly on smaller screens", async () => {
+    render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loại khách hàng" }), "vat");
+
+    const dialog = screen.getByRole("dialog", { name: "Tạo khách hàng mới" });
+    expect(dialog.className).toContain("max-h-[calc(100vh-2rem)]");
+    expect(dialog.className).toContain("overflow-y-auto");
+
+    const cancelButton = screen.getByRole("button", { name: "Hủy" });
+    const actions = cancelButton.parentElement;
+    expect(actions?.className).toContain("grid-cols-1");
+    expect(actions?.className).toContain("sm:grid-cols-2");
+  });
+
   it("rejects a whitespace-only name without calling the API", async () => {
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
     await userEvent.type(screen.getByRole("textbox", { name: "Tên khách hàng" }), "   ");
