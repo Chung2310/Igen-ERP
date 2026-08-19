@@ -472,6 +472,74 @@ export default function RetailPosPage() {
   );
 }
 
+type ProductGroup = { key: string; name: string; variants: RetailProduct[] };
+
+function groupProductsBySku(products: RetailProduct[]): ProductGroup[] {
+  const groups = new Map<string, ProductGroup>();
+  for (const product of products) {
+    const key = product.productId || product._id;
+    const suffix = product.variantName ? ` - ${product.variantName}` : "";
+    const baseName = suffix && product.name.endsWith(suffix) ? product.name.slice(0, -suffix.length) : product.name;
+    const existing = groups.get(key);
+    if (existing) existing.variants.push(product);
+    else groups.set(key, { key, name: baseName, variants: [product] });
+  }
+  return Array.from(groups.values());
+}
+
+function ProductCard({
+  group,
+  onAdd,
+}: {
+  group: ProductGroup;
+  onAdd: (product: RetailProduct) => void;
+}) {
+  const defaultId = (group.variants.find((variant) => variant.stock > 0) || group.variants[0])._id;
+  const [selectedId, setSelectedId] = React.useState(defaultId);
+  React.useEffect(() => {
+    if (!group.variants.some((variant) => variant._id === selectedId)) setSelectedId(defaultId);
+  }, [group.variants, selectedId, defaultId]);
+  const selected = group.variants.find((variant) => variant._id === selectedId) || group.variants[0];
+  const totalStock = group.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock), 0);
+  return (
+    <div className="rounded-2xl border bg-white p-4 hover:border-cyan-500">
+      <button
+        type="button"
+        disabled={selected.stock <= 0}
+        className="w-full text-left disabled:opacity-50"
+        onClick={() => onAdd(selected)}
+      >
+        <span className="block font-bold">{group.name}</span>
+        <span className="block text-xs text-slate-500">
+          {selected.sku} · Tồn {selected.stock > 0 ? selected.stock : "Hết tồn khả dụng"}
+        </span>
+        <span className="mt-2 block font-bold text-cyan-700">{money(selected.price)}</span>
+      </button>
+      {group.variants.length > 1 && (
+        <label className="mt-3 block">
+          <span className="text-xs text-slate-400">
+            {group.variants.length} SKU · Tồn tổng {totalStock}
+          </span>
+          <select
+            aria-label={`Chọn SKU cho ${group.name}`}
+            value={selected._id}
+            onChange={(event) => setSelectedId(event.target.value)}
+            className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+          >
+            {group.variants.map((variant) => (
+              <option key={variant._id} value={variant._id} disabled={variant.stock <= 0}>
+                {variant.variantName || variant.sku}
+                {variant.variantName ? ` · ${variant.sku}` : ""} ·{" "}
+                {variant.stock > 0 ? `Tồn ${variant.stock}` : "Hết tồn"} · {money(variant.price)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+}
+
 function ProductGrid({
   products,
   onAdd,
@@ -479,21 +547,11 @@ function ProductGrid({
   products: RetailProduct[];
   onAdd: (product: RetailProduct) => void;
 }) {
+  const groups = React.useMemo(() => groupProductsBySku(products), [products]);
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {products.map((product) => (
-        <button
-          key={product._id}
-          disabled={product.stock <= 0}
-          className="rounded-2xl border bg-white p-4 text-left hover:border-cyan-500"
-          onClick={() => onAdd(product)}
-        >
-          <p className="font-bold">{product.name}</p>
-          <p className="text-xs text-slate-500">
-            {product.sku} · Tồn {product.stock > 0 ? product.stock : "Hết tồn khả dụng"}
-          </p>
-          <p className="mt-2 font-bold text-cyan-700">{money(product.price)}</p>
-        </button>
+      {groups.map((group) => (
+        <ProductCard key={group.key} group={group} onAdd={onAdd} />
       ))}
     </div>
   );
