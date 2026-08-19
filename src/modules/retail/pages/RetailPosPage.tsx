@@ -1,5 +1,5 @@
 import React from "react";
-import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { Camera, Check, ChevronDown, Pause, Search, ShoppingCart, X } from "lucide-react";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
 import RetailShiftWorkspace from "./RetailShiftWorkspace";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
@@ -496,6 +496,7 @@ function ProductCard({
 }) {
   const defaultId = (group.variants.find((variant) => variant.stock > 0) || group.variants[0])._id;
   const [selectedId, setSelectedId] = React.useState(defaultId);
+  const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     if (!group.variants.some((variant) => variant._id === selectedId)) setSelectedId(defaultId);
   }, [group.variants, selectedId, defaultId]);
@@ -516,25 +517,79 @@ function ProductCard({
         <span className="mt-2 block font-bold text-cyan-700">{money(selected.price)}</span>
       </button>
       {group.variants.length > 1 && (
-        <label className="mt-3 block">
-          <span className="text-xs text-slate-400">
-            {group.variants.length} SKU · Tồn tổng {totalStock}
-          </span>
-          <select
+        <div className="relative mt-3">
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={open}
             aria-label={`Chọn SKU cho ${group.name}`}
-            value={selected._id}
-            onChange={(event) => setSelectedId(event.target.value)}
-            className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+            onClick={() => setOpen((value) => !value)}
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-white"
           >
-            {group.variants.map((variant) => (
-              <option key={variant._id} value={variant._id} disabled={variant.stock <= 0}>
-                {variant.variantName || variant.sku}
-                {variant.variantName ? ` · ${variant.sku}` : ""} ·{" "}
-                {variant.stock > 0 ? `Tồn ${variant.stock}` : "Hết tồn"} · {money(variant.price)}
-              </option>
-            ))}
-          </select>
-        </label>
+            <span className="min-w-0">
+              <span className="block truncate font-medium text-slate-700">
+                {selected.variantName || selected.sku}
+              </span>
+              <span className="block text-[11px] text-slate-400">
+                {group.variants.length} SKU · Tồn tổng {totalStock}
+              </span>
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <ul
+                role="listbox"
+                className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+              >
+                {group.variants.map((variant) => {
+                  const active = variant._id === selected._id;
+                  const soldOut = variant.stock <= 0;
+                  return (
+                    <li key={variant._id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        disabled={soldOut}
+                        onClick={() => {
+                          setSelectedId(variant._id);
+                          setOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${soldOut ? "cursor-not-allowed opacity-45" : "hover:bg-cyan-50"} ${active ? "bg-cyan-50/60" : ""}`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-slate-700">
+                            {variant.variantName || variant.sku}
+                          </span>
+                          <span className="block truncate font-mono text-[11px] text-slate-400">
+                            {variant.sku}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-xs font-semibold text-cyan-700">
+                            {money(variant.price)}
+                          </span>
+                          <span
+                            className={`block text-[11px] ${soldOut ? "text-rose-500" : "text-slate-400"}`}
+                          >
+                            {soldOut ? "Hết tồn" : `Tồn ${variant.stock}`}
+                          </span>
+                        </span>
+                        <Check
+                          className={`h-4 w-4 shrink-0 ${active ? "text-cyan-600" : "invisible"}`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
