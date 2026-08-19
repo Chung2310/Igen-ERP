@@ -27,6 +27,8 @@ const CHANNEL_HINT = "Kênh chưa được nối API sẽ tự bỏ qua, hệ th
 
 export default function MarketingAutomationSettingsPage({ canManage }: { canManage: boolean }) {
   const [settings, setSettings] = useState<MarketingSettings>();
+  /** Bản đã lưu trên máy chủ, dùng để biết còn thay đổi nào chưa bấm Lưu. */
+  const [savedSnapshot, setSavedSnapshot] = useState("");
   const [channels, setChannels] = useState<MarketingChannelStatus[]>([]);
   const [variables, setVariables] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,7 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
     try {
       const data = await marketingApi.getSettings();
       setSettings(data.settings);
+      setSavedSnapshot(JSON.stringify(data.settings));
       setChannels(data.channels);
       setVariables(data.variables);
     } catch (error: any) {
@@ -60,6 +63,7 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
     try {
       const saved = await marketingApi.updateSettings(settings);
       setSettings(saved);
+      setSavedSnapshot(JSON.stringify(saved));
       setMessage({ tone: "ok", text: "Đã lưu cài đặt." });
     } catch (error: any) {
       setMessage({ tone: "error", text: error?.message || "Lưu thất bại." });
@@ -92,6 +96,7 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
     }
   };
 
+  const dirty = Boolean(settings) && JSON.stringify(settings) !== savedSnapshot;
   const availableChannels = useMemo(() => channels.filter((item) => item.implemented && item.configured).length, [channels]);
 
   if (loading || !settings) {
@@ -253,11 +258,14 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
       <HolidayCampaignsSection canManage={canManage} />
 
       {canManage && (
-        <div className="sticky bottom-0 flex justify-end border-t border-slate-200 bg-white/90 p-3 backdrop-blur">
+        <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/90 p-3 backdrop-blur">
+          <span className={`text-sm font-semibold ${dirty ? "text-amber-700" : "text-slate-400"}`}>
+            {dirty ? "Có thay đổi chưa lưu" : "Đã lưu"}
+          </span>
           <button
             type="button"
             onClick={save}
-            disabled={saving}
+            disabled={saving || !dirty}
             className="flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
