@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TabType } from "../types";
-import { filterEnabledTabs, MODULE_READ_PERMISSIONS, resolveEnabledTab } from "./modules";
+import { filterEnabledTabs, MODULE_KEYS, MODULE_READ_PERMISSIONS, MODULE_TAB_MAP, resolveEnabledTab } from "./modules";
+
+test("maps the customer module to its tab and permissions", () => {
+  assert.ok(MODULE_KEYS.includes("customer" as any));
+  assert.equal(MODULE_TAB_MAP.customer, "QUẢN LÝ KHÁCH HÀNG");
+  assert.deepEqual(MODULE_READ_PERMISSIONS["QUẢN LÝ KHÁCH HÀNG"], ["customer:read", "customer:manage"]);
+});
 
 const tabs: TabType[] = [
   "TỔNG QUAN",

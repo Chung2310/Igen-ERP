@@ -34,6 +34,7 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
   feature("timekeeping", "Chấm công", "Nhân sự"),
   feature("work", "Công việc", "Công việc"),
   feature("inventory", "Kho và sản phẩm", "Kho và sản phẩm"),
+  feature("customer", "Khách hàng", "Khách hàng"),
   feature("retail", "Bán lẻ", "Bán lẻ"),
   feature("resource", "Tài nguyên", "Tài nguyên"),
   feature("chat", "Trò chuyện", "Trò chuyện"),

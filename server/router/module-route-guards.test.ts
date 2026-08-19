@@ -4,6 +4,12 @@ import { resolveBusinessModuleKey } from "../modules/student-management/router";
 import { workerRoutes } from "../modules/worker-management/routes/worker.routes";
 import { resolveModuleAccess } from "../middleware/require-module";
 import fs from "node:fs";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/module-keys";
+
+test("customer is a default tenant module", () => {
+  assert.ok(MODULE_KEYS.includes("customer" as any));
+  assert.ok(DEFAULT_MODULE_KEYS.includes("customer" as any));
+});
 
 test("shared workflow resolves an independent guard from its mount path", () => {
   assert.equal(resolveBusinessModuleKey("/api/v1/student-management/send-email"), "student");
