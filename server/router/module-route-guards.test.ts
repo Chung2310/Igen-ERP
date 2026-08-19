@@ -4,6 +4,17 @@ import { resolveBusinessModuleKey } from "../modules/student-management/router";
 import { workerRoutes } from "../modules/worker-management/routes/worker.routes";
 import { resolveModuleAccess } from "../middleware/require-module";
 import fs from "node:fs";
+import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/module-keys";
+import { DEFAULT_ROLE_PERMISSIONS } from "../middleware/auth";
+
+test("customer is a default tenant module", () => {
+  assert.ok(MODULE_KEYS.includes("customer" as any));
+  assert.ok(DEFAULT_MODULE_KEYS.includes("customer" as any));
+});
+
+test("default administrators can manage customers", () => {
+  assert.ok(DEFAULT_ROLE_PERMISSIONS.admin.includes("customer:manage"));
+});
 
 test("shared workflow resolves an independent guard from its mount path", () => {
   assert.equal(resolveBusinessModuleKey("/api/v1/student-management/send-email"), "student");
@@ -26,6 +37,11 @@ test("worker CRUD routes are registered", () => {
 test("retail router is mounted once behind authentication and the retail module guard", () => {
   const source = fs.readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(source, /apiRouter\.use\("\/", requireAuth as any, requireModule\("retail"\), retailRouter\)/);
+});
+
+test("customer router is mounted behind authentication and the customer module guard", () => {
+  const source = fs.readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(source, /apiRouter\.use\("\/customers", requireAuth as any, requireModule\("customer"\), customerRouter\)/);
 });
 
 

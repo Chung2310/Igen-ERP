@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { retailCartReducer, type RetailCartState } from "./retailCart";
 
 const product = { _id: "p1", sku: "SKU-1", name: "Áo", category: "A", unit: "Cái", stock: 10, price: 100_000 };
-const empty: RetailCartState = { lines: [], customer: null, orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0, quote: null, quoteDirty: false };
+const empty: RetailCartState = { lines: [], customer: null, billingProfile: null, orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0, quote: null, quoteDirty: false };
 
 describe("retail cart", () => {
   it("increases quantity when the same barcode is scanned repeatedly", () => {

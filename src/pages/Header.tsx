@@ -5,7 +5,7 @@ import {
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
   FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User,
-  LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ChevronDown, Landmark
+  LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ChevronDown, Landmark, ContactRound
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -559,6 +559,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "KHO & SẢN PHẨM": { title: "Kho hàng", icon: Package },
                       "QUẢN LÝ HỌC VIÊN": { title: "Học viên", icon: GraduationCap },
                       "QUẢN LÝ LAO ĐỘNG": { title: "Lao động", icon: BriefcaseBusiness },
+                      "QUẢN LÝ KHÁCH HÀNG": { title: "Khách hàng", icon: ContactRound },
                       "BÁN LẺ": { title: "Bán lẻ", icon: ShoppingCart },
                       "TÀI CHÍNH": { title: "Tài chính", icon: Landmark },
                       "QUẢN LÝ TÀI NGUYÊN": { title: "Tài nguyên", icon: FolderOpen },
@@ -574,6 +575,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "KHO & SẢN PHẨM",
                       "QUẢN LÝ HỌC VIÊN",
                       "QUẢN LÝ LAO ĐỘNG",
+                      "QUẢN LÝ KHÁCH HÀNG",
                       "BÁN LẺ",
                       "TÀI CHÍNH",
                       "QUẢN LÝ TÀI NGUYÊN",

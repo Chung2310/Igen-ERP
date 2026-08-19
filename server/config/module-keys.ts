@@ -1,5 +1,5 @@
 /** Các nghiệp vụ có thể bật/tắt theo doanh nghiệp. Đồng bộ với src/config/modules.ts. */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "partner", "retail", "repair", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
 

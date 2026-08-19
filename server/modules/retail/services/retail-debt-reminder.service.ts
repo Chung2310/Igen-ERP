@@ -1,12 +1,12 @@
 import { NotificationModel } from "../../../model/notification.model";
 import { UserModel } from "../../../model/user.model";
 import { RetailOrderModel } from "../models/retail-order.model";
-import { RetailCustomerModel } from "../models/retail-customer.model";
 import type { RetailBranchScope } from "../contracts";
 import type { RetailDebtReminderSettings } from "../interfaces/retail-settings.interface";
 import { RetailDebtReminderRunModel } from "../models/retail-debt-reminder-run.model";
 import { RetailDebtReminderDeliveryModel } from "../models/retail-debt-reminder-delivery.model";
 import { getResolvedRetailSettings } from "./retail-settings.service";
+import { getCustomerContact } from "../../customer-management/contracts";
 
 export function reminderCycleKey(now: Date, frequencyHours: number) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(now);
@@ -34,7 +34,7 @@ export function classifyReminderFailure(error: any): "temporary" | "permanent" {
 export function reminderDeliveryChannels(emailEnabled: boolean, email: unknown): Array<"notification" | "email"> { return emailEnabled && String(email || "").trim() ? ["notification", "email"] : ["notification"]; }
 
 type OverdueOrder = { _id: unknown; orderCode?: string; customerId?: string; customerName?: string; createdBy?: string; dueAmount: number; dueDate: Date };
-type ReminderParty = { _id: unknown; name?: string; displayName?: string; email?: string } | null | undefined;
+type ReminderParty = { _id?: unknown; customerId?: string; name?: string; displayName?: string; email?: string } | null | undefined;
 type ReminderPlan = { recipientId: string; recipientType: "customer" | "creator"; channel: "notification" | "email"; status: "queued" | "failed"; maxAttempts: number; payload: Record<string, string>; failureType?: "permanent"; error?: string };
 
 export function vietnamBusinessDate(now = new Date()): string {
@@ -90,11 +90,9 @@ export class RetailDebtReminderService {
     const orders: any[] = await RetailOrderModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, status: { $in: ["confirmed", "completed"] }, dueAmount: { $gt: 0 }, dueDate: { $lt: startOfTodayVietnam } }).select("_id orderCode customerId customerName createdBy dueAmount dueDate").lean();
     const customerIds = [...new Set(orders.map((order) => String(order.customerId || "")).filter(Boolean))];
     const creatorIds = [...new Set(orders.map((order) => String(order.createdBy || "")).filter(Boolean))];
-    const [customers, creators] = await Promise.all([
-      RetailCustomerModel.find({ companyCode: scope.companyCode, _id: { $in: customerIds } }).select("_id name email").lean(),
-      UserModel.find({ companyCode: scope.companyCode, _id: { $in: creatorIds }, isActive: { $ne: false } }).select("_id displayName email").lean(),
-    ]);
-    const customerById = new Map(customers.map((item: any) => [String(item._id), item]));
+    const creators = await UserModel.find({ companyCode: scope.companyCode, _id: { $in: creatorIds }, isActive: { $ne: false } }).select("_id displayName email").lean();
+    const customerContacts = await Promise.all(customerIds.map(async (customerId) => [customerId, await getCustomerContact({ companyCode: scope.companyCode }, customerId, { includeInactive: true })] as const));
+    const customerById = new Map(customerContacts.map(([customerId, customer]) => [customerId, customer]));
     const creatorById = new Map(creators.map((item: any) => [String(item._id), item]));
 
     let created = 0;

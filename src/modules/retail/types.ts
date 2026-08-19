@@ -19,13 +19,26 @@ export interface RetailCustomer {
   _id: string;
   customerCode: string;
   companyCode: string;
-  originBranchId: string;
+  type?: "regular" | "vat";
   name: string;
   phone?: string;
   email?: string;
   address?: string;
   notes?: string;
   tier?: { code: string; name: string; minSpend: number };
+}
+
+export interface RetailCustomerBillingProfile {
+  _id: string;
+  customerId: string;
+  legalName: string;
+  taxId: string;
+  address: string;
+  invoiceEmail: string;
+  contactName?: string;
+  isDefault: boolean;
+  status: "active" | "inactive";
+  version: number;
 }
 
 export interface RetailCustomerDetail {
@@ -39,12 +52,12 @@ export interface RetailCustomerDetail {
 export interface RetailProduct { _id: string; productId?: string; sku: string; variantName?: string; barcode?: string; name: string; category: string; brand?: string; unit: string; stock: number; price: number; imageUrl?: string; trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial"; variantId?: string; matchedSerialNumber?: string; matchedInternalBarcode?: string }
 export type RetailDiscountInput = { type: "amount" | "percent"; value: number };
 export interface RetailOrderItemInput { productId: string; quantity: number; discount: RetailDiscountInput; trackingMode?: RetailProduct["trackingMode"]; serialNumbers?: string[]; internalBarcodes?: string[] }
-export interface RetailOrderInput { items: RetailOrderItemInput[]; customerId?: string; orderDiscount: RetailDiscountInput; taxRate: number; shippingFee: number; dueDate?: string }
+export interface RetailOrderInput { items: RetailOrderItemInput[]; customerId?: string; billingProfileId?: string; orderDiscount: RetailDiscountInput; taxRate: number; shippingFee: number; dueDate?: string }
 export interface RetailOrderItem { productId: string; sku: string; productName: string; unit: string; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number; trackingMode?: RetailProduct["trackingMode"]; serialNumbers?: string[]; internalBarcodes?: string[]; soldAt?: string; customerWarrantyStartAt?: string; customerWarrantyEndAt?: string }
 export interface RetailPaymentInput { method: "cash" | "card" | "transfer" | "ewallet"; amount: number; tenderedAmount?: number; reference?: string }
-export interface RetailOrder { _id: string; orderCode?: string; status: "draft" | "confirmed" | "completed" | "cancelled"; paymentStatus: "unpaid" | "partial" | "paid" | "refunded"; businessDate?: string; customerId?: string; customerName?: string; customerPhone?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount: number; refundedAmount?: number; dueAmount: number; version: number; createdBy: string; createdByName: string }
+export interface RetailOrder { _id: string; orderCode?: string; status: "draft" | "confirmed" | "completed" | "cancelled"; paymentStatus: "unpaid" | "partial" | "paid" | "refunded"; businessDate?: string; customerId?: string; customerName?: string; customerPhone?: string; billingProfileId?: string; customerSnapshot?: { customerId: string; customerCode?: string; name: string; phone?: string }; billingSnapshot?: { legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string }; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount: number; refundedAmount?: number; dueAmount: number; version: number; createdBy: string; createdByName: string }
 export interface RetailStoreSnapshot { legalName: string; taxCode?: string; storeName: string; branchCode: string; branchName: string; branchAddress?: string; branchPhone?: string }
-export interface RetailInvoice { _id: string; invoiceNo: string; orderId: string; orderCode: string; issuedAt: string; status: "issued" | "void"; snapshot: { store?: RetailStoreSnapshot; customerName: string; customerPhone?: string; cashierName: string; businessDate?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount?: number; dueAmount?: number; paymentStatus?: "unpaid" | "partial" | "paid" | "refunded"; payments: Array<{ method: string; amount: number; tenderedAmount?: number; changeAmount?: number; reference?: string }>; amountInWords: string } }
+export interface RetailInvoice { _id: string; invoiceNo: string; orderId: string; orderCode: string; issuedAt: string; status: "issued" | "void"; snapshot: { store?: RetailStoreSnapshot; customerName: string; customerPhone?: string; customerSnapshot?: { customerId: string; customerCode?: string; name: string; phone?: string }; billingSnapshot?: { legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string }; cashierName: string; businessDate?: string; items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; paidAmount?: number; dueAmount?: number; paymentStatus?: "unpaid" | "partial" | "paid" | "refunded"; payments: Array<{ method: string; amount: number; tenderedAmount?: number; changeAmount?: number; reference?: string }>; amountInWords: string } }
 export interface RetailOrderResult { order: RetailOrder; invoice: RetailInvoice }
 export interface RetailReceivableEntry { _id: string; type: "charge" | "payment" | "adjustment" | "reversal"; amount: number; signedAmount: number; runningBalance: number; reason?: string; orderId?: string; reversesEntryId?: string; createdAt: string; createdByName?: string }
 export interface RetailShift { _id: string; shiftCode: string; cashierId: string; cashierName: string; openingFloat: number; businessDate: string; status: "open" | "closed" | "reconciled"; openedAt?: string; closedAt?: string; operationalEndsAt?: string; expectedCash?: number; countedCash?: number; varianceAmount?: number; varianceReason?: string; grossSales?: number; collectedAmount?: number; refundedAmount?: number; netCollectedAmount?: number; methodTotals?: Array<{ method: RetailPaymentInput["method"]; collectedAmount: number; refundedAmount: number }> }

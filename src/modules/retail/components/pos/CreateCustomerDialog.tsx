@@ -1,10 +1,17 @@
-import React from "react";
+﻿import React from "react";
 import { X } from "lucide-react";
-import { retailCustomersApi } from "../../api/retailCustomers.api";
+import { customerApi } from "../../../customer-management/customerApi";
 import type { RetailCustomer, RetailScope } from "../../types";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
 
-type CustomerForm = Pick<RetailCustomer, "name" | "phone" | "email" | "address" | "notes">;
+type CustomerForm = {
+  type: "regular" | "vat";
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+};
 
 type Props = {
   scope: RetailScope;
@@ -13,7 +20,7 @@ type Props = {
   onCreated: (customer: RetailCustomer) => void;
 };
 
-const labels: Record<keyof CustomerForm, string> = {
+const labels: Record<Exclude<keyof CustomerForm, "type">, string> = {
   name: "Tên khách hàng",
   phone: "Số điện thoại",
   email: "Email",
@@ -28,6 +35,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     email: "",
     address: "",
     notes: "",
+    type: "regular",
   });
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -44,7 +52,8 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     setSaving(true);
     setError("");
     try {
-      onCreated(await retailCustomersApi.create(input, scope));
+      const created = await customerApi.create(input, scope.companyCode);
+      onCreated({ _id: created._id, customerCode: created.customerCode, companyCode: created.companyCode, type: created.type, name: created.name, phone: created.phone, email: created.email, address: created.address, notes: created.notes });
     } catch (cause) {
       setError(getApiErrorMessage(cause, "Không tạo được khách hàng."));
     } finally {
@@ -70,7 +79,19 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
             <X className="h-5 w-5" />
           </button>
         </div>
-        {(Object.keys(labels) as Array<keyof CustomerForm>).map((key) => (
+        <label className="block text-sm font-semibold">
+          <span>Loại khách hàng</span>
+          <select
+            aria-label="Loại khách hàng"
+            value={form.type}
+            onChange={(event) => setForm((value) => ({ ...value, type: event.target.value as "regular" | "vat" }))}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
+          >
+            <option value="regular">Khách thường</option>
+            <option value="vat">Khách xuất VAT</option>
+          </select>
+        </label>
+        {(["name", "phone", "email", "address", "notes"] as Array<Exclude<keyof CustomerForm, "type">>).map((key) => (
           <label key={key} className="block text-sm font-semibold">
             <span>{labels[key]}{key === "name" ? " *" : ""}</span>
             <input
