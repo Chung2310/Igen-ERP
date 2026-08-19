@@ -13,7 +13,7 @@ const MarketingSettingsSchema = new Schema({
   timeZone: { type: String, default: "Asia/Ho_Chi_Minh" },
   /** Giờ gửi các tin theo lịch (HH:mm giờ VN). Tin cảm ơn gửi ngay theo sự kiện. */
   sendTime: { type: String, default: "08:00", match: /^\d{2}:\d{2}$/ },
-  thankYou: { type: AutomationSchema, default: () => ({}) },
+  thank_you: { type: AutomationSchema, default: () => ({}) },
   birthday: { type: AutomationSchema, default: () => ({}) },
   holiday: { type: AutomationSchema, default: () => ({}) },
   remarketing: { type: AutomationSchema, default: () => ({}) },
