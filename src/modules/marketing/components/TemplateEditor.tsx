@@ -1,6 +1,7 @@
 import React from "react";
 import { Eye, Pencil } from "lucide-react";
 import type { MarketingAutomationType } from "../api/marketing.api";
+import { fillSampleValues as fillTemplateSampleValues } from "../../../components/template-editor/templateTokenCodec";
 import MarketingVariablePalette from "./MarketingVariablePalette";
 import { MARKETING_VARIABLE_REGISTRY, getVariablesForType } from "./marketingVariableRegistry";
 import { toFriendlyTokens, toRawTokens } from "./marketingTemplateTokenCodec";
@@ -17,7 +18,7 @@ export const VARIABLES_BY_TYPE: Record<MarketingAutomationType, string[]> = {
 };
 
 export function fillSampleValues(template: string) {
-  return String(template).replace(/{{\s*([a-zA-Z]+)\s*}}/g, (match, key: string) => VARIABLE_INFO[key]?.sample ?? match);
+  return fillTemplateSampleValues(template, Object.values(MARKETING_VARIABLE_REGISTRY));
 }
 
 type Props = {

@@ -1,18 +1,12 @@
+import { toFriendlyTokens as toFriendlyTemplateTokens, toRawTokens as toRawTemplateTokens } from "../../../components/template-editor/templateTokenCodec";
 import { MARKETING_VARIABLE_REGISTRY } from "./marketingVariableRegistry";
 
-const rawTokenPattern = /{{\s*([a-zA-Z]+)\s*}}/g;
+const MARKETING_VARIABLES = Object.values(MARKETING_VARIABLE_REGISTRY);
 
 export function toFriendlyTokens(raw: string) {
-  return String(raw).replace(rawTokenPattern, (match, key: string) => {
-    const label = MARKETING_VARIABLE_REGISTRY[key]?.label;
-    return label ? `[${label}]` : match;
-  });
+  return toFriendlyTemplateTokens(raw, MARKETING_VARIABLES);
 }
 
 export function toRawTokens(friendly: string) {
-  let next = String(friendly);
-  for (const [key, value] of Object.entries(MARKETING_VARIABLE_REGISTRY)) {
-    next = next.replaceAll(`[${value.label}]`, `{{${key}}}`);
-  }
-  return next;
+  return toRawTemplateTokens(friendly, MARKETING_VARIABLES);
 }
