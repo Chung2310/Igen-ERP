@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarPlus, Loader2, Trash2 } from "lucide-react";
 import { marketingApi, type MarketingCampaign } from "../api/marketing.api";
+import TemplateEditor from "./TemplateEditor";
 
 const emptyDraft = () => ({ name: "", runDate: "", targetTierCodes: "", subject: "", html: "" });
 
@@ -104,9 +105,16 @@ export default function HolidayCampaignsSection({ canManage }: { canManage: bool
         <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
           <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Tên dịp (VD: Tết Nguyên Đán)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           <input type="date" value={draft.runDate} onChange={(event) => setDraft({ ...draft, runDate: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <input value={draft.targetTierCodes} onChange={(event) => setDraft({ ...draft, targetTierCodes: event.target.value })} placeholder="Mã hạng KH, cách nhau dấu phẩy (trống = tất cả)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm sm:col-span-2" />
-          <input value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Tiêu đề" className="rounded-lg border border-slate-200 px-3 py-2 text-sm sm:col-span-2" />
-          <textarea value={draft.html} onChange={(event) => setDraft({ ...draft, html: event.target.value })} rows={3} placeholder="Nội dung HTML, dùng biến {{customerName}}, {{holidayName}}…" className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs sm:col-span-2" />
+          <input value={draft.targetTierCodes} onChange={(event) => setDraft({ ...draft, targetTierCodes: event.target.value })} placeholder="Mã hạng khách hàng, cách nhau dấu phẩy (để trống = gửi tất cả)" className="rounded-lg border border-slate-200 px-3 py-2 text-sm sm:col-span-2" />
+          <div className="sm:col-span-2">
+            <TemplateEditor
+              automationType="holiday"
+              subject={draft.subject}
+              html={draft.html}
+              disabled={false}
+              onChange={(values) => setDraft({ ...draft, ...values })}
+            />
+          </div>
           <div className="sm:col-span-2">
             <button type="button" onClick={create} disabled={busy} className="flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
