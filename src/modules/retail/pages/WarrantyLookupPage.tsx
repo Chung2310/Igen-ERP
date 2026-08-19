@@ -12,7 +12,7 @@ function Coverage({ label, value, color }: { label: string; value?: WarrantyLook
 
 function RepairLink({ result }: { result: WarrantyLookupResult }) {
   if (!result.found) return null;
-  const open = () => window.dispatchEvent(new CustomEvent("inventory:open-repair", { detail: { productId: result.product?.productId, serialNumber: result.serialNumber, productName: result.product?.name || "Sản phẩm", customerId: result.sold?.customerId, coverage: { customer: result.customerWarranty || { covered: false }, supplier: result.supplierWarranty || { covered: false }, costBearer: result.costBearer || "customer", checkedAt: new Date().toISOString() } } }));
+  const open = () => window.dispatchEvent(new CustomEvent("inventory:open-repair", { detail: { productId: result.product?.productId, serialNumber: result.serialNumber, productName: result.product?.name || "Sản phẩm", customerId: result.sold?.customerId, customerName: result.sold?.customerName, customerPhone: result.sold?.customerPhone, coverage: { customer: result.customerWarranty || { covered: false }, supplier: result.supplierWarranty || { covered: false }, costBearer: result.costBearer || "customer", checkedAt: new Date().toISOString() } } }));
   return <button type="button" onClick={open} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">Tạo phiếu sửa chữa/bảo hành</button>;
 }
 
