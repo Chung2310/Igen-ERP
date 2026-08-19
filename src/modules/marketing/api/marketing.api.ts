@@ -17,6 +17,7 @@ export interface MarketingSettings extends Record<MarketingAutomationType, Marke
   sendTime: string;
   remarketingInactiveDays: number;
   remarketingCooldownDays: number;
+  attachInvoicePdf: boolean;
 }
 
 export interface MarketingChannelStatus {

@@ -1,7 +1,7 @@
 import { CompanyModel } from "../../../model/company.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import type { MarketingAutomationType } from "../permissions";
-import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingChannelAdapter } from "./marketing-channels";
+import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingAttachment, type MarketingChannelAdapter } from "./marketing-channels";
 import { renderMarketingTemplate, type MarketingVariables } from "./marketing-template";
 
 const duplicate = (error: any) => error?.code === 11000;
@@ -16,6 +16,8 @@ export type QueueInput = {
   template: { subject: string; html: string };
   variables: MarketingVariables;
   adapter: MarketingChannelAdapter;
+  /** Tệp gửi kèm; kênh không hỗ trợ đính kèm sẽ bỏ qua. */
+  attachments?: MarketingAttachment[];
 };
 
 export type QueueOutcome = { status: "sent" | "failed" | "skipped" | "duplicate"; reason?: string };
@@ -65,7 +67,8 @@ export async function queueAndSend(input: QueueInput): Promise<QueueOutcome> {
   }
 
   try {
-    const result = await input.adapter.send(input.companyCode, { to: recipient, subject, html });
+    const attachments = input.adapter.supportsAttachments ? input.attachments : undefined;
+    const result = await input.adapter.send(input.companyCode, { to: recipient, subject, html, attachments });
     await MarketingDeliveryModel.updateOne({ _id: row._id }, { $set: { status: "sent", sentAt: new Date(), messageId: result.messageId } });
     return { status: "sent" };
   } catch (error: any) {

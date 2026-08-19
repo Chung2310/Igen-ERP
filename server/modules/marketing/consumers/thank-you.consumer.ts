@@ -1,10 +1,32 @@
 import { registerDomainConsumer } from "../../../integrations/shared/event-bus";
 import { CustomerModel } from "../../customer-management/models/customer.model";
+import { RetailInvoiceModel } from "../../retail/models/retail-invoice.model";
+import { renderRetailInvoicePdf } from "../../retail/services/retail-invoice-pdf.service";
+import { getResolvedRetailSettings } from "../../retail/services/retail-settings.service";
+import type { MarketingAttachment } from "../services/marketing-channels";
 import { companyNameOf, queueAndSend, resolveSendableChannel } from "../services/marketing-delivery.service";
 import { getMarketingSettings } from "../services/marketing-settings.service";
 import { emptyVariables } from "../services/marketing-template";
 
 const money = (value: number) => `${Math.round(Number(value) || 0).toLocaleString("vi-VN")} ₫`;
+
+/**
+ * Hoá đơn PDF của đơn hàng, dựng lại đúng bản in mà quầy đang dùng.
+ * Không có hoá đơn hợp lệ hoặc dựng lỗi thì trả về rỗng — tin cảm ơn vẫn gửi,
+ * mất tệp đính kèm không đáng để chặn cả email.
+ */
+async function invoiceAttachment(companyCode: string, branchId: string, orderId: string): Promise<MarketingAttachment[]> {
+  try {
+    const invoice: any = await RetailInvoiceModel.findOne({ companyCode: companyCode.toUpperCase(), orderId, status: "issued" }).lean();
+    if (!invoice) return [];
+    const settings = await getResolvedRetailSettings({ companyCode: companyCode.toUpperCase(), branchId: String(invoice.branchId || branchId) });
+    const { buffer, filename } = await renderRetailInvoicePdf(invoice, settings.invoicePaperSize);
+    return [{ filename, content: buffer, contentType: "application/pdf" }];
+  } catch (error) {
+    console.error("[marketing.thank-you] không dựng được hoá đơn PDF", orderId, error);
+    return [];
+  }
+}
 
 /**
  * Gửi tin cảm ơn khi đơn bán lẻ được xác nhận (xuất hoá đơn).
@@ -25,11 +47,16 @@ export async function sendThankYouForOrder(event: any): Promise<void> {
   const adapter = await resolveSendableChannel(companyCode, settings.thank_you.channels);
   if (!adapter) return;
 
+  const attachments = settings.attachInvoicePdf && adapter.supportsAttachments
+    ? await invoiceAttachment(companyCode, String(payload.branchId || event?.branchId || ""), String(payload.orderId))
+    : undefined;
+
   const outcome = await queueAndSend({
     companyCode,
     automationType: "thank_you",
     customer,
     adapter,
+    attachments,
     variables: {
       ...emptyVariables(),
       customerName: String(customer.name || payload.customerName || ""),
