@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { retailSettingsRoutes } from "./routes/retail-settings.routes";
-import { retailCustomerTierRoutes } from "./routes/retail-customer-tier.routes";
 import { cashierShiftRoutes } from "./routes/cashier-shift.routes";
 import { retailOrderRoutes } from "./routes/retail-order.routes";
 import { retailInvoiceRoutes } from "./routes/retail-invoice.routes";
@@ -13,7 +12,6 @@ import { retailWarrantyRoutes } from "./routes/retail-warranty.routes";
 export const retailRouter = Router();
 registerRetailFinanceSettlementConsumer();
 retailRouter.use("/retail/settings", retailSettingsRoutes);
-retailRouter.use("/retail/customers", retailCustomerTierRoutes);
 retailRouter.use("/retail/shifts", cashierShiftRoutes);
 retailRouter.use("/retail/orders", retailOrderRoutes);
 retailRouter.use("/retail/invoices", retailInvoiceRoutes);
