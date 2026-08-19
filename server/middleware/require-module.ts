@@ -60,7 +60,7 @@ export function requireModule(key: ModuleKey) {
 
       const state = await getModuleStateForCompany(user.companyCode);
       if (resolveModuleAccess(user, key, state.modules, state.exists, state.businessType)) return next();
-
+      console.log(`[requireModule BLOCKED] Path: ${req.originalUrl}, Key: ${key}, UserCompany: ${user.companyCode}`);
       return res.status(403).json({
         status: "error",
         message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn.",

@@ -63,6 +63,7 @@ const requireSharedModule: RequestHandler = async (req, res, next) => {
       resolveModuleAccess(user, key, state.modules, state.exists, state.businessType),
     );
     if (allowed) return next();
+    console.log(`[requireSharedModule BLOCKED] Path: ${req.originalUrl}, UserCompany: ${user.companyCode}`);
     return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
   } catch (error) {
     return next(error);
