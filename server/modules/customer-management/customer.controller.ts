@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { CustomerError } from "./customer-errors";
 import { searchActiveCustomers, quickCreateCustomer } from "./contracts";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
+import { BillingProfileService } from "./billing-profile.service";
 
 function scopeFromRequest(req: Request): CustomerScope {
   const user = (req as any).user || {};
@@ -47,4 +48,6 @@ export const customerController = {
   update: handle(async (req, res) => res.json({ success: true, data: await CustomerService.update(scopeFromRequest(req), req.params.id, req.body || {}, versionFromRequest(req)) })),
   activate: handle(async (req, res) => res.json({ success: true, data: await CustomerService.setStatus(scopeFromRequest(req), req.params.id, "active", versionFromRequest(req)) })),
   deactivate: handle(async (req, res) => res.json({ success: true, data: await CustomerService.setStatus(scopeFromRequest(req), req.params.id, "inactive", versionFromRequest(req)) })),
+  billingProfiles: handle(async (req, res) => res.json({ success: true, data: await BillingProfileService.list(scopeFromRequest(req), req.params.id) })),
+  createBillingProfile: handle(async (req, res) => res.status(201).json({ success: true, data: await BillingProfileService.create(scopeFromRequest(req), req.params.id, req.body || {}, actorFromRequest(req)) })),
 };

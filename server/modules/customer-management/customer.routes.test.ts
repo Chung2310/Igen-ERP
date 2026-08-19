@@ -15,6 +15,7 @@ test("customer routes expose reads before the parameterized detail route", () =>
   assert.deepEqual(entries.map(({ method, path }) => `${method} ${path}`), [
     "get /", "get /search", "post /", "post /quick", "get /:id", "patch /:id",
     "post /:id/activate", "post /:id/deactivate",
+    "get /:id/billing-profiles", "post /:id/billing-profiles",
   ]);
   assert.ok(entries.every((entry) => entry.handlers === 2), "every route must include one permission guard and one controller");
   assert.ok(entries.findIndex((entry) => entry.path === "/search") < entries.findIndex((entry) => entry.path === "/:id"));

@@ -20,4 +20,12 @@ describe("customerApi", () => {
     expect(apiFetch).toHaveBeenNthCalledWith(1, "/customers/c1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "An", phone: "0901", version: 3 }) }));
     expect(apiFetch).toHaveBeenNthCalledWith(2, "/customers/c1/deactivate", expect.objectContaining({ method: "POST", body: JSON.stringify({ version: 4 }) }));
   });
+
+  it("lists and creates VAT billing profiles", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: [] });
+    await customerApi.billingProfiles("c1", "IGEN");
+    await customerApi.createBillingProfile("c1", { legalName: "Công ty A", taxId: "0312345678", address: "1 Nguyễn Huệ", invoiceEmail: "invoice@a.vn" }, "IGEN");
+    expect(apiFetch).toHaveBeenNthCalledWith(1, "/customers/c1/billing-profiles", { params: { companyCode: "IGEN" } });
+    expect(apiFetch).toHaveBeenNthCalledWith(2, "/customers/c1/billing-profiles", expect.objectContaining({ method: "POST" }));
+  });
 });

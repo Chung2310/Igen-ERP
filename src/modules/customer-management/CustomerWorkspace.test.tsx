@@ -7,7 +7,7 @@ import CustomerWorkspace from "./CustomerWorkspace";
 
 let profile: any;
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: profile }) }));
-vi.mock("./customerApi", () => ({ customerApi: { list: vi.fn(), detail: vi.fn(), create: vi.fn(), update: vi.fn(), setStatus: vi.fn() } }));
+vi.mock("./customerApi", () => ({ customerApi: { list: vi.fn(), detail: vi.fn(), create: vi.fn(), update: vi.fn(), setStatus: vi.fn(), billingProfiles: vi.fn(), createBillingProfile: vi.fn() } }));
 
 const customer = {
   _id: "c1", companyCode: "IGEN", customerCode: "KH-IGEN-000001", type: "regular" as const,
@@ -21,6 +21,7 @@ beforeEach(() => {
   profile = { companyCode: "IGEN", role: "user", permissions: ["customer:manage"] };
   vi.mocked(customerApi.list).mockResolvedValue({ items: [customer], total: 1, page: 1, limit: 20 });
   vi.mocked(customerApi.detail).mockResolvedValue(customer);
+  vi.mocked(customerApi.billingProfiles).mockResolvedValue([]);
 });
 
 describe("CustomerWorkspace", () => {

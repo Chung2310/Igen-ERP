@@ -14,3 +14,5 @@ customerRouter.get("/:id", read, customerController.detail as any);
 customerRouter.patch("/:id", manage, customerController.update as any);
 customerRouter.post("/:id/activate", manage, customerController.activate as any);
 customerRouter.post("/:id/deactivate", manage, customerController.deactivate as any);
+customerRouter.get("/:id/billing-profiles", read, customerController.billingProfiles as any);
+customerRouter.post("/:id/billing-profiles", manage, customerController.createBillingProfile as any);

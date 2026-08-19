@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/lib/apiFetch";
-import type { Customer, CustomerInput, CustomerListQuery, CustomerStatus, PaginatedCustomers } from "./types";
+import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerListQuery, CustomerStatus, PaginatedCustomers } from "./types";
 
 export const customerApi = {
   async list(query: CustomerListQuery = {}) {
@@ -21,5 +21,11 @@ export const customerApi = {
   async setStatus(id: string, status: CustomerStatus, version: number, companyCode?: string) {
     const response = await apiFetch<{ success: true; data: Customer }>(`/customers/${id}/${status === "active" ? "activate" : "deactivate"}`, { method: "POST", params: { companyCode }, body: JSON.stringify({ version }) });
     return response.data;
+  },
+  async billingProfiles(id: string, companyCode?: string) {
+    const response = await apiFetch<{ success: true; data: BillingProfile[] }>(`/customers/${id}/billing-profiles`, { params: { companyCode } }); return response.data;
+  },
+  async createBillingProfile(id: string, input: BillingProfileInput, companyCode?: string) {
+    const response = await apiFetch<{ success: true; data: { profile: BillingProfile; warnings: Array<{ code: string; message: string }> } }>(`/customers/${id}/billing-profiles`, { method: "POST", params: { companyCode }, body: JSON.stringify(input) }); return response.data;
   },
 };
