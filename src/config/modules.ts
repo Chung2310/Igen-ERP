@@ -2,9 +2,9 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance", "marketing"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance" && key !== "marketing") as Exclude<ModuleKey, "retail" | "finance" | "marketing">[];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   hr: "Nhân sự",
@@ -18,6 +18,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   retail: "Bán lẻ & POS",
   repair: "Sửa chữa & bảo hành",
   finance: "Tài chính",
+  marketing: "Marketing tự động",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -32,6 +33,7 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   retail: "BÁN LẺ",
   repair: "SỬA CHỮA & BẢO HÀNH",
   finance: "TÀI CHÍNH",
+  marketing: "MARKETING",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
@@ -46,6 +48,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "ĐỐI TÁC": "partner",
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
+  "MARKETING": "marketing",
 };
 
 export const MODULE_OPTIONS = [
@@ -59,6 +62,7 @@ export const MODULE_OPTIONS = [
   { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
   { key: "repair", label: MODULE_LABELS.repair, moduleKeys: ["repair"] },
   { key: "finance", label: MODULE_LABELS.finance, moduleKeys: ["finance"] },
+  { key: "marketing", label: MODULE_LABELS.marketing, moduleKeys: ["marketing"] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; moduleKeys: readonly ModuleKey[] }>;
 
 /**
@@ -78,6 +82,7 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "BÁN LẺ": ["retail:read", "retail:manage"],
   "TÀI CHÍNH": ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"],
   "TRÒ CHUYỆN": ["chat:read"],
+  "MARKETING": ["marketing:read", "marketing:manage"],
 };
 
 /**

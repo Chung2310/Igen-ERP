@@ -562,6 +562,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "QUẢN LÝ KHÁCH HÀNG": { title: "Khách hàng", icon: ContactRound },
                       "BÁN LẺ": { title: "Bán lẻ", icon: ShoppingCart },
                       "TÀI CHÍNH": { title: "Tài chính", icon: Landmark },
+                      "MARKETING": { title: "Marketing", icon: Megaphone },
                       "QUẢN LÝ TÀI NGUYÊN": { title: "Tài nguyên", icon: FolderOpen },
                       "TRÒ CHUYỆN": { title: "Trò chuyện", icon: MessageSquare },
                       "QUẢN TRỊ USER": { title: "Thành viên", icon: Shield },
@@ -578,6 +579,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "QUẢN LÝ KHÁCH HÀNG",
                       "BÁN LẺ",
                       "TÀI CHÍNH",
+                      "MARKETING",
                       "QUẢN LÝ TÀI NGUYÊN",
                       "TRÒ CHUYỆN",
                       ...((userProfile?.role === "superadmin" || userProfile?.role === "admin")

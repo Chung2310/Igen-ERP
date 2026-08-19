@@ -16,6 +16,7 @@ import {
   BriefcaseBusiness,
   ShoppingCart,
   Landmark,
+  Megaphone,
   Wrench,
   ContactRound,
 } from "lucide-react";
@@ -108,6 +109,12 @@ const baseMenuItems: MenuItem[] = [
     label: "TÀI CHÍNH",
     title: "Tài chính",
     icon: Landmark,
+    group: "operations",
+  },
+  {
+    label: "MARKETING",
+    title: "Marketing tự động",
+    icon: Megaphone,
     group: "operations",
   },
   {
