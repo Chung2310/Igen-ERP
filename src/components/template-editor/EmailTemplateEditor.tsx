@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, ImagePlus, Pencil } from "lucide-react";
+import { Eye, ImagePlus, Pencil, Bold, Italic, Underline, List, ListOrdered, Eraser } from "lucide-react";
 import type { TemplateVariableConfig } from "./templateEditorTypes";
 import { fillSampleValues } from "./templateTokenCodec";
 import TemplateVariablePalette, { TEMPLATE_VARIABLE_MIME } from "./TemplateVariablePalette";
@@ -44,17 +44,57 @@ const rawToEditorHtml = (raw: string, variables: TemplateVariableConfig[]) => {
   return pieces.join("");
 };
 
-const serializeNode = (node: ChildNode): string => {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
-  if (!(node instanceof HTMLElement)) return "";
-  if (node.dataset.token) return `{{${node.dataset.token}}}`;
-  if (node.tagName === "BR") return "\n";
-  const text = Array.from(node.childNodes).map(serializeNode).join("");
-  return /^(DIV|P)$/.test(node.tagName) ? `${text}\n` : text;
+const rawToHtmlEditorHtml = (raw: string, variables: TemplateVariableConfig[]) => {
+  const labelsByKey = new Map(variables.map((variable) => [variable.key, variable.label]));
+  return String(raw || "").replace(/{{\s*([a-zA-Z]+)\s*}}/g, (match, key: string) => {
+    const label = labelsByKey.get(key) || key;
+    return `<span data-token="${escapeHtml(key)}" contenteditable="false" class="mx-0.5 inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700">[${escapeHtml(label)}]</span>`;
+  });
 };
 
-const serializeEditor = (element: HTMLElement | null) =>
-  String(element ? Array.from(element.childNodes).map(serializeNode).join("") : "").replace(/\n+$/, "");
+const serializeHtmlNode = (node: ChildNode): string => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeHtml(node.textContent || "");
+  }
+  if (!(node instanceof HTMLElement)) return "";
+  if (node.dataset.token) {
+    return `{{${node.dataset.token}}}`;
+  }
+
+  const tagName = node.tagName.toLowerCase();
+  const childrenHtml = Array.from(node.childNodes).map(serializeHtmlNode).join("");
+
+  if (tagName === "br") {
+    return "<br />";
+  }
+
+  if (["p", "div", "span", "strong", "b", "em", "i", "u", "ul", "ol", "li", "a", "h1", "h2", "h3", "h4", "h5", "h6"].includes(tagName)) {
+    if (tagName === "a") {
+      const href = node.getAttribute("href") || "";
+      return `<a href="${escapeHtml(href)}">${childrenHtml}</a>`;
+    }
+    return `<${tagName}>${childrenHtml}</${tagName}>`;
+  }
+
+  return childrenHtml;
+};
+
+const serializeEditor = (element: HTMLElement | null, isSubject: boolean) => {
+  if (!element) return "";
+  if (isSubject) {
+    const serializeSubjectNode = (node: ChildNode): string => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+      if (!(node instanceof HTMLElement)) return "";
+      if (node.dataset.token) return `{{${node.dataset.token}}}`;
+      if (node.tagName === "BR") return "\n";
+      const text = Array.from(node.childNodes).map(serializeSubjectNode).join("");
+      return /^(DIV|P)$/.test(node.tagName) ? `${text}\n` : text;
+    };
+    return String(Array.from(element.childNodes).map(serializeSubjectNode).join("")).replace(/\n+$/, "");
+  } else {
+    return String(Array.from(element.childNodes).map(serializeHtmlNode).join("")).trim();
+  }
+};
 
 export default function EmailTemplateEditor({
   subject,
@@ -81,7 +121,7 @@ export default function EmailTemplateEditor({
 
   React.useEffect(() => {
     if (htmlRef.current && document.activeElement !== htmlRef.current) {
-      htmlRef.current.innerHTML = rawToEditorHtml(html, variables);
+      htmlRef.current.innerHTML = rawToHtmlEditorHtml(html, variables);
     }
   }, [html, variables]);
 
@@ -96,7 +136,7 @@ export default function EmailTemplateEditor({
   };
 
   const emit = (name: "subject" | "html", element: HTMLDivElement | null) => {
-    const raw = serializeEditor(element);
+    const raw = serializeEditor(element, name === "subject");
     onChange(name === "subject" ? { subject: raw } : { html: raw });
   };
 
@@ -121,11 +161,48 @@ export default function EmailTemplateEditor({
     if (disabled) return;
     const editor = name === "subject" ? subjectRef.current : htmlRef.current;
     if (!editor) return;
-    const currentRaw = serializeEditor(editor);
-    const nextRaw = `${currentRaw}{{${key}}}`;
-    editor.innerHTML = rawToEditorHtml(nextRaw, variables);
-    moveCaretToEnd(editor);
-    onChange(name === "subject" ? { subject: nextRaw } : { html: nextRaw });
+
+    editor.focus();
+    const label = variables.find(v => v.key === key)?.label || key;
+    const tokenHtml = `<span data-token="${escapeHtml(key)}" contenteditable="false" class="mx-0.5 inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700">[${escapeHtml(label)}]</span>`;
+
+    const selection = window.getSelection();
+    let inserted = false;
+
+    if (selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0);
+      const isAtStart = range.startOffset === 0 && (
+        range.startContainer === editor ||
+        (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.previousSibling === null)
+      );
+
+      if (!isAtStart || editor.textContent?.trim() === "") {
+        range.deleteContents();
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = tokenHtml;
+        const node = tempDiv.firstChild;
+        if (node) {
+          range.insertNode(node);
+          range.setStartAfter(node);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          inserted = true;
+        }
+      }
+    }
+
+    if (!inserted) {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = tokenHtml;
+      const node = tempDiv.firstChild;
+      if (node) {
+        editor.appendChild(node);
+        moveCaretToEnd(editor);
+      }
+    }
+
+    emit(name, editor);
   };
 
   const handleDrop = (name: "subject" | "html", event: React.DragEvent<HTMLDivElement>) => {
@@ -149,6 +226,28 @@ export default function EmailTemplateEditor({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handlePaste = (name: "subject" | "html", event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const text = event.clipboardData.getData("text/plain");
+    const editor = name === "subject" ? subjectRef.current : htmlRef.current;
+    if (!editor) return;
+
+    if (name === "subject") {
+      const cleanText = text.replace(/[\r\n]+/g, " ");
+      document.execCommand("insertText", false, cleanText);
+    } else {
+      const cleanHtml = escapeHtml(text).replace(/\r?\n/g, "<br />");
+      document.execCommand("insertHTML", false, cleanHtml);
+    }
+  };
+
+  const execFormat = (command: string, value: string = "") => {
+    if (disabled || !htmlRef.current) return;
+    htmlRef.current.focus();
+    document.execCommand(command, false, value);
+    emit("html", htmlRef.current);
   };
 
   return (
@@ -193,32 +292,94 @@ export default function EmailTemplateEditor({
               onInput={() => emit("subject", subjectRef.current)}
               onDrop={(event) => handleDrop("subject", event)}
               onDragOver={(event) => event.preventDefault()}
+              onPaste={(event) => handlePaste("subject", event)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") event.preventDefault();
               }}
-              className="mt-1 min-h-[42px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal"
+              className="mt-1 min-h-[42px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal bg-white"
             />
           </label>
 
-          <label className="mt-2 block text-xs font-semibold text-slate-600">
-            {bodyLabel}
-            <div
-              ref={htmlRef}
-              role="textbox"
-              aria-label={bodyLabel}
-              aria-multiline="true"
-              contentEditable={!disabled}
-              suppressContentEditableWarning
-              onFocus={() => {
-                setTarget("html");
-                if (htmlRef.current) moveCaretToEnd(htmlRef.current);
-              }}
-              onInput={() => emit("html", htmlRef.current)}
-              onDrop={(event) => handleDrop("html", event)}
-              onDragOver={(event) => event.preventDefault()}
-              className="mt-1 min-h-[140px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal"
-            />
-          </label>
+          <div className="mt-2">
+            <span className="block text-xs font-semibold text-slate-600 mb-1">{bodyLabel}</span>
+            <div className="flex flex-col rounded-lg border border-slate-200 overflow-hidden bg-white">
+              <div className="flex items-center gap-1 border-b border-slate-100 bg-slate-50 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => execFormat("bold")}
+                  disabled={disabled}
+                  title="Đậm"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => execFormat("italic")}
+                  disabled={disabled}
+                  title="Nghiêng"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => execFormat("underline")}
+                  disabled={disabled}
+                  title="Gạch chân"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <Underline className="h-3.5 w-3.5" />
+                </button>
+                <div className="mx-1 h-4 w-[1px] bg-slate-200" />
+                <button
+                  type="button"
+                  onClick={() => execFormat("insertUnorderedList")}
+                  disabled={disabled}
+                  title="Danh sách dấu đầu dòng"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => execFormat("insertOrderedList")}
+                  disabled={disabled}
+                  title="Danh sách số"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                </button>
+                <div className="mx-1 h-4 w-[1px] bg-slate-200" />
+                <button
+                  type="button"
+                  onClick={() => execFormat("removeFormat")}
+                  disabled={disabled}
+                  title="Xoá định dạng"
+                  className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div
+                ref={htmlRef}
+                role="textbox"
+                aria-label={bodyLabel}
+                aria-multiline="true"
+                contentEditable={!disabled}
+                suppressContentEditableWarning
+                onFocus={() => {
+                  setTarget("html");
+                  if (htmlRef.current) moveCaretToEnd(htmlRef.current);
+                }}
+                onInput={() => emit("html", htmlRef.current)}
+                onDrop={(event) => handleDrop("html", event)}
+                onDragOver={(event) => event.preventDefault()}
+                onPaste={(event) => handlePaste("html", event)}
+                className="min-h-[140px] w-full px-3 py-2 text-sm font-normal focus:outline-none bg-white prose-sm"
+              />
+            </div>
+          </div>
 
           {onUploadImage ? (
             <button
