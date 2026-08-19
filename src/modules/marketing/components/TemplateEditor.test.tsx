@@ -4,7 +4,11 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TemplateEditor, { VARIABLES_BY_TYPE, fillSampleValues } from "./TemplateEditor";
 import { getVariablesForType, MARKETING_VARIABLE_REGISTRY } from "./marketingVariableRegistry";
-import { fillSampleValues as fillSharedSampleValues, toFriendlyTokens as toSharedFriendlyTokens, toRawTokens as toSharedRawTokens } from "../../../components/template-editor/templateTokenCodec";
+import {
+  fillSampleValues as fillSharedSampleValues,
+  toFriendlyTokens as toSharedFriendlyTokens,
+  toRawTokens as toSharedRawTokens,
+} from "../../../components/template-editor/templateTokenCodec";
 import { toFriendlyTokens, toRawTokens } from "./marketingTemplateTokenCodec";
 
 afterEach(cleanup);
@@ -19,6 +23,25 @@ function withDataTransfer() {
 }
 
 describe("TemplateEditor", () => {
+  it("keeps the marketing editor labels and default insert target intact", () => {
+    const onChange = vi.fn();
+    render(
+      <TemplateEditor
+        automationType="birthday"
+        subject="Chúc mừng {{customerName}}"
+        html="Xin chào {{companyName}}"
+        disabled={false}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Tiêu đề" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tên khách hàng" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tên khách hàng" }));
+    expect(onChange).toHaveBeenCalledWith({ html: expect.stringContaining("{{customerName}}") });
+  });
+
   it("hiển thị tên tiếng Việt thay vì cú pháp biến", () => {
     render(<TemplateEditor automationType="thank_you" subject="Cảm ơn" html="<p>Xin chào</p>" disabled={false} onChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Tên khách hàng" })).toBeTruthy();
@@ -68,6 +91,17 @@ describe("TemplateEditor", () => {
     fireEvent.dragStart(pill, { dataTransfer });
     fireEvent.drop(editor, { dataTransfer });
     expect(onChange).toHaveBeenCalledWith({ html: "Đơn {{orderCode}}" });
+  });
+
+  it("accepts the shared template-variable drag payload", () => {
+    const onChange = vi.fn();
+    const dataTransfer = withDataTransfer();
+    dataTransfer.setData("text/template-variable", "customerName");
+
+    render(<TemplateEditor automationType="birthday" subject="" html="Xin chào " disabled={false} onChange={onChange} />);
+    fireEvent.drop(screen.getByRole("textbox", { name: "Nội dung" }), { dataTransfer });
+
+    expect(onChange).toHaveBeenCalledWith({ html: "Xin chào {{customerName}}" });
   });
 
   it("xem trước thay biến bằng dữ liệu mẫu", () => {
