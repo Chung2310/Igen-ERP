@@ -13,6 +13,14 @@ type CustomerForm = {
   notes: string;
 };
 
+type VatForm = {
+  legalName: string;
+  taxId: string;
+  address: string;
+  invoiceEmail: string;
+  contactName: string;
+};
+
 type Props = {
   scope: RetailScope;
   initialPhone: string;
@@ -28,6 +36,14 @@ const labels: Record<Exclude<keyof CustomerForm, "type">, string> = {
   notes: "Ghi chú",
 };
 
+const vatLabels: Record<keyof VatForm, string> = {
+  legalName: "Tên pháp nhân",
+  taxId: "Mã số thuế",
+  address: "Địa chỉ hóa đơn",
+  invoiceEmail: "Email nhận hóa đơn",
+  contactName: "Người liên hệ",
+};
+
 export default function CreateCustomerDialog({ scope, initialPhone, onClose, onCreated }: Props) {
   const [form, setForm] = React.useState<CustomerForm>({
     name: "",
@@ -37,6 +53,13 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     notes: "",
     type: "regular",
   });
+  const [vatForm, setVatForm] = React.useState<VatForm>({
+    legalName: "",
+    taxId: "",
+    address: "",
+    invoiceEmail: "",
+    contactName: "",
+  });
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
 
@@ -45,14 +68,31 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     const input = Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value?.trim() || ""]),
     ) as CustomerForm;
+    const normalizedVat = Object.fromEntries(
+      Object.entries(vatForm).map(([key, value]) => [key, value?.trim() || ""]),
+    ) as VatForm;
     if (!input.name) {
       setError("Vui lòng nhập tên khách hàng.");
+      return;
+    }
+    if (input.type === "vat" && (!normalizedVat.legalName || !normalizedVat.taxId || !normalizedVat.address || !normalizedVat.invoiceEmail)) {
+      setError("Vui lòng nhập đầy đủ thông tin xuất VAT.");
       return;
     }
     setSaving(true);
     setError("");
     try {
       const created = await customerApi.create(input, scope.companyCode);
+      if (input.type === "vat") {
+        await customerApi.createBillingProfile(created._id, {
+          legalName: normalizedVat.legalName,
+          taxId: normalizedVat.taxId,
+          address: normalizedVat.address,
+          invoiceEmail: normalizedVat.invoiceEmail,
+          ...(normalizedVat.contactName ? { contactName: normalizedVat.contactName } : {}),
+          isDefault: true,
+        }, scope.companyCode);
+      }
       onCreated({ _id: created._id, customerCode: created.customerCode, companyCode: created.companyCode, type: created.type, name: created.name, phone: created.phone, email: created.email, address: created.address, notes: created.notes });
     } catch (cause) {
       setError(getApiErrorMessage(cause, "Không tạo được khách hàng."));
@@ -103,6 +143,25 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
             />
           </label>
         ))}
+        {form.type === "vat" && (
+          <div className="space-y-4 rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Thông tin xuất VAT</h3>
+              <p className="text-xs text-slate-500">Hồ sơ VAT mặc định sẽ được tạo cùng khách hàng.</p>
+            </div>
+            {(["legalName", "taxId", "address", "invoiceEmail", "contactName"] as Array<keyof VatForm>).map((key) => (
+              <label key={key} className="block text-sm font-semibold">
+                <span>{vatLabels[key]}{key !== "contactName" ? " *" : ""}</span>
+                <input
+                  aria-label={vatLabels[key]}
+                  value={vatForm[key]}
+                  onChange={(event) => setVatForm((value) => ({ ...value, [key]: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+                />
+              </label>
+            ))}
+          </div>
+        )}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" className="rounded-xl border px-4 py-2.5 font-semibold" onClick={onClose}>

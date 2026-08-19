@@ -7,7 +7,7 @@ import { customerApi } from "../../../customer-management/customerApi";
 import CreateCustomerDialog from "./CreateCustomerDialog";
 
 vi.mock("../../../customer-management/customerApi", () => ({
-  customerApi: { create: vi.fn() },
+  customerApi: { create: vi.fn(), createBillingProfile: vi.fn() },
 }));
 
 const scope = { companyCode: "ACME", branchId: "B1" };
@@ -28,6 +28,21 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(customerApi.create).mockResolvedValue(created as any);
+  vi.mocked(customerApi.createBillingProfile).mockResolvedValue({
+    profile: {
+      _id: "bp1",
+      customerId: "c2",
+      legalName: "Công ty A",
+      taxId: "0312345678",
+      address: "1 Nguyễn Huệ",
+      invoiceEmail: "ketoan@congtya.vn",
+      contactName: "An",
+      isDefault: true,
+      status: "active",
+      version: 1,
+    },
+    warnings: [],
+  } as any);
 });
 
 describe("CreateCustomerDialog", () => {
@@ -58,10 +73,27 @@ describe("CreateCustomerDialog", () => {
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
 
     await userEvent.selectOptions(screen.getAllByRole("combobox")[0], "vat");
+    expect(screen.getByRole("textbox", { name: "Tên pháp nhân" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Mã số thuế" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Địa chỉ hóa đơn" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Email nhận hóa đơn" })).toBeTruthy();
     await userEvent.type(screen.getByRole("textbox", { name: "Tên khách hàng" }), "Cong ty A");
+    await userEvent.type(screen.getByRole("textbox", { name: "Tên pháp nhân" }), " Công ty A ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Mã số thuế" }), " 0312345678 ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Địa chỉ hóa đơn" }), " 1 Nguyễn Huệ ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Email nhận hóa đơn" }), " ketoan@congtya.vn ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Người liên hệ" }), " An ");
     await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
 
     await waitFor(() => expect(customerApi.create).toHaveBeenCalledWith(expect.objectContaining({ type: "vat" }), "ACME"));
+    await waitFor(() => expect(customerApi.createBillingProfile).toHaveBeenCalledWith("c2", {
+      legalName: "Công ty A",
+      taxId: "0312345678",
+      address: "1 Nguyễn Huệ",
+      invoiceEmail: "ketoan@congtya.vn",
+      contactName: "An",
+      isDefault: true,
+    }, "ACME"));
   });
 
   it("rejects a whitespace-only name without calling the API", async () => {
