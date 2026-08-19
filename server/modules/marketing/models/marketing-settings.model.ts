@@ -17,6 +17,8 @@ const MarketingSettingsSchema = new Schema({
   birthday: { type: AutomationSchema, default: () => ({}) },
   holiday: { type: AutomationSchema, default: () => ({}) },
   remarketing: { type: AutomationSchema, default: () => ({}) },
+  /** Tin cảm ơn: gửi kèm hoá đơn PDF của đơn hàng (chỉ áp dụng kênh email). */
+  attachInvoicePdf: { type: Boolean, default: false },
   /** Remarketing: khách không mua trong bao nhiêu ngày thì hỏi thăm. */
   remarketingInactiveDays: { type: Number, default: 90, min: 7, max: 3650 },
   /** Khoảng cách tối thiểu giữa 2 lần remarketing cho cùng một khách. */

@@ -9,6 +9,7 @@ export type ResolvedMarketingSettings = {
   sendTime: string;
   remarketingInactiveDays: number;
   remarketingCooldownDays: number;
+  attachInvoicePdf: boolean;
 } & Record<MarketingAutomationType, MarketingAutomationConfig>;
 
 function withDefaults(type: MarketingAutomationType, raw: any): MarketingAutomationConfig {
@@ -28,6 +29,7 @@ export function resolveMarketingSettings(companyCode: string, doc: any): Resolve
     sendTime: /^\d{2}:\d{2}$/.test(String(doc?.sendTime)) ? String(doc.sendTime) : "08:00",
     remarketingInactiveDays: Number(doc?.remarketingInactiveDays) > 0 ? Number(doc.remarketingInactiveDays) : 90,
     remarketingCooldownDays: Number(doc?.remarketingCooldownDays) > 0 ? Number(doc.remarketingCooldownDays) : 180,
+    attachInvoicePdf: Boolean(doc?.attachInvoicePdf),
   };
   for (const type of MARKETING_AUTOMATION_TYPES) base[type] = withDefaults(type, doc?.[type]);
   return base as ResolvedMarketingSettings;
@@ -54,6 +56,7 @@ export async function saveMarketingSettings(companyCode: string, input: any, act
   }
   if (input?.remarketingInactiveDays !== undefined) update.remarketingInactiveDays = Math.max(7, Number(input.remarketingInactiveDays) || 90);
   if (input?.remarketingCooldownDays !== undefined) update.remarketingCooldownDays = Math.max(7, Number(input.remarketingCooldownDays) || 180);
+  if (input?.attachInvoicePdf !== undefined) update.attachInvoicePdf = Boolean(input.attachInvoicePdf);
   for (const type of MARKETING_AUTOMATION_TYPES) {
     const config = input?.[type];
     if (!config) continue;

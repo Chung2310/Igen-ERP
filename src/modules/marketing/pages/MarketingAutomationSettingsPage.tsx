@@ -190,6 +190,24 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
                 })}
               </div>
 
+              {automation.type === "thank_you" && (
+                <label className="mt-3 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={settings.attachInvoicePdf}
+                    disabled={!canManage}
+                    onChange={(event) => setSettings({ ...settings, attachInvoicePdf: event.target.checked })}
+                    className="mt-0.5 h-4 w-4 accent-cyan-600"
+                  />
+                  <span>
+                    Gửi kèm hoá đơn PDF
+                    <span className="block text-xs font-normal text-slate-500">
+                      Dùng đúng bản in hoá đơn của chi nhánh. Chỉ áp dụng cho kênh email; đơn chưa xuất hoá đơn thì tin vẫn gửi nhưng không có tệp đính kèm.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {automation.type === "remarketing" && (
                 <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
                   <label className="font-semibold">

@@ -26,7 +26,7 @@ export const companyEmailService = {
     await current.save();
     return this.getSmtp(companyCode);
   },
-  async send(companyCode: string, message: { to: string; subject: string; html?: string; text?: string }) {
+  async send(companyCode: string, message: { to: string; subject: string; html?: string; text?: string; attachments?: Array<{ filename: string; content: Buffer; contentType?: string }> }) {
     const company: any = await CompanyModel.findOne({ code: companyCode }).select("+smtpConfig.passwordEncrypted").lean();
     const smtp = company?.smtpConfig;
     if (!smtp?.passwordEncrypted) throw new Error("SMTP chua duoc cau hinh");
