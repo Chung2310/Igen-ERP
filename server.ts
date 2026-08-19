@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
 import { startCelebrationScheduler } from "./server/service/celebration-scheduler.service";
+import { startMarketingScheduler } from "./server/modules/marketing/services/marketing-scan.service";
 import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
 import { startRetailDebtReminderScheduler } from "./server/modules/retail/services/retail-debt-reminder.service";
 import { startRetailReminderRetryScheduler } from "./server/modules/retail/services/retail-reminder-retry.service";
@@ -224,6 +225,7 @@ async function startServer() {
   await connectDB();
   startDomainEventWorker();
   startCelebrationScheduler();
+  startMarketingScheduler();
   startResourceRetentionScheduler();
   startRetailDebtReminderScheduler();
   startRetailReminderRetryScheduler();

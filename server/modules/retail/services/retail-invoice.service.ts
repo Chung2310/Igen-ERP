@@ -18,6 +18,8 @@ export function buildRetailInvoiceSnapshot(order: any, actor: any, store: Retail
     store,
     customerName: order.customerName || "Khách lẻ",
     customerPhone: order.customerPhone,
+    customerSnapshot: order.customerSnapshot,
+    billingSnapshot: order.billingSnapshot,
     cashierName: String(actor.displayName || actor.email || ""),
     businessDate: order.businessDate,
     items: order.items.map(({ unitCost: _unitCost, category: _category, note: _note, ...item }: any) => item),

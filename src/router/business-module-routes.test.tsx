@@ -20,6 +20,14 @@ describe("business module routing", () => {
     expect(route?.canAccess?.({ role: "user", permissions: [] } as any)).toBe(false);
   });
 
+  it("registers customer and grants access to either customer permission", () => {
+    const route = APP_ROUTES.find((item) => item.tab === "QUẢN LÝ KHÁCH HÀNG");
+    expect(route).toBeDefined();
+    expect(route?.canAccess?.({ role: "user", permissions: ["customer:read"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: ["customer:manage"] } as any)).toBe(true);
+    expect(route?.canAccess?.({ role: "user", permissions: [] } as any)).toBe(false);
+  });
+
   it("grants finance route access to either finance permission", () => {
     const route = APP_ROUTES.find((item) => item.tab === "TÀI CHÍNH");
     expect(route).toBeDefined();

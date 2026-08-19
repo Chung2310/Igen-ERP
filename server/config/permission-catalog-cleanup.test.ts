@@ -9,11 +9,11 @@ import {
 } from "./permission-catalog";
 
 const EXPECTED_FEATURES = [
-  "access", "chat", "dashboard", "finance-receivable", "finance-wallet", "hr",
+  "access", "chat", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
   "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
-  "labor-partner-settlement", "payroll-payment", "payroll-period", "payroll-policy",
-  "people", "recruitment", "relationship", "resource", "retail", "settings",
-  "timekeeping", "work",
+  "labor-partner-settlement", "marketing", "payroll-payment", "payroll-period", "payroll-policy",
+  "people", "recruitment", "relationship", "repair", "resource", "retail",
+  "settings", "timekeeping", "work",
 ];
 
 describe("permission registry", () => {
@@ -29,6 +29,8 @@ it("contains exactly one read/manage pair for every approved feature", () => {
 });
 
 it("recognizes only registered read/manage codes", () => {
+  expect(isPermissionCode("customer:read")).toBe(true);
+  expect(isPermissionCode("customer:manage")).toBe(true);
   expect(isPermissionCode("payroll-period:read")).toBe(true);
   expect(isPermissionCode("payroll-period:manage")).toBe(true);
   expect(isPermissionCode("payroll-payment:manage")).toBe(true);

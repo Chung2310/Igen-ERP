@@ -9,6 +9,7 @@ import {
   paymentStatusFor,
   requireRetailPaymentCustomer,
   serializeRetailOrder,
+  buildRetailCustomerSnapshots,
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
 import { readFileSync } from "node:fs";
@@ -18,6 +19,14 @@ test("retail payment confirmation requires a selected customer", () => {
   assert.throws(() => requireRetailPaymentCustomer(undefined), new Error(error));
   assert.throws(() => requireRetailPaymentCustomer("   "), new Error(error));
   assert.doesNotThrow(() => requireRetailPaymentCustomer(" customer-1 "));
+});
+
+test("retail order snapshots customer and optional VAT profile", () => {
+  assert.deepEqual(buildRetailCustomerSnapshots({ customerId: "c1", customerCode: "KH-1", name: "An", phone: "0901", type: "vat", status: "active" }, { profileId: "p1", legalName: "Công ty A", taxId: "0312345678", address: "1 Nguyễn Huệ", invoiceEmail: "a@a.vn" }), {
+    customerId: "c1", customerName: "An", customerPhone: "0901", billingProfileId: "p1",
+    customerSnapshot: { customerId: "c1", customerCode: "KH-1", name: "An", phone: "0901" },
+    billingSnapshot: { legalName: "Công ty A", taxId: "0312345678", address: "1 Nguyễn Huệ", invoiceEmail: "a@a.vn", contactName: undefined },
+  });
 });
 
 test("order debt ledger inputs use deterministic keys for the same transaction", () => {

@@ -7,13 +7,15 @@ import { SerialEventModel } from "../../inventory/serials/serial-event.model";
 import { computeWarrantyEnd } from "../../inventory/serials/warranty-clock";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { getCustomerContact } from "../../customer-management/contracts";
 
 export async function lookupWarranty(scope: RetailScope, code: string, at = new Date()) {
   const normalized = normalizeSerialNumber(code);
   const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalizeInternalBarcode(code) }] }).lean();
   if (!unit) return { found: false as const };
   const variant: any = unit.variantId ? await ProductVariantModel.findOne({ _id: unit.variantId, companyCode: scope.companyCode }).select("productId warrantyMonths").lean() : null; const product: any = await ProductCatalogModel.findOne({ _id: unit.productId || variant?.productId, companyCode: scope.companyCode }).select("warrantyMonths").lean(); const promisedMonths = resolveCustomerWarrantyMonths(product?.warrantyMonths, variant?.warrantyMonths); const customerWarranty = effectiveCustomerWarranty(unit, promisedMonths); const coverage = evaluateCoverage({ ...unit, customerWarranty }, at); const promisedEnd = promisedMonths ? computeWarrantyEnd(unit.soldAt || at, promisedMonths) : undefined; const gapMonths = promisedEnd && unit.supplierWarranty?.endAt && unit.supplierWarranty.endAt < promisedEnd ? Math.max(0, Math.ceil((promisedEnd.getTime() - new Date(unit.supplierWarranty.endAt).getTime()) / (30 * 86_400_000))) : 0;
-  return { found: true as const, serialNumber: unit.serialNumber, internalBarcode: unit.internalBarcode, product: { productId: unit.productId, variantId: unit.variantId, sku: unit.sku, name: unit.productName }, sold: unit.soldAt ? { at: unit.soldAt, orderId: unit.soldOrderId, orderCode: unit.soldOrderCode, branchId: unit.soldBranchId, customerId: unit.customerId } : undefined, customerWarranty: coverage.customer, supplierWarranty: { ...coverage.supplier, supplierId: unit.supplierWarranty?.supplierId, supplierName: unit.supplierWarranty?.supplierName }, costBearer: coverage.costBearer, gapMonths, status: unit.status };
+  const customer = unit.customerId ? await getCustomerContact({ companyCode: scope.companyCode }, String(unit.customerId), { includeInactive: true }) : null;
+  return { found: true as const, serialNumber: unit.serialNumber, internalBarcode: unit.internalBarcode, product: { productId: unit.productId, variantId: unit.variantId, sku: unit.sku, name: unit.productName }, sold: unit.soldAt ? { at: unit.soldAt, orderId: unit.soldOrderId, orderCode: unit.soldOrderCode, branchId: unit.soldBranchId, customerId: unit.customerId, customerName: customer?.name, customerPhone: customer?.phone } : undefined, customerWarranty: coverage.customer, supplierWarranty: { ...coverage.supplier, supplierId: unit.supplierWarranty?.supplierId, supplierName: unit.supplierWarranty?.supplierName }, costBearer: coverage.costBearer, gapMonths, status: unit.status };
 }
 
 export async function listExpiringWarranty(scope: RetailScope, kind: "supplier" | "customer", days = 30, at = new Date()) {

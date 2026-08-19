@@ -70,6 +70,14 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../modules/worker-management/WorkerWorkspace")),
   },
   {
+    tab: "QUẢN LÝ KHÁCH HÀNG",
+    component: lazy(() => import("../modules/customer-management/CustomerManagementTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "customer:read" || permission === "customer:manage")),
+  },
+  {
     tab: "BÁN LẺ",
     component: lazy(() => import("../modules/retail/RetailTab")),
     canAccess: (userProfile) =>
@@ -84,6 +92,17 @@ export const APP_ROUTES: AppRoute[] = [
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"].includes(permission))),
+  },
+  {
+    tab: "MARKETING",
+    component: lazy(() => import("../modules/marketing/MarketingTab")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" ||
+      userProfile.role === "admin" ||
+      Boolean(
+        userProfile.permissions?.includes("*") ||
+          userProfile.permissions?.some((permission) => permission === "marketing:read" || permission === "marketing:manage"),
+      ),
   },
   {
     tab: "PHÂN TÍCH & BÁO CÁO",

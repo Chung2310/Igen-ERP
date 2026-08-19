@@ -1,5 +1,6 @@
 import React from "react";
-import { Camera, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { Camera, Check, ChevronDown, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { customerApi } from "../../customer-management/customerApi";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
 import RetailShiftWorkspace from "./RetailShiftWorkspace";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
@@ -61,6 +62,7 @@ export default function RetailPosPage() {
   const [q, setQ] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [paying, setPaying] = React.useState(false);
+  const [billingProfiles, setBillingProfiles] = React.useState<any[]>([]);
   const [scanning, setScanning] = React.useState(false);
   const [completed, setCompleted] = React.useState<RetailOrderResult | null>(
     null,
@@ -157,6 +159,24 @@ export default function RetailPosPage() {
     );
     return () => window.clearTimeout(timer);
   }, [scope, cart, show]);
+  React.useEffect(() => {
+    if (!scope || !cart.customer?._id) {
+      setBillingProfiles([]);
+      dispatch({ type: "billingProfile", billingProfile: null });
+      return;
+    }
+    void customerApi.billingProfiles(cart.customer._id, scope.companyCode)
+      .then((items) => {
+        const active = items.filter((item) => item.status === "active");
+        setBillingProfiles(active);
+        const selected = active.find((item) => item._id === cart.billingProfile?._id) || active.find((item) => item.isDefault) || null;
+        dispatch({ type: "billingProfile", billingProfile: selected });
+      })
+      .catch(() => {
+        setBillingProfiles([]);
+        dispatch({ type: "billingProfile", billingProfile: null });
+      });
+  }, [scope?.companyCode, cart.customer?._id]);
   React.useEffect(() => { refreshOffline(); }, [refreshOffline]);
 
   if (!scope) return <Notice />;
@@ -288,11 +308,25 @@ export default function RetailPosPage() {
       customer: value.customerId
         ? {
             _id: value.customerId,
-            customerCode: value.customerId,
+            customerCode: value.customerSnapshot?.customerCode || value.customerId,
             companyCode: scope.companyCode,
-            originBranchId: scope.branchId,
+            type: value.billingProfileId ? "vat" : "regular",
             name: value.customerName || "Khách hàng",
             phone: value.customerPhone,
+          }
+        : null,
+      billingProfile: value.billingProfileId && value.billingSnapshot
+        ? {
+            _id: value.billingProfileId,
+            customerId: value.customerId || "",
+            legalName: value.billingSnapshot.legalName,
+            taxId: value.billingSnapshot.taxId,
+            address: value.billingSnapshot.address,
+            invoiceEmail: value.billingSnapshot.invoiceEmail,
+            contactName: value.billingSnapshot.contactName,
+            isDefault: false,
+            status: "active",
+            version: 0,
           }
         : null,
       orderDiscount: { type: "amount", value: value.orderDiscount },
@@ -438,6 +472,7 @@ export default function RetailPosPage() {
       <CartPanel
         scope={scope}
         cart={cart}
+        billingProfiles={billingProfiles}
         busy={busy}
         canPay={Boolean(shift)}
         dispatch={dispatch}
@@ -472,6 +507,130 @@ export default function RetailPosPage() {
   );
 }
 
+type ProductGroup = { key: string; name: string; variants: RetailProduct[] };
+
+function groupProductsBySku(products: RetailProduct[]): ProductGroup[] {
+  const groups = new Map<string, ProductGroup>();
+  for (const product of products) {
+    const key = product.productId || product._id;
+    const suffix = product.variantName ? ` - ${product.variantName}` : "";
+    const baseName = suffix && product.name.endsWith(suffix) ? product.name.slice(0, -suffix.length) : product.name;
+    const existing = groups.get(key);
+    if (existing) existing.variants.push(product);
+    else groups.set(key, { key, name: baseName, variants: [product] });
+  }
+  return Array.from(groups.values());
+}
+
+function ProductCard({
+  group,
+  onAdd,
+}: {
+  group: ProductGroup;
+  onAdd: (product: RetailProduct) => void;
+}) {
+  const defaultId = (group.variants.find((variant) => variant.stock > 0) || group.variants[0])._id;
+  const [selectedId, setSelectedId] = React.useState(defaultId);
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!group.variants.some((variant) => variant._id === selectedId)) setSelectedId(defaultId);
+  }, [group.variants, selectedId, defaultId]);
+  const selected = group.variants.find((variant) => variant._id === selectedId) || group.variants[0];
+  const totalStock = group.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock), 0);
+  return (
+    <div className="rounded-2xl border bg-white p-4 hover:border-cyan-500">
+      <button
+        type="button"
+        disabled={selected.stock <= 0}
+        className="w-full text-left disabled:opacity-50"
+        onClick={() => onAdd(selected)}
+      >
+        <span className="block font-bold">{group.name}</span>
+        <span className="block text-xs text-slate-500">
+          {selected.sku} · Tồn {selected.stock > 0 ? selected.stock : "Hết tồn khả dụng"}
+        </span>
+        <span className="mt-2 block font-bold text-cyan-700">{money(selected.price)}</span>
+      </button>
+      {group.variants.length > 1 && (
+        <div className="relative mt-3">
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-label={`Chọn SKU cho ${group.name}`}
+            onClick={() => setOpen((value) => !value)}
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition hover:border-cyan-400 hover:bg-white"
+          >
+            <span className="min-w-0">
+              <span className="block truncate font-medium text-slate-700">
+                {selected.variantName || selected.sku}
+              </span>
+              <span className="block text-[11px] text-slate-400">
+                {group.variants.length} SKU · Tồn tổng {totalStock}
+              </span>
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <ul
+                role="listbox"
+                className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+              >
+                {group.variants.map((variant) => {
+                  const active = variant._id === selected._id;
+                  const soldOut = variant.stock <= 0;
+                  return (
+                    <li key={variant._id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        disabled={soldOut}
+                        onClick={() => {
+                          setSelectedId(variant._id);
+                          setOpen(false);
+                          onAdd(variant);
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${soldOut ? "cursor-not-allowed opacity-45" : "hover:bg-cyan-50"} ${active ? "bg-cyan-50/60" : ""}`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-slate-700">
+                            {variant.variantName || variant.sku}
+                          </span>
+                          <span className="block truncate font-mono text-[11px] text-slate-400">
+                            {variant.sku}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-xs font-semibold text-cyan-700">
+                            {money(variant.price)}
+                          </span>
+                          <span
+                            className={`block text-[11px] ${soldOut ? "text-rose-500" : "text-slate-400"}`}
+                          >
+                            {soldOut ? "Hết tồn" : `Tồn ${variant.stock}`}
+                          </span>
+                        </span>
+                        <Check
+                          className={`h-4 w-4 shrink-0 ${active ? "text-cyan-600" : "invisible"}`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductGrid({
   products,
   onAdd,
@@ -479,21 +638,11 @@ function ProductGrid({
   products: RetailProduct[];
   onAdd: (product: RetailProduct) => void;
 }) {
+  const groups = React.useMemo(() => groupProductsBySku(products), [products]);
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {products.map((product) => (
-        <button
-          key={product._id}
-          disabled={product.stock <= 0}
-          className="rounded-2xl border bg-white p-4 text-left hover:border-cyan-500"
-          onClick={() => onAdd(product)}
-        >
-          <p className="font-bold">{product.name}</p>
-          <p className="text-xs text-slate-500">
-            {product.sku} · Tồn {product.stock > 0 ? product.stock : "Hết tồn khả dụng"}
-          </p>
-          <p className="mt-2 font-bold text-cyan-700">{money(product.price)}</p>
-        </button>
+      {groups.map((group) => (
+        <ProductCard key={group.key} group={group} onAdd={onAdd} />
       ))}
     </div>
   );
@@ -524,6 +673,7 @@ function OnlineRetailSync({ scope, sync }: { scope: OfflineScope; sync(scope: Of
 function CartPanel({
   scope,
   cart,
+  billingProfiles,
   busy,
   canPay,
   dispatch,
@@ -532,6 +682,7 @@ function CartPanel({
 }: {
   scope: RetailScope;
   cart: RetailCartState;
+  billingProfiles: any[];
   busy: boolean;
   canPay: boolean;
   dispatch: React.Dispatch<any>;
@@ -550,6 +701,23 @@ function CartPanel({
           value={cart.customer}
           onChange={(customer) => dispatch({ type: "customer", customer })}
         />
+        {cart.customer?.type === "vat" && (
+          <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-semibold text-amber-900">Hoa don VAT</p>
+            <select
+              aria-label="Ho so VAT"
+              value={cart.billingProfile?._id || ""}
+              onChange={(event) => dispatch({ type: "billingProfile", billingProfile: billingProfiles.find((item) => item._id === event.target.value) || null })}
+              className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Chon ho so xuat VAT</option>
+              {billingProfiles.map((profile) => (
+                <option key={profile._id} value={profile._id}>{profile.legalName} - {profile.taxId}</option>
+              ))}
+            </select>
+            {!billingProfiles.length && <p className="text-xs text-amber-700">Khach nay chua co ho so VAT dang hoat dong.</p>}
+          </div>
+        )}
       </div>
       <div className="my-4 flex-1 space-y-3">
         {cart.lines.map((line) => (

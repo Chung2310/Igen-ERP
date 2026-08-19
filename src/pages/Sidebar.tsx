@@ -16,7 +16,9 @@ import {
   BriefcaseBusiness,
   ShoppingCart,
   Landmark,
+  Megaphone,
   Wrench,
+  ContactRound,
 } from "lucide-react";
 import {
   BRAND_LOGO_PATH,
@@ -92,6 +94,12 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
+    label: "QUẢN LÝ KHÁCH HÀNG",
+    title: "Khách hàng",
+    icon: ContactRound,
+    group: "operations",
+  },
+  {
     label: "BÁN LẺ",
     title: "Bán lẻ",
     icon: ShoppingCart,
@@ -101,6 +109,12 @@ const baseMenuItems: MenuItem[] = [
     label: "TÀI CHÍNH",
     title: "Tài chính",
     icon: Landmark,
+    group: "operations",
+  },
+  {
+    label: "MARKETING",
+    title: "Marketing tự động",
+    icon: Megaphone,
     group: "operations",
   },
   {

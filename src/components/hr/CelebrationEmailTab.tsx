@@ -3,8 +3,21 @@ import { Eye, Loader2, Save, Bold, Italic, Underline, AlignLeft, AlignCenter, Al
 import { companyEmailApi } from "../../services/companyEmailService";
 import { toast } from "../../pages/Toast";
 import { authService } from "../../services/authService";
+import type { TemplateVariableConfig } from "../template-editor/templateEditorTypes";
+import { toFriendlyTokens } from "../template-editor/templateTokenCodec";
+import { HR_BIRTHDAY_TEMPLATE_VARIABLES, HR_HOLIDAY_TEMPLATE_VARIABLES } from "./hrCelebrationVariableRegistry";
 
-function RichTextEditor({ value, onChange, onUpload }: { value: string; onChange: (val: string) => void; onUpload?: (token: string) => void }) {
+function RichTextEditor({
+  value,
+  onChange,
+  onUpload,
+  variables,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  onUpload?: (token: string) => void;
+  variables: TemplateVariableConfig[];
+}) {
   const editorRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -123,30 +136,18 @@ function RichTextEditor({ value, onChange, onUpload }: { value: string; onChange
           onChange={handleImageUpload}
         />
         <div className="h-4 w-px bg-slate-200 mx-1" />
-        <button
-          type="button"
-          onClick={() => insertVariable("{{employeeName}}")}
-          className="px-1.5 py-0.5 text-[9px] font-bold border border-slate-200 bg-white hover:bg-slate-100 rounded transition-all text-cyan-600 cursor-pointer"
-          title="Chèn Tên nhân sự"
-        >
-          + Tên NV
-        </button>
-        <button
-          type="button"
-          onClick={() => insertVariable("{{companyName}}")}
-          className="px-1.5 py-0.5 text-[9px] font-bold border border-slate-200 bg-white hover:bg-slate-100 rounded transition-all text-cyan-600 cursor-pointer"
-          title="Chèn Tên công ty"
-        >
-          + Tên Cty
-        </button>
-        <button
-          type="button"
-          onClick={() => insertVariable("{{holidayName}}")}
-          className="px-1.5 py-0.5 text-[9px] font-bold border border-slate-200 bg-white hover:bg-slate-100 rounded transition-all text-cyan-600 cursor-pointer"
-          title="Chèn Tên ngày lễ"
-        >
-          + Ngày Lễ
-        </button>
+        {variables.map((variable) => (
+          <button
+            key={variable.key}
+            type="button"
+            onClick={() => insertVariable(`{{${variable.key}}}`)}
+            className="px-2 py-0.5 text-[10px] font-bold border border-slate-200 bg-white hover:bg-slate-100 rounded-full transition-all text-cyan-600 cursor-pointer"
+            title={`Chèn ${variable.label}`}
+            aria-label={variable.label}
+          >
+            {variable.label}
+          </button>
+        ))}
       </div>
       <div
         ref={editorRef}
@@ -159,7 +160,20 @@ function RichTextEditor({ value, onChange, onUpload }: { value: string; onChange
   );
 }
 
-const defaults = { birthdayEnabled: false, holidayEnabled: false, sendTime: "08:00", birthdayTemplate: { subject: "Chúc mừng sinh nhật {{employeeName}}", html: "<p>Chúc mừng sinh nhật {{employeeName}}!</p>" }, holidayTemplate: { subject: "Chúc mừng {{holidayName}}", html: "<p>{{companyName}} kính chúc bạn một kỳ nghỉ vui vẻ.</p>" }, holidayOverrides: [] };
+const defaults = {
+  birthdayEnabled: false,
+  holidayEnabled: false,
+  sendTime: "08:00",
+  birthdayTemplate: {
+    subject: "Chúc mừng sinh nhật {{employeeName}}",
+    html: "<p>Chúc mừng sinh nhật {{employeeName}}!</p>",
+  },
+  holidayTemplate: {
+    subject: "Chúc mừng {{holidayName}}",
+    html: "<p>{{companyName}} kính chúc bạn một kỳ nghỉ vui vẻ.</p>",
+  },
+  holidayOverrides: [],
+};
 
 export default function CelebrationEmailTab() {
   const [config, setConfig] = React.useState<any>(defaults);
@@ -168,15 +182,20 @@ export default function CelebrationEmailTab() {
   const [preview, setPreview] = React.useState<any>(null);
   const [uploadTokens, setUploadTokens] = React.useState<string[]>([]);
 
-  const load = React.useCallback(() => Promise.all([
-    companyEmailApi.getCelebration(),
-    companyEmailApi.history()
-  ]).then(([c, h]) => {
-    setConfig({ ...defaults, ...(c || {}) });
-    setHistory(h);
-  }).catch((e) => toast.error(e.message)), []);
+  const load = React.useCallback(
+    () =>
+      Promise.all([companyEmailApi.getCelebration(), companyEmailApi.history()])
+        .then(([c, h]) => {
+          setConfig({ ...defaults, ...(c || {}) });
+          setHistory(h);
+        })
+        .catch((e) => toast.error(e.message)),
+    [],
+  );
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => {
+    void load();
+  }, [load]);
 
   const template = (key: "birthdayTemplate" | "holidayTemplate", field: "subject" | "html", value: string) =>
     setConfig((c: any) => ({ ...c, [key]: { ...c[key], [field]: value } }));
@@ -238,6 +257,7 @@ export default function CelebrationEmailTab() {
         <Template
           title="Mẫu thư chúc mừng sinh nhật"
           value={config.birthdayTemplate}
+          variables={HR_BIRTHDAY_TEMPLATE_VARIABLES}
           onChange={(f: any, v: string) => template("birthdayTemplate", f, v)}
           onPreview={() => showPreview(config.birthdayTemplate)}
           onUpload={(token: string) => setUploadTokens((current) => [...current, token])}
@@ -245,6 +265,7 @@ export default function CelebrationEmailTab() {
         <Template
           title="Mẫu thư chúc mừng lễ/Tết"
           value={config.holidayTemplate}
+          variables={HR_HOLIDAY_TEMPLATE_VARIABLES}
           onChange={(f: any, v: string) => template("holidayTemplate", f, v)}
           onPreview={() => showPreview({ ...config.holidayTemplate, holidayName: "Ngày lễ" })}
           onUpload={(token: string) => setUploadTokens((current) => [...current, token])}
@@ -254,7 +275,6 @@ export default function CelebrationEmailTab() {
       {preview && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[calc(100vh-4rem)] animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
             <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5">
@@ -273,7 +293,6 @@ export default function CelebrationEmailTab() {
               </button>
             </div>
 
-            {/* Email Client Header Details */}
             <div className="bg-slate-50 border-b border-slate-200/80 p-4 space-y-2 text-xs">
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-slate-400 w-16 text-right">Từ (From):</span>
@@ -289,12 +308,10 @@ export default function CelebrationEmailTab() {
               </div>
             </div>
 
-            {/* Email Content Frame */}
             <div className="flex-1 overflow-y-auto p-6 bg-slate-100/50 flex justify-center">
               <div className="w-full max-w-xl bg-white border border-slate-200 rounded-xl p-6 shadow-sm min-h-[250px] prose prose-sm max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: preview.html }} />
             </div>
 
-            {/* Footer */}
             <div className="bg-slate-50 border-t border-slate-200/80 p-3 flex justify-end">
               <button
                 type="button"
@@ -361,7 +378,21 @@ function Toggle({ label, checked, onChange }: any) {
   );
 }
 
-function Template({ title, value, onChange, onPreview, onUpload }: any) {
+function Template({
+  title,
+  value,
+  variables,
+  onChange,
+  onPreview,
+  onUpload,
+}: {
+  title: string;
+  value: { subject: string; html: string };
+  variables: TemplateVariableConfig[];
+  onChange: (field: "subject" | "html", value: string) => void;
+  onPreview: () => void;
+  onUpload: (token: string) => void;
+}) {
   return (
     <section className="border border-slate-200 rounded-xl p-4 space-y-4 bg-white shadow-2xs">
       <h3 className="font-bold text-sm text-slate-800">{title}</h3>
@@ -373,6 +404,7 @@ function Template({ title, value, onChange, onPreview, onUpload }: any) {
           className="w-full border bg-white rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-cyan-500 font-medium"
           placeholder="Nhập tiêu đề email..."
         />
+        <p className="text-[11px] text-slate-500">Hiển thị token: {toFriendlyTokens(value.subject, variables)}</p>
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nội dung thư</label>
@@ -380,6 +412,7 @@ function Template({ title, value, onChange, onPreview, onUpload }: any) {
           value={value.html}
           onChange={(val: string) => onChange("html", val)}
           onUpload={onUpload}
+          variables={variables}
         />
       </div>
       <div className="flex justify-end pt-1">

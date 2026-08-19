@@ -1,6 +1,6 @@
-import React from "react";
+﻿import React from "react";
 import { Search, UserPlus, X } from "lucide-react";
-import { retailCustomersApi } from "../../api/retailCustomers.api";
+import { customerApi } from "../../../customer-management/customerApi";
 import type { RetailCustomer, RetailScope } from "../../types";
 import CreateCustomerDialog from "./CreateCustomerDialog";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
@@ -27,13 +27,13 @@ export default function CustomerPicker({ scope, value, onChange }: Props) {
       setLoading(true);
       setError("");
       setSearchCompleted(false);
-      void retailCustomersApi.list(scope, { q, limit: 10 })
-        .then((result) => { if (active) { setItems(result.items); setSearchCompleted(true); } })
+      void customerApi.list({ companyCode: scope.companyCode, q, limit: 10, status: "active" })
+        .then((result) => { if (active) { setItems(result.items.map((customer) => ({ _id: customer._id, customerCode: customer.customerCode, companyCode: customer.companyCode, type: customer.type, name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, notes: customer.notes }))); setSearchCompleted(true); } })
         .catch((cause) => { if (active) { setItems([]); setSearchCompleted(false); setError(getApiErrorMessage(cause, "Không tìm được khách hàng.")); } })
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [query, scope.companyCode, scope.branchId, value?._id]);
+  }, [query, scope.companyCode, value?._id]);
 
   if (value) return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 p-3">

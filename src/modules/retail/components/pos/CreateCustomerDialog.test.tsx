@@ -1,13 +1,13 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { retailCustomersApi } from "../../api/retailCustomers.api";
+import { customerApi } from "../../../customer-management/customerApi";
 import CreateCustomerDialog from "./CreateCustomerDialog";
 
-vi.mock("../../api/retailCustomers.api", () => ({
-  retailCustomersApi: { create: vi.fn() },
+vi.mock("../../../customer-management/customerApi", () => ({
+  customerApi: { create: vi.fn(), createBillingProfile: vi.fn() },
 }));
 
 const scope = { companyCode: "ACME", branchId: "B1" };
@@ -15,7 +15,7 @@ const created = {
   _id: "c2",
   customerCode: "KH-ACME-000002",
   companyCode: "ACME",
-  originBranchId: "B1",
+  type: "regular",
   name: "Nguyễn Văn B",
   phone: "0909123456",
   email: "b@example.com",
@@ -24,22 +24,31 @@ const created = {
 };
 
 afterEach(cleanup);
+
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(retailCustomersApi.create).mockResolvedValue(created);
+  vi.mocked(customerApi.create).mockResolvedValue(created as any);
+  vi.mocked(customerApi.createBillingProfile).mockResolvedValue({
+    profile: {
+      _id: "bp1",
+      customerId: "c2",
+      legalName: "Công ty A",
+      taxId: "0312345678",
+      address: "1 Nguyễn Huệ",
+      invoiceEmail: "ketoan@congtya.vn",
+      contactName: "An",
+      isDefault: true,
+      status: "active",
+      version: 1,
+    },
+    warnings: [],
+  } as any);
 });
 
 describe("CreateCustomerDialog", () => {
   it("prefills the searched phone and creates a customer with trimmed full details", async () => {
     const onCreated = vi.fn();
-    render(
-      <CreateCustomerDialog
-        scope={scope}
-        initialPhone=" 0909123456 "
-        onClose={vi.fn()}
-        onCreated={onCreated}
-      />,
-    );
+    render(<CreateCustomerDialog scope={scope} initialPhone=" 0909123456 " onClose={vi.fn()} onCreated={onCreated} />);
 
     expect(screen.getByRole("dialog", { name: "Tạo khách hàng mới" })).toBeTruthy();
     expect((screen.getByRole("textbox", { name: "Số điện thoại" }) as HTMLInputElement).value).toBe("0909123456");
@@ -49,14 +58,57 @@ describe("CreateCustomerDialog", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Ghi chú" }), " Khách tại quầy ");
     await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
 
-    await waitFor(() => expect(retailCustomersApi.create).toHaveBeenCalledWith({
+    await waitFor(() => expect(customerApi.create).toHaveBeenCalledWith({
       name: "Nguyễn Văn B",
       phone: "0909123456",
       email: "b@example.com",
       address: "1 Nguyễn Huệ",
       notes: "Khách tại quầy",
-    }, scope));
+      type: "regular",
+    }, "ACME"));
     expect(onCreated).toHaveBeenCalledWith(created);
+  });
+
+  it("allows choosing VAT customer type", async () => {
+    render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getAllByRole("combobox")[0], "vat");
+    expect(screen.getByRole("textbox", { name: "Tên pháp nhân" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Mã số thuế" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Địa chỉ hóa đơn" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Email nhận hóa đơn" })).toBeTruthy();
+    await userEvent.type(screen.getByRole("textbox", { name: "Tên khách hàng" }), "Cong ty A");
+    await userEvent.type(screen.getByRole("textbox", { name: "Tên pháp nhân" }), " Công ty A ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Mã số thuế" }), " 0312345678 ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Địa chỉ hóa đơn" }), " 1 Nguyễn Huệ ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Email nhận hóa đơn" }), " ketoan@congtya.vn ");
+    await userEvent.type(screen.getByRole("textbox", { name: "Người liên hệ" }), " An ");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
+
+    await waitFor(() => expect(customerApi.create).toHaveBeenCalledWith(expect.objectContaining({ type: "vat" }), "ACME"));
+    await waitFor(() => expect(customerApi.createBillingProfile).toHaveBeenCalledWith("c2", {
+      legalName: "Công ty A",
+      taxId: "0312345678",
+      address: "1 Nguyễn Huệ",
+      invoiceEmail: "ketoan@congtya.vn",
+      contactName: "An",
+      isDefault: true,
+    }, "ACME"));
+  });
+
+  it("keeps the VAT dialog scrollable and mobile-friendly on smaller screens", async () => {
+    render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loại khách hàng" }), "vat");
+
+    const dialog = screen.getByRole("dialog", { name: "Tạo khách hàng mới" });
+    expect(dialog.className).toContain("max-h-[calc(100vh-2rem)]");
+    expect(dialog.className).toContain("overflow-y-auto");
+
+    const cancelButton = screen.getByRole("button", { name: "Hủy" });
+    const actions = cancelButton.parentElement;
+    expect(actions?.className).toContain("grid-cols-1");
+    expect(actions?.className).toContain("sm:grid-cols-2");
   });
 
   it("rejects a whitespace-only name without calling the API", async () => {
@@ -65,11 +117,11 @@ describe("CreateCustomerDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Vui lòng nhập tên khách hàng.");
-    expect(retailCustomersApi.create).not.toHaveBeenCalled();
+    expect(customerApi.create).not.toHaveBeenCalled();
   });
 
   it("keeps entered values and shows the API error when creation fails", async () => {
-    vi.mocked(retailCustomersApi.create).mockRejectedValueOnce(new Error("Số điện thoại đã tồn tại."));
+    vi.mocked(customerApi.create).mockRejectedValueOnce(new Error("Số điện thoại đã tồn tại."));
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
     const name = screen.getByRole("textbox", { name: "Tên khách hàng" });
     await userEvent.type(name, "Nguyễn Văn B");
@@ -84,6 +136,6 @@ describe("CreateCustomerDialog", () => {
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={onClose} onCreated={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Đóng" }));
     expect(onClose).toHaveBeenCalledOnce();
-    expect(retailCustomersApi.create).not.toHaveBeenCalled();
+    expect(customerApi.create).not.toHaveBeenCalled();
   });
 });

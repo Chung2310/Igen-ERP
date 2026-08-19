@@ -116,3 +116,14 @@ test("legacy invoice cashier projection replaces an email without mutating snaps
   assert.equal(projected.snapshot.cashierName, "Nguyễn An");
   assert.equal(invoice.snapshot.cashierName, "cashier@example.com");
 });
+
+test("invoice snapshot preserves immutable customer and VAT snapshots", () => {
+  const snapshot = invoiceService.buildRetailInvoiceSnapshot({
+    customerName: "Nguyễn Văn A", customerPhone: "0901",
+    customerSnapshot: { customerId: "c1", customerCode: "KH-1", name: "Nguyễn Văn A", phone: "0901" },
+    billingSnapshot: { legalName: "Công ty A", taxId: "0312345678", address: "1 Nguyễn Huệ", invoiceEmail: "invoice@a.vn" },
+    items: [], subtotal: 1_000, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 1_000, paidAmount: 1_000, dueAmount: 0, paymentStatus: "paid", payments: [],
+  }, { displayName: "Thu ngân" }, { legalName: "IGEN", storeName: "IGEN", branchCode: "HCM", branchName: "HCM" });
+  assert.equal(snapshot.customerSnapshot.customerCode, "KH-1");
+  assert.equal(snapshot.billingSnapshot.taxId, "0312345678");
+});

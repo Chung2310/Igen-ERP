@@ -2,9 +2,9 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "partner", "retail", "repair", "finance"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance", "marketing"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance") as Exclude<ModuleKey, "retail" | "finance">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance" && key !== "marketing") as Exclude<ModuleKey, "retail" | "finance" | "marketing">[];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   hr: "Nhân sự",
@@ -13,10 +13,12 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   chat: "Trò chuyện",
   student: "Quản lý học viên",
   worker: "Quản lý lao động",
+  customer: "Khách hàng",
   partner: "Quản lý đối tác",
   retail: "Bán lẻ & POS",
   repair: "Sửa chữa & bảo hành",
   finance: "Tài chính",
+  marketing: "Marketing tự động",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -26,10 +28,12 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   chat: "TRÒ CHUYỆN",
   student: "QUẢN LÝ HỌC VIÊN",
   worker: "QUẢN LÝ LAO ĐỘNG",
+  customer: "QUẢN LÝ KHÁCH HÀNG",
   partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
   repair: "SỬA CHỮA & BẢO HÀNH",
   finance: "TÀI CHÍNH",
+  marketing: "MARKETING",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
@@ -40,9 +44,11 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "TRÒ CHUYỆN": "chat",
   "QUẢN LÝ HỌC VIÊN": "student",
   "QUẢN LÝ LAO ĐỘNG": "worker",
+  "QUẢN LÝ KHÁCH HÀNG": "customer",
   "ĐỐI TÁC": "partner",
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
+  "MARKETING": "marketing",
 };
 
 export const MODULE_OPTIONS = [
@@ -51,10 +57,12 @@ export const MODULE_OPTIONS = [
   { key: "resource", label: MODULE_LABELS.resource, moduleKeys: ["resource"] },
   { key: "chat", label: MODULE_LABELS.chat, moduleKeys: ["chat"] },
   { key: "student-worker", label: "Quản lý học viên / lao động", moduleKeys: ["student", "worker"] },
+  { key: "customer", label: MODULE_LABELS.customer, moduleKeys: ["customer"] },
   { key: "partner", label: MODULE_LABELS.partner, moduleKeys: ["partner"] },
   { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
   { key: "repair", label: MODULE_LABELS.repair, moduleKeys: ["repair"] },
   { key: "finance", label: MODULE_LABELS.finance, moduleKeys: ["finance"] },
+  { key: "marketing", label: MODULE_LABELS.marketing, moduleKeys: ["marketing"] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; moduleKeys: readonly ModuleKey[] }>;
 
 /**
@@ -69,10 +77,12 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "KHO & SẢN PHẨM": ["inventory:read"],
   "QUẢN LÝ HỌC VIÊN": ["people:read", "people:manage"],
   "QUẢN LÝ LAO ĐỘNG": ["people:read", "people:manage"],
+  "QUẢN LÝ KHÁCH HÀNG": ["customer:read", "customer:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
   "BÁN LẺ": ["retail:read", "retail:manage"],
   "TÀI CHÍNH": ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"],
   "TRÒ CHUYỆN": ["chat:read"],
+  "MARKETING": ["marketing:read", "marketing:manage"],
 };
 
 /**
