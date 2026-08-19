@@ -11,6 +11,10 @@ export type CustomerBrief = {
   status: CustomerStatus;
 };
 
+export type CustomerContact = CustomerBrief & {
+  email?: string;
+};
+
 type CustomerContractService = Pick<typeof CustomerService, "list" | "detail" | "create">;
 
 const brief = (customer: any): CustomerBrief => ({
@@ -20,6 +24,11 @@ const brief = (customer: any): CustomerBrief => ({
   phone: customer.phone,
   type: customer.type,
   status: customer.status,
+});
+
+const contact = (customer: any): CustomerContact => ({
+  ...brief(customer),
+  ...(customer.email ? { email: customer.email } : {}),
 });
 
 export function createCustomerContracts(service: CustomerContractService) {
@@ -43,10 +52,21 @@ export function createCustomerContracts(service: CustomerContractService) {
       }
     },
 
+    async getCustomerContact(scope: CustomerScope, customerId: string, options: { includeInactive?: boolean } = {}): Promise<CustomerContact | null> {
+      try {
+        const customer = await service.detail(scope, customerId);
+        if (customer.status !== "active" && !options.includeInactive) return null;
+        return contact(customer);
+      } catch (error) {
+        if ((error as { code?: string })?.code === "CUSTOMER_NOT_FOUND") return null;
+        throw error;
+      }
+    },
+
     async quickCreateCustomer(scope: CustomerScope, input: { name: string; phone: string }, actor: CustomerActor): Promise<CustomerBrief> {
       return brief(await service.create(scope, { ...input, source: "pos" }, actor));
     },
   };
 }
 
-export const { searchActiveCustomers, getCustomerBrief, quickCreateCustomer } = createCustomerContracts(CustomerService);
+export const { searchActiveCustomers, getCustomerBrief, getCustomerContact, quickCreateCustomer } = createCustomerContracts(CustomerService);

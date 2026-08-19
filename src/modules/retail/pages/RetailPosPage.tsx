@@ -1,5 +1,6 @@
 import React from "react";
 import { Camera, Check, ChevronDown, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { customerApi } from "../../customer-management/customerApi";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
 import RetailShiftWorkspace from "./RetailShiftWorkspace";
 import BarcodeScannerDialog from "../components/pos/BarcodeScannerDialog";
@@ -61,6 +62,7 @@ export default function RetailPosPage() {
   const [q, setQ] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [paying, setPaying] = React.useState(false);
+  const [billingProfiles, setBillingProfiles] = React.useState<any[]>([]);
   const [scanning, setScanning] = React.useState(false);
   const [completed, setCompleted] = React.useState<RetailOrderResult | null>(
     null,
@@ -157,6 +159,24 @@ export default function RetailPosPage() {
     );
     return () => window.clearTimeout(timer);
   }, [scope, cart, show]);
+  React.useEffect(() => {
+    if (!scope || !cart.customer?._id) {
+      setBillingProfiles([]);
+      dispatch({ type: "billingProfile", billingProfile: null });
+      return;
+    }
+    void customerApi.billingProfiles(cart.customer._id, scope.companyCode)
+      .then((items) => {
+        const active = items.filter((item) => item.status === "active");
+        setBillingProfiles(active);
+        const selected = active.find((item) => item._id === cart.billingProfile?._id) || active.find((item) => item.isDefault) || null;
+        dispatch({ type: "billingProfile", billingProfile: selected });
+      })
+      .catch(() => {
+        setBillingProfiles([]);
+        dispatch({ type: "billingProfile", billingProfile: null });
+      });
+  }, [scope?.companyCode, cart.customer?._id]);
   React.useEffect(() => { refreshOffline(); }, [refreshOffline]);
 
   if (!scope) return <Notice />;
@@ -288,11 +308,25 @@ export default function RetailPosPage() {
       customer: value.customerId
         ? {
             _id: value.customerId,
-            customerCode: value.customerId,
+            customerCode: value.customerSnapshot?.customerCode || value.customerId,
             companyCode: scope.companyCode,
-            originBranchId: scope.branchId,
+            type: value.billingProfileId ? "vat" : "regular",
             name: value.customerName || "Khách hàng",
             phone: value.customerPhone,
+          }
+        : null,
+      billingProfile: value.billingProfileId && value.billingSnapshot
+        ? {
+            _id: value.billingProfileId,
+            customerId: value.customerId || "",
+            legalName: value.billingSnapshot.legalName,
+            taxId: value.billingSnapshot.taxId,
+            address: value.billingSnapshot.address,
+            invoiceEmail: value.billingSnapshot.invoiceEmail,
+            contactName: value.billingSnapshot.contactName,
+            isDefault: false,
+            status: "active",
+            version: 0,
           }
         : null,
       orderDiscount: { type: "amount", value: value.orderDiscount },
@@ -438,6 +472,7 @@ export default function RetailPosPage() {
       <CartPanel
         scope={scope}
         cart={cart}
+        billingProfiles={billingProfiles}
         busy={busy}
         canPay={Boolean(shift)}
         dispatch={dispatch}
@@ -637,6 +672,7 @@ function OnlineRetailSync({ scope, sync }: { scope: OfflineScope; sync(scope: Of
 function CartPanel({
   scope,
   cart,
+  billingProfiles,
   busy,
   canPay,
   dispatch,
@@ -645,6 +681,7 @@ function CartPanel({
 }: {
   scope: RetailScope;
   cart: RetailCartState;
+  billingProfiles: any[];
   busy: boolean;
   canPay: boolean;
   dispatch: React.Dispatch<any>;
@@ -663,6 +700,23 @@ function CartPanel({
           value={cart.customer}
           onChange={(customer) => dispatch({ type: "customer", customer })}
         />
+        {cart.customer?.type === "vat" && (
+          <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-semibold text-amber-900">Hoa don VAT</p>
+            <select
+              aria-label="Ho so VAT"
+              value={cart.billingProfile?._id || ""}
+              onChange={(event) => dispatch({ type: "billingProfile", billingProfile: billingProfiles.find((item) => item._id === event.target.value) || null })}
+              className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Chon ho so xuat VAT</option>
+              {billingProfiles.map((profile) => (
+                <option key={profile._id} value={profile._id}>{profile.legalName} - {profile.taxId}</option>
+              ))}
+            </select>
+            {!billingProfiles.length && <p className="text-xs text-amber-700">Khach nay chua co ho so VAT dang hoat dong.</p>}
+          </div>
+        )}
       </div>
       <div className="my-4 flex-1 space-y-3">
         {cart.lines.map((line) => (

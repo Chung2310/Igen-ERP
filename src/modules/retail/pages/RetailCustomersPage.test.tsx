@@ -1,21 +1,21 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { retailCustomersApi } from "../api/retailCustomers.api";
+import { customerApi } from "../../customer-management/customerApi";
 import RetailCustomersPage from "./RetailCustomersPage";
 
 vi.mock("../../../context/BranchContext", () => ({ useBranch: () => ({ activeBranchId: "B1" }) }));
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { companyCode: "ACME" } }) }));
-vi.mock("../api/retailCustomers.api", () => ({ retailCustomersApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), detail: vi.fn(), tierHistory: vi.fn().mockResolvedValue([]), overrideTier: vi.fn() } }));
+vi.mock("../../customer-management/customerApi", () => ({ customerApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), detail: vi.fn() } }));
 
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(retailCustomersApi.list).mockResolvedValue({
-    items: [{ _id: "1", customerCode: "KH-ACME-000001", name: "Nguyễn Văn A", phone: "0901234567", companyCode: "ACME", originBranchId: "B1" }],
+  vi.mocked(customerApi.list).mockResolvedValue({
+    items: [{ _id: "1", customerCode: "KH-ACME-000001", name: "Nguyễn Văn A", phone: "0901234567", companyCode: "ACME", type: "regular" }],
     total: 1, page: 1, limit: 20,
-  });
+  } as any);
 });
 
 describe("RetailCustomersPage", () => {
@@ -28,12 +28,18 @@ describe("RetailCustomersPage", () => {
   });
 
   it("links customer debt to the Finance receivable list with customer id", async () => {
-    vi.mocked(retailCustomersApi.detail).mockResolvedValue({ customer: { _id: "1", customerCode: "KH-ACME-000001", name: "Nguyễn Văn A" }, summary: { tier: { name: "Vàng" }, totalSales: 100, totalCollected: 50, currentDebt: 50 } } as any);
+    vi.mocked(customerApi.detail).mockResolvedValue({ _id: "1", customerCode: "KH-ACME-000001", name: "Nguyễn Văn A", companyCode: "ACME", type: "regular", phone: "0901234567", status: "active", source: "manual", createdBy: "u1", createdByName: "Admin", version: 1 } as any);
     render(<RetailCustomersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Chi tiết" }));
     const link = await screen.findByRole("link", { name: "Xem công nợ trong Finance" });
     expect(link.getAttribute("href")).toContain("/tai-chinh?");
     expect(link.getAttribute("href")).toContain("sub=cong-no");
     expect(link.getAttribute("href")).toContain("customerId=1");
+  });
+
+  it("loads customers from the shared customer module using company scope", async () => {
+    render(<RetailCustomersPage />);
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    expect(customerApi.list).toHaveBeenCalledWith(expect.objectContaining({ companyCode: "ACME", page: 1, limit: 20 }));
   });
 });

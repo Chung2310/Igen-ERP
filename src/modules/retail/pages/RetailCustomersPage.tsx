@@ -1,14 +1,26 @@
-import React from "react";
+﻿import React from "react";
 import { Plus, Search, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useBranch } from "../../../context/BranchContext";
 import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
-import { retailCustomersApi } from "../api/retailCustomers.api";
-import type { RetailCustomer, RetailCustomerDetail } from "../types";
+import { customerApi } from "../../customer-management/customerApi";
+import type { CustomerInput } from "../../customer-management/types";
+import type { RetailCustomer } from "../types";
 import RetailReceivableHistory from "../components/customers/RetailReceivableHistory";
 import RetailReceivableReconciliation from "../components/customers/RetailReceivableReconciliation";
 
 const emptyForm = { name: "", phone: "", email: "", address: "", notes: "" };
+const customerToRetailCustomer = (customer: any): RetailCustomer => ({
+  _id: customer._id,
+  customerCode: customer.customerCode,
+  companyCode: customer.companyCode,
+  type: customer.type,
+  name: customer.name,
+  phone: customer.phone,
+  email: customer.email,
+  address: customer.address,
+  notes: customer.notes,
+});
 
 export default function RetailCustomersPage() {
   const { userProfile } = useAuth();
@@ -30,7 +42,7 @@ export default function RetailCustomersPage() {
   const [editing, setEditing] = React.useState<RetailCustomer | "new" | null>(
     null,
   );
-  const [detail, setDetail] = React.useState<RetailCustomerDetail | null>(null);
+  const [detail, setDetail] = React.useState<RetailCustomer | null>(null);
   const [error, setError] = React.useState("");
   const canManage =
     userProfile?.role === "admin" ||
@@ -42,21 +54,21 @@ export default function RetailCustomersPage() {
   const load = React.useCallback(async () => {
     if (!scope.companyCode || !scope.branchId) return;
     try {
-      setResult(
-        await retailCustomersApi.list(scope, {
-          q: debouncedQuery,
-          tier: tier || undefined,
-          page,
-          limit: 20,
-        }),
-      );
+      const response = await customerApi.list({
+        companyCode: scope.companyCode,
+        q: debouncedQuery || undefined,
+        page,
+        limit: 20,
+      });
+      const items = response.items.map(customerToRetailCustomer);
+      setResult({ items, total: response.total, page: response.page, limit: response.limit });
       setError("");
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Không tải được khách hàng.",
       );
     }
-  }, [scope.companyCode, scope.branchId, debouncedQuery, tier, page]);
+  }, [scope.companyCode, scope.branchId, debouncedQuery, page]);
   React.useEffect(() => {
     void load();
   }, [load]);
@@ -135,9 +147,9 @@ export default function RetailCustomersPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      void retailCustomersApi
-                        .detail(customer._id, scope)
-                        .then(setDetail)
+                      void customerApi
+                        .detail(customer._id, scope.companyCode)
+                        .then((value) => setDetail(customerToRetailCustomer(value)))
                     }
                     className="mr-3 font-semibold text-cyan-700"
                   >
@@ -183,8 +195,8 @@ export default function RetailCustomersPage() {
           onClose={() => setEditing(null)}
           onSave={async (input) => {
             if (editing === "new")
-              await retailCustomersApi.create(input, scope);
-            else await retailCustomersApi.update(editing._id, input, scope);
+              await customerApi.create(input as CustomerInput, scope.companyCode);
+            else await customerApi.update(editing._id, input as CustomerInput, 1, scope.companyCode);
             setEditing(null);
             await load();
           }}
@@ -199,20 +211,20 @@ export default function RetailCustomersPage() {
           >
             <X />
           </button>
-          <h2 className="text-xl font-bold">{detail.customer.name}</h2>
+          <h2 className="text-xl font-bold">{detail.name}</h2>
           <div className="mt-1 flex items-center gap-2">
             <p className="text-sm text-slate-500">
-              {detail.customer.customerCode}
+              {detail.customerCode}
             </p>
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
-              {detail.summary.tier.name}
+              {detail.type === "vat" ? "Xuất VAT" : "Khách thường"}
             </span>
           </div>
           <div className="mt-6 grid grid-cols-3 gap-3">
             {[
-              ["Doanh số", detail.summary.totalSales],
-              ["Đã thu", detail.summary.totalCollected],
-              ["Công nợ", detail.summary.currentDebt],
+              ["Doanh số", 0],
+              ["Đã thu", 0],
+              ["Công nợ", 0],
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-xl bg-slate-50 p-3">
                 <div className="text-xs text-slate-500">{label}</div>
@@ -224,19 +236,18 @@ export default function RetailCustomersPage() {
           </div>
           <a
             aria-label="Xem công nợ trong Finance"
-              href={`/tai-chinh?sub=cong-no&customerId=${encodeURIComponent(detail.customer._id)}`}
+              href={`/tai-chinh?sub=cong-no&customerId=${encodeURIComponent(detail._id)}`}
             className="mt-4 inline-flex rounded-lg bg-cyan-50 px-3 py-2 text-sm font-bold text-cyan-800"
           >
             Xem công nợ trong Finance
           </a>
           <RetailReceivableHistory
             scope={scope}
-            customerId={detail.customer._id}
+            customerId={detail._id}
             canManage={canManage}
           />
           <p className="mt-6 text-sm text-slate-500">
-            Hạng khách hàng được tính tự động từ giao dịch hợp lệ và phần hoàn
-            tiền.
+            Hạng khách hàng được tính tự động từ giao dịch hợp lệ và phần hoàn tiền.
           </p>
         </aside>
       )}

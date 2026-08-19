@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatRetailCustomerCode, normalizeCustomerInput, customerCompanyFilter, resolveCustomerTier, normalizeTierOverride, resolveEffectiveCustomerTier, summarizeCustomerTiers, buildCustomerTierFilterPipeline } from "./retail-customer.service";
+import { formatRetailCustomerCode, normalizeCustomerInput, customerCompanyFilter, resolveCustomerTier, normalizeTierOverride, resolveEffectiveCustomerTier, summarizeCustomerTiers, buildCustomerTierFilterPipeline } from "./retail-customer-tier-api.service";
 
 test("customer codes use a permanent company-wide sequence", () => {
   assert.equal(formatRetailCustomerCode("acme", 1), "KH-ACME-000001");
