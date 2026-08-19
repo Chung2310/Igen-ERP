@@ -9,6 +9,7 @@ import {
   type MarketingSettings,
 } from "../api/marketing.api";
 import HolidayCampaignsSection from "../components/HolidayCampaignsSection";
+import TemplateEditor from "../components/TemplateEditor";
 
 const AUTOMATIONS: Array<{
   type: MarketingAutomationType;
@@ -30,7 +31,6 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
   /** Bản đã lưu trên máy chủ, dùng để biết còn thay đổi nào chưa bấm Lưu. */
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [channels, setChannels] = useState<MarketingChannelStatus[]>([]);
-  const [variables, setVariables] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string }>();
@@ -42,7 +42,6 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
       setSettings(data.settings);
       setSavedSnapshot(JSON.stringify(data.settings));
       setChannels(data.channels);
-      setVariables(data.variables);
     } catch (error: any) {
       setMessage({ tone: "error", text: error?.message || "Không tải được cài đặt." });
     } finally {
@@ -235,26 +234,13 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
                 </div>
               )}
 
-              <label className="mt-3 block text-xs font-semibold text-slate-600">
-                Tiêu đề
-                <input
-                  value={config.subject}
-                  disabled={!canManage}
-                  onChange={(event) => patch(automation.type, { subject: event.target.value })}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal"
-                />
-              </label>
-              <label className="mt-2 block text-xs font-semibold text-slate-600">
-                Nội dung (HTML)
-                <textarea
-                  value={config.html}
-                  disabled={!canManage}
-                  rows={5}
-                  onChange={(event) => patch(automation.type, { html: event.target.value })}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs font-normal"
-                />
-              </label>
-              <p className="mt-1 text-[11px] text-slate-400">Biến dùng được: {variables.map((item) => `{{${item}}}`).join(", ")}</p>
+              <TemplateEditor
+                automationType={automation.type}
+                subject={config.subject}
+                html={config.html}
+                disabled={!canManage}
+                onChange={(values) => patch(automation.type, values)}
+              />
 
               {canManage && (
                 <div className="mt-3 flex flex-wrap gap-2">
