@@ -10,6 +10,7 @@ import { notificationSwagger } from "./notification.swagger";
 import { superAdminSwagger } from "./super-admin.swagger";
 import { analyticsSwagger } from "./analytics.swagger";
 import { workerProjectSwagger } from "./worker-project.swagger";
+import { customerSettingsSwagger } from "./customer-settings.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -35,6 +36,7 @@ const swaggerDocument = {
     ...superAdminSwagger.paths,
     ...analyticsSwagger.paths,
     ...workerProjectSwagger.paths,
+    ...customerSettingsSwagger.paths,
   },
   components: {
     securitySchemes: {
