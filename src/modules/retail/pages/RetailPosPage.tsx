@@ -593,6 +593,7 @@ function ProductCard({
                         onClick={() => {
                           setSelectedId(variant._id);
                           setOpen(false);
+                          onAdd(variant);
                         }}
                         className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${soldOut ? "cursor-not-allowed opacity-45" : "hover:bg-cyan-50"} ${active ? "bg-cyan-50/60" : ""}`}
                       >
