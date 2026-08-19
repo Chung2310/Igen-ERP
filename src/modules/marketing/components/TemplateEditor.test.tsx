@@ -3,7 +3,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TemplateEditor, { VARIABLES_BY_TYPE, fillSampleValues } from "./TemplateEditor";
-import { MARKETING_VARIABLE_REGISTRY } from "./marketingVariableRegistry";
+import { getVariablesForType, MARKETING_VARIABLE_REGISTRY } from "./marketingVariableRegistry";
 import { fillSampleValues as fillSharedSampleValues, toFriendlyTokens as toSharedFriendlyTokens, toRawTokens as toSharedRawTokens } from "../../../components/template-editor/templateTokenCodec";
 import { toFriendlyTokens, toRawTokens } from "./marketingTemplateTokenCodec";
 
@@ -102,10 +102,11 @@ describe("marketingTemplateTokenCodec", () => {
   });
 
   it("supports extracted shared codec signatures with an injected variable list", () => {
-    const variables = Object.values(MARKETING_VARIABLE_REGISTRY);
+    const variables = getVariablesForType("birthday").map((key) => MARKETING_VARIABLE_REGISTRY[key]);
     expect(toSharedFriendlyTokens("Cảm ơn {{customerName}}", variables)).toBe("Cảm ơn [Tên khách hàng]");
     expect(toSharedRawTokens("Cảm ơn [Tên khách hàng]", variables)).toBe("Cảm ơn {{customerName}}");
     expect(fillSharedSampleValues("Xin chào {{companyName}}", variables)).toContain("Cửa hàng iGen");
+    expect(toSharedFriendlyTokens("Đơn {{orderCode}}", variables)).toBe("Đơn {{orderCode}}");
     expect(toFriendlyTokens("Cảm ơn {{customerName}}")).toBe("Cảm ơn [Tên khách hàng]");
     expect(toRawTokens("Cảm ơn [Tên khách hàng]")).toBe("Cảm ơn {{customerName}}");
     expect(fillSampleValues("Xin chào {{companyName}}")).toContain("Cửa hàng iGen");
