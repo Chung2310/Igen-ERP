@@ -52,6 +52,7 @@ export interface UserProfile {
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   monthlySalary?: number;
   isLeader?: boolean;
+  isActive?: boolean;
 }
 
 export interface CompanyProfile {

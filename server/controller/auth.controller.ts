@@ -731,7 +731,7 @@ export const authController = {
 
       const colleagues = await UserModel.find(
         { companyCode, isDeleted: { $ne: true } },
-        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, qualification: 1, department: 1, role: 1, branchId: 1 }
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, qualification: 1, department: 1, role: 1, branchId: 1, isActive: 1 }
       ).lean();
 
       const branchIds = colleagues
@@ -749,6 +749,7 @@ export const authController = {
         _id: colleague._id,
         displayName: colleague.displayName,
         email: colleague.email,
+        isActive: colleague.isActive !== false,
         ...(colleague.photoURL ? { photoURL: colleague.photoURL } : {}),
         ...(colleague.jobTitle ? { jobTitle: colleague.jobTitle } : {}),
         ...(colleague.qualification ? { qualification: colleague.qualification } : {}),

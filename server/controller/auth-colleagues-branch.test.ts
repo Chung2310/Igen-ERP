@@ -23,8 +23,8 @@ describe("auth colleagues directory branch scope", () => {
     vi.clearAllMocks();
     mocks.userFind.mockReturnValue({
       lean: vi.fn().mockResolvedValue([
-        { _id: "user-a", displayName: "User A", email: "a@acme.test", branchId: "branch-a", password: "secret" },
-        { _id: "user-b", displayName: "User B", email: "b@acme.test", branchId: "branch-b", password: "secret" },
+        { _id: "user-a", displayName: "User A", email: "a@acme.test", branchId: "branch-a", isActive: true, password: "secret" },
+        { _id: "user-b", displayName: "User B", email: "b@acme.test", branchId: "branch-b", isActive: false, password: "secret" },
       ]),
     });
     mocks.branchFind.mockReturnValue({
@@ -45,15 +45,15 @@ describe("auth colleagues directory branch scope", () => {
 
     expect(mocks.userFind).toHaveBeenCalledWith(
       { companyCode: "ACME", isDeleted: { $ne: true } },
-      expect.objectContaining({ branchId: 1 }),
+      expect.objectContaining({ branchId: 1, isActive: 1 }),
     );
     expect(mocks.branchFind).toHaveBeenCalledWith(
       { companyCode: "ACME", _id: { $in: ["branch-a", "branch-b"] } },
       { _id: 1, name: 1 },
     );
     assert.deepEqual(res.json.mock.calls[0][0].data, [
-      { _id: "user-a", displayName: "User A", email: "a@acme.test", branchId: "branch-a", branchName: "Branch A" },
-      { _id: "user-b", displayName: "User B", email: "b@acme.test", branchId: "branch-b", branchName: "Branch B" },
+      { _id: "user-a", displayName: "User A", email: "a@acme.test", isActive: true, branchId: "branch-a", branchName: "Branch A" },
+      { _id: "user-b", displayName: "User B", email: "b@acme.test", isActive: false, branchId: "branch-b", branchName: "Branch B" },
     ]);
     expect(res.json.mock.calls[0][0].data).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ password: expect.anything() }),

@@ -1,5 +1,6 @@
 import type { ClientSession } from "mongoose";
 import { randomUUID } from "node:crypto";
+import { UserModel } from "../../model/user.model";
 import { RepairTicketModel } from "./repair-ticket.model";
 import type { RepairCoverage, RepairTicketDocument } from "./repair-ticket.interface";
 import { assertRepairTransition, type RepairStatus } from "./repair-state";
@@ -27,9 +28,19 @@ function afterRepairTicketEvent(ticket: any, event: "received" | "done" | "deliv
   if (event === "received" || event === "done") void dispatchRepairNotification(ticket, event).catch(() => undefined);
 }
 
-export async function transitionRepairTicket(scope: RepairScope, id: string, to: RepairStatus, actor: RepairActor, note?: string, customerNotified = false, session?: ClientSession) {
+export async function transitionRepairTicket(scope: RepairScope, id: string, to: RepairStatus, actor: RepairActor, note?: string, customerNotified = false, session?: ClientSession, technicianId?: string) {
   const query = RepairTicketModel.findOne({ _id: id, ...scope }); if (session) query.session(session); const ticket: any = await query; if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
-  assertRepairTransition(ticket.status, to); const from = ticket.status; ticket.status = to; ticket.statusHistory.push({ from, to, at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: to === "done" ? false : customerNotified });
+  assertRepairTransition(ticket.status, to); const from = ticket.status;
+  if (ticket.status === "received" && to === "diagnosing") {
+    if (!technicianId) throw Object.assign(new Error("Cần chọn kỹ thuật viên tiếp nhận."), { statusCode: 400 });
+    const technician: any = await UserModel.findOne({ _id: technicianId, companyCode: scope.companyCode, isActive: { $ne: false } }).select("displayName email").lean();
+    if (!technician) throw Object.assign(new Error("Cần chọn kỹ thuật viên tiếp nhận."), { statusCode: 400 });
+    ticket.technicianId = String(technician._id);
+    ticket.technicianName = String(technician.displayName || technician.email || "");
+    ticket.assignedAt = new Date();
+    ticket.assignedBy = actor.id;
+  }
+  ticket.status = to; ticket.statusHistory.push({ from, to, at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: to === "done" ? false : customerNotified, technicianId: ticket.technicianId, technicianName: ticket.technicianName });
   if (to === "done") { ticket.completedAt = new Date(); if (!ticket.feedbackToken) ticket.feedbackToken = randomUUID(); }
   if (to === "delivered") ticket.deliveredAt = new Date(); ticket.updatedBy = actor.id; if (session) ticket.$session(session); await ticket.save();
   const saved = ticket.toObject();
