@@ -29,8 +29,14 @@ export class WorkerLaborContractController {
     try {
       const scope = getScope(req);
       const { companyCode: _companyCode, branchId: _branchId, ...filters } = req.query;
-      const list = await WorkerLaborContractService.list(scope, filters);
-      res.json({ success: true, data: list });
+      const result = await WorkerLaborContractService.list(scope, filters);
+      res.json({
+        success: true,
+        data: result.contracts,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      });
     } catch (error: unknown) {
       next(error);
     }

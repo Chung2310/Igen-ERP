@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { useWorkerLaborContracts } from "../hooks/useWorkerLaborContracts";
+import { workerLaborContractApi } from "../api/workerLaborContracts.api";
 import { useWorkers } from "../hooks/useWorkers";
 import { WorkerContractFormModal, type ContractFormMode } from "../components/WorkerContractFormModal";
 import { WorkerContractHistory } from "../components/WorkerContractHistory";
@@ -60,14 +61,47 @@ export default function WorkerContractsPage({
         : undefined,
     [branchId, selectedCenter],
   );
-  const { contracts, loading, error, createContract, updateContract, renewContract, deleteContract } =
-    useWorkerLaborContracts(scope);
-  const { workers } = useWorkers(scope);
+  const {
+    contracts,
+    loading,
+    error,
+    page,
+    setPage,
+    limit,
+    total,
+    search,
+    setSearch,
+    status,
+    setStatus,
+    client,
+    setClient,
+    alertOnly,
+    setAlertOnly,
+    clients,
+    createContract,
+    updateContract,
+    renewContract,
+    deleteContract,
+    reload,
+  } = useWorkerLaborContracts(scope, undefined, initialAlertOnly);
 
-  const [search, setSearch] = React.useState("");
-  const [status, setStatus] = React.useState("all");
-  const [client, setClient] = React.useState("all");
-  const [alertOnly, setAlertOnly] = React.useState(initialAlertOnly);
+  const { workers } = useWorkers(scope);
+  const [summary, setSummary] = React.useState<{ expiringCount: number; expiredCount: number } | null>(null);
+
+  const fetchSummary = React.useCallback(async () => {
+    if (!scope) return;
+    try {
+      const res = await workerLaborContractApi.expiringSummary(scope);
+      setSummary(res);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [scope]);
+
+  React.useEffect(() => {
+    void fetchSummary();
+  }, [fetchSummary, contracts]);
+
   const [modal, setModal] = React.useState<{
     mode: ContractFormMode;
     contract?: WorkerLaborContract | null;
@@ -93,31 +127,10 @@ export default function WorkerContractsPage({
     [contracts],
   );
 
-  const clients = React.useMemo(
-    () => Array.from(new Set(decorated.map((item) => item.clientName).filter(Boolean))).sort(),
-    [decorated],
-  );
+  const filtered = decorated;
 
-  const filtered = React.useMemo(
-    () =>
-      decorated.filter((contract) => {
-        if (status !== "all" && contract.status !== status) return false;
-        if (client !== "all" && contract.clientName !== client) return false;
-        if (alertOnly && contract.alertLevel === "ok") return false;
-        if (search.trim()) {
-          const keyword = search.trim().toLowerCase();
-          const haystack = `${contract.code} ${contract.clientName} ${workerName(
-            contract.workerId,
-          )}`.toLowerCase();
-          if (!haystack.includes(keyword)) return false;
-        }
-        return true;
-      }),
-    [alertOnly, client, decorated, search, status, workerName],
-  );
-
-  const expiringCount = decorated.filter((item) => item.alertLevel === "expiring").length;
-  const expiredCount = decorated.filter((item) => item.alertLevel === "expired").length;
+  const expiringCount = summary?.expiringCount ?? 0;
+  const expiredCount = summary?.expiredCount ?? 0;
 
   const historyItems = React.useMemo(
     () =>
@@ -407,6 +420,85 @@ export default function WorkerContractsPage({
             )}
           </tbody>
         </table>
+        {/* Pagination Toolbar */}
+        {total > limit && (
+          <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Trước
+              </button>
+              <button
+                disabled={page * limit >= total}
+                onClick={() => setPage((p) => p + 1)}
+                className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Sau
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs text-slate-700">
+                  Hiển thị từ <span className="font-medium">{(page - 1) * limit + 1}</span> đến{" "}
+                  <span className="font-medium">{Math.min(page * limit, total)}</span> trong tổng số{" "}
+                  <span className="font-medium">{total}</span> hợp đồng
+                </p>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage(1)}
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                  >
+                    «
+                  </button>
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: Math.ceil(total / limit) }).map((_, idx) => {
+                    const pageNum = idx + 1;
+                    if (Math.abs(page - pageNum) > 2) return null;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
+                          page === pageNum
+                            ? "z-10 bg-cyan-650 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-650"
+                            : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    disabled={page * limit >= total}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                  >
+                    ›
+                  </button>
+                  <button
+                    disabled={page * limit >= total}
+                    onClick={() => setPage(Math.ceil(total / limit))}
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                  >
+                    »
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {historyOf && (
