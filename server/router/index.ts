@@ -130,7 +130,11 @@ apiRouter.use("/inventory/serials", requireAuth as any, requireModule("inventory
 apiRouter.use("/repair/feedback", publicApiRateLimiter, repairFeedbackRoutes);
 apiRouter.use("/repair", requireAuth as any, requireModule("repair"), repairRouter);
 apiRouter.use("/customers", requireAuth as any, requireModule("customer"), customerRouter);
-apiRouter.use("/", requireAuth as any, requireModule("retail"), retailRouter);
+// Guard gắn theo tiền tố thật của router: nếu đặt guard ngay tại mount "/" thì mọi
+// request chưa khớp route phía trên đều bị guard này chặn (403) và không bao giờ rơi
+// xuống các router bên dưới — ví dụ /worker-management/* của doanh nghiệp lao động.
+apiRouter.use("/retail", requireAuth as any, requireModule("retail"));
+apiRouter.use("/", retailRouter);
 apiRouter.use("/finance", requireAuth as any, requireModule("finance"), financeRouter);
 apiRouter.use("/marketing", requireAuth as any, requireModule("marketing"), marketingRouter);
 
@@ -140,4 +144,5 @@ apiRouter.use("/marketing", requireAuth as any, requireModule("marketing"), mark
 apiRouter.use("/worker-management/qr-attendance", workerQrAttendancePublicRoutes);
 
 apiRouter.use("/worker-management/partners", requireAuth as any, requireModule("partner"), laborPartnerRoutes);
-apiRouter.use("/", requireAuth as any, requireModule("worker"), workerManagementRouter);
+apiRouter.use("/worker-management", requireAuth as any, requireModule("worker"));
+apiRouter.use("/", workerManagementRouter);
