@@ -67,6 +67,9 @@ export const updateWorkerLaborContractSchema = Joi.object({
 });
 
 export const renewWorkerLaborContractSchema = Joi.object({
+  // Form gia hạn giữ workerId để tái sử dụng biểu mẫu tạo mới. Service luôn lấy
+  // người lao động từ hợp đồng nguồn, nên trường này chỉ được xác thực đầu vào.
+  workerId: objectIdSchema.optional(),
   code: Joi.string().trim().required().messages({
     "any.required": "Mã hợp đồng kỳ mới là bắt buộc.",
     "string.empty": "Mã hợp đồng kỳ mới không được để trống.",
@@ -76,6 +79,14 @@ export const renewWorkerLaborContractSchema = Joi.object({
   endDate: dateSchema("Ngày kết thúc").required(),
   note: Joi.string().allow("", null).optional(),
 });
-  // Form gia h?n gi? workerId ?? t?i s? d?ng bi?u m?u t?o m?i. Service lu?n l?y
-  // ng??i lao ??ng t? h?p ??ng ngu?n, n?n tr??ng n?y ch? ???c x?c th?c ??u v?o.
+
+export const listWorkerLaborContractQuerySchema = Joi.object({
+  companyCode: Joi.string().trim().optional(),
+  branchId: objectIdSchema.optional(),
   workerId: objectIdSchema.optional(),
+  status: Joi.string().valid("draft", "active", "renewed", "expired", "terminated").optional(),
+  alert: Joi.string().valid("expiring", "expired", "any").optional(),
+  search: Joi.string().trim().allow("").optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});

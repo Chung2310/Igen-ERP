@@ -8,6 +8,7 @@ import {
   createWorkerLaborContractSchema,
   updateWorkerLaborContractSchema,
   renewWorkerLaborContractSchema,
+  listWorkerLaborContractQuerySchema,
 } from "../validations/worker-labor-contract.validation";
 
 export const workerLaborContractRoutes = Router();
@@ -19,6 +20,7 @@ const canManage = () => requirePermission(WORKER_MANAGE_PERMISSION) as any;
 workerLaborContractRoutes.get(
   "/",
   canRead(),
+  validate(listWorkerLaborContractQuerySchema, "query"),
   WorkerLaborContractController.getList as any,
 );
 
