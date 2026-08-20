@@ -25,7 +25,7 @@ export const settlementController = {
     try {
       const scope = workerScopeFromRequest(req.user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId });
       const data = await LaborPartnerSettlementQueryService.detail(scope, req.params.settlementId);
-      if (!data) return res.status(404).json({ success: false, error: { code: "SETTLEMENT_NOT_FOUND", message: "KhÃ´ng tÃ¬m tháº¥y ká»³ Ä‘á»‘i soÃ¡t." } });
+      if (!data) return res.status(404).json({ success: false, error: { code: "SETTLEMENT_NOT_FOUND", message: "Không tìm thấy kỳ đối soát." } });
       res.json({ success: true, data });
     } catch (error) { operationError(res, error, next); }
   },

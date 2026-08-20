@@ -12,7 +12,7 @@ Thay popup tạo nhanh nhiều SKU bằng danh sách biểu mẫu SKU có cùng 
 
 ## Giao diện và thao tác
 
-- Popup mở với hai biểu mẫu SKU độc lập.
+- Popup mở với một biểu mẫu SKU độc lập; người dùng thêm biểu mẫu khi cần.
 - Mỗi biểu mẫu dùng các trường chuẩn của form một SKU: giá bán, ảnh, SKU, mã vạch, tên biến thể, theo dõi kho, trạng thái và bảo hành nhà cung cấp.
 - Có nút **Thêm SKU** để thêm biểu mẫu rỗng và nút xóa trên từng biểu mẫu; luôn giữ tối thiểu một biểu mẫu.
 - Với sản phẩm dịch vụ, theo dõi kho luôn là `none` và bị vô hiệu hóa như form một SKU.

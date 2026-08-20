@@ -63,4 +63,9 @@ describe("toVietnameseErrorMessage", () => {
       "Tài khoản của bạn không có mã quyền [worker:manage, payroll:read] cần thiết để thực hiện thao tác này.",
     )).toBe("Bạn không có quyền thực hiện thao tác này.");
   });
+
+  it("sửa thông báo tiếng Việt bị lỗi mã hóa từ API", () => {
+    expect(toVietnameseErrorMessage("SKU đã có tồn kho và không thể xóa."))
+      .toBe("SKU đã có tồn kho và không thể xóa.");
+  });
 });

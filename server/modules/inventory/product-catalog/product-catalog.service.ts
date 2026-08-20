@@ -122,26 +122,26 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$
 
 export function normalizeCompanyCode(value: unknown): string {
   const code = String(value || "").trim().toUpperCase();
-  if (!code) throw new ProductCatalogValidationError("TÃ i khoáº£n chÆ°a Ä‘Æ°á»£c gáº¯n vá»›i cÃ´ng ty.");
+  if (!code) throw new ProductCatalogValidationError("Tài khoản chưa được gắn với công ty.");
   return code;
 }
 
 export function normalizeCode(value: unknown, field: string): string {
   const code = String(value || "").trim().toUpperCase();
-  if (!code) throw new ProductCatalogValidationError(`${field} lÃ  báº¯t buá»™c.`);
-  if (code.length > 100) throw new ProductCatalogValidationError(`${field} khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 100 kÃ½ tá»±.`);
+  if (!code) throw new ProductCatalogValidationError(`${field} là bắt buộc.`);
+  if (code.length > 100) throw new ProductCatalogValidationError(`${field} không được vượt quá 100 ký tự.`);
   return code;
 }
 
-export function normalizeName(value: unknown, field = "TÃªn sáº£n pháº©m"): string {
+export function normalizeName(value: unknown, field = "Tên sản phẩm"): string {
   const name = String(value || "").trim();
-  if (!name) throw new ProductCatalogValidationError(`${field} lÃ  báº¯t buá»™c.`);
-  if (name.length > 300) throw new ProductCatalogValidationError(`${field} khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 300 kÃ½ tá»±.`);
+  if (!name) throw new ProductCatalogValidationError(`${field} là bắt buộc.`);
+  if (name.length > 300) throw new ProductCatalogValidationError(`${field} không được vượt quá 300 ký tự.`);
   return name;
 }
 
 export function codeFromName(prefix: string, value: unknown): string {
-  const name = normalizeName(value, "TÃªn");
+  const name = normalizeName(value, "Tên");
   const slug = name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -174,37 +174,37 @@ export function assertNoForbiddenCatalogFields(value: unknown): void {
   if (!value || typeof value !== "object") return;
   const present = FORBIDDEN_CATALOG_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(value, field));
   if (present.length) {
-    throw new ProductCatalogValidationError(`CÃ¡c trÆ°á»ng ${present.join(", ")} chá»‰ Ä‘Æ°á»£c quáº£n lÃ½ á»Ÿ phÃ¢n há»‡ kho/giÃ¡, khÃ´ng ghi trong danh má»¥c sáº£n pháº©m.`);
+    throw new ProductCatalogValidationError(`Các trường ${present.join(", ")} chỉ được quản lý ở phân hệ kho/giá, không ghi trong danh mục sản phẩm.`);
   }
 }
 
 function optionalText(value: unknown, field: string, maxLength: number): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   const text = String(value).trim();
-  if (text.length > maxLength) throw new ProductCatalogValidationError(`${field} khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ ${maxLength} kÃ½ tá»±.`);
+  if (text.length > maxLength) throw new ProductCatalogValidationError(`${field} không được vượt quá ${maxLength} ký tự.`);
   return text;
 }
 
 function stringArray(value: unknown, field: string, maxItems = 100): string[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new ProductCatalogValidationError(`${field} pháº£i lÃ  má»™t máº£ng.`);
-  if (value.length > maxItems) throw new ProductCatalogValidationError(`${field} vÆ°á»£t quÃ¡ sá»‘ lÆ°á»£ng cho phÃ©p.`);
+  if (!Array.isArray(value)) throw new ProductCatalogValidationError(`${field} phải là một mảng.`);
+  if (value.length > maxItems) throw new ProductCatalogValidationError(`${field} vượt quá số lượng cho phép.`);
   return value.map((item) => String(item).trim()).filter(Boolean);
 }
 
 function normalizeAttributes(value: unknown): AttributeInput[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new ProductCatalogValidationError("attributes pháº£i lÃ  má»™t máº£ng.");
+  if (!Array.isArray(value)) throw new ProductCatalogValidationError("attributes phải là một mảng.");
   const seen = new Set<string>();
   return value.map((item, index) => {
-    if (!item || typeof item !== "object") throw new ProductCatalogValidationError(`attributes[${index}] khÃ´ng há»£p lá»‡.`);
+    if (!item || typeof item !== "object") throw new ProductCatalogValidationError(`attributes[${index}] không hợp lệ.`);
     const input = item as Record<string, unknown>;
-    const code = normalizeCode(input.code, `MÃ£ thuá»™c tÃ­nh táº¡i vá»‹ trÃ­ ${index + 1}`);
-    if (seen.has(code)) throw new ProductCatalogValidationError(`Thuá»™c tÃ­nh ${code} bá»‹ láº·p.`);
+    const code = normalizeCode(input.code, `Mã thuộc tính tại vị trí ${index + 1}`);
+    if (seen.has(code)) throw new ProductCatalogValidationError(`Thuộc tính ${code} bị lặp.`);
     seen.add(code);
     const result: AttributeInput = { code, value: String(input.value ?? "").trim() };
-    if (!result.value) throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ thuá»™c tÃ­nh ${code} lÃ  báº¯t buá»™c.`);
-    const unitCode = input.unitCode ? normalizeCode(input.unitCode, `ÄÆ¡n vá»‹ cá»§a thuá»™c tÃ­nh ${code}`) : undefined;
+    if (!result.value) throw new ProductCatalogValidationError(`Giá trị thuộc tính ${code} là bắt buộc.`);
+    const unitCode = input.unitCode ? normalizeCode(input.unitCode, `Đơn vị của thuộc tính ${code}`) : undefined;
     if (unitCode) result.unitCode = unitCode;
     return result;
   });
@@ -212,27 +212,27 @@ function normalizeAttributes(value: unknown): AttributeInput[] {
 
 function normalizeOptionValues(value: unknown): Array<{ code: string; value: string }> {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new ProductCatalogValidationError("optionValues pháº£i lÃ  má»™t máº£ng.");
+  if (!Array.isArray(value)) throw new ProductCatalogValidationError("optionValues phải là một mảng.");
   const seen = new Set<string>();
   return value.map((item, index) => {
-    if (!item || typeof item !== "object") throw new ProductCatalogValidationError(`optionValues[${index}] khÃ´ng há»£p lá»‡.`);
+    if (!item || typeof item !== "object") throw new ProductCatalogValidationError(`optionValues[${index}] không hợp lệ.`);
     const input = item as Record<string, unknown>;
-    const code = normalizeCode(input.code, `MÃ£ lá»±a chá»n táº¡i vá»‹ trÃ­ ${index + 1}`);
+    const code = normalizeCode(input.code, `Mã lựa chọn tại vị trí ${index + 1}`);
     if (seen.has(code)) throw new ProductCatalogValidationError(`Lá»±a chá»n ${code} bá»‹ láº·p.`);
     seen.add(code);
     const optionValue = String(input.value ?? "").trim();
-    if (!optionValue) throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ lá»±a chá»n ${code} lÃ  báº¯t buá»™c.`);
+    if (!optionValue) throw new ProductCatalogValidationError(`Giá trị lựa chọn ${code} là bắt buộc.`);
     return { code, value: optionValue };
   });
 }
 
 export function normalizeVariantInput(input: unknown, productType?: ProductCatalogType): ProductVariantInput {
-  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Sáº£n pháº©m pháº£i cÃ³ Ã­t nháº¥t má»™t SKU/biáº¿n thá»ƒ.");
+  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Sản phẩm phải có ít nhất một SKU/biến thể.");
   assertNoForbiddenCatalogFields(input);
   const value = input as Record<string, unknown>;
   const trackingMode = (value.trackingMode || "none") as ProductTrackingMode;
-  if (!TRACKING_MODES.includes(trackingMode)) throw new ProductCatalogValidationError("trackingMode khÃ´ng há»£p lá»‡.");
-  if (productType === "service" && trackingMode !== "none") throw new ProductCatalogValidationError("Sáº£n pháº©m dá»‹ch vá»¥ pháº£i cÃ³ trackingMode lÃ  none.");
+  if (!TRACKING_MODES.includes(trackingMode)) throw new ProductCatalogValidationError("trackingMode không hợp lệ.");
+  if (productType === "service" && trackingMode !== "none") throw new ProductCatalogValidationError("Sản phẩm dịch vụ phải có trackingMode là none.");
   const status = (value.status || "active") as (typeof VARIANT_STATUSES)[number];
   assertVariantStatus(status);
 
@@ -240,7 +240,7 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
     if (value[field] === undefined || value[field] === null || value[field] === "") return undefined;
     const numberValue = Number(value[field]);
     if (!Number.isFinite(numberValue) || numberValue < 0 || (max !== undefined && numberValue > max)) {
-      throw new ProductCatalogValidationError(`${field} pháº£i lÃ  sá»‘ khÃ´ng Ã¢m${max === undefined ? "" : ` vÃ  khÃ´ng vÆ°á»£t quÃ¡ ${max}`}.`);
+      throw new ProductCatalogValidationError(`${field} phải là số không âm${max === undefined ? "" : ` và không vượt quá ${max}`}.`);
     }
     return numberValue;
   };
@@ -249,8 +249,8 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
     sku: normalizeCode(value.sku, "SKU"),
     barcode: optionalText(value.barcode, "Barcode", 100),
     optionValues: normalizeOptionValues(value.optionValues),
-    displayName: optionalText(value.displayName, "TÃªn hiá»ƒn thá»‹ SKU", 200),
-    unitCode: normalizeCode(value.unitCode, "MÃ£ Ä‘Æ¡n vá»‹ tÃ­nh"),
+    displayName: optionalText(value.displayName, "Tên hiển thị SKU", 200),
+    unitCode: normalizeCode(value.unitCode, "Mã đơn vị tính"),
     trackingMode,
     weightGrams: numeric("weightGrams"),
     lengthMm: numeric("lengthMm"),
@@ -265,23 +265,23 @@ export function normalizeVariantInput(input: unknown, productType?: ProductCatal
 }
 
 export function normalizeProductInput(input: unknown, partial = false): ProductCatalogUpdateInput & Partial<ProductCatalogCreateInput> {
-  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Dá»¯ liá»‡u sáº£n pháº©m khÃ´ng há»£p lá»‡.");
+  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Dữ liệu sản phẩm không hợp lệ.");
   assertNoForbiddenCatalogFields(input);
   const value = input as Record<string, unknown>;
   const output: Record<string, unknown> = {};
   if (!partial || value.name !== undefined) output.name = normalizeName(value.name);
-  if (!partial || value.categoryCode !== undefined) output.categoryCode = normalizeCode(value.categoryCode, "MÃ£ danh má»¥c");
+  if (!partial || value.categoryCode !== undefined) output.categoryCode = normalizeCode(value.categoryCode, "Mã danh mục");
   if (value.baseUnitCode !== undefined && value.baseUnitCode !== null && String(value.baseUnitCode).trim()) {
-    output.baseUnitCode = normalizeCode(value.baseUnitCode, "MÃ£ Ä‘Æ¡n vá»‹ cÆ¡ sá»Ÿ");
+    output.baseUnitCode = normalizeCode(value.baseUnitCode, "Mã đơn vị cơ sở");
   }
   if (value.productCode !== undefined && value.productCode !== null && String(value.productCode).trim()) {
-    output.productCode = normalizeCode(value.productCode, "MÃ£ sáº£n pháº©m");
+    output.productCode = normalizeCode(value.productCode, "Mã sản phẩm");
   }
   if (value.templateCode !== undefined && value.templateCode !== null && String(value.templateCode).trim()) {
-    output.templateCode = normalizeCode(value.templateCode, "MÃ£ máº«u sáº£n pháº©m");
+    output.templateCode = normalizeCode(value.templateCode, "Mã mẫu sản phẩm");
   }
   if (!partial || value.productType !== undefined) {
-    if (!PRODUCT_TYPES.includes(value.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType khÃ´ng há»£p lá»‡.");
+    if (!PRODUCT_TYPES.includes(value.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType không hợp lệ.");
     output.productType = value.productType;
   }
   for (const field of ["shortDescription", "description", "countryOfOrigin", "manufacturer", "taxCategory"] as const) {
@@ -292,30 +292,30 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
     if (!Number.isFinite(warrantyMonths) || warrantyMonths < 0 || warrantyMonths > 1_200) throw new ProductCatalogValidationError("warrantyMonths phải là số từ 0 đến 1200.");
     output.warrantyMonths = warrantyMonths;
   }
-  if (!partial || value.brandCode !== undefined) output.brandCode = value.brandCode === null ? null : value.brandCode ? normalizeCode(value.brandCode, "MÃ£ thÆ°Æ¡ng hiá»‡u") : undefined;
+  if (!partial || value.brandCode !== undefined) output.brandCode = value.brandCode === null ? null : value.brandCode ? normalizeCode(value.brandCode, "Mã thương hiệu") : undefined;
   if (!partial || value.attributes !== undefined) output.attributes = normalizeAttributes(value.attributes);
   if (!partial || value.searchKeywords !== undefined) output.searchKeywords = stringArray(value.searchKeywords, "searchKeywords");
   if (!partial || value.mediaIds !== undefined) output.mediaIds = stringArray(value.mediaIds, "mediaIds");
   if (!partial || value.documentIds !== undefined) output.documentIds = stringArray(value.documentIds, "documentIds");
   if (!partial || value.status !== undefined) {
     const nextStatus = value.status === undefined ? "draft" : value.status;
-    if (!PRODUCT_STATUSES.includes(nextStatus as (typeof PRODUCT_STATUSES)[number])) throw new ProductCatalogValidationError("Tráº¡ng thÃ¡i sáº£n pháº©m khÃ´ng há»£p lá»‡.");
+    if (!PRODUCT_STATUSES.includes(nextStatus as (typeof PRODUCT_STATUSES)[number])) throw new ProductCatalogValidationError("Trạng thái sản phẩm không hợp lệ.");
     output.status = nextStatus;
   }
   return output as ProductCatalogUpdateInput & Partial<ProductCatalogCreateInput>;
 }
 
 function assertVariantStatus(status: unknown): asserts status is (typeof VARIANT_STATUSES)[number] {
-  if (!VARIANT_STATUSES.includes(status as (typeof VARIANT_STATUSES)[number])) throw new ProductCatalogValidationError("Tráº¡ng thÃ¡i SKU khÃ´ng há»£p lá»‡.");
+  if (!VARIANT_STATUSES.includes(status as (typeof VARIANT_STATUSES)[number])) throw new ProductCatalogValidationError("Trạng thái SKU không hợp lệ.");
 }
 
 function assertObjectId(id: string, label: string): void {
-  if (!mongoose.Types.ObjectId.isValid(id)) throw new ProductCatalogValidationError(`${label} khÃ´ng há»£p lá»‡.`);
+  if (!mongoose.Types.ObjectId.isValid(id)) throw new ProductCatalogValidationError(`${label} không hợp lệ.`);
 }
 
 function actorId(value: unknown): string {
   const id = String(value || "").trim();
-  if (!id) throw new ProductCatalogValidationError("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c ngÆ°á»i thá»±c hiá»‡n thao tÃ¡c.");
+  if (!id) throw new ProductCatalogValidationError("Không xác định được người thực hiện thao tác.");
   return id;
 }
 
@@ -323,14 +323,14 @@ async function findTemplate(companyCode: string, templateCode: string, session?:
   const query = ProductTemplateModel.findOne({ companyCode, code: templateCode, status: "active" });
   if (session) query.session(session);
   const template = await query.lean();
-  if (!template) throw new ProductCatalogValidationError(`KhÃ´ng tÃ¬m tháº¥y máº«u sáº£n pháº©m Ä‘ang hoáº¡t Ä‘á»™ng: ${templateCode}.`);
+  if (!template) throw new ProductCatalogValidationError(`Không tìm thấy mẫu sản phẩm đang hoạt động: ${templateCode}.`);
   return template;
 }
 
 async function assertActiveUnit(companyCode: string, unitCode: string, session?: mongoose.ClientSession): Promise<void> {
   const query = UnitOfMeasureModel.findOne({ companyCode, code: unitCode, status: "active" });
   if (session) query.session(session);
-  if (!(await query.lean())) throw new ProductCatalogValidationError(`ÄÆ¡n vá»‹ tÃ­nh chÆ°a Ä‘Æ°á»£c khai bÃ¡o hoáº·c Ä‘Ã£ ngá»«ng dÃ¹ng: ${unitCode}.`);
+  if (!(await query.lean())) throw new ProductCatalogValidationError(`Đơn vị tính chưa được khai báo hoặc đã ngừng dùng: ${unitCode}.`);
 }
 
 async function ensureDefaultUnit(companyCode: string, actor: string, session?: mongoose.ClientSession): Promise<string> {
@@ -341,8 +341,8 @@ async function ensureDefaultUnit(companyCode: string, actor: string, session?: m
       $setOnInsert: {
         companyCode,
         code: DEFAULT_UNIT_CODE,
-        name: "CÃ¡i",
-        symbol: "cÃ¡i",
+        name: "Cái",
+        symbol: "cái",
         category: "count",
         decimalPlaces: 0,
         createdBy: actor,
@@ -362,30 +362,30 @@ async function assertActiveMasterResources(
 ): Promise<void> {
   const categoryQuery = ProductCatalogCategoryModel.findOne({ companyCode, code: input.categoryCode, status: "active" });
   if (session) categoryQuery.session(session);
-  if (!(await categoryQuery.lean())) throw new ProductCatalogValidationError(`Danh má»¥c chÆ°a Ä‘Æ°á»£c khai bÃ¡o hoáº·c Ä‘Ã£ ngá»«ng dÃ¹ng: ${input.categoryCode}.`);
+  if (!(await categoryQuery.lean())) throw new ProductCatalogValidationError(`Danh mục chưa được khai báo hoặc đã ngừng dùng: ${input.categoryCode}.`);
   if (input.brandCode) {
     const brandQuery = ProductCatalogBrandModel.findOne({ companyCode, code: input.brandCode, status: "active" });
     if (session) brandQuery.session(session);
-    if (!(await brandQuery.lean())) throw new ProductCatalogValidationError(`ThÆ°Æ¡ng hiá»‡u chÆ°a Ä‘Æ°á»£c khai bÃ¡o hoáº·c Ä‘Ã£ ngá»«ng dÃ¹ng: ${input.brandCode}.`);
+    if (!(await brandQuery.lean())) throw new ProductCatalogValidationError(`Thương hiệu chưa được khai báo hoặc đã ngừng dùng: ${input.brandCode}.`);
   }
   await assertActiveUnit(companyCode, input.baseUnitCode, session);
 }
 
 function normalizeTemplateFields(fields: ProductTemplateInput["fields"]): ProductTemplateField[] {
-  if (!Array.isArray(fields) || fields.length === 0) throw new ProductCatalogValidationError("Máº«u sáº£n pháº©m pháº£i cÃ³ Ã­t nháº¥t má»™t trÆ°á»ng thÃ´ng tin.");
+  if (!Array.isArray(fields) || fields.length === 0) throw new ProductCatalogValidationError("Mẫu sản phẩm phải có ít nhất một trường thông tin.");
   const seen = new Set<string>();
   return fields.map((field, index) => {
-    const code = normalizeCode(field.code, `MÃ£ trÆ°á»ng ${index + 1}`);
+    const code = normalizeCode(field.code, `Mã trường ${index + 1}`);
     if (seen.has(code)) throw new ProductCatalogValidationError(`TrÆ°á»ng ${code} bá»‹ láº·p trong máº«u.`);
     seen.add(code);
-    if (!FIELD_TYPES.includes(field.type)) throw new ProductCatalogValidationError(`Kiá»ƒu dá»¯ liá»‡u cá»§a trÆ°á»ng ${code} khÃ´ng há»£p lá»‡.`);
+    if (!FIELD_TYPES.includes(field.type)) throw new ProductCatalogValidationError(`Kiểu dữ liệu của trường ${code} không hợp lệ.`);
     const options = stringArray(field.options, `options cá»§a ${code}`);
     if ((field.type === "select" || field.type === "multi-select") && options.length === 0) {
-      throw new ProductCatalogValidationError(`TrÆ°á»ng ${code} pháº£i cÃ³ options.`);
+      throw new ProductCatalogValidationError(`Trường ${code} phải có options.`);
     }
     return {
       code,
-      label: normalizeName(field.label, `NhÃ£n trÆ°á»ng ${code}`),
+      label: normalizeName(field.label, `Nhãn trường ${code}`),
       type: field.type,
       required: Boolean(field.required),
       options,
@@ -402,24 +402,24 @@ export function assertTemplateAttributes(
   const values = new Map(attributes.map((attribute) => [attribute.code, attribute.value]));
   for (const field of template.fields) {
     if (field.required && !values.has(field.code)) {
-      throw new ProductCatalogValidationError(`Thiáº¿u thuá»™c tÃ­nh báº¯t buá»™c theo máº«u: ${field.label}.`);
+      throw new ProductCatalogValidationError(`Thiếu thuộc tính bắt buộc theo mẫu: ${field.label}.`);
     }
   }
   for (const attribute of attributes) {
     const field = fields.get(attribute.code);
-    if (!field) throw new ProductCatalogValidationError(`Thuá»™c tÃ­nh ${attribute.code} khÃ´ng thuá»™c máº«u sáº£n pháº©m Ä‘Ã£ chá»n.`);
+    if (!field) throw new ProductCatalogValidationError(`Thuộc tính ${attribute.code} không thuộc mẫu sản phẩm đã chọn.`);
     if (field.type === "number" && !Number.isFinite(Number(attribute.value))) {
-      throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ ${field.label} pháº£i lÃ  sá»‘.`);
+      throw new ProductCatalogValidationError(`Giá trị ${field.label} phải là số.`);
     }
     if (field.type === "boolean" && !["true", "false"].includes(attribute.value.toLowerCase())) {
-      throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ ${field.label} pháº£i lÃ  true hoáº·c false.`);
+      throw new ProductCatalogValidationError(`Giá trị ${field.label} phải là true hoặc false.`);
     }
     if (field.type === "select" && !field.options.includes(attribute.value)) {
-      throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ ${attribute.value} khÃ´ng cÃ³ trong lá»±a chá»n cá»§a ${field.label}.`);
+      throw new ProductCatalogValidationError(`Giá trị ${attribute.value} không có trong lựa chọn của ${field.label}.`);
     }
     if (field.type === "multi-select") {
       const invalid = attribute.value.split(",").map((value) => value.trim()).filter(Boolean).some((value) => !field.options.includes(value));
-      if (invalid) throw new ProductCatalogValidationError(`GiÃ¡ trá»‹ cá»§a ${field.label} chá»©a lá»±a chá»n khÃ´ng há»£p lá»‡.`);
+      if (invalid) throw new ProductCatalogValidationError(`Giá trị của ${field.label} chứa lựa chọn không hợp lệ.`);
     }
   }
 }
@@ -437,12 +437,12 @@ export const ProductCatalogService = {
   async createTemplate(companyCodeValue: unknown, input: ProductTemplateInput, actor: unknown) {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
-    if (!PRODUCT_TYPES.includes(input.productType)) throw new ProductCatalogValidationError("productType khÃ´ng há»£p lá»‡.");
-    const code = input.code ? normalizeCode(input.code, "MÃ£ máº«u sáº£n pháº©m") : await resolveNextCatalogCode(ProductTemplateModel, companyCode, "TPL", input.name);
+    if (!PRODUCT_TYPES.includes(input.productType)) throw new ProductCatalogValidationError("productType không hợp lệ.");
+    const code = input.code ? normalizeCode(input.code, "Mã mẫu sản phẩm") : await resolveNextCatalogCode(ProductTemplateModel, companyCode, "TPL", input.name);
     const document = await ProductTemplateModel.create({
       companyCode,
       code,
-      name: normalizeName(input.name, "TÃªn máº«u sáº£n pháº©m"),
+      name: normalizeName(input.name, "Tên mẫu sản phẩm"),
       productType: input.productType,
       fields: normalizeTemplateFields(input.fields),
       status: input.status || "active",
@@ -457,20 +457,20 @@ export const ProductCatalogService = {
     const updatedBy = actorId(actor);
     assertObjectId(id, "ID máº«u sáº£n pháº©m");
     const current = await ProductTemplateModel.findOne({ _id: id, companyCode });
-    if (!current) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y máº«u sáº£n pháº©m."), { statusCode: 404 });
-    if (input.code && normalizeCode(input.code, "MÃ£ máº«u sáº£n pháº©m") !== current.code) {
-      throw new ProductCatalogValidationError("MÃ£ template Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng cáº¥p, khÃ´ng thá»ƒ thay Ä‘á»•i.");
+    if (!current) throw Object.assign(new Error("Không tìm thấy mẫu sản phẩm."), { statusCode: 404 });
+    if (input.code && normalizeCode(input.code, "Mã mẫu sản phẩm") !== current.code) {
+      throw new ProductCatalogValidationError("Mã template đã được hệ thống cấp, không thể thay đổi.");
     }
     if (input.productType && input.productType !== current.productType) {
-      throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ Ä‘á»•i loáº¡i sáº£n pháº©m cá»§a template Ä‘ang sá»­ dá»¥ng.");
+      throw new ProductCatalogValidationError("Không thể đổi loại sản phẩm của template đang sử dụng.");
     }
     const status = input.status === undefined ? current.status : input.status;
-    if (status !== "active" && status !== "inactive") throw new ProductCatalogValidationError("Tráº¡ng thÃ¡i template khÃ´ng há»£p lá»‡.");
+    if (status !== "active" && status !== "inactive") throw new ProductCatalogValidationError("Trạng thái template không hợp lệ.");
     const document = await ProductTemplateModel.findOneAndUpdate(
       { _id: id, companyCode },
       {
         $set: {
-          name: input.name === undefined ? current.name : normalizeName(input.name, "TÃªn máº«u sáº£n pháº©m"),
+          name: input.name === undefined ? current.name : normalizeName(input.name, "Tên mẫu sản phẩm"),
           fields: input.fields === undefined ? current.fields : normalizeTemplateFields(input.fields as ProductTemplateInput["fields"]),
           status,
           updatedBy,
@@ -478,7 +478,7 @@ export const ProductCatalogService = {
       },
       { returnDocument: "after", runValidators: true },
     );
-    if (!document) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y máº«u sáº£n pháº©m."), { statusCode: 404 });
+    if (!document) throw Object.assign(new Error("Không tìm thấy mẫu sản phẩm."), { statusCode: 404 });
     return document.toObject();
   },
 
@@ -493,8 +493,8 @@ export const ProductCatalogService = {
         filter[field] = field === "status" || field === "productType" ? value.toLowerCase() : value.toUpperCase();
       }
     }
-    if (filter.productType && !PRODUCT_TYPES.includes(filter.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType khÃ´ng há»£p lá»‡.");
-    if (filter.status && !PRODUCT_STATUSES.includes(filter.status as (typeof PRODUCT_STATUSES)[number])) throw new ProductCatalogValidationError("Tráº¡ng thÃ¡i sáº£n pháº©m khÃ´ng há»£p lá»‡.");
+    if (filter.productType && !PRODUCT_TYPES.includes(filter.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType không hợp lệ.");
+    if (filter.status && !PRODUCT_STATUSES.includes(filter.status as (typeof PRODUCT_STATUSES)[number])) throw new ProductCatalogValidationError("Trạng thái sản phẩm không hợp lệ.");
     const q = String(query.q || "").trim();
     if (q) {
       const expression = new RegExp(escapeRegex(q), "i");
@@ -512,7 +512,7 @@ export const ProductCatalogService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     assertObjectId(id, "ID sáº£n pháº©m");
     const product = await ProductCatalogModel.findOne({ _id: id, companyCode }).lean();
-    if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
     const variants = await ProductVariantModel.find({ companyCode, productId: id }).sort({ sku: 1 }).lean();
     return { ...product, variants };
   },
@@ -521,12 +521,12 @@ export const ProductCatalogService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
-    if (!normalized.productType) throw new ProductCatalogValidationError("productType lÃ  báº¯t buá»™c.");
+    if (!normalized.productType) throw new ProductCatalogValidationError("productType là bắt buộc.");
     const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
     const variant = normalizeVariantInput({ ...input.variant, unitCode: input.variant.unitCode || baseUnitCode }, normalized.productType);
     if (variant.status === "active" && (normalized.status === "inactive" || normalized.status === "archived")) {
-      throw new ProductCatalogValidationError("Sáº£n pháº©m inactive/archived khÃ´ng thá»ƒ cÃ³ SKU Ä‘ang hoáº¡t Ä‘á»™ng.");
+      throw new ProductCatalogValidationError("Sản phẩm inactive/archived không thể có SKU đang hoạt động.");
     }
     let productId = "";
     await runInTransaction(async (session) => {
@@ -534,11 +534,11 @@ export const ProductCatalogService = {
       if (normalized.templateCode) {
         const template = await findTemplate(companyCode, normalized.templateCode, session);
         if (template.productType !== normalized.productType) {
-          throw new ProductCatalogValidationError(`Máº«u ${normalized.templateCode} khÃ´ng Ã¡p dá»¥ng cho loáº¡i sáº£n pháº©m ${normalized.productType}.`);
+          throw new ProductCatalogValidationError(`Mẫu ${normalized.templateCode} không áp dụng cho loại sản phẩm ${normalized.productType}.`);
         }
         assertTemplateAttributes(template, normalized.attributes);
       } else if (normalized.attributes?.length) {
-        throw new ProductCatalogValidationError("Thuá»™c tÃ­nh tÃ¹y biáº¿n chá»‰ Ä‘Æ°á»£c dÃ¹ng khi sáº£n pháº©m cÃ³ máº«u sáº£n pháº©m.");
+        throw new ProductCatalogValidationError("Thuộc tính tùy biến chỉ được dùng khi sản phẩm có mẫu sản phẩm.");
       }
       await assertActiveMasterResources(companyCode, { ...normalized, baseUnitCode } as { categoryCode: string; brandCode?: string; baseUnitCode: string }, session);
       await assertActiveUnit(companyCode, variant.unitCode, session);
@@ -553,33 +553,33 @@ export const ProductCatalogService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
-    if (!normalized.productType) throw new ProductCatalogValidationError("productType lÃ  báº¯t buá»™c.");
+    if (!normalized.productType) throw new ProductCatalogValidationError("productType là bắt buộc.");
     const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
 
     if (!Array.isArray(input.variants) || input.variants.length === 0 || input.variants.length > 500) {
-      throw new ProductCatalogValidationError("Sáº£n pháº©m pháº£i cÃ³ tá»« 1 Ä‘áº¿n 500 biáº¿n thá»ƒ (SKU).");
+      throw new ProductCatalogValidationError("Sản phẩm phải có từ 1 đến 500 biến thể (SKU).");
     }
 
     const variants = input.variants.map((variant) => normalizeVariantInput({ ...variant, unitCode: variant.unitCode || baseUnitCode }, normalized.productType));
     
     if (variants.some(v => v.status === "active") && (normalized.status === "inactive" || normalized.status === "archived")) {
-      throw new ProductCatalogValidationError("Sáº£n pháº©m inactive/archived khÃ´ng thá»ƒ cÃ³ SKU Ä‘ang hoáº¡t Ä‘á»™ng.");
+      throw new ProductCatalogValidationError("Sản phẩm inactive/archived không thể có SKU đang hoạt động.");
     }
 
     const skuSet = new Set<string>();
     const barcodeSet = new Set<string>();
     for (const variant of variants) {
-      if (skuSet.has(variant.sku)) throw new ProductCatalogValidationError(`SKU bá»‹ láº·p trong danh sÃ¡ch: ${variant.sku}.`);
+      if (skuSet.has(variant.sku)) throw new ProductCatalogValidationError(`SKU bị lặp trong danh sách: ${variant.sku}.`);
       skuSet.add(variant.sku);
       if (variant.barcode) {
-        if (barcodeSet.has(variant.barcode)) throw new ProductCatalogValidationError(`MÃ£ váº¡ch bá»‹ láº·p trong danh sÃ¡ch: ${variant.barcode}.`);
+        if (barcodeSet.has(variant.barcode)) throw new ProductCatalogValidationError(`Mã vạch bị lặp trong danh sách: ${variant.barcode}.`);
         barcodeSet.add(variant.barcode);
       }
     }
     
     const existing = await ProductVariantModel.find({ companyCode, $or: [{ sku: { $in: [...skuSet] } }, ...(barcodeSet.size ? [{ barcode: { $in: [...barcodeSet] } }] : [])] }).select("sku barcode").lean();
-    if (existing.length) throw new ProductCatalogValidationError(`SKU hoáº·c mÃ£ váº¡ch Ä‘Ã£ tá»“n táº¡i: ${existing.map((item: any) => item.sku || item.barcode).join(", ")}.`);
+    if (existing.length) throw new ProductCatalogValidationError(`SKU hoặc mã vạch đã tồn tại: ${existing.map((item: any) => item.sku || item.barcode).join(", ")}.`);
 
     let productId = "";
     await runInTransaction(async (session) => {
@@ -587,11 +587,11 @@ export const ProductCatalogService = {
       if (normalized.templateCode) {
         const template = await findTemplate(companyCode, normalized.templateCode, session);
         if (template.productType !== normalized.productType) {
-          throw new ProductCatalogValidationError(`Máº«u ${normalized.templateCode} khÃ´ng Ã¡p dá»¥ng cho loáº¡i sáº£n pháº©m ${normalized.productType}.`);
+          throw new ProductCatalogValidationError(`Mẫu ${normalized.templateCode} không áp dụng cho loại sản phẩm ${normalized.productType}.`);
         }
         assertTemplateAttributes(template, normalized.attributes);
       } else if (normalized.attributes?.length) {
-        throw new ProductCatalogValidationError("Thuá»™c tÃ­nh tÃ¹y biáº¿n chá»‰ Ä‘Æ°á»£c dÃ¹ng khi sáº£n pháº©m cÃ³ máº«u sáº£n pháº©m.");
+        throw new ProductCatalogValidationError("Thuộc tính tùy biến chỉ được dùng khi sản phẩm có mẫu sản phẩm.");
       }
       await assertActiveMasterResources(companyCode, { ...normalized, baseUnitCode } as { categoryCode: string; brandCode?: string; baseUnitCode: string }, session);
       
@@ -600,7 +600,7 @@ export const ProductCatalogService = {
       const [product] = await ProductCatalogModel.create([{ ...normalized, productCode, baseUnitCode, companyCode, normalizedName: normalized.name!.toLocaleLowerCase("vi-VN"), createdBy, updatedBy: createdBy }], { session });
       productId = String(product._id);
       
-      await ProductVariantModel.create(variants.map(variant => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session });
+      await ProductVariantModel.create(variants.map(variant => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session, ordered: true });
     });
     return this.get(companyCode, productId);
   },
@@ -612,22 +612,22 @@ export const ProductCatalogService = {
     assertNoForbiddenCatalogFields(input);
     const value = input as Record<string, unknown>;
     for (const immutableField of ["productCode", "productType", "templateCode"]) {
-      if (Object.prototype.hasOwnProperty.call(value, immutableField)) throw new ProductCatalogValidationError(`${immutableField} khÃ´ng thá»ƒ thay Ä‘á»•i sau khi táº¡o sáº£n pháº©m.`);
+      if (Object.prototype.hasOwnProperty.call(value, immutableField)) throw new ProductCatalogValidationError(`${immutableField} không thể thay đổi sau khi tạo sản phẩm.`);
     }
     const current = await ProductCatalogModel.findOne({ _id: id, companyCode }).lean();
-    if (!current) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
+    if (!current) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
     const normalized = normalizeProductInput(input, true) as ProductCatalogUpdateInput;
     if (normalized.attributes !== undefined) {
       if (current.templateCode) {
         const template = await findTemplate(companyCode, current.templateCode);
         assertTemplateAttributes(template, normalized.attributes);
       } else if (normalized.attributes.length) {
-        throw new ProductCatalogValidationError("Thuá»™c tÃ­nh tÃ¹y biáº¿n chá»‰ Ä‘Æ°á»£c dÃ¹ng khi sáº£n pháº©m cÃ³ máº«u sáº£n pháº©m.");
+        throw new ProductCatalogValidationError("Thuộc tính tùy biến chỉ được dùng khi sản phẩm có mẫu sản phẩm.");
       }
     }
     if ((normalized.status === "inactive" || normalized.status === "archived") && normalized.status !== current.status) {
       const activeVariantCount = await ProductVariantModel.countDocuments({ companyCode, productId: id, status: "active" });
-      if (activeVariantCount > 0) throw new ProductCatalogValidationError("HÃ£y ngá»«ng bÃ¡n cÃ¡c SKU Ä‘ang hoáº¡t Ä‘á»™ng trÆ°á»›c khi ngá»«ng sáº£n pháº©m.");
+      if (activeVariantCount > 0) throw new ProductCatalogValidationError("Hãy ngừng bán các SKU đang hoạt động trước khi ngừng sản phẩm.");
     }
     await assertActiveMasterResources(companyCode, {
       categoryCode: normalized.categoryCode || current.categoryCode,
@@ -647,8 +647,8 @@ export const ProductCatalogService = {
     const createdBy = actorId(actor);
     assertObjectId(productId, "ID sáº£n pháº©m");
     const product = await ProductCatalogModel.findOne({ _id: productId, companyCode }).select("productType status").lean();
-    if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
-    if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
+    if (product.status === "archived") throw new ProductCatalogValidationError("Không thể thêm SKU cho sản phẩm đã lưu trữ.");
     const variant = normalizeVariantInput(input, product.productType);
     if (variant.status === "active" && product.status === "inactive") {
       throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động.");
@@ -662,10 +662,10 @@ export const ProductCatalogService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
     assertObjectId(productId, "ID sáº£n pháº©m");
-    if (!Array.isArray(inputs) || inputs.length === 0 || inputs.length > 500) throw new ProductCatalogValidationError("Danh sÃ¡ch SKU pháº£i cÃ³ tá»« 1 Ä‘áº¿n 500 dÃ²ng.");
+    if (!Array.isArray(inputs) || inputs.length === 0 || inputs.length > 500) throw new ProductCatalogValidationError("Danh sách SKU phải có từ 1 đến 500 dòng.");
     const product = await ProductCatalogModel.findOne({ _id: productId, companyCode }).select("productType status").lean();
-    if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
-    if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
+    if (product.status === "archived") throw new ProductCatalogValidationError("Không thể thêm SKU cho sản phẩm đã lưu trữ.");
     const variants = inputs.map((input) => normalizeVariantInput(input, product.productType));
     if (variants.some((variant) => variant.status === "active") && product.status === "inactive") {
       throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động.");
@@ -673,19 +673,19 @@ export const ProductCatalogService = {
     const skuSet = new Set<string>();
     const barcodeSet = new Set<string>();
     for (const variant of variants) {
-      if (skuSet.has(variant.sku)) throw new ProductCatalogValidationError(`SKU bá»‹ láº·p trong danh sÃ¡ch: ${variant.sku}.`);
+      if (skuSet.has(variant.sku)) throw new ProductCatalogValidationError(`SKU bị lặp trong danh sách: ${variant.sku}.`);
       skuSet.add(variant.sku);
       if (variant.barcode) {
-        if (barcodeSet.has(variant.barcode)) throw new ProductCatalogValidationError(`MÃ£ váº¡ch bá»‹ láº·p trong danh sÃ¡ch: ${variant.barcode}.`);
+        if (barcodeSet.has(variant.barcode)) throw new ProductCatalogValidationError(`Mã vạch bị lặp trong danh sách: ${variant.barcode}.`);
         barcodeSet.add(variant.barcode);
       }
     }
     const existing = await ProductVariantModel.find({ companyCode, $or: [{ sku: { $in: [...skuSet] } }, ...(barcodeSet.size ? [{ barcode: { $in: [...barcodeSet] } }] : [])] }).select("sku barcode").lean();
-    if (existing.length) throw new ProductCatalogValidationError(`SKU hoáº·c mÃ£ váº¡ch Ä‘Ã£ tá»“n táº¡i: ${existing.map((item: any) => item.sku || item.barcode).join(", ")}.`);
+    if (existing.length) throw new ProductCatalogValidationError(`SKU hoặc mã vạch đã tồn tại: ${existing.map((item: any) => item.sku || item.barcode).join(", ")}.`);
     let documents: any[] = [];
     await runInTransaction(async (session) => {
       for (const variant of variants) await assertActiveUnit(companyCode, variant.unitCode, session);
-      documents = await ProductVariantModel.create(variants.map((variant) => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session });
+      documents = await ProductVariantModel.create(variants.map((variant) => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session, ordered: true });
     });
     return documents.map((document) => document.toObject());
   },
@@ -697,12 +697,12 @@ export const ProductCatalogService = {
     assertNoForbiddenCatalogFields(input);
     const value = input as Record<string, unknown>;
     for (const immutableField of ["sku", "productId", "companyCode"]) {
-      if (Object.prototype.hasOwnProperty.call(value, immutableField)) throw new ProductCatalogValidationError(`${immutableField} khÃ´ng thá»ƒ thay Ä‘á»•i sau khi táº¡o SKU.`);
+      if (Object.prototype.hasOwnProperty.call(value, immutableField)) throw new ProductCatalogValidationError(`${immutableField} không thể thay đổi sau khi tạo SKU.`);
     }
     const current = await ProductVariantModel.findOne({ _id: id, companyCode }).lean();
-    if (!current) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y SKU."), { statusCode: 404 });
+    if (!current) throw Object.assign(new Error("Không tìm thấy SKU."), { statusCode: 404 });
     const product = await ProductCatalogModel.findOne({ _id: current.productId, companyCode }).select("productType status").lean();
-    if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m cá»§a SKU."), { statusCode: 404 });
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm của SKU."), { statusCode: 404 });
     const normalized = normalizeVariantInput({
       sku: current.sku,
       barcode: current.barcode,
@@ -734,7 +734,7 @@ export const ProductCatalogService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const updatedBy = actorId(actor);
     const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id).trim()).filter(Boolean))];
-    if (uniqueIds.length === 0 || uniqueIds.length > 500) throw new ProductCatalogValidationError("Danh sÃ¡ch SKU pháº£i cÃ³ tá»« 1 Ä‘áº¿n 500 dÃ²ng.");
+    if (uniqueIds.length === 0 || uniqueIds.length > 500) throw new ProductCatalogValidationError("Danh sách SKU phải có từ 1 đến 500 dòng.");
     uniqueIds.forEach((id) => assertObjectId(id, "ID SKU"));
     const updates: ProductVariantBulkUpdateInput = {};
     if (input?.status !== undefined) {
@@ -742,17 +742,17 @@ export const ProductCatalogService = {
       updates.status = input.status;
     }
     if (input?.trackingMode !== undefined) {
-      if (!TRACKING_MODES.includes(input.trackingMode)) throw new ProductCatalogValidationError("CÃ¡ch theo dÃµi kho khÃ´ng há»£p lá»‡.");
+      if (!TRACKING_MODES.includes(input.trackingMode)) throw new ProductCatalogValidationError("Cách theo dõi kho không hợp lệ.");
       updates.trackingMode = input.trackingMode;
     }
     if (!Object.keys(updates).length) throw new ProductCatalogValidationError("ChÆ°a chá»n ná»™i dung cáº§n cáº­p nháº­t.");
     const variants = await ProductVariantModel.find({ _id: { $in: uniqueIds }, companyCode }).lean();
-    if (variants.length !== uniqueIds.length) throw new ProductCatalogValidationError("Má»™t hoáº·c nhiá»u SKU khÃ´ng thuá»™c cÃ´ng ty nÃ y.");
+    if (variants.length !== uniqueIds.length) throw new ProductCatalogValidationError("Một hoặc nhiều SKU không thuộc công ty này.");
     const productIds = [...new Set(variants.map((variant: any) => String(variant.productId)))];
     const products = await ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("productType status").lean();
     const productById = new Map(products.map((product: any) => [String(product._id), product]));
-    if (updates.status === "active" && variants.some((variant: any) => productById.get(String(variant.productId))?.status !== "active")) throw new ProductCatalogValidationError("Chá»‰ sáº£n pháº©m Ä‘ang hoáº¡t Ä‘á»™ng má»›i Ä‘Æ°á»£c má»Ÿ bÃ¡n SKU.");
-    if (updates.trackingMode === "none" && variants.some((variant: any) => productById.get(String(variant.productId))?.productType !== "service")) throw new ProductCatalogValidationError("Sáº£n pháº©m hÃ ng hÃ³a pháº£i theo dÃµi sá»‘ lÆ°á»£ng, lÃ´ hoáº·c sá»‘ sÃª-ri.");
+    if (updates.status === "active" && variants.some((variant: any) => productById.get(String(variant.productId))?.status !== "active")) throw new ProductCatalogValidationError("Chỉ sản phẩm đang hoạt động mới được mở bán SKU.");
+    if (updates.trackingMode === "none" && variants.some((variant: any) => productById.get(String(variant.productId))?.productType !== "service")) throw new ProductCatalogValidationError("Sản phẩm hàng hóa phải theo dõi số lượng, lô hoặc số sê-ri.");
     await ProductVariantModel.updateMany({ _id: { $in: uniqueIds }, companyCode }, { $set: { ...updates, updatedBy } });
     return ProductVariantModel.find({ _id: { $in: uniqueIds }, companyCode }).sort({ sku: 1 }).lean();
   },
@@ -760,22 +760,22 @@ export const ProductCatalogService = {
   async deleteVariants(companyCodeValue: unknown, ids: string[]) {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id).trim()).filter(Boolean))];
-    if (uniqueIds.length === 0 || uniqueIds.length > 500) throw new ProductCatalogValidationError("Danh sÃ¡ch SKU pháº£i cÃ³ tá»« 1 Ä‘áº¿n 500 dÃ²ng.");
+    if (uniqueIds.length === 0 || uniqueIds.length > 500) throw new ProductCatalogValidationError("Danh sách SKU phải có từ 1 đến 500 dòng.");
     uniqueIds.forEach((id) => assertObjectId(id, "ID SKU"));
     const variants = await ProductVariantModel.find({ _id: { $in: uniqueIds }, companyCode }).select("productId sku").lean();
-    if (variants.length !== uniqueIds.length) throw new ProductCatalogValidationError("Má»™t hoáº·c nhiá»u SKU khÃ´ng thuá»™c cÃ´ng ty nÃ y.");
+    if (variants.length !== uniqueIds.length) throw new ProductCatalogValidationError("Một hoặc nhiều SKU không thuộc công ty này.");
     const productIds = [...new Set(variants.map((variant: any) => String(variant.productId)))];
     const counts = await ProductVariantModel.aggregate([{ $match: { companyCode, productId: { $in: productIds } } }, { $group: { _id: "$productId", count: { $sum: 1 } } }]);
     const countByProduct = new Map(counts.map((item: any) => [String(item._id), Number(item.count)]));
     for (const productId of productIds) {
-      if ((countByProduct.get(productId) || 0) <= variants.filter((variant: any) => String(variant.productId) === productId).length) throw new ProductCatalogValidationError("Má»—i sáº£n pháº©m pháº£i giá»¯ láº¡i Ã­t nháº¥t má»™t SKU.");
+      if ((countByProduct.get(productId) || 0) <= variants.filter((variant: any) => String(variant.productId) === productId).length) throw new ProductCatalogValidationError("Mỗi sản phẩm phải giữ lại ít nhất một SKU.");
     }
     const [balance, ledger, receipt] = await Promise.all([
       InventoryBalanceModel.exists({ companyCode, variantId: { $in: uniqueIds } }),
       InventoryLedgerEntryModel.exists({ companyCode, variantId: { $in: uniqueIds } }),
       GoodsReceiptModel.exists({ companyCode, "items.variantId": { $in: uniqueIds } }),
     ]);
-    if (balance || ledger || receipt) throw new ProductCatalogValidationError("SKU Ä‘Ã£ cÃ³ tá»“n kho hoáº·c lá»‹ch sá»­ giao dá»‹ch vÃ  khÃ´ng thá»ƒ xÃ³a. HÃ£y chuyá»ƒn sang tráº¡ng thÃ¡i Ngá»«ng dÃ¹ng.");
+    if (balance || ledger || receipt) throw new ProductCatalogValidationError("SKU đã có tồn kho hoặc lịch sử giao dịch và không thể xóa. Hãy chuyển sang trạng thái Ngừng dùng.");
     await ProductVariantModel.deleteMany({ _id: { $in: uniqueIds }, companyCode });
     return { deletedIds: uniqueIds };
   },
@@ -786,7 +786,7 @@ export const ProductCatalogService = {
     assertObjectId(id, "ID sáº£n pháº©m");
     
     const product = await ProductCatalogModel.findOne({ _id: id, companyCode }).lean();
-    if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
 
     const variants = await ProductVariantModel.find({ productId: id, companyCode }).select("_id").lean();
     const variantIds = variants.map(v => String(v._id));
@@ -797,7 +797,7 @@ export const ProductCatalogService = {
         InventoryLedgerEntryModel.exists({ companyCode, variantId: { $in: variantIds } }),
         GoodsReceiptModel.exists({ companyCode, "items.variantId": { $in: variantIds } }),
       ]);
-      if (balance || ledger || receipt) throw new ProductCatalogValidationError("Sáº£n pháº©m Ä‘Ã£ cÃ³ tá»“n kho hoáº·c lá»‹ch sá»­ giao dá»‹ch vÃ  khÃ´ng thá»ƒ xÃ³a. HÃ£y chuyá»ƒn sang tráº¡ng thÃ¡i Ngá»«ng dÃ¹ng.");
+      if (balance || ledger || receipt) throw new ProductCatalogValidationError("Sản phẩm đã có tồn kho hoặc lịch sử giao dịch và không thể xóa. Hãy chuyển sang trạng thái Ngừng dùng.");
     }
 
     await runInTransaction(async (session) => {

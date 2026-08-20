@@ -123,10 +123,10 @@ export const CommissionPolicyService = {
   },
   async remove(scope: LaborPartnerScope, id: string) {
     const current = await CommissionPolicyModel.findOne({ _id: requiredObjectId(id), ...scopeQuery(scope) });
-    if (!current) throw new LaborPartnerError("POLICY_NOT_FOUND", "KhÃ´ng tÃ¬m tháº¥y chÃ­nh sÃ¡ch.", 404);
+    if (!current) throw new LaborPartnerError("POLICY_NOT_FOUND", "Không tìm thấy chính sách.", 404);
     // Deletion is protected by referral usage below, regardless of legacy status.
     const used = await WorkerReferralModel.exists({ policyId: current._id, ...scopeQuery(scope) });
-    if (used) throw new LaborPartnerError("POLICY_IN_USE", "KhÃ´ng thá»ƒ xÃ³a policy Ä‘Ã£ Ä‘Æ°á»£c dÃ¹ng cho referral.", 409);
+    if (used) throw new LaborPartnerError("POLICY_IN_USE", "Không thể xóa policy đã được dùng cho referral.", 409);
     await CommissionPolicyModel.deleteOne({ _id: current._id, ...scopeQuery(scope) });
     return current;
   },

@@ -74,10 +74,10 @@ test("legacy shifts without a snapshot expire at the end of their recorded busin
 
 test("opening snapshots an assigned daytime work schedule", () => {
   const snapshot = buildRetailShiftScheduleSnapshot({
-    shift: { _id: "work-1", code: "HC", name: "HÃ nh chÃ­nh", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] },
+    shift: { _id: "work-1", code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] },
   } as any, "2026-08-13", new Date("2026-08-13T03:00:00.000Z"));
   assert.deepEqual(snapshot, {
-    workShiftId: "work-1", workShiftCode: "HC", workShiftName: "HÃ nh chÃ­nh",
+    workShiftId: "work-1", workShiftCode: "HC", workShiftName: "Hành chính",
     scheduledStartAt: new Date("2026-08-13T01:00:00.000Z"),
     scheduledEndAt: new Date("2026-08-13T10:00:00.000Z"),
     operationalEndsAt: new Date("2026-08-13T16:59:59.999Z"),
@@ -85,7 +85,7 @@ test("opening snapshots an assigned daytime work schedule", () => {
 });
 
 test("opening rejects times outside the assigned work window and non-working days", () => {
-  const resolved = { shift: { code: "HC", name: "HÃ nh chÃ­nh", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] } } as any;
+  const resolved = { shift: { code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] } } as any;
   const outsideSchedule = (reason: string) => (error: unknown) => (error as any).code === "SHIFT_OUTSIDE_WORK_SCHEDULE"
     && (error as any).status === 409
     && (error as any).expose === true
@@ -124,7 +124,7 @@ test("the rejection surfaced after trying both business dates is today's, not ye
 });
 
 test("cross-midnight schedules snapshot the next-day employee end as operational deadline", () => {
-  const snapshot = buildRetailShiftScheduleSnapshot({ shift: { code: "DEM", name: "Ca Ä‘Ãªm", startTime: "22:00", endTime: "06:00", crossesMidnight: true, workingDays: [4] } } as any, "2026-08-13", new Date("2026-08-13T16:00:00.000Z"));
+  const snapshot = buildRetailShiftScheduleSnapshot({ shift: { code: "DEM", name: "Ca đêm", startTime: "22:00", endTime: "06:00", crossesMidnight: true, workingDays: [4] } } as any, "2026-08-13", new Date("2026-08-13T16:00:00.000Z"));
   assert.equal(snapshot.scheduledEndAt.toISOString(), "2026-08-13T23:00:00.000Z");
   assert.equal(snapshot.operationalEndsAt.toISOString(), "2026-08-13T23:00:00.000Z");
 });
@@ -143,7 +143,7 @@ test("opening after midnight resolves the cross-midnight assignment from the pre
   const dates: string[] = [];
   const result = await resolveRetailShiftSchedule("ACME", "employee-1", new Date("2026-08-13T18:00:00.000Z"), async (_company, _employee, workDate) => {
     dates.push(workDate);
-    return { shift: { code: "DEM", name: "Ca Ä‘Ãªm", startTime: "22:00", endTime: "06:00", crossesMidnight: true, workingDays: [4] } } as any;
+    return { shift: { code: "DEM", name: "Ca đêm", startTime: "22:00", endTime: "06:00", crossesMidnight: true, workingDays: [4] } } as any;
   });
   assert.deepEqual(dates, ["2026-08-14", "2026-08-13"]);
   assert.equal(result.businessDate, "2026-08-13");
