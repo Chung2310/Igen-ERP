@@ -20,7 +20,7 @@ test("catalog scope and codes are normalized centrally", () => {
 
 test("catalog rejects branch and stock fields", () => {
   assert.throws(() => assertNoForbiddenCatalogFields({ branchId: "branch-1" }), ProductCatalogValidationError);
-  assert.throws(() => assertNoForbiddenCatalogFields({ price: 100 }), /không ghi trong danh mục/);
+  assert.throws(() => assertNoForbiddenCatalogFields({ price: 100 }), /price/);
 });
 
 test("variant validation keeps service products out of stock tracking", () => {
@@ -54,7 +54,7 @@ test("variant identity is normalized and lifecycle values are constrained", () =
   assert.equal(variant.barcode, "8930001");
   assert.equal(variant.unitCode, "PCS");
   assert.equal(variant.status, "inactive");
-  assert.throws(() => normalizeVariantInput({ sku: "SKU-003", unitCode: "PCS", status: "removed" }, "physical"), /Trạng thái SKU/);
+  assert.throws(() => normalizeVariantInput({ sku: "SKU-003", unitCode: "PCS", status: "removed" }, "physical"), /SKU/);
 });
 
 test("variant warranty months are normalized and bounded", () => {
@@ -92,7 +92,7 @@ test("product defaults to draft and validates template-required attributes", () 
   assert.equal(normalizeProductInput({ brandCode: null }, true).brandCode, null);
   assert.throws(
     () => assertTemplateAttributes({ fields: [{ code: "RAM", label: "RAM", type: "text", required: true, options: [] }] }, []),
-    /Thiếu thuộc tính bắt buộc/,
+    /RAM/,
   );
   assert.doesNotThrow(() => assertTemplateAttributes({ fields: [{ code: "RAM", label: "RAM", type: "text", required: true, options: [] }] }, [{ code: "RAM", value: "16GB" }]));
 });

@@ -784,7 +784,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
          <ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => setVariant((current) => ({ ...current, mediaIds: [url] }))} className="w-full aspect-square" />
       </div>
       <div className="flex-grow space-y-4">
-        <Field label="Mã SKU"><input required readOnly={isEditing} value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName(isEditing ? "bg-slate-100" : "")} /></Field>
+        <Field label="Mã SKU"><input readOnly={isEditing} value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName(isEditing ? "bg-slate-100" : "")} placeholder="Tự sinh nếu để trống" /></Field>
         <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} /></Field>
       </div>
     </div>

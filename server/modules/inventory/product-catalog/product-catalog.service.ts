@@ -145,7 +145,7 @@ export function codeFromName(prefix: string, value: unknown): string {
   const slug = name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Ä‘Ä]/g, "d")
+    .replace(/[đĐ]/g, "d")
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
@@ -153,11 +153,17 @@ export function codeFromName(prefix: string, value: unknown): string {
   return `${prefix}-${slug}`.slice(0, 100);
 }
 
-export async function resolveNextCatalogCode(model: mongoose.Model<any>, companyCode: string, prefix: string, name: unknown): Promise<string> {
+export async function resolveNextCatalogCode(
+  model: mongoose.Model<any>,
+  companyCode: string,
+  prefix: string,
+  name: unknown,
+  field = "code"
+): Promise<string> {
   const base = codeFromName(prefix, name);
   let candidate = base;
   let suffix = 2;
-  while (await model.exists({ companyCode, code: candidate })) {
+  while (await model.exists({ companyCode, [field]: candidate })) {
     candidate = `${base.slice(0, 95)}-${suffix}`;
     suffix += 1;
   }
@@ -516,7 +522,7 @@ export const ProductCatalogService = {
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
     if (!normalized.productType) throw new ProductCatalogValidationError("productType lÃ  báº¯t buá»™c.");
-    const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name);
+    const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
     const variant = normalizeVariantInput({ ...input.variant, unitCode: input.variant.unitCode || baseUnitCode }, normalized.productType);
     if (variant.status === "active" && (normalized.status === "inactive" || normalized.status === "archived")) {
@@ -548,7 +554,7 @@ export const ProductCatalogService = {
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
     if (!normalized.productType) throw new ProductCatalogValidationError("productType lÃ  báº¯t buá»™c.");
-    const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name);
+    const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
 
     if (!Array.isArray(input.variants) || input.variants.length === 0 || input.variants.length > 500) {
