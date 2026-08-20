@@ -17,6 +17,8 @@ const RESULT_LABELS: Record<string, string> = {
 const message = (reason: unknown, fallback: string) =>
   reason instanceof Error ? reason.message : fallback;
 
+const EMPTY_OPENING = { sessionCode: "", name: "", branchIds: "", inventoryDate: "" };
+
 export default function AssetInventoryPage({
   permissions,
 }: {
@@ -29,6 +31,8 @@ export default function AssetInventoryPage({
   const [result, setResult] = useState<"present" | "damaged" | "surplus">("present");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [opening, setOpening] = useState(false);
+  const [openForm, setOpenForm] = useState(EMPTY_OPENING);
   const canManage = canManageAssets(permissions);
 
   const load = async () => {
@@ -54,6 +58,37 @@ export default function AssetInventoryPage({
       setVariance(summary);
     } catch (reason) {
       setError(message(reason, "Không tải được chi tiết phiên kiểm kê."));
+    }
+  };
+
+  /** Company-wide sessions leave branchIds empty; the server derives them from the assets in scope. */
+  const openSession = async () => {
+    const branchIds = openForm.branchIds
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!openForm.sessionCode.trim() || !openForm.name.trim() || !openForm.inventoryDate) {
+      setError("Cần nhập mã phiên, tên phiên và ngày kiểm kê.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const session = await financeAssetInventoriesApi.open({
+        sessionCode: openForm.sessionCode.trim(),
+        name: openForm.name.trim(),
+        scope: branchIds.length ? "branch" : "company",
+        branchIds,
+        inventoryDate: new Date(`${openForm.inventoryDate}T00:00:00.000Z`).toISOString(),
+      });
+      setOpenForm(EMPTY_OPENING);
+      setOpening(false);
+      setError("");
+      await load();
+      await open(session);
+    } catch (reason) {
+      setError(message(reason, "Không mở được phiên kiểm kê."));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -88,12 +123,53 @@ export default function AssetInventoryPage({
 
   return (
     <section className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Kiểm kê tài sản</h1>
-        <p className="text-sm text-slate-500">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Kiểm kê tài sản</h1>
+          <p className="text-sm text-slate-500">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
+        </div>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setOpening((value) => !value)}
+            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white"
+          >
+            Mở phiên kiểm kê
+          </button>
+        )}
       </div>
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+
+      {opening && canManage && (
+        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+          {[
+            ["sessionCode", "Mã phiên", "text"],
+            ["name", "Tên phiên", "text"],
+            ["branchIds", "Chi nhánh (để trống = toàn công ty)", "text"],
+            ["inventoryDate", "Ngày kiểm kê", "date"],
+          ].map(([field, label, type]) => (
+            <label key={field} className="text-sm font-semibold text-slate-700">
+              {label}
+              <input
+                type={type}
+                aria-label={label}
+                value={(openForm as Record<string, string>)[field]}
+                onChange={(event) => setOpenForm((current) => ({ ...current, [field]: event.target.value }))}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void openSession()}
+            className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            Tạo phiên
+          </button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="divide-y">

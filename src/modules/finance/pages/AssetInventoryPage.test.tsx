@@ -25,6 +25,7 @@ beforeEach(() => {
   vi.mocked(financeAssetInventoriesApi.detail).mockResolvedValue(SESSION);
   vi.mocked(financeAssetInventoriesApi.variance).mockResolvedValue({ total: 2, counts: { pending: 2 }, variances: [] });
   vi.mocked(financeAssetInventoriesApi.count).mockResolvedValue(SESSION);
+  vi.mocked(financeAssetInventoriesApi.open).mockResolvedValue(SESSION);
 });
 
 describe("AssetInventoryPage", () => {
@@ -78,6 +79,59 @@ describe("AssetInventoryPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Chốt phiên" }));
     expect(await screen.findByText("Thiếu: 1")).toBeTruthy();
     expect(screen.queryByLabelText("Mã vạch")).toBeNull();
+  });
+
+  it("hides the open-session form from read-only users", async () => {
+    render(<AssetInventoryPage permissions={["asset:read"]} />);
+    await screen.findByRole("button", { name: "Phiên KK-2026-01" });
+    expect(screen.queryByRole("button", { name: "Mở phiên kiểm kê" })).toBeNull();
+  });
+
+  it("opens a branch-scoped session and jumps straight into it", async () => {
+    render(<AssetInventoryPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
+    fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: " KK-2026-02 " } });
+    fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: " Kiểm kê quý 2 " } });
+    fireEvent.change(screen.getByLabelText("Chi nhánh (để trống = toàn công ty)"), { target: { value: "B1, B2 " } });
+    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
+    await vi.waitFor(() => expect(financeAssetInventoriesApi.open).toHaveBeenCalled());
+    expect(vi.mocked(financeAssetInventoriesApi.open).mock.calls[0][0]).toEqual({
+      sessionCode: "KK-2026-02", name: "Kiểm kê quý 2", scope: "branch", branchIds: ["B1", "B2"],
+      inventoryDate: "2026-06-30T00:00:00.000Z",
+    });
+    expect(await screen.findByText("TS-001")).toBeTruthy();
+  });
+
+  it("treats an empty branch list as a company-wide session", async () => {
+    render(<AssetInventoryPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
+    fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: "KK-2026-03" } });
+    fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: "Toàn công ty" } });
+    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
+    await vi.waitFor(() => expect(financeAssetInventoriesApi.open).toHaveBeenCalled());
+    expect(vi.mocked(financeAssetInventoriesApi.open).mock.calls[0][0]).toMatchObject({ scope: "company", branchIds: [] });
+  });
+
+  it("refuses to open a session with missing required fields", async () => {
+    render(<AssetInventoryPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
+    fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: "KK-2026-04" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
+    expect(await screen.findByText("Cần nhập mã phiên, tên phiên và ngày kiểm kê.")).toBeTruthy();
+    expect(financeAssetInventoriesApi.open).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a rejected open", async () => {
+    vi.mocked(financeAssetInventoriesApi.open).mockRejectedValue(new Error("Mã phiên kiểm kê đã tồn tại."));
+    render(<AssetInventoryPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
+    fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: "KK-2026-01" } });
+    fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: "Trùng" } });
+    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
+    expect(await screen.findByText("Mã phiên kiểm kê đã tồn tại.")).toBeTruthy();
   });
 
   it("surfaces a rejected scan", async () => {

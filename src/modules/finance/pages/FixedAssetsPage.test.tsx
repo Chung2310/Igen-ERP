@@ -23,6 +23,9 @@ beforeEach(() => {
     { period: "2026-01", amount: 1000000, accumulatedAfter: 1000000, netBookValueAfter: 11000000 },
   ]);
   vi.mocked(financeAssetsApi.create).mockResolvedValue(ASSET);
+  vi.mocked(financeAssetsApi.detail).mockResolvedValue(ASSET);
+  vi.mocked(financeAssetsApi.update).mockResolvedValue(ASSET);
+  vi.mocked(financeAssetsApi.transfer).mockResolvedValue(ASSET);
   vi.mocked(financeAssetsApi.dispose).mockResolvedValue({ ...ASSET, status: "disposed" });
 });
 
@@ -39,6 +42,52 @@ describe("FixedAssetsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Tài sản TS-001" }));
     expect(screen.queryByRole("button", { name: "Thêm tài sản" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Thanh lý" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sửa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Điều chuyển" })).toBeNull();
+  });
+
+  it("hides edit and transfer for an already disposed asset", async () => {
+    vi.mocked(financeAssetsApi.list).mockResolvedValue([{ ...ASSET, status: "disposed" as const }]);
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Tài sản TS-001" }));
+    expect(screen.queryByRole("button", { name: "Sửa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Điều chuyển" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thanh lý" })).toBeNull();
+  });
+
+  it("sends only the changed fields when editing", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Tài sản TS-001" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sửa" }));
+    fireEvent.change(screen.getByLabelText("Vị trí"), { target: { value: "Kho B" } });
+    fireEvent.change(screen.getByLabelText("Ghi chú thay đổi"), { target: { value: "Dời kho" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await vi.waitFor(() => expect(financeAssetsApi.update).toHaveBeenCalled());
+    expect(vi.mocked(financeAssetsApi.update).mock.calls[0][1]).toEqual({ location: "Kho B", note: "Dời kho" });
+  });
+
+  it("refuses an edit that changes nothing", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Tài sản TS-001" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sửa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(await screen.findByText("Chưa có thay đổi nào để lưu.")).toBeTruthy();
+    expect(financeAssetsApi.update).not.toHaveBeenCalled();
+  });
+
+  it("requires a destination branch and a reason before transferring", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Tài sản TS-001" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Điều chuyển" }));
+    fireEvent.change(screen.getByLabelText("Chi nhánh đến"), { target: { value: "B2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận điều chuyển" }));
+    expect(await screen.findByText("Cần chọn chi nhánh đến và nhập lý do điều chuyển.")).toBeTruthy();
+    expect(financeAssetsApi.transfer).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Lý do điều chuyển"), { target: { value: " Dời chi nhánh " } });
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận điều chuyển" }));
+    await vi.waitFor(() => expect(financeAssetsApi.transfer).toHaveBeenCalled());
+    expect(vi.mocked(financeAssetsApi.transfer).mock.calls[0][1]).toEqual({ branchId: "B2", reason: "Dời chi nhánh" });
   });
 
   it("submits a new asset with the date normalized to an ISO instant", async () => {

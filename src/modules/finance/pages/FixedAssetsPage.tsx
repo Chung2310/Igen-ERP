@@ -31,6 +31,19 @@ const EMPTY_FORM = {
   location: "",
 };
 
+const EDITABLE_FIELDS = ["name", "group", "location", "custodianName"] as const;
+
+const editFormFrom = (asset: FixedAsset) => ({
+  name: asset.name,
+  group: asset.group,
+  location: asset.location || "",
+  custodianName: asset.custodianName || "",
+  status: asset.status === "disposed" ? "in_use" : asset.status,
+  note: "",
+});
+
+const EMPTY_TRANSFER = { branchId: "", location: "", custodianName: "", reason: "" };
+
 export default function FixedAssetsPage({
   permissions,
 }: {
@@ -43,6 +56,9 @@ export default function FixedAssetsPage({
   const [schedule, setSchedule] = useState<DepreciationScheduleLine[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
+  const [panel, setPanel] = useState<"edit" | "transfer">();
+  const [editForm, setEditForm] = useState(() => editFormFrom({} as FixedAsset));
+  const [transferForm, setTransferForm] = useState(EMPTY_TRANSFER);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const canManage = canManageAssets(permissions);
@@ -63,11 +79,22 @@ export default function FixedAssetsPage({
 
   const open = async (asset: FixedAsset) => {
     setSelected(asset);
+    setPanel(undefined);
+    setEditForm(editFormFrom(asset));
+    setTransferForm(EMPTY_TRANSFER);
     try {
       setSchedule(await financeAssetsApi.schedule(asset._id));
     } catch (reason) {
       setError(message(reason, "Không tải được lịch khấu hao."));
     }
+  };
+
+  const refresh = async (id: string) => {
+    const fresh = await financeAssetsApi.detail(id);
+    setSelected(fresh);
+    setEditForm(editFormFrom(fresh));
+    setPanel(undefined);
+    await load();
   };
 
   const create = async () => {
@@ -94,6 +121,53 @@ export default function FixedAssetsPage({
     }
   };
 
+  /** Sends only the fields that actually changed, so the server never sees an empty patch. */
+  const submitEdit = async () => {
+    if (!selected) return;
+    const current = editFormFrom(selected);
+    const patch: Record<string, unknown> = {};
+    for (const field of EDITABLE_FIELDS) if (editForm[field] !== current[field]) patch[field] = editForm[field];
+    if (editForm.status !== current.status) patch.status = editForm.status;
+    if (!Object.keys(patch).length) {
+      setError("Chưa có thay đổi nào để lưu.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await financeAssetsApi.update(selected._id, { ...patch, ...(editForm.note ? { note: editForm.note } : {}) });
+      await refresh(selected._id);
+      setError("");
+    } catch (reason) {
+      setError(message(reason, "Không cập nhật được tài sản."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitTransfer = async () => {
+    if (!selected) return;
+    if (!transferForm.branchId.trim() || !transferForm.reason.trim()) {
+      setError("Cần chọn chi nhánh đến và nhập lý do điều chuyển.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await financeAssetsApi.transfer(selected._id, {
+        branchId: transferForm.branchId.trim(),
+        reason: transferForm.reason.trim(),
+        ...(transferForm.location ? { location: transferForm.location } : {}),
+        ...(transferForm.custodianName ? { custodianName: transferForm.custodianName } : {}),
+      });
+      setTransferForm(EMPTY_TRANSFER);
+      await refresh(selected._id);
+      setError("");
+    } catch (reason) {
+      setError(message(reason, "Không điều chuyển được tài sản."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const dispose = async (asset: FixedAsset) => {
     const reason = window.prompt("Lý do thanh lý?");
     if (!reason) return;
@@ -112,6 +186,8 @@ export default function FixedAssetsPage({
       setBusy(false);
     }
   };
+
+  const active = selected && selected.status !== "disposed";
 
   return (
     <section className="space-y-4">
@@ -218,26 +294,129 @@ export default function FixedAssetsPage({
               {selected.assetCode} · {selected.name}
             </h2>
             <div className="flex gap-3">
-              {canManage && selected.status !== "disposed" && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void dispose(selected)}
-                  className="text-sm font-bold text-red-700 disabled:opacity-50"
-                >
-                  Thanh lý
-                </button>
+              {canManage && active && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPanel((value) => (value === "edit" ? undefined : "edit"))}
+                    className="text-sm font-bold text-cyan-700"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPanel((value) => (value === "transfer" ? undefined : "transfer"))}
+                    className="text-sm font-bold text-cyan-700"
+                  >
+                    Điều chuyển
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void dispose(selected)}
+                    className="text-sm font-bold text-red-700 disabled:opacity-50"
+                  >
+                    Thanh lý
+                  </button>
+                </>
               )}
               <button type="button" onClick={() => setSelected(undefined)} className="text-sm font-bold text-slate-500">
                 Đóng
               </button>
             </div>
           </div>
+
+          {panel === "edit" && canManage && (
+            <div className="grid gap-3 border-b p-4 sm:grid-cols-3">
+              {[
+                ["name", "Tên tài sản"],
+                ["group", "Nhóm"],
+                ["location", "Vị trí"],
+                ["custodianName", "Người giữ"],
+                ["note", "Ghi chú thay đổi"],
+              ].map(([field, label]) => (
+                <label key={field} className="text-sm font-semibold text-slate-700">
+                  {label}
+                  <input
+                    aria-label={label}
+                    value={(editForm as Record<string, string>)[field]}
+                    onChange={(event) => setEditForm((current) => ({ ...current, [field]: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                  />
+                </label>
+              ))}
+              <label className="text-sm font-semibold text-slate-700">
+                Trạng thái
+                <select
+                  aria-label="Trạng thái"
+                  value={editForm.status}
+                  onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as "in_use" | "idle" }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                >
+                  <option value="in_use">Đang dùng</option>
+                  <option value="idle">Chờ dùng</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitEdit()}
+                className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                Lưu thay đổi
+              </button>
+            </div>
+          )}
+
+          {panel === "transfer" && canManage && (
+            <div className="grid gap-3 border-b p-4 sm:grid-cols-3">
+              {[
+                ["branchId", "Chi nhánh đến"],
+                ["location", "Vị trí mới"],
+                ["custodianName", "Người giữ mới"],
+                ["reason", "Lý do điều chuyển"],
+              ].map(([field, label]) => (
+                <label key={field} className="text-sm font-semibold text-slate-700">
+                  {label}
+                  <input
+                    aria-label={label}
+                    value={(transferForm as Record<string, string>)[field]}
+                    onChange={(event) => setTransferForm((current) => ({ ...current, [field]: event.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                  />
+                </label>
+              ))}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitTransfer()}
+                className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                Xác nhận điều chuyển
+              </button>
+            </div>
+          )}
+
           <div className="grid gap-2 p-4 text-sm sm:grid-cols-3">
+            <span>Chi nhánh: {selected.branchId}</span>
             <span>Đã khấu hao: {vnd(selected.accumulatedDepreciation)}</span>
             <span>Giá trị còn lại: {vnd(selected.netBookValue)}</span>
-            <span>Số tháng: {selected.usefulLifeMonths}</span>
           </div>
+
+          <h3 className="border-t p-4 font-bold">Lịch sử biến động</h3>
+          <div className="divide-y">
+            {selected.lifecycleEvents?.map((event, index) => (
+              <div key={`${event.at}-${index}`} className="grid grid-cols-3 gap-2 px-4 py-2 text-sm">
+                <span>{event.type}</span>
+                <span>{event.at?.slice(0, 10)}</span>
+                <span>{event.note || ""}</span>
+              </div>
+            ))}
+            {!selected.lifecycleEvents?.length && (
+              <p className="px-4 py-2 text-sm text-slate-500">Chưa có biến động nào.</p>
+            )}
+          </div>
+
           <h3 className="border-t p-4 font-bold">Lịch khấu hao</h3>
           <div className="divide-y">
             {schedule.map((line) => (
