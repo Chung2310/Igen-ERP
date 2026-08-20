@@ -6,15 +6,21 @@ import type { RepairCoverage, RepairTicketDocument } from "./repair-ticket.inter
 import { assertRepairTransition, type RepairStatus } from "./repair-state";
 import { dispatchRepairNotification } from "./services/repair-notify.service";
 import { publishRepairTicketEvent } from "./services/repair-events";
+import { assertSoldSerialForRepair } from "./repair-serial-validation";
+import { recordRepairSerialLifecycle } from "./services/repair-serial-lifecycle";
+import { requireSoldSerialForRepair } from "./repair-sold-serial.service";
 
 export type RepairScope = { companyCode: string; branchId: string };
 export type RepairActor = { id: string; name: string };
 
 export async function createRepairTicket(scope: RepairScope, input: Omit<RepairTicketDocument, "companyCode" | "branchId" | "status" | "statusHistory" | "createdAt" | "updatedAt"> & { ticketCode: string; coverage: RepairCoverage }, actor: RepairActor, session?: ClientSession) {
   if (!input.customerId || !input.device?.name || !input.symptom) throw Object.assign(new Error("Khách hàng, thiết bị và mô tả lỗi là bắt buộc."), { statusCode: 400 });
+  assertSoldSerialForRepair(input.device);
+  await requireSoldSerialForRepair(scope, input.device);
   const ticket = new RepairTicketModel({ ...input, ...scope, status: "received", statusHistory: [{ to: "received", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }], createdBy: actor.id, createdByName: actor.name });
   if (session) ticket.$session(session);
   const saved = (await ticket.save()).toObject();
+  await recordRepairSerialLifecycle(saved, "received", actor);
   afterRepairTicketEvent(saved, "received", actor);
   return saved;
 }
@@ -44,6 +50,7 @@ export async function transitionRepairTicket(scope: RepairScope, id: string, to:
   if (to === "done") { ticket.completedAt = new Date(); if (!ticket.feedbackToken) ticket.feedbackToken = randomUUID(); }
   if (to === "delivered") ticket.deliveredAt = new Date(); ticket.updatedBy = actor.id; if (session) ticket.$session(session); await ticket.save();
   const saved = ticket.toObject();
+  if (to === "delivered") await recordRepairSerialLifecycle(saved, "delivered", actor);
   if (to === "done" || to === "delivered") afterRepairTicketEvent(saved, to, actor);
   return saved;
 }

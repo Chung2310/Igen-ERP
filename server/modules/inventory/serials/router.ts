@@ -9,3 +9,6 @@ serialUnitRouter.get("/:id", requirePermission("inventory:read") as any, serialU
 serialUnitRouter.post("/", requirePermission("inventory:manage") as any, serialUnitController.create as any);
 serialUnitRouter.post("/:id/transition", requirePermission("inventory:manage") as any, serialUnitController.transition as any);
 serialUnitRouter.post("/:id/transfer", requirePermission("inventory:manage") as any, serialUnitController.transfer as any);
+serialUnitRouter.post("/:id/transfer/request", requirePermission("inventory:manage") as any, serialUnitController.requestTransfer as any);
+serialUnitRouter.post("/:id/transfer/accept", requirePermission("inventory:manage") as any, serialUnitController.acceptTransfer as any);
+serialUnitRouter.post("/:id/transfer/cancel", requirePermission("inventory:manage") as any, serialUnitController.cancelTransfer as any);

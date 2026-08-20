@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { getSerialHistory, listSerialUnits, registerSerialBatch, registerSerialUnit, transferSerialUnit, transitionSerialUnit } from "./serial-unit.service";
+import { acceptSerialTransfer, cancelSerialTransfer, requestSerialTransfer } from "./serial-transfer.service";
 
 function scope(req: Request) { return { companyCode: String((req as any).user?.companyCode || "").trim().toUpperCase(), branchId: String((req as any).user?.branchId || "").trim(), warehouseId: req.query.warehouseId ? String(req.query.warehouseId) : undefined }; }
 function actor(req: Request) { return { id: String((req as any).user?.id || (req as any).user?._id || ""), name: String((req as any).user?.name || (req as any).user?.fullName || "") }; }
@@ -12,4 +13,7 @@ export const serialUnitController = {
   create: async (req: Request, res: Response) => { try { const data = Array.isArray(req.body?.serialNumbers) ? await registerSerialBatch(scope(req), req.body, actor(req)) : [await registerSerialUnit(scope(req), req.body, actor(req))]; return res.status(201).json({ status: "success", data }); } catch (e) { return sendError(res, e); } },
   transition: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await transitionSerialUnit(scope(req), req.params.id, req.body, actor(req)) }); } catch (e) { return sendError(res, e); } },
   transfer: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await transferSerialUnit(scope(req), req.params.id, req.body, actor(req)) }); } catch (e) { return sendError(res, e); } },
+  requestTransfer: async (req: Request, res: Response) => { try { return res.status(201).json({ status: "success", data: await requestSerialTransfer(scope(req), req.params.id, req.body, actor(req)) }); } catch (e) { return sendError(res, e); } },
+  acceptTransfer: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await acceptSerialTransfer(scope(req), req.params.id, req.body, actor(req)) }); } catch (e) { return sendError(res, e); } },
+  cancelTransfer: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await cancelSerialTransfer(scope(req), req.params.id, String(req.body?.reason || ""), actor(req)) }); } catch (e) { return sendError(res, e); } },
 };
