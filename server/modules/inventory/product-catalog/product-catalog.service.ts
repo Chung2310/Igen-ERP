@@ -650,7 +650,9 @@ export const ProductCatalogService = {
     if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
     if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
     const variant = normalizeVariantInput(input, product.productType);
-    if (variant.status === "active" && product.status !== "active") throw new ProductCatalogValidationError("Chá»‰ sáº£n pháº©m Ä‘ang hoáº¡t Ä‘á»™ng má»›i Ä‘Æ°á»£c má»Ÿ bÃ¡n SKU.");
+    if (variant.status === "active" && (product.status === "inactive" || product.status === "archived")) {
+      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
+    }
     await assertActiveUnit(companyCode, variant.unitCode);
     const document = await ProductVariantModel.create({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy });
     return document.toObject();
@@ -665,7 +667,9 @@ export const ProductCatalogService = {
     if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
     if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
     const variants = inputs.map((input) => normalizeVariantInput(input, product.productType));
-    if (variants.some((variant) => variant.status === "active") && product.status !== "active") throw new ProductCatalogValidationError("Chá»‰ sáº£n pháº©m Ä‘ang hoáº¡t Ä‘á»™ng má»›i Ä‘Æ°á»£c má»Ÿ bÃ¡n SKU.");
+    if (variants.some((variant) => variant.status === "active") && (product.status === "inactive" || product.status === "archived")) {
+      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
+    }
     const skuSet = new Set<string>();
     const barcodeSet = new Set<string>();
     for (const variant of variants) {
@@ -717,7 +721,9 @@ export const ProductCatalogService = {
       status: current.status,
       ...input,
     }, product.productType);
-    if (normalized.status === "active" && product.status !== "active") throw new ProductCatalogValidationError("Chá»‰ sáº£n pháº©m Ä‘ang hoáº¡t Ä‘á»™ng má»›i Ä‘Æ°á»£c má»Ÿ bÃ¡n SKU.");
+    if (normalized.status === "active" && (product.status === "inactive" || product.status === "archived")) {
+      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
+    }
     await assertActiveUnit(companyCode, normalized.unitCode);
     const update = { ...normalized, sku: current.sku, productId: current.productId, companyCode, updatedBy };
     const document = await ProductVariantModel.findOneAndUpdate({ _id: id, companyCode }, { $set: update }, { returnDocument: "after", runValidators: true }).lean();
