@@ -650,8 +650,8 @@ export const ProductCatalogService = {
     if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
     if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
     const variant = normalizeVariantInput(input, product.productType);
-    if (variant.status === "active" && (product.status === "inactive" || product.status === "archived")) {
-      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
+    if (variant.status === "active" && product.status === "inactive") {
+      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động.");
     }
     await assertActiveUnit(companyCode, variant.unitCode);
     const document = await ProductVariantModel.create({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy });
@@ -667,8 +667,8 @@ export const ProductCatalogService = {
     if (!product) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m."), { statusCode: 404 });
     if (product.status === "archived") throw new ProductCatalogValidationError("KhÃ´ng thá»ƒ thÃªm SKU cho sáº£n pháº©m Ä‘Ã£ lÆ°u trá»¯.");
     const variants = inputs.map((input) => normalizeVariantInput(input, product.productType));
-    if (variants.some((variant) => variant.status === "active") && (product.status === "inactive" || product.status === "archived")) {
-      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
+    if (variants.some((variant) => variant.status === "active") && product.status === "inactive") {
+      throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động.");
     }
     const skuSet = new Set<string>();
     const barcodeSet = new Set<string>();
