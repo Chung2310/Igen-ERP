@@ -46,6 +46,7 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
   feature("payroll-payment", "Thanh toán lương", "Tiền lương"),
   feature("finance-wallet", "Ví tài chính", "Tài chính"),
   feature("finance-receivable", "Công nợ phải thu", "Tài chính"),
+  feature("asset", "Tài sản cố định", "Tài chính"),
   feature("labor-partner", "Đối tác lao động", "Đối tác lao động"),
   feature("labor-partner-policy", "Chính sách hoa hồng lao động", "Đối tác lao động"),
   feature("labor-partner-settlement", "Đối soát hoa hồng lao động", "Đối tác lao động"),

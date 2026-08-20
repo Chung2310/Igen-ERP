@@ -1,14 +1,23 @@
 import { useMemo, useState } from "react";
-import { BellRing, ChartNoAxesColumnIncreasing, Landmark } from "lucide-react";
+import { BellRing, Boxes, ChartNoAxesColumnIncreasing, ClipboardCheck, Landmark, TrendingDown } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import type { AgingBucket } from "./api/financeReceivables.api";
 import ReceivableDetailDrawer from "./components/ReceivableDetailDrawer";
 import AgingReportPage from "./pages/AgingReportPage";
+import AssetDepreciationPage from "./pages/AssetDepreciationPage";
+import AssetInventoryPage from "./pages/AssetInventoryPage";
+import FixedAssetsPage from "./pages/FixedAssetsPage";
 import FinanceRemindersPage from "./pages/FinanceRemindersPage";
 import ReceivablesPage from "./pages/ReceivablesPage";
 
-type FinanceSubTab = "CÔNG NỢ" | "TUỔI NỢ" | "NHẮC NỢ";
+type FinanceSubTab =
+  | "CÔNG NỢ"
+  | "TUỔI NỢ"
+  | "NHẮC NỢ"
+  | "TÀI SẢN"
+  | "KHẤU HAO"
+  | "KIỂM KÊ";
 export const FINANCE_SUB_TABS = [
   {
     slug: "cong-no",
@@ -28,6 +37,24 @@ export const FINANCE_SUB_TABS = [
     label: "Nhắc nợ",
     icon: BellRing,
   },
+  {
+    slug: "tai-san",
+    value: "TÀI SẢN" as const,
+    label: "Tài sản",
+    icon: Boxes,
+  },
+  {
+    slug: "khau-hao",
+    value: "KHẤU HAO" as const,
+    label: "Khấu hao",
+    icon: TrendingDown,
+  },
+  {
+    slug: "kiem-ke",
+    value: "KIỂM KÊ" as const,
+    label: "Kiểm kê",
+    icon: ClipboardCheck,
+  },
 ] as const;
 
 export function getAllowedFinanceTabSlugs(permissions: readonly string[] = []) {
@@ -37,6 +64,10 @@ export function getAllowedFinanceTabSlugs(permissions: readonly string[] = []) {
     ["finance-receivable:read", "finance-receivable:manage"].includes(item),
   );
   if (canReadReceivables) allowed.push("cong-no", "tuoi-no", "nhac-no");
+  const canReadAssets = permissions.some((item) =>
+    ["asset:read", "asset:manage"].includes(item),
+  );
+  if (canReadAssets) allowed.push("tai-san", "khau-hao", "kiem-ke");
   return allowed;
 }
 
@@ -118,6 +149,13 @@ export default function FinanceWorkspace() {
         {activeTab === "TUỔI NỢ" && <AgingReportPage onDrillDown={drillDown} />}{" "}
         {activeTab === "NHẮC NỢ" && (
           <FinanceRemindersPage permissions={permissions} />
+        )}{" "}
+        {activeTab === "TÀI SẢN" && <FixedAssetsPage permissions={permissions} />}{" "}
+        {activeTab === "KHẤU HAO" && (
+          <AssetDepreciationPage permissions={permissions} />
+        )}{" "}
+        {activeTab === "KIỂM KÊ" && (
+          <AssetInventoryPage permissions={permissions} />
         )}
       </div>
       {selectedId && (
