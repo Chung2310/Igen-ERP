@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import QRCode from "qrcode";
 import { toast } from "../../../pages/Toast";
 import { AddWorkerModal } from "../components/AddWorkerModal";
 import { ImportWorkerModal } from "../components/ImportWorkerModal";
@@ -953,7 +954,17 @@ function RegistrationQrModal({
   ownerId: string;
   onClose: () => void;
 }) {
-  const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(ownerId)}`;
+  const [qrDataUrl, setQrDataUrl] = React.useState("");
+  const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(ownerId)}&entityPreset=worker`;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(registerUrl, { width: 320, margin: 1 })
+      .then((url) => { if (!cancelled) setQrDataUrl(url); })
+      .catch(() => toast.error("KhÃ´ng táº¡o Ä‘Æ°á»£c mÃ£ QR."));
+    return () => { cancelled = true; };
+  }, [registerUrl]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
@@ -973,6 +984,13 @@ function RegistrationQrModal({
         <p className="mt-4 break-all rounded-xl bg-slate-50 p-3 text-[10px] text-slate-500">
           {registerUrl}
         </p>
+        <div className="mt-4 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 p-4">
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="QR Ä‘Äƒng kÃ½ lao Ä‘á»™ng" className="h-56 w-56" />
+          ) : (
+            <div className="h-56 w-56 animate-pulse rounded-lg bg-slate-200" />
+          )}
+        </div>
       </div>
     </div>
   );
