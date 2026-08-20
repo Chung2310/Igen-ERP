@@ -20,6 +20,7 @@
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
     "backfill:serial-tracking": "tsx server/scripts/backfill-serial-tracking.ts",
     "backfill:warranty-serials": "tsx server/scripts/backfill-warranty-serials.ts",
+    "backfill:repair-ticket-lookup-keys": "tsx server/scripts/backfill-repair-ticket-lookup-keys.ts",
     "stress:staging": "tsx tools/controlled-staging-stress-test.ts",
     "load:production": "tsx tools/production-stepped-load-test.ts",
     "load:setup": "tsx tools/comprehensive-load/setup-command.ts",

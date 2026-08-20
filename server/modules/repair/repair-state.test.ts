@@ -1,13 +1,12 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { assertRepairTransition, pausesSla } from "./repair-state";
 
 test("repair accepts supplier waiting state and resumes repair", () => {
-  assert.doesNotThrow(() => assertRepairTransition("repairing", "waiting_supplier"));
-  assert.doesNotThrow(() => assertRepairTransition("waiting_supplier", "repairing"));
-  assert.equal(pausesSla("waiting_supplier"), true);
+  expect(() => assertRepairTransition("repairing", "waiting_supplier")).not.toThrow();
+  expect(() => assertRepairTransition("waiting_supplier", "repairing")).not.toThrow();
+  expect(pausesSla("waiting_supplier")).toBe(true);
 });
 
 test("repair rejects delivering an unfinished ticket", () => {
-  assert.throws(() => assertRepairTransition("repairing", "delivered"), /Invalid repair transition/);
+  expect(() => assertRepairTransition("repairing", "delivered")).toThrow(/Invalid repair transition/);
 });

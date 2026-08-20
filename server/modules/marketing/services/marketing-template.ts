@@ -20,17 +20,21 @@ export function emptyVariables(): MarketingVariables {
   return { customerName: "", companyName: "", orderCode: "", orderTotal: "", holidayName: "", campaignName: "", lastPurchaseDate: "", inactiveDays: "" };
 }
 
-const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[char]!));
 
 /** Thay biến {{ten_bien}}; biến lạ bị từ chối để tránh gửi tin lỗi hàng loạt. */
-export function renderMarketingTemplate(template: string, variables: MarketingVariables): string {
+export function renderTemplateWithKeys(template: string, variables: Record<string, string>, allowedKeys: readonly string[], errorPrefix: string): string {
   const unknown = [...String(template).matchAll(/{{\s*([^}]+?)\s*}}/g)]
     .map((match) => match[1].trim())
-    .filter((key) => !(MARKETING_VARIABLE_KEYS as readonly string[]).includes(key));
-  if (unknown.length) throw new Error(`MARKETING_UNKNOWN_VARIABLE:${unknown[0]}`);
-  return String(template).replace(/{{\s*([a-zA-Z]+)\s*}}/g, (_, key: keyof MarketingVariables) => escapeHtml(variables[key] ?? ""));
+    .filter((key) => !allowedKeys.includes(key));
+  if (unknown.length) throw new Error(`${errorPrefix}:${unknown[0]}`);
+  return String(template).replace(/{{\s*([a-zA-Z]+)\s*}}/g, (_, key: string) => escapeHtml(variables[key] ?? ""));
+}
+
+export function renderMarketingTemplate(template: string, variables: MarketingVariables): string {
+  return renderTemplateWithKeys(template, variables, MARKETING_VARIABLE_KEYS, "MARKETING_UNKNOWN_VARIABLE");
 }
 
 export const DEFAULT_TEMPLATES: Record<MarketingAutomationType, { subject: string; html: string }> = {

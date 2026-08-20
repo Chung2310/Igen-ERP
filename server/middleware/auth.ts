@@ -65,6 +65,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   teacher: ["people:manage"]
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
+// repair:read tách khỏi repair:manage nên phải cấp riêng, nếu không mọi API GET của
+// module sửa chữa trả 403 kể cả với admin.
+DEFAULT_ROLE_PERMISSIONS.admin.push("repair:read");
+DEFAULT_ROLE_PERMISSIONS.manager.push("repair:read");
 DEFAULT_ROLE_PERMISSIONS.admin.push("customer:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("marketing:manage");
 
