@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { registerFinanceConsumers } from "./consumers";
+import { financeAssetInventoryRoutes } from "./routes/asset-inventory.routes";
+import { financeAssetRoutes } from "./routes/asset.routes";
 import { financeReceivableRoutes } from "./routes/receivable.routes";
 import { financeReminderRoutes } from "./routes/reminder.routes";
 import { ensureOverdueScanScheduler } from "./jobs/overdue-scan.job";
@@ -7,5 +9,7 @@ import { runOverdueScansForAllScopes } from "./services/overdue-reminder.service
 registerFinanceConsumers();
 ensureOverdueScanScheduler(runOverdueScansForAllScopes);
 export const financeRouter = Router();
+financeRouter.use("/assets", financeAssetRoutes);
+financeRouter.use("/asset-inventories", financeAssetInventoryRoutes);
 financeRouter.use("/receivables", financeReceivableRoutes);
 financeRouter.use("/reminders", financeReminderRoutes);
