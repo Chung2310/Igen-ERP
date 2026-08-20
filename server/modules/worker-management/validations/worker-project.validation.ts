@@ -91,3 +91,12 @@ export const addWorkersSchema = Joi.object({
     "array.max": "Chỉ được thêm tối đa 2.000 lao động mỗi lần.",
   }),
 });
+
+export const listWorkerProjectQuerySchema = Joi.object({
+  companyCode: Joi.string().trim().optional(),
+  branchId: objectIdSchema.optional(),
+  status: Joi.string().valid("planned", "active", "completed", "all").optional(),
+  search: Joi.string().trim().allow("").optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});

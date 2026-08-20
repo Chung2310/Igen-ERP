@@ -146,7 +146,7 @@ export const publicRegisterStudentSchema = Joi.object({
   // Từ đây trở xuống chỉ kiểm tra ĐỊNH DẠNG. Trường nào bắt buộc là do cấu hình
   // trường của từng công ty quyết định, được kiểm ở controller (publicRegister)
   // để form công khai khớp đúng với popup thêm học viên.
-  email: Joi.string().email().required().messages({
+  email: Joi.string().email().optional().messages({
     "any.required": "Email là bắt buộc.",
     "string.empty": "Email không được để trống.",
     "string.email": "Định dạng email không hợp lệ.",

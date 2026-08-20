@@ -23,6 +23,8 @@ import { Resource } from "../models/resource.model";
 import { Partner } from "../models/partner.model";
 import { Payment } from "../models/payment.model";
 import { CommissionLevel } from "../models/commission-level.model";
+import { WorkerService } from "../../worker-management/services/worker.service";
+import { ModuleSettingsService } from "./module-settings.service";
 import { CustomFieldWriteService } from "./custom-field-write.service";
 import {
   createCustomFieldValueValidator,
@@ -124,6 +126,30 @@ test("public student registration stays on the legacy create path without dynami
   assert.equal(calls[0].length, 3);
   assert.equal(calls[0][0], "teacher-a");
   assert.equal((calls[0][2] as { branchId?: string }).branchId, "branch-a");
+});
+
+test("public registration creates a worker for a labor tenant", async (t) => {
+  t.mock.method(AuthService as any, "getUserProfile", async () => ({
+    uid: "teacher-a", role: "user", companyCode: "tenant-a", centerId: "tenant-a", branchId: "branch-a", isActive: true,
+  }));
+  t.mock.method(ModuleSettingsService.prototype, "get", async () => ({ tenantId: "tenant-a", entityPreset: "worker" as const }));
+  const workerCalls: unknown[][] = [];
+  t.mock.method(WorkerService as any, "create", async (...args: unknown[]) => {
+    workerCalls.push(args);
+    return { _id: "worker-public", fullName: "Public worker" };
+  });
+  t.mock.method(StudentService as any, "createStudent", async () => {
+    throw new Error("Student registration must not run for a labor tenant");
+  });
+  const res = responseCapture();
+
+  await StudentController.publicRegister({
+    body: { teacherId: "teacher-a", fullName: "Public worker", phone: "0900000000" },
+  } as any, res as unknown as Response);
+
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-a", branchId: "branch-a" });
+  assert.equal((workerCalls[0]?.[1] as { status?: string }).status, "active");
 });
 
 test("all six create services validate custom fields with create mode before persistence", async (t) => {

@@ -25,8 +25,14 @@ export class WorkerProjectController {
     try {
       const scope = getScope(req);
       const { companyCode: _companyCode, branchId: _branchId, ...filters } = req.query;
-      const list = await WorkerProjectService.list(scope, filters);
-      res.json({ success: true, data: list });
+      const result = await WorkerProjectService.list(scope, filters);
+      res.json({
+        success: true,
+        data: result.projects,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      });
     } catch (error: unknown) {
       next(error);
     }
