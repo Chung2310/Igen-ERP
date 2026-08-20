@@ -10,6 +10,7 @@ import {
   updateWorkerProjectSchema,
   addWorkerSchema,
   addWorkersSchema,
+  listWorkerProjectQuerySchema,
 } from "../validations/worker-project.validation";
 
 export const workerProjectRoutes = Router();
@@ -17,6 +18,7 @@ export const workerProjectRoutes = Router();
 workerProjectRoutes.get(
   "/",
   requirePermission([WORKER_READ_PERMISSION, WORKER_MANAGE_PERMISSION]) as any,
+  validate(listWorkerProjectQuerySchema, "query"),
   WorkerProjectController.getList as any
 );
 
