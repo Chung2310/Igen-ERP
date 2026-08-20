@@ -57,4 +57,10 @@ describe("toVietnameseErrorMessage", () => {
     expect(toVietnameseErrorMessage("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án."))
       .toBe("Dữ liệu không hợp lệ: Vui lòng nhập tên dự án.");
   });
+
+  it("ẩn mã quyền kỹ thuật trong thông báo không có quyền", () => {
+    expect(toVietnameseErrorMessage(
+      "Tài khoản của bạn không có mã quyền [worker:manage, payroll:read] cần thiết để thực hiện thao tác này.",
+    )).toBe("Bạn không có quyền thực hiện thao tác này.");
+  });
 });

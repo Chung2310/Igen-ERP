@@ -87,6 +87,9 @@ export function toVietnameseErrorMessage(message: unknown, fallback = DEFAULT_ER
   } catch {
     // The message is plain text, which is the normal case.
   }
+  if (/không có (?:mã )?quyền|khong co (?:ma )?quyen/i.test(text)) {
+    return "Bạn không có quyền thực hiện thao tác này.";
+  }
   const rule = RULES.find(({ pattern }) => pattern.test(text));
   const actionRule = ACTION_RULES.find(({ pattern }) => pattern.test(text));
   if (actionRule) return actionRule.message;
