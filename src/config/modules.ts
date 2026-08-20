@@ -78,6 +78,7 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "QUẢN LÝ HỌC VIÊN": ["people:read", "people:manage"],
   "QUẢN LÝ LAO ĐỘNG": ["people:read", "people:manage"],
   "QUẢN LÝ KHÁCH HÀNG": ["customer:read", "customer:manage"],
+  "SỬA CHỮA & BẢO HÀNH": ["repair:read", "repair:manage"],
   "QUẢN LÝ TÀI NGUYÊN": ["resource:read"],
   "BÁN LẺ": ["retail:read", "retail:manage"],
   "TÀI CHÍNH": ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"],
