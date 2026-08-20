@@ -65,7 +65,7 @@ export default function RepairBoardPage({ createPrefill, onCreatePrefillConsumed
       </div></section>)}
     </div></div>
     {receivingTicket && <ReceiveTechnicianModal ticket={receivingTicket} onClose={() => setReceivingTicket(null)} onSubmit={(technicianId) => moveForward(receivingTicket, technicianId)} />}
-    {selected && <><TicketModal ticket={selected} onClose={() => setSelected(null)} onChanged={() => void loadBoard()} /><div className="fixed bottom-4 right-4 z-[111] space-y-1 rounded-lg bg-white p-3 text-xs shadow-lg">{selected.statusHistory?.filter((entry) => entry.technicianName).map((entry, index) => <p key={index}>KT nhận: {entry.technicianName}</p>)}</div></>}
+    {selected && <TicketModal ticket={{ ...selected, statusHistory: selected.statusHistory?.map((entry) => ({ ...entry, note: [entry.note, entry.technicianName ? `KT nhận: ${entry.technicianName}` : ""].filter(Boolean).join(" · ") || undefined })) }} onClose={() => setSelected(null)} onChanged={() => void loadBoard()} />}
     {createOpen && createPrefill && <CreateRepairModal prefill={createPrefill} onClose={() => { setCreateOpen(false); onCreatePrefillConsumed?.(); }} onCreated={() => { setCreateOpen(false); onCreatePrefillConsumed?.(); void loadBoard(); }} />}
   </div>;
 }
