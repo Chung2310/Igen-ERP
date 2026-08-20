@@ -10,6 +10,7 @@ import { importResourceService } from "../../../service/import-resource.service"
 import { resourceIndexingService } from "../../../service/resource-indexing.service";
 import { managedUploadService } from "../../../service/managed-upload.service";
 import { sourceUploadFinalizer } from "../../../service/source-upload-finalizer.service";
+import { WorkerService } from "../../worker-management/services/worker.service";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -384,6 +385,38 @@ export class StudentController {
           success: false,
           error: `Vui lòng điền: ${missing.join(", ")}.`,
         });
+      }
+
+      const settings = await new ModuleSettingsService().get(tenantId);
+      if (settings.entityPreset === "worker") {
+        const worker = await WorkerService.create(
+          {
+            companyCode: teacher.companyCode || teacher.centerId || tenantId,
+            ...(teacher.branchId ? { branchId: teacher.branchId } : {}),
+          },
+          {
+            ...studentData,
+            registrationDate: new Date().toLocaleDateString("vi-VN"),
+            status: "active",
+          },
+        );
+        await sourceUploadFinalizer.finalize({
+          companyCode: teacher.companyCode || teacher.centerId,
+          branchId: teacher.branchId,
+          actorId: teacherId,
+          actorName: teacher.displayName || teacher.email,
+          trusted: true,
+        }, {
+          entityType: "worker",
+          entityId: String(worker._id),
+          entityLabel: worker.fullName || String(worker._id),
+          sourceRecordId: String(worker._id),
+          uploads: ["idCardFrontFile", "idCardBackFile", "portraitFile"].map((field) => ({
+            uploadToken: (studentData as any)[field]?.uploadToken,
+            sourceField: field,
+          })),
+        });
+        return res.status(201).json({ success: true, data: worker });
       }
 
       const payload = {
