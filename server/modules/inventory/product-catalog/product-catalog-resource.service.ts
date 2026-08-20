@@ -40,34 +40,34 @@ const RESOURCE_CODE_PREFIX: Record<ProductCatalogResourceKind, string> = {
 };
 
 export function assertResourceKind(value: unknown): asserts value is ProductCatalogResourceKind {
-  if (!RESOURCE_KINDS.includes(value as ProductCatalogResourceKind)) throw new ProductCatalogValidationError("Loáº¡i resource sáº£n pháº©m khÃ´ng há»£p lá»‡.");
+  if (!RESOURCE_KINDS.includes(value as ProductCatalogResourceKind)) throw new ProductCatalogValidationError("Loại resource sản phẩm không hợp lệ.");
 }
 
 function optionalText(value: unknown, field: string, maxLength: number): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   const text = String(value).trim();
-  if (text.length > maxLength) throw new ProductCatalogValidationError(`${field} khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ ${maxLength} kÃ½ tá»±.`);
+  if (text.length > maxLength) throw new ProductCatalogValidationError(`${field} không được vượt quá ${maxLength} ký tự.`);
   return text;
 }
 
 function stringArray(value: unknown, field: string): string[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new ProductCatalogValidationError(`${field} pháº£i lÃ  má»™t máº£ng.`);
+  if (!Array.isArray(value)) throw new ProductCatalogValidationError(`${field} phải là một mảng.`);
   return value.map((item) => String(item).trim()).filter(Boolean);
 }
 
 function status(value: unknown): "active" | "inactive" {
   if (value === undefined || value === null || value === "") return "active";
-  if (value !== "active" && value !== "inactive") throw new ProductCatalogValidationError("Tráº¡ng thÃ¡i resource khÃ´ng há»£p lá»‡.");
+  if (value !== "active" && value !== "inactive") throw new ProductCatalogValidationError("Trạng thái resource không hợp lệ.");
   return value;
 }
 
 function normalizeResourceInput(kind: ProductCatalogResourceKind, input: any, actor: string): Record<string, unknown> {
-  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Dá»¯ liá»‡u resource khÃ´ng há»£p lá»‡.");
+  if (!input || typeof input !== "object") throw new ProductCatalogValidationError("Dữ liệu resource không hợp lệ.");
   const base = {
-    code: normalizeCode(input.code, "MÃ£ resource"),
-    name: normalizeName(input.name, "TÃªn resource"),
-    normalizedName: normalizeName(input.name, "TÃªn resource").toLocaleLowerCase("vi-VN"),
+    code: normalizeCode(input.code, "Mã resource"),
+    name: normalizeName(input.name, "Tên resource"),
+    normalizedName: normalizeName(input.name, "Tên resource").toLocaleLowerCase("vi-VN"),
     status: status(input.status),
     createdBy: actor,
     updatedBy: actor,
@@ -75,44 +75,44 @@ function normalizeResourceInput(kind: ProductCatalogResourceKind, input: any, ac
   if (kind === "categories") {
     return {
       ...base,
-      parentCode: input.parentCode ? normalizeCode(input.parentCode, "MÃ£ danh má»¥c cha") : undefined,
-      description: optionalText(input.description, "MÃ´ táº£", 2_000),
+      parentCode: input.parentCode ? normalizeCode(input.parentCode, "Mã danh mục cha") : undefined,
+      description: optionalText(input.description, "Mô tả", 2_000),
     };
   }
   if (kind === "brands") {
     return {
       ...base,
-      description: optionalText(input.description, "MÃ´ táº£", 2_000),
+      description: optionalText(input.description, "Mô tả", 2_000),
       website: optionalText(input.website, "Website", 500),
       logoMediaId: optionalText(input.logoMediaId, "ID logo", 200),
     };
   }
   if (kind === "units") {
     const categories = ["count", "weight", "volume", "length", "time", "other"];
-    if (!categories.includes(input.category)) throw new ProductCatalogValidationError("NhÃ³m Ä‘Æ¡n vá»‹ tÃ­nh khÃ´ng há»£p lá»‡.");
+    if (!categories.includes(input.category)) throw new ProductCatalogValidationError("Nhóm đơn vị tính không hợp lệ.");
     const decimalPlaces = Number(input.decimalPlaces ?? 0);
-    if (!Number.isInteger(decimalPlaces) || decimalPlaces < 0 || decimalPlaces > 6) throw new ProductCatalogValidationError("decimalPlaces pháº£i lÃ  sá»‘ nguyÃªn tá»« 0 Ä‘áº¿n 6.");
+    if (!Number.isInteger(decimalPlaces) || decimalPlaces < 0 || decimalPlaces > 6) throw new ProductCatalogValidationError("decimalPlaces phải là số nguyên từ 0 đến 6.");
     const conversionFactor = input.conversionFactor === undefined || input.conversionFactor === "" ? undefined : Number(input.conversionFactor);
     if (conversionFactor !== undefined && (!Number.isFinite(conversionFactor) || conversionFactor <= 0)) throw new ProductCatalogValidationError("conversionFactor pháº£i lá»›n hÆ¡n 0.");
-    if (input.baseUnitCode && conversionFactor === undefined) throw new ProductCatalogValidationError("ÄÆ¡n vá»‹ quy Ä‘á»•i pháº£i cÃ³ conversionFactor.");
+    if (input.baseUnitCode && conversionFactor === undefined) throw new ProductCatalogValidationError("Đơn vị quy đổi phải có conversionFactor.");
     return {
       ...base,
-      symbol: optionalText(input.symbol, "KÃ½ hiá»‡u", 20),
+      symbol: optionalText(input.symbol, "Ký hiệu", 20),
       category: input.category,
       decimalPlaces,
-      baseUnitCode: input.baseUnitCode ? normalizeCode(input.baseUnitCode, "MÃ£ Ä‘Æ¡n vá»‹ gá»‘c") : undefined,
+      baseUnitCode: input.baseUnitCode ? normalizeCode(input.baseUnitCode, "Mã đơn vị gốc") : undefined,
       conversionFactor,
     };
   }
   const types: ProductAttributeDefinitionType[] = ["text", "number", "boolean", "select", "multi-select"];
-  if (!types.includes(input.type)) throw new ProductCatalogValidationError("Kiá»ƒu thuá»™c tÃ­nh khÃ´ng há»£p lá»‡.");
+  if (!types.includes(input.type)) throw new ProductCatalogValidationError("Kiểu thuộc tính không hợp lệ.");
   const options = stringArray(input.options, "options");
-  if ((input.type === "select" || input.type === "multi-select") && options.length === 0) throw new ProductCatalogValidationError("Thuá»™c tÃ­nh dáº¡ng lá»±a chá»n pháº£i cÃ³ options.");
+  if ((input.type === "select" || input.type === "multi-select") && options.length === 0) throw new ProductCatalogValidationError("Thuộc tính dạng lựa chọn phải có options.");
   return {
     ...base,
     type: input.type,
     options,
-    unitCode: input.unitCode ? normalizeCode(input.unitCode, "MÃ£ Ä‘Æ¡n vá»‹ cá»§a thuá»™c tÃ­nh") : undefined,
+    unitCode: input.unitCode ? normalizeCode(input.unitCode, "Mã đơn vị của thuộc tính") : undefined,
   };
 }
 
@@ -131,9 +131,9 @@ export const ProductCatalogResourceService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     assertResourceKind(kindValue);
     const actor = String(actorValue || "").trim();
-    if (!actor) throw new ProductCatalogValidationError("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c ngÆ°á»i thá»±c hiá»‡n thao tÃ¡c.");
+    if (!actor) throw new ProductCatalogValidationError("Không xác định được người thực hiện thao tác.");
     const raw = input as Record<string, unknown>;
-    const code = raw?.code ? normalizeCode(raw.code, "MÃ£ resource") : await resolveNextCatalogCode(models[kindValue], companyCode, RESOURCE_CODE_PREFIX[kindValue], raw?.name);
+    const code = raw?.code ? normalizeCode(raw.code, "Mã resource") : await resolveNextCatalogCode(models[kindValue], companyCode, RESOURCE_CODE_PREFIX[kindValue], raw?.name);
     const document = await models[kindValue].create({ companyCode, ...normalizeResourceInput(kindValue, { ...raw, code }, actor) });
     return document.toObject() as ResourceDocument;
   },
@@ -142,17 +142,17 @@ export const ProductCatalogResourceService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     assertResourceKind(kindValue);
     const actor = String(actorValue || "").trim();
-    if (!actor) throw new ProductCatalogValidationError("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c ngÆ°á»i thá»±c hiá»‡n thao tÃ¡c.");
+    if (!actor) throw new ProductCatalogValidationError("Không xác định được người thực hiện thao tác.");
     const current = await models[kindValue].findOne({ _id: id, companyCode });
-    if (!current) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u dÃ¹ng chung."), { statusCode: 404 });
+    if (!current) throw Object.assign(new Error("Không tìm thấy dữ liệu dùng chung."), { statusCode: 404 });
     const raw = input as Record<string, unknown>;
     if (raw?.code && String(raw.code).trim().toUpperCase() !== String(current.code).toUpperCase()) {
-      throw new ProductCatalogValidationError("MÃ£ Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng cáº¥p, khÃ´ng thá»ƒ thay Ä‘á»•i.");
+      throw new ProductCatalogValidationError("Mã đã được hệ thống cấp, không thể thay đổi.");
     }
     const normalized = normalizeResourceInput(kindValue, { ...current.toObject(), ...raw, code: current.code }, actor);
     delete normalized.createdBy;
     const document = await models[kindValue].findOneAndUpdate({ _id: id, companyCode }, { $set: normalized }, { returnDocument: "after", runValidators: true });
-    if (!document) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u dÃ¹ng chung."), { statusCode: 404 });
+    if (!document) throw Object.assign(new Error("Không tìm thấy dữ liệu dùng chung."), { statusCode: 404 });
     return document.toObject() as ResourceDocument;
   },
 
@@ -160,15 +160,15 @@ export const ProductCatalogResourceService = {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     assertResourceKind(kindValue);
     if (kindValue !== "categories" && kindValue !== "brands") {
-      throw new ProductCatalogValidationError("Chá»‰ cÃ³ thá»ƒ xÃ³a danh má»¥c hoáº·c thÆ°Æ¡ng hiá»‡u.");
+      throw new ProductCatalogValidationError("Chỉ có thể xóa danh mục hoặc thương hiệu.");
     }
     const current = await models[kindValue].findOne({ _id: id, companyCode }).lean();
-    if (!current) throw Object.assign(new Error("KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u dÃ¹ng chung."), { statusCode: 404 });
+    if (!current) throw Object.assign(new Error("Không tìm thấy dữ liệu dùng chung."), { statusCode: 404 });
 
     const productFilter = kindValue === "categories" ? { categoryCode: current.code } : { brandCode: current.code };
     const inUse = await ProductCatalogModel.exists({ companyCode, ...productFilter });
     if (inUse) {
-      throw new ProductCatalogValidationError(`KhÃ´ng thá»ƒ xÃ³a ${kindValue === "categories" ? "danh má»¥c" : "thÆ°Æ¡ng hiá»‡u"} Ä‘ang Ä‘Æ°á»£c dÃ¹ng bá»Ÿi sáº£n pháº©m.`);
+      throw new ProductCatalogValidationError(`Không thể xóa ${kindValue === "categories" ? "danh mục" : "thương hiệu"} đang được dùng bởi sản phẩm.`);
     }
     await models[kindValue].deleteOne({ _id: id, companyCode });
     return { deletedId: id };

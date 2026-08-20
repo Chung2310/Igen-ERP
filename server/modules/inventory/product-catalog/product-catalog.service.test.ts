@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ProductCatalogValidationError,
@@ -10,6 +11,13 @@ import {
   normalizeProductInput,
   normalizeVariantInput,
 } from "./product-catalog.service";
+
+test("bulk SKU creation uses ordered writes inside a transaction", () => {
+  const source = readFileSync(new URL("./product-catalog.service.ts", import.meta.url), "utf8");
+  const bulkVariantCreates = source.match(/ProductVariantModel\.create\([\s\S]*?\{ session, ordered: true \}\);/g) || [];
+
+  assert.ok(bulkVariantCreates.length >= 2);
+});
 
 test("catalog scope and codes are normalized centrally", () => {
   assert.equal(normalizeCompanyCode(" acme "), "ACME");

@@ -243,7 +243,7 @@ export function requirePermission(requiredPermission: string | string[]) {
 
       return res.status(403).json({
         status: "error",
-        message: `Tài khoản của bạn không có mã quyền [${requiredPermissions.join(", ")}] cần thiết để thực hiện thao tác này.`,
+        message: "Bạn không có quyền thực hiện thao tác này.",
       });
     } catch (error: any) {
       console.error("[requirePermission] Error:", error);

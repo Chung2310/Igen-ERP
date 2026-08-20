@@ -961,7 +961,7 @@ function RegistrationQrModal({
     let cancelled = false;
     QRCode.toDataURL(registerUrl, { width: 320, margin: 1 })
       .then((url) => { if (!cancelled) setQrDataUrl(url); })
-      .catch(() => toast.error("KhÃ´ng táº¡o Ä‘Æ°á»£c mÃ£ QR."));
+      .catch(() => toast.error("Không tạo được mã QR."));
     return () => { cancelled = true; };
   }, [registerUrl]);
 
@@ -986,7 +986,7 @@ function RegistrationQrModal({
         </p>
         <div className="mt-4 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 p-4">
           {qrDataUrl ? (
-            <img src={qrDataUrl} alt="QR Ä‘Äƒng kÃ½ lao Ä‘á»™ng" className="h-56 w-56" />
+            <img src={qrDataUrl} alt="QR đăng ký lao động" className="h-56 w-56" />
           ) : (
             <div className="h-56 w-56 animate-pulse rounded-lg bg-slate-200" />
           )}
