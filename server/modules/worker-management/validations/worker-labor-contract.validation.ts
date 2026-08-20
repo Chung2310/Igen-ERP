@@ -76,3 +76,6 @@ export const renewWorkerLaborContractSchema = Joi.object({
   endDate: dateSchema("Ngày kết thúc").required(),
   note: Joi.string().allow("", null).optional(),
 });
+  // Form gia h?n gi? workerId ?? t?i s? d?ng bi?u m?u t?o m?i. Service lu?n l?y
+  // ng??i lao ??ng t? h?p ??ng ngu?n, n?n tr??ng n?y ch? ???c x?c th?c ??u v?o.
+  workerId: objectIdSchema.optional(),
