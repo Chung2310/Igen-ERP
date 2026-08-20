@@ -10,7 +10,7 @@ export const repairService = {
   async lookupDevice(serialNumber: string) { return (await apiFetch<Envelope<any>>(`${root}/lookup-device`, { method: "POST", body: JSON.stringify({ serialNumber }) })).data; },
   async create(input: Record<string, unknown>) { return (await apiFetch<Envelope<RepairTicket>>(root, { method: "POST", body: JSON.stringify(input) })).data; },
   async transition(id: string, to: RepairStatus, payload: { technicianId?: string; note?: string } = {}) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/status`, { method: "POST", body: JSON.stringify({ to, ...payload }) })).data; },
-  async quote(id: string, amount: number) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/quote`, { method: "POST", body: JSON.stringify({ amount }) })).data; },
+  async quote(id: string, amount: number, note?: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/quote`, { method: "POST", body: JSON.stringify({ amount, ...(note ? { note } : {}) }) })).data; },
   async approveQuote(id: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/approve-quote`, { method: "POST", body: JSON.stringify({}) })).data; },
   async pay(id: string, amount: number) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/payments`, { method: "POST", body: JSON.stringify({ amount }) })).data; },
   async parts(id: string) { return (await apiFetch<Envelope<unknown[]>>(`${root}/${id}/parts`)).data; },

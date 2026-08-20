@@ -48,10 +48,11 @@ export async function transitionRepairTicket(scope: RepairScope, id: string, to:
   return saved;
 }
 
-export async function quoteRepairTicket(scope: RepairScope, id: string, amount: number, actor: RepairActor) {
+export async function quoteRepairTicket(scope: RepairScope, id: string, amount: number, actor: RepairActor, note?: string) {
   if (!Number.isFinite(amount) || amount < 0) throw Object.assign(new Error("Báo giá không hợp lệ."), { statusCode: 400 });
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
-  assertRepairTransition(ticket.status, "quoted"); ticket.quotedAmount = amount; ticket.quotedAt = new Date(); ticket.totalAmount = amount; ticket.dueAmount = Math.max(0, amount - ticket.paidAmount); ticket.status = "quoted"; ticket.statusHistory.push({ from: "diagnosing", to: "quoted", at: new Date(), by: actor.id, byName: actor.name, customerNotified: true }); await ticket.save(); return ticket.toObject();
+  const quoteNote = String(note || "").trim();
+  assertRepairTransition(ticket.status, "quoted"); ticket.quotedAmount = amount; ticket.quotedAt = new Date(); ticket.totalAmount = amount; ticket.dueAmount = Math.max(0, amount - ticket.paidAmount); ticket.status = "quoted"; ticket.statusHistory.push({ from: "diagnosing", to: "quoted", at: new Date(), by: actor.id, byName: actor.name, ...(quoteNote ? { note: quoteNote } : {}), customerNotified: true }); await ticket.save(); return ticket.toObject();
 }
 
 export async function approveRepairQuote(scope: RepairScope, id: string, actor: RepairActor) {
