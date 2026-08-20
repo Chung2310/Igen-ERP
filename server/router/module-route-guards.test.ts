@@ -36,7 +36,17 @@ test("worker CRUD routes are registered", () => {
 
 test("retail router is mounted once behind authentication and the retail module guard", () => {
   const source = fs.readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-  assert.match(source, /apiRouter\.use\("\/", requireAuth as any, requireModule\("retail"\), retailRouter\)/);
+  assert.match(source, /apiRouter\.use\("\/retail", requireAuth as any, requireModule\("retail"\)\);/);
+  assert.match(source, /apiRouter\.use\("\/", retailRouter\);/);
+});
+
+// Router mount ở "/" không được mang guard module ngay tại chỗ mount: guard sẽ chạy cho
+// mọi request chưa khớp route phía trên và trả 403 thay vì cho đi tiếp xuống router sau.
+test("catch-all mounts do not carry a module guard", () => {
+  const source = fs.readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.equal(/apiRouter\.use\("\/",[^)]*requireModule\(/.test(source), false);
+  assert.match(source, /apiRouter\.use\("\/worker-management", requireAuth as any, requireModule\("worker"\)\);/);
+  assert.match(source, /apiRouter\.use\("\/", workerManagementRouter\);/);
 });
 
 test("customer router is mounted behind authentication and the customer module guard", () => {
