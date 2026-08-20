@@ -91,7 +91,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" ||
       userProfile.role === "admin" ||
-      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"].includes(permission))),
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage", "asset:read", "asset:manage"].includes(permission))),
   },
   {
     tab: "MARKETING",

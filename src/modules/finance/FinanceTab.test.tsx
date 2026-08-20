@@ -19,6 +19,27 @@ describe("Finance workspace routing and permissions", () => {
     expect(getAllowedFinanceTabSlugs(["*"])).toEqual(FINANCE_SUB_TABS.map((tab) => tab.slug));
   });
 
+  it("opens the Finance tab for asset-only permissions", () => {
+    const route = APP_ROUTES.find((item) => item.tab === "TÀI CHÍNH");
+    for (const permission of ["asset:read", "asset:manage"]) {
+      expect(route?.canAccess?.({ role: "user", permissions: [permission] } as any)).toBe(true);
+    }
+  });
+
+  it("separates asset views from receivable views by permission", () => {
+    expect(getAllowedFinanceTabSlugs(["asset:read"])).toEqual(["tai-san", "khau-hao", "kiem-ke"]);
+    expect(getAllowedFinanceTabSlugs(["asset:manage"])).toEqual(["tai-san", "khau-hao", "kiem-ke"]);
+    expect(getAllowedFinanceTabSlugs(["finance-receivable:read"])).not.toContain("tai-san");
+    expect(getAllowedFinanceTabSlugs(["finance-receivable:read", "asset:read"])).toEqual([
+      "cong-no", "tuoi-no", "nhac-no", "tai-san", "khau-hao", "kiem-ke",
+    ]);
+  });
+
+  it("falls back to the first asset view for users without receivable access", () => {
+    expect(resolveFinanceSubTab("?sub=kiem-ke", ["tai-san", "khau-hao", "kiem-ke"])).toBe("KIỂM KÊ");
+    expect(resolveFinanceSubTab("?sub=cong-no", ["tai-san", "khau-hao", "kiem-ke"])).toBe("TÀI SẢN");
+  });
+
   it("only exposes the application tab when the tenant enables Finance", () => {
     expect(filterEnabledTabs(["TÀI CHÍNH"], [], "general")).toEqual([]);
     expect(filterEnabledTabs(["TÀI CHÍNH"], ["finance"], "general")).toEqual(["TÀI CHÍNH"]);
