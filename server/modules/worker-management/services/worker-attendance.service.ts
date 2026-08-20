@@ -162,7 +162,23 @@ export class WorkerAttendanceService {
       throw new WorkerAttendanceError("not_in_project", "Lao động không thuộc dự án này.");
     }
 
-    const distanceMeters = assertWithinProjectRadius(project.geoLocation, input.latitude, input.longitude);
+    let distanceMeters: number | undefined;
+    // Bỏ qua kiểm định vị trí bắt buộc nếu chấm công thủ công (bởi admin/manager - có recordedBy)
+    if (!input.recordedBy) {
+      distanceMeters = assertWithinProjectRadius(project.geoLocation, input.latitude, input.longitude);
+    } else if (
+      project.geoLocation?.latitude != null &&
+      project.geoLocation?.longitude != null &&
+      input.latitude != null &&
+      input.longitude != null
+    ) {
+      distanceMeters = calculateHaversineDistanceMeters(
+        input.latitude,
+        input.longitude,
+        project.geoLocation.latitude,
+        project.geoLocation.longitude
+      );
+    }
 
     const mark: IWorkerAttendanceMark = {
       time: now,
