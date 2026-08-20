@@ -34,6 +34,12 @@ export function ChatUnreadProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
+    const isChatEnabled = userProfile?.enabledModules?.includes("chat");
+    if (!isChatEnabled) {
+      setUnreadByRoom({});
+      return;
+    }
+
     let cancelled = false;
     internalChatService
       .getRooms()
@@ -50,10 +56,13 @@ export function ChatUnreadProvider({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
     };
-  }, [user, currentUserId]);
+  }, [user, currentUserId, userProfile?.enabledModules]);
 
   useEffect(() => {
     if (!user || !currentUserId) return;
+
+    const isChatEnabled = userProfile?.enabledModules?.includes("chat");
+    if (!isChatEnabled) return;
 
     const unsubscribeNewMessage = socketService.on("internal_new_message", (data: any) => {
       const msg = data?.message;
