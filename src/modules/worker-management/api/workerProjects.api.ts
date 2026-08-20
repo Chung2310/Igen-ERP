@@ -13,12 +13,18 @@ const scopeParams = (scope: WorkerScope) => ({
 });
 
 export const workerProjectsApi = {
-  async getList(scope: WorkerScope) {
-    return (
-      await workerApiFetch<{ data: WorkerProject[] }>(WORKER_PROJECTS_BASE, {
-        params: scopeParams(scope),
-      })
-    ).data;
+  async getList(
+    scope: WorkerScope,
+    filters: { page?: number; limit?: number; search?: string; status?: string } = {},
+  ) {
+    return await workerApiFetch<{
+      data: WorkerProject[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(WORKER_PROJECTS_BASE, {
+      params: { ...scopeParams(scope), ...filters },
+    });
   },
 
   async getDetail(id: string, scope: WorkerScope) {

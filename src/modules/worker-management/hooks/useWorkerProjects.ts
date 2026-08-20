@@ -9,6 +9,13 @@ import type {
 export function useWorkerProjects(scope?: WorkerScope) {
   const [loading, setLoading] = useState(Boolean(scope));
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [status, setStatus] = useState("all");
+
   const companyCode = scope?.companyCode;
   const branchId = scope?.branchId;
   const scopeKey = companyCode ? `${companyCode}:${branchId || ""}` : "";
@@ -18,12 +25,16 @@ export function useWorkerProjects(scope?: WorkerScope) {
   }>({ scopeKey, items: [] });
   const activeScopeKeyRef = useRef(scopeKey);
   activeScopeKeyRef.current = scopeKey;
-  const projects =
-    projectState.scopeKey === scopeKey ? projectState.items : [];
+  const projects = projectState.scopeKey === scopeKey ? projectState.items : [];
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (
+    currentPage = page,
+    currentSearch = debouncedSearch,
+    currentStatus = status
+  ) => {
     if (!companyCode) {
       setProjectState({ scopeKey, items: [] });
+      setTotal(0);
       setLoading(false);
       setError(null);
       return;
@@ -36,13 +47,20 @@ export function useWorkerProjects(scope?: WorkerScope) {
     setLoading(true);
     setError(null);
     try {
-      const items = await workerProjectsApi.getList(requestScope);
+      const response = await workerProjectsApi.getList(requestScope, {
+        page: currentPage,
+        limit,
+        search: currentSearch || undefined,
+        status: currentStatus !== "all" ? currentStatus : undefined,
+      });
       if (activeScopeKeyRef.current === scopeKey) {
-        setProjectState({ scopeKey, items });
+        setProjectState({ scopeKey, items: response.data });
+        setTotal(response.total);
       }
     } catch (reason) {
       if (activeScopeKeyRef.current !== scopeKey) return;
       setProjectState({ scopeKey, items: [] });
+      setTotal(0);
       setError(
         reason instanceof Error
           ? reason.message
@@ -53,16 +71,28 @@ export function useWorkerProjects(scope?: WorkerScope) {
         setLoading(false);
       }
     }
-  }, [branchId, companyCode, scopeKey]);
+  }, [branchId, companyCode, scopeKey, page, limit, debouncedSearch, status]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
+
+  useEffect(() => {
+    void reload(page, debouncedSearch, status);
+  }, [reload, page, debouncedSearch, status]);
 
   const requireScope = useCallback((): WorkerScope => {
     if (!companyCode) throw new Error("Vui lòng chọn công ty.");
     return { companyCode, ...(branchId ? { branchId } : {}) };
-  }, [branchId, companyCode, scopeKey]);
+  }, [branchId, companyCode]);
 
   const createProject = useCallback(
     async (input: WorkerProjectInput) => {
@@ -134,6 +164,14 @@ export function useWorkerProjects(scope?: WorkerScope) {
     projects,
     loading,
     error,
+    page,
+    setPage,
+    limit,
+    total,
+    search,
+    setSearch,
+    status,
+    setStatus,
     createProject,
     updateProject,
     deleteProject,
