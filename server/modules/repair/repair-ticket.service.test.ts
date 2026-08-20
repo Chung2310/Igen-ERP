@@ -24,6 +24,8 @@ describe("transitionRepairTicket", () => {
     ticket.statusHistory = [];
     ticket.technicianId = undefined;
     ticket.technicianName = undefined;
+    ticket.assignedAt = undefined;
+    ticket.assignedBy = undefined;
     ticket.save.mockClear();
     findOneTicket.mockReset();
     findOneTicket.mockReturnValue(ticket);
@@ -41,6 +43,15 @@ describe("transitionRepairTicket", () => {
 
     expect(findOneUser).toHaveBeenCalledWith({ _id: "tech-1", companyCode: "company-a", isActive: { $ne: false } });
     expect(result.technicianId).toBe("tech-1");
+    expect(result.assignedAt).toBeInstanceOf(Date);
+    expect(result.assignedBy).toBe("actor-1");
     expect(result.statusHistory.at(-1)).toMatchObject({ to: "diagnosing", technicianId: "tech-1", technicianName: "Kỹ thuật viên A" });
+  });
+
+  test("received → diagnosing rejects a technician that is inactive or outside the company", async () => {
+    findOneUser.mockReturnValue({ select: () => ({ lean: async () => null }) });
+
+    await expect(transitionRepairTicket(scope, "ticket-1", "diagnosing", actor, undefined, false, undefined, "inactive-tech")).rejects.toMatchObject({ statusCode: 400 });
+    expect(findOneUser).toHaveBeenCalledWith({ _id: "inactive-tech", companyCode: "company-a", isActive: { $ne: false } });
   });
 });

@@ -55,7 +55,7 @@ export default function RepairBoardPage({ createPrefill, onCreatePrefillConsumed
     } catch (e) { setError(e instanceof Error ? e.message : "Không thể cập nhật phiếu"); throw e; }
     finally { setBusyId(null); }
   };
-  const startMoveForward = (ticket: RepairTicket) => { if (ticket.status === "received") setReceivingTicket(ticket); else void moveForward(ticket); };
+  const startMoveForward = (ticket: RepairTicket) => { if (ticket.status === "received") setReceivingTicket(ticket); else void moveForward(ticket).catch(() => undefined); };
   return <div className="space-y-4">
     <div><h1 className="text-2xl font-bold">Bảng phiếu sửa chữa</h1><p className="text-sm text-slate-500">Theo dõi trạng thái, bảo hành, báo giá, thanh toán và giao máy.</p></div>
     {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}

@@ -58,6 +58,17 @@ test("transitions a received ticket with the selected technician", async () => {
   expect(repairService.transition).toHaveBeenCalledWith("repair-1", "diagnosing", { technicianId: "tech-1" });
 });
 
+test("handles a rejected direct transition without leaving an unhandled promise", async () => {
+  const diagnosingTicket = { ...ticket, status: "diagnosing" as const };
+  vi.mocked(repairService.board).mockResolvedValue({ diagnosing: [diagnosingTicket] } as any);
+  vi.mocked(repairService.transition).mockRejectedValueOnce(new Error("Không thể chuyển trạng thái"));
+  render(<RepairBoardPage />);
+
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Chuyển bước tiếp" }));
+
+  expect(await screen.findByText("Không thể chuyển trạng thái")).not.toBeNull();
+});
+
 test("shows the receiving technician from status history", async () => {
   render(<RepairBoardPage />);
 

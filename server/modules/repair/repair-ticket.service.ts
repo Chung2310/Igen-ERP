@@ -37,6 +37,8 @@ export async function transitionRepairTicket(scope: RepairScope, id: string, to:
     if (!technician) throw Object.assign(new Error("Cần chọn kỹ thuật viên tiếp nhận."), { statusCode: 400 });
     ticket.technicianId = String(technician._id);
     ticket.technicianName = String(technician.displayName || technician.email || "");
+    ticket.assignedAt = new Date();
+    ticket.assignedBy = actor.id;
   }
   ticket.status = to; ticket.statusHistory.push({ from, to, at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: to === "done" ? false : customerNotified, technicianId: ticket.technicianId, technicianName: ticket.technicianName });
   if (to === "done") { ticket.completedAt = new Date(); if (!ticket.feedbackToken) ticket.feedbackToken = randomUUID(); }
