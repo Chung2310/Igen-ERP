@@ -193,6 +193,7 @@ function SupplierManagementModal({
       setEditingSupplier(supplier);
       setMode("edit");
       setForm(supplierToForm(supplier));
+      setEditorOpen(false);
       await loadSuppliers();
       onSaved(supplier);
     } catch (error: any) {

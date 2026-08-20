@@ -169,6 +169,10 @@ export default function ContractsTab({
   const [extensions, setExtensions] = useState<Extension[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
   const [editing, setEditing] = useState<Contract | "new" | null>(null);
   const [contractForm, setContractForm] = useState(emptyContract);
   const [extOpen, setExtOpen] = useState(false);
@@ -179,11 +183,13 @@ export default function ContractsTab({
   >(null);
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
   const suffix = `?companyCode=${encodeURIComponent(companyCode)}${branchId ? `&branchId=${encodeURIComponent(branchId)}` : ""}`;
-  const load = async () => {
+
+  const load = async (currentPage = page, currentSearch = debouncedSearch) => {
     setLoading(true);
     try {
+      const contractSuffix = `${suffix}&page=${currentPage}&limit=${limit}${currentSearch ? `&search=${encodeURIComponent(currentSearch)}` : ""}`;
       const [a, b] = await Promise.all([
-        fetch(`/api/v1/hr-contracts${suffix}`, { headers: headers() }),
+        fetch(`/api/v1/hr-contracts${contractSuffix}`, { headers: headers() }),
         fetch(`/api/v1/hr-contracts/extensions/list${suffix}`, {
           headers: headers(),
         }),
@@ -193,6 +199,7 @@ export default function ContractsTab({
       if (!a.ok || !b.ok) throw new Error(ar.message || br.message);
       setContracts(ar.data?.contracts || []);
       setEmployees(ar.data?.employees || []);
+      setTotal(ar.data?.total || 0);
       setExtensions(br.data || []);
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Không thể tải dữ liệu hợp đồng."));
@@ -200,9 +207,18 @@ export default function ContractsTab({
       setLoading(false);
     }
   };
+
   useEffect(() => {
-    load();
-  }, [companyCode, branchId]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => {
+    load(page, debouncedSearch);
+  }, [companyCode, branchId, page, debouncedSearch]);
   const contractsByEmployee = useMemo(
     () =>
       new Map(
@@ -584,120 +600,178 @@ export default function ContractsTab({
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {visibleEmployees.flatMap((emp) => {
-                    const rows = contractsByEmployee.get(emp._id) || [];
-                    if (!rows.length)
-                      return [
-                        <tr key={emp._id}>
-                          <td className="p-3">
-                            <b>{emp.displayName || emp.email}</b>
+                  {contracts.map((c) => {
+                    const remainingDays = daysUntilExpiry(c.endDate);
+                    const expiringSoon = isExpiringSoon(c);
+                    const emp = employees.find((e) => e._id === c.employeeId);
+                    return (
+                      <tr
+                        key={c._id}
+                        className={expiringSoon ? "bg-amber-50/60" : ""}
+                      >
+                        <td className="p-3">
+                          <b>{c.employeeName}</b>
+                          {emp && (
                             <div className="text-[10px] text-slate-400">
                               {emp.department}
                             </div>
-                          </td>
-                          <td colSpan={5} className="p-3 text-amber-600">
-                            Nhân viên chưa có hợp đồng
-                          </td>
-                          <td className="p-3">
-                            {canManage && (
-                              <button
-                                onClick={() => {
-                                  openContract();
-                                  setContractForm({
-                                    ...emptyContract,
-                                    employeeId: emp._id,
-                                  });
-                                }}
-                                className="text-cyan-700 font-bold"
-                              >
-                                Tạo ngay
-                              </button>
-                            )}
-                          </td>
-                        </tr>,
-                      ];
-                    return rows.map((c, i) => {
-                      const remainingDays = daysUntilExpiry(c.endDate);
-                      const expiringSoon = isExpiringSoon(c);
-                      return (
-                        <tr
-                          key={c._id}
-                          className={expiringSoon ? "bg-amber-50/60" : ""}
-                        >
-                          <td className="p-3">
-                            <b>{emp.displayName || emp.email}</b>
-                            {i === 0 && (
-                              <div className="text-[10px] text-slate-400">
-                                {emp.department}
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-3">{c.contractType}</td>
-                          <td className="p-3 text-center">
-                            {date(c.startDate)}
-                          </td>
-                          <td className="p-3 text-center">
-                            <div>{date(c.endDate)}</div>
-                            {expiringSoon && (
-                              <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                                Sắp hết hạn · Còn {remainingDays} ngày
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center">
-                            <span
-                              className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
-                            >
-                              {statusLabel[c.status]}
+                          )}
+                        </td>
+                        <td className="p-3">{c.contractType}</td>
+                        <td className="p-3 text-center">
+                          {date(c.startDate)}
+                        </td>
+                        <td className="p-3 text-center">
+                          <div>{date(c.endDate)}</div>
+                          {expiringSoon && (
+                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              Sắp hết hạn · Còn {remainingDays} ngày
                             </span>
-                          </td>
-                          <td className="p-3 text-center space-x-2">
-                            {c.contractFileUrl && (
-                              <button
-                                type="button"
-                                className="font-bold text-cyan-700 hover:underline"
-                                onClick={() => preview(c, "contract")}
-                              >
-                                Xem file
-                              </button>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
+                          >
+                            {statusLabel[c.status]}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center space-x-2">
+                          {c.contractFileUrl && (
+                            <button
+                              type="button"
+                              className="font-bold text-cyan-700 hover:underline"
+                              onClick={() => preview(c, "contract")}
+                            >
+                              Xem file
+                            </button>
+                          )}
+                          {c.signedImageUrl && (
+                            <button
+                              type="button"
+                              className="font-bold text-cyan-700 hover:underline"
+                              onClick={() => preview(c, "signed")}
+                            >
+                              Xem ảnh ký
+                            </button>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            {canManage && (
+                              <>
+                                <button
+                                  title="Sửa"
+                                  onClick={() => openContract(c)}
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  title="Gia hạn"
+                                  onClick={() => openExtension(c)}
+                                >
+                                  <RefreshCw size={14} />
+                                </button>
+                              </>
                             )}
-                            {c.signedImageUrl && (
-                              <button
-                                type="button"
-                                className="font-bold text-cyan-700 hover:underline"
-                                onClick={() => preview(c, "signed")}
-                              >
-                                Xem ảnh ký
-                              </button>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex gap-2">
-                              {canManage && (
-                                <>
-                                  <button
-                                    title="Sửa"
-                                    onClick={() => openContract(c)}
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    title="Gia hạn"
-                                    onClick={() => openExtension(c)}
-                                  >
-                                    <RefreshCw size={14} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    });
+                          </div>
+                        </td>
+                      </tr>
+                    );
                   })}
+                  {!contracts.length && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="p-10 text-center text-slate-400"
+                      >
+                        Chưa có hợp đồng nào.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {total > limit && (
+              <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6 rounded-b-2xl">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Trước
+                  </button>
+                  <button
+                    disabled={page * limit >= total}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Sau
+                  </button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs text-slate-700">
+                      Hiển thị từ <span className="font-medium">{(page - 1) * limit + 1}</span> đến{" "}
+                      <span className="font-medium">{Math.min(page * limit, total)}</span> trong tổng số{" "}
+                      <span className="font-medium">{total}</span> hợp đồng
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                      <button
+                        disabled={page === 1}
+                        onClick={() => setPage(1)}
+                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                      >
+                        «
+                      </button>
+                      <button
+                        disabled={page === 1}
+                        onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                        className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                      >
+                        ‹
+                      </button>
+                      {Array.from({ length: Math.ceil(total / limit) }).map((_, idx) => {
+                        const pageNum = idx + 1;
+                        if (Math.abs(page - pageNum) > 2) return null;
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setPage(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
+                              page === pageNum
+                                ? "z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
+                                : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                      <button
+                        disabled={page * limit >= total}
+                        onClick={() => setPage((p) => p + 1)}
+                        className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                      >
+                        ›
+                      </button>
+                      <button
+                        disabled={page * limit >= total}
+                        onClick={() => setPage(Math.ceil(total / limit))}
+                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                      >
+                        »
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="space-y-3">

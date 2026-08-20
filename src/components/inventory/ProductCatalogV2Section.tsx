@@ -18,6 +18,7 @@ import {
 } from "../../services/productCatalogService";
 import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../../hooks/useVariantMatrix";
 import { buildMatrixVariantInput } from "./productVariantPayload";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 type Resources = { categories: ProductResource[]; brands: ProductResource[] };
 type VariantModalMode = "single" | "edit" | "bulk-create" | "bulk-edit";
@@ -289,7 +290,7 @@ export function ProductCatalogV2Section() {
       )}
 
       {viewer && <ProductViewerModal product={viewer} resources={resources} onClose={() => setViewer(null)} />}
-      {editor && <ProductEditorModal product={editor === "create" ? null : editor} resources={resources} onClose={() => setEditor(null)} onSaved={async () => { setEditor(null); await load(); }} onDataChanged={load} onVariantAction={(product, mode, ids, variant) => { setEditor(null); setVariantTarget({ product, mode, ids, variant }); }} />}
+      {editor && <ProductEditorModal product={editor === "create" ? null : editor} resources={resources} onClose={() => setEditor(null)} onSaved={async () => { setEditor(null); await load(); }} onDataChanged={load} onVariantAction={(product, mode, ids, variant) => setVariantTarget({ product, mode, ids, variant })} />}
       {setupKind && <CatalogSetupModal kind={setupKind} items={resources[setupKind]} onClose={() => setSetupKind(null)} onSaved={async () => { await load(); }} />}
       {variantTarget && (variantTarget.mode === "single" || variantTarget.mode === "edit") && <VariantModal product={variantTarget.product} variant={variantTarget.variant} onClose={() => setVariantTarget(null)} onSaved={async () => { setVariantTarget(null); await load(); }} />}
       {variantTarget && (variantTarget.mode === "bulk-create" || variantTarget.mode === "bulk-edit") && <BulkVariantModal product={variantTarget.product} mode={variantTarget.mode} ids={variantTarget.ids || []} onClose={() => setVariantTarget(null)} onSaved={async () => { setVariantTarget(null); await load(); }} />}
@@ -384,6 +385,8 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
   const [variant, setVariant] = useState<VariantInput>(() => product ? emptyVariant(product.baseUnitCode, product.productType) : emptyVariant());
   const [submitting, setSubmitting] = useState(false);
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([]);
+  const [deleteVariantIds, setDeleteVariantIds] = useState<string[] | null>(null);
+  const [deletingVariants, setDeletingVariants] = useState(false);
   const [variantImages, setVariantImages] = useState<Record<string, string | undefined>>(() => Object.fromEntries((product?.variants || []).map((item) => [item._id, item.mediaIds?.[0]])));
   const [variantQuery, setVariantQuery] = useState("");
   const [pricesByVariant, setPricesByVariant] = useState<Record<string, number>>({});
@@ -441,6 +444,20 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
   const toggleVisibleVariants = () => setSelectedVariantIds((current) => allVisibleSelected ? current.filter((id) => !visibleVariants.some((item) => item._id === id)) : [...new Set([...current, ...visibleVariants.map((item) => item._id)])]);
 
   const setField = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const confirmDeleteVariants = async () => {
+    if (!deleteVariantIds?.length) return;
+    setDeletingVariants(true);
+    try {
+      await productCatalogService.deleteVariants(deleteVariantIds);
+      toast.success("Đã xóa các SKU chưa phát sinh giao dịch.");
+      setDeleteVariantIds(null);
+      await onSaved();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể xóa SKU đã chọn."));
+    } finally {
+      setDeletingVariants(false);
+    }
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
@@ -507,7 +524,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
     }
   };
 
-  return <Modal title={isEditing ? `Sản phẩm: ${product!.name}` : "Tạo sản phẩm mới"} onClose={onClose} wide>
+  return <><Modal title={isEditing ? `Sản phẩm: ${product!.name}` : "Tạo sản phẩm mới"} onClose={onClose} wide>
     <form noValidate onSubmit={submit} className="bg-slate-50/50 -m-5 p-5 space-y-5">
       
       {/* Khối 1: Thông tin cơ bản */}
@@ -670,7 +687,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
               {selectedVariantIds.length > 0 && (
                 <>
                   <button type="button" onClick={() => onVariantAction(product!, "bulk-edit", selectedVariantIds)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 font-medium hover:bg-slate-50 shadow-sm text-slate-700"><Pencil className="h-3.5 w-3.5" />Sửa hàng loạt</button>
-                  <button type="button" onClick={() => { if (!window.confirm(`Xóa ${selectedVariantIds.length} SKU đã chọn?`)) return; void productCatalogService.deleteVariants(selectedVariantIds).then(async () => { toast.success("Đã xóa các SKU chưa phát sinh giao dịch."); await onSaved(); }).catch((error) => toast.error(getApiErrorMessage(error, "Không thể xóa SKU đã chọn."))); }} className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 font-medium text-rose-700 hover:bg-rose-50 shadow-sm"><Trash2 className="h-3.5 w-3.5" />Xóa</button>
+                  <button type="button" onClick={() => setDeleteVariantIds(selectedVariantIds)} className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 font-medium text-rose-700 hover:bg-rose-50 shadow-sm"><Trash2 className="h-3.5 w-3.5" />Xóa</button>
                 </>
               )}
             </div>
@@ -709,7 +726,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      <button type="button" onClick={() => onVariantAction(product!, "edit", undefined, item)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-cyan-700 transition-colors" title="Sửa SKU"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => onVariantAction(product!, "edit", undefined, { ...item, sellingPrice: pricesByVariant[item._id] || 0 } as any)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-cyan-700 transition-colors" title="Sửa SKU"><Pencil className="h-4 w-4" /></button>
                     </td>
                   </tr>
                 ))}
@@ -746,7 +763,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
         </button>
       </div>
     </form>
-  </Modal>;
+  </Modal><ConfirmDialog isOpen={Boolean(deleteVariantIds)} title="Xóa SKU đã chọn?" description={`Chỉ xóa được ${deleteVariantIds?.length || 0} SKU chưa có tồn kho hoặc lịch sử giao dịch. Thao tác này không thể hoàn tác.`} confirmLabel="Xóa SKU" tone="danger" isSubmitting={deletingVariants} onClose={() => !deletingVariants && setDeleteVariantIds(null)} onConfirm={confirmDeleteVariants} /></>;
 }
 
 function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { product: CatalogProductDetail; variant?: ProductVariant; onClose: () => void; onSaved: () => Promise<void> }) {
@@ -776,7 +793,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
       setSubmitting(false);
     }
   };
-  return <Modal title={`${isEditing ? "Chỉnh sửa SKU" : "Thêm mã SKU"} cho ${product.name}`} onClose={onClose}><form onSubmit={submit} className="space-y-4">
+  return <Modal title={`${isEditing ? "Chỉnh sửa SKU" : "Thêm mã SKU"} cho ${product.name}`} onClose={onClose} stacked><form onSubmit={submit} className="space-y-4">
     <Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => setVariant((current) => ({ ...current, sellingPrice: value }))} className={inputClassName()} placeholder="Nhập giá bán" /></Field>
     <div className="flex gap-4">
       <div className="flex-shrink-0 w-24">
@@ -784,7 +801,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
          <ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => setVariant((current) => ({ ...current, mediaIds: [url] }))} className="w-full aspect-square" />
       </div>
       <div className="flex-grow space-y-4">
-        <Field label="Mã SKU"><input required readOnly={isEditing} value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName(isEditing ? "bg-slate-100" : "")} /></Field>
+        <Field label="Mã SKU"><input readOnly={isEditing} value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName(isEditing ? "bg-slate-100" : "")} placeholder="Tự sinh nếu để trống" /></Field>
         <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} /></Field>
       </div>
     </div>
@@ -800,23 +817,23 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
 
 function BulkVariantModal({ product, mode, ids, onClose, onSaved }: { product: CatalogProductDetail; mode: "bulk-create" | "bulk-edit"; ids: string[]; onClose: () => void; onSaved: () => Promise<void> }) {
   const isCreate = mode === "bulk-create";
-  const [rawLines, setRawLines] = useState("");
-  const [status, setStatus] = useState<VariantInput["status"] | "">(isCreate ? "active" : "");
-  const [trackingMode, setTrackingMode] = useState<ProductTrackingMode | "">(isCreate ? (product.productType === "service" ? "none" : "quantity") : "");
+  const [variants, setVariants] = useState<VariantInput[]>(() => isCreate ? [emptyVariant(product.baseUnitCode, product.productType)] : []);
+  const [status, setStatus] = useState<VariantInput["status"] | "">("");
+  const [trackingMode, setTrackingMode] = useState<ProductTrackingMode | "">("");
   const [submitting, setSubmitting] = useState(false);
-  const rows = useMemo(() => rawLines.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [sku = "", displayName = "", barcode = ""] = line.split(/\s*[|;\t]\s*/).map((value) => value.trim());
-    return { sku, displayName, barcode };
-  }), [rawLines]);
-  const duplicateSku = useMemo(() => rows.some((row, index) => row.sku && rows.findIndex((candidate) => candidate.sku.toUpperCase() === row.sku.toUpperCase()) !== index), [rows]);
+  const updateVariant = (index: number, patch: Partial<VariantInput>) => setVariants((current) => current.map((variant, variantIndex) => variantIndex === index ? { ...variant, ...patch } : variant));
+  const removeVariant = (index: number) => setVariants((current) => current.length > 1 ? current.filter((_, variantIndex) => variantIndex !== index) : current);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
     try {
       if (isCreate) {
-        if (!rows.length || rows.some((row) => !row.sku) || duplicateSku) throw new Error("Mỗi dòng phải có SKU và không được trùng SKU.");
-        await productCatalogService.createVariants(product._id, rows.map((row) => ({ sku: row.sku, displayName: row.displayName || undefined, barcode: row.barcode || undefined, unitCode: product.baseUnitCode, trackingMode: product.productType === "service" ? "none" : trackingMode || "quantity", status: "active" })));
-        toast.success(`Đã tạo ${rows.length} SKU.`);
+        const payloads = variants.map((variant) => ({ ...variant, sku: variant.sku.trim() || `${product.productCode || "SKU"}-${generateEAN13().slice(6)}`, unitCode: product.baseUnitCode, trackingMode: product.productType === "service" ? "none" : variant.trackingMode }));
+        const skuSet = new Set<string>();
+        if (payloads.some((variant) => skuSet.has(variant.sku.toUpperCase()) || !skuSet.add(variant.sku.toUpperCase()))) throw new Error("SKU không được trùng trong danh sách.");
+        const created = await productCatalogService.createVariants(product._id, payloads);
+        await Promise.all(created.map((variant, index) => productCatalogService.upsertPrice(variant._id, Number(payloads[index].sellingPrice || 0))));
+        toast.success(`Đã tạo ${payloads.length} SKU.`);
       } else {
         const changes: Partial<Pick<ProductVariant, "status" | "trackingMode">> = {};
         if (status) changes.status = status;
@@ -832,7 +849,7 @@ function BulkVariantModal({ product, mode, ids, onClose, onSaved }: { product: C
       setSubmitting(false);
     }
   };
-  return <Modal title={isCreate ? `Tạo nhanh SKU cho ${product.name}` : `Sửa hàng loạt ${ids.length} SKU`} onClose={onClose} wide><form onSubmit={submit} className="space-y-5">{isCreate ? <><p className="text-sm text-slate-600">Dán mỗi SKU một dòng. Có thể thêm tên hiển thị và mã vạch bằng cách ngăn cách bằng dấu <strong>|</strong>.</p><Field label="Danh sách SKU"><textarea required rows={8} value={rawLines} onChange={(event) => setRawLines(event.target.value)} className={inputClassName("resize-y font-mono text-xs")} placeholder={'IPHONE-15-128-DEN | iPhone 15 128GB đen | 893...\nIPHONE-15-128-XANH | iPhone 15 128GB xanh | 894...'} /></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : trackingMode || "quantity"} onChange={(event) => setTrackingMode(event.target.value as ProductTrackingMode)} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field><div className="flex items-end text-xs text-slate-500">{rows.length} dòng sẽ được tạo{duplicateSku && <span className="ml-2 text-rose-600">· SKU bị trùng</span>}</div></div>{rows.length > 0 && <div className="overflow-x-auto border-y border-slate-200"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2">SKU</th><th className="px-3 py-2">Tên hiển thị</th><th className="px-3 py-2">Mã vạch</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.slice(0, 10).map((row, index) => <tr key={`${row.sku}-${index}`}><td className="px-3 py-2 font-mono">{row.sku || "—"}</td><td className="px-3 py-2">{row.displayName || "—"}</td><td className="px-3 py-2">{row.barcode || "—"}</td></tr>)}</tbody></table>{rows.length > 10 && <p className="px-3 py-2 text-xs text-slate-500">Đang hiển thị 10 dòng đầu tiên.</p>}</div>}</> : <><p className="text-sm text-slate-600">Các SKU đã chọn: <strong>{ids.length}</strong>. Chọn thông tin chung muốn áp dụng.</p><div className="grid gap-4 sm:grid-cols-2"><Field label="Trạng thái"><select value={status} onChange={(event) => setStatus(event.target.value as VariantInput["status"])} className={inputClassName()}><option value="">Giữ nguyên</option><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : trackingMode || ""} onChange={(event) => setTrackingMode(event.target.value as ProductTrackingMode)} className={inputClassName("disabled:bg-slate-100")}><option value="">Giữ nguyên</option><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field></div></>}<ModalActions onClose={onClose} submitting={submitting} label={isCreate ? "Tạo các SKU" : "Lưu thay đổi"} /></form></Modal>;
+  return <Modal title={isCreate ? `Tạo nhiều SKU cho ${product.name}` : `Sửa hàng loạt ${ids.length} SKU`} onClose={onClose} wide><form onSubmit={submit} className="space-y-5">{isCreate ? <><div className="flex items-center justify-between border-b border-slate-200 pb-3"><p className="text-sm text-slate-600">Mỗi SKU có thông tin riêng, giống form thêm một SKU.</p><button type="button" onClick={() => setVariants((current) => current.length < 500 ? [...current, emptyVariant(product.baseUnitCode, product.productType)] : current)} className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700"><Plus className="h-4 w-4" />Thêm SKU</button></div><div className="space-y-4">{variants.map((variant, index) => <section key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="mb-4 flex items-center justify-between"><h4 className="font-semibold text-slate-800">SKU {index + 1}</h4><button type="button" disabled={variants.length === 1} onClick={() => removeVariant(index)} className="rounded-md p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40" title="Xóa SKU"><Trash2 className="h-4 w-4" /></button></div><div className="flex gap-4"><div className="w-24 shrink-0"><label className="mb-1 block text-xs font-semibold text-slate-700">Ảnh</label><ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => updateVariant(index, { mediaIds: [url] })} className="aspect-square w-full" /></div><div className="grid flex-1 gap-4 sm:grid-cols-2"><Field label="Mã SKU"><input value={variant.sku} onChange={(event) => updateVariant(index, { sku: event.target.value })} className={inputClassName()} placeholder="Tự sinh nếu để trống" /></Field><Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => updateVariant(index, { barcode: event.target.value })} className={inputClassName()} /></Field><Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => updateVariant(index, { displayName: event.target.value })} className={inputClassName()} /></Field><Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => updateVariant(index, { sellingPrice: value })} className={inputClassName()} placeholder="Nhập giá bán" /></Field><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => updateVariant(index, { trackingMode: event.target.value as ProductTrackingMode })} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field><Field label="Trạng thái"><select value={variant.status} onChange={(event) => updateVariant(index, { status: event.target.value as VariantInput["status"] })} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field><Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => updateVariant(index, { supplierWarrantyMonths: value })} className={inputClassName()} placeholder="0" /></Field></div></div></section>)}</div></> : <><p className="text-sm text-slate-600">Các SKU đã chọn: <strong>{ids.length}</strong>. Chọn thông tin chung muốn áp dụng.</p><div className="grid gap-4 sm:grid-cols-2"><Field label="Trạng thái"><select value={status} onChange={(event) => setStatus(event.target.value as VariantInput["status"])} className={inputClassName()}><option value="">Giữ nguyên</option><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : trackingMode || ""} onChange={(event) => setTrackingMode(event.target.value as ProductTrackingMode)} className={inputClassName("disabled:bg-slate-100")}><option value="">Giữ nguyên</option><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field></div></>}<ModalActions onClose={onClose} submitting={submitting} label={isCreate ? "Tạo các SKU" : "Lưu thay đổi"} /></form></Modal>;
 }
 
 function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductResourceKind | "templates"; items: Array<ProductResource | ProductTemplate>; onClose: () => void; onSaved: () => Promise<void> }) {
@@ -937,6 +954,6 @@ function TemplateField({ field, value, onChange }: { field: ProductTemplateField
   return <Field label={`${field.label}${field.required ? " *" : ""}`}><input required={field.required} type={field.type === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName()} placeholder={field.type === "multi-select" ? "Ngăn cách bằng dấu phẩy" : undefined} /></Field>;
 }
 
-function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) { return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4"><div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4"><h3 className="text-base font-semibold text-slate-900">{title}</h3><button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng"><X className="h-4 w-4" /></button></div><div className="p-5">{children}</div></div></div>; }
+function Modal({ title, onClose, children, wide = false, stacked = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; stacked?: boolean }) { return <div className={`fixed inset-0 ${stacked || title.includes("SKU") ? "z-[60]" : "z-50"} flex items-center justify-center bg-slate-950/35 p-4`}><div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4"><h3 className="text-base font-semibold text-slate-900">{title}</h3><button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng"><X className="h-4 w-4" /></button></div><div className="p-5">{children}</div></div></div>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block space-y-1.5"><span className="text-xs font-medium text-slate-600">{label}</span>{children}</label>; }
 function ModalActions({ onClose, submitting, label }: { onClose: () => void; submitting: boolean; label: string }) { return <div className="flex justify-end gap-2 border-t border-slate-200 pt-4"><button type="button" disabled={submitting} onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Hủy</button><button type="submit" disabled={submitting} className="rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-60">{submitting ? "Đang lưu..." : label}</button></div>; }

@@ -1,4 +1,4 @@
-import mongoose, { Types, type ClientSession } from "mongoose";
+import { Types } from "mongoose";
 import { WorkerLaborContractModel } from "../models/worker-labor-contract.model";
 import { WorkerModel } from "../models/worker.model";
 import { buildWorkerQuery } from "./worker.service";
@@ -10,7 +10,6 @@ import {
   type WorkerLaborContractStatus,
 } from "../interfaces/worker-labor-contract.interface";
 
-/** Các trường bị khóa khi kỳ hợp đồng đã đóng — giữ nguyên điều khoản đã ký. */
 export const LOCKED_CONTRACT_FIELDS = ["code", "clientName", "startDate", "endDate"] as const;
 
 export function buildWorkerLaborContractQuery(scope: WorkerScope) {
@@ -35,7 +34,6 @@ export function isValidIsoCalendarDate(value: string): boolean {
   );
 }
 
-/** So sánh theo ngày lịch trên chuỗi YYYY-MM-DD, không phụ thuộc múi giờ. */
 export function daysUntil(endDate: string, today = new Date()): number | null {
   const parts = String(endDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!parts) return null;
@@ -50,7 +48,6 @@ export function resolveAlertLevel(
   today = new Date(),
   alertDays = WORKER_CONTRACT_ALERT_DAYS,
 ): WorkerContractAlertLevel {
-  // Kỳ đã gia hạn/chấm dứt không còn cần nhắc hạn.
   if (status === "renewed" || status === "terminated") return "ok";
   const remaining = daysUntil(endDate, today);
   if (remaining === null) return "ok";
@@ -92,7 +89,7 @@ async function assertCodeAvailable(
   scope: WorkerScope,
   code: string,
   excludeId?: string,
-  session?: ClientSession,
+  session?: any,
 ) {
   const existing = await WorkerLaborContractModel.findOne({
     ...(excludeId ? { _id: { $ne: new Types.ObjectId(excludeId) } } : {}),
@@ -103,7 +100,6 @@ async function assertCodeAvailable(
   if (existing) throw new Error("Mã hợp đồng đã tồn tại trong hệ thống.");
 }
 
-/** Gắn mức cảnh báo vào bản ghi đọc ra, không ghi ngược vào DB. */
 export function withAlertLevel<T extends { endDate: string; status: WorkerLaborContractStatus }>(
   contract: T,
   today = new Date(),
@@ -118,25 +114,84 @@ export function withAlertLevel<T extends { endDate: string; status: WorkerLaborC
 
 export const WorkerLaborContractService = {
   async list(scope: WorkerScope, queryFilters: any = {}, today = new Date()) {
-    const { alert, status, ...filters } = queryFilters || {};
+    const { alert, status, page, limit, search, clientName, ...filters } = queryFilters || {};
     const query: any = {
       ...buildWorkerLaborContractQuery(scope),
       ...filters,
-      ...(status && status !== "expired" ? { status } : {}),
     };
     if (filters.workerId) query.workerId = new Types.ObjectId(String(filters.workerId));
-    const items = await WorkerLaborContractModel.find(query)
-      .sort({ endDate: -1, createdAt: -1 })
-      .lean();
-    let decorated = items.map((item: any) => withAlertLevel(item, today));
-    if (status) decorated = decorated.filter((item) => item.status === status);
-    if (alert === "expiring" || alert === "expired") {
-      return decorated.filter((item) => item.alertLevel === alert);
+    if (clientName && clientName !== "all") query.clientName = clientName;
+
+    const todayStr = today.toISOString().slice(0, 10);
+    const warningDate = new Date(today.getTime() + WORKER_CONTRACT_ALERT_DAYS * 86_400_000);
+    const warningDateStr = warningDate.toISOString().slice(0, 10);
+
+    // Filter by status
+    if (status) {
+      if (status === "expired") {
+        query.status = { $nin: ["renewed", "terminated"] };
+        query.endDate = { $lt: todayStr };
+      } else if (status === "active") {
+        query.status = "active";
+        query.endDate = { $gte: todayStr };
+      } else {
+        query.status = status;
+      }
     }
-    if (alert === "any") {
-      return decorated.filter((item) => item.alertLevel !== "ok");
+
+    // Filter by alert
+    if (alert) {
+      if (alert === "expired") {
+        query.status = { $nin: ["renewed", "terminated"] };
+        query.endDate = { $lt: todayStr };
+      } else if (alert === "expiring") {
+        query.status = { $nin: ["renewed", "terminated"] };
+        query.endDate = { $gte: todayStr, $lte: warningDateStr };
+      } else if (alert === "any") {
+        query.status = { $nin: ["renewed", "terminated"] };
+        query.endDate = { $lte: warningDateStr };
+      }
     }
-    return decorated;
+
+    // Search query
+    if (search && search.trim()) {
+      const cleanSearch = search.trim();
+      const matchingWorkers = await WorkerModel.find({
+        companyCode: scope.companyCode,
+        fullName: { $regex: cleanSearch, $options: "i" },
+      }).select("_id").lean();
+
+      const workerIds = matchingWorkers.map((w) => w._id);
+
+      query.$or = [
+        { code: { $regex: cleanSearch, $options: "i" } },
+        { clientName: { $regex: cleanSearch, $options: "i" } },
+        { workerId: { $in: workerIds } },
+      ];
+    }
+
+    const currentPage = Number(page) || 1;
+    const currentLimit = Number(limit) || 10;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const [items, total, uniqueClients] = await Promise.all([
+      WorkerLaborContractModel.find(query)
+        .sort({ endDate: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(currentLimit)
+        .lean(),
+      WorkerLaborContractModel.countDocuments(query),
+      WorkerLaborContractModel.distinct("clientName", buildWorkerLaborContractQuery(scope)),
+    ]);
+
+    const decorated = items.map((item: any) => withAlertLevel(item, today));
+    return {
+      contracts: decorated,
+      total,
+      page: currentPage,
+      limit: currentLimit,
+      clients: uniqueClients.filter(Boolean),
+    };
   },
 
   async getDetail(scope: WorkerScope, id: string) {
@@ -147,7 +202,6 @@ export const WorkerLaborContractService = {
     return contract ? withAlertLevel(contract as any) : null;
   },
 
-  /** Toàn bộ chuỗi kỳ hợp đồng, cũ → mới. */
   async history(scope: WorkerScope, rootContractId: string) {
     const items = await WorkerLaborContractModel.find({
       ...buildWorkerLaborContractQuery(scope),
@@ -172,7 +226,6 @@ export const WorkerLaborContractService = {
       companyCode: scope.companyCode,
       ...(scope.branchId ? { branchId: new Types.ObjectId(scope.branchId) } : {}),
     });
-    // Kỳ đầu tiên tự làm gốc của chuỗi.
     contract.rootContractId = contract._id as Types.ObjectId;
     return contract.save();
   },
@@ -201,7 +254,6 @@ export const WorkerLaborContractService = {
     }
 
     if ((current as any).lockedAt) {
-      // Kỳ đã đóng: chỉ còn ghi chú và việc chấm dứt là hợp lệ.
       const blocked = LOCKED_CONTRACT_FIELDS.filter(
         (field) => changes[field] !== undefined && changes[field] !== (current as any)[field],
       );
@@ -231,17 +283,13 @@ export const WorkerLaborContractService = {
     return contract;
   },
 
-  /**
-   * Gia hạn: đóng kỳ hiện tại rồi tạo kỳ mới nối vào chuỗi. Ngày và điều khoản
-   * của kỳ cũ được giữ nguyên, chỉ đánh dấu renewed/lockedAt.
-   */
   async renew(
     scope: WorkerScope,
     id: string,
     input: WorkerLaborContractInput,
     actor?: string,
   ) {
-    const session = await mongoose.startSession();
+    const session = await WorkerLaborContractModel.db.startSession();
     let result: { previous: any; current: any } | undefined;
     try {
       await session.withTransaction(async () => {
@@ -342,7 +390,6 @@ export const WorkerLaborContractService = {
     return contract;
   },
 
-  /** Đếm hợp đồng sắp/đã hết hạn cho thẻ cảnh báo ngoài dashboard. */
   async expiringSummary(
     scope: WorkerScope,
     days = WORKER_CONTRACT_ALERT_DAYS,

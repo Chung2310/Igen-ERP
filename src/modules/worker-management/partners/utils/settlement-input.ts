@@ -90,7 +90,7 @@ export async function parseSettlementImportFile(
     });
   const isCsv = file.type.toLowerCase().includes("csv") || /\.csv$/i.test(file.name);
   // CSV is text, so passing its bytes as an XLSX array makes Vietnamese
-  // headers decode as mojibake (for example `MÃ£ lao Ä‘á»™ng`). Decode UTF-8
+  // headers decode as mojibake (for example `Mã lao động`). Decode UTF-8
   // before handing it to SheetJS; real XLS/XLSX files remain binary arrays.
   const workbook = isCsv
     ? XLSX.read(new TextDecoder("utf-8").decode(bytes), { type: "string" })

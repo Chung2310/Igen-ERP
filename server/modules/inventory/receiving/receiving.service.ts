@@ -95,7 +95,7 @@ export async function updateSupplier(scope: { companyCode: string }, id: string,
   for (const field of ["name", "taxCode", "phone", "email", "address", "paymentTerms", "notes"] as const) if (input?.[field] !== undefined) updates[field] = text(input[field], field) || undefined;
   if (input?.status !== undefined) { if (!["active", "inactive"].includes(input.status)) throw new ReceivingValidationError("Trạng thái nhà cung cấp không hợp lệ."); updates.status = input.status; }
   updates.updatedBy = actorId(actor);
-  const supplier = await SupplierModel.findOneAndUpdate({ _id: id, companyCode } as any, { $set: updates }, { new: true, runValidators: true }).lean();
+  const supplier = await SupplierModel.findOneAndUpdate({ _id: id, companyCode: company }, { $set: updates }, { new: true, runValidators: true }).lean();
   if (!supplier) throw new ReceivingValidationError("Không tìm thấy nhà cung cấp.");
   return supplier;
 }

@@ -65,9 +65,41 @@ async function assertWorkersInScopeBulk(
 }
 export const WorkerProjectService = {
   async list(scope: WorkerScope, queryFilters: any = {}) {
+    const { page, limit, search, status, ...filters } = queryFilters || {};
     const baseQuery = buildWorkerProjectQuery(scope);
-    const query = { ...baseQuery, ...queryFilters };
-    return WorkerProjectModel.find(query).sort({ createdAt: -1 }).lean();
+    const query = { ...baseQuery, ...filters };
+
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    if (search && search.trim()) {
+      const cleanSearch = search.trim();
+      query.$or = [
+        { name: { $regex: cleanSearch, $options: "i" } },
+        { code: { $regex: cleanSearch, $options: "i" } },
+      ];
+    }
+
+    const currentPage = Number(page) || 1;
+    const currentLimit = Number(limit) || 10;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const [items, total] = await Promise.all([
+      WorkerProjectModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(currentLimit)
+        .lean(),
+      WorkerProjectModel.countDocuments(query),
+    ]);
+
+    return {
+      projects: items,
+      total,
+      page: currentPage,
+      limit: currentLimit,
+    };
   },
 
   async getDetail(scope: WorkerScope, id: string) {

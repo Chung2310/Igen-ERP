@@ -58,6 +58,10 @@ const inputClass =
 const labelClass = "block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5";
 
 export default function PublicRegisterPage() {
+  const requestedPreset = useMemo(() => {
+    const value = new URLSearchParams(window.location.search).get("entityPreset");
+    return value === "worker" ? "worker" as const : null;
+  }, []);
   const teacherId = useMemo(
     () => new URLSearchParams(window.location.search).get("teacherId") || "",
     [],
@@ -66,7 +70,7 @@ export default function PublicRegisterPage() {
   const [loading, setLoading] = useState(Boolean(teacherId));
   const [configError, setConfigError] = useState("");
   const [fields, setFields] = useState<IPublicField[]>([]);
-  const [preset, setPreset] = useState<EntityPreset>("student");
+  const [preset, setPreset] = useState<EntityPreset>(requestedPreset || "student");
 
   const [values, setValues] = useState<Record<string, string>>({ enrollmentDate: todayInputValue() });
   const [files, setFiles] = useState<Partial<Record<FileField, IUploadedFile>>>({});
@@ -90,7 +94,7 @@ export default function PublicRegisterPage() {
         if (!response.ok || !json.success) throw new Error(json.error || "Không tải được biểu mẫu.");
         if (cancelled) return;
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
-        setPreset(json.data.entityPreset as EntityPreset);
+        setPreset(requestedPreset || json.data.entityPreset as EntityPreset);
       } catch (error) {
         if (!cancelled) setConfigError(getApiErrorMessage(error, "Không tải được biểu mẫu."));
       } finally {
@@ -98,7 +102,7 @@ export default function PublicRegisterPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [teacherId]);
+  }, [requestedPreset, teacherId]);
 
   const handleUpload = async (field: FileField, file: File) => {
     if (file.size > MAX_FILE_SIZE) {

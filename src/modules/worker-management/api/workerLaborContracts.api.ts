@@ -17,15 +17,23 @@ type ContractFilters = {
   workerId?: string;
   status?: string;
   alert?: "expiring" | "expired" | "any";
+  page?: number;
+  limit?: number;
+  search?: string;
+  clientName?: string;
 };
 
 export const workerLaborContractApi = {
   async list(scope: WorkerScope, filters: ContractFilters = {}) {
-    return (
-      await workerApiFetch<{ data: WorkerLaborContract[] }>(WORKER_CONTRACT_BASE, {
-        params: { ...scopeParams(scope), ...filters },
-      })
-    ).data;
+    return await workerApiFetch<{
+      data: WorkerLaborContract[];
+      total: number;
+      page: number;
+      limit: number;
+      clients: string[];
+    }>(WORKER_CONTRACT_BASE, {
+      params: { ...scopeParams(scope), ...filters },
+    });
   },
 
   async history(id: string, scope: WorkerScope) {

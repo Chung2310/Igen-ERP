@@ -209,7 +209,7 @@ export const authService = {
     }
 
     const result = await res.json();
-    return (result.data || []).map((u: any) => ({
+    return (result.data || []).filter((u: any) => u.isActive !== false).map((u: any) => ({
       ...u,
       uid: u._id,
     }));

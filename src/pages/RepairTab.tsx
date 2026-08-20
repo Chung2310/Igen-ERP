@@ -1,14 +1,32 @@
 import { useEffect, useState } from "react";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
 import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
+import RepairHistoryPanel from "../modules/repair/RepairHistoryPanel";
+import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
+
+const TABS = [
+  { key: "warranty", label: "Tra cứu bảo hành" },
+  { key: "repair", label: "Phiếu sửa chữa" },
+  { key: "history", label: "Lịch sử IMEI/SĐT" },
+  { key: "reports", label: "Báo cáo" },
+] as const;
+type RepairView = (typeof TABS)[number]["key"];
 
 export default function RepairTab() {
-  const [view, setView] = useState<"warranty" | "repair">("warranty");
+  const [view, setView] = useState<RepairView>("warranty");
   const [prefill, setPrefill] = useState<RepairCreatePrefill | null>(null);
   useEffect(() => {
     const openRepair = (event: Event) => { setPrefill((event as CustomEvent<RepairCreatePrefill>).detail); setView("repair"); };
     window.addEventListener("inventory:open-repair", openRepair);
     return () => window.removeEventListener("inventory:open-repair", openRepair);
   }, []);
-  return <div className="space-y-4"><div className="flex flex-wrap gap-2 border-b pb-3"><button type="button" onClick={() => setView("warranty")} className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "warranty" ? "bg-cyan-600 text-white" : "border text-slate-600"}`}>Tra cứu bảo hành</button><button type="button" onClick={() => setView("repair")} className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "repair" ? "bg-cyan-600 text-white" : "border text-slate-600"}`}>Phiếu sửa chữa</button></div>{view === "warranty" ? <WarrantyLookupSection /> : <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}</div>;
+  return <div className="space-y-4">
+    <div className="flex flex-wrap gap-2 border-b pb-3">
+      {TABS.map((tab) => <button key={tab.key} type="button" onClick={() => setView(tab.key)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === tab.key ? "bg-cyan-600 text-white" : "border text-slate-600"}`}>{tab.label}</button>)}
+    </div>
+    {view === "warranty" && <WarrantyLookupSection />}
+    {view === "repair" && <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}
+    {view === "history" && <RepairHistoryPanel />}
+    {view === "reports" && <RepairReportsPanel />}
+  </div>;
 }

@@ -49,7 +49,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
-  admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll-period:manage", "payroll-policy:manage", "payroll-payment:manage", "finance-wallet:manage", "finance-receivable:manage", "labor-partner:manage", "labor-partner-policy:manage", "labor-partner-settlement:manage", "labor-partner-payout:manage", "work:manage", "inventory:manage", "retail:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
+  admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll-period:manage", "payroll-policy:manage", "payroll-payment:manage", "finance-wallet:manage", "finance-receivable:manage", "asset:manage", "labor-partner:manage", "labor-partner-policy:manage", "labor-partner-settlement:manage", "labor-partner-payout:manage", "work:manage", "inventory:manage", "retail:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
   branch_owner: [
     "dashboard:read", "access:manage", "hr:read", "timekeeping:manage", "people:manage", "resource:read", "chat:read", "work:manage"
   ],
@@ -65,6 +65,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   teacher: ["people:manage"]
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
+// repair:read tách khỏi repair:manage nên phải cấp riêng, nếu không mọi API GET của
+// module sửa chữa trả 403 kể cả với admin.
+DEFAULT_ROLE_PERMISSIONS.admin.push("repair:read");
+DEFAULT_ROLE_PERMISSIONS.manager.push("repair:read");
 DEFAULT_ROLE_PERMISSIONS.admin.push("customer:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("marketing:manage");
 
@@ -239,7 +243,7 @@ export function requirePermission(requiredPermission: string | string[]) {
 
       return res.status(403).json({
         status: "error",
-        message: `Tài khoản của bạn không có mã quyền [${requiredPermissions.join(", ")}] cần thiết để thực hiện thao tác này.`,
+        message: "Bạn không có quyền thực hiện thao tác này.",
       });
     } catch (error: any) {
       console.error("[requirePermission] Error:", error);

@@ -619,6 +619,7 @@ export default function InventoryTab() {
               { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
               { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
               { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
+              { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Package },
               { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
               { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },

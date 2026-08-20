@@ -187,6 +187,14 @@ export function WorkerProjectsPage({
     projects,
     loading,
     error,
+    page,
+    setPage,
+    limit,
+    total,
+    search,
+    setSearch,
+    status,
+    setStatus,
     createProject,
     updateProject,
     deleteProject,
@@ -194,8 +202,6 @@ export function WorkerProjectsPage({
     removeWorker,
   } = useWorkerProjects(scope);
   const { workers } = useWorkers(scope);
-  const [search, setSearch] = React.useState("");
-  const [status, setStatus] = React.useState<ProjectStatus | "all">("all");
   const [viewMode, setViewMode] = React.useState<ViewMode>(() =>
     localStorage.getItem("worker-projects:viewMode") === "card"
       ? "card"
@@ -252,12 +258,7 @@ export function WorkerProjectsPage({
     );
   };
 
-  const filtered = projects.filter((project) => {
-    if (status !== "all" && project.status !== status) return false;
-    return `${project.code} ${project.name} ${project.location || ""}`
-      .toLowerCase()
-      .includes(search.trim().toLowerCase());
-  });
+  const filtered = projects;
 
   const changeView = (next: ViewMode) => {
     setViewMode(next);
@@ -435,7 +436,7 @@ export function WorkerProjectsPage({
           Dự án tuyển dụng
         </h1>
         <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-          {loading ? "..." : `${filtered.length} / ${projects.length}`} dự án
+          {loading ? "..." : `${total}`} dự án
         </p>
       </div>
 
@@ -583,6 +584,86 @@ export function WorkerProjectsPage({
         </div>
       )}
 
+      {/* Pagination Toolbar */}
+      {total > limit && (
+        <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6 rounded-xl border border-slate-100 shadow-sm">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 font-bold"
+            >
+              Trước
+            </button>
+            <button
+              disabled={page * limit >= total}
+              onClick={() => setPage((p) => p + 1)}
+              className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 font-bold"
+            >
+              Sau
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs text-slate-700">
+                Hiển thị từ <span className="font-medium">{(page - 1) * limit + 1}</span> đến{" "}
+                <span className="font-medium">{Math.min(page * limit, total)}</span> trong tổng số{" "}
+                <span className="font-medium">{total}</span> dự án
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(1)}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                >
+                  «
+                </button>
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: Math.ceil(total / limit) }).map((_, idx) => {
+                  const pageNum = idx + 1;
+                  if (Math.abs(page - pageNum) > 2) return null;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
+                        page === pageNum
+                          ? "z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
+                          : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  disabled={page * limit >= total}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                >
+                  ›
+                </button>
+                <button
+                  disabled={page * limit >= total}
+                  onClick={() => setPage(Math.ceil(total / limit))}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                >
+                  »
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+
       {formOpen && (
         <Modal
           title={editing ? "Chỉnh sửa dự án" : "Thêm dự án"}
@@ -642,14 +723,12 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày bắt đầu">
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="DD/MM/YYYY"
-                  value={formatDate(form.startDate)}
+                  type="date"
+                  value={form.startDate}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      startDate: toIsoDate(event.target.value),
+                      startDate: event.target.value,
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
@@ -657,14 +736,12 @@ export function WorkerProjectsPage({
               </Field>
               <Field label="Ngày kết thúc">
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="DD/MM/YYYY"
-                  value={formatDate(form.endDate)}
+                  type="date"
+                  value={form.endDate}
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
-                      endDate: toIsoDate(event.target.value),
+                      endDate: event.target.value,
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
