@@ -115,6 +115,30 @@ function duplicateLabel(workers: Worker[], form: WorkerInput) {
   return null;
 }
 
+const toInputDate = (value?: string) => {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const displayMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (displayMatch) {
+    return `${displayMatch[3]}-${displayMatch[2].padStart(2, "0")}-${displayMatch[1].padStart(2, "0")}`;
+  }
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|T)/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+  return "";
+};
+
+const fromInputDate = (value?: string) => {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    return `${isoMatch[3].padStart(2, "0")}/${isoMatch[2].padStart(2, "0")}/${isoMatch[1]}`;
+  }
+  return raw;
+};
+
 export function AddWorkerModal({
   isOpen,
   onClose,
@@ -258,20 +282,20 @@ export function AddWorkerModal({
           <Field
             label={label("birthday")}
             name="birthday"
-            value={form.birthday || ""}
-            onChange={update}
+            type="date"
+            value={toInputDate(form.birthday)}
+            onChange={(e) => setForm((curr) => ({ ...curr, birthday: fromInputDate(e.target.value) }))}
             disabled={submitting}
-            placeholder="DD/MM/YYYY"
           />
         )}
         {visible("registrationDate") && (
           <Field
             label={label("registrationDate")}
             name="registrationDate"
-            value={form.registrationDate || ""}
-            onChange={update}
+            type="date"
+            value={toInputDate(form.registrationDate)}
+            onChange={(e) => setForm((curr) => ({ ...curr, registrationDate: fromInputDate(e.target.value) }))}
             disabled={submitting}
-            placeholder="DD/MM/YYYY"
           />
         )}
         {visible("status") && (
@@ -360,10 +384,10 @@ export function AddWorkerModal({
           <Field
             label={label("workPermitExpiry")}
             name="workPermitExpiry"
-            value={form.workPermitExpiry || ""}
-            onChange={update}
+            type="date"
+            value={toInputDate(form.workPermitExpiry)}
+            onChange={(e) => setForm((curr) => ({ ...curr, workPermitExpiry: fromInputDate(e.target.value) }))}
             disabled={submitting}
-            placeholder="DD/MM/YYYY"
           />
         )}
         {visible("address") && (
