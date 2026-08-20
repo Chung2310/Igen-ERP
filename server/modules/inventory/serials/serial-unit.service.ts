@@ -61,7 +61,8 @@ export async function registerSerialBatch(scope: SerialScope, input: RegisterSer
 
 export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
   const page = Math.max(1, Number(filters.page) || 1); const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
-  const query: any = { ...scoped(scope) };
+  const query: any = { companyCode: scope.companyCode, $or: [{ branchId: scope.branchId }, { status: "in_transit", transferToBranchId: scope.branchId }] };
+  if (scope.warehouseId) query.$and = [{ warehouseId: scope.warehouseId }];
   if (filters.forSale) query.warehouseId = String((await ensureDefaultWarehouse(scope.companyCode, scope.branchId))._id);
   if (filters.serial) query.normalizedSerialNumber = normalizeSerialNumber(filters.serial);
   if (filters.sku) query.sku = String(filters.sku).trim();
