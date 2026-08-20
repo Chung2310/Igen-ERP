@@ -13,7 +13,7 @@ const findOneUser = vi.fn();
 vi.mock("./repair-ticket.model", () => ({ RepairTicketModel: { findOne: (...args: any[]) => findOneTicket(...args) } }));
 vi.mock("../../model/user.model", () => ({ UserModel: { findOne: (...args: any[]) => findOneUser(...args) } }));
 
-const { transitionRepairTicket } = await import("./repair-ticket.service");
+const { quoteRepairTicket, transitionRepairTicket } = await import("./repair-ticket.service");
 
 const scope = { companyCode: "company-a", branchId: "branch-a" };
 const actor = { id: "actor-1", name: "Người tiếp nhận" };
@@ -53,5 +53,14 @@ describe("transitionRepairTicket", () => {
 
     await expect(transitionRepairTicket(scope, "ticket-1", "diagnosing", actor, undefined, false, undefined, "inactive-tech")).rejects.toMatchObject({ statusCode: 400 });
     expect(findOneUser).toHaveBeenCalledWith({ _id: "inactive-tech", companyCode: "company-a", isActive: { $ne: false } });
+  });
+
+  test("stores the trimmed quote note in the status history", async () => {
+    ticket.status = "diagnosing";
+    ticket.paidAmount = 0;
+
+    const result = await quoteRepairTicket(scope, "ticket-1", 250_000, actor, "  Thay pin chinh hang  ");
+
+    expect(result.statusHistory.at(-1)).toMatchObject({ from: "diagnosing", to: "quoted", note: "Thay pin chinh hang" });
   });
 });
