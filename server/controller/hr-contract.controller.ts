@@ -5,6 +5,7 @@ import {
   HRContractModel,
 } from "../model/hr-contract.model";
 import { UserModel } from "../model/user.model";
+import { hrContractService } from "../service/hr-contract.service";
 import {
   managedUploadService,
   type FinalizeManagedUploadInput,
@@ -128,16 +129,19 @@ export const hrContractController = {
       const employeeFilter = canViewAll(req)
         ? String(req.query.employeeId || "")
         : req.user!.id;
-      await HRContractModel.updateMany(
-        { companyCode, status: "active", endDate: { $lt: new Date() } },
-        { $set: { status: "expired" } },
-      );
+      await hrContractService.updateExpiredStatus(companyCode);
       const branchId = req.query.branchId ? String(req.query.branchId) : req.user?.branchId;
-      const query: any = { companyCode };
-      if (branchId) query.branchId = branchId;
-      if (employeeFilter) query.employeeId = employeeFilter;
-      const [contracts, employees] = await Promise.all([
-        HRContractModel.find(query).sort({ endDate: -1 }).lean(),
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 10;
+      const [paginationResult, employees] = await Promise.all([
+        hrContractService.list({
+          companyCode,
+          branchId,
+          employeeId: employeeFilter || undefined,
+          search: req.query.search ? String(req.query.search) : undefined,
+          page,
+          limit,
+        }),
         canViewAll(req)
           ? UserModel.find({ companyCode, isActive: { $ne: false }, ...(branchId ? { branchId } : {}) })
               .select("_id displayName email department")
@@ -147,7 +151,16 @@ export const hrContractController = {
               .select("_id displayName email department")
               .lean(),
       ]);
-      return res.json({ status: "success", data: { contracts, employees } });
+      return res.json({
+        status: "success",
+        data: {
+          contracts: paginationResult.contracts,
+          total: paginationResult.total,
+          page: paginationResult.page,
+          limit: paginationResult.limit,
+          employees,
+        },
+      });
     } catch (error: any) {
       return res.status(500).json({
         status: "error",

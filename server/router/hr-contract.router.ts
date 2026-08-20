@@ -7,7 +7,30 @@ import { validateRequest } from "../middleware/validation";
 
 export const hrContractRouter = Router();
 const id = Joi.string().hex().length(24).required();
+const optionalId = Joi.string().hex().length(24).optional();
 const url = Joi.string().uri().allow("", null);
+
+const listQuerySchema = Joi.object({
+  employeeId: optionalId.messages({
+    "string.hex": "Định dạng ID nhân viên không hợp lệ.",
+    "string.length": "Định dạng ID nhân viên không hợp lệ.",
+  }),
+  branchId: optionalId.messages({
+    "string.hex": "Định dạng ID chi nhánh không hợp lệ.",
+    "string.length": "Định dạng ID chi nhánh không hợp lệ.",
+  }),
+  companyCode: Joi.string().trim().optional(),
+  search: Joi.string().trim().allow("").optional(),
+  page: Joi.number().integer().min(1).default(1).optional().messages({
+    "number.base": "Trang phải là số.",
+    "number.min": "Trang tối thiểu là 1.",
+  }),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional().messages({
+    "number.base": "Giới hạn số bản ghi phải là số.",
+    "number.min": "Giới hạn số bản ghi tối thiểu là 1.",
+    "number.max": "Giới hạn số bản ghi tối đa là 100.",
+  }),
+});
 const fileMetadata = {
   contractFileName: Joi.string().allow("").max(300),
   contractFileMimeType: Joi.string().allow("").max(200),
@@ -85,6 +108,7 @@ hrContractRouter.post(
 hrContractRouter.get(
   "/",
   requirePermission("hr:read") as any,
+  validateRequest({ query: listQuerySchema }),
   hrContractController.list as any,
 );
 hrContractRouter.post(

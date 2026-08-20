@@ -330,6 +330,12 @@ export default function OrgChartTab({
   const [activeDropdownCardId, setActiveDropdownCardId] = useState<string | null>(null);
   const [selectedLeaveBalance, setSelectedLeaveBalance] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
+  const [listPage, setListPage] = useState<number>(1);
+  const listLimit = 10;
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery, filterDepartment]);
 
   useEffect(() => {
     if (!selectedEmp || !selectedCompanyCode) {
@@ -1112,6 +1118,7 @@ export default function OrgChartTab({
   const rootEmployees = arrangedEmployees.filter(e => !e.parentId || !arrangedEmployees.some(p => p.id === e.parentId))
     .sort((a, b) => (a.level ?? 99) - (b.level ?? 99));
   const visibleEmployees = filterOrgChartEmployees(employees, searchQuery, filterDepartment);
+  const paginatedEmployees = visibleEmployees.slice((listPage - 1) * listLimit, listPage * listLimit);
   const missingValue = "Chua cap nhat";
 
   // Recursive Branch rendering component helper
@@ -1324,10 +1331,10 @@ export default function OrgChartTab({
         <div className="grid grid-cols-1 gap-6 h-full min-h-[500px]" id="org_chart_block">
 
           {viewMode === "list" && (
-            <div className="col-span-1 bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-[500px]">
+            <div className="col-span-1 bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-[500px] flex flex-col justify-between">
               {isMobile ? (
                 <div className="divide-y divide-slate-100 p-2">
-                  {visibleEmployees.map((employee) => {
+                  {paginatedEmployees.map((employee) => {
                     const manager = getManagerForEmployee(employee, employees);
                     return (
                       <div
@@ -1380,7 +1387,7 @@ export default function OrgChartTab({
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleEmployees.map((employee) => {
+                      {paginatedEmployees.map((employee) => {
                         const manager = getManagerForEmployee(employee, employees);
                         return (
                           <tr
@@ -1424,6 +1431,86 @@ export default function OrgChartTab({
                   {visibleEmployees.length === 0 && (
                     <div className="py-16 text-center text-sm text-slate-400">Không tìm thấy nhân viên</div>
                   )}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {visibleEmployees.length > listLimit && (
+                <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6">
+                  <div className="flex flex-1 justify-between sm:hidden">
+                    <button
+                      disabled={listPage === 1}
+                      onClick={() => setListPage((p) => Math.max(p - 1, 1))}
+                      className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Trước
+                    </button>
+                    <button
+                      disabled={listPage * listLimit >= visibleEmployees.length}
+                      onClick={() => setListPage((p) => p + 1)}
+                      className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs text-slate-700">
+                        Hiển thị từ <span className="font-medium">{(listPage - 1) * listLimit + 1}</span> đến{" "}
+                        <span className="font-medium">{Math.min(listPage * listLimit, visibleEmployees.length)}</span> trong tổng số{" "}
+                        <span className="font-medium">{visibleEmployees.length}</span> nhân viên
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <button
+                          disabled={listPage === 1}
+                          onClick={() => setListPage(1)}
+                          className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                        >
+                          «
+                        </button>
+                        <button
+                          disabled={listPage === 1}
+                          onClick={() => setListPage((p) => Math.max(p - 1, 1))}
+                          className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                        >
+                          ‹
+                        </button>
+                        {Array.from({ length: Math.ceil(visibleEmployees.length / listLimit) }).map((_, idx) => {
+                          const pageNum = idx + 1;
+                          if (Math.abs(listPage - pageNum) > 2) return null;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setListPage(pageNum)}
+                              className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
+                                listPage === pageNum
+                                  ? "z-10 bg-indigo-650 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-650"
+                                  : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        <button
+                          disabled={listPage * listLimit >= visibleEmployees.length}
+                          onClick={() => setListPage((p) => p + 1)}
+                          className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                        >
+                          ›
+                        </button>
+                        <button
+                          disabled={listPage * listLimit >= visibleEmployees.length}
+                          onClick={() => setListPage(Math.ceil(visibleEmployees.length / listLimit))}
+                          className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30 text-xs font-semibold"
+                        >
+                          »
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
