@@ -5,8 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const contractHooks = vi.hoisted(() => ({ useWorkerLaborContracts: vi.fn() }));
 const workerHooks = vi.hoisted(() => ({ useWorkers: vi.fn() }));
+const contractApi = vi.hoisted(() => ({
+  workerLaborContractApi: { expiringSummary: vi.fn().mockResolvedValue({ expiringCount: 1, expiredCount: 0 }) },
+}));
 vi.mock("../hooks/useWorkerLaborContracts", () => contractHooks);
 vi.mock("../hooks/useWorkers", () => workerHooks);
+vi.mock("../api/workerLaborContracts.api", () => contractApi);
 
 import WorkerContractsPage from "./WorkerContractsPage";
 
@@ -27,6 +31,19 @@ const renderPage = (contracts: any[], extra: Record<string, unknown> = {}) => {
     contracts,
     loading: false,
     error: null,
+    page: 1,
+    setPage: vi.fn(),
+    limit: 10,
+    total: contracts.length,
+    search: "",
+    setSearch: vi.fn(),
+    status: "all",
+    setStatus: vi.fn(),
+    client: "all",
+    setClient: vi.fn(),
+    alertOnly: false,
+    setAlertOnly: vi.fn(),
+    clients: [],
     createContract: vi.fn(),
     updateContract: vi.fn(),
     renewContract: vi.fn(),
@@ -73,7 +90,8 @@ describe("WorkerContractsPage", () => {
     expect(screen.queryByText(/sẽ hết hạn trong 30 ngày tới/)).toBeNull();
   });
 
-  it("narrows the table to contracts needing attention", () => {
+  it("toggles the attention-only contract filter", async () => {
+    const setAlertOnly = vi.fn();
     renderPage([
       { ...baseContract, alertLevel: "expiring", endDate: "2026-09-01" },
       {
@@ -83,13 +101,12 @@ describe("WorkerContractsPage", () => {
         code: "HD-99",
         alertLevel: "ok",
       },
-    ]);
+    ], { setAlertOnly });
 
     expect(screen.getByText("HD-99")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" }));
 
-    expect(screen.getByText("HD-01")).toBeTruthy();
-    expect(screen.queryByText("HD-99")).toBeNull();
+    expect(setAlertOnly).toHaveBeenCalledOnce();
   });
 
   it("does not offer renewal on a period that is already closed", () => {
@@ -102,5 +119,15 @@ describe("WorkerContractsPage", () => {
     expect(
       screen.queryByRole("button", { name: "Xóa hợp đồng HD-01" }),
     ).toBeNull();
+  });
+
+  it("uses a visible cyan background for the selected desktop page", () => {
+    renderPage([{ ...baseContract, alertLevel: "ok" }], {
+      page: 2,
+      limit: 10,
+      total: 11,
+    });
+
+    expect(screen.getByRole("button", { name: "2" }).className).toContain("bg-cyan-600");
   });
 });
