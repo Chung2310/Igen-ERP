@@ -169,4 +169,5 @@ export const publicRegisterStudentSchema = Joi.object({
     "any.required": "ID giáo viên là bắt buộc.",
     "string.empty": "ID giáo viên không được để trống.",
   }),
+  entityPreset: Joi.string().valid("worker").optional(),
 });
