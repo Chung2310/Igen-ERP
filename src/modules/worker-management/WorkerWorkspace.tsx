@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useBranch } from "../../context/BranchContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import {
   useAdminCenters,
@@ -160,6 +161,7 @@ export default function WorkerWorkspace() {
   const subTabsRef = useRef<HTMLDivElement>(null);
   const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
   const { centers } = useAdminCenters();
   const [ready, setReady] = React.useState(false);
   const [selectedWorker, setSelectedWorker] = React.useState<Worker | null>(
@@ -187,17 +189,18 @@ export default function WorkerWorkspace() {
   );
   const canManage = (area: Parameters<typeof canManageWorkerArea>[1]) =>
     canManageWorkerArea(userProfile?.permissions || [], area);
+  const branchId = activeBranchId || userProfile?.branchId;
   const scope = React.useMemo<WorkerScope | undefined>(
     () =>
       center !== "all"
         ? {
             companyCode: center,
-            ...(userProfile?.branchId
-              ? { branchId: userProfile.branchId }
+            ...(branchId
+              ? { branchId }
               : {}),
           }
         : undefined,
-    [center, userProfile?.branchId],
+    [branchId, center],
   );
 
   const { workers: workspaceWorkers, updateWorker } = useWorkers(scope);
@@ -283,7 +286,7 @@ export default function WorkerWorkspace() {
     ) : activeTab === "LAO ĐỘNG" ? (
       <WorkerProfilesRuntime
         selectedCenter={center}
-        branchId={userProfile?.branchId}
+        branchId={branchId}
         registrationOwnerId={userProfile?.uid}
         canManage={canManage("worker-profile")}
         projects={projects}
@@ -292,13 +295,13 @@ export default function WorkerWorkspace() {
     ) : activeTab === "HỢP ĐỒNG" ? (
       <WorkerContractsPage
         selectedCenter={center}
-        branchId={userProfile?.branchId}
+        branchId={branchId}
         canManage={canManage("worker-profile")}
       />
     ) : activeTab === "DỰ ÁN" ? (
       <WorkerProjectsPage
         selectedCenter={center}
-        branchId={userProfile?.branchId}
+        branchId={branchId}
         canManage={canManage("project")}
       />
     ) : (
