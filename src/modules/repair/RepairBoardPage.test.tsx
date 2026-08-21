@@ -97,5 +97,6 @@ test("shows the receiving technician from status history", async () => {
 
   const history = screen.getByRole("heading", { name: "Lịch sử xử lý" }).parentElement;
   expect(history).not.toBeNull();
+  expect(history?.textContent).toContain("Chưa tiếp nhận → Kiểm tra");
   expect(history?.textContent).toContain("KT nhận: Nguyễn Văn Kỹ Thuật");
 });
