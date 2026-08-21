@@ -669,6 +669,8 @@ export default function WorkersPage({
       {qrOpen && registrationOwnerId && (
         <RegistrationQrModal
           ownerId={registrationOwnerId}
+          companyCode={selectedCenter}
+          branchId={branchId}
           onClose={() => setQrOpen(false)}
         />
       )}
@@ -947,13 +949,20 @@ function WorkerRow({
 
 function RegistrationQrModal({
   ownerId,
+  companyCode,
+  branchId,
   onClose,
 }: {
   ownerId: string;
+  companyCode?: string;
+  branchId?: string;
   onClose: () => void;
 }) {
   const [qrDataUrl, setQrDataUrl] = React.useState("");
-  const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(ownerId)}&entityPreset=worker`;
+  const params = new URLSearchParams({ teacherId: ownerId, entityPreset: "worker" });
+  if (companyCode && companyCode !== "all") params.set("registrationCompanyCode", companyCode);
+  if (branchId) params.set("registrationBranchId", branchId);
+  const registerUrl = `${window.location.origin}/public/dang-ky?${params.toString()}`;
 
   React.useEffect(() => {
     let cancelled = false;
