@@ -370,7 +370,7 @@ export class StudentController {
 
   static async publicRegister(req: Request, res: Response) {
     try {
-      const { teacherId, ...studentData } = req.body;
+      const { teacherId, entityPreset: requestedEntityPreset, ...studentData } = req.body;
       const teacher = await AuthService.getUserProfile(teacherId);
       if (!teacher || teacher.isActive === false) {
         return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
@@ -388,7 +388,7 @@ export class StudentController {
       }
 
       const settings = await new ModuleSettingsService().get(tenantId);
-      if (settings.entityPreset === "worker") {
+      if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
         const worker = await WorkerService.create(
           {
             companyCode: teacher.companyCode || teacher.centerId || tenantId,

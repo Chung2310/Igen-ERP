@@ -144,7 +144,10 @@ export default function PublicRegisterPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = { teacherId };
+      const payload: Record<string, unknown> = {
+        teacherId,
+        ...(requestedPreset === "worker" ? { entityPreset: "worker" } : {}),
+      };
       fields.forEach((field) => {
         const raw = (values[field.key] || "").trim();
         payload[field.key] = DATE_FIELDS.has(field.key) ? toServerDate(raw) : raw;
