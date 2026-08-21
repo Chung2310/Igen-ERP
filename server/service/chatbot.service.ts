@@ -10,6 +10,7 @@ import { openrouterChat, type OpenRouterMessage } from "./openrouter.service";
 import { ProductModel } from "../model/product.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
+import { formatKnowledgeCitations, knowledgeSearchService } from "./knowledge-search.service";
 
 export interface ChatbotMessage {
   role: "user" | "assistant" | "system";
@@ -46,6 +47,12 @@ export class ChatbotService {
     }
 
     // 1. Truy vấn dữ liệu doanh nghiệp song song
+    const latestQuestion = [...messages].reverse().find((message) => message.role === "user")?.content || "";
+    const knowledgeHits = await knowledgeSearchService.search({ companyCode, user, query: latestQuestion, topK: 5 });
+    if (process.env.AI_PRIVACY_MODE !== "hybrid") {
+      return formatKnowledgeCitations(knowledgeHits);
+    }
+
     const [products, tasks, projects] = await Promise.all([
       ProductModel.find({ companyCode }).lean(),
       KanbanTaskModel.find({ companyCode }).lean(),

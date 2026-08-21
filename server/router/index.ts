@@ -43,6 +43,7 @@ import { repairFeedbackRoutes } from "../modules/repair/repair-feedback.routes";
 import { financeRouter } from "../modules/finance/router";
 import { customerRouter } from "../modules/customer-management/router";
 import { marketingRouter } from "../modules/marketing/router";
+import { knowledgeRouter } from "./knowledge.router";
 export const apiRouter = Router();
 
 // Webhooks
@@ -65,6 +66,7 @@ apiRouter.get("/health", (req, res) => {
 
 // Gắn kết router phụ của Google Drive Tích hợp cá nhân
 apiRouter.use("/integrations/google-drive", googleDriveRouter);
+apiRouter.use("/knowledge", knowledgeRouter);
 
 // Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
 apiRouter.use("/resources", requireAuth as any, requireModule("resource"), resourceRouter);
