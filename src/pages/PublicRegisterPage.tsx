@@ -90,8 +90,13 @@ export default function PublicRegisterPage() {
         const response = await fetch(
           `/api/v1/students/public-register-config?teacherId=${encodeURIComponent(teacherId)}`,
         );
-        const json = await response.json();
-        if (!response.ok || !json.success) throw new Error(json.error || "Không tải được biểu mẫu.");
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json.ok === false || json.success === false) {
+          const errorMsg = typeof json.error === "string"
+            ? json.error
+            : json.error?.message || json.message || "Không tải được biểu mẫu.";
+          throw new Error(errorMsg);
+        }
         if (cancelled) return;
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
         setPreset(requestedPreset || json.data.entityPreset as EntityPreset);
@@ -117,9 +122,12 @@ export default function PublicRegisterPage() {
         `/api/v1/students/public-register-upload?teacherId=${encodeURIComponent(teacherId)}`,
         { method: "POST", body },
       );
-      const json = await response.json();
-      if (!response.ok || !json.success || !json.data?.url) {
-        throw new Error(json.error || "Tải ảnh lên thất bại.");
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json.ok === false || json.success === false || !json.data?.url) {
+        const errorMsg = typeof json.error === "string"
+          ? json.error
+          : json.error?.message || json.message || "Tải ảnh lên thất bại.";
+        throw new Error(errorMsg);
       }
       setFiles((prev) => ({ ...prev, [field]: json.data as IUploadedFile }));
       toast.success("Đã tải ảnh lên.");
@@ -150,8 +158,13 @@ export default function PublicRegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) throw new Error(json.error || "Đăng ký thất bại.");
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json.ok === false || json.success === false) {
+        const errorMsg = typeof json.error === "string"
+          ? json.error
+          : json.error?.message || json.message || "Đăng ký thất bại.";
+        throw new Error(errorMsg);
+      }
       setDone(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Đăng ký thất bại.");
