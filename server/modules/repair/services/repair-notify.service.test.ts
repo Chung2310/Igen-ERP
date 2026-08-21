@@ -58,6 +58,16 @@ describe("gửi thông báo phiếu sửa chữa", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it("includes the feedback link and a QR image in the completed-repair email", async () => {
+    const send = vi.fn(async (_company: string, _message: any) => ({ messageId: "msg-done" }));
+
+    await sendRepairNotification(ticket(), "done", { resolveChannel: async () => emailAdapter(send) });
+
+    const message = (send.mock.calls[0] as any[])[1];
+    expect(message.html).toContain("/repair/feedback/token-1");
+    expect(message.html).toMatch(/<img[^>]+src="data:image\/png;base64,/);
+  });
+
   it("adapter lỗi thì trả failed chứ không ném ra ngoài", async () => {
     const send = vi.fn(async () => { throw new Error("SMTP_DOWN"); });
     const result = await sendRepairNotification(ticket(), "done", { resolveChannel: async () => emailAdapter(send) });

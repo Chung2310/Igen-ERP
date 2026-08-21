@@ -210,3 +210,24 @@ test("shows the receiving technician from status history", async () => {
   expect(history?.textContent).toContain("Chưa tiếp nhận → Kiểm tra");
   expect(history?.textContent).toContain("KT nhận: Nguyễn Văn Kỹ Thuật");
 });
+
+test("only offers payment for a completed ticket awaiting delivery", async () => {
+  const approvedTicket = { ...ticket, status: "approved" as const, totalAmount: 250_000, dueAmount: 250_000 };
+  vi.mocked(repairService.board).mockResolvedValue({ approved: [approvedTicket] } as any);
+  const user = userEvent.setup();
+  render(<RepairBoardPage />);
+
+  await user.click(await screen.findByText("REP-001"));
+
+  expect(screen.queryByRole("button", { name: "Ghi nhận thanh toán" })).toBeNull();
+});
+
+test("offers payment only for a completed ticket awaiting delivery", async () => {
+  const doneTicket = { ...ticket, status: "done" as const, totalAmount: 250_000, dueAmount: 250_000 };
+  vi.mocked(repairService.board).mockResolvedValue({ done: [doneTicket] } as any);
+  render(<RepairBoardPage />);
+
+  await userEvent.setup().click(await screen.findByText("REP-001"));
+
+  expect(screen.getByRole("button", { name: "Ghi nhận thanh toán" })).not.toBeNull();
+});
