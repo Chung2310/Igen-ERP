@@ -171,11 +171,19 @@ test("public registration creates a worker when submitted from a worker QR", asy
   const res = responseCapture();
 
   await StudentController.publicRegister({
-    body: { teacherId: "teacher-a", fullName: "Public worker", phone: "0900000000", email: "worker@example.com", entityPreset: "worker" },
+    body: {
+      teacherId: "teacher-a",
+      fullName: "Public worker",
+      phone: "0900000000",
+      email: "worker@example.com",
+      entityPreset: "worker",
+      registrationCompanyCode: "tenant-selected",
+      registrationBranchId: "branch-selected",
+    },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201, JSON.stringify(res.body));
-  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-a", branchId: "branch-a" });
+  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-selected", branchId: "branch-selected" });
 });
 
 test("all six create services validate custom fields with create mode before persistence", async (t) => {

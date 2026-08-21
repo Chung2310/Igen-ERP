@@ -370,15 +370,28 @@ export class StudentController {
 
   static async publicRegister(req: Request, res: Response) {
     try {
-      const { teacherId, entityPreset: requestedEntityPreset, ...studentData } = req.body;
+      const {
+        teacherId,
+        entityPreset: requestedEntityPreset,
+        registrationCompanyCode,
+        registrationBranchId,
+        ...studentData
+      } = req.body;
       const teacher = await AuthService.getUserProfile(teacherId);
       if (!teacher || teacher.isActive === false) {
         return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
       }
 
-      const tenantId = await resolveCustomFieldTenantForOwner(
-        teacher.companyCode || teacher.centerId || teacherId,
-      );
+      const requestedWorkerCompanyCode = requestedEntityPreset === "worker"
+        ? String(registrationCompanyCode || "").trim()
+        : "";
+      const requestedWorkerBranchId = requestedEntityPreset === "worker"
+        ? String(registrationBranchId || "").trim()
+        : "";
+      const teacherCompanyCode = teacher.companyCode || teacher.centerId || teacherId;
+      const workerCompanyCode = requestedWorkerCompanyCode || teacherCompanyCode;
+      const workerBranchId = requestedWorkerBranchId || teacher.branchId;
+      const tenantId = await resolveCustomFieldTenantForOwner(workerCompanyCode);
       const missing = await findMissingPublicRegisterFields(tenantId, studentData);
       if (missing.length > 0) {
         return res.status(400).json({
@@ -391,8 +404,8 @@ export class StudentController {
       if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
         const worker = await WorkerService.create(
           {
-            companyCode: teacher.companyCode || teacher.centerId || tenantId,
-            ...(teacher.branchId ? { branchId: teacher.branchId } : {}),
+            companyCode: workerCompanyCode,
+            ...(workerBranchId ? { branchId: workerBranchId } : {}),
           },
           {
             ...studentData,
@@ -401,8 +414,8 @@ export class StudentController {
           },
         );
         await sourceUploadFinalizer.finalize({
-          companyCode: teacher.companyCode || teacher.centerId,
-          branchId: teacher.branchId,
+          companyCode: workerCompanyCode,
+          branchId: workerBranchId,
           actorId: teacherId,
           actorName: teacher.displayName || teacher.email,
           trusted: true,
