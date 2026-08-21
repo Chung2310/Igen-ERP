@@ -10,7 +10,7 @@ const NOTIFY_STATUS: Record<string, string> = { sent: "Đã gửi", failed: "L�
 const CRITERIA: Array<{ key: keyof RepairRatingCriteria; label: string }> = [{ key: "skill", label: "Tay nghề" }, { key: "attitude", label: "Thái độ" }, { key: "speed", label: "Tốc độ" }];
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return <div className="mt-4 rounded-lg border p-3 text-sm"><div className="flex items-center justify-between"><b>{title}</b>{action}</div><div className="mt-2">{children}</div></div>;
+  return <div className="mt-4 rounded-lg border p-3 text-sm"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><b>{title}</b>{action}</div><div className="mt-2">{children}</div></div>;
 }
 
 /** Phân công kỹ thuật viên: chọn trong tài khoản cùng công ty. */
@@ -32,7 +32,7 @@ function TechnicianPicker({ ticket, onChanged }: { ticket: RepairTicket; onChang
         <option value="">— Chưa phân công —</option>
         {people.map((person) => <option key={person.uid} value={person.uid}>{person.displayName || person.email}</option>)}
       </select>
-      <button type="button" disabled={busy || !value || value === ticket.technicianId} onClick={() => void save()} className="rounded bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Lưu phân công</button>
+      <button type="button" disabled={busy || !value || value === ticket.technicianId} onClick={() => void save()} className="min-h-11 rounded bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Lưu phân công</button>
       {ticket.technicianName && <span className="text-xs text-slate-500">Đang phụ trách: <b>{ticket.technicianName}</b> · {date(ticket.assignedAt)}</span>}
     </div>
     {error && <p className="mt-2 text-xs text-rose-700">{error}</p>}
@@ -68,9 +68,9 @@ function NotificationsSection({ ticket }: { ticket: RepairTicket }) {
     catch (e) { window.alert(e instanceof Error ? e.message : "Không gửi lại được thông báo."); }
     finally { setBusy(""); }
   };
-  return <Section title="Thông báo đã gửi khách" action={<div className="flex gap-2">
-    <button type="button" disabled={busy === "received"} onClick={() => void resend("received")} className="rounded border px-2 py-1 text-xs">Gửi lại tin tiếp nhận</button>
-    <button type="button" disabled={busy === "done" || !["done", "delivered"].includes(ticket.status)} onClick={() => void resend("done")} className="rounded border px-2 py-1 text-xs disabled:opacity-50">Gửi lại tin sửa xong</button>
+  return <Section title="Thông báo đã gửi khách" action={<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <button type="button" disabled={busy === "received"} onClick={() => void resend("received")} className="min-h-11 w-full rounded border px-2 py-1 text-xs sm:w-auto">Gửi lại tin tiếp nhận</button>
+    <button type="button" disabled={busy === "done" || !["done", "delivered"].includes(ticket.status)} onClick={() => void resend("done")} className="min-h-11 w-full rounded border px-2 py-1 text-xs disabled:opacity-50 sm:w-auto">Gửi lại tin sửa xong</button>
   </div>}>
     {rows.length ? rows.map((row) => <p key={row._id} className="text-xs text-slate-600">{date(row.sentAt)} · {NOTIFY_LABEL[row.event] || row.event} · {row.channel || "—"} → {row.recipient || "—"} · <b>{NOTIFY_STATUS[row.status]}</b>{row.reason ? ` (${row.reason})` : ""}</p>)
       : <p className="text-xs text-slate-500">Chưa gửi thông báo nào.</p>}
