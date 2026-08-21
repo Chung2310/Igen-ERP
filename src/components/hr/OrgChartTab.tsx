@@ -1119,7 +1119,7 @@ export default function OrgChartTab({
     .sort((a, b) => (a.level ?? 99) - (b.level ?? 99));
   const visibleEmployees = filterOrgChartEmployees(employees, searchQuery, filterDepartment);
   const paginatedEmployees = visibleEmployees.slice((listPage - 1) * listLimit, listPage * listLimit);
-  const missingValue = "Chua cap nhat";
+  const missingValue = "Chưa cập nhật";
 
   // Recursive Branch rendering component helper
   const renderBranch = (node: EmployeeNode) => {

@@ -37,6 +37,7 @@ function afterRepairTicketEvent(ticket: any, event: "received" | "done" | "deliv
 export async function transitionRepairTicket(scope: RepairScope, id: string, to: RepairStatus, actor: RepairActor, note?: string, customerNotified = false, session?: ClientSession, technicianId?: string) {
   const query = RepairTicketModel.findOne({ _id: id, ...scope }); if (session) query.session(session); const ticket: any = await query; if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
   assertRepairTransition(ticket.status, to); const from = ticket.status;
+  if (to === "delivered" && Math.max(0, Number(ticket.totalAmount || 0) - Number(ticket.paidAmount || 0)) > 0) throw Object.assign(new Error("Không thể giao máy khi phiếu còn công nợ."), { statusCode: 403, code: "REPAIR_DEBT_BLOCKED" });
   if (ticket.status === "received" && to === "diagnosing") {
     if (!technicianId) throw Object.assign(new Error("Cần chọn kỹ thuật viên tiếp nhận."), { statusCode: 400 });
     const technician: any = await UserModel.findOne({ _id: technicianId, companyCode: scope.companyCode, isActive: { $ne: false } }).select("displayName email").lean();
@@ -47,7 +48,12 @@ export async function transitionRepairTicket(scope: RepairScope, id: string, to:
     ticket.assignedBy = actor.id;
   }
   ticket.status = to; ticket.statusHistory.push({ from, to, at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: to === "done" ? false : customerNotified, technicianId: ticket.technicianId, technicianName: ticket.technicianName });
-  if (to === "done") { ticket.completedAt = new Date(); if (!ticket.feedbackToken) ticket.feedbackToken = randomUUID(); }
+  if (to === "done") {
+    ticket.completedAt = new Date();
+    ticket.dueAmount = Math.max(0, Number(ticket.totalAmount || 0) - Number(ticket.paidAmount || 0));
+    ticket.paymentStatus = ticket.dueAmount === 0 ? "paid" : ticket.paidAmount > 0 ? "partial" : "unpaid";
+    if (!ticket.feedbackToken) ticket.feedbackToken = randomUUID();
+  }
   if (to === "delivered") ticket.deliveredAt = new Date(); ticket.updatedBy = actor.id; if (session) ticket.$session(session); await ticket.save();
   const saved = ticket.toObject();
   if (to === "delivered") await recordRepairSerialLifecycle(saved, "delivered", actor);
@@ -59,23 +65,25 @@ export async function quoteRepairTicket(scope: RepairScope, id: string, amount: 
   if (!Number.isFinite(amount) || amount < 0) throw Object.assign(new Error("Báo giá không hợp lệ."), { statusCode: 400 });
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
   const quoteNote = String(note || "").trim();
-  assertRepairTransition(ticket.status, "quoted"); ticket.quotedAmount = amount; ticket.quotedAt = new Date(); ticket.totalAmount = amount; ticket.dueAmount = Math.max(0, amount - ticket.paidAmount); ticket.status = "quoted"; ticket.statusHistory.push({ from: "diagnosing", to: "quoted", at: new Date(), by: actor.id, byName: actor.name, ...(quoteNote ? { note: quoteNote } : {}), customerNotified: true }); await ticket.save(); return ticket.toObject();
+  assertRepairTransition(ticket.status, "quoted"); ticket.quotedAmount = amount; ticket.quotedAt = new Date(); ticket.totalAmount = amount; ticket.dueAmount = 0; ticket.status = "quoted"; ticket.statusHistory.push({ from: "diagnosing", to: "quoted", at: new Date(), by: actor.id, byName: actor.name, ...(quoteNote ? { note: quoteNote } : {}), customerNotified: true }); await ticket.save(); return ticket.toObject();
 }
 
 export async function approveRepairQuote(scope: RepairScope, id: string, actor: RepairActor) {
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
-  assertRepairTransition(ticket.status, "approved"); ticket.customerApprovedAt = new Date(); ticket.status = "approved"; ticket.statusHistory.push({ from: "quoted", to: "approved", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }); await ticket.save(); return ticket.toObject();
+  assertRepairTransition(ticket.status, "approved"); ticket.customerApprovedAt = new Date(); ticket.dueAmount = 0; ticket.status = "approved"; ticket.statusHistory.push({ from: "quoted", to: "approved", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }); await ticket.save(); return ticket.toObject();
 }
 
-export async function deliverRepairTicket(scope: RepairScope, id: string, actor: RepairActor, allowDebt = false) {
+export async function deliverRepairTicket(scope: RepairScope, id: string, actor: RepairActor, _allowDebt = false) {
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
-  assertRepairTransition(ticket.status, "delivered"); if (ticket.dueAmount > 0 && !allowDebt) throw Object.assign(new Error("Không thể giao máy khi phiếu còn công nợ."), { statusCode: 403, code: "REPAIR_DEBT_BLOCKED" });
+  assertRepairTransition(ticket.status, "delivered"); const dueAmount = Math.max(0, Number(ticket.totalAmount || 0) - Number(ticket.paidAmount || 0)); if (dueAmount > 0) throw Object.assign(new Error("Không thể giao máy khi phiếu còn công nợ."), { statusCode: 403, code: "REPAIR_DEBT_BLOCKED" });
   ticket.status = "delivered"; ticket.deliveredAt = new Date(); ticket.statusHistory.push({ from: "done", to: "delivered", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }); await ticket.save(); return ticket.toObject();
 }
 
 export async function recordRepairPayment(scope: RepairScope, id: string, amount: number, actor: RepairActor) {
   if (!Number.isFinite(amount) || amount <= 0) throw Object.assign(new Error("Số tiền thanh toán không hợp lệ."), { statusCode: 400 });
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
+  if (ticket.status !== "done") throw Object.assign(new Error("Chỉ ghi nhận thanh toán khi giao máy."), { statusCode: 409, code: "REPAIR_PAYMENT_NOT_DUE" });
+  ticket.dueAmount = Math.max(0, Number(ticket.totalAmount || 0) - Number(ticket.paidAmount || 0));
   if (amount > ticket.dueAmount) throw Object.assign(new Error("Số tiền thanh toán vượt quá công nợ."), { statusCode: 400 });
   ticket.paidAmount += amount; ticket.dueAmount = Math.max(0, ticket.totalAmount - ticket.paidAmount); ticket.paymentStatus = ticket.dueAmount === 0 ? "paid" : "partial"; ticket.updatedBy = actor.id; await ticket.save(); return ticket.toObject();
 }

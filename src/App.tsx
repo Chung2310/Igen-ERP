@@ -32,6 +32,7 @@ const QRCheckinPage = lazy(() => import("./modules/student-management/pages/QRCh
 const WorkerQRCheckinPage = lazy(() => import("./modules/worker-management/pages/WorkerQRCheckinPage"));
 const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
 const PublicRegisterPage = lazy(() => import("./pages/PublicRegisterPage"));
+const PublicRepairFeedbackPage = lazy(() => import("./modules/repair/pages/PublicRepairFeedbackPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -315,6 +316,14 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, AppError
 }
 
 export default function App() {
+  if (normalizePublicPath(window.location.pathname).startsWith("/repair/feedback/")) {
+    return (
+      <Suspense fallback={<AuthLoader />}>
+        <PublicRepairFeedbackPage />
+      </Suspense>
+    );
+  }
+
   if (window.location.pathname.startsWith("/worker/checkin/")) {
     return (
       <Suspense fallback={
