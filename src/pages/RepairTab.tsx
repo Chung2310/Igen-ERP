@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
 import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
-import RepairHistoryPanel from "../modules/repair/RepairHistoryPanel";
 import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
 
 const TABS = [
   { key: "warranty", label: "Tra cứu bảo hành" },
   { key: "repair", label: "Phiếu sửa chữa" },
-  { key: "history", label: "Lịch sử IMEI/SĐT" },
   { key: "reports", label: "Báo cáo" },
 ] as const;
 type RepairView = (typeof TABS)[number]["key"];
@@ -26,7 +24,6 @@ export default function RepairTab() {
     </div>
     {view === "warranty" && <WarrantyLookupSection />}
     {view === "repair" && <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}
-    {view === "history" && <RepairHistoryPanel />}
     {view === "reports" && <RepairReportsPanel />}
   </div>;
 }
