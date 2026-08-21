@@ -24,6 +24,7 @@ describe("SerialRegistrySection history", () => {
   it("opens history in a dialog and closes from the close control or backdrop", async () => {
     const { container } = render(<SerialRegistrySection />);
     await screen.findByText("IMEI-001");
+    expect(screen.getAllByText("Trong kho").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Lịch sử" }));
     expect(await screen.findByRole("dialog", { name: "Lịch sử IMEI / Serial" })).toBeTruthy();
