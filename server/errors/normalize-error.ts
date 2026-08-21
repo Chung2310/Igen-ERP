@@ -50,7 +50,8 @@ export function normalizeError(error: unknown): AppError {
   if (!candidate) return new InternalError({ cause: error });
 
   if (candidate.isJoi === true || candidate.name === "ValidationError" && Array.isArray(candidate.details)) {
-    const detailMessages = candidate.details
+    const details = Array.isArray(candidate.details) ? candidate.details : [];
+    const detailMessages = details
       .map((detail) => typeof detail === "object" && detail !== null ? (detail as { message?: string }).message : "")
       .filter(Boolean)
       .join(". ");
