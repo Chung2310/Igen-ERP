@@ -49,7 +49,56 @@ export function SerialRegistrySection() {
     <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void load(); }}><input value={serial} onChange={(event) => setSerial(event.target.value)} placeholder="IMEI / Serial" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><select value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">{statuses.map((value) => <option key={value} value={value}>{value ? serialStatusLabel(value) : "Tất cả trạng thái"}</option>)}</select><button className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold">Tìm kiếm</button></form>
     {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
     <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="border-b border-slate-200 text-xs text-slate-500"><tr><th className="p-2">IMEI / Serial</th><th className="p-2">SKU</th><th className="p-2">Sản phẩm</th><th className="p-2">Trạng thái</th><th className="p-2">Cập nhật</th><th className="p-2" /></tr></thead><tbody>{loading ? <tr><td colSpan={6} className="p-6 text-center text-slate-400">Đang tải...</td></tr> : items.length === 0 ? <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có dữ liệu.</td></tr> : items.map((item) => <tr key={item._id} className="border-b border-slate-100"><td className="p-2 font-mono font-bold">{item.serialNumber}</td><td className="p-2">{item.sku}</td><td className="p-2">{item.productName}</td><td className="p-2"><span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{serialStatusLabel(item.status)}</span></td><td className="p-2 text-xs text-slate-500">{new Date(item.updatedAt).toLocaleString("vi-VN")}</td><td className="p-2 text-right"><div className="flex justify-end gap-2"><button type="button" className="text-xs font-bold text-blue-700" onClick={async () => { try { setHistory({ item, events: await inventorySerialService.history(item._id) }); } catch (problem) { setError(problem instanceof Error ? problem.message : "Không thể tải lịch sử."); } }}>Lịch sử</button>{item.status === "in_transit" && <><button type="button" className="text-xs font-bold text-emerald-700" onClick={async () => { try { await inventorySerialService.acceptTransfer(item._id, {}); await load(); } catch (problem) { setError(problem instanceof Error ? problem.message : "Không thể xác nhận nhận hàng."); } }}>Nhận hàng</button><button type="button" className="text-xs font-bold text-rose-700" onClick={async () => { const reason = window.prompt("Lý do hủy chuyển kho:"); if (!reason) return; try { await inventorySerialService.cancelTransfer(item._id, reason); await load(); } catch (problem) { setError(problem instanceof Error ? problem.message : "Không thể hủy chuyển kho."); } }}>Hủy</button></>}</div></td></tr>)}</tbody></table></div>
-    {history && <div data-testid="serial-history-backdrop" onClick={() => setHistory(null)} className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4"><div role="dialog" aria-modal="true" aria-label="Lịch sử IMEI / Serial" onClick={(event) => event.stopPropagation()} className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h3 className="font-black text-slate-800">Lịch sử {history.item.serialNumber}</h3><p className="text-xs text-slate-500">{history.item.productName} · {history.item.sku}</p></div><button type="button" aria-label="Đóng lịch sử" onClick={() => setHistory(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button></div><div className="space-y-2 overflow-y-auto p-5">{history.events.length === 0 ? <p className="text-sm text-slate-500">Chưa có lịch sử.</p> : history.events.map((event) => <div key={event._id} className="rounded-lg border border-slate-100 bg-white p-3 text-sm"><div className="flex justify-between gap-3"><strong>{serialEventLabel(event.eventType)}</strong><span className="text-xs text-slate-500">{new Date(event.occurredAt).toLocaleString("vi-VN")}</span></div><p className="text-xs text-slate-600">{serialStatusLabel(event.fromStatus)} → {serialStatusLabel(event.toStatus)} · {event.actorName}</p></div>)}</div><div className="flex justify-end border-t border-slate-200 px-5 py-4"><button type="button" onClick={() => setHistory(null)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Đóng</button></div></div></div>}
+    {history && (
+      <div data-testid="serial-history-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" onClick={() => setHistory(null)}>
+        <div role="dialog" aria-modal="true" aria-label="Lịch sử IMEI / Serial" className="w-full max-w-xl rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden" onClick={(event) => event.stopPropagation()}>
+          <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+            <div>
+              <h3 className="font-black text-slate-800 text-base">Lịch sử {history.item.serialNumber}</h3>
+              <p className="text-xs text-slate-500 mt-1">{history.item.productName} · {history.item.sku}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Đóng lịch sử"
+              onClick={() => setHistory(null)}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[60vh] p-5 space-y-3 bg-slate-50/50">
+            {history.events.length === 0 ? (
+              <p className="text-center py-6 text-sm text-slate-500">Chưa có lịch sử.</p>
+            ) : (
+              history.events.map((event) => (
+                <div key={event._id} className="rounded-xl border border-slate-100 bg-white p-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                    <strong className="text-sm font-bold text-slate-800 leading-none">
+                      {serialEventLabel(event.eventType)}
+                    </strong>
+                    <span className="text-xs text-slate-400 font-medium sm:text-right">
+                      {new Date(event.occurredAt).toLocaleString("vi-VN")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500 font-medium break-all sm:break-normal">
+                    {serialStatusLabel(event.fromStatus)} &rarr; {serialStatusLabel(event.toStatus)} &middot; {event.actorName}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end border-t border-slate-200 px-5 py-3 bg-white">
+            <button
+              type="button"
+              onClick={() => setHistory(null)}
+              className="rounded-lg bg-[#0f172a] px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {transferItem && <form className="grid gap-2 rounded-xl border border-violet-100 bg-violet-50/50 p-3 sm:grid-cols-3" onSubmit={async (event) => { event.preventDefault(); setTransferring(true); setError(""); try { await inventorySerialService.requestTransfer(transferItem._id, { toBranchId: transferBranch.trim(), reason: transferReason.trim() }); setTransferItem(null); setTransferBranch(""); setTransferReason(""); await load(); } catch (problem) { setError(problem instanceof Error ? problem.message : "Không thể tạo yêu cầu chuyển kho."); } finally { setTransferring(false); } }}><p className="text-sm font-bold text-violet-900 sm:col-span-3">Tạo yêu cầu chuyển {transferItem.serialNumber}</p><input required placeholder="Mã chi nhánh nhận" value={transferBranch} onChange={(event) => setTransferBranch(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><input required placeholder="Lý do chuyển" value={transferReason} onChange={(event) => setTransferReason(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm sm:col-span-2" /><button disabled={transferring} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white sm:col-span-3">{transferring ? "Đang tạo..." : "Tạo yêu cầu chuyển"}</button></form>}
     {!transferItem && items.some((item) => item.status === "in_stock") && <button type="button" className="rounded-lg border border-violet-200 px-3 py-2 text-xs font-bold text-violet-700" onClick={() => setTransferItem(items.find((item) => item.status === "in_stock") || null)}>Chuyển serial tồn đầu tiên</button>}
   </section>;
