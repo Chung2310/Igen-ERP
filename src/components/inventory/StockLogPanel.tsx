@@ -4,6 +4,7 @@ import { ProductItem, StockLog, StockLogPurpose } from "../../types";
 import { inventoryReceivingService, type InventoryBalance, type Warehouse } from "../../services/inventoryReceivingService";
 import { inventorySerialService, type InventorySerialUnit } from "../../services/inventorySerialService";
 import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
+import { StockOperatorPicker } from "./StockOperatorPicker";
 
 type DraftLine = {
   productId: string;
@@ -732,13 +733,7 @@ export function StockLogPanel({
 
                 <label className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Người phụ trách</span>
-                  <input
-                    type="text"
-                    value={draftOperator}
-                    onChange={(event) => setDraftOperator(event.target.value)}
-                    placeholder="Nhập tên người phụ trách"
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                  />
+                  <StockOperatorPicker value={draftOperator} onChange={setDraftOperator} />
                 </label>
               </div>
 
