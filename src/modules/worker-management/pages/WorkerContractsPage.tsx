@@ -472,7 +472,7 @@ export default function WorkerContractsPage({
                         onClick={() => setPage(pageNum)}
                         className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
                           page === pageNum
-                            ? "z-10 bg-cyan-650 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-650"
+                            ? "z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
                             : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
                         }`}
                       >
