@@ -762,9 +762,7 @@ function DateFilter({
       <div className="relative">
         <input
           id={`worker-filter-${label}`}
-          type="text"
-          inputMode="numeric"
-          placeholder="DD/MM/YYYY"
+          type="date"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="h-7 w-full rounded-md border border-slate-200 bg-slate-50 pl-2.5 pr-7 text-[11px] font-medium focus:border-cyan-600 focus:outline-none"
