@@ -3,6 +3,8 @@ import { ArrowDownLeft, ArrowUpRight, Download, Eye, Pencil, Plus, Search, Trash
 import { ProductItem, StockLog, StockLogPurpose } from "../../types";
 import { inventoryReceivingService, type InventoryBalance, type Warehouse } from "../../services/inventoryReceivingService";
 import { inventorySerialService, type InventorySerialUnit } from "../../services/inventorySerialService";
+import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
+import { StockOperatorPicker } from "./StockOperatorPicker";
 
 type DraftLine = {
   productId: string;
@@ -17,6 +19,7 @@ type DraftPayload = {
   id?: string;
   type: "nhập" | "xuất";
   purpose?: StockLogPurpose;
+  customerId?: string;
   customerName?: string;
   title: string;
   operatorName: string;
@@ -121,6 +124,7 @@ export function StockLogPanel({
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [draftType, setDraftType] = useState<"nhập" | "xuất">(outboundOnly ? "xuất" : "nhập");
   const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
+  const [draftCustomerId, setDraftCustomerId] = useState<string | undefined>(undefined);
   const [draftCustomerName, setDraftCustomerName] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftOperator, setDraftOperator] = useState("");
@@ -258,6 +262,7 @@ export function StockLogPanel({
     setEditingLogId(null);
     setDraftType(outboundOnly ? "xuất" : "nhập");
     setDraftPurpose("bán");
+    setDraftCustomerId(undefined);
     setDraftCustomerName("");
     setDraftTitle("");
     setDraftOperator("");
@@ -292,6 +297,7 @@ export function StockLogPanel({
     setEditingLogId(log.id);
     setDraftType(log.type as "nhập" | "xuất");
     setDraftPurpose(log.purpose || "bán");
+    setDraftCustomerId((log as StockLog & { customerId?: string }).customerId || undefined);
     setDraftCustomerName(log.customerName || "");
     setDraftTitle(getLogTitle(log));
     setDraftOperator(log.operatorName);
@@ -372,6 +378,7 @@ export function StockLogPanel({
       id: editingLogId || undefined,
       type: draftType,
       purpose: draftType === "xuất" ? draftPurpose : undefined,
+      customerId: draftType === "xuất" && draftPurpose === "bán" ? draftCustomerId : undefined,
       customerName: draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") ? draftCustomerName.trim() : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
@@ -675,7 +682,11 @@ export function StockLogPanel({
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Mục đích xuất kho</span>
                     <select
                       value={draftPurpose}
-                      onChange={(event) => setDraftPurpose(event.target.value as StockLogPurpose)}
+                      onChange={(event) => {
+                        setDraftPurpose(event.target.value as StockLogPurpose);
+                        setDraftCustomerId(undefined);
+                        setDraftCustomerName("");
+                      }}
                       required
                       className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                     >
@@ -689,13 +700,24 @@ export function StockLogPanel({
                 {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") && (
                   <label className="space-y-1.5 md:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{draftPurpose === "chuyển kho" ? "Kho / chi nhánh nhận" : "Khách hàng"}</span>
-                    <input
-                      type="text"
-                      value={draftCustomerName}
-                      onChange={(event) => setDraftCustomerName(event.target.value)}
-                      placeholder={draftPurpose === "chuyển kho" ? "Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1" : "Tên khách hàng hoặc đơn vị mua"}
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                    />
+                    {draftPurpose === "bán" ? (
+                      <StockOutCustomerPicker
+                        customerId={draftCustomerId}
+                        customerName={draftCustomerName}
+                        onChange={(next) => {
+                          setDraftCustomerId(next.customerId);
+                          setDraftCustomerName(next.customerName);
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={draftCustomerName}
+                        onChange={(event) => setDraftCustomerName(event.target.value)}
+                        placeholder="Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1"
+                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
+                    )}
                   </label>
                 )}
                 <label className="space-y-1.5">
@@ -711,13 +733,7 @@ export function StockLogPanel({
 
                 <label className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Người phụ trách</span>
-                  <input
-                    type="text"
-                    value={draftOperator}
-                    onChange={(event) => setDraftOperator(event.target.value)}
-                    placeholder="Nhập tên người phụ trách"
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                  />
+                  <StockOperatorPicker value={draftOperator} onChange={setDraftOperator} />
                 </label>
               </div>
 
