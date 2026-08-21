@@ -23,6 +23,7 @@ import { Resource } from "../models/resource.model";
 import { Partner } from "../models/partner.model";
 import { Payment } from "../models/payment.model";
 import { CommissionLevel } from "../models/commission-level.model";
+import { StandardFieldConfig } from "../models/standard-field-config.model";
 import { WorkerService } from "../../worker-management/services/worker.service";
 import { ModuleSettingsService } from "./module-settings.service";
 import { CustomFieldWriteService } from "./custom-field-write.service";
@@ -150,6 +151,39 @@ test("public registration creates a worker for a labor tenant", async (t) => {
   assert.equal(res.statusCode, 201);
   assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-a", branchId: "branch-a" });
   assert.equal((workerCalls[0]?.[1] as { status?: string }).status, "active");
+});
+
+test("public registration creates a worker when submitted from a worker QR", async (t) => {
+  t.mock.method(AuthService as any, "getUserProfile", async () => ({
+    uid: "teacher-a", role: "user", companyCode: "tenant-a", centerId: "tenant-a", branchId: "branch-a", isActive: true,
+  }));
+  t.mock.method(User as any, "findOne", () => ({ select: async () => ({ companyCode: "tenant-a" }) }));
+  t.mock.method(StandardFieldConfig as any, "find", () => ({ lean: async () => [] }));
+  t.mock.method(ModuleSettingsService.prototype, "get", async () => ({ tenantId: "tenant-a", entityPreset: "student" as const }));
+  const workerCalls: unknown[][] = [];
+  t.mock.method(WorkerService as any, "create", async (...args: unknown[]) => {
+    workerCalls.push(args);
+    return { _id: "worker-public", fullName: "Public worker" };
+  });
+  t.mock.method(StudentService as any, "createStudent", async () => {
+    throw new Error("Worker QR registration must not create a student");
+  });
+  const res = responseCapture();
+
+  await StudentController.publicRegister({
+    body: {
+      teacherId: "teacher-a",
+      fullName: "Public worker",
+      phone: "0900000000",
+      email: "worker@example.com",
+      entityPreset: "worker",
+      registrationCompanyCode: "tenant-selected",
+      registrationBranchId: "branch-selected",
+    },
+  } as any, res as unknown as Response);
+
+  assert.equal(res.statusCode, 201, JSON.stringify(res.body));
+  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-selected", branchId: "branch-selected" });
 });
 
 test("all six create services validate custom fields with create mode before persistence", async (t) => {

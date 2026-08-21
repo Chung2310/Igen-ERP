@@ -19,9 +19,11 @@ const workspaceState = vi.hoisted(() => ({
   })),
   workerUpdate: vi.fn().mockImplementation(async (_id, input) => ({ _id: "worker-1", ...input })),
   workerHookUpdate: vi.fn().mockImplementation(async (_id, input) => ({ _id: "worker-1", ...input })),
+  activeBranchId: "",
 }));
 
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: workspaceState.userProfile }) }));
+vi.mock("../../context/BranchContext", () => ({ useBranch: () => ({ activeBranchId: workspaceState.activeBranchId }) }));
 vi.mock("../../hooks/useSubTabRouter", () => ({ useSubTabRouter: (routes: any[], initial: string) => [workspaceState.showWorkers ? routes.find((route) => route.slug === "lao-dong").value : initial, vi.fn()] }));
 vi.mock("./workerRuntime", () => ({
   useAdminCenters: () => ({ centers: workspaceState.centers }),
@@ -69,6 +71,7 @@ afterEach(() => {
   workspaceState.showWorkers = false;
   workspaceState.userProfile = { role: "admin", companyCode: "LABOR", permissions: ["people:read", "people:manage"] };
   workspaceState.centers = [];
+  workspaceState.activeBranchId = "";
 });
 
 describe("WorkerWorkspace", () => {
@@ -111,6 +114,18 @@ describe("WorkerWorkspace", () => {
       undefined,
       "LABOR",
     );
+  });
+
+  it("uses the active branch for the worker QR registration scope", async () => {
+    workspaceState.showWorkers = true;
+    workspaceState.activeBranchId = "branch-selected";
+
+    render(<WorkerWorkspace />);
+
+    await waitFor(() => expect(workspaceState.projectFetch).toHaveBeenCalledWith(
+      "/worker-management/projects",
+      { params: { companyCode: "LABOR", branchId: "branch-selected" } },
+    ));
   });
 
   it("validates a dashboard-opened worker against runtime profile data", async () => {

@@ -66,6 +66,14 @@ export default function PublicRegisterPage() {
     () => new URLSearchParams(window.location.search).get("teacherId") || "",
     [],
   );
+  const registrationCompanyCode = useMemo(
+    () => new URLSearchParams(window.location.search).get("registrationCompanyCode") || "",
+    [],
+  );
+  const registrationBranchId = useMemo(
+    () => new URLSearchParams(window.location.search).get("registrationBranchId") || "",
+    [],
+  );
 
   const [loading, setLoading] = useState(Boolean(teacherId));
   const [configError, setConfigError] = useState("");
@@ -144,7 +152,16 @@ export default function PublicRegisterPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = { teacherId };
+      const payload: Record<string, unknown> = {
+        teacherId,
+        ...(requestedPreset === "worker"
+          ? {
+              entityPreset: "worker",
+              ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
+              ...(registrationBranchId ? { registrationBranchId } : {}),
+            }
+          : {}),
+      };
       fields.forEach((field) => {
         const raw = (values[field.key] || "").trim();
         payload[field.key] = DATE_FIELDS.has(field.key) ? toServerDate(raw) : raw;
