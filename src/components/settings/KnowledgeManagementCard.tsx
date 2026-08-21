@@ -1,0 +1,14 @@
+import { useEffect, useState } from "react";
+import { Database, RefreshCw, Trash2 } from "lucide-react";
+import { getAccessToken } from "../../services/authService";
+import { toast } from "../../pages/Toast";
+
+export default function KnowledgeManagementCard() {
+  const [documents, setDocuments] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [syncing, setSyncing] = useState(false);
+  const headers = { Authorization: `Bearer ${getAccessToken()}` };
+  const load = async () => { try { const r = await fetch("/api/v1/knowledge", { headers }); const d = await r.json(); if (!r.ok) throw new Error(d.message); setDocuments(d.data || []); } catch (e: any) { toast.error(e.message || "Không thể tải tri thức AI."); } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, []);
+  const sync = async () => { setSyncing(true); try { const r = await fetch("/api/v1/knowledge/sync", { method: "POST", headers }); const d = await r.json(); if (!r.ok) throw new Error(d.message); toast.success("Đã đồng bộ tri thức AI."); await load(); } catch (e: any) { toast.error(e.message || "Đồng bộ thất bại."); } finally { setSyncing(false); } };
+  const remove = async (id: string) => { if (!window.confirm("Gỡ tài liệu này khỏi chỉ mục AI?")) return; const r = await fetch(`/api/v1/knowledge/${id}`, { method: "DELETE", headers }); if (!r.ok) return toast.error("Không thể gỡ tài liệu."); setDocuments((items) => items.filter((item) => item._id !== id)); };
+  return <section className="mt-6 rounded-2xl border border-violet-100 bg-violet-50/50 p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="flex gap-2"><Database className="h-5 w-5 text-violet-600"/><div><h3 className="text-sm font-bold text-slate-800">Tri thức AI</h3><p className="text-xs text-slate-500">Tài liệu Drive được tra cứu nội bộ, không gửi ra ngoài.</p></div></div><button onClick={sync} disabled={syncing} className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`}/>{syncing ? "Đang đồng bộ" : "Đồng bộ ngay"}</button></div><div className="mt-3 space-y-2">{loading ? <p className="text-xs text-slate-500">Đang tải...</p> : documents.length ? documents.map((doc) => <div key={doc._id} className="flex items-center justify-between rounded-xl bg-white p-3"><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-700">{doc.sourceTitle}</p><p className="text-[11px] text-slate-400">v{doc.version} · {doc.status}</p></div><button onClick={() => remove(doc._id)} className="p-2 text-rose-600"><Trash2 className="h-4 w-4"/></button></div>) : <p className="text-xs text-slate-500">Chưa có tài liệu được index.</p>}</div></section>;
+}

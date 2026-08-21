@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { GoogleDriveService } from "../service/personal-google-drive.service";
 import { UserModel } from "../model/user.model";
 import { ResourceModel } from "../model/resource.model";
+import { knowledgeIngestService } from "../service/knowledge-ingest.service";
 import { ChatRoomModel } from "../model/chat-room.model";
 import { canAccessPersonalDriveTarget } from "../utils/personal-drive-access";
 
@@ -457,6 +458,7 @@ export const googleDriveController = {
         thumbnailLink: driveFile.thumbnailLink || undefined,
         size: driveFile.size ? parseInt(String(driveFile.size), 10) : fileBuffer.length,
       });
+      void knowledgeIngestService.syncCompanyDrive(companyCode).catch((error) => console.error("[KnowledgeIngest]", error));
 
       return res.status(200).json({
         status: "success",
@@ -779,6 +781,7 @@ export const googleDriveController = {
         size: driveFile.size ? parseInt(String(driveFile.size), 10) : fileBuffer.length,
         chatRoomId: roomId
       });
+      void knowledgeIngestService.syncCompanyDrive(companyCode).catch((error) => console.error("[KnowledgeIngest]", error));
 
       return res.status(200).json({
         status: "success",
@@ -1351,6 +1354,7 @@ export const googleDriveController = {
         size,
         chatRoomId: spaceType === "group" ? roomId : undefined
       });
+      if (!driveFileId.startsWith("link-")) void knowledgeIngestService.syncCompanyDrive(companyCode).catch((error) => console.error("[KnowledgeIngest]", error));
 
       return res.status(200).json({
         status: "success",

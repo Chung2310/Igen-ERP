@@ -91,6 +91,19 @@ export const googleDriveService = {
     return data.files || [];
   },
 
+  async downloadFile(accessToken: string, fileId: string): Promise<Buffer> {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) throw translateDriveError(res.status, await res.text());
+    return Buffer.from(await res.arrayBuffer());
+  },
+
+  async exportFile(accessToken: string, fileId: string, mimeType: string): Promise<Buffer> {
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) throw translateDriveError(res.status, await res.text());
+    return Buffer.from(await res.arrayBuffer());
+  },
+
   /** Xóa (vào thùng rác) một file trong Drive. */
   async deleteFile(accessToken: string, fileId: string): Promise<void> {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`;

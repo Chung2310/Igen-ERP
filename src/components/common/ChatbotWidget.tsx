@@ -142,6 +142,8 @@ export const ChatbotWidget: React.FC = () => {
       const isBullet =
         line.trim().startsWith("- ") || line.trim().startsWith("* ") || line.trim().startsWith("• ");
       const content = isBullet ? line.trim().substring(2) : line;
+      const sourceUrl = content.match(/^Nguồn:\s*(https?:\/\/\S+)$/i)?.[1];
+      if (sourceUrl) return <a key={idx} href={sourceUrl} target="_blank" rel="noopener noreferrer" className="my-2 block rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">Mở tài liệu nguồn ↗</a>;
 
       const parts = content.split(/(\*\*.*?\*\*)/g);
       const parsedLine = parts.map((part, pIdx) => {

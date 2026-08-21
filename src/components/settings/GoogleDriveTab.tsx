@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { toast } from "../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import KnowledgeManagementCard from "./KnowledgeManagementCard";
 
 /**
  * Kết nối Google Drive cá nhân — tách riêng khỏi tab MXH (đang ẩn) để người dùng
@@ -24,12 +25,12 @@ export default function GoogleDriveTab() {
         event.origin.includes("127.0.0.1:");
       if (!isAllowedOrigin) return;
 
-      if (event.data?.type === "GOOGLE_DRIVE_CONNECTED") {
+      if (event.data?.type === "GOOGLE_DRIVE_OAUTH_RESULT" && event.data.ok) {
         toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
         void refreshProfile();
         window.location.reload();
-      } else if (event.data?.type === "GOOGLE_DRIVE_FAILED") {
-        toast.error(event.data.error || "Kết nối Google Drive cá nhân thất bại.");
+      } else if (event.data?.type === "GOOGLE_DRIVE_OAUTH_RESULT" && !event.data.ok) {
+        toast.error(event.data.message || "Kết nối Google Drive doanh nghiệp thất bại.");
       }
     };
     window.addEventListener("message", handleGoogleDriveMessage);
@@ -40,13 +41,15 @@ export default function GoogleDriveTab() {
     setConnectingGoogleDrive(true);
     try {
       localStorage.removeItem("google_drive_oauth_result");
-      const res = await fetch("/api/v1/integrations/google-drive/auth-url", {
+      const companyCode = userProfileAny?.companyCode;
+      if (!companyCode) throw new Error("Không xác định được doanh nghiệp hiện tại.");
+      const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/oauth-url`, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Không thể lấy link xác thực Google.");
 
-      const authUrl = data.authUrl;
+      const authUrl = data.data?.url;
       const width = 600;
       const height = 650;
       const left = window.screen.width / 2 - width / 2;
@@ -92,7 +95,9 @@ export default function GoogleDriveTab() {
   const handleDisconnectGoogleDrive = async () => {
     setDisconnecting(true);
     try {
-      const res = await fetch("/api/v1/integrations/google-drive/disconnect", {
+      const companyCode = userProfileAny?.companyCode;
+      if (!companyCode) throw new Error("Không xác định được doanh nghiệp hiện tại.");
+      const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/disconnect`, {
         method: "POST",
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
@@ -172,6 +177,7 @@ export default function GoogleDriveTab() {
         onClose={() => setShowDisconnectConfirm(false)}
         onConfirm={handleDisconnectGoogleDrive}
       />
+      <KnowledgeManagementCard />
     </div>
   );
 }
