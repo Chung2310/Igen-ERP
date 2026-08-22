@@ -2,6 +2,7 @@ import { CompanyModel } from "../../../model/company.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import type { MarketingAutomationType } from "../permissions";
 import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingAttachment, type MarketingChannelAdapter } from "./marketing-channels";
+import { resolveMarketingAttachments, type MarketingAttachmentRef } from "./marketing-invoice-attachment.service";
 import { renderMarketingTemplate, type MarketingVariables } from "./marketing-template";
 
 const duplicate = (error: any) => error?.code === 11000;
@@ -18,6 +19,7 @@ export type QueueInput = {
   adapter: MarketingChannelAdapter;
   /** Tệp gửi kèm; kênh không hỗ trợ đính kèm sẽ bỏ qua. */
   attachments?: MarketingAttachment[];
+  attachmentRef?: MarketingAttachmentRef;
 };
 
 export type QueueOutcome = { status: "sent" | "failed" | "skipped" | "duplicate"; reason?: string };
@@ -58,6 +60,7 @@ export async function queueAndSend(input: QueueInput): Promise<QueueOutcome> {
       recipient,
       subject,
       body: html,
+      attachmentRef: input.attachmentRef || null,
       status: "sending",
       attempt: 1,
     });
@@ -90,7 +93,15 @@ export async function retryDelivery(companyCode: string, deliveryId: string) {
   const adapter = MARKETING_CHANNEL_ADAPTERS[delivery.channel as keyof typeof MARKETING_CHANNEL_ADAPTERS];
   try {
     if (!adapter?.implemented) throw new Error(`MARKETING_CHANNEL_NOT_IMPLEMENTED:${delivery.channel}`);
-    const result = await adapter.send(companyCode, { to: delivery.recipient, subject: delivery.subject, html: delivery.body });
+    const attachments = delivery.attachmentRef && adapter.supportsAttachments
+      ? await resolveMarketingAttachments(companyCode, delivery.attachmentRef)
+      : undefined;
+    const result = await adapter.send(companyCode, {
+      to: delivery.recipient,
+      subject: delivery.subject,
+      html: delivery.body,
+      ...(attachments ? { attachments } : {}),
+    });
     await MarketingDeliveryModel.updateOne({ _id: delivery._id }, { $set: { status: "sent", sentAt: new Date(), messageId: result.messageId, error: "" } });
     return { status: "sent" as const };
   } catch (error: any) {
