@@ -189,7 +189,7 @@ export const productCatalogService = {
     return result.data;
   },
 
-  async updateVariant(id: string, input: Partial<Omit<VariantInput, "sku">>) {
+  async updateVariant(id: string, input: Partial<VariantInput>) {
     const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/variants/${id}`, { method: "PATCH", body: JSON.stringify(input) });
     return result.data;
   },

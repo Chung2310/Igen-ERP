@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductCatalogV2Section } from "./ProductCatalogV2Section";
 import { productCatalogService } from "../../services/productCatalogService";
 
 vi.mock("../../services/productCatalogService", () => {
   const productCatalogService = {
-    listProducts: vi.fn(), listResources: vi.fn(), getProduct: vi.fn(), listPrices: vi.fn(), createVariants: vi.fn(),
+    listProducts: vi.fn(), listResources: vi.fn(), getProduct: vi.fn(), listPrices: vi.fn(), createVariants: vi.fn(), updateVariant: vi.fn(), upsertPrice: vi.fn(),
   };
   return { productCatalogService };
 });
@@ -26,6 +26,8 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     vi.mocked(productCatalogService.getProduct).mockResolvedValue(product);
     vi.mocked(productCatalogService.listPrices).mockResolvedValue([]);
     vi.mocked(productCatalogService.createVariants).mockResolvedValue([]);
+    vi.mocked(productCatalogService.updateVariant).mockResolvedValue(product.variants[0]);
+    vi.mocked(productCatalogService.upsertPrice).mockResolvedValue({});
   });
 
   it("opens with one standard SKU form and submits each added SKU in one bulk request", async () => {
@@ -64,5 +66,30 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     expect(screen.getAllByRole("dialog").some((dialog) => !dialog.parentElement?.className.includes("z-[60]"))).toBe(true);
     fireEvent.click(skuDialog.querySelector("button")!);
     await waitFor(() => expect(screen.getAllByRole("dialog").some((dialog) => !dialog.parentElement?.className.includes("z-[60]"))).toBe(true));
+  });
+
+  it.each(["draft", "active", "inactive", "archived"] as const)("allows SKU editing when the product is %s", async (status) => {
+    const productWithStatus = { ...product, status };
+    vi.mocked(productCatalogService.listProducts).mockResolvedValue({ items: [productWithStatus], total: 1, page: 1, limit: 10 });
+    vi.mocked(productCatalogService.getProduct).mockResolvedValue(productWithStatus);
+    const { container } = render(<ProductCatalogV2Section />);
+
+    const editProductButton = await waitFor(() => {
+      expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+      const button = Array.from(container.querySelectorAll("button")).find((item) => item.title.includes("sản phẩm"));
+      expect(button).toBeDefined();
+      return button!;
+    });
+    fireEvent.click(editProductButton);
+    await waitFor(() => expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1));
+    const editSkuButton = Array.from(container.querySelectorAll("button")).find((button) => button.title.includes("SKU"));
+    fireEvent.click(editSkuButton!);
+
+    const skuInput = within(container).getByLabelText("Mã SKU");
+    expect((skuInput as HTMLInputElement).readOnly).toBe(false);
+    fireEvent.change(skuInput, { target: { value: "ao-moi" } });
+    fireEvent.click(within(container).getAllByText("Lưu thay đổi").at(-1)!);
+
+    await waitFor(() => expect(productCatalogService.updateVariant).toHaveBeenCalledWith("variant-1", expect.objectContaining({ sku: "ao-moi" })));
   });
 });
