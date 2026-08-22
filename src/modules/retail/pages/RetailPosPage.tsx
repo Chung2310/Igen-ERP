@@ -288,6 +288,15 @@ export default function RetailPosPage() {
       show(error);
     }
   };
+  const addProductToCart = (product: RetailProduct, clearSearch = false) => {
+    const current = cart.lines.find((line) => line.product._id === product._id)?.quantity || 0;
+    if (product.stock <= current) {
+      toast.error(`${product.name} không còn đủ tồn khả dụng.`);
+      return;
+    }
+    dispatch({ type: "add", product });
+    if (clearSearch) setQ("");
+  };
   const openDraft = (value: RetailOrder) => {
     setDraft(value);
     dispatch({
@@ -453,21 +462,17 @@ export default function RetailPosPage() {
             value={q}
             onChange={(event) => setQ(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && q.trim()) void scan(q.trim());
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              const product = products[0];
+              if (product) addProductToCart(product, true);
             }}
           />
         </label>
         {scanFeedback && <ScanFeedback {...scanFeedback} />}
       <ProductGrid
           products={products}
-          onAdd={(product) => {
-            const current = cart.lines.find((line) => line.product._id === product._id)?.quantity || 0;
-            if (product.stock <= current) {
-              toast.error(`${product.name} không còn đủ tồn khả dụng.`);
-              return;
-            }
-            dispatch({ type: "add", product });
-          }}
+          onAdd={addProductToCart}
         />
       </main>
       <CartPanel
