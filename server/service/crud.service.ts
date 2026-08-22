@@ -17,6 +17,8 @@ import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
 import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
 import { writeStockMovement } from "../integrations/shared/stock-movement.service";
+import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model";
+import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
   if (!payload || typeof payload !== "object") {
@@ -445,6 +447,42 @@ export const crudService = {
           reason: preparedData.notes,
           writeLegacyStockLog: false,
         });
+
+        // Cập nhật trạng thái IMEI/Serial và tạo sự kiện lịch sử tương ứng
+        const direction = preparedData.type === "nhập" ? "in" : "out";
+        const toStatus = direction === "out" ? "sold" : "in_stock";
+        const eventType = direction === "out" ? "sold" : "received";
+
+        for (const item of preparedData.items) {
+          if (Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0) {
+            const units = await SerialUnitModel.find({
+              companyCode,
+              branchId: inventoryBranch,
+              serialNumber: { $in: item.unitIdentifiers },
+            });
+
+            for (const unit of units) {
+              const fromStatus = unit.status;
+              unit.status = toStatus;
+              unit.updatedBy = preparedData.operatorName || "SYSTEM";
+              await unit.save();
+
+              await SerialEventModel.create({
+                companyCode,
+                branchId: inventoryBranch,
+                serialUnitId: String(unit._id),
+                serialNumber: unit.serialNumber,
+                eventType,
+                fromStatus,
+                toStatus,
+                documentType: "manual-stock-log",
+                documentId: sourceId,
+                actorId: "SYSTEM",
+                actorName: preparedData.operatorName || "Hệ thống",
+              });
+            }
+          }
+        }
       }
     }
 
@@ -564,6 +602,43 @@ export const crudService = {
           reason: preparedUpdatePayload.notes || existingLog.notes,
           writeLegacyStockLog: false,
         });
+
+        // Cập nhật trạng thái IMEI/Serial và tạo sự kiện lịch sử tương ứng
+        const direction = (preparedUpdatePayload.type || existingLog.type) === "nhập" ? "in" : "out";
+        const toStatus = direction === "out" ? "sold" : "in_stock";
+        const eventType = direction === "out" ? "sold" : "received";
+
+        const items = preparedUpdatePayload.items || existingLog.items || [];
+        for (const item of items) {
+          if (Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0) {
+            const units = await SerialUnitModel.find({
+              companyCode,
+              branchId: inventoryBranch,
+              serialNumber: { $in: item.unitIdentifiers },
+            });
+
+            for (const unit of units) {
+              const fromStatus = unit.status;
+              unit.status = toStatus;
+              unit.updatedBy = preparedUpdatePayload.operatorName || existingLog.operatorName || "SYSTEM";
+              await unit.save();
+
+              await SerialEventModel.create({
+                companyCode,
+                branchId: inventoryBranch,
+                serialUnitId: String(unit._id),
+                serialNumber: unit.serialNumber,
+                eventType,
+                fromStatus,
+                toStatus,
+                documentType: "manual-stock-log",
+                documentId: existingLog._id.toString(),
+                actorId: "SYSTEM",
+                actorName: preparedUpdatePayload.operatorName || existingLog.operatorName || "Hệ thống",
+              });
+            }
+          }
+        }
       }
     }
     const updatePayload = sanitizeInventoryPayload(modelName, preparedUpdatePayload);
