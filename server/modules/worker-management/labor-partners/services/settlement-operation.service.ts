@@ -13,7 +13,7 @@ export const LaborPartnerSettlementOperationService = {
     const settlementKey = `${scope.companyCode}:${scope.branchId || "all"}:adjustment:${sourceId}:${periodAnchor}:${idempotencyKey}`;
     let result: any;
     await runInTransaction(async (session) => {
-      const options = session ? { session } : undefined;
+      const options = session ? { session, ordered: true } : undefined;
       const replayQuery = (LaborPartnerSettlementModel as any).findOne({ settlementKey, ...scopeQuery(scope) });
       if (session) replayQuery.session(session);
       const replay = await replayQuery;
@@ -23,7 +23,7 @@ export const LaborPartnerSettlementOperationService = {
       const source = await sourceQuery;
       if (!source) throw new LaborPartnerError("SETTLEMENT_NOT_EDITABLE", "Chỉ được tạo điều chỉnh từ kỳ đã duyệt.", 409);
       const [settlement] = await (LaborPartnerSettlementModel as any).create([{ companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), partnerId: source.partnerId, sourceSettlementId: source._id, settlementKey, revision: 1, periodStart: monthStart, periodEnd: monthEnd, cutoffAt: new Date(), status: "calculated", officialAmount: 0, seasonalMinutes: 0, seasonalAmount: 0, adjustmentAmount: amount, totalAmount: amount, paidAmount: 0, balanceAmount: amount, policySnapshots: [{ sourceSettlementId: String(source._id), reason }], warnings: [], calculatedBy: actorSnapshot(actor), calculatedAt: new Date(), version: 1 }], options as any);
-      await (LaborPartnerCommissionLineModel as any).create([{ settlementId: settlement._id, partnerId: source.partnerId, lineKey: `adjustment:${source._id}:${idempotencyKey}`, scheme: "adjustment", status: "draft", amount, policySnapshot: { sourceSettlementId: String(source._id), reason }, explanation: reason }], options as any);
+      await (LaborPartnerCommissionLineModel as any).insertMany([{ settlementId: settlement._id, partnerId: source.partnerId, lineKey: `adjustment:${source._id}:${idempotencyKey}`, scheme: "adjustment", status: "draft", amount, policySnapshot: { sourceSettlementId: String(source._id), reason }, explanation: reason }], options as any);
       result = { settlement, replay: false };
     });
     return result;
@@ -68,7 +68,7 @@ export const LaborPartnerSettlementOperationService = {
     if (method !== "cash" && method !== "bank_transfer") throw new LaborPartnerError("INVALID_PAYOUT_METHOD", "Phương thức chi trả không hợp lệ.");
     let result: any;
     await runInTransaction(async (session) => {
-      const options = session ? { session } : undefined;
+      const options = session ? { session, ordered: true } : undefined;
       const replayQuery = (LaborPartnerPayoutModel as any).findOne({ companyCode: scope.companyCode, idempotencyKey });
       if (session) replayQuery.session(session);
       const replay = await replayQuery;
@@ -96,7 +96,7 @@ export const LaborPartnerSettlementOperationService = {
     const id = requiredObjectId(payoutId);
     let result: any;
     await runInTransaction(async (session) => {
-      const options = session ? { session } : undefined;
+      const options = session ? { session, ordered: true } : undefined;
       const payoutQuery = (LaborPartnerPayoutModel as any).findOne({ _id: id, ...scopeQuery(scope) });
       if (session) payoutQuery.session(session);
       const payout = await payoutQuery;
