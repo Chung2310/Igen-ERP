@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import jwt from "jsonwebtoken";
 
 vi.mock("../models/worker-project.model", () => ({
-  WorkerProjectModel: { findById: vi.fn() },
+  WorkerProjectModel: { findById: vi.fn(), findOne: vi.fn() },
 }));
 vi.mock("../models/worker.model", () => ({
   WorkerModel: { findOne: vi.fn() },
@@ -37,6 +37,7 @@ const project = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(WorkerProjectModel.findById).mockResolvedValue(project as any);
+  vi.mocked(WorkerProjectModel.findOne).mockResolvedValue(project as any);
 });
 
 describe("worker QR attendance sessions", () => {
@@ -78,5 +79,13 @@ describe("worker QR attendance sessions", () => {
     expect(result.success).toBe(true);
     expect(result.kind).toBe("check-in");
     expect(result.workerName).toBe("Nguyen Van A");
+  });
+
+  it("từ chối khi không có số điện thoại lẫn thiết bị đã ghi nhớ", async () => {
+    const session = await WorkerQrAttendanceService.createSession("project-1", "2026-08-03", 60, "owner-1");
+    await expect(
+      WorkerQrAttendanceService.checkin(session.currentToken, "", "fingerprint-1"),
+    ).rejects.toMatchObject({ reasonCode: "worker_not_found" });
+    expect(WorkerModel.findOne).not.toHaveBeenCalled();
   });
 });
