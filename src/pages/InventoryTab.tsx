@@ -585,11 +585,14 @@ export default function InventoryTab() {
     }
 
     const items = getStockLogItems(existingLog).map((item) => {
-      const product = products.find((entry) => entry.sku === item.sku);
-      if (!product) {
-        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm ${item.productName} trong kho.` }));
-      }
-      return { productId: product.id, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
+      const product = products.find((entry) => entry.sku === item.sku || entry.id === item.productId);
+      return {
+        productId: product?.id || item.productId || "",
+        sku: product?.sku || item.sku || "",
+        productName: product?.name || item.productName || "",
+        quantity: item.quantity,
+        unitIdentifiers: item.unitIdentifiers || [],
+      };
     });
 
     await handleUpdateTransaction({
