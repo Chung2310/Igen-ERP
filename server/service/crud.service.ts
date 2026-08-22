@@ -152,6 +152,9 @@ async function prepareStockLogPayload(
       ...(Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0
         ? { unitIdentifiers: [...new Set(item.unitIdentifiers.map((value: unknown) => String(value).trim()).filter(Boolean))] }
         : {}),
+      ...(Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0
+        ? { serialNumbers: [...new Set(item.serialNumbers.map((value: unknown) => String(value).trim()).filter(Boolean))] }
+        : {}),
       unitPrice,
       lineTotal: unitPrice * quantity,
       ...(unitCost === undefined ? {} : { unitCost }),

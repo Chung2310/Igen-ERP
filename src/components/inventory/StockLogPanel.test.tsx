@@ -58,7 +58,7 @@ describe("StockLogPanel", () => {
         products={[]}
         searchLog=""
         setSearchLog={vi.fn()}
-        stockLogs={[{ id: "log-detail", type: "xuất", title: "Phiếu xuất", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, operatorName: "Người dùng", createdAt: "2026-01-01", notes: "", status: "Đang chờ", items: [{ productId: "product-1", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, unitIdentifiers: ["BARCODE-1", "IMEI-1"] }] }]}
+        stockLogs={[{ id: "log-detail", type: "xuất", title: "Phiếu xuất", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, operatorName: "Người dùng", createdAt: "2026-01-01", notes: "", status: "Đang chờ", items: [{ productId: "product-1", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, unitIdentifiers: ["BARCODE-1"], serialNumbers: ["IMEI-1"] }] }]}
         onExportExcel={vi.fn()}
         onImportExcel={vi.fn()}
         onNavigateToCreateProduct={vi.fn()}
@@ -70,7 +70,7 @@ describe("StockLogPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
 
     expect(screen.getByText("Mã sản phẩm: SKU-1")).toBeTruthy();
-    expect(screen.getByText("IMEI / mã vạch: BARCODE-1, IMEI-1")).toBeTruthy();
+    expect(screen.getByText("IMEI / serial: IMEI-1")).toBeTruthy();
   });
 
   it("hiển thị lỗi khi bấm lưu phiếu nhưng thiếu các trường bắt buộc", () => {
