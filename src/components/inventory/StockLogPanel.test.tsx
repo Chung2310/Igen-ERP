@@ -52,6 +52,27 @@ it("loads saved IMEI when editing a pending outbound document", async () => {
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ barcodes: ["BARCODE-SAVED"] }));
   });
 describe("StockLogPanel", () => {
+  it("hiển thị SKU và IMEI đã lưu trong chi tiết phiếu xuất", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[{ id: "log-detail", type: "xuất", title: "Phiếu xuất", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, operatorName: "Người dùng", createdAt: "2026-01-01", notes: "", status: "Đang chờ", items: [{ productId: "product-1", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, unitIdentifiers: ["BARCODE-1", "IMEI-1"] }] }]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
+
+    expect(screen.getByText("Mã sản phẩm: SKU-1")).toBeTruthy();
+    expect(screen.getByText("IMEI / mã vạch: BARCODE-1, IMEI-1")).toBeTruthy();
+  });
+
   it("hiển thị lỗi khi bấm lưu phiếu nhưng thiếu các trường bắt buộc", () => {
     render(
       <StockLogPanel
