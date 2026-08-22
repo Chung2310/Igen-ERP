@@ -83,16 +83,17 @@ function getTypeKey(type: StockLog["type"]) {
   return String(type).toLowerCase().startsWith("x") ? "outbound" : "inbound";
 }
 
-function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number }> {
+function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }> {
   const typedLog = log as StockLog & {
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
     return typedLog.items;
   }
 
-  return [{ sku: log.sku, productName: log.productName, quantity: log.quantity }];
+  const legacyLog = log as any;
+  return [{ sku: log.sku, productName: log.productName, quantity: log.quantity, unitIdentifiers: legacyLog.unitIdentifiers }];
 }
 
 function getLogTitle(log: StockLog) {
@@ -311,8 +312,10 @@ export function StockLogPanel({
       items.map((item) => {
         const matchedProduct = products.find((product) => product.sku === item.sku);
         return {
-          productId: matchedProduct?.id || "",
+          productId: matchedProduct?.id || item.productId || "",
+          sku: item.sku,
           quantity: String(item.quantity),
+          unitIdentifiers: item.unitIdentifiers || [],
         };
       })
     );
@@ -552,6 +555,9 @@ export function StockLogPanel({
                             try {
                               setStatusUpdatingId(log.id);
                               await onUpdateStatus(log.id, nextStatus);
+                            } catch (error) {
+                              console.error("Lỗi khi cập nhật trạng thái:", error);
+                              toast.error(parseFirebaseError(error, "Không thể cập nhật trạng thái."));
                             } finally {
                               setStatusUpdatingId(null);
                             }
