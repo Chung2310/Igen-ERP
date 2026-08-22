@@ -345,7 +345,7 @@ export function StockLogPanel({
     setUnitPickerQuery("");
     setUnitPickerLoading(true);
     try {
-      const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", limit: 100 });
+      const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
       setUnitPickerItems(result.items);
       setUnitItemsByLine((current) => ({ ...current, [index]: result.items }));
     } finally {
