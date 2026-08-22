@@ -1,4 +1,5 @@
 import { ProductModel } from "../model/product.model";
+import { ProductCatalogModel } from "../model/product-catalog.model";
 import { CategoryModel } from "../model/category.model";
 import { StockLogModel } from "../model/stock-log.model";
 import { ProjectModel } from "../model/project.model";
@@ -89,8 +90,37 @@ async function prepareStockLogPayload(
   }).select("sku name price costPrice category").lean();
   const productsById = new Map(products.map((product: any) => [String(product._id), product]));
 
+  const missingProductIds = productIds.filter(id => !productsById.has(String(id)));
+  if (missingProductIds.length > 0) {
+    const catalogProducts = await ProductCatalogModel.find({
+      _id: { $in: missingProductIds },
+      companyCode,
+    }).select("productCode name categoryCode").lean();
+    for (const catalogProduct of catalogProducts) {
+      productsById.set(String(catalogProduct._id), {
+        _id: catalogProduct._id,
+        sku: catalogProduct.productCode || "",
+        name: catalogProduct.name,
+        price: 0,
+        costPrice: 0,
+        category: catalogProduct.categoryCode || "Chưa phân loại",
+      });
+    }
+  }
+
   const items = rawItems.map((item: any) => {
-    const product = productsById.get(String(item?.productId));
+    let product = productsById.get(String(item?.productId));
+    if (!product && item?.sku) {
+      product = {
+        _id: item.productId,
+        sku: item.sku,
+        name: item.productName || item.sku,
+        price: item.unitPrice || 0,
+        costPrice: item.unitCost || 0,
+        category: item.category || "Chưa phân loại",
+      };
+    }
+
     if (!product) {
       const error: Error & { statusCode?: number } = new Error("Sản phẩm trong phiếu không thuộc chi nhánh hiện tại.");
       error.statusCode = 400;
@@ -106,16 +136,16 @@ async function prepareStockLogPayload(
     const previous = existingItems.find((entry: any) =>
       String(entry?.productId) === String(item.productId) && Number(entry?.quantity) === quantity
     );
-    const unitPrice = Number.isFinite(previous?.unitPrice) ? previous.unitPrice : Number(product.price);
+    const unitPrice = Number.isFinite(previous?.unitPrice) ? previous.unitPrice : Number(product.price || item.unitPrice || 0);
     const unitCost = Number.isFinite(previous?.unitCost)
       ? previous.unitCost
-      : Number.isFinite(product.costPrice) ? Number(product.costPrice) : undefined;
+      : Number.isFinite(product.costPrice) ? Number(product.costPrice) : (Number.isFinite(item.unitCost) ? Number(item.unitCost) : undefined);
 
     return {
       productId: String(product._id),
-      sku: product.sku,
-      productName: product.name,
-      category: product.category || "Chưa phân loại",
+      sku: product.sku || item.sku,
+      productName: product.name || item.productName,
+      category: product.category || item.category || "Chưa phân loại",
       quantity,
       ...(Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0
         ? { unitIdentifiers: [...new Set(item.unitIdentifiers.map((value: unknown) => String(value).trim()).filter(Boolean))] }
