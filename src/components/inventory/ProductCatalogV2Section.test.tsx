@@ -21,6 +21,7 @@ const product = {
 
 describe("ProductCatalogV2Section bulk SKU form", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(productCatalogService.listProducts).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 10 });
     vi.mocked(productCatalogService.listResources).mockResolvedValue([]);
     vi.mocked(productCatalogService.getProduct).mockResolvedValue(product);
@@ -91,5 +92,10 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     fireEvent.click(within(container).getAllByText("Lưu thay đổi").at(-1)!);
 
     await waitFor(() => expect(productCatalogService.updateVariant).toHaveBeenCalledWith("variant-1", expect.objectContaining({ sku: "ao-moi" })));
+    if (status === "active") {
+      expect(productCatalogService.upsertPrice).toHaveBeenCalledWith("variant-1", 0);
+    } else {
+      expect(productCatalogService.upsertPrice).not.toHaveBeenCalled();
+    }
   });
 });
