@@ -233,9 +233,9 @@ export class CustomFieldService {
     if (!field) throw new Error("Không tìm thấy trường tùy chỉnh.");
     const users = await this.dependencies.users.find({ companyCode: context.tenantId }).select("_id");
     const ownerIds = users.map(user => String(user._id));
-    const updateMany = this.dependencies.entityModels[moduleKey].updateMany;
-    if (updateMany && ownerIds.length) {
-      await updateMany(
+    const entityModel = this.dependencies.entityModels[moduleKey];
+    if (entityModel?.updateMany && ownerIds.length) {
+      await entityModel.updateMany(
         { ownerId: { $in: ownerIds } },
         { $unset: { [`customFields.${field.key}`]: 1 } },
       );
