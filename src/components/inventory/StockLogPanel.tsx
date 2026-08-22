@@ -375,7 +375,7 @@ export function StockLogPanel({
     }
 
     const normalizedItems = draftLines
-      .map((line) => {
+      .map((line, index) => {
         const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
         return {
           productId: line.productId,
