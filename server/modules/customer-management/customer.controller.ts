@@ -3,6 +3,8 @@ import { CustomerError } from "./customer-errors";
 import { searchActiveCustomers, quickCreateCustomer } from "./contracts";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
 import { BillingProfileService } from "./billing-profile.service";
+import { CustomerPurchaseHistoryService } from "./customer-purchase-history.service";
+import { requireRetailBranch, retailScopeFromRequest, RetailScopeError, type RetailBranchScope } from "../retail/contracts";
 
 function scopeFromRequest(req: Request): CustomerScope {
   const user = (req as any).user || {};
@@ -10,6 +12,18 @@ function scopeFromRequest(req: Request): CustomerScope {
   const companyCode = String(rawCompanyCode || "").trim().toUpperCase();
   if (!companyCode) throw new CustomerError("CUSTOMER_COMPANY_REQUIRED", "Phạm vi công ty là bắt buộc.", 400);
   return { companyCode };
+}
+
+export function purchaseHistoryScopeFromRequest(req: Request): RetailBranchScope {
+  return requireRetailBranch(retailScopeFromRequest((req as any).user || {}, {
+    companyCode: req.query.companyCode,
+    branchId: req.query.branchId,
+  }));
+}
+
+export function purchaseHistoryServiceInput(req: Request) {
+  const retailScope = purchaseHistoryScopeFromRequest(req);
+  return { customerScope: { companyCode: retailScope.companyCode }, branchId: retailScope.branchId };
 }
 
 function actorFromRequest(req: Request): CustomerActor {
@@ -35,6 +49,9 @@ const handle = (action: (req: Request, res: Response) => Promise<Response>) => a
     if (error instanceof CustomerError) {
       return res.status(error.status).json({ success: false, code: error.code, message: error.message });
     }
+    if (error instanceof RetailScopeError) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
     return next(error);
   }
 };
@@ -45,6 +62,10 @@ export const customerController = {
   create: handle(async (req, res) => res.status(201).json({ success: true, data: await CustomerService.create(scopeFromRequest(req), req.body || {}, actorFromRequest(req)) })),
   quickCreate: handle(async (req, res) => res.status(201).json({ success: true, data: await quickCreateCustomer(scopeFromRequest(req), req.body || {}, actorFromRequest(req)) })),
   detail: handle(async (req, res) => res.json({ success: true, data: await CustomerService.detail(scopeFromRequest(req), req.params.id) })),
+  purchaseHistory: handle(async (req, res) => {
+    const { customerScope, branchId } = purchaseHistoryServiceInput(req);
+    return res.json({ success: true, data: await CustomerPurchaseHistoryService.get(customerScope, req.params.id, branchId) });
+  }),
   update: handle(async (req, res) => res.json({ success: true, data: await CustomerService.update(scopeFromRequest(req), req.params.id, req.body || {}, versionFromRequest(req)) })),
   activate: handle(async (req, res) => res.json({ success: true, data: await CustomerService.setStatus(scopeFromRequest(req), req.params.id, "active", versionFromRequest(req)) })),
   deactivate: handle(async (req, res) => res.json({ success: true, data: await CustomerService.setStatus(scopeFromRequest(req), req.params.id, "inactive", versionFromRequest(req)) })),

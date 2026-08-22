@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/lib/apiFetch";
-import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerListQuery, CustomerStatus, PaginatedCustomers } from "./types";
+import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerListQuery, CustomerPurchaseHistory, CustomerPurchaseHistoryScope, CustomerStatus, PaginatedCustomers } from "./types";
 
 export const customerApi = {
   async list(query: CustomerListQuery = {}) {
@@ -27,6 +27,10 @@ export const customerApi = {
   },
   async createBillingProfile(id: string, input: BillingProfileInput, companyCode?: string) {
     const response = await apiFetch<{ success: true; data: { profile: BillingProfile; warnings: Array<{ code: string; message: string }> } }>(`/customers/${id}/billing-profiles`, { method: "POST", params: { companyCode }, body: JSON.stringify(input) }); return response.data;
+  },
+  async purchaseHistory(id: string, scope: CustomerPurchaseHistoryScope) {
+    const response = await apiFetch<{ success: true; data: CustomerPurchaseHistory }>(`/customers/${id}/purchase-history`, { params: scope });
+    return response.data;
   },
   async getSettings(companyCode: string) {
     const response = await apiFetch<{ success: true; data: { companyCode: string; customerTiers: Array<{ code: string; name: string; minSpend: number }> } }>("/customers/settings", { params: { companyCode } });
