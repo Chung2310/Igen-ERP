@@ -59,7 +59,7 @@ export async function registerSerialBatch(scope: SerialScope, input: RegisterSer
   });
 }
 
-export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
+export async function listSerialUnits(scope: SerialScope, filters: { serial?: string; barcodes?: string[]; sku?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
   const page = Math.max(1, Number(filters.page) || 1); const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
   const query: any = { companyCode: scope.companyCode, $or: [{ branchId: scope.branchId }, { status: "in_transit", transferToBranchId: scope.branchId }] };
   if (scope.warehouseId) query.$and = [{ warehouseId: scope.warehouseId }];
@@ -72,7 +72,11 @@ export async function listSerialUnits(scope: SerialScope, filters: { serial?: st
     const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, trackingMode: filters.trackingMode, ...(filters.productId ? { productId: String(filters.productId).trim() } : {}), ...(filters.variantId ? { _id: String(filters.variantId).trim() } : {}), ...(filters.sku ? { sku: String(filters.sku).trim().toUpperCase() } : {}) }).select({ _id: 1 }).lean();
     query.variantId = { $in: variants.map((variant) => String(variant._id)) };
   }
-  if (filters.status) query.status = filters.status;
+  const selectedBarcodes = (filters.barcodes || []).map(normalizeInternalBarcode).filter(Boolean);
+  if (filters.status && selectedBarcodes.length) {
+    query.$and = [...(query.$and || []), { $or: [{ status: filters.status }, { normalizedInternalBarcode: { $in: selectedBarcodes } }] }];
+  } else if (filters.status) query.status = filters.status;
+  else if (selectedBarcodes.length) query.normalizedInternalBarcode = { $in: selectedBarcodes };
   const [items, total] = await Promise.all([
     SerialUnitModel.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     SerialUnitModel.countDocuments(query),

@@ -1095,12 +1095,38 @@ function formatAttendanceTime(value?: string) {
   return value ? new Date(value).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 }
 
+const ATTENDANCE_STATUS_LABEL: Record<string, string> = {
+  present: "Đủ công",
+  late: "Đi muộn",
+  "left-early": "Về sớm",
+  "late-left-early": "Muộn & về sớm",
+  "missing-checkout": "Thiếu giờ ra",
+};
+
+function attendanceStatusLabel(status?: string) {
+  return (status && ATTENDANCE_STATUS_LABEL[status]) || status || "—";
+}
+
+function formatWorkedMinutes(minutes?: number | null) {
+  if (minutes == null) return "—";
+  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function isoDaysAgo(days: number) {
+  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+}
+
+/**
+ * Lịch sử chấm công của một dự án đi theo hai cấp: trước hết là các ngày thực
+ * sự có người chấm, bấm vào một ngày mới mở danh sách lao động của ngày đó.
+ */
 function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectId: string; workers: Worker[]; projectName: string }) {
   const [logs, setLogs] = React.useState<WorkerAttendanceLog[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [from, setFrom] = React.useState(todayIso());
+  const [from, setFrom] = React.useState(isoDaysAgo(29));
   const [to, setTo] = React.useState(todayIso());
+  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -1111,13 +1137,37 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
     return () => { cancelled = true; };
   }, [projectId, from, to]);
 
-  const rows = logs.map((log) => ({
+  // Đổi khoảng ngày thì ngày đang xem có thể không còn dữ liệu, quay lại danh sách ngày.
+  React.useEffect(() => { setSelectedDate(null); }, [projectId, from, to]);
+
+  const rowsOf = React.useCallback((source: WorkerAttendanceLog[]) => source.map((log) => ({
     log,
     worker: workers.find((worker) => worker._id === log.workerId),
-  })).sort((a, b) => `${b.log.date}-${b.worker?.fullName || ""}`.localeCompare(`${a.log.date}-${a.worker?.fullName || ""}`));
+  })).sort((a, b) => b.log.date.localeCompare(a.log.date) || (a.worker?.fullName || "").localeCompare(b.worker?.fullName || "")), [workers]);
+
+  const days = React.useMemo(() => {
+    const byDate = new Map<string, { date: string; total: number; present: number; late: number; leftEarly: number; missing: number; minutes: number }>();
+    logs.forEach((log) => {
+      const row = byDate.get(log.date) ?? { date: log.date, total: 0, present: 0, late: 0, leftEarly: 0, missing: 0, minutes: 0 };
+      row.total += 1;
+      row.minutes += log.workedMinutes ?? 0;
+      if (log.status === "present") row.present += 1;
+      if (log.status === "late" || log.status === "late-left-early") row.late += 1;
+      if (log.status === "left-early" || log.status === "late-left-early") row.leftEarly += 1;
+      if (log.status === "missing-checkout") row.missing += 1;
+      byDate.set(log.date, row);
+    });
+    return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
+  }, [logs]);
+
+  const dayRows = React.useMemo(
+    () => (selectedDate ? rowsOf(logs.filter((log) => log.date === selectedDate)) : []),
+    [logs, rowsOf, selectedDate],
+  );
 
   const exportExcel = () => {
-    const data = rows.map(({ log, worker }, index) => ({
+    const exported = selectedDate ? dayRows : rowsOf(logs);
+    const data = exported.map(({ log, worker }, index) => ({
       "STT": index + 1,
       "Ngày": formatDate(log.date),
       "Họ và tên": worker?.fullName || "Không xác định",
@@ -1125,7 +1175,7 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
       "Giờ vào": formatAttendanceTime(log.checkIn?.time),
       "Giờ ra": formatAttendanceTime(log.checkOut?.time),
       "Tổng phút": log.workedMinutes ?? "",
-      "Trạng thái": log.status,
+      "Trạng thái": attendanceStatusLabel(log.status),
       "Khoảng cách vào (m)": log.checkIn?.distanceMeters ?? "",
       "Khoảng cách ra (m)": log.checkOut?.distanceMeters ?? "",
       "Ghi chú": log.note || "",
@@ -1134,7 +1184,8 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
     worksheet["!cols"] = [{ wch: 7 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 30 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Chấm công");
-    XLSX.writeFile(workbook, `cham-cong-${projectName.replace(/[^a-zA-Z0-9À-ỹ]+/g, "-")}-${from || "all"}-${to || "all"}.xlsx`);
+    const suffix = selectedDate || `${from || "all"}-${to || "all"}`;
+    XLSX.writeFile(workbook, `cham-cong-${projectName.replace(/[^a-zA-Z0-9À-ỹ]+/g, "-")}-${suffix}.xlsx`);
   };
 
   return <div className="space-y-3">
@@ -1142,11 +1193,64 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
       <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(from)} onChange={(e) => setFrom(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
       <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(to)} onChange={(e) => setTo(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
       <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Hôm nay</button>
-      <button type="button" onClick={exportExcel} disabled={loading || rows.length === 0} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
+      <button type="button" onClick={() => { setFrom(isoDaysAgo(29)); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">30 ngày</button>
+      <button type="button" onClick={exportExcel} disabled={loading || (selectedDate ? dayRows.length === 0 : logs.length === 0)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
     </div>
-    {loading ? <p className="text-sm text-slate-400">Đang tải...</p> : error ? <p role="alert" className="text-sm text-red-600">{error}</p> : rows.length === 0 ? <p className="text-sm text-slate-400">Chưa có dữ liệu trong khoảng ngày đã chọn.</p> : <div className="overflow-x-auto rounded-xl border border-slate-200"><table className="min-w-[1050px] w-full text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Ngày</th><th className="px-3 py-2">Lao động</th><th className="px-3 py-2">Số điện thoại</th><th className="px-3 py-2">Giờ vào</th><th className="px-3 py-2">Giờ ra</th><th className="px-3 py-2">Tổng phút</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">GPS vào</th><th className="px-3 py-2">GPS ra</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map(({ log, worker }) => <tr key={log._id} className="hover:bg-slate-50"><td className="px-3 py-2 font-semibold">{log.date}</td><td className="px-3 py-2 font-semibold text-slate-800">{worker?.fullName || "Không xác định"}</td><td className="px-3 py-2">{worker?.phone || "—"}</td><td className="px-3 py-2">{formatAttendanceTime(log.checkIn?.time)}</td><td className="px-3 py-2">{formatAttendanceTime(log.checkOut?.time)}</td><td className="px-3 py-2">{log.workedMinutes ?? "—"}</td><td className="px-3 py-2">{log.status}</td><td className="px-3 py-2">{log.checkIn?.distanceMeters != null ? `${Math.round(log.checkIn.distanceMeters)} m` : "—"}</td><td className="px-3 py-2">{log.checkOut?.distanceMeters != null ? `${Math.round(log.checkOut.distanceMeters)} m` : "—"}</td></tr>)}</tbody></table></div>}
+
+    {loading ? <p className="text-sm text-slate-400">Đang tải...</p>
+      : error ? <p role="alert" className="text-sm text-red-600">{error}</p>
+      : days.length === 0 ? <p className="text-sm text-slate-400">Chưa có dữ liệu trong khoảng ngày đã chọn.</p>
+      : selectedDate === null ? (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full min-w-[640px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr>
+              <th className="px-3 py-2">Ngày</th><th className="px-3 py-2">Lượt chấm</th><th className="px-3 py-2">Đủ công</th><th className="px-3 py-2">Đi muộn</th><th className="px-3 py-2">Về sớm</th><th className="px-3 py-2">Thiếu giờ ra</th><th className="px-3 py-2">Tổng giờ</th><th className="px-3 py-2" />
+            </tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {days.map((day) => <tr key={day.date} role="button" tabIndex={0} aria-label={`Chấm công ngày ${formatDate(day.date)}`} onClick={() => setSelectedDate(day.date)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedDate(day.date); } }} className="cursor-pointer hover:bg-cyan-50/60 focus:bg-cyan-50/60 focus:outline-none">
+                <td className="px-3 py-2 font-bold text-slate-800">{formatDate(day.date)}</td>
+                <td className="px-3 py-2 font-semibold">{day.total}/{workers.length}</td>
+                <td className="px-3 py-2 font-semibold text-emerald-600">{day.present}</td>
+                <td className={`px-3 py-2 font-semibold ${day.late ? "text-amber-600" : "text-slate-400"}`}>{day.late}</td>
+                <td className={`px-3 py-2 font-semibold ${day.leftEarly ? "text-amber-600" : "text-slate-400"}`}>{day.leftEarly}</td>
+                <td className={`px-3 py-2 font-semibold ${day.missing ? "text-rose-600" : "text-slate-400"}`}>{day.missing}</td>
+                <td className="px-3 py-2 font-semibold">{formatWorkedMinutes(day.minutes)}</td>
+                <td className="px-3 py-2 text-right font-bold text-cyan-700">Xem →</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setSelectedDate(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">← Danh sách ngày</button>
+            <h3 className="text-sm font-bold text-slate-800">Ngày {formatDate(selectedDate)}</h3>
+            <span className="text-xs text-slate-500">{dayRows.length}/{workers.length} lao động đã chấm</span>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-[900px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr>
+                <th className="px-3 py-2">Lao động</th><th className="px-3 py-2">Số điện thoại</th><th className="px-3 py-2">Giờ vào</th><th className="px-3 py-2">Giờ ra</th><th className="px-3 py-2">Tổng giờ</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">GPS vào</th><th className="px-3 py-2">GPS ra</th>
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {dayRows.map(({ log, worker }) => <tr key={log._id} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 font-semibold text-slate-800">{worker?.fullName || "Không xác định"}</td>
+                  <td className="px-3 py-2">{worker?.phone || "—"}</td>
+                  <td className="px-3 py-2">{formatAttendanceTime(log.checkIn?.time)}</td>
+                  <td className="px-3 py-2">{formatAttendanceTime(log.checkOut?.time)}</td>
+                  <td className="px-3 py-2">{formatWorkedMinutes(log.workedMinutes)}</td>
+                  <td className="px-3 py-2">{attendanceStatusLabel(log.status)}</td>
+                  <td className="px-3 py-2">{log.checkIn?.distanceMeters != null ? `${Math.round(log.checkIn.distanceMeters)} m` : "—"}</td>
+                  <td className="px-3 py-2">{log.checkOut?.distanceMeters != null ? `${Math.round(log.checkOut.distanceMeters)} m` : "—"}</td>
+                </tr>)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
   </div>;
 }
+
 function ActionButton({
   title,
   tone = "neutral",

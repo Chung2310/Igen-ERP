@@ -17,6 +17,7 @@ const MarketingDeliverySchema = new Schema({
   recipient: { type: String, required: true },
   subject: { type: String, default: "" },
   body: { type: String, default: "" },
+  attachmentRef: { type: Schema.Types.Mixed, default: null },
   status: { type: String, enum: ["queued", "sending", "sent", "skipped", "failed"], default: "queued" },
   attempt: { type: Number, default: 0 },
   maxAttempts: { type: Number, default: 3 },

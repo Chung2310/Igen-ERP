@@ -458,7 +458,7 @@ export const crudService = {
             const units = await SerialUnitModel.find({
               companyCode,
               branchId: inventoryBranch,
-              serialNumber: { $in: item.unitIdentifiers },
+              $or: [{ serialNumber: { $in: item.unitIdentifiers } }, { normalizedInternalBarcode: { $in: item.unitIdentifiers.map((value: string) => String(value).trim().toUpperCase()) } }],
             });
 
             for (const unit of units) {
@@ -614,7 +614,7 @@ export const crudService = {
             const units = await SerialUnitModel.find({
               companyCode,
               branchId: inventoryBranch,
-              serialNumber: { $in: item.unitIdentifiers },
+              $or: [{ serialNumber: { $in: item.unitIdentifiers } }, { normalizedInternalBarcode: { $in: item.unitIdentifiers.map((value: string) => String(value).trim().toUpperCase()) } }],
             });
 
             for (const unit of units) {
