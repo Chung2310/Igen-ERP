@@ -12,6 +12,7 @@ export type WorkerQrReasonCode =
   | "device_conflict"
   | "worker_not_found"
   | "not_in_project"
+  | "project_not_found"
   | "missing_location"
   | "outside_radius"
   | "too_soon"
@@ -75,7 +76,7 @@ export const WorkerQrAttendanceService = {
     // điểm danh trên dự án của công ty khác và lộ mã/tên dự án đó.
     const project = await WorkerProjectModel.findOne({ _id: projectId, companyCode, deletedAt: null });
     if (!project) {
-      throw new Error("Không tìm thấy dự án.");
+      throw new WorkerQrCheckinError("project_not_found", "Không tìm thấy dự án trong công ty của bạn.");
     }
 
     const sessionId = crypto.randomUUID();

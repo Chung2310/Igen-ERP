@@ -324,27 +324,34 @@ export default function App() {
     );
   }
 
+  // Các trang chấm công công khai chạy trên máy lao động, không có ai xem console
+  // để báo lỗi. Thiếu ErrorBoundary thì mọi exception (kể cả lỗi tải chunk sau khi
+  // deploy) chỉ để lại màn hình trắng câm, không lần ra được nguyên nhân.
   if (window.location.pathname.startsWith("/worker/checkin/")) {
     return (
-      <Suspense fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-amber-950 to-orange-950 flex justify-center items-center text-xs font-semibold text-slate-400">
-          Đang tải trang chấm công...
-        </div>
-      }>
-        <WorkerQRCheckinPage />
-      </Suspense>
+      <AppErrorBoundary>
+        <Suspense fallback={
+          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-amber-950 to-orange-950 flex justify-center items-center text-xs font-semibold text-slate-400">
+            Đang tải trang chấm công...
+          </div>
+        }>
+          <WorkerQRCheckinPage />
+        </Suspense>
+      </AppErrorBoundary>
     );
   }
 
   if (window.location.pathname.startsWith("/attendance/checkin/")) {
     return (
-      <Suspense fallback={
-        <div className="min-h-screen bg-slate-900 flex justify-center items-center text-xs font-semibold text-slate-400">
-          Đang tải trang điểm danh...
-        </div>
-      }>
-        <QRCheckinPage />
-      </Suspense>
+      <AppErrorBoundary>
+        <Suspense fallback={
+          <div className="min-h-screen bg-slate-900 flex justify-center items-center text-xs font-semibold text-slate-400">
+            Đang tải trang điểm danh...
+          </div>
+        }>
+          <QRCheckinPage />
+        </Suspense>
+      </AppErrorBoundary>
     );
   }
 

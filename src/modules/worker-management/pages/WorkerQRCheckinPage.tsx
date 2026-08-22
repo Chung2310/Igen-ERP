@@ -161,7 +161,10 @@ export default function WorkerQRCheckinPage() {
   const handleCheckin = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     const rememberedDevice = sessionInfo?.device?.recognized === true;
-    if (!rememberedDevice && (!phone || phone.length < 8)) return;
+    if (!rememberedDevice && (!phone || phone.length < 8)) {
+      setResult({ success: false, error: "Vui lòng nhập đúng số điện thoại đã đăng ký." });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -193,7 +196,11 @@ export default function WorkerQRCheckinPage() {
         }),
       });
 
-      const data = await res.json();
+      // Máy chủ lỗi hoặc proxy trả HTML thì res.json() ném lỗi và người dùng chỉ
+      // thấy "lỗi mạng" chung chung — kèm mã HTTP để còn lần ra nguyên nhân.
+      const data = await res.json().catch(() => {
+        throw new Error(`Máy chủ trả về phản hồi không hợp lệ (HTTP ${res.status}).`);
+      });
       if (data.success) {
         setResult({
           success: true,
@@ -205,10 +212,13 @@ export default function WorkerQRCheckinPage() {
           error: mapReasonCode(data.reasonCode, data.error),
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("[Worker-QR] Chấm công thất bại", error);
       setResult({
         success: false,
-        error: "Đã xảy ra lỗi mạng. Vui lòng kiểm tra lại kết nối.",
+        error: error instanceof Error && error.message
+          ? error.message
+          : "Đã xảy ra lỗi mạng. Vui lòng kiểm tra lại kết nối.",
       });
     } finally {
       setSubmitting(false);

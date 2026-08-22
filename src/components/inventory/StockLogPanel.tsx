@@ -6,6 +6,8 @@ import { inventorySerialService, type InventorySerialUnit } from "../../services
 import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
 import { StockOperatorPicker } from "./StockOperatorPicker";
 import { toast } from "../../pages/Toast";
+import { parseFirebaseError } from "../../utils/firebaseErrorParser";
+
 
 type DraftLine = {
   productId: string;
@@ -402,6 +404,9 @@ export function StockLogPanel({
       }
       setShowCreateModal(false);
       resetDraft();
+    } catch (error) {
+      console.error("Lỗi khi lưu phiếu:", error);
+      toast.error(parseFirebaseError(error, "Không thể lưu phiếu. Vui lòng thử lại."));
     } finally {
       setSubmitting(false);
     }

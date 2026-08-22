@@ -780,7 +780,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
       if (initialVariant) {
         const { sellingPrice: _sellingPrice, _id: _id, productId: _productId, companyCode: _companyCode, createdAt: _createdAt, updatedAt: _updatedAt, createdBy: _createdBy, updatedBy: _updatedBy, ...update } = payload as any;
         await productCatalogService.updateVariant(initialVariant._id, update);
-        await productCatalogService.upsertPrice(initialVariant._id, Number(variant.sellingPrice || 0));
+        if (product.status === "active") await productCatalogService.upsertPrice(initialVariant._id, Number(variant.sellingPrice || 0));
         toast.success("Đã cập nhật SKU.");
       } else {
         const created = await productCatalogService.createVariant(product._id, payload);
