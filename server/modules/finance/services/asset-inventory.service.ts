@@ -1,4 +1,4 @@
-import type { FinanceBranchScope, FinanceScope } from "../contracts";
+﻿import type { FinanceBranchScope, FinanceScope } from "../contracts";
 import { AssetInventorySessionModel } from "../models/asset-inventory.model";
 import { FixedAssetModel } from "../models/fixed-asset.model";
 import { ConflictError, NotFoundError } from "../../../errors/app-error";
@@ -118,13 +118,13 @@ export const assetInventoryRepository: AssetInventoryRepository = {
   recordCount: (id, barcode, update) => AssetInventorySessionModel.findOneAndUpdate(
     { _id: id, status: "open" },
     { $set: update },
-    { new: true, arrayFilters: [{ "item.barcode": barcode }] },
+    { returnDocument: 'after', arrayFilters: [{ "item.barcode": barcode }] },
   ).lean(),
-  appendItem: (id, item) => AssetInventorySessionModel.findOneAndUpdate({ _id: id, status: "open" }, { $push: { items: item } }, { new: true }).lean(),
+  appendItem: (id, item) => AssetInventorySessionModel.findOneAndUpdate({ _id: id, status: "open" }, { $push: { items: item } }, { returnDocument: 'after' }).lean(),
   finalizeSession: (id, finalizedBy, finalizedAt) => AssetInventorySessionModel.findOneAndUpdate(
     { _id: id, status: "open" },
     { $set: { status: "finalized", finalizedBy, finalizedAt, "items.$[pending].result": "missing" } },
-    { new: true, arrayFilters: [{ "pending.result": "pending" }] },
+    { returnDocument: 'after', arrayFilters: [{ "pending.result": "pending" }] },
   ).lean(),
   listAssetsForScope: (companyCode, branchIds) => FixedAssetModel.find({
     companyCode, status: { $ne: "disposed" }, ...(branchIds.length ? { branchId: { $in: branchIds } } : {}),

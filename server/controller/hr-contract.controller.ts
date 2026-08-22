@@ -1,4 +1,4 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import {
   HRContractExtensionModel,
@@ -256,7 +256,7 @@ export const hrContractController = {
       const data = await HRContractModel.findOneAndUpdate(
         { _id: existing._id, companyCode },
         { $set: patch },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       );
       if (data) {
         const resourcePatch = await finalizeContractPendingUploads({

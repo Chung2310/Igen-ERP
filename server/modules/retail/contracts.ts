@@ -1,4 +1,4 @@
-import { RetailOrderModel } from "./models/retail-order.model";
+﻿import { RetailOrderModel } from "./models/retail-order.model";
 import { SerialUnitModel } from "../inventory/serials/serial-unit.model";
 import { snapshotCoverage } from "../inventory/serials/warranty-clock";
 
@@ -95,5 +95,5 @@ export function createRetailFinanceSettlementContract(repository: RetailSettleme
 }
 
 export const applyFinanceReceivableSettlement = createRetailFinanceSettlementContract({
-  settle: (filter, values) => RetailOrderModel.findOneAndUpdate(filter, { $set: values, $inc: { version: 1 } }, { new: true }).lean(),
+  settle: (filter, values) => RetailOrderModel.findOneAndUpdate(filter, { $set: values, $inc: { version: 1 } }, { returnDocument: 'after' }).lean(),
 });

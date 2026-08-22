@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+﻿import { Types } from "mongoose";
 import { WorkerLaborContractModel } from "../models/worker-labor-contract.model";
 import { WorkerModel } from "../models/worker.model";
 import { buildWorkerQuery } from "./worker.service";
@@ -275,7 +275,7 @@ export const WorkerLaborContractService = {
     const contract = await WorkerLaborContractModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $set: changes },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!contract) {
       throw new Error("Không tìm thấy hợp đồng hoặc bạn không có quyền chỉnh sửa.");
@@ -333,7 +333,7 @@ export const WorkerLaborContractService = {
               ...(actor ? { renewedBy: actor } : {}),
             },
           },
-          { new: true, session },
+          { returnDocument: 'after', session },
         );
         if (!closed) {
           throw new Error("Hợp đồng vừa được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.");
@@ -382,7 +382,7 @@ export const WorkerLaborContractService = {
     const contract = await WorkerLaborContractModel.findOneAndUpdate(
       { _id: contractId, ...baseQuery, lockedAt: null },
       { $set: { deletedAt: new Date() } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!contract) {
       throw new Error("Không tìm thấy hợp đồng hoặc bạn không có quyền xóa.");

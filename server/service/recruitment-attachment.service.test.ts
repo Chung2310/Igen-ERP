@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentAttachmentModel } from "../model/recruitment-attachment.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
@@ -48,7 +48,7 @@ describe("recruitment attachment service", () => {
     expect(update).toHaveBeenCalledWith(
       { _id: "attachment", ...scope, ownerType: "job", ownerId: "job", isDeleted: false, version: 3 },
       expect.objectContaining({ $set: expect.objectContaining({ storageKey: "new-key" }), $inc: { version: 1 } }),
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     expect(replace).toHaveBeenCalledWith(
       "ACME",

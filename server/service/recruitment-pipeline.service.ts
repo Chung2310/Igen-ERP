@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
@@ -58,7 +58,7 @@ export async function getOrCreatePipeline(scope: RecruitmentScope, actorId: stri
     const updated = await RecruitmentPipelineModel.findOneAndUpdate(
       { _id: existing._id, ...scope, isDeleted: false, version: existing.version },
       { $set: { stages, updatedBy: actorId }, $inc: { version: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     if (!updated) throw new Error("Pipeline version conflict");
     return updated;
@@ -91,7 +91,7 @@ export async function savePipeline(
   const updated = await RecruitmentPipelineModel.findOneAndUpdate(
     { ...scope, isDeleted: false, version },
     { $set: { stages: normalized, updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!updated) throw new Error("Pipeline version conflict");
   return updated;

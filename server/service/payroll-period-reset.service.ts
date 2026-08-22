@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
@@ -64,7 +64,7 @@ export function createPayrollPeriodResetService(
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
         ...(session ? { session } : {}),
       },

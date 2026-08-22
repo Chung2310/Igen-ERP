@@ -1,4 +1,4 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
@@ -439,7 +439,7 @@ export const timekeepingController = {
             },
           },
         },
-        { new: true }
+        { returnDocument: 'after' }
       ).lean();
 
       if (!updatedCompany) {
@@ -513,7 +513,7 @@ export const timekeepingController = {
             },
           },
         },
-        { new: true }
+        { returnDocument: 'after' }
       )
         .select("_id fullName email role employmentStatus officialDate workHoursConfig")
         .lean();

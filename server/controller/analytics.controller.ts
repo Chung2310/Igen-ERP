@@ -1,4 +1,4 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { analyticsService, RevenueGranularity } from "../service/analytics.service";
 import { OperatingExpenseModel } from "../model/operating-expense.model";
@@ -67,7 +67,7 @@ export const analyticsController = {
     const data = await OperatingExpenseModel.findOneAndUpdate(
       { _id: req.params.id, companyCode: req.user.companyCode },
       { $set: { status: "void" } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy khoản chi." });
     await invalidateAnalyticsCache(req.user.companyCode);

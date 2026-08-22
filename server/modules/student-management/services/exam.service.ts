@@ -1,4 +1,4 @@
-import { Exam } from "../models/exam.model";
+﻿import { Exam } from "../models/exam.model";
 import { Student } from "../models/student.model";
 import { Batch } from "../models/batch.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
@@ -97,7 +97,7 @@ async function closeBatchAfterExamIfReady(ownerId: string | string[], batchId: s
   const updated = await Batch.findOneAndUpdate(
     { _id: batch._id, status: "Đang học" },
     { $set: { status: "Đã kết thúc", completedAt: new Date(), cancelledAt: null } },
-    { new: true },
+    { returnDocument: 'after' },
   );
   if (updated) logger.info(`[Exam] Batch closed automatically after exam completion: batchId=${batch._id}`);
   return Boolean(updated);
@@ -328,7 +328,7 @@ export class ExamService {
     const updatedExam = await Exam.findOneAndUpdate(
       { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (updatedExam) {
       await customFieldResourceService.finalizeEntity(targetContext, updatedExam);

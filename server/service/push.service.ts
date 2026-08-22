@@ -1,4 +1,4 @@
-import webpush from "web-push";
+﻿import webpush from "web-push";
 import { PushSubscriptionModel } from "../model/push-subscription.model";
 
 export interface PushPayload {
@@ -41,7 +41,7 @@ export const pushService = {
     await PushSubscriptionModel.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       { uid, companyCode, endpoint: subscription.endpoint, keys: subscription.keys, userAgent: userAgent || "" },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   },
 

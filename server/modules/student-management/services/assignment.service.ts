@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import { AssignmentModel } from "../models/assignment.model";
 import { SubmissionModel } from "../models/submission.model";
 import { Batch } from "../models/batch.model";
@@ -280,7 +280,7 @@ export class AssignmentService {
         status,
         submittedAt: new Date(),
       },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId });
@@ -338,7 +338,7 @@ export class AssignmentService {
     const submission = await SubmissionModel.findOneAndUpdate(
       { assignmentId, studentId },
       { $set: { attachments: data.attachments, studentNotes: data.studentNotes || "", status, submittedAt: new Date(), submissionSource: "staff", submittedByUserId: actorId } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
     const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId }).select("_id fullName");
     if (!student) throw new Error("Học viên không tồn tại.");
@@ -376,7 +376,7 @@ export class AssignmentService {
         status: "graded",
         gradedAt: new Date(),
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!submission) throw new Error("Học viên chưa nộp bài tập này.");

@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import mongoose from "mongoose";
 import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
@@ -20,7 +20,7 @@ async function main() {
     const branch = await BranchModel.findOneAndUpdate(
       { companyCode: company.code, code: "MAIN" },
       { $setOnInsert: { companyCode: company.code, code: "MAIN", name: `${company.name} - Main`, isActive: true } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     ).lean();
     if (branch) created += 1;
     const missingBranch = { $or: [{ branchId: { $exists: false } }, { branchId: "" }] };

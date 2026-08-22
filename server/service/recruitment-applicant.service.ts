@@ -1,4 +1,4 @@
-import mongoose, { type ClientSession } from "mongoose";
+﻿import mongoose, { type ClientSession } from "mongoose";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
@@ -84,7 +84,7 @@ export async function updateApplicant(scope: RecruitmentScope, id: string, versi
   const updated = await RecruitmentApplicantModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted: false, version },
     { $set: { ...safe, updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!updated) throw new Error("Applicant version conflict");
   if (previousPublicId && previousPublicId !== (updated as any).cvPublicId) await cloudinaryService.deletePublicRaw(previousPublicId).catch((error) => console.warn("[recruitment-applicant] Public CV cleanup failed:", (error as Error).message));
@@ -106,7 +106,7 @@ export async function transitionApplicant(scope: RecruitmentScope, id: string, v
     updated = await RecruitmentApplicantModel.findOneAndUpdate(
       { _id: id, ...scope, isDeleted: false, version },
       { $set: { stageId: toStage.id, outcome: toStage.terminalOutcome || "active", updatedBy: actorId }, $inc: { version: 1 } },
-      { new: true, runValidators: true, ...(session && { session }) },
+      { returnDocument: 'after', runValidators: true, ...(session && { session }) },
     );
     if (!updated) throw new Error("Applicant version conflict");
     const history = {
@@ -130,7 +130,7 @@ async function deleteState(scope: RecruitmentScope, id: string, version: number,
   const updated = await RecruitmentApplicantModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted: !restore, version },
     { $set: { isDeleted: !restore, deletedAt: restore ? new Date() : null, deletedBy: restore ? actorId : null, updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!updated) throw new Error("Applicant version conflict");
   return updated;

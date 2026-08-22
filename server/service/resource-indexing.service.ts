@@ -1,4 +1,4 @@
-import {
+﻿import {
   buildResourceSourceRoute,
   buildSystemFolderKey,
   getResourceSourceDefinition,
@@ -146,7 +146,7 @@ const mongooseRepository: ResourceIndexingRepository = {
         },
         $addToSet: { requiredPermissions: { $each: input.requiredPermissions } },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     ).lean();
     if (!item) throw new Error("Không thể tạo thư mục tài nguyên hệ thống.");
     return toRecord(item);
@@ -164,7 +164,7 @@ const mongooseRepository: ResourceIndexingRepository = {
     const item = await ResourceItemModel.findOneAndUpdate(
       { companyCode, sourceKey, managedType: "system" },
       update,
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
     return item ? toRecord(item) : null;
   },
@@ -175,7 +175,7 @@ const mongooseRepository: ResourceIndexingRepository = {
     const item = await ResourceItemModel.findOneAndUpdate(
       { _id: resourceId, companyCode, managedType: "system" },
       update,
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
     return item ? toRecord(item) : null;
   },

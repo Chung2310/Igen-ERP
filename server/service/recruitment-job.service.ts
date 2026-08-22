@@ -1,4 +1,4 @@
-import { RecruitmentJobModel } from "../model/recruitment-job.model";
+﻿import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
 import { cloudinaryService } from "./cloudinary.service";
 
@@ -61,7 +61,7 @@ async function versionedUpdate(
   const job = await RecruitmentJobModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted, version },
     { ...update, $set: { ...(update.$set || {}), updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!job) throw new Error("Job version conflict");
   return job;

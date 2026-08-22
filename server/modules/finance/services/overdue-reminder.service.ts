@@ -1,4 +1,4 @@
-import type { FinanceBranchScope } from "../contracts";
+﻿import type { FinanceBranchScope } from "../contracts";
 import type { FinanceReminderSettings } from "../config/finance-settings";
 import { DEFAULT_FINANCE_REMINDER_SETTINGS } from "../config/finance-settings";
 import { ReminderRunModel } from "../models/reminder-run.model";
@@ -130,7 +130,7 @@ export function retryReminderDelivery(id: string, now = new Date(), scope?: Fina
   return retryReminderDeliveryWith(id, now, {
     claim: (deliveryId) => ReminderDeliveryModel.findOneAndUpdate(
       { _id: deliveryId, ...(scope || {}), status: "failed", failureType: "temporary", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
-      { $set: { status: "sending" }, $inc: { attempt: 1 } }, { new: true },
+      { $set: { status: "sending" }, $inc: { attempt: 1 } }, { returnDocument: 'after' },
     ).lean(),
     send: (delivery) => delivery.channel === "in_app"
       ? mongoDependencies.createNotification({ ...delivery.payload, companyCode: delivery.companyCode, branchId: delivery.branchId, idempotencyKey: delivery.cycleKey })

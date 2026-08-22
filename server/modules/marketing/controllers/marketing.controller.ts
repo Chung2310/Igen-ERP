@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+﻿import type { NextFunction, Request, Response } from "express";
 import { MARKETING_CHANNEL_ADAPTERS } from "../services/marketing-channels";
 import { MarketingCampaignModel } from "../models/marketing-campaign.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
@@ -62,7 +62,7 @@ export const marketingController = {
   updateCampaign: handle(async (req, res) => {
     const { companyCode } = scopeOf(req);
     const { companyCode: _ignored, ...values } = req.body || {};
-    const campaign = await MarketingCampaignModel.findOneAndUpdate({ _id: req.params.id, companyCode }, { $set: values }, { new: true }).lean();
+    const campaign = await MarketingCampaignModel.findOneAndUpdate({ _id: req.params.id, companyCode }, { $set: values }, { returnDocument: 'after' }).lean();
     if (!campaign) return res.status(404).json({ success: false, message: "Không tìm thấy chiến dịch." });
     return ok(res, campaign);
   }),

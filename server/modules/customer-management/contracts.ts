@@ -1,5 +1,7 @@
-import type { CustomerStatus, CustomerType } from "./interfaces/customer.interface";
+import type { CustomerStatus, CustomerType, ICustomerTierState } from "./interfaces/customer.interface";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
+import { CustomerModel } from "./models/customer.model";
+import { CustomerSettingsService } from "./services/customer-settings.service";
 export { getBillingProfile } from "./billing-profile.service";
 
 export type CustomerBrief = {
@@ -70,3 +72,17 @@ export function createCustomerContracts(service: CustomerContractService) {
 }
 
 export const { searchActiveCustomers, getCustomerBrief, getCustomerContact, quickCreateCustomer } = createCustomerContracts(CustomerService);
+
+/** Bậc phân hạng của công ty — nguồn duy nhất là cài đặt module Khách hàng. */
+export async function getCustomerTiers(companyCode: string): Promise<ICustomerTierState[]> {
+  const settings = await CustomerSettingsService.getSettings(companyCode);
+  return settings.customerTiers.map((tier) => ({ code: tier.code, name: tier.name, minSpend: Number(tier.minSpend) }));
+}
+
+/** Ghi hạng đã tính lại lên hồ sơ khách. Không đụng `version` vì đây không phải sửa đổi của người dùng. */
+export async function applyCustomerTier(companyCode: string, customerId: string, tier: ICustomerTierState, totalSales: number, now = new Date()): Promise<void> {
+  await CustomerModel.updateOne(
+    { _id: customerId, companyCode: companyCode.toUpperCase() },
+    { $set: { tier, tierTotalSales: totalSales, tierUpdatedAt: now } },
+  );
+}

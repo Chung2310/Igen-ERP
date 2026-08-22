@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import { ValidationError } from "../../../errors/app-error";
 import { AssignmentModel } from "../models/assignment.model";
 import { Batch } from "../models/batch.model";
@@ -148,7 +148,7 @@ export class LearningRoadmapService {
       { ...ownerQuery(ownerId), ...branchQuery(actor.branchId), sourceBatchId: input.batchId, studentId: input.studentId, roadmapId: input.roadmapId },
       { $set: { sourceStepId: progress.sourceStep.id, targetStepId: progress.targetStep?.id || "", sourceEnrollmentId: row.enrollmentId, intent: input.intent, teacherNote: input.teacherNote || "", eligible: policyResult.eligible, eligibilityReasons: policyResult.reasons, eligibilitySnapshot: { attendanceRate: row.attendanceRate, assignmentRate: row.assignmentRate, miniTestRate: row.miniTestRate, evaluatedAt: new Date() }, overrideEligible: input.overrideEligible ?? null, overrideReason: input.overrideReason || "", overrideBy: input.overrideEligible === null || input.overrideEligible === undefined ? "" : actor.uid, overrideAt: input.overrideEligible === null || input.overrideEligible === undefined ? null : new Date() },
         $setOnInsert: { ownerId: sourceBatch.ownerId, branchId: actor.branchId } },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     );
     const shouldQueue = input.intent === "continue" && effectiveEligible && progress.targetStep;
     if (shouldQueue) {
@@ -156,7 +156,7 @@ export class LearningRoadmapService {
         { ...ownerQuery(ownerId), studentId: input.studentId, roadmapId: input.roadmapId, targetStepId: progress.targetStep!.id, status: "waiting" },
         { $set: { sourceBatchId: input.batchId, sourceEnrollmentId: row.enrollmentId, progressionDecisionId: idOf(decision._id), learningFormat: input.learningFormat || "", preferredTimeSlot: input.preferredTimeSlot || "" },
           $setOnInsert: { ownerId: decision.ownerId, branchId: actor.branchId, studentId: input.studentId, roadmapId: input.roadmapId, targetStepId: progress.targetStep!.id, queuedAt: new Date(), status: "waiting" } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       );
       if (row.enrollmentId) await BatchEnrollment.updateOne({ _id: row.enrollmentId }, { $set: { status: "Chờ xếp lớp tiếp theo" }, $push: { history: { at: new Date(), action: "queued_for_next_step", actorId: actor.uid, note: roadmap.name } } });
     } else {

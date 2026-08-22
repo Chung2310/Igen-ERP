@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 import type { ModuleKey } from "../../config/module-keys";
 import { getModuleStateForCompany, resolveModuleAccess } from "../../middleware/require-module";
 import { DomainEventModel } from "./domain-event.model";
@@ -52,7 +52,7 @@ export const mongooseDomainEventWorkerRepository: DomainEventWorkerRepository = 
     const event: any = await DomainEventModel.findOneAndUpdate(
       { deliveries: { $elemMatch: due } },
       { $set: { "deliveries.$.status": "processing", "deliveries.$.leaseUntil": leaseUntil, "deliveries.$.claimToken": claimToken } },
-      { new: true, sort: { occurredAt: 1, _id: 1 } },
+      { returnDocument: 'after', sort: { occurredAt: 1, _id: 1 } },
     ).lean();
     if (!event) return null;
     const delivery = event.deliveries.find((item: any) => item.claimToken === claimToken);
