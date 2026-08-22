@@ -45,6 +45,12 @@ export async function renderRetailInvoicePdf(
     doc.once("end", () => resolve(Buffer.concat(chunks)));
     doc.once("error", reject);
   });
+  // Roboto chỉ có sẵn ký tự tiếng Việt dạng dựng sẵn (NFC), không có dấu tổ hợp (U+0302, U+031B...).
+  // Dữ liệu nhập từ macOS/iOS thường ở dạng NFD nên bị mất dấu trong PDF -> chuẩn hoá mọi chuỗi về NFC.
+  const writeText = doc.text.bind(doc);
+  (doc as any).text = (value: unknown, ...args: unknown[]) =>
+    writeText(typeof value === "string" ? value.normalize("NFC") : (value as any), ...(args as [any]));
+
   const regularFont = path.join(process.cwd(), "server", "assets", "fonts", "Roboto-Regular.ttf");
   const boldFont = path.join(process.cwd(), "server", "assets", "fonts", "Roboto-Bold.ttf");
   doc.registerFont("Roboto", regularFont);

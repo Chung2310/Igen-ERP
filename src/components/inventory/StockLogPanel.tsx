@@ -14,6 +14,7 @@ type DraftLine = {
   sku?: string;
   quantity: string;
   unitIdentifiers?: string[];
+  serialNumbers?: string[];
 };
 
 type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
@@ -28,7 +29,7 @@ type DraftPayload = {
   operatorName: string;
   notes: string;
   status: TransactionStatus;
-  items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+  items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   warehouseId?: string;
 };
 
@@ -83,9 +84,9 @@ function getTypeKey(type: StockLog["type"]) {
   return String(type).toLowerCase().startsWith("x") ? "outbound" : "inbound";
 }
 
-function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }> {
+function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
   const typedLog = log as StockLog & {
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
@@ -316,6 +317,7 @@ export function StockLogPanel({
           sku: item.sku,
           quantity: String(item.quantity),
           unitIdentifiers: item.unitIdentifiers || [],
+          serialNumbers: item.serialNumbers || [],
         };
       })
     );
@@ -373,7 +375,7 @@ export function StockLogPanel({
     }
 
     const normalizedItems = draftLines
-      .map((line) => {
+      .map((line, index) => {
         const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
         return {
           productId: line.productId,
@@ -381,6 +383,10 @@ export function StockLogPanel({
           productName: matchedProduct?.name || line.sku || "",
           quantity: Number(line.quantity),
           unitIdentifiers: line.unitIdentifiers,
+          serialNumbers: (() => {
+            const selected = line.unitIdentifiers?.map((identifier) => unitItemsByLine[index]?.find((unit) => unit.normalizedInternalBarcode === identifier)?.serialNumber).filter(Boolean) || [];
+            return selected.length ? selected : line.serialNumbers;
+          })(),
         };
       })
       .filter((line, index) => line.productId && (!outboundOnly || Boolean(draftLines[index]?.sku)) && Number.isFinite(line.quantity) && line.quantity > 0);
@@ -941,7 +947,8 @@ export function StockLogPanel({
                   <div>
                     <div className="font-bold text-slate-800">{item.productName}</div>
                     <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
-                    {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / mã vạch: {item.unitIdentifiers.join(", ")}</div> : null}
+                    {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / serial: {item.serialNumbers.join(", ")}</div> : null}
+                    {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-slate-500">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</div> : null}
                   </div>
                   <div className={`text-lg font-bold ${selectedLog.type === "nhập" ? "text-emerald-600" : "text-rose-600"}`}>
                     {selectedLog.type === "nhập" ? "+" : "-"}
