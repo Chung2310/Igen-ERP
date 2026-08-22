@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { repairExtras } from "../../services/repairService";
+import { toast } from "../../pages/Toast";
 
 const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 const date = (value?: string) => (value ? new Date(value).toLocaleString("vi-VN") : "—");
@@ -30,14 +31,13 @@ export default function RepairHistoryPanel() {
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
 
   const search = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!keyword.trim()) return;
-    setBusy(true); setError(""); setResult(null);
+    setBusy(true); setResult(null);
     try { setResult(mode === "imei" ? await repairExtras.historyByImei(keyword.trim()) : await repairExtras.historyByPhone(keyword.trim())); }
-    catch (e) { setError(e instanceof Error ? e.message : "Không tra cứu được lịch sử."); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Không tra cứu được lịch sử."); }
     finally { setBusy(false); }
   };
 
@@ -56,8 +56,6 @@ export default function RepairHistoryPanel() {
       <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={mode === "imei" ? "Nhập hoặc quét IMEI/serial" : "Nhập số điện thoại khách"} className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm" />
       <button disabled={busy} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Đang tra..." : "Tra cứu"}</button>
     </form>
-
-    {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
     {result?.kind === "device" && <div className="space-y-3">
       <div className="rounded-xl border p-4 text-sm">
