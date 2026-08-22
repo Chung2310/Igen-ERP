@@ -6,7 +6,6 @@ import { WorkerAttendanceService, WorkerAttendanceError } from "./worker-attenda
 import { getJwtAccessSecret } from "../../../config/env";
 import { emitToCompany } from "../../../socket";
 import { logger } from "../../../config/logger";
-import { calculateHaversineDistanceMeters } from "../utils/geo.util";
 
 export type WorkerQrReasonCode =
   | "session_invalid"
@@ -72,7 +71,9 @@ export const WorkerQrAttendanceService = {
       }
     }
 
-    const project = await WorkerProjectModel.findById(projectId);
+    // Phải giới hạn theo công ty, nếu không quản lý công ty này có thể mở phiên
+    // điểm danh trên dự án của công ty khác và lộ mã/tên dự án đó.
+    const project = await WorkerProjectModel.findOne({ _id: projectId, companyCode, deletedAt: null });
     if (!project) {
       throw new Error("Không tìm thấy dự án.");
     }
@@ -167,6 +168,11 @@ export const WorkerQrAttendanceService = {
     }
 
     const cleanPhone = (phone || "").replace(/\D/g, "");
+    // Không có SĐT lẫn thiết bị đã ghi nhớ thì phải dừng: truy vấn phone rỗng sẽ
+    // khớp nhầm bất kỳ hồ sơ nào chưa có số điện thoại.
+    if (!rememberedWorkerId && !cleanPhone) {
+      throw new WorkerQrCheckinError("worker_not_found", "Vui lòng nhập số điện thoại đã đăng ký.");
+    }
     if (fingerprint && cleanPhone) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== cleanPhone) {
@@ -201,28 +207,9 @@ export const WorkerQrAttendanceService = {
       throw new WorkerQrCheckinError("not_in_project", "Lao động không thuộc danh sách dự án này.");
     }
 
-    // GPS Range Check
-    let distanceMeters: number | undefined;
-    if (project.geoLocation?.latitude != null && project.geoLocation?.longitude != null) {
-      if (latitude == null || longitude == null) {
-        throw new WorkerQrCheckinError("missing_location", "Không lấy được vị trí GPS của bạn. Vui lòng cấp quyền định vị và thử lại.");
-      }
-      distanceMeters = calculateHaversineDistanceMeters(
-        latitude,
-        longitude,
-        project.geoLocation.latitude,
-        project.geoLocation.longitude
-      );
-      const radius = project.geoLocation.radiusMeters ?? 150;
-      if (distanceMeters > radius) {
-        throw new WorkerQrCheckinError(
-          "outside_radius",
-          `Bạn đang ở ngoài khu vực điểm danh cho phép (cách ${Math.round(distanceMeters)}m, giới hạn ${radius}m).`
-        );
-      }
-    }
-
-    // Record check-in / check-out
+    // Kiểm tra bán kính do WorkerAttendanceService.mark đảm nhiệm — trước đây chỗ
+    // này kiểm lại với bán kính mặc định 150m trong khi mark dùng 300m, nên lao
+    // động ở khoảng giữa bị từ chối dù dự án cho phép.
     let markResult;
     try {
       markResult = await WorkerAttendanceService.mark({
@@ -264,7 +251,7 @@ export const WorkerQrAttendanceService = {
       workerId: workerIdStr,
       companyCode: session.companyCode,
       workerName: worker.fullName,
-      distanceMeters,
+      distanceMeters: markResult.distanceMeters,
       kind: markResult.kind,
     };
   },

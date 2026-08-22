@@ -83,12 +83,20 @@ export default function PublicRegisterPage() {
   const [values, setValues] = useState<Record<string, string>>({ enrollmentDate: todayInputValue() });
   const [files, setFiles] = useState<Partial<Record<FileField, IUploadedFile>>>({});
   const [uploadingField, setUploadingField] = useState<FileField | null>(null);
+  const [partnerCode, setPartnerCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   const inputRefs = useRef<Partial<Record<FileField, HTMLInputElement | null>>>({});
 
   const entityLabel = ENTITY_LABEL_PRESETS[preset];
+  const isWorkerForm = preset === "worker";
+  // Hồ sơ lao động không có trường "Nguồn giới thiệu" dạng văn bản — nguồn giới thiệu
+  // của lao động là đối tác, nhập bằng mã bên dưới.
+  const visibleFields = useMemo(
+    () => (isWorkerForm ? fields.filter((field) => field.key !== "referral") : fields),
+    [fields, isWorkerForm],
+  );
 
   useEffect(() => {
     if (!teacherId) return;
@@ -159,6 +167,7 @@ export default function PublicRegisterPage() {
               entityPreset: "worker",
               ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
               ...(registrationBranchId ? { registrationBranchId } : {}),
+              ...(partnerCode.trim() ? { partnerCode: partnerCode.trim().toUpperCase() } : {}),
             }
           : {}),
       };
@@ -244,7 +253,7 @@ export default function PublicRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {fields.map((field) => (
+            {visibleFields.map((field) => (
               <div key={field.key} className={field.key === "address" ? "sm:col-span-2" : undefined}>
                 <label className={labelClass}>
                   {field.label}
@@ -261,6 +270,22 @@ export default function PublicRegisterPage() {
                 />
               </div>
             ))}
+            {isWorkerForm && (
+              <div>
+                <label className={labelClass}>Mã đối tác giới thiệu</label>
+                <input
+                  type="text"
+                  value={partnerCode}
+                  onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                  placeholder="Bỏ trống nếu bạn tự đăng ký"
+                  maxLength={50}
+                  className={inputClass}
+                />
+                <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  Nhập mã do người/đơn vị giới thiệu bạn cung cấp.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

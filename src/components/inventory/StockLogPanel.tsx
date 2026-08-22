@@ -5,6 +5,7 @@ import { inventoryReceivingService, type InventoryBalance, type Warehouse } from
 import { inventorySerialService, type InventorySerialUnit } from "../../services/inventorySerialService";
 import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
 import { StockOperatorPicker } from "./StockOperatorPicker";
+import { toast } from "../../pages/Toast";
 
 type DraftLine = {
   productId: string;
@@ -131,7 +132,6 @@ export function StockLogPanel({
   const [draftNotes, setDraftNotes] = useState("");
   const [draftStatus, setDraftStatus] = useState<TransactionStatus>("Đang chờ");
   const [draftLines, setDraftLines] = useState<DraftLine[]>([{ productId: "", quantity: "1" }]);
-  const [validationMessage, setValidationMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">(outboundOnly ? "outbound" : "all");
@@ -270,7 +270,6 @@ export function StockLogPanel({
     setDraftNotes("");
     setDraftStatus("Đang chờ");
     setDraftLines([{ productId: "", quantity: "1" }]);
-    setValidationMessage("");
     setUnitPickerIndex(null);
     setUnitPickerItems([]);
     setUnitPickerQuery("");
@@ -350,7 +349,11 @@ export function StockLogPanel({
 
   const submitDraft = async (event: React.FormEvent) => {
     event.preventDefault();
-    setValidationMessage("");
+
+    if (outboundOnly && !sourceWarehouseId) {
+      toast.error("Vui lòng chọn kho xuất.");
+      return;
+    }
 
     if (outboundOnly) {
       const invalidLine = draftLines.find((line, index) => {
@@ -358,7 +361,7 @@ export function StockLogPanel({
         return availableUnits?.length > 0 && (line.unitIdentifiers?.length || 0) !== Number(line.quantity);
       });
       if (invalidLine) {
-        setValidationMessage("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
+        toast.error("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
         return;
       }
     }
@@ -372,7 +375,7 @@ export function StockLogPanel({
       .filter((line, index) => line.productId && (!outboundOnly || Boolean(draftLines[index]?.sku)) && Number.isFinite(line.quantity) && line.quantity > 0);
 
     if (!draftTitle.trim() || !draftOperator.trim() || normalizedItems.length === 0) {
-      setValidationMessage("Vui lòng nhập tên phiếu, chọn người phụ trách và thêm ít nhất một sản phẩm.");
+      toast.error("Vui lòng nhập tên phiếu, chọn người phụ trách và thêm ít nhất một sản phẩm.");
       return;
     }
 
@@ -621,12 +624,7 @@ export function StockLogPanel({
               </button>
             </div>
 
-            <form className="space-y-5 p-6" onSubmit={submitDraft}>
-              {validationMessage && (
-                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                  {validationMessage}
-                </p>
-              )}
+            <form noValidate className="space-y-5 p-6" onSubmit={submitDraft}>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 {!outboundOnly && <button
                   type="button"

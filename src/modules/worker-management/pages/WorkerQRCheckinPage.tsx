@@ -12,15 +12,16 @@ import {
 // ─── Thông báo lỗi chuyên biệt cho lao động ──────────────────────────────────
 const REASON_MESSAGES: Record<string, string> = {
   session_invalid: "Phiên chấm công đã kết thúc hoặc mã QR không hợp lệ.",
-  replay: "Mã QR này đã được quét và sử dụng rồi.",
   device_conflict: "Thiết bị này đã được dùng để chấm công cho lao động khác.",
   worker_not_found:
     "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
-  student_not_found:
-    "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
-  not_in_batch: "Lao động không nằm trong danh sách dự án này.",
-  already_checked_in: "Bạn đã chấm công thành công trước đó rồi.",
+  not_in_project: "Bạn không nằm trong danh sách lao động của dự án này.",
+  project_not_found: "Không tìm thấy dự án của phiên chấm công này.",
+  missing_location:
+    "Dự án này yêu cầu vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt rồi thử lại.",
   outside_radius: "Bạn đang ở ngoài khu vực chấm công cho phép.",
+  too_soon: "Bạn vừa chấm công xong. Vui lòng đợi thêm vài phút rồi chấm giờ về.",
+  already_completed: "Hôm nay bạn đã chấm đủ giờ vào và giờ về cho dự án này.",
 };
 
 function mapReasonCode(reasonCode?: string, fallback?: string): string {
@@ -137,7 +138,7 @@ export default function WorkerQRCheckinPage() {
       try {
         setLoadingSession(true);
         const res = await fetch(
-          `/api/v1/worker-management/qr-attendance/session-info?token=${token}`
+          `/api/v1/worker-management/qr-attendance/session-info?token=${encodeURIComponent(token)}`
         );
         const data = await res.json();
         if (data.success && data.data) {
@@ -166,6 +167,9 @@ export default function WorkerQRCheckinPage() {
     try {
       const fingerprint = getDeviceFingerprint();
 
+      // Không phải dự án nào cũng khoanh vùng GPS. Cứ gửi lên khi lấy được vị trí,
+      // còn thiếu vị trí thì để máy chủ quyết định (dự án có khoanh vùng sẽ trả về
+      // missing_location), thay vì chặn cứng ngay tại đây.
       let latitude: number | undefined;
       let longitude: number | undefined;
       try {
@@ -173,12 +177,8 @@ export default function WorkerQRCheckinPage() {
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
       } catch {
-        setResult({
-          success: false,
-          error:
-            "Không lấy được vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt và thử lại.",
-        });
-        return;
+        latitude = undefined;
+        longitude = undefined;
       }
 
       const res = await fetch("/api/v1/worker-management/qr-attendance/checkin", {
