@@ -696,7 +696,7 @@ export const ProductCatalogService = {
     assertObjectId(id, "ID SKU");
     assertNoForbiddenCatalogFields(input);
     const value = input as Record<string, unknown>;
-    for (const immutableField of ["sku", "productId", "companyCode"]) {
+    for (const immutableField of ["productId", "companyCode"]) {
       if (Object.prototype.hasOwnProperty.call(value, immutableField)) throw new ProductCatalogValidationError(`${immutableField} không thể thay đổi sau khi tạo SKU.`);
     }
     const current = await ProductVariantModel.findOne({ _id: id, companyCode }).lean();
@@ -725,7 +725,7 @@ export const ProductCatalogService = {
       throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
     }
     await assertActiveUnit(companyCode, normalized.unitCode);
-    const update = { ...normalized, sku: current.sku, productId: current.productId, companyCode, updatedBy };
+    const update = { ...normalized, productId: current.productId, companyCode, updatedBy };
     const document = await ProductVariantModel.findOneAndUpdate({ _id: id, companyCode }, { $set: update }, { returnDocument: "after", runValidators: true }).lean();
     return document;
   },
