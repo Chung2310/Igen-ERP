@@ -46,6 +46,16 @@ describe("retail cart", () => {
     expect(state.quoteDirty).toBe(true);
   });
 
+  it("normalizes a negative order discount from a loaded draft", () => {
+    const state = retailCartReducer(empty, {
+      type: "load",
+      lines: [{ product, quantity: 1, discount: { type: "amount", value: 0 } }],
+      orderDiscount: { type: "amount", value: -5_000 },
+    });
+
+    expect(state.orderDiscount).toEqual({ type: "amount", value: 0 });
+  });
+
   it("marks the quote dirty when editing line and order adjustments", () => {
     const loaded = retailCartReducer(empty, { type: "add", product });
     const quoted = retailCartReducer(loaded, { type: "quote", quote: { subtotal: 100_000, grandTotal: 100_000 } });
