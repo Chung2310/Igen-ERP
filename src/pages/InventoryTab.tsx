@@ -386,6 +386,7 @@ export default function InventoryTab() {
     notes: string;
     status: TransactionStatus;
     items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+    warehouseId?: string;
   }) => {
     const resolvedItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
@@ -418,18 +419,6 @@ export default function InventoryTab() {
           throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
         }
       }
-
-      await Promise.all(
-        resolvedItems
-          .filter((item) => !item.isFallback)
-          .map((item) =>
-            inventoryProductService.updateProductStock(
-              item.product.id,
-              payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity,
-              activeBranchId
-            )
-          )
-      );
     }
 
     const logItems = resolvedItems.map((item) => ({
@@ -454,6 +443,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes || (payload.type === "nhập" ? "Phiếu nhập kho mới" : "Phiếu xuất kho mới"),
       status: payload.status,
+      warehouseId: payload.warehouseId,
     }, activeBranchId);
 
     toast.success(payload.type === "nhập" ? "Đã tạo phiếu nhập kho." : "Đã tạo phiếu xuất kho.");
@@ -470,6 +460,7 @@ export default function InventoryTab() {
     notes: string;
     status: TransactionStatus;
     items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+    warehouseId?: string;
   }) => {
     if (!payload.id) return;
 
@@ -559,16 +550,6 @@ export default function InventoryTab() {
       }
     }
 
-    if (adjustments.size > 0) {
-      await Promise.all(
-        Array.from(adjustments.entries()).map(async ([productId, delta]) => {
-          const product = products.find((entry) => entry.id === productId);
-          if (!product) return;
-          await inventoryProductService.updateProductStock(productId, product.stock + delta, activeBranchId);
-        })
-      );
-    }
-
     const logItems = normalizedNewItems.map((item) => ({
       productId: item.product.id,
       sku: item.product.sku,
@@ -591,6 +572,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes,
       status: payload.status,
+      warehouseId: payload.warehouseId,
     }, activeBranchId);
 
     toast.success("Đã cập nhật phiếu nhập xuất kho.");

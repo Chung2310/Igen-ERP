@@ -15,6 +15,7 @@ import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interfa
 import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
 import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
+import { writeStockMovement } from "../integrations/shared/stock-movement.service";
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
   if (!payload || typeof payload !== "object") {
@@ -380,10 +381,48 @@ export const crudService = {
     const preparedData = modelName === "stock-logs"
       ? await prepareStockLogPayload(data, companyCode, inventoryBranch!)
       : data;
+
+    if (modelName === "stock-logs") {
+      const isCompleted = preparedData.status === "Hoàn thành" || preparedData.status === "Thành công";
+      if (isCompleted) {
+        const sourceId = new mongoose.Types.ObjectId().toString();
+        preparedData._id = sourceId;
+        preparedData.idempotencyKey = preparedData.idempotencyKey || new mongoose.Types.ObjectId().toString();
+
+        await writeStockMovement({
+          companyCode,
+          branchId: inventoryBranch!,
+          direction: preparedData.type === "nhập" ? "in" : "out",
+          purpose: preparedData.type === "xuất"
+            ? (preparedData.purpose === "bán" ? "sale" : preparedData.purpose === "hủy" ? "cancel" : preparedData.purpose === "chuyển kho" ? "transfer" : "other")
+            : "other",
+          sourceType: "manual-stock-log",
+          sourceId,
+          sourceCode: preparedData.title,
+          idempotencyKey: preparedData.idempotencyKey,
+          operatorName: preparedData.operatorName,
+          items: preparedData.items.map((item: any) => ({
+            productId: item.productId,
+            sku: item.sku,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            unitCost: item.unitCost,
+            category: item.category,
+          })),
+          warehouseId: preparedData.warehouseId || data.warehouseId,
+          reason: preparedData.notes,
+          writeLegacyStockLog: false,
+        });
+      }
+    }
+
     const payload = {
       ...sanitizeInventoryPayload(modelName, preparedData),
       companyCode,
       ...(inventoryBranch ? { branchId: inventoryBranch } : {}),
+      ...(preparedData._id ? { _id: preparedData._id } : {}),
     };
 
     if (BRANCH_SCOPED_MODELS.has(modelName) && (branchId || data.branchId)) {
@@ -456,13 +495,46 @@ export const crudService = {
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     let preparedUpdatePayload = rawUpdatePayload;
     if (modelName === "stock-logs") {
-      const existingLog = await StockLogModel.findOne(query).select("items type purpose").lean();
+      const existingLog = await StockLogModel.findOne(query).select("items type purpose status title operatorName notes idempotencyKey").lean();
       preparedUpdatePayload = await prepareStockLogPayload(
         { ...rawUpdatePayload, type: rawUpdatePayload.type ?? existingLog?.type, purpose: rawUpdatePayload.purpose ?? existingLog?.purpose },
         companyCode,
         inventoryBranch!,
         existingLog?.items || [],
       );
+
+      const wasCompleted = existingLog && (existingLog.status === "Hoàn thành" || existingLog.status === "Thành công");
+      const isCompleted = preparedUpdatePayload.status === "Hoàn thành" || preparedUpdatePayload.status === "Thành công";
+      if (isCompleted && !wasCompleted && existingLog) {
+        preparedUpdatePayload.idempotencyKey = existingLog.idempotencyKey || new mongoose.Types.ObjectId().toString();
+
+        await writeStockMovement({
+          companyCode,
+          branchId: inventoryBranch!,
+          direction: (preparedUpdatePayload.type || existingLog.type) === "nhập" ? "in" : "out",
+          purpose: (preparedUpdatePayload.type || existingLog.type) === "xuất"
+            ? ((preparedUpdatePayload.purpose || existingLog.purpose) === "bán" ? "sale" : (preparedUpdatePayload.purpose || existingLog.purpose) === "hủy" ? "cancel" : (preparedUpdatePayload.purpose || existingLog.purpose) === "chuyển kho" ? "transfer" : "other")
+            : "other",
+          sourceType: "manual-stock-log",
+          sourceId: existingLog._id.toString(),
+          sourceCode: preparedUpdatePayload.title || existingLog.title,
+          idempotencyKey: preparedUpdatePayload.idempotencyKey,
+          operatorName: preparedUpdatePayload.operatorName || existingLog.operatorName,
+          items: (preparedUpdatePayload.items || existingLog.items || []).map((item: any) => ({
+            productId: item.productId,
+            sku: item.sku,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            unitCost: item.unitCost,
+            category: item.category,
+          })),
+          warehouseId: preparedUpdatePayload.warehouseId || data.warehouseId,
+          reason: preparedUpdatePayload.notes || existingLog.notes,
+          writeLegacyStockLog: false,
+        });
+      }
     }
     const updatePayload = sanitizeInventoryPayload(modelName, preparedUpdatePayload);
     if ((modelName === "timekeeping-logs" || BRANCH_SCOPED_MODELS.has(modelName)) && data.branchId) {

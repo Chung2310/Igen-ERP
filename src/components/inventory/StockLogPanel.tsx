@@ -29,6 +29,7 @@ type DraftPayload = {
   notes: string;
   status: TransactionStatus;
   items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+  warehouseId?: string;
 };
 
 type StockLogPanelProps = {
@@ -399,6 +400,7 @@ export function StockLogPanel({
       notes: draftNotes.trim(),
       status: draftStatus,
       items: normalizedItems,
+      warehouseId: sourceWarehouseId || undefined,
     };
 
     try {

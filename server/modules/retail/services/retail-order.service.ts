@@ -13,7 +13,7 @@ import { RetailOrderCounterModel } from "../models/retail-order-counter.model";
 import { RetailIdempotencyModel } from "../models/retail-idempotency.model";
 import { RetailInvoiceModel } from "../models/retail-invoice.model";
 import { getBillingProfile, getCustomerBrief } from "../../customer-management/contracts";
-import { calculateOrderTotals } from "./retail-pricing.service";
+import { calculateOrderTotals, toDiscountInput } from "./retail-pricing.service";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 import { applyOrderStockOut, revertOrderStock } from "./retail-stock.service";
 import { issueRetailInvoice } from "./retail-invoice.service";
@@ -154,7 +154,7 @@ export function snapshotRetailProductForPricing(product: any, item: any) {
     quantity: Number(item.quantity), unitPrice: Number(product.price || 0), unitCost: Number(product.costPrice || 0),
     ...(product.trackingMode ? { trackingMode: product.trackingMode } : item.trackingMode ? { trackingMode: item.trackingMode } : {}),
     ...(product.variantId || item.variantId ? { variantId: String(product.variantId || item.variantId) } : {}),
-    ...(Array.isArray(item.serialNumbers) ? { serialNumbers: item.serialNumbers } : {}), discount: item.discount,
+    ...(Array.isArray(item.serialNumbers) ? { serialNumbers: item.serialNumbers } : {}), discount: toDiscountInput(item.discount ?? item.discountAmount),
     ...(Array.isArray(item.internalBarcodes) ? { internalBarcodes: item.internalBarcodes } : {}),
     note: text(item.note) || undefined,
   };
@@ -182,7 +182,7 @@ async function priceInput(scope: RetailBranchScope, input: any) {
   if (byId.size !== new Set(ids).size) throw new Error("SKU không thuộc danh mục đang bán.");
   const items = rawItems.map((item: any) => { const variant: any = byId.get(String(item.productId)); const product: any = productById.get(String(variant.productId)); const price: any = priceById.get(String(variant._id)); const balance: any = balanceById.get(String(variant._id)); if (!product || !price) throw new Error("Sản phẩm chưa được khai báo giá bán."); const available = Number(balance?.quantity || 0) - Number(balance?.reservedQuantity || 0); if (available < Number(item.quantity)) throw new Error(`Tồn kho của ${product.name} không đủ.`); return { product: { _id: variant._id, sku: variant.sku, name: product.name, unit: variant.unitCode, category: product.categoryCode, brand: product.brandCode, price: price.sellingPrice, costPrice: price.costPrice, trackingMode: variant.trackingMode, variantId: variant._id }, item }; }).map(({ product, item }: any) => snapshotRetailProductForPricing(product, item));
   validateRetailSerialItems(items);
-  return { settings, pricing: calculateOrderTotals({ items, orderDiscount: input.orderDiscount || { type: "amount", value: 0 }, taxRate: input.taxRate === undefined ? settings.defaultTaxRate : Number(input.taxRate), shippingFee: Number(input.shippingFee || 0), maxDiscountPercent: settings.maxDiscountPercent }) };
+  return { settings, pricing: calculateOrderTotals({ items, orderDiscount: toDiscountInput(input.orderDiscount) || { type: "amount", value: 0 }, taxRate: input.taxRate === undefined ? settings.defaultTaxRate : Number(input.taxRate), shippingFee: Number(input.shippingFee || 0), maxDiscountPercent: settings.maxDiscountPercent }) };
 }
 
 function snapshotPayment(item: any, shift: any, actor: any) { return { ...item, paidAt: new Date(), receivedBy: actorId(actor), receivedByName: actorName(actor), shiftId: String(shift._id), businessDate: shift.businessDate }; }

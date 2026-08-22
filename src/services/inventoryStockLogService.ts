@@ -15,6 +15,7 @@ export type StockLogCreateInput = {
   productName: string;
   quantity: number;
   createdAt?: string;
+  warehouseId?: string;
 };
 
 export type StockLogUpdateInput = StockLogCreateInput & { id: string };
@@ -101,6 +102,7 @@ export const inventoryStockLogService = {
           notes: input.notes,
           status: input.status,
           createdAt: toIsoDateString(input.createdAt),
+          warehouseId: input.warehouseId,
         }),
       });
 
@@ -143,6 +145,7 @@ export const inventoryStockLogService = {
           notes: input.notes,
           status: input.status,
           updatedAt: new Date().toLocaleString("vi-VN"),
+          warehouseId: input.warehouseId,
         }),
       });
 
