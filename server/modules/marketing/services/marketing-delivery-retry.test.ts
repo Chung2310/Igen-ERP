@@ -13,7 +13,8 @@ vi.mock("../models/marketing-delivery.model", () => ({
     updateOne: mocks.updateOne,
   },
 }));
-vi.mock("./marketing-invoice-attachment.service", () => ({
+vi.mock("./marketing-invoice-attachment.service", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   resolveMarketingAttachments: mocks.resolveMarketingAttachments,
 }));
 vi.mock("./marketing-channels", () => ({
@@ -72,6 +73,13 @@ describe("retryDelivery attachments", () => {
     await retryDelivery("igen", "delivery-1");
     expect(mocks.resolveMarketingAttachments).not.toHaveBeenCalled();
     expect(mocks.send.mock.calls[0][1]).not.toHaveProperty("attachments");
+  });
+
+  it("dựng lại attachment cho tin cảm ơn lưu trước khi có trường attachmentRef", async () => {
+    mocks.findOneAndUpdate.mockReturnValue({ lean: async () => failedDelivery({ attachmentRef: null, automationType: "thank_you", idempotencyKey: "IGEN:thank_you:order-9:email" }) });
+    await expect(retryDelivery("igen", "delivery-1")).resolves.toEqual({ status: "sent" });
+    expect(mocks.resolveMarketingAttachments).toHaveBeenCalledWith("igen", { kind: "retail-invoice", orderId: "order-9", branchId: "" });
+    expect(mocks.send.mock.calls[0][1]).toHaveProperty("attachments");
   });
 
   it("không dựng attachment cho kênh không hỗ trợ", async () => {

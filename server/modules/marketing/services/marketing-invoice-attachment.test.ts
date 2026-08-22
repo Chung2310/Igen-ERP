@@ -11,7 +11,7 @@ vi.mock("../../retail/models/retail-invoice.model", () => ({ RetailInvoiceModel:
 vi.mock("../../retail/services/retail-settings.service", () => ({ getResolvedRetailSettings: mocks.getSettings }));
 vi.mock("../../retail/services/retail-invoice-pdf.service", () => ({ renderRetailInvoicePdf: mocks.renderPdf }));
 
-const { MARKETING_ATTACHMENT_MAX_BYTES, resolveMarketingAttachments } = await import("./marketing-invoice-attachment.service");
+const { MARKETING_ATTACHMENT_MAX_BYTES, attachmentRefForDelivery, resolveMarketingAttachments } = await import("./marketing-invoice-attachment.service");
 
 describe("marketing invoice attachment", () => {
   beforeEach(() => {
@@ -44,5 +44,23 @@ describe("marketing invoice attachment", () => {
   it("bỏ qua reference không nhận diện để email retry không bị chặn", async () => {
     await expect(resolveMarketingAttachments("igen", { kind: "unknown" } as any)).resolves.toEqual([]);
     expect(mocks.consoleError).toHaveBeenCalled();
+  });
+});
+
+describe("attachmentRefForDelivery", () => {
+  it("keeps the stored ref when the delivery already has one", () => {
+    const ref = { kind: "retail-invoice", orderId: "O1", branchId: "B1" };
+    expect(attachmentRefForDelivery({ automationType: "thank_you", attachmentRef: ref, idempotencyKey: "ACME:thank_you:O9:email" })).toBe(ref);
+  });
+
+  it("rebuilds the ref for thank-you rows written before attachmentRef existed", () => {
+    expect(attachmentRefForDelivery({ automationType: "thank_you", attachmentRef: null, idempotencyKey: "ACME:thank_you:6512ab34cd:email" }))
+      .toEqual({ kind: "retail-invoice", orderId: "6512ab34cd", branchId: "" });
+  });
+
+  it("does not invent a ref for automations that have no invoice", () => {
+    expect(attachmentRefForDelivery({ automationType: "birthday", attachmentRef: null, idempotencyKey: "ACME:birthday:C1:2026-08-22:email" })).toBeNull();
+    expect(attachmentRefForDelivery({ automationType: "thank_you", attachmentRef: null, idempotencyKey: "rác" })).toBeNull();
+    expect(attachmentRefForDelivery({ automationType: "thank_you", attachmentRef: null })).toBeNull();
   });
 });

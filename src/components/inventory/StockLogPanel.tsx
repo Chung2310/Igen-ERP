@@ -941,22 +941,49 @@ export function StockLogPanel({
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {getLogItems(selectedLog).map((item, index) => (
-                <div key={`${item.sku}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-3">
-                  <div>
-                    <div className="font-bold text-slate-800">{item.productName}</div>
-                    <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
-                    {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / serial: {item.serialNumbers.join(", ")}</div> : null}
-                    {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-slate-500">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</div> : null}
-                  </div>
-                  <div className={`text-lg font-bold ${selectedLog.type === "nhập" ? "text-emerald-600" : "text-rose-600"}`}>
-                    {selectedLog.type === "nhập" ? "+" : "-"}
-                    {formatNumber(item.quantity)}
-                  </div>
+            {selectedLog.type === "xuất" ? (
+              <section className="mt-4">
+                <h4 className="mb-3 text-base font-bold text-slate-800">Hàng xuất</h4>
+                <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                  <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Sản phẩm</th>
+                        <th className="px-4 py-3">SKU</th>
+                        <th className="px-4 py-3 text-right">SL xuất</th>
+                        <th className="px-4 py-3">IMEI / Serial</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {getLogItems(selectedLog).map((item, index) => (
+                        <tr key={`${item.sku}-${index}`}>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{item.productName}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td>
+                          <td className="px-4 py-3 text-right font-bold text-rose-600">{formatNumber(item.quantity)}</td>
+                          <td className="px-4 py-3 text-xs text-cyan-800">
+                            {item.serialNumbers?.length ? item.serialNumbers.join(", ") : item.unitIdentifiers?.length ? <span className="text-slate-600">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</span> : <span className="text-slate-400">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
+              </section>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {getLogItems(selectedLog).map((item, index) => (
+                  <div key={`${item.sku}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-3">
+                    <div>
+                      <div className="font-bold text-slate-800">{item.productName}</div>
+                      <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
+                      {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / serial: {item.serialNumbers.join(", ")}</div> : null}
+                      {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-slate-500">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</div> : null}
+                    </div>
+                    <div className="text-lg font-bold text-emerald-600">+{formatNumber(item.quantity)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 rounded-2xl border border-gray-200 p-4 text-sm text-gray-600">
               <div className="font-semibold text-slate-800">Ghi chú</div>
