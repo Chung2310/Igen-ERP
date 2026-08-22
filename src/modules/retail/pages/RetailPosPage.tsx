@@ -9,6 +9,7 @@ import CustomerPicker from "../components/pos/CustomerPicker";
 import DiscountInput from "../components/pos/DiscountInput";
 import HeldDraftsBar from "../components/pos/HeldDraftsBar";
 import OrderAdjustments from "../components/pos/OrderAdjustments";
+import { QuantityInput } from "../components/pos/QuantityInput";
 import PaymentDialog from "../components/pos/PaymentDialog";
 import PosShortcutHelp from "../components/pos/PosShortcutHelp";
 import ScanFeedback, {
@@ -729,18 +730,11 @@ function CartPanel({
                   {money(line.product.price)}
                 </p>
               </div>
-              <input
-                aria-label={`Số lượng ${line.product.name}`}
-                className="w-16 rounded-lg border px-2 py-1"
-                type="number"
-                min="0"
+              <QuantityInput
+                ariaLabel={`Số lượng ${line.product.name}`}
                 value={line.quantity}
-                onChange={(event) =>
-                  dispatch({
-                    type: "quantity",
-                    productId: line.product._id,
-                    quantity: Number(event.target.value),
-                  })
+                onQuantityChange={(quantity) =>
+                  dispatch({ type: "quantity", productId: line.product._id, quantity })
                 }
               />
               <button
