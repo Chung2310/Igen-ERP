@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import type { Express } from "express";
 import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
@@ -126,7 +126,7 @@ export async function uploadOwnerAttachment(
   const updated = await RecruitmentAttachmentModel.findOneAndUpdate(
     { _id: existing._id, ...scope, ownerType, ownerId, isDeleted: false, version: expectedVersion },
     { $set: metadata, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!updated) {
     await cloudinaryService.deleteRawAsset(asset.publicId).catch(() => undefined);
@@ -160,7 +160,7 @@ export async function deleteApplicantAttachment(scope: RecruitmentScope, attachm
   const attachment: any = await RecruitmentAttachmentModel.findOneAndUpdate(
     { _id: attachmentId, ...scope, isDeleted: false },
     { $set: { isDeleted: true, deletedAt, deletedBy: actorId }, $inc: { version: 1 } },
-    { new: true },
+    { returnDocument: 'after' },
   );
   if (!attachment) throw new Error("Attachment not found");
   await resourceIndexingService.trashSourceResource(

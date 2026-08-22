@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { BranchModel } from "../../../model/branch.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
 
@@ -20,7 +20,7 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
   const createQuery = WarehouseModel.findOneAndUpdate(
     { companyCode: normalizedCompanyCode, branchId, isDefault: true },
     { $setOnInsert: { companyCode: normalizedCompanyCode, branchId, code: `KHO-${branchCode}`, name: `Kho bán hàng - ${branch?.name || branchId}`, kind: "selling", isDefault: true, isActive: true } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
   if (session) createQuery.session(session);
   try {

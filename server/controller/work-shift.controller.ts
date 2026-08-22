@@ -1,4 +1,4 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { ShiftAssignmentModel, WorkShiftModel } from "../model/work-shift.model";
 import { UserModel } from "../model/user.model";
@@ -43,7 +43,7 @@ export const workShiftController = {
     payload.crossesMidnight = payload.crossesMidnight ?? end <= start;
     payload.standardMinutes = payload.standardMinutes || calculateStandardMinutes(start, end, breaks as any);
     if (payload.isDefault) await WorkShiftModel.updateMany({ companyCode, _id: { $ne: existing._id }, isDefault: true }, { $set: { isDefault: false } });
-    const data = await WorkShiftModel.findOneAndUpdate({ _id: existing._id, companyCode }, { $set: payload }, { new: true, runValidators: true });
+    const data = await WorkShiftModel.findOneAndUpdate({ _id: existing._id, companyCode }, { $set: payload }, { returnDocument: 'after', runValidators: true });
     return res.json({ status: "success", data });
   },
 

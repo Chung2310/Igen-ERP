@@ -1,4 +1,4 @@
-import { CompanyModel } from "../../../model/company.model";
+﻿import { CompanyModel } from "../../../model/company.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import type { MarketingAutomationType } from "../permissions";
 import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingAttachment, type MarketingChannelAdapter } from "./marketing-channels";
@@ -86,7 +86,7 @@ export async function retryDelivery(companyCode: string, deliveryId: string) {
   const delivery: any = await MarketingDeliveryModel.findOneAndUpdate(
     { _id: deliveryId, companyCode: companyCode.toUpperCase(), status: "failed", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
     { $set: { status: "sending" }, $inc: { attempt: 1 } },
-    { new: true },
+    { returnDocument: 'after' },
   ).lean();
   if (!delivery) throw new Error("MARKETING_DELIVERY_NOT_RETRYABLE");
 

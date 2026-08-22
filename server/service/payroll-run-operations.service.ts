@@ -1,4 +1,4 @@
-import mongoose, { type ClientSession } from "mongoose";
+﻿import mongoose, { type ClientSession } from "mongoose";
 import type {
   PayrollAttendanceEmployeeSnapshot,
   PayrollIssue,
@@ -199,7 +199,7 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
           $setOnInsert: { ...scope },
           $inc: { revision: 1 },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true, ...(session && { session }) },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, ...(session && { session }) },
       );
       let overlapQuery: any = PayrollRunModel.findOne(regularOverlapFilter(scope, input));
       if (session) overlapQuery = overlapQuery.session(session);
@@ -290,7 +290,7 @@ export async function syncAttendance(
     const rows: any[] = await attendanceQuery.lean();
     const employees = rows.map(normalizeAttendance);
     const issues = attendanceIssues(runId, rows);
-    const updateOptions = { new: true, runValidators: true, ...(session && { session }) };
+    const updateOptions = { returnDocument: 'after', runValidators: true, ...(session && { session }) };
     const updated: any = await PayrollRunModel.findOneAndUpdate(
       { _id: runId, ...scope, status: "draft", version: expectedVersion },
       { $set: { issues }, $inc: { version: 1 } },
@@ -369,7 +369,7 @@ export async function lockAttendance(
       throw new PayrollOperationError("PAYROLL_ATTENDANCE_NOT_SYNCED", "Synchronize attendance before locking", 409);
     }
 
-    const updateOptions = { new: true, runValidators: true, ...(session && { session }) };
+    const updateOptions = { returnDocument: 'after', runValidators: true, ...(session && { session }) };
     const updated: any = await PayrollRunModel.findOneAndUpdate(
       { _id: runId, ...scope, status: "draft", version: expectedVersion },
       { $inc: { version: 1 } },

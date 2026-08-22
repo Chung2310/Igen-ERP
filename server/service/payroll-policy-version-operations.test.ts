@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   find: vi.fn(), findOne: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), create: vi.fn(), deleteOne: vi.fn(),
@@ -65,7 +65,7 @@ describe("payroll policy version operations", () => {
     expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 2 }),
       { $set: definition, $inc: { version: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
   });
 
@@ -75,7 +75,7 @@ describe("payroll policy version operations", () => {
     expect(mocks.findOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ _id: "p1", companyCode: "ACME", status: { $in: ["draft", "active"] }, version: 3 }),
       { $set: definition, $inc: { version: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
   });
 

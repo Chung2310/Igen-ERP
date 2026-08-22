@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import {
@@ -127,7 +127,7 @@ export const repairReviewEffectivePayrollSnapshot = createPayrollEffectiveSnapsh
   updateRun: async (scope, runId, expectedVersion, snapshot, session) => PayrollRunModel.findOneAndUpdate(
     { _id: runId, ...scope, status: "review", version: expectedVersion },
     { $set: { effectiveSnapshot: snapshot }, $inc: { version: 1 } },
-    { new: true, ...(session ? { session } : {}) },
+    { returnDocument: 'after', ...(session ? { session } : {}) },
   ).lean(),
   verifyRun: verifyEffectivePayrollSnapshot,
   createAudit: async (entry, session) => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
 
 const permissionGuards = vi.hoisted(() => new Map<any, string | string[]>());
@@ -341,7 +341,7 @@ describe("payroll run operations", () => {
         $set: { issues: [expect.objectContaining({ code: "ATTENDANCE_APPROVAL_PENDING", severity: "blocking" })] },
         $inc: { version: 1 },
       }),
-      expect.objectContaining({ new: true, runValidators: true }),
+      expect.objectContaining({ returnDocument: 'after', runValidators: true }),
     );
     expect(result.job.status).toBe("succeeded");
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ action: "sync_attendance" }));
@@ -449,7 +449,7 @@ describe("payroll run operations", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, status: "draft", version: 1 },
       { $inc: { version: 1 } },
-      expect.objectContaining({ new: true, runValidators: true }),
+      expect.objectContaining({ returnDocument: 'after', runValidators: true }),
     );
     expect(result.run.version).toBe(2);
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({

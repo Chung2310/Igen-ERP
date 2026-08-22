@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
 
 const mocks = vi.hoisted(() => ({
@@ -140,7 +140,7 @@ describe("payroll calculate endpoint", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, version: 1, status: "draft" },
       { $set: { activeRevisionId: "revision-2", activeRevisionChecksum: expect.stringMatching(/^[0-9a-f]{64}$/) }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({ action: "calculate", branchId: "branch-a" }));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success" }));
@@ -369,7 +369,7 @@ describe("payroll calculate endpoint", () => {
     expect(mocks.revisionFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "revision-2", ...scope },
       { $set: expect.objectContaining({ status: "failed" }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
   });

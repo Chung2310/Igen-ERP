@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { requirePermission } from "../../middleware/auth";
 import { retailScopeFromRequest } from "../retail/contracts";
 import { RepairTicketModel } from "./repair-ticket.model";
@@ -91,7 +91,7 @@ repairRouter.put("/settings/notifications", manage, async (req, res, next) => { 
     return [event, { enabled: value.enabled !== false, subject: String(value.subject || ""), html: String(value.html || "") }];
   }));
   const notifyChannels = Array.isArray(req.body?.notifyChannels) ? req.body.notifyChannels.map(String) : undefined;
-  const data = await RepairSettingsModel.findOneAndUpdate({ companyCode }, { $set: { companyCode, ...(notifyChannels ? { notifyChannels } : {}), ...(Object.keys(templates).length ? { templates } : {}), updatedBy: actor(req).id } }, { new: true, upsert: true }).lean();
+  const data = await RepairSettingsModel.findOneAndUpdate({ companyCode }, { $set: { companyCode, ...(notifyChannels ? { notifyChannels } : {}), ...(Object.keys(templates).length ? { templates } : {}), updatedBy: actor(req).id } }, { returnDocument: 'after', upsert: true }).lean();
   return res.json({ success: true, data });
 } catch (error) { next(error); } });
 

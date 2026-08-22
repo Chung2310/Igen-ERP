@@ -1,4 +1,4 @@
-import { PermissionModel } from "../model/permission.model";
+﻿import { PermissionModel } from "../model/permission.model";
 import { IPermission } from "../interface/permission.interface";
 
 export const permissionService = {
@@ -48,7 +48,7 @@ export const permissionService = {
     return await PermissionModel.findOneAndUpdate(
       { code },
       { $set: data },
-      { new: true }
+      { returnDocument: 'after' }
     );
   },
 

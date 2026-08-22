@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { SerialUnitModel } from "../../inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../../inventory/serials/serial-event.model";
 import { normalizeSerialNumber } from "../../inventory/serials/serial-state";
@@ -42,7 +42,7 @@ export async function claimSerialsForOrder(scope: RetailBranchScope, items: Arra
       const claimed = await SerialUnitModel.findOneAndUpdate(
         { companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(defaultWarehouse._id), productId: serialProductId, ...(item.variantId ? { variantId: item.variantId } : {}), [identifier.field]: identifier.normalized, status: "in_stock" },
         { $set: { status: "sold", currentDocumentType: "retail-order", currentDocumentId: orderId, customerId, updatedBy: actorId, soldAt, soldOrderId: orderId, soldOrderCode: orderCode, soldBranchId: scope.branchId, ...(customerMonths > 0 ? { customerWarranty: { months: customerMonths, startAt: soldAt, endAt: computeWarrantyEnd(soldAt, customerMonths), source: "variant" } } : {}) } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!claimed) throw Object.assign(new Error(`Mã định danh ${identifier.normalized} không còn khả dụng.`), { statusCode: 409, code: "UNIT_NOT_AVAILABLE" });
       applyClaimedSerialToOrderItem(item, claimed, soldAt, customerMonths);
@@ -55,7 +55,7 @@ export async function releaseSerialsForOrder(scope: RetailBranchScope, orderId: 
   const serials = await SerialUnitModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, currentDocumentType: "retail-order", currentDocumentId: orderId, status: "sold" }).session(session).lean();
   for (const serial of serials) {
     const released = await SerialUnitModel.findOneAndUpdate({ _id: serial._id, status: "sold" }, { $set: { status: "in_stock", updatedBy: actorId }, // Máy quay lại kho thì mọi dấu vết đã bán phải sạch, nếu không sẽ còn bảo hành khách của đơn đã hủy.
-      $unset: { currentDocumentType: 1, currentDocumentId: 1, customerId: 1, customerWarranty: 1, soldAt: 1, soldOrderId: 1, soldOrderCode: 1, soldBranchId: 1 } }, { new: true, session });
+      $unset: { currentDocumentType: 1, currentDocumentId: 1, customerId: 1, customerWarranty: 1, soldAt: 1, soldOrderId: 1, soldOrderCode: 1, soldBranchId: 1 } }, { returnDocument: 'after', session });
     if (!released) continue;
     await SerialEventModel.create([{ companyCode: scope.companyCode, branchId: scope.branchId, serialUnitId: String(serial._id), serialNumber: serial.serialNumber, eventType: "sale_cancelled", fromStatus: "sold", toStatus: "in_stock", documentType: "retail-order", documentId: orderId, actorId, actorName }], { session });
   }

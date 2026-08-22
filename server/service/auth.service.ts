@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+﻿import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { UserModel } from "../model/user.model";
@@ -274,7 +274,7 @@ export const authService = {
    */
   async updateProfile(id: string, updateData: any): Promise<IUser | null> {
     const safeUpdateData = pickSelfServiceProfileUpdate(updateData);
-    return await UserModel.findByIdAndUpdate(id, { $set: safeUpdateData }, { new: true }).select("-password");
+    return await UserModel.findByIdAndUpdate(id, { $set: safeUpdateData }, { returnDocument: 'after' }).select("-password");
   },
 
   /**
@@ -786,7 +786,7 @@ export const authService = {
       }
     }
 
-    return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select("-password");
+    return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { returnDocument: 'after' }).select("-password");
   },
 
   /**

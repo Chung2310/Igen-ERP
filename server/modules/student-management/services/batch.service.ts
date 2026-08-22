@@ -1,4 +1,4 @@
-import { Batch } from "../models/batch.model";
+﻿import { Batch } from "../models/batch.model";
 import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
@@ -582,7 +582,7 @@ export class BatchService {
       const updated = await Batch.findOneAndUpdate(
         { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
         { $set: persistData, $inc: { __v: 1 } },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       );
       if (!updated) throw new CustomFieldWriteConflictError();
       saved = updated;

@@ -1,4 +1,4 @@
-import { Course } from "../models/course.model";
+﻿import { Course } from "../models/course.model";
 import { ICourse } from "../interfaces/course.interface";
 import { BatchService } from "./batch.service";
 import { logger } from "../config/logger";
@@ -121,7 +121,7 @@ export class CourseService {
     const updated = await Course.findOneAndUpdate(
       { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: normalizedData, $inc: { __v: 1 } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!updated) throw new CustomFieldWriteConflictError();
     await customFieldResourceService.finalizeEntity(targetContext, updated);

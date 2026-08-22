@@ -1,4 +1,4 @@
-import { PayrollAuditModel } from "../model/payroll-audit.model";
+﻿import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollOperationError, type PayrollOperationScope } from "./payroll-run-operations.service";
@@ -24,7 +24,7 @@ const withSession = (query: any, session?: ClientSession) => (
 );
 
 const writeOptions = (session?: ClientSession) => (
-  session ? { new: true, session } : { new: true }
+  session ? { returnDocument: 'after', session } : { returnDocument: 'after' }
 );
 
 async function settlementFor(

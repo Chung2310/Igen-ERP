@@ -1,4 +1,4 @@
-import { PayrollAuditModel } from "../model/payroll-audit.model";
+﻿import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
@@ -23,7 +23,7 @@ const withSession = (query: any, session?: ClientSession) => (
 );
 
 const writeOptions = (session?: ClientSession) => (
-  session ? { new: true, session } : { new: true }
+  session ? { returnDocument: 'after', session } : { returnDocument: 'after' }
 );
 
 async function createAudit(document: any, session?: ClientSession) {

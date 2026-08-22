@@ -15,6 +15,9 @@ const CustomerSchema = new Schema<ICustomer>({
   notes: { type: String, trim: true },
   status: { type: String, enum: ["active", "inactive"], default: "active", required: true },
   source: { type: String, enum: ["manual", "pos", "import"], default: "manual", required: true },
+  tier: { type: { code: { type: String, required: true }, name: { type: String, required: true }, minSpend: { type: Number, required: true, min: 0 } }, _id: false, default: undefined },
+  tierTotalSales: { type: Number, min: 0 },
+  tierUpdatedAt: Date,
   createdBy: { type: String, required: true },
   createdByName: { type: String, required: true },
   version: { type: Number, default: 0, required: true, min: 0 },
@@ -24,5 +27,6 @@ CustomerSchema.index({ companyCode: 1, customerCode: 1 }, { unique: true });
 CustomerSchema.index({ companyCode: 1, normalizedPhone: 1 }, { unique: true });
 CustomerSchema.index({ companyCode: 1, status: 1, name: 1 });
 CustomerSchema.index({ companyCode: 1, type: 1, createdAt: -1 });
+CustomerSchema.index({ companyCode: 1, "tier.code": 1 });
 
 export const CustomerModel = model<ICustomer>("Customer", CustomerSchema);

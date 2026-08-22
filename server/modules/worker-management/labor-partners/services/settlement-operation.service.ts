@@ -1,4 +1,4 @@
-import { LaborPartnerSettlementModel } from "../models/settlement.model";
+﻿import { LaborPartnerSettlementModel } from "../models/settlement.model";
 import { LaborPartnerCommissionLineModel } from "../models/commission-line.model";
 import { LaborPartnerPayoutModel } from "../models/payout.model";
 import { LaborPartnerError, actorSnapshot, normalizeVnd, requiredObjectId, scopeQuery, type LaborPartnerScope } from "../contracts";
@@ -33,7 +33,7 @@ export const LaborPartnerSettlementOperationService = {
     if (!Number.isInteger(version) || version < 1) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Thiếu phiên bản đối soát để hủy.", 409);
     let settlement: any;
     await runInTransaction(async (session) => {
-      const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] }, paidAmount: 0, version }, { $set: { status: "void", balanceAmount: 0, voidReason: String(reason || "").trim(), approvedBy: actorSnapshot(actor), approvedAt: new Date() }, $inc: { version: 1 } }, { new: true });
+      const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] }, paidAmount: 0, version }, { $set: { status: "void", balanceAmount: 0, voidReason: String(reason || "").trim(), approvedBy: actorSnapshot(actor), approvedAt: new Date() }, $inc: { version: 1 } }, { returnDocument: 'after' });
       if (session) query.session(session);
       settlement = await query;
       if (!settlement) throw new LaborPartnerError("SETTLEMENT_NOT_EDITABLE", "Chỉ có thể hủy kỳ chưa duyệt, chưa có chi trả và chưa bị thay đổi.", 409);
@@ -49,7 +49,7 @@ export const LaborPartnerSettlementOperationService = {
     if (!Number.isInteger(version) || version < 1) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Thiếu phiên bản đối soát để duyệt.", 409);
     let settlement: any;
     await runInTransaction(async (session) => {
-      const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: id, ...scopeQuery(scope), status: "calculated", version }, { $set: { status: "approved", approvedBy: actorSnapshot(actor), approvedAt: new Date() }, $inc: { version: 1 } }, { new: true });
+      const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: id, ...scopeQuery(scope), status: "calculated", version }, { $set: { status: "approved", approvedBy: actorSnapshot(actor), approvedAt: new Date() }, $inc: { version: 1 } }, { returnDocument: 'after' });
       if (session) query.session(session);
       settlement = await query;
       if (!settlement) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Kỳ đối soát đã thay đổi hoặc chưa sẵn sàng duyệt. Vui lòng tải lại.", 409);

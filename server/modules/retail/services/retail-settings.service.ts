@@ -1,4 +1,4 @@
-import type { RetailBranchScope } from "../contracts";
+﻿import type { RetailBranchScope } from "../contracts";
 import type { IRetailSettings, RetailSettingsValues } from "../interfaces/retail-settings.interface";
 import { RetailSettingsModel } from "../models/retail-settings.model";
 
@@ -109,7 +109,7 @@ export async function updateRetailSettings(
   const stored = await RetailSettingsModel.findOneAndUpdate(
     scope,
     { $set: values, $setOnInsert: scope },
-    { new: true, upsert: true, runValidators: true },
+    { returnDocument: 'after', upsert: true, runValidators: true },
   ).lean();
   return resolveRetailSettings(scope, stored);
 }

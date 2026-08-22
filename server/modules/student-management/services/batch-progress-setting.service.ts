@@ -1,4 +1,4 @@
-import { BatchProgressSetting } from "../models/batch-progress-setting.model";
+﻿import { BatchProgressSetting } from "../models/batch-progress-setting.model";
 
 export type BatchProgressColors = { green: string; yellow: string; red: string; black: string };
 
@@ -20,7 +20,7 @@ export class BatchProgressSettingService {
     const setting = await BatchProgressSetting.findOneAndUpdate(
       { ownerId, branchId },
       { $set: colors, $setOnInsert: { ownerId, branchId } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     ).lean();
     return { green: setting.green, yellow: setting.yellow, red: setting.red, black: setting.black };
   }

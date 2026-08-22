@@ -1,4 +1,4 @@
-import { ProductModel } from "../model/product.model";
+﻿import { ProductModel } from "../model/product.model";
 import { ProductCatalogModel } from "../model/product-catalog.model";
 import { CategoryModel } from "../model/category.model";
 import { StockLogModel } from "../model/stock-log.model";
@@ -661,7 +661,7 @@ export const crudService = {
       }
     }
 
-    const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
+    const updatedItem = await model.findOneAndUpdate(query, updatePayload, { returnDocument: 'after' });
     if (!updatedItem) {
       throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
     }

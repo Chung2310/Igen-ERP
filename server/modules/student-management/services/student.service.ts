@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+﻿import { Types } from "mongoose";
 import { logger } from "../config/logger";
 import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
@@ -287,7 +287,7 @@ export class StudentService {
     return Student.findOneAndUpdate(
       { _id: studentId, ...buildOwnerScopeQuery(ownerId), ...buildUnassignedBranchScopeQuery() },
       { $set: { branchId: String(branch._id) }, $inc: { __v: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
   }
   static async getStudentById(ownerId: string | string[], id: string, branchId?: string): Promise<IStudent | null> {
@@ -351,7 +351,7 @@ export class StudentService {
     const updatedStudent = await Student.findOneAndUpdate(
       { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!updatedStudent) throw new CustomFieldWriteConflictError();
     await customFieldResourceService.finalizeEntity(targetContext, updatedStudent);

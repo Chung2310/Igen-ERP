@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { InventoryBalanceModel } from "../../model/inventory-balance.model";
 import { InventoryLedgerEntryModel } from "../../model/inventory-ledger-entry.model";
 import { ProductModel } from "../../model/product.model";
@@ -69,7 +69,7 @@ async function ensureBalance(input: { companyCode: string; branchId: string; war
     return await InventoryBalanceModel.findOneAndUpdate(
       { companyCode: input.companyCode, warehouseId: input.warehouseId, productId: input.item.productId, ...(input.item.variantId ? { variantId: input.item.variantId } : {}) },
       { $setOnInsert: { companyCode: input.companyCode, branchId: input.branchId, warehouseId: input.warehouseId, productId: input.item.productId, ...(input.item.variantId ? { variantId: input.item.variantId } : {}), sku: input.item.sku, quantity: Number(legacyProduct?.stock || 0), reservedQuantity: 0, averageCost: Number(legacyProduct?.costPrice || input.item.unitCost || 0), version: 0 } },
-      { upsert: true, new: true, setDefaultsOnInsert: true, session: input.session },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, session: input.session },
     );
   } catch (error) {
     if (!duplicate(error)) throw error;
@@ -106,7 +106,7 @@ export async function writeStockMovement(input: WriteStockMovementInput) {
     const balanceUpdate = await InventoryBalanceModel.findOneAndUpdate(
       { _id: balance._id, version: Number(balance.version || 0), ...(input.direction === "out" && !input.allowNegativeStock ? { $expr: { $gte: [{ $subtract: ["$quantity", "$reservedQuantity"] }, quantity] } } : {}) },
       { $set: { quantity: nextQuantity, averageCost: nextAverageCost }, $inc: { version: 1 } },
-      { new: true, session: input.session },
+      { returnDocument: 'after', session: input.session },
     );
     if (!balanceUpdate) throw Object.assign(new Error(`Số tồn của ${item.sku} vừa thay đổi, vui lòng thử lại.`), { code: "INVENTORY_CONFLICT", status: 409 });
 

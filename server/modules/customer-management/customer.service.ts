@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+﻿import { Types } from "mongoose";
 import { CustomerError } from "./customer-errors";
 import { formatCustomerCode, normalizeCustomerInput } from "./customer-normalization";
 import type { CustomerInput, CustomerStatus, CustomerType, ICustomer } from "./interfaces/customer.interface";
@@ -133,7 +133,7 @@ const mongooseRepository: CustomerRepository = {
     const counter = await CustomerCounterModel.findOneAndUpdate(
       { companyCode: scope.companyCode },
       { $inc: { sequence: 1 } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     ).lean();
     return counter!.sequence;
   },
@@ -141,10 +141,10 @@ const mongooseRepository: CustomerRepository = {
   create: async (values) => (await CustomerModel.create(values)).toObject() as any,
   findById: (scope, id) => CustomerModel.findOne({ _id: id, ...scope }).lean() as any,
   updateWithVersion: (scope, id, version, values) => CustomerModel.findOneAndUpdate(
-    { _id: id, ...scope, version }, { $set: values, $inc: { version: 1 } }, { new: true, runValidators: true },
+    { _id: id, ...scope, version }, { $set: values, $inc: { version: 1 } }, { returnDocument: 'after', runValidators: true },
   ).lean() as any,
   setStatus: (scope, id, version, status) => CustomerModel.findOneAndUpdate(
-    { _id: id, ...scope, version }, { $set: { status }, $inc: { version: 1 } }, { new: true, runValidators: true },
+    { _id: id, ...scope, version }, { $set: { status }, $inc: { version: 1 } }, { returnDocument: 'after', runValidators: true },
   ).lean() as any,
 };
 

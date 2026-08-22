@@ -1,4 +1,4 @@
-import { AssignmentModel } from "../models/assignment.model";
+﻿import { AssignmentModel } from "../models/assignment.model";
 import { Batch } from "../models/batch.model";
 import { BatchMiniTest } from "../models/batch-mini-test.model";
 import { Course } from "../models/course.model";
@@ -229,7 +229,7 @@ export class StudentQualityService {
     return StudentQualityRecord.findOneAndUpdate(
       { ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId },
       { $setOnInsert: { ownerId: batch.ownerId, branchId: batch.branchId, batchId, studentId }, $set: { updatedBy: actor.uid } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
   }
 
