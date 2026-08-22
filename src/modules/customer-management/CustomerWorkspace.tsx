@@ -1,6 +1,7 @@
 import React from "react";
 import { Plus, Settings, Users, Trash2, Save, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useBranch } from "../../context/BranchContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { customerApi } from "./customerApi";
 import CustomerDetailDrawer from "./components/CustomerDetailDrawer";
@@ -12,6 +13,7 @@ const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 2
 
 export default function CustomerWorkspace() {
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
   const companyCode = userProfile?.companyCode?.trim().toUpperCase() || "";
   const permissions = userProfile?.permissions || [];
   const canManage = userProfile?.role === "admin" || userProfile?.role === "superadmin" || permissions.includes("*") || permissions.includes("customer:manage");
@@ -181,6 +183,7 @@ export default function CustomerWorkspace() {
           {selected && (
             <CustomerDetailDrawer
               customer={selected}
+              branchId={activeBranchId}
               canManage={canManage}
               onClose={() => setSelected(null)}
               onEdit={() => setEditing(selected)}
