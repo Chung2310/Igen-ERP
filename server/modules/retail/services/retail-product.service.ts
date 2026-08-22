@@ -25,19 +25,28 @@ export function normalizeRetailProductSearch(query: any) {
 
 export function buildRetailProductFilter(scope: RetailBranchScope, query: any) {
   const normalized = normalizeRetailProductSearch(query);
-  return { scope: { ...scope }, search: escapeRegex(normalized.q), ...normalized };
+  const search = escapeRegex(normalized.q);
+  return {
+    scope: { ...scope },
+    search,
+    productNameFilter: { $regex: search, $options: "i" },
+    ...normalized,
+  };
 }
 
 export const RetailProductService = {
   async search(scope: RetailBranchScope, query: any) {
-    const { q, barcode, page, limit, search } = buildRetailProductFilter(scope, query);
+    const { q, barcode, page, limit, search, productNameFilter } = buildRetailProductFilter(scope, query);
     const defaultWarehouse = await ensureDefaultWarehouse(scope.companyCode, scope.branchId);
     const balances: any[] = await InventoryBalanceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(defaultWarehouse._id), $expr: { $gt: [{ $subtract: ["$quantity", "$reservedQuantity"] }, 0] } }).lean();
     const variantIds = balances.map((item) => String(item.variantId || "")).filter(Boolean);
     const scannedUnit: any = barcode ? await SerialUnitModel.findOne({ companyCode: scope.companyCode, branchId: scope.branchId, status: "in_stock", $or: [{ normalizedSerialNumber: barcode.toUpperCase() }, { normalizedInternalBarcode: barcode.toUpperCase() }] }).lean() : null;
+    const productIdsByName = q && !barcode
+      ? (await ProductCatalogModel.find({ companyCode: scope.companyCode, status: "active", name: productNameFilter }).lean()).map((item: any) => String(item._id))
+      : [];
     const variantFilter: any = { companyCode: scope.companyCode, _id: { $in: variantIds }, status: "active" };
     if (barcode) variantFilter.$or = [{ barcode }, { sku: barcode }, ...(scannedUnit ? [scannedUnit.variantId ? { _id: String(scannedUnit.variantId) } : { productId: String(scannedUnit.productId) }] : [])];
-    else if (q) variantFilter.$or = [{ sku: { $regex: search, $options: "i" } }, { barcode: { $regex: search, $options: "i" } }];
+    else if (q) variantFilter.$or = [{ sku: { $regex: search, $options: "i" } }, { barcode: { $regex: search, $options: "i" } }, ...(productIdsByName.length ? [{ productId: { $in: productIdsByName } }] : [])];
     const variants: any[] = await ProductVariantModel.find(variantFilter).lean();
     const products: any[] = await ProductCatalogModel.find({ companyCode: scope.companyCode, _id: { $in: [...new Set(variants.map((item) => String(item.productId)))] }, status: "active" }).lean();
     const prices: any[] = await ProductPriceModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, variantId: { $in: variantIds }, status: "active" }).lean();

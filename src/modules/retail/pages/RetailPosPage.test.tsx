@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
 import { retailShiftsApi } from "../api/retailShifts.api";
+import { retailWarrantyService } from "../../../services/retailWarrantyService";
 import { customerApi } from "../../customer-management/customerApi";
 import RetailPosPage from "./RetailPosPage";
 import { toast } from "../../../pages/Toast";
@@ -23,6 +24,7 @@ vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { co
 vi.mock("../../customer-management/customerApi", () => ({ customerApi: { billingProfiles: vi.fn() } }));
 vi.mock("../api/retailProducts.api", () => ({ retailProductsApi: { list: vi.fn() } }));
 vi.mock("../api/retailShifts.api", () => ({ retailShiftsApi: { current: vi.fn().mockResolvedValue({ _id: "s1", shiftCode: "CA-1", cashierId: "u1", cashierName: "Thu ngân", openingFloat: 0, businessDate: "2026-08-10", status: "open" }) } }));
+vi.mock("../../../services/retailWarrantyService", () => ({ retailWarrantyService: { lookup: vi.fn() } }));
 vi.mock("../api/retailOrders.api", () => ({ retailOrdersApi: { list: vi.fn(), quote: vi.fn(), createDraft: vi.fn(), updateDraft: vi.fn(), confirm: vi.fn(), idempotency: vi.fn(), cancel: vi.fn() } }));
 vi.mock("../components/pos/HeldDraftsBar", () => ({ default: () => null }));
 vi.mock("../components/pos/BarcodeScannerDialog", () => ({ default: () => null }));
@@ -71,6 +73,22 @@ describe("RetailPosPage", () => {
 
     expect(screen.queryByTestId("payment-dialog")).toBeNull();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Vui lòng chọn khách hàng trước khi thanh toán."));
+  });
+
+  it("adds the first search result on Enter without treating the text as a barcode scan", async () => {
+    render(<RetailPosPage />);
+    const search = await screen.findByRole("textbox", { name: "Tìm hoặc quét sản phẩm" });
+
+    await userEvent.type(search, "ÁO");
+    await waitFor(() => expect(retailProductsApi.list).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      { q: "ÁO", limit: 500 },
+    ));
+    await userEvent.keyboard("{Enter}");
+
+    expect((await screen.findByLabelText("Số lượng Áo") as HTMLInputElement).value).toBe("1");
+    expect(retailWarrantyService.lookup).not.toHaveBeenCalled();
+    expect(screen.queryByText("Không tìm thấy sản phẩm")).toBeNull();
   });
 
   it("carries customer, VAT profile and adjustments through quote and checkout to receipt", async () => {
