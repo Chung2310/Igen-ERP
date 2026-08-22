@@ -18,6 +18,7 @@ import {
 } from "../../services/productCatalogService";
 import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../../hooks/useVariantMatrix";
 import { buildMatrixVariantInput } from "./productVariantPayload";
+import { shouldCreateInitialPrice } from "./productCatalogCreation";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 type Resources = { categories: ProductResource[]; brands: ProductResource[] };
@@ -512,7 +513,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
           }
           const created = await productCatalogService.createProduct({ ...payload, variant: { ...variant, sku, unitCode: variant.unitCode || form.baseUnitCode, trackingMode: form.productType === "service" ? "none" : variant.trackingMode } });
           const createdVariant = created.variants?.[0];
-          if (createdVariant) await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0));
+          if (createdVariant && shouldCreateInitialPrice(form.status)) await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0));
           toast.success("Đã tạo sản phẩm và SKU đầu tiên.");
         }
       }
