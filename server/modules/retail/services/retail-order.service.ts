@@ -121,6 +121,9 @@ const monthlyScope = (businessDate: string) => businessDate.replace("-", "").sli
 export function formatRetailDocumentCode(prefix: string, branchCode: string, scope: string, seq: number) {
   return `${prefix.trim().toUpperCase()}-${branchCode.trim().toUpperCase()}-${scope}-${String(seq).padStart(6, "0")}`;
 }
+export function retailPaymentCode(orderCode: string) {
+  return orderCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
 const duplicate = (error: any) => error?.code === 11000;
 
 function retailError(message: string, code: string, status = 409) {
@@ -267,6 +270,7 @@ export const RetailOrderService = {
       const customer: any = customerSnapshots ? { name: customerSnapshots.customerName, phone: customerSnapshots.customerPhone } : null;
       const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).session(session).lean(); if (!branch) throw new Error("Chi nhánh bán hàng không hợp lệ.");
       const scopeKey = monthlyScope(shift.businessDate); const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { returnDocument: 'after', upsert: true, session }); const orderCode = formatRetailDocumentCode(settings.orderPrefix, branch.code, scopeKey, counter!.seq);
+      draft.paymentCode = retailPaymentCode(orderCode);
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
       Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, ...(customerSnapshots || {}), customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 });
       await claimSerialsForOrder(scope, draft.items as any, String(draft._id), String(draft.customerId), actorId(actor), session, actorName(actor), { businessDate: shift.businessDate, orderCode }); await draft.save({ session });

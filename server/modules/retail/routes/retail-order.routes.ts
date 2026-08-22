@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requirePermission } from "../../../middleware/auth";
 import { retailOrderController } from "../controllers/retail-order.controller";
+import { retailSePayController } from "../controllers/retail-sepay.controller";
 import { requireOpenShift } from "../middleware/require-open-shift.middleware";
 import { RETAIL_MANAGER_PERMISSION, RETAIL_OPERATE_PERMISSION } from "../permissions";
 export const retailOrderRoutes = Router(); const operate = requirePermission([RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any;
@@ -10,6 +11,7 @@ retailOrderRoutes.get("/idempotency/:key", operate, retailOrderController.idempo
 retailOrderRoutes.get("/", operate, retailOrderController.list as any);
 retailOrderRoutes.post("/", operate, requireOpenShift as any, retailOrderController.create as any);
 retailOrderRoutes.get("/:id", operate, retailOrderController.detail as any);
+retailOrderRoutes.get("/:id/payment-qr", operate, retailSePayController.qr as any);
 retailOrderRoutes.patch("/:id", operate, requireOpenShift as any, retailOrderController.update as any);
 retailOrderRoutes.post("/:id/confirm", operate, requireOpenShift as any, retailOrderController.confirm as any);
 retailOrderRoutes.post("/:id/payments", operate, requireOpenShift as any, retailOrderController.collect as any);
