@@ -385,31 +385,50 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
   }) => {
     const resolvedItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
       if (!product) {
-        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm trong kho." }));
+        return {
+          product: {
+            id: item.productId,
+            sku: item.sku || "",
+            name: item.productName || item.sku || "Sản phẩm mới",
+            stock: 999999,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          unitIdentifiers: item.unitIdentifiers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers, isFallback: false };
     });
 
     if (isCompletedTransactionStatus(payload.status)) {
       for (const item of resolvedItems) {
-        if (payload.type === "xuất" && item.product.stock < item.quantity) {
+        if (!item.isFallback && payload.type === "xuất" && item.product.stock < item.quantity) {
           throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
         }
       }
 
       await Promise.all(
-        resolvedItems.map((item) =>
-          inventoryProductService.updateProductStock(
-            item.product.id,
-            payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity,
-            activeBranchId
+        resolvedItems
+          .filter((item) => !item.isFallback)
+          .map((item) =>
+            inventoryProductService.updateProductStock(
+              item.product.id,
+              payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity,
+              activeBranchId
+            )
           )
-        )
       );
     }
 
@@ -450,7 +469,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
   }) => {
     if (!payload.id) return;
 
@@ -466,17 +485,53 @@ export default function InventoryTab() {
     const normalizedOldItems = oldItems.map((item) => {
       const product = products.find((entry) => entry.sku === item.sku);
       if (!product) {
-        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm cũ ${item.productName} trong kho.` }));
+        return {
+          product: {
+            id: item.productId || "",
+            sku: item.sku,
+            name: item.productName || "Sản phẩm cũ",
+            stock: 0,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          type: oldType,
+          unitIdentifiers: item.unitIdentifiers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers, isFallback: false };
     });
 
     const normalizedNewItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
       if (!product) {
-        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm mới trong kho." }));
+        return {
+          product: {
+            id: item.productId,
+            sku: item.sku || "",
+            name: item.productName || item.sku || "Sản phẩm mới",
+            stock: 999999,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          type: payload.type,
+          unitIdentifiers: item.unitIdentifiers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers, isFallback: false };
     });
 
     const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);

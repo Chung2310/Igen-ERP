@@ -28,7 +28,7 @@ type DraftPayload = {
   operatorName: string;
   notes: string;
   status: TransactionStatus;
-  items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+  items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
 };
 
 type StockLogPanelProps = {
@@ -369,11 +369,16 @@ export function StockLogPanel({
     }
 
     const normalizedItems = draftLines
-      .map((line) => ({
-        productId: line.productId,
-        quantity: Number(line.quantity),
-        unitIdentifiers: line.unitIdentifiers,
-      }))
+      .map((line) => {
+        const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
+        return {
+          productId: line.productId,
+          sku: line.sku || matchedProduct?.sku || "",
+          productName: matchedProduct?.name || line.sku || "",
+          quantity: Number(line.quantity),
+          unitIdentifiers: line.unitIdentifiers,
+        };
+      })
       .filter((line, index) => line.productId && (!outboundOnly || Boolean(draftLines[index]?.sku)) && Number.isFinite(line.quantity) && line.quantity > 0);
 
     if (!draftTitle.trim() || !draftOperator.trim() || normalizedItems.length === 0) {
