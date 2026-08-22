@@ -941,6 +941,7 @@ export function StockLogPanel({
                   <div>
                     <div className="font-bold text-slate-800">{item.productName}</div>
                     <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
+                    {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / mã vạch: {item.unitIdentifiers.join(", ")}</div> : null}
                   </div>
                   <div className={`text-lg font-bold ${selectedLog.type === "nhập" ? "text-emerald-600" : "text-rose-600"}`}>
                     {selectedLog.type === "nhập" ? "+" : "-"}
