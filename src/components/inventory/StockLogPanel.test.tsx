@@ -69,8 +69,39 @@ describe("StockLogPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
 
-    expect(screen.getByText("Mã sản phẩm: SKU-1")).toBeTruthy();
-    expect(screen.getByText("IMEI / serial: IMEI-1")).toBeTruthy();
+    expect(screen.getByText("Hàng xuất")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
+    expect(screen.getByText("SKU-1")).toBeTruthy();
+    expect(screen.getByText("IMEI-1")).toBeTruthy();
+  });
+
+  it("hiển thị hàng xuất theo từng SKU và IMEI trong bảng chi tiết", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[{ id: "log-outbound-items", type: "xuất", title: "Phiếu xuất", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 2, operatorName: "Người dùng", createdAt: "2026-01-01", notes: "", status: "Đang chờ", items: [
+          { productId: "product-1", sku: "SKU-1", productName: "Sản phẩm 1", quantity: 1, serialNumbers: ["IMEI-1"] },
+          { productId: "product-2", sku: "SKU-2", productName: "Sản phẩm 2", quantity: 1, serialNumbers: ["IMEI-2"] },
+        ] }]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
+
+    expect(screen.getByText("Hàng xuất")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "SKU" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
+    expect(screen.getByText("SKU-1")).toBeTruthy();
+    expect(screen.getByText("SKU-2")).toBeTruthy();
+    expect(screen.getByText("IMEI-1")).toBeTruthy();
+    expect(screen.getByText("IMEI-2")).toBeTruthy();
   });
 
   it("hiển thị lỗi khi bấm lưu phiếu nhưng thiếu các trường bắt buộc", () => {

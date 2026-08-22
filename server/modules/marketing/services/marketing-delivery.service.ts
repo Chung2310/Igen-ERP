@@ -2,7 +2,7 @@
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import type { MarketingAutomationType } from "../permissions";
 import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingAttachment, type MarketingChannelAdapter } from "./marketing-channels";
-import { resolveMarketingAttachments, type MarketingAttachmentRef } from "./marketing-invoice-attachment.service";
+import { attachmentRefForDelivery, resolveMarketingAttachments, type MarketingAttachmentRef } from "./marketing-invoice-attachment.service";
 import { renderMarketingTemplate, type MarketingVariables } from "./marketing-template";
 
 const duplicate = (error: any) => error?.code === 11000;
@@ -93,9 +93,8 @@ export async function retryDelivery(companyCode: string, deliveryId: string) {
   const adapter = MARKETING_CHANNEL_ADAPTERS[delivery.channel as keyof typeof MARKETING_CHANNEL_ADAPTERS];
   try {
     if (!adapter?.implemented) throw new Error(`MARKETING_CHANNEL_NOT_IMPLEMENTED:${delivery.channel}`);
-    const attachments = delivery.attachmentRef && adapter.supportsAttachments
-      ? await resolveMarketingAttachments(companyCode, delivery.attachmentRef)
-      : undefined;
+    const ref = adapter.supportsAttachments ? attachmentRefForDelivery(delivery) : null;
+    const attachments = ref ? await resolveMarketingAttachments(companyCode, ref) : undefined;
     const result = await adapter.send(companyCode, {
       to: delivery.recipient,
       subject: delivery.subject,
