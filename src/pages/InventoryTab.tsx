@@ -56,7 +56,7 @@ function isCompletedTransactionStatus(status: TransactionStatus | string) {
 function getStockLogItems(log: StockLog) {
   const typedLog = log as StockLog & {
     title?: string;
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
@@ -385,7 +385,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
     warehouseId?: string;
   }) => {
     const resolvedItems = payload.items.map((item) => {
@@ -407,10 +407,11 @@ export default function InventoryTab() {
           },
           quantity: item.quantity,
           unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
           isFallback: true,
         };
       }
-      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers, isFallback: false };
+      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     if (isCompletedTransactionStatus(payload.status)) {
@@ -427,6 +428,7 @@ export default function InventoryTab() {
       productName: item.product.name,
       quantity: item.quantity,
       unitIdentifiers: item.unitIdentifiers,
+      serialNumbers: item.serialNumbers,
     }));
 
     // Lưu phiếu vào Firebase
@@ -459,7 +461,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
     warehouseId?: string;
   }) => {
     if (!payload.id) return;
@@ -493,10 +495,11 @@ export default function InventoryTab() {
           quantity: item.quantity,
           type: oldType,
           unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
           isFallback: true,
         };
       }
-      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers, isFallback: false };
+      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     const normalizedNewItems = payload.items.map((item) => {
@@ -519,10 +522,11 @@ export default function InventoryTab() {
           quantity: item.quantity,
           type: payload.type,
           unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
           isFallback: true,
         };
       }
-      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers, isFallback: false };
+      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);
@@ -556,6 +560,7 @@ export default function InventoryTab() {
       productName: item.product.name,
       quantity: item.quantity,
       unitIdentifiers: item.unitIdentifiers,
+      serialNumbers: item.serialNumbers,
     }));
 
     // Cập nhật phiếu trong Firebase
@@ -592,6 +597,7 @@ export default function InventoryTab() {
         productName: product?.name || item.productName || "",
         quantity: item.quantity,
         unitIdentifiers: item.unitIdentifiers || [],
+        serialNumbers: item.serialNumbers || [],
       };
     });
 
