@@ -11,6 +11,8 @@ import { resourceIndexingService } from "../../../service/resource-indexing.serv
 import { managedUploadService } from "../../../service/managed-upload.service";
 import { sourceUploadFinalizer } from "../../../service/source-upload-finalizer.service";
 import { WorkerService } from "../../worker-management/services/worker.service";
+import { WorkerReferralService } from "../../worker-management/labor-partners/services/worker-referral.service";
+import { LaborPartnerModel } from "../../worker-management/labor-partners/models/labor-partner.model";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -375,6 +377,7 @@ export class StudentController {
         entityPreset: requestedEntityPreset,
         registrationCompanyCode,
         registrationBranchId,
+        partnerCode,
         ...studentData
       } = req.body;
       const teacher = await AuthService.getUserProfile(teacherId);
@@ -402,6 +405,25 @@ export class StudentController {
 
       const settings = await new ModuleSettingsService().get(tenantId);
       if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
+        // Mã đối tác giới thiệu do người đăng ký tự nhập nên phải đối chiếu trước khi
+        // tạo hồ sơ, tránh để lại hồ sơ mồ côi khi mã sai.
+        const referralPartnerCode = String(partnerCode || "").trim().toUpperCase();
+        if (referralPartnerCode) {
+          const partner = await LaborPartnerModel.exists({
+            code: referralPartnerCode,
+            companyCode: workerCompanyCode,
+            ...(workerBranchId ? { branchId: workerBranchId } : {}),
+            status: "active",
+            deletedAt: null,
+          });
+          if (!partner) {
+            return res.status(400).json({
+              success: false,
+              error: `Không tìm thấy đối tác giới thiệu có mã ${referralPartnerCode}. Vui lòng kiểm tra lại hoặc bỏ trống.`,
+            });
+          }
+        }
+
         const worker = await WorkerService.create(
           {
             companyCode: workerCompanyCode,
@@ -429,7 +451,27 @@ export class StudentController {
             sourceField: field,
           })),
         });
-        return res.status(201).json({ success: true, data: worker });
+        let referralWarning = "";
+        if (referralPartnerCode) {
+          try {
+            await WorkerReferralService.createForImportedWorker(
+              { companyCode: workerCompanyCode, ...(workerBranchId ? { branchId: workerBranchId } : {}) } as any,
+              {
+                workerId: String(worker._id),
+                partnerCode: referralPartnerCode,
+                registrationDate: worker.registrationDate,
+              },
+              { id: teacherId, name: teacher.displayName || teacher.email },
+            );
+          } catch (referralError) {
+            // Hồ sơ đã lưu thành công, chỉ phần gắn đối tác lỗi (thường do thiếu
+            // chính sách hoa hồng). Nhân viên sẽ gắn lại trong phân hệ Đối tác lao động.
+            referralWarning = referralError instanceof Error
+              ? referralError.message
+              : "Không gắn được đối tác giới thiệu.";
+          }
+        }
+        return res.status(201).json({ success: true, data: worker, ...(referralWarning ? { warning: referralWarning } : {}) });
       }
 
       const payload = {
