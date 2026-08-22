@@ -290,7 +290,7 @@ export async function syncAttendance(
     const rows: any[] = await attendanceQuery.lean();
     const employees = rows.map(normalizeAttendance);
     const issues = attendanceIssues(runId, rows);
-    const updateOptions = { returnDocument: 'after', runValidators: true, ...(session && { session }) };
+    const updateOptions = { returnDocument: 'after' as const, runValidators: true, ...(session && { session }) };
     const updated: any = await PayrollRunModel.findOneAndUpdate(
       { _id: runId, ...scope, status: "draft", version: expectedVersion },
       { $set: { issues }, $inc: { version: 1 } },
@@ -369,7 +369,7 @@ export async function lockAttendance(
       throw new PayrollOperationError("PAYROLL_ATTENDANCE_NOT_SYNCED", "Synchronize attendance before locking", 409);
     }
 
-    const updateOptions = { returnDocument: 'after', runValidators: true, ...(session && { session }) };
+    const updateOptions = { returnDocument: 'after' as const, runValidators: true, ...(session && { session }) };
     const updated: any = await PayrollRunModel.findOneAndUpdate(
       { _id: runId, ...scope, status: "draft", version: expectedVersion },
       { $inc: { version: 1 } },

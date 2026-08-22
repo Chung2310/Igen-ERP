@@ -138,7 +138,7 @@ async function claimDraftRun(
   runId: string,
   session?: ClientSession,
 ) {
-  const options = { returnDocument: 'after', ...(session ? { session } : {}) };
+  const options = { returnDocument: 'after' as const, ...(session ? { session } : {}) };
   const run = await withSession(PayrollRunModel.findOneAndUpdate(
     { _id: runId, ...scope, periodKey, type: "regular", status: "draft" },
     { $inc: { version: 1 } },

@@ -23,7 +23,7 @@ const withSession = (query: any, session?: ClientSession) => (
 );
 
 const writeOptions = (session?: ClientSession) => (
-  session ? { returnDocument: 'after', session } : { returnDocument: 'after' }
+  session ? { returnDocument: 'after' as const, session } : { returnDocument: 'after' as const }
 );
 
 async function createAudit(document: any, session?: ClientSession) {
