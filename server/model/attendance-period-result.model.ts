@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { IAttendancePeriodResult } from "../interface/payroll-period.interface";
+import type { IAttendancePeriodResult } from "../modules/payroll/interfaces/payroll-period.interface";
 
 const schema = new Schema<IAttendancePeriodResult>({
   companyCode: { type: String, required: true, index: true },

@@ -20,7 +20,7 @@ import { filterModulesForBusinessType, resolveBusinessType } from "../config/bus
 import { resolveCompanyModuleUpdate } from "./auth-company-modules";
 import { clearModuleCache } from "../middleware/require-module";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
-import { ensureDefaultPayrollPolicy } from "./payroll-policy-operations.service";
+import { ensureDefaultPayrollPolicy } from "../modules/payroll/services/payroll-policy-operations.service";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;

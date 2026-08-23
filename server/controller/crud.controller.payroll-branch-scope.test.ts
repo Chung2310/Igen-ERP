@@ -16,7 +16,7 @@ vi.mock("../model/timekeeping.model", () => ({
 vi.mock("../model/attendance-period-result.model", () => ({
   AttendancePeriodResultModel: { findOne: mocks.attendanceFindOne },
 }));
-vi.mock("../model/payroll-run.model", () => ({
+vi.mock("../modules/payroll/models/payroll-run.model", () => ({
   PayrollRunModel: { findOne: mocks.payrollFindOne },
 }));
 

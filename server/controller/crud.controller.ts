@@ -14,7 +14,7 @@ import { listWorkingDates, toVietnamDate } from "../service/company-work-calenda
 import { getEmployeeAnnualLeaveBalance } from "../service/annual-leave.service";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
-import { PayrollRunModel } from "../model/payroll-run.model";
+import { PayrollRunModel } from "../modules/payroll/models/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
 /**

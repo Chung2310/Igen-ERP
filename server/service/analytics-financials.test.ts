@@ -16,7 +16,7 @@ vi.mock("../modules/student-management/models/user.model", () => ({
 vi.mock("../modules/student-management/models/student.model", () => ({
   Student: { aggregate: async (pipeline: any[]) => { fixture.studentPipeline = pipeline; return fixture.receivableRows; } },
 }));
-vi.mock("../model/payroll-payment.model", () => ({
+vi.mock("../modules/payroll/models/payroll-payment.model", () => ({
   PayrollPaymentModel: { aggregate: async (pipeline: any[]) => { fixture.payrollPipeline = pipeline; return fixture.payrollRows; } },
 }));
 vi.mock("../modules/student-management/models/partner.model", () => ({

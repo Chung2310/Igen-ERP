@@ -3,12 +3,12 @@ import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { PermissionModel } from "../model/permission.model";
 import { PERMISSION_CATALOG, PERMISSION_CODES } from "./permission-catalog";
-import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../model/payroll-run-index-migration";
-import { migrateLegacyPayrollRunStatuses } from "../model/payroll-run-status-migration";
+import { dropLegacyPayrollRunPeriodKeyUniqueIndex } from "../modules/payroll/models/payroll-run-index-migration";
+import { migrateLegacyPayrollRunStatuses } from "../modules/payroll/models/payroll-run-status-migration";
 import {
   dropLegacyAttendancePeriodResultUniqueIndex,
   dropLegacyPayrollOperationJobIdempotencyIndex,
-} from "../model/payroll-branch-index-migration";
+} from "../modules/payroll/models/payroll-branch-index-migration";
 import { dropLegacyStudentAttendanceUniqueIndex } from "../model/student-attendance-index-migration";
 import { dropLegacyWorkerAttendanceLogIndexes } from "../model/worker-attendance-index-migration";
 import { resetPermissionsForRegistryVersion } from "../model/permission-registry-reset";

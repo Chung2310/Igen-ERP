@@ -47,6 +47,8 @@ export default function RepairBoardPage({ createPrefill, onCreatePrefillConsumed
   const [selected, setSelected] = useState<RepairTicket | null>(null);
   const [receivingTicket, setReceivingTicket] = useState<RepairTicket | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [technicianFilter, setTechnicianFilter] = useState("");
   useEffect(() => { if (createPrefill) setCreateOpen(true); }, [createPrefill]);
   const loadBoard = () => repairService.board().then(setBoard).catch((e) => setError(e instanceof Error ? e.message : "Không thể tải board Repair"));
   useEffect(() => { void loadBoard(); }, []);
@@ -62,12 +64,33 @@ export default function RepairBoardPage({ createPrefill, onCreatePrefillConsumed
     finally { setBusyId(null); }
   };
   const startMoveForward = (ticket: RepairTicket) => { if (ticket.status === "received") setReceivingTicket(ticket); else if (ticket.status === "diagnosing") setSelected(ticket); else void moveForward(ticket).catch(() => undefined); };
+  const technicians = Object.values(board).flat().reduce<Array<{ id: string; name: string }>>((acc, ticket) => {
+    if (ticket?.technicianId && !acc.some((item) => item.id === ticket.technicianId)) acc.push({ id: ticket.technicianId, name: ticket.technicianName || ticket.technicianId });
+    return acc;
+  }, []);
+  const term = search.trim().toLowerCase();
+  const matchesFilter = (ticket: RepairTicket) => {
+    if (technicianFilter && ticket.technicianId !== technicianFilter) return false;
+    if (!term) return true;
+    return [ticket.ticketCode, ticket.customerName, ticket.customerPhone, ticket.device.name, ticket.device.serialNumber, ticket.technicianName]
+      .some((field) => String(field || "").toLowerCase().includes(term));
+  };
+  const filteredBoard: Partial<Record<RepairStatus, RepairTicket[]>> = {};
+  columns.forEach((column) => { filteredBoard[column.status] = (board[column.status] || []).filter(matchesFilter); });
   return <div className="space-y-4">
     <div><h1 className="text-2xl font-bold">Bảng phiếu sửa chữa</h1><p className="text-sm text-slate-500">Theo dõi trạng thái, bảo hành, báo giá, thanh toán và giao máy.</p></div>
     {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    <div data-testid="repair-board-scroll" className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"><div className="grid min-w-[1250px] grid-cols-9 gap-3">
-      {columns.map((column) => <section key={column.status} className="min-h-48 rounded-xl bg-slate-100 p-2"><h2 className="mb-2 px-2 text-sm font-bold">{column.label} <span className="text-slate-400">{board[column.status]?.length || 0}</span></h2><div className="space-y-2">
-        {(board[column.status] || []).map((ticket) => <article key={ticket._id} onClick={() => setSelected(ticket)} className="cursor-pointer rounded-lg border bg-white p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="text-xs font-bold text-cyan-700">{ticket.ticketCode}</p><span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${costBearerBadgeClass(ticket.coverage.costBearer)}`}>{costBearerLabel(ticket.coverage.costBearer)}</span></div><p className="mt-1 text-sm font-semibold">{ticket.device.name}</p><p className="text-xs text-slate-500">{ticket.device.serialNumber || "Không có serial"}</p><p className="mt-2 text-xs">{ticket.customerName}</p><p className="text-xs text-slate-500">KT: {ticket.technicianName || "chưa phân công"}</p><p className="mt-1 text-xs">Tổng: {money(ticket.totalAmount)} · Nợ: {money(ticket.dueAmount)}</p>{ticket.coverage.customer.covered && <span className="mt-2 inline-block rounded bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">Còn bảo hành</span>}{(nextStatus[ticket.status] || ticket.status === "quoted") && <button type="button" disabled={busyId === ticket._id} onClick={(e) => { e.stopPropagation(); startMoveForward(ticket); }} className="mt-3 w-full rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">{ticket.status === "quoted" ? "Duyệt báo giá" : "Chuyển bước tiếp"}</button>}</article>)}
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã phiếu, tên/SĐT khách, thiết bị, serial..." className="min-h-11 w-full rounded-lg border px-3 py-2 text-sm sm:max-w-xs" />
+      <select value={technicianFilter} onChange={(e) => setTechnicianFilter(e.target.value)} className="min-h-11 w-full rounded-lg border px-3 py-2 text-sm sm:w-auto">
+        <option value="">Tất cả kỹ thuật viên</option>
+        {technicians.map((tech) => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
+      </select>
+      {(search || technicianFilter) && <button type="button" onClick={() => { setSearch(""); setTechnicianFilter(""); }} className="min-h-11 rounded-lg border px-3 py-2 text-sm text-slate-600">Xóa lọc</button>}
+    </div>
+    <div data-testid="repair-board-scroll" className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"><div className="grid grid-flow-col gap-3" style={{ gridAutoColumns: "220px" }}>
+      {columns.map((column) => <section key={column.status} className="w-[220px] rounded-xl bg-slate-100 p-2"><h2 className="mb-2 px-2 text-sm font-bold">{column.label} <span className="text-slate-400">{filteredBoard[column.status]?.length || 0}</span></h2><div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+        {(filteredBoard[column.status] || []).map((ticket) => <article key={ticket._id} onClick={() => setSelected(ticket)} className="w-[204px] cursor-pointer overflow-hidden rounded-lg border bg-white p-3 shadow-sm"><p className="truncate text-xs font-bold text-cyan-700">{ticket.ticketCode}</p><span className={`mt-1 inline-block max-w-full truncate rounded px-2 py-0.5 text-[10px] font-semibold ${costBearerBadgeClass(ticket.coverage.costBearer)}`}>{costBearerLabel(ticket.coverage.costBearer)}</span><p className="mt-1 break-words text-sm font-semibold">{ticket.device.name}</p><p className="break-words text-xs text-slate-500">{ticket.device.serialNumber || "Không có serial"}</p><p className="mt-2 break-words text-xs">{ticket.customerName}</p><p className="break-words text-xs text-slate-500">KT: {ticket.technicianName || "chưa phân công"}</p><p className="mt-1 break-words text-xs">Tổng: {money(ticket.totalAmount)} · Nợ: {money(ticket.dueAmount)}</p>{ticket.coverage.customer.covered && <span className="mt-2 inline-block rounded bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">Còn bảo hành</span>}{(nextStatus[ticket.status] || ticket.status === "quoted") && <button type="button" disabled={busyId === ticket._id} onClick={(e) => { e.stopPropagation(); startMoveForward(ticket); }} className="mt-3 w-full rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">{ticket.status === "quoted" ? "Duyệt báo giá" : "Chuyển bước tiếp"}</button>}</article>)}
       </div></section>)}
     </div></div>
     {receivingTicket && <ReceiveTechnicianModal ticket={receivingTicket} onClose={() => setReceivingTicket(null)} onSubmit={(technicianId) => moveForward(receivingTicket, technicianId)} />}

@@ -3,7 +3,7 @@ import test from "node:test";
 import { CompanyModel } from "../model/company.model";
 import { UserModel } from "../model/user.model";
 import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
-import { PayrollPolicyModel } from "../model/payroll-policy.model";
+import { PayrollPolicyModel } from "../modules/payroll/models/payroll-policy.model";
 import { authService } from "./auth.service";
 
 test("login allows a legacy company without lifecycleStatus", async () => {
