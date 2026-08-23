@@ -78,3 +78,9 @@ test("does not infer status from message text", () => {
   assert.equal(normalized.status, 500);
   assert.equal(normalized.code, "INTERNAL_ERROR");
 });
+
+test("normalizes Joi-shaped validation errors without array details", () => {
+  const normalized = normalizeError({ isJoi: true, name: "ValidationError", details: undefined });
+  assert.equal(normalized.status, 400);
+  assert.equal(normalized.code, "VALIDATION_FAILED");
+});

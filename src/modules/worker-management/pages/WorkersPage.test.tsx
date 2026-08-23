@@ -96,6 +96,8 @@ describe("worker profile ownership", () => {
     expect(screen.getByLabelText("Dự án")).toBeTruthy();
     expect(screen.getByLabelText("Từ ngày")).toBeTruthy();
     expect(screen.getByLabelText("Đến ngày")).toBeTruthy();
+    expect(screen.getByLabelText("Từ ngày").getAttribute("type")).toBe("date");
+    expect(screen.getByLabelText("Đến ngày").getAttribute("type")).toBe("date");
     await userEvent.selectOptions(screen.getByLabelText("Dự án"), "unassigned");
     expect(screen.getByText("Không tìm thấy Lao động nào phù hợp với bộ lọc.")).toBeTruthy();
   });

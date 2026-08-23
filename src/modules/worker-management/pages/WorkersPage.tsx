@@ -669,6 +669,8 @@ export default function WorkersPage({
       {qrOpen && registrationOwnerId && (
         <RegistrationQrModal
           ownerId={registrationOwnerId}
+          companyCode={selectedCenter}
+          branchId={branchId}
           onClose={() => setQrOpen(false)}
         />
       )}
@@ -762,9 +764,7 @@ function DateFilter({
       <div className="relative">
         <input
           id={`worker-filter-${label}`}
-          type="text"
-          inputMode="numeric"
-          placeholder="DD/MM/YYYY"
+          type="date"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="h-7 w-full rounded-md border border-slate-200 bg-slate-50 pl-2.5 pr-7 text-[11px] font-medium focus:border-cyan-600 focus:outline-none"
@@ -949,13 +949,20 @@ function WorkerRow({
 
 function RegistrationQrModal({
   ownerId,
+  companyCode,
+  branchId,
   onClose,
 }: {
   ownerId: string;
+  companyCode?: string;
+  branchId?: string;
   onClose: () => void;
 }) {
   const [qrDataUrl, setQrDataUrl] = React.useState("");
-  const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(ownerId)}&entityPreset=worker`;
+  const params = new URLSearchParams({ teacherId: ownerId, entityPreset: "worker" });
+  if (companyCode && companyCode !== "all") params.set("registrationCompanyCode", companyCode);
+  if (branchId) params.set("registrationBranchId", branchId);
+  const registerUrl = `${window.location.origin}/public/dang-ky?${params.toString()}`;
 
   React.useEffect(() => {
     let cancelled = false;

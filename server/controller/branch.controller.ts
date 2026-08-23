@@ -1,4 +1,4 @@
-import { Response } from "express";
+﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { BranchModel } from "../model/branch.model";
 import { UserModel } from "../model/user.model";
@@ -53,7 +53,7 @@ export const branchController = {
       const linkedBranch = await BranchModel.findOneAndUpdate(
         { _id: branch._id, companyCode, pendingOwnerSetup: true, managerId: { $in: ["", null] } },
         { $set: { managerId: String(owner._id), pendingOwnerSetup: false } },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       ).lean();
       if (!linkedBranch) {
         await UserModel.deleteOne({ _id: owner._id, companyCode, branchId: String(branch._id), role: "branch_owner" });
@@ -86,7 +86,7 @@ export const branchController = {
       const config = updates.locationConfig as any;
       updates.locationConfig = { ...config, allowedPublicIps: config.allowedPublicIps.map(normalizeAllowedNetwork) };
     }
-    const data = await BranchModel.findOneAndUpdate(filter, { $set: updates }, { new: true, runValidators: true }).lean();
+    const data = await BranchModel.findOneAndUpdate(filter, { $set: updates }, { returnDocument: 'after', runValidators: true }).lean();
     if (!data) return res.status(404).json({ status: "error", message: "Không tìm thấy chi nhánh." });
     return res.json({ status: "success", data });
   },

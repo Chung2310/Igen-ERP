@@ -66,6 +66,14 @@ export default function PublicRegisterPage() {
     () => new URLSearchParams(window.location.search).get("teacherId") || "",
     [],
   );
+  const registrationCompanyCode = useMemo(
+    () => new URLSearchParams(window.location.search).get("registrationCompanyCode") || "",
+    [],
+  );
+  const registrationBranchId = useMemo(
+    () => new URLSearchParams(window.location.search).get("registrationBranchId") || "",
+    [],
+  );
 
   const [loading, setLoading] = useState(Boolean(teacherId));
   const [configError, setConfigError] = useState("");
@@ -75,12 +83,20 @@ export default function PublicRegisterPage() {
   const [values, setValues] = useState<Record<string, string>>({ enrollmentDate: todayInputValue() });
   const [files, setFiles] = useState<Partial<Record<FileField, IUploadedFile>>>({});
   const [uploadingField, setUploadingField] = useState<FileField | null>(null);
+  const [partnerCode, setPartnerCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   const inputRefs = useRef<Partial<Record<FileField, HTMLInputElement | null>>>({});
 
   const entityLabel = ENTITY_LABEL_PRESETS[preset];
+  const isWorkerForm = preset === "worker";
+  // Hồ sơ lao động không có trường "Nguồn giới thiệu" dạng văn bản — nguồn giới thiệu
+  // của lao động là đối tác, nhập bằng mã bên dưới.
+  const visibleFields = useMemo(
+    () => (isWorkerForm ? fields.filter((field) => field.key !== "referral") : fields),
+    [fields, isWorkerForm],
+  );
 
   useEffect(() => {
     if (!teacherId) return;
@@ -90,8 +106,13 @@ export default function PublicRegisterPage() {
         const response = await fetch(
           `/api/v1/students/public-register-config?teacherId=${encodeURIComponent(teacherId)}`,
         );
-        const json = await response.json();
-        if (!response.ok || !json.success) throw new Error(json.error || "Không tải được biểu mẫu.");
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json.ok === false || json.success === false) {
+          const errorMsg = typeof json.error === "string"
+            ? json.error
+            : json.error?.message || json.message || "Không tải được biểu mẫu.";
+          throw new Error(errorMsg);
+        }
         if (cancelled) return;
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
         setPreset(requestedPreset || json.data.entityPreset as EntityPreset);
@@ -117,9 +138,12 @@ export default function PublicRegisterPage() {
         `/api/v1/students/public-register-upload?teacherId=${encodeURIComponent(teacherId)}`,
         { method: "POST", body },
       );
-      const json = await response.json();
-      if (!response.ok || !json.success || !json.data?.url) {
-        throw new Error(json.error || "Tải ảnh lên thất bại.");
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json.ok === false || json.success === false || !json.data?.url) {
+        const errorMsg = typeof json.error === "string"
+          ? json.error
+          : json.error?.message || json.message || "Tải ảnh lên thất bại.";
+        throw new Error(errorMsg);
       }
       setFiles((prev) => ({ ...prev, [field]: json.data as IUploadedFile }));
       toast.success("Đã tải ảnh lên.");
@@ -136,7 +160,17 @@ export default function PublicRegisterPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = { teacherId };
+      const payload: Record<string, unknown> = {
+        teacherId,
+        ...(requestedPreset === "worker"
+          ? {
+              entityPreset: "worker",
+              ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
+              ...(registrationBranchId ? { registrationBranchId } : {}),
+              ...(partnerCode.trim() ? { partnerCode: partnerCode.trim().toUpperCase() } : {}),
+            }
+          : {}),
+      };
       fields.forEach((field) => {
         const raw = (values[field.key] || "").trim();
         payload[field.key] = DATE_FIELDS.has(field.key) ? toServerDate(raw) : raw;
@@ -150,8 +184,13 @@ export default function PublicRegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) throw new Error(json.error || "Đăng ký thất bại.");
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json.ok === false || json.success === false) {
+        const errorMsg = typeof json.error === "string"
+          ? json.error
+          : json.error?.message || json.message || "Đăng ký thất bại.";
+        throw new Error(errorMsg);
+      }
       setDone(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Đăng ký thất bại.");
@@ -214,7 +253,7 @@ export default function PublicRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {fields.map((field) => (
+            {visibleFields.map((field) => (
               <div key={field.key} className={field.key === "address" ? "sm:col-span-2" : undefined}>
                 <label className={labelClass}>
                   {field.label}
@@ -231,6 +270,22 @@ export default function PublicRegisterPage() {
                 />
               </div>
             ))}
+            {isWorkerForm && (
+              <div>
+                <label className={labelClass}>Mã đối tác giới thiệu</label>
+                <input
+                  type="text"
+                  value={partnerCode}
+                  onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                  placeholder="Bỏ trống nếu bạn tự đăng ký"
+                  maxLength={50}
+                  className={inputClass}
+                />
+                <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  Nhập mã do người/đơn vị giới thiệu bạn cung cấp.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

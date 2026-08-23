@@ -56,7 +56,7 @@ function isCompletedTransactionStatus(status: TransactionStatus | string) {
 function getStockLogItems(log: StockLog) {
   const typedLog = log as StockLog & {
     title?: string;
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[] }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
@@ -379,37 +379,47 @@ export default function InventoryTab() {
   const handleCreateTransaction = async (payload: {
     type: "nhập" | "xuất";
     purpose?: import("../types").StockLogPurpose;
+    customerId?: string;
     customerName?: string;
     title: string;
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+    warehouseId?: string;
   }) => {
     const resolvedItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
       if (!product) {
-        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm trong kho." }));
+        return {
+          product: {
+            id: item.productId,
+            sku: item.sku || "",
+            name: item.productName || item.sku || "Sản phẩm mới",
+            stock: 999999,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     if (isCompletedTransactionStatus(payload.status)) {
       for (const item of resolvedItems) {
-        if (payload.type === "xuất" && item.product.stock < item.quantity) {
+        if (!item.isFallback && payload.type === "xuất" && item.product.stock < item.quantity) {
           throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
         }
       }
-
-      await Promise.all(
-        resolvedItems.map((item) =>
-          inventoryProductService.updateProductStock(
-            item.product.id,
-            payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity,
-            activeBranchId
-          )
-        )
-      );
     }
 
     const logItems = resolvedItems.map((item) => ({
@@ -418,12 +428,14 @@ export default function InventoryTab() {
       productName: item.product.name,
       quantity: item.quantity,
       unitIdentifiers: item.unitIdentifiers,
+      serialNumbers: item.serialNumbers,
     }));
 
     // Lưu phiếu vào Firebase
     await inventoryStockLogService.createLog({
       type: payload.type,
       purpose: payload.purpose,
+      customerId: payload.customerId,
       customerName: payload.customerName,
       title: payload.title,
       items: logItems,
@@ -433,6 +445,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes || (payload.type === "nhập" ? "Phiếu nhập kho mới" : "Phiếu xuất kho mới"),
       status: payload.status,
+      warehouseId: payload.warehouseId,
     }, activeBranchId);
 
     toast.success(payload.type === "nhập" ? "Đã tạo phiếu nhập kho." : "Đã tạo phiếu xuất kho.");
@@ -442,12 +455,14 @@ export default function InventoryTab() {
     id?: string;
     type: "nhập" | "xuất";
     purpose?: import("../types").StockLogPurpose;
+    customerId?: string;
     customerName?: string;
     title: string;
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+    warehouseId?: string;
   }) => {
     if (!payload.id) return;
 
@@ -463,17 +478,55 @@ export default function InventoryTab() {
     const normalizedOldItems = oldItems.map((item) => {
       const product = products.find((entry) => entry.sku === item.sku);
       if (!product) {
-        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm cũ ${item.productName} trong kho.` }));
+        return {
+          product: {
+            id: item.productId || "",
+            sku: item.sku,
+            name: item.productName || "Sản phẩm cũ",
+            stock: 0,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          type: oldType,
+          unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, type: oldType, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     const normalizedNewItems = payload.items.map((item) => {
       const product = products.find((entry) => entry.id === item.productId);
       if (!product) {
-        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm mới trong kho." }));
+        return {
+          product: {
+            id: item.productId,
+            sku: item.sku || "",
+            name: item.productName || item.sku || "Sản phẩm mới",
+            stock: 999999,
+            category: "",
+            unit: "Cái",
+            minStockAlert: 0,
+            price: 0,
+            status: "Active" as const,
+            demandForecast: "Ổn định" as const,
+            imageUrl: "",
+          },
+          quantity: item.quantity,
+          type: payload.type,
+          unitIdentifiers: item.unitIdentifiers,
+          serialNumbers: item.serialNumbers,
+          isFallback: true,
+        };
       }
-      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers };
+      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);
@@ -501,28 +554,20 @@ export default function InventoryTab() {
       }
     }
 
-    if (adjustments.size > 0) {
-      await Promise.all(
-        Array.from(adjustments.entries()).map(async ([productId, delta]) => {
-          const product = products.find((entry) => entry.id === productId);
-          if (!product) return;
-          await inventoryProductService.updateProductStock(productId, product.stock + delta, activeBranchId);
-        })
-      );
-    }
-
     const logItems = normalizedNewItems.map((item) => ({
       productId: item.product.id,
       sku: item.product.sku,
       productName: item.product.name,
       quantity: item.quantity,
       unitIdentifiers: item.unitIdentifiers,
+      serialNumbers: item.serialNumbers,
     }));
 
     // Cập nhật phiếu trong Firebase
     await inventoryStockLogService.updateLog(payload.id, {
       type: payload.type,
       purpose: payload.purpose,
+      customerId: payload.customerId,
       customerName: payload.customerName,
       title: payload.title,
       items: logItems,
@@ -532,6 +577,7 @@ export default function InventoryTab() {
       operatorName: payload.operatorName,
       notes: payload.notes,
       status: payload.status,
+      warehouseId: payload.warehouseId,
     }, activeBranchId);
 
     toast.success("Đã cập nhật phiếu nhập xuất kho.");
@@ -544,11 +590,15 @@ export default function InventoryTab() {
     }
 
     const items = getStockLogItems(existingLog).map((item) => {
-      const product = products.find((entry) => entry.sku === item.sku);
-      if (!product) {
-        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm ${item.productName} trong kho.` }));
-      }
-      return { productId: product.id, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers };
+      const product = products.find((entry) => entry.sku === item.sku || entry.id === item.productId);
+      return {
+        productId: product?.id || item.productId || "",
+        sku: product?.sku || item.sku || "",
+        productName: product?.name || item.productName || "",
+        quantity: item.quantity,
+        unitIdentifiers: item.unitIdentifiers || [],
+        serialNumbers: item.serialNumbers || [],
+      };
     });
 
     await handleUpdateTransaction({

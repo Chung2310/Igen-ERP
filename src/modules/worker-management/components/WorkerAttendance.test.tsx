@@ -16,10 +16,13 @@ describe("worker attendance components", () => {
     await waitFor(() => expect(attendance.mark).toHaveBeenCalledWith({ projectId: "p1", workerId: "w1" }));
   });
   it("creates and closes a QR session", async () => {
-    attendance.createQrSession.mockResolvedValue({ sessionId: "s1" }); attendance.getQrToken.mockResolvedValue({ token: "t1" }); attendance.closeQrSession.mockResolvedValue({});
+    attendance.createQrSession.mockResolvedValue({ id: "s1", expiresAt: Date.now() + 60_000 });
+    attendance.getQrToken.mockResolvedValue({ token: "t1" }); attendance.closeQrSession.mockResolvedValue({});
     render(<WorkerQrAttendance projectId="p1" date="2026-08-05" />);
-    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
-    expect(await screen.findByText("t1")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiên QR" }));
+    // Liên kết hiện ngay cạnh mã QR để quản lý mở thử trên tab ẩn danh.
+    expect(await screen.findByText(new RegExp("/worker/checkin/t1$"))).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Mở tab mới" }).getAttribute("href")).toMatch(/\/worker\/checkin\/t1$/);
     fireEvent.click(screen.getByRole("button", { name: "Đóng phiên" }));
     await waitFor(() => expect(attendance.closeQrSession).toHaveBeenCalledWith("s1"));
   });

@@ -1,4 +1,4 @@
-import mongoose, { type ClientSession } from "mongoose";
+﻿import mongoose, { type ClientSession } from "mongoose";
 import type { FinanceBranchScope } from "../contracts";
 import type { ReceivableEntryType } from "../interfaces/receivable.interface";
 import { ReceivableEntryModel } from "../models/receivable-entry.model";
@@ -211,7 +211,7 @@ const mongooseRepository: ReceivableLedgerRepository = {
   findById: (scope, id, session) => ReceivableModel.findOne({ ...scope, _id: id }).session(session as ClientSession).lean(),
   findBySource: (scope, sourceType, sourceId, session) => ReceivableModel.findOne({ ...scope, sourceType, sourceId }).session(session as ClientSession).lean(),
   async createReceivable(values, session) { const [item] = await ReceivableModel.create([values], { session: session as ClientSession }); return item.toObject(); },
-  async updateReceivable(scope, id, values, session) { return ReceivableModel.findOneAndUpdate({ ...scope, _id: id }, { $set: values }, { new: true, session: session as ClientSession }).lean(); },
+  async updateReceivable(scope, id, values, session) { return ReceivableModel.findOneAndUpdate({ ...scope, _id: id }, { $set: values }, { returnDocument: 'after', session: session as ClientSession }).lean(); },
   async createEntry(values, session) { const [item] = await ReceivableEntryModel.create([values], { session: session as ClientSession }); return item.toObject(); },
   findEntry: (scope, receivableId, entryId, session) => ReceivableEntryModel.findOne({ ...scope, receivableId, _id: entryId }).session(session as ClientSession).lean(),
   findReversal: (scope, receivableId, entryId, session) => ReceivableEntryModel.findOne({ ...scope, receivableId, reversalOfEntryId: entryId }).session(session as ClientSession).lean(),

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 import { getResourceSourceDefinition } from "../config/resource-source-registry";
 import { PendingUploadModel } from "../model/pending-upload.model";
 import type { ResourceStorageProvider } from "../model/resource-item.model";
@@ -112,7 +112,7 @@ const mongooseRepository: PendingUploadRepository = {
     const record = await PendingUploadModel.findOneAndUpdate(
       { token },
       { $set: { status: "finalized", finalizedResourceId: resourceId } },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
     return record ? toRecord(record) : null;
   },

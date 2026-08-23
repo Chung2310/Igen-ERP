@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { cloudinaryService } from "./cloudinary.service";
 import {
@@ -42,7 +42,7 @@ describe("recruitment job service", () => {
     expect(RecruitmentJobModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: "job-1", ...scope, isDeleted: false, version: 2 },
       expect.objectContaining({ $inc: { version: 1 } }),
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
   });
 

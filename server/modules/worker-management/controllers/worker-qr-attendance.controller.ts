@@ -13,7 +13,11 @@ import { logger } from "../../../config/logger";
 
 function respondError(res: Response, error: unknown, next: NextFunction) {
   if (error instanceof WorkerQrCheckinError) {
-    const status = error.reasonCode === "worker_not_found" || error.reasonCode === "session_invalid" ? 404 : 400;
+    const status = error.reasonCode === "worker_not_found"
+      || error.reasonCode === "session_invalid"
+      || error.reasonCode === "project_not_found"
+      ? 404
+      : 400;
     return res.status(status).json({ success: false, reasonCode: error.reasonCode, error: error.message });
   }
   return next(error);

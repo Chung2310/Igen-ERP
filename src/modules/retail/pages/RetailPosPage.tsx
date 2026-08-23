@@ -9,6 +9,7 @@ import CustomerPicker from "../components/pos/CustomerPicker";
 import DiscountInput from "../components/pos/DiscountInput";
 import HeldDraftsBar from "../components/pos/HeldDraftsBar";
 import OrderAdjustments from "../components/pos/OrderAdjustments";
+import { QuantityInput } from "../components/pos/QuantityInput";
 import PaymentDialog from "../components/pos/PaymentDialog";
 import PosShortcutHelp from "../components/pos/PosShortcutHelp";
 import ScanFeedback, {
@@ -287,6 +288,15 @@ export default function RetailPosPage() {
       show(error);
     }
   };
+  const addProductToCart = (product: RetailProduct, clearSearch = false) => {
+    const current = cart.lines.find((line) => line.product._id === product._id)?.quantity || 0;
+    if (product.stock <= current) {
+      toast.error(`${product.name} không còn đủ tồn khả dụng.`);
+      return;
+    }
+    dispatch({ type: "add", product });
+    if (clearSearch) setQ("");
+  };
   const openDraft = (value: RetailOrder) => {
     setDraft(value);
     dispatch({
@@ -452,21 +462,17 @@ export default function RetailPosPage() {
             value={q}
             onChange={(event) => setQ(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && q.trim()) void scan(q.trim());
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              const product = products[0];
+              if (product) addProductToCart(product, true);
             }}
           />
         </label>
         {scanFeedback && <ScanFeedback {...scanFeedback} />}
       <ProductGrid
           products={products}
-          onAdd={(product) => {
-            const current = cart.lines.find((line) => line.product._id === product._id)?.quantity || 0;
-            if (product.stock <= current) {
-              toast.error(`${product.name} không còn đủ tồn khả dụng.`);
-              return;
-            }
-            dispatch({ type: "add", product });
-          }}
+          onAdd={addProductToCart}
         />
       </main>
       <CartPanel
@@ -729,18 +735,11 @@ function CartPanel({
                   {money(line.product.price)}
                 </p>
               </div>
-              <input
-                aria-label={`Số lượng ${line.product.name}`}
-                className="w-16 rounded-lg border px-2 py-1"
-                type="number"
-                min="0"
+              <QuantityInput
+                ariaLabel={`Số lượng ${line.product.name}`}
                 value={line.quantity}
-                onChange={(event) =>
-                  dispatch({
-                    type: "quantity",
-                    productId: line.product._id,
-                    quantity: Number(event.target.value),
-                  })
+                onQuantityChange={(quantity) =>
+                  dispatch({ type: "quantity", productId: line.product._id, quantity })
                 }
               />
               <button

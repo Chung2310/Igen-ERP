@@ -12,6 +12,7 @@ const StockLogItemSchema = new Schema(
     unitCost: { type: Number, min: 0 },
     category: { type: String, trim: true },
     unitIdentifiers: { type: [String], default: [] },
+    serialNumbers: { type: [String], default: [] },
   },
   { _id: false }
 );

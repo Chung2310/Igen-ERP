@@ -12,15 +12,16 @@ import {
 // ─── Thông báo lỗi chuyên biệt cho lao động ──────────────────────────────────
 const REASON_MESSAGES: Record<string, string> = {
   session_invalid: "Phiên chấm công đã kết thúc hoặc mã QR không hợp lệ.",
-  replay: "Mã QR này đã được quét và sử dụng rồi.",
   device_conflict: "Thiết bị này đã được dùng để chấm công cho lao động khác.",
   worker_not_found:
     "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
-  student_not_found:
-    "Số điện thoại không có trong hệ thống hoặc không đúng dự án.",
-  not_in_batch: "Lao động không nằm trong danh sách dự án này.",
-  already_checked_in: "Bạn đã chấm công thành công trước đó rồi.",
+  not_in_project: "Bạn không nằm trong danh sách lao động của dự án này.",
+  project_not_found: "Không tìm thấy dự án của phiên chấm công này.",
+  missing_location:
+    "Dự án này yêu cầu vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt rồi thử lại.",
   outside_radius: "Bạn đang ở ngoài khu vực chấm công cho phép.",
+  too_soon: "Bạn vừa chấm công xong. Vui lòng đợi thêm vài phút rồi chấm giờ về.",
+  already_completed: "Hôm nay bạn đã chấm đủ giờ vào và giờ về cho dự án này.",
 };
 
 function mapReasonCode(reasonCode?: string, fallback?: string): string {
@@ -137,7 +138,7 @@ export default function WorkerQRCheckinPage() {
       try {
         setLoadingSession(true);
         const res = await fetch(
-          `/api/v1/worker-management/qr-attendance/session-info?token=${token}`
+          `/api/v1/worker-management/qr-attendance/session-info?token=${encodeURIComponent(token)}`
         );
         const data = await res.json();
         if (data.success && data.data) {
@@ -160,12 +161,18 @@ export default function WorkerQRCheckinPage() {
   const handleCheckin = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     const rememberedDevice = sessionInfo?.device?.recognized === true;
-    if (!rememberedDevice && (!phone || phone.length < 8)) return;
+    if (!rememberedDevice && (!phone || phone.length < 8)) {
+      setResult({ success: false, error: "Vui lòng nhập đúng số điện thoại đã đăng ký." });
+      return;
+    }
 
     setSubmitting(true);
     try {
       const fingerprint = getDeviceFingerprint();
 
+      // Không phải dự án nào cũng khoanh vùng GPS. Cứ gửi lên khi lấy được vị trí,
+      // còn thiếu vị trí thì để máy chủ quyết định (dự án có khoanh vùng sẽ trả về
+      // missing_location), thay vì chặn cứng ngay tại đây.
       let latitude: number | undefined;
       let longitude: number | undefined;
       try {
@@ -173,12 +180,8 @@ export default function WorkerQRCheckinPage() {
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
       } catch {
-        setResult({
-          success: false,
-          error:
-            "Không lấy được vị trí GPS. Vui lòng cấp quyền định vị cho trình duyệt và thử lại.",
-        });
-        return;
+        latitude = undefined;
+        longitude = undefined;
       }
 
       const res = await fetch("/api/v1/worker-management/qr-attendance/checkin", {
@@ -193,7 +196,11 @@ export default function WorkerQRCheckinPage() {
         }),
       });
 
-      const data = await res.json();
+      // Máy chủ lỗi hoặc proxy trả HTML thì res.json() ném lỗi và người dùng chỉ
+      // thấy "lỗi mạng" chung chung — kèm mã HTTP để còn lần ra nguyên nhân.
+      const data = await res.json().catch(() => {
+        throw new Error(`Máy chủ trả về phản hồi không hợp lệ (HTTP ${res.status}).`);
+      });
       if (data.success) {
         setResult({
           success: true,
@@ -205,10 +212,13 @@ export default function WorkerQRCheckinPage() {
           error: mapReasonCode(data.reasonCode, data.error),
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("[Worker-QR] Chấm công thất bại", error);
       setResult({
         success: false,
-        error: "Đã xảy ra lỗi mạng. Vui lòng kiểm tra lại kết nối.",
+        error: error instanceof Error && error.message
+          ? error.message
+          : "Đã xảy ra lỗi mạng. Vui lòng kiểm tra lại kết nối.",
       });
     } finally {
       setSubmitting(false);

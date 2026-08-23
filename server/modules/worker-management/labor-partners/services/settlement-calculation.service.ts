@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import { WorkerAttendanceLogModel } from "../../models/worker-attendance-log.model";
 import { WorkerLaborContractModel } from "../../models/worker-labor-contract.model";
 import { LaborPartnerModel } from "../models/labor-partner.model";
@@ -149,9 +149,9 @@ export const LaborPartnerSettlementCalculationService = {
     let settlement: any;
     await runInTransaction(async (session) => {
       const next = { periodStart, periodEnd, cutoffAt: new Date(), status: "calculated", manualEntries, officialAmount, seasonalMinutes, seasonalAmount, adjustmentAmount: 0, totalAmount: officialAmount + seasonalAmount, paidAmount: 0, balanceAmount: officialAmount + seasonalAmount, policySnapshots: [...policyPeriods.values()].map((item) => item.policy), warnings, calculatedBy: actorSnapshot(actor), calculatedAt: new Date(), approvedBy: null, approvedAt: null, voidReason: "" };
-      const options = session ? { session } : undefined;
+      const options = session ? { session, ordered: true } : undefined;
       if (existing && input.force) {
-        const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: existing._id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] } }, { $set: next, $inc: { version: 1 } }, { new: true });
+        const query = (LaborPartnerSettlementModel as any).findOneAndUpdate({ _id: existing._id, ...scopeQuery(scope), status: { $in: ["draft", "calculated"] } }, { $set: next, $inc: { version: 1 } }, { returnDocument: 'after' });
         if (session) query.session(session);
         settlement = await query;
         if (!settlement) throw new LaborPartnerError("SETTLEMENT_STALE_VERSION", "Kỳ đối soát đã thay đổi, vui lòng tải lại trước khi tính lại.", 409);
@@ -161,7 +161,7 @@ export const LaborPartnerSettlementCalculationService = {
       } else {
         [settlement] = await LaborPartnerSettlementModel.create([{ companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), partnerId, settlementKey: key, revision: 1, ...next, version: 1 }], options as any);
       }
-      await LaborPartnerCommissionLineModel.create(lines.map((line) => ({ ...line, settlementId: settlement._id, partnerId, status: "draft" })), options as any);
+      await LaborPartnerCommissionLineModel.insertMany(lines.map((line) => ({ ...line, settlementId: settlement._id, partnerId, status: "draft" })), options as any);
     });
     return { settlement, reused: false };
   },

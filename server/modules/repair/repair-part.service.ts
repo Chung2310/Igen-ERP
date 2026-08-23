@@ -39,16 +39,20 @@ export async function recomputeRepairTicketAmounts(ticket: any) {
 }
 
 export async function listRepairParts(scope: RepairScope, ticketId: string) { return RepairPartModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, ticketId }).sort({ issuedAt: -1 }).lean(); }
-export async function issueRepairPart(scope: RepairScope, ticketId: string, input: { productId: string; sku: string; productName: string; quantity: number; unitCost: number; unitPrice: number; serialNumbers?: string[]; idempotencyKey: string; billing?: RepairPartBilling }, actor: RepairActor) {
+export async function issueRepairPart(scope: RepairScope, ticketId: string, input: { productId: string; sku: string; productName: string; quantity: number; unitCost: number; unitPrice: number; serialNumbers?: string[]; idempotencyKey: string; billing?: RepairPartBilling; manual?: boolean }, actor: RepairActor) {
   const key = String(input.idempotencyKey || "").trim(); if (!key) throw Object.assign(new Error("idempotencyKey là bắt buộc."), { statusCode: 400 });
   const existing = await RepairPartModel.findOne({ companyCode: scope.companyCode, idempotencyKey: key }).lean(); if (existing) return existing;
   const ticket: any = await RepairTicketModel.findOne({ _id: ticketId, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
   if (!["approved", "repairing"].includes(ticket.status)) throw Object.assign(new Error("Chỉ được xuất linh kiện khi phiếu đã được duyệt hoặc đang sửa."), { statusCode: 409 });
   const quantity = Number(input.quantity); if (!Number.isInteger(quantity) || quantity <= 0) throw Object.assign(new Error("Số lượng linh kiện không hợp lệ."), { statusCode: 400 });
-  await writeStockMovement({ ...scope, direction: "out", purpose: "other", sourceType: "repair-ticket", sourceId: ticketId, idempotencyKey: key, operatorName: actor.name, items: [{ productId: input.productId, sku: input.sku, productName: input.productName, quantity, unitCost: Number(input.unitCost), unitPrice: Number(input.unitPrice), lineTotal: quantity * Number(input.unitPrice) }], reason: `Xuất linh kiện cho phiếu ${ticket.ticketCode}` });
+  const manual = Boolean(input.manual);
+  const productId = manual ? `manual:${key}` : input.productId;
+  if (!manual) {
+    await writeStockMovement({ ...scope, direction: "out", purpose: "other", sourceType: "repair-ticket", sourceId: ticketId, idempotencyKey: key, operatorName: actor.name, items: [{ productId: input.productId, sku: input.sku, productName: input.productName, quantity, unitCost: Number(input.unitCost), unitPrice: Number(input.unitPrice), lineTotal: quantity * Number(input.unitPrice) }], reason: `Xuất linh kiện cho phiếu ${ticket.ticketCode}` });
+  }
   const billing: RepairPartBilling = input.billing || defaultPartBilling(ticket.coverage?.costBearer);
   const chargeable = billing === "customer";
-  const part = await RepairPartModel.create({ ...input, billing, chargeable, companyCode: scope.companyCode, branchId: scope.branchId, ticketId, quantity, lineTotal: chargeable ? quantity * Number(input.unitPrice) : 0, status: "issued", issuedBy: actor.id, issuedByName: actor.name, issuedAt: new Date() });
+  const part = await RepairPartModel.create({ ...input, productId, manual, billing, chargeable, companyCode: scope.companyCode, branchId: scope.branchId, ticketId, quantity, lineTotal: chargeable ? quantity * Number(input.unitPrice) : 0, status: "issued", issuedBy: actor.id, issuedByName: actor.name, issuedAt: new Date() });
   const amounts = await recomputeRepairTicketAmounts(ticket);
   return { ...part.toObject(), ticketAmounts: amounts };
 }
@@ -56,7 +60,9 @@ export async function returnRepairPart(scope: RepairScope, ticketId: string, par
   const note = String(reason || "").trim(); if (!note) throw Object.assign(new Error("Lý do hoàn linh kiện là bắt buộc."), { statusCode: 400 });
   const part: any = await RepairPartModel.findOne({ _id: partId, companyCode: scope.companyCode, branchId: scope.branchId, ticketId }); if (!part) throw Object.assign(new Error("Không tìm thấy linh kiện."), { statusCode: 404 });
   if (part.status !== "issued") throw Object.assign(new Error("Linh kiện đã được hoàn hoặc hủy."), { statusCode: 409 });
-  await writeStockMovement({ ...scope, direction: "in", purpose: "other", sourceType: "repair-ticket", sourceId: ticketId, idempotencyKey: `repair:${ticketId}:part:${partId}:return`, operatorName: actor.name, items: [{ productId: part.productId, sku: part.sku, productName: part.productName, quantity: part.quantity, unitCost: part.unitCost, unitPrice: part.unitPrice, lineTotal: part.lineTotal }], reason: `Hoàn linh kiện phiếu ${ticketId}` });
+  if (!part.manual) {
+    await writeStockMovement({ ...scope, direction: "in", purpose: "other", sourceType: "repair-ticket", sourceId: ticketId, idempotencyKey: `repair:${ticketId}:part:${partId}:return`, operatorName: actor.name, items: [{ productId: part.productId, sku: part.sku, productName: part.productName, quantity: part.quantity, unitCost: part.unitCost, unitPrice: part.unitPrice, lineTotal: part.lineTotal }], reason: `Hoàn linh kiện phiếu ${ticketId}` });
+  }
   part.status = "returned"; part.returnedAt = new Date(); part.returnReason = note; part.updatedBy = actor.id; part.returnedByName = actor.name; await part.save();
   const ticket: any = await RepairTicketModel.findOne({ _id: ticketId, ...scope });
   const amounts = ticket ? await recomputeRepairTicketAmounts(ticket) : undefined;

@@ -25,6 +25,7 @@ function formatTimeLeft(msRemaining: number) {
 export function WorkerQrAttendance({ projectId, date }: { projectId: string; date: string }) {
   const [session, setSession] = React.useState<WorkerQrSession | null>(null);
   const [qrDataUrl, setQrDataUrl] = React.useState("");
+  const [checkinUrl, setCheckinUrl] = React.useState("");
   const [status, setStatus] = React.useState<WorkerQrStatus | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -41,6 +42,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
       const dataUrl = await QRCode.toDataURL(checkinUrl, { width: 320, margin: 1 });
       setSession({ id: sessionId, expiresAt: created.expiresAt });
       setQrDataUrl(dataUrl);
+      setCheckinUrl(checkinUrl);
       setStatus(null);
     } catch (e) {
       setError(getApiErrorMessage(e, "Không thể tạo phiên QR"));
@@ -59,6 +61,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
     } finally {
       setSession(null);
       setQrDataUrl("");
+      setCheckinUrl("");
       setStatus(null);
       setBusy(false);
     }
@@ -91,6 +94,7 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
       if (session.expiresAt <= next) {
         setSession(null);
         setQrDataUrl("");
+        setCheckinUrl("");
         setStatus(null);
         clearInterval(interval);
       }
@@ -146,6 +150,36 @@ export function WorkerQrAttendance({ projectId, date }: { projectId: string; dat
           <p className="text-center text-xs text-slate-400">
             Lao động dùng điện thoại quét mã, nhập số điện thoại đã đăng ký và cho phép định vị để xác nhận chấm công.
           </p>
+
+          {checkinUrl && (
+            <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Liên kết chấm công
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard?.writeText(checkinUrl)}
+                    className="rounded-md px-2 py-0.5 text-[10px] font-bold text-cyan-700 hover:bg-cyan-50"
+                  >
+                    Sao chép
+                  </button>
+                  <a
+                    href={checkinUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md px-2 py-0.5 text-[10px] font-bold text-cyan-700 hover:bg-cyan-50"
+                  >
+                    Mở tab mới
+                  </a>
+                </div>
+              </div>
+              <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-slate-600">
+                {checkinUrl}
+              </p>
+            </div>
+          )}
 
           <div className="mt-2 w-full space-y-2">
             <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700">

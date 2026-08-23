@@ -28,7 +28,7 @@ export default function CustomerPicker({ scope, value, onChange }: Props) {
       setError("");
       setSearchCompleted(false);
       void customerApi.list({ companyCode: scope.companyCode, q, limit: 10, status: "active" })
-        .then((result) => { if (active) { setItems(result.items.map((customer) => ({ _id: customer._id, customerCode: customer.customerCode, companyCode: customer.companyCode, type: customer.type, name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, notes: customer.notes }))); setSearchCompleted(true); } })
+        .then((result) => { if (active) { setItems(result.items.map((customer) => ({ _id: customer._id, customerCode: customer.customerCode, companyCode: customer.companyCode, type: customer.type, name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, notes: customer.notes, tier: customer.tier }))); setSearchCompleted(true); } })
         .catch((cause) => { if (active) { setItems([]); setSearchCompleted(false); setError(getApiErrorMessage(cause, "Không tìm được khách hàng.")); } })
         .finally(() => { if (active) setLoading(false); });
     }, 200);

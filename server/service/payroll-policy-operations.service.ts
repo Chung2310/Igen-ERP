@@ -1,4 +1,4 @@
-import { PayrollAuditModel } from "../model/payroll-audit.model";
+﻿import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollPolicyModel } from "../model/payroll-policy.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
@@ -102,7 +102,7 @@ export async function activatePayrollPolicy(companyCode: string, policyId: strin
     const activated: any = await withSession(PayrollPolicyModel.findOneAndUpdate(
       { _id: policyId, companyCode, status: previousStatus },
       { $set: { status: "active", activatedBy: actorId, activatedAt: new Date() }, $unset: { retiredBy: 1 } },
-      { new: true, session },
+      { returnDocument: 'after', session },
     ), session).lean();
     if (!activated) raise({ code: "PAYROLL_POLICY_INVALID_STATE", message: "The policy changed before it could be activated", status: 409 });
     await auditPolicy(companyCode, actorId, {
@@ -116,7 +116,7 @@ export async function retirePayrollPolicy(companyCode: string, policyId: string,
   const retired: any = await PayrollPolicyModel.findOneAndUpdate(
     { _id: policyId, companyCode, status: "active" },
     { $set: { status: "retired", retiredBy: actorId } },
-    { new: true },
+    { returnDocument: 'after' },
   ).lean();
   if (!retired) {
     raise({ code: "PAYROLL_POLICY_INVALID_STATE", message: "Only an active payroll policy can be retired", status: 409 });
@@ -134,7 +134,7 @@ export async function updatePayrollPolicy(companyCode: string, policyId: string,
     const updated: any = await PayrollPolicyModel.findOneAndUpdate(
       { _id: policyId, companyCode, status: { $in: ["draft", "active"] }, version: expectedVersion },
       { $set: input, $inc: { version: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).lean();
     if (!updated) raise({ code: "PAYROLL_POLICY_VERSION_CONFLICT", message: "Only the current draft or active policy version can be edited", status: 409 });
     await auditPolicy(companyCode, actorId, { operation: "update_policy", policyId, code: updated.code, expectedVersion });

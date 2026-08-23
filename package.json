@@ -18,6 +18,7 @@
     "migrate:inventory-foundation": "tsx server/scripts/migrate-legacy-products-to-catalog.ts",
     "backfill:partner-scheme-policies": "tsx server/scripts/backfill-labor-partner-scheme-policies.ts",
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
+    "backfill:customer-tiers": "tsx server/scripts/backfill-customer-tiers.ts",
     "backfill:serial-tracking": "tsx server/scripts/backfill-serial-tracking.ts",
     "backfill:warranty-serials": "tsx server/scripts/backfill-warranty-serials.ts",
     "backfill:repair-ticket-lookup-keys": "tsx server/scripts/backfill-repair-ticket-lookup-keys.ts",

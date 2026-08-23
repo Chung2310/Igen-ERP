@@ -62,6 +62,13 @@ function createDependencies(fields: Field[] = [], storedValues: Field[] = []): {
         return matches(row[key], value);
       })) ? { _id: "entity" } : null;
     },
+    async updateMany(this: unknown, filter: Field, update: Field) {
+      if (this !== entityModel) {
+        throw new Error("'Model.updateMany()' cannot run without a model as 'this'. Make sure you are calling 'MyModel.updateMany()' where 'MyModel' is a Mongoose model.");
+      }
+      calls.entities.push({ updateManyFilter: filter, updateManyUpdate: update });
+      return { modifiedCount: 1 };
+    },
   };
 
   return {
@@ -217,4 +224,10 @@ test("DELETE deletes field from database", async () => {
   const service = new CustomFieldService(scoped.dependencies);
   await service.delete(context, "students", "field-1");
   assert.equal(deletedId, "field-1");
+  assert.deepEqual(scoped.calls.entities, [
+    {
+      updateManyFilter: { ownerId: { $in: ["owner-a", "owner-b"] } },
+      updateManyUpdate: { $unset: { "customFields.score": 1 } },
+    },
+  ]);
 });

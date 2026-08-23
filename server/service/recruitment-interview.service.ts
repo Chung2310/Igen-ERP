@@ -1,4 +1,4 @@
-import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
+﻿import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentInterviewModel } from "../model/recruitment-interview.model";
 import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { UserModel } from "../model/user.model";
@@ -49,7 +49,7 @@ export async function updateInterview(scope: RecruitmentScope, id: string, versi
   const value = await RecruitmentInterviewModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted: false, version },
     { $set: { ...safe, updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!value) throw new Error("Interview version conflict");
   return value;
@@ -59,7 +59,7 @@ async function deleteState(scope: RecruitmentScope, id: string, version: number,
   const value = await RecruitmentInterviewModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted: !deleting, version },
     { $set: { isDeleted: deleting, deletedAt: deleting ? new Date() : null, deletedBy: deleting ? actorId : null, updatedBy: actorId }, $inc: { version: 1 } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   );
   if (!value) throw new Error("Interview version conflict");
   return value;

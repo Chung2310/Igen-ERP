@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { repairExtras, type RepairRevenueRow, type RepairTechnicianRow } from "../../services/repairService";
+import { toast } from "../../pages/Toast";
 
 const money = (value?: number) => Number(value || 0).toLocaleString("vi-VN");
 const today = () => new Date().toISOString().slice(0, 10);
@@ -16,10 +17,9 @@ export default function RepairReportsPanel() {
   const [revenue, setRevenue] = useState<{ items: RepairRevenueRow[]; total: RepairRevenueRow } | null>(null);
   const [technicians, setTechnicians] = useState<RepairTechnicianRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
 
   const load = async () => {
-    setBusy(true); setError("");
+    setBusy(true);
     try {
       const [revenueReport, technicianReport] = await Promise.all([
         repairExtras.revenueReport({ ...range, groupBy }),
@@ -27,7 +27,7 @@ export default function RepairReportsPanel() {
       ]);
       setRevenue(revenueReport);
       setTechnicians(technicianReport);
-    } catch (e) { setError(e instanceof Error ? e.message : "Không tải được báo cáo."); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Không tải được báo cáo."); }
     finally { setBusy(false); }
   };
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [groupBy]);
@@ -47,8 +47,6 @@ export default function RepairReportsPanel() {
       <label className="flex flex-col gap-1 text-xs">Nhóm theo<select value={groupBy} onChange={(e) => setGroupBy(e.target.value as any)} className="rounded-lg border px-3 py-2 text-sm">{Object.entries(GROUP_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <button disabled={busy} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Đang tải..." : "Xem báo cáo"}</button>
     </form>
-
-    {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
     {revenue && <>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">

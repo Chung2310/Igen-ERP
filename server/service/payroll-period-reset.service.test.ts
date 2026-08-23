@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
@@ -107,7 +107,7 @@ describe("payroll period reset", () => {
         $setOnInsert: scope,
         $inc: { revision: 1 },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true, session },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, session },
     );
     expect(mocks.runExists).toHaveBeenCalledWith({
       ...periodFilter,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   attendanceFind: vi.fn(),
@@ -217,7 +217,7 @@ describe("payrollController.createRun branch scope", () => {
         version: 4,
       },
       { $set: { lines: expect.any(Array) }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       status: "success",
@@ -344,7 +344,7 @@ describe("payrollController.createRun branch scope", () => {
         activeRevisionId: { $exists: false }, version: 2,
       },
       expect.any(Object),
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(selected.sort).toHaveBeenCalledWith({ createdAt: 1, _id: 1 });
   });
@@ -385,7 +385,7 @@ describe("payrollController.createRun branch scope", () => {
         _id: "adjustment-a", companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07",
       }),
       expect.any(Object),
-      { new: true },
+      { returnDocument: 'after' },
     );
   });
 });

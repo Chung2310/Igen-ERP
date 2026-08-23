@@ -1,4 +1,4 @@
-import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
+﻿import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { InventoryCountModel } from "../../../model/inventory-count.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
@@ -194,7 +194,7 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor) 
           const updated = await SerialUnitModel.findOneAndUpdate(
             { _id: entry.serialUnitId, companyCode: normalizedCompany(scope.companyCode), status: "in_stock" },
             { $set: { status: "lost", updatedBy: nameOf(actor) } },
-            { new: true, session },
+            { returnDocument: 'after', session },
           );
           if (!updated) continue;
           await SerialEventModel.create([{ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, serialUnitId: String(entry.serialUnitId), serialNumber: updated.serialNumber, eventType: "count_lost", fromStatus: "in_stock", toStatus: "lost", documentType: "inventory-count", documentId: String(count._id), reason: `Kiểm kê ${count.countCode} không tìm thấy máy`, actorId: code(actor.id), actorName: nameOf(actor) }], { session });

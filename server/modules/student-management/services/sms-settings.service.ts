@@ -1,4 +1,4 @@
-import { ISmsSettings } from "../interfaces/sms-settings.interface";
+﻿import { ISmsSettings } from "../interfaces/sms-settings.interface";
 import { SmsSettings } from "../models/sms-settings.model";
 
 export interface SmsSettingsPayload {
@@ -45,7 +45,7 @@ export class SmsSettingsService {
           tingtingSender: data.tingtingSender || "",
         },
       },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
   }
 }

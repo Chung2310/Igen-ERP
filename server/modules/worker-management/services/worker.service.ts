@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+﻿import { Types } from "mongoose";
 import { WorkerModel } from "../models/worker.model";
 import { WorkerProjectModel } from "../models/worker-project.model";
 import { LaborPartnerModel } from "../labor-partners/models/labor-partner.model";
@@ -197,7 +197,7 @@ export class WorkerService {
     return WorkerModel.findOneAndUpdate(
       { _id: id, ...buildWorkerQuery(scope) },
       { $set: { ...data, ...(scope.branchId ? { branchId: scope.branchId } : {}) } },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
   }
   /**
@@ -314,7 +314,7 @@ export class WorkerService {
   }
 
   static delete(scope: WorkerScope, id: string) {
-    return WorkerModel.findOneAndUpdate({ _id: id, ...buildWorkerQuery(scope) }, { $set: { deletedAt: new Date() } }, { new: true }).lean();
+    return WorkerModel.findOneAndUpdate({ _id: id, ...buildWorkerQuery(scope) }, { $set: { deletedAt: new Date() } }, { returnDocument: 'after' }).lean();
   }
 
   static async bulkDelete(scope: WorkerScope, ids: string[]) {

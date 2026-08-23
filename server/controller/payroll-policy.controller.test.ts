@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   policyFind: vi.fn(),
@@ -118,7 +118,7 @@ describe("payroll policy endpoints", () => {
         $set: expect.objectContaining({ status: "active", activatedBy: "admin" }),
         $unset: { retiredBy: 1 },
       },
-      expect.objectContaining({ new: true }),
+      expect.objectContaining({ returnDocument: 'after' }),
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: "ACME",
@@ -171,7 +171,7 @@ describe("payroll policy endpoints", () => {
     expect(mocks.policyFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "policy-1", companyCode: "ACME", status: "active" },
       { $set: expect.objectContaining({ status: "retired", retiredBy: "admin" }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(res.status).toHaveBeenCalledWith(409);
   });

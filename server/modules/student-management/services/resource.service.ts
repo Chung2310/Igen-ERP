@@ -1,4 +1,4 @@
-import { Resource } from "../models/resource.model";
+﻿import { Resource } from "../models/resource.model";
 import { IResource, IResourceBooking } from "../interfaces/resource.interface";
 import { logger } from "../config/logger";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
@@ -95,7 +95,7 @@ export class ResourceService {
     const updated = await Resource.findOneAndUpdate(
       { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!updated) throw new CustomFieldWriteConflictError();
     await customFieldResourceService.finalizeEntity(targetContext, updated);

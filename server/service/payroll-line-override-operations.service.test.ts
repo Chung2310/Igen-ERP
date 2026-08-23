@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
@@ -378,7 +378,7 @@ describe("payroll line override operations", () => {
         $unset: { bonusTotal: 1, "customValues.quality": 1 },
         $inc: { version: 1 },
       },
-      { new: true, upsert: false, runValidators: true },
+      { returnDocument: 'after', upsert: false, runValidators: true },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith({
       ...scope,
@@ -491,7 +491,7 @@ describe("payroll line override operations", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, periodKey, type: "regular", status: "draft" },
       { $inc: { version: 1 } },
-      { new: true, session },
+      { returnDocument: 'after', session },
     );
     expect(mocks.overrideFindOneAndUpdate.mock.calls[0][2]).toEqual(
       expect.objectContaining({ session }),

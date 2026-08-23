@@ -11,6 +11,8 @@ import { resourceIndexingService } from "../../../service/resource-indexing.serv
 import { managedUploadService } from "../../../service/managed-upload.service";
 import { sourceUploadFinalizer } from "../../../service/source-upload-finalizer.service";
 import { WorkerService } from "../../worker-management/services/worker.service";
+import { WorkerReferralService } from "../../worker-management/labor-partners/services/worker-referral.service";
+import { LaborPartnerModel } from "../../worker-management/labor-partners/models/labor-partner.model";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -370,15 +372,29 @@ export class StudentController {
 
   static async publicRegister(req: Request, res: Response) {
     try {
-      const { teacherId, ...studentData } = req.body;
+      const {
+        teacherId,
+        entityPreset: requestedEntityPreset,
+        registrationCompanyCode,
+        registrationBranchId,
+        partnerCode,
+        ...studentData
+      } = req.body;
       const teacher = await AuthService.getUserProfile(teacherId);
       if (!teacher || teacher.isActive === false) {
         return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
       }
 
-      const tenantId = await resolveCustomFieldTenantForOwner(
-        teacher.companyCode || teacher.centerId || teacherId,
-      );
+      const requestedWorkerCompanyCode = requestedEntityPreset === "worker"
+        ? String(registrationCompanyCode || "").trim()
+        : "";
+      const requestedWorkerBranchId = requestedEntityPreset === "worker"
+        ? String(registrationBranchId || "").trim()
+        : "";
+      const teacherCompanyCode = teacher.companyCode || teacher.centerId || teacherId;
+      const workerCompanyCode = requestedWorkerCompanyCode || teacherCompanyCode;
+      const workerBranchId = requestedWorkerBranchId || teacher.branchId;
+      const tenantId = await resolveCustomFieldTenantForOwner(workerCompanyCode);
       const missing = await findMissingPublicRegisterFields(tenantId, studentData);
       if (missing.length > 0) {
         return res.status(400).json({
@@ -388,11 +404,30 @@ export class StudentController {
       }
 
       const settings = await new ModuleSettingsService().get(tenantId);
-      if (settings.entityPreset === "worker") {
+      if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
+        // Mã đối tác giới thiệu do người đăng ký tự nhập nên phải đối chiếu trước khi
+        // tạo hồ sơ, tránh để lại hồ sơ mồ côi khi mã sai.
+        const referralPartnerCode = String(partnerCode || "").trim().toUpperCase();
+        if (referralPartnerCode) {
+          const partner = await LaborPartnerModel.exists({
+            code: referralPartnerCode,
+            companyCode: workerCompanyCode,
+            ...(workerBranchId ? { branchId: workerBranchId } : {}),
+            status: "active",
+            deletedAt: null,
+          });
+          if (!partner) {
+            return res.status(400).json({
+              success: false,
+              error: `Không tìm thấy đối tác giới thiệu có mã ${referralPartnerCode}. Vui lòng kiểm tra lại hoặc bỏ trống.`,
+            });
+          }
+        }
+
         const worker = await WorkerService.create(
           {
-            companyCode: teacher.companyCode || teacher.centerId || tenantId,
-            ...(teacher.branchId ? { branchId: teacher.branchId } : {}),
+            companyCode: workerCompanyCode,
+            ...(workerBranchId ? { branchId: workerBranchId } : {}),
           },
           {
             ...studentData,
@@ -401,8 +436,8 @@ export class StudentController {
           },
         );
         await sourceUploadFinalizer.finalize({
-          companyCode: teacher.companyCode || teacher.centerId,
-          branchId: teacher.branchId,
+          companyCode: workerCompanyCode,
+          branchId: workerBranchId,
           actorId: teacherId,
           actorName: teacher.displayName || teacher.email,
           trusted: true,
@@ -416,7 +451,27 @@ export class StudentController {
             sourceField: field,
           })),
         });
-        return res.status(201).json({ success: true, data: worker });
+        let referralWarning = "";
+        if (referralPartnerCode) {
+          try {
+            await WorkerReferralService.createForImportedWorker(
+              { companyCode: workerCompanyCode, ...(workerBranchId ? { branchId: workerBranchId } : {}) } as any,
+              {
+                workerId: String(worker._id),
+                partnerCode: referralPartnerCode,
+                registrationDate: worker.registrationDate,
+              },
+              { id: teacherId, name: teacher.displayName || teacher.email },
+            );
+          } catch (referralError) {
+            // Hồ sơ đã lưu thành công, chỉ phần gắn đối tác lỗi (thường do thiếu
+            // chính sách hoa hồng). Nhân viên sẽ gắn lại trong phân hệ Đối tác lao động.
+            referralWarning = referralError instanceof Error
+              ? referralError.message
+              : "Không gắn được đối tác giới thiệu.";
+          }
+        }
+        return res.status(201).json({ success: true, data: worker, ...(referralWarning ? { warning: referralWarning } : {}) });
       }
 
       const payload = {

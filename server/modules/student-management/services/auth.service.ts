@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+﻿import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model";
 import { IUser } from "../interfaces/user.interface";
@@ -155,7 +155,7 @@ export class AuthService {
           bankQrEnabled: data.bankQrEnabled !== undefined ? data.bankQrEnabled : true,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
   }
 
@@ -168,7 +168,7 @@ export class AuthService {
           businessType: data.businessType,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
   }
 
@@ -317,7 +317,7 @@ export class AuthService {
       }
     }
 
-    const updated = await User.findByIdAndUpdate(userId, { $set: updates }, { new: true });
+    const updated = await User.findByIdAndUpdate(userId, { $set: updates }, { returnDocument: 'after' });
     if (!updated) throw new Error("Cập nhật thất bại.");
     return this.serializeUser(updated);
   }

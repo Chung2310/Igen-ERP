@@ -1,4 +1,5 @@
 import { BranchModel } from "../../../model/branch.model";
+import QRCode from "qrcode";
 import { CompanyModel } from "../../../model/company.model";
 import { MARKETING_CHANNEL_ADAPTERS, resolveSendableChannel, type MarketingChannelAdapter } from "../../marketing/services/marketing-channels";
 import { renderTemplateWithKeys } from "../../marketing/services/marketing-template";
@@ -30,6 +31,10 @@ export function buildRepairVariables(ticket: any, context: { companyName: string
     totalAmount: money(ticket.totalAmount),
     feedbackUrl: context.feedbackUrl,
   };
+}
+
+function renderDoneFeedbackQr(feedbackUrl: string, qrDataUrl: string): string {
+  return `<p>Đánh giá chất lượng phục vụ: <a href="${feedbackUrl}">${feedbackUrl}</a></p><p><img src="${qrDataUrl}" width="180" height="180" alt="Mã QR đánh giá phiếu sửa chữa" /></p>`;
 }
 
 export async function getRepairTemplate(companyCode: string, event: RepairNotificationEvent): Promise<RepairTemplate> {
@@ -103,7 +108,15 @@ export async function sendRepairNotification(ticket: any, event: RepairNotificat
       feedbackUrl: ticket.feedbackToken ? `${appUrl}/repair/feedback/${ticket.feedbackToken}` : "",
     });
 
-    const message = { to: recipient, subject: renderRepairTemplate(template.subject, variables), html: renderRepairTemplate(template.html, variables) };
+    const renderedHtml = renderRepairTemplate(template.html, variables);
+    const feedbackQr = event === "done" && variables.feedbackUrl
+      ? await QRCode.toDataURL(variables.feedbackUrl, { width: 180, margin: 1 })
+      : "";
+    const message = {
+      to: recipient,
+      subject: renderRepairTemplate(template.subject, variables),
+      html: feedbackQr ? `${renderedHtml}${renderDoneFeedbackQr(variables.feedbackUrl, feedbackQr)}` : renderedHtml,
+    };
     const result = await adapter.send(companyCode, message);
     await log({ status: "sent", channel: adapter.channel, recipient, messageId: result.messageId });
     return { status: "sent" as const, channel: adapter.channel };

@@ -71,7 +71,7 @@ export const WorkerReferralService = {
       if (overlaps) throw new LaborPartnerError("WORKER_REFERRAL_OVERLAP", "Người lao động đã có đối tác giới thiệu hiệu lực trong khoảng thời gian này.", 409);
       const document = { ...data, partnerId: partnerObjectId, companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), status: data.confirmationSource === "manual" ? "pending" : "active", ...(data.confirmationSource === "manual" ? {} : { confirmedBy: actorSnapshot(actor).id, confirmedAt: new Date() }) };
       const rows: any = session
-        ? await WorkerReferralModel.create([document] as any, { session })
+        ? await WorkerReferralModel.create([document] as any, { session, ordered: true })
         : await WorkerReferralModel.create([document] as any);
       return rows[0];
     });

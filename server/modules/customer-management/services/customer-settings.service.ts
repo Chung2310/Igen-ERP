@@ -1,4 +1,4 @@
-import { CustomerError } from "../customer-errors";
+﻿import { CustomerError } from "../customer-errors";
 import type { ICustomerTier } from "../interfaces/customer-settings.interface";
 import { CustomerSettingsModel } from "../models/customer-settings.model";
 
@@ -71,7 +71,7 @@ export const CustomerSettingsService = {
     const updated = await CustomerSettingsModel.findOneAndUpdate(
       { companyCode: code },
       { $set: { customerTiers: sortedTiers } },
-      { new: true, upsert: true, runValidators: true }
+      { returnDocument: 'after', upsert: true, runValidators: true }
     ).lean();
 
     return updated;

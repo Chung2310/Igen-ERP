@@ -89,7 +89,7 @@ export function parseFirebaseError(error: any, fallbackMessage: string = "Đã x
   if (cleanMsg.includes("tài khoản hoặc mật khẩu không chính xác") || cleanMsg.includes("email hoặc mật khẩu không chính xác") || cleanMsg.includes("wrong-password")) {
     return "Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.";
   }
-  if (cleanMsg.includes("không tìm thấy") || cleanMsg.includes("không tồn tại")) {
+  if ((cleanMsg.includes("tài khoản") || cleanMsg.includes("user")) && (cleanMsg.includes("không tìm thấy") || cleanMsg.includes("không tồn tại"))) {
     return "Tài khoản không tồn tại trên hệ thống.";
   }
 

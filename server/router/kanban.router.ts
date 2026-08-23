@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+﻿import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
@@ -151,7 +151,7 @@ async function syncProjectLifecycle(companyCode: string, projectIds: Array<strin
     if (!project) continue;
     const lifecycle = deriveProjectLifecycle(project.status, await projectProgress(companyCode, projectId));
     if (lifecycle) {
-      const updated: any = await ProjectModel.findOneAndUpdate({ _id: projectId, companyCode }, { $set: lifecycle }, { new: true });
+      const updated: any = await ProjectModel.findOneAndUpdate({ _id: projectId, companyCode }, { $set: lifecycle }, { returnDocument: 'after' });
       if (updated) emitToCompany(companyCode, "kanban:project-updated", updated.toObject());
     }
   }
@@ -217,7 +217,7 @@ kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: Au
       const claimed = await KanbanTaskModel.findOneAndUpdate(
         { _id: task._id, [flag]: { $exists: false } },
         { $set: { [flag]: new Date() } },
-        { new: true }
+        { returnDocument: 'after' }
       );
       if (!claimed) return;
       await notificationService.createNotification({
@@ -341,7 +341,7 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const updated: any = await KanbanTaskModel.findOneAndUpdate(
       { ...filter, ...revisionFilter },
       { $set: update, $push: { history: audit }, $inc: { revision: 1 } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!updated) throw httpError(409, "Công việc vừa được thay đổi. Vui lòng tải lại.");
 
@@ -461,7 +461,7 @@ kanbanRouter.patch("/projects/:id", requirePermission("work:manage") as any, asy
     else if (update.status !== undefined) update.completedAt = null;
     const lifecycle = deriveProjectLifecycle(update.status ?? project.status, progress);
     if (lifecycle) Object.assign(update, lifecycle);
-    const updated: any = await ProjectModel.findOneAndUpdate({ _id: req.params.id, ...projectScope(req) }, { $set: update }, { new: true, runValidators: true });
+    const updated: any = await ProjectModel.findOneAndUpdate({ _id: req.params.id, ...projectScope(req) }, { $set: update }, { returnDocument: 'after', runValidators: true });
     await finalizeProjectAttachments(req, updated, project.attachments || []);
     await kanbanAuditService.recordProjectMutation({ action: "updated", actorId: req.user?.id || "", companyCode: project.companyCode, correlationId: correlationId(req), before: project, project: updated.toObject() });
     emitToCompany(project.companyCode, "kanban:project-updated", updated.toObject());

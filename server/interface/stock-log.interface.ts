@@ -10,6 +10,7 @@ export interface IStockLogItem {
   unitCost?: number;
   category?: string;
   unitIdentifiers?: string[];
+  serialNumbers?: string[];
 }
 
 export type StockLogPurpose = "bán" | "nội bộ" | "hủy" | "chuyển kho";

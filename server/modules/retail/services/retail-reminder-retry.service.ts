@@ -1,4 +1,4 @@
-import { RetailDebtReminderDeliveryModel } from "../models/retail-debt-reminder-delivery.model";
+﻿import { RetailDebtReminderDeliveryModel } from "../models/retail-debt-reminder-delivery.model";
 import { classifyReminderFailure } from "./retail-debt-reminder.service";
 import { companyEmailService } from "../../../service/company-email.service";
 
@@ -15,7 +15,7 @@ export async function processRetailReminderDeliveries(now = new Date(), mailer: 
   for (;;) {
     const delivery: any = await RetailDebtReminderDeliveryModel.findOneAndUpdate(
       { channel: "email", $or: [{ status: "queued" }, { status: "failed", failureType: "temporary", nextAttemptAt: { $lte: now } }], $expr: { $lt: ["$attempt", "$maxAttempts"] } },
-      { $set: { status: "sending" }, $inc: { attempt: 1 } }, { new: true },
+      { $set: { status: "sending" }, $inc: { attempt: 1 } }, { returnDocument: 'after' },
     ).lean();
     if (!delivery) break;
     try {

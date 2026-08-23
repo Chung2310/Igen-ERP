@@ -1293,7 +1293,16 @@ export default function ChatTab() {
   // Nếu quyền đã bị chặn thì hướng dẫn mở lại; nếu chưa hỏi thì getUserMedia sẽ tự hiện hộp thoại xin quyền.
   const ensureMediaPermissions = async (kinds: Array<"microphone" | "camera">): Promise<boolean> => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      toast.error("Trình duyệt không hỗ trợ ghi âm/ghi hình.");
+      // Trình duyệt chỉ mở API camera/micro trên ngữ cảnh bảo mật (https hoặc localhost).
+      // Mở qua http://<IP LAN> thì navigator.mediaDevices là undefined dù quyền đã được cấp.
+      if (!window.isSecureContext) {
+        toast.error(
+          `Trình duyệt chặn camera/micro vì trang đang mở qua ${window.location.protocol}//${window.location.host}. ` +
+            "Hãy truy cập bằng HTTPS (hoặc http://localhost) rồi thử lại."
+        );
+      } else {
+        toast.error("Trình duyệt không hỗ trợ ghi âm/ghi hình.");
+      }
       return false;
     }
     try {
@@ -1316,15 +1325,35 @@ export default function ChatTab() {
 
   const showMediaError = (error: any, device: "micro" | "camera") => {
     const name = error?.name || "";
-    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-      toast.error(`Bạn chưa cấp quyền ${device}. Hãy bấm "Cho phép" khi trình duyệt hỏi quyền truy cập.`);
-    } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-      toast.error(`Không tìm thấy thiết bị ${device} trên máy này.`);
-    } else if (name === "NotReadableError" || name === "TrackStartError") {
-      toast.error(`Thiết bị ${device} đang được ứng dụng khác sử dụng.`);
+    if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+      // Quyền có thể đã cấp cho trang nhưng bị chặn ở tầng khác: iframe thiếu allow="camera; microphone",
+      // hoặc hệ điều hành chưa cho trình duyệt dùng camera.
+      toast.error(
+        `Trình duyệt từ chối quyền ${device}. Kiểm tra: biểu tượng ổ khóa trên thanh địa chỉ, ` +
+          `và quyền ${device} của trình duyệt trong cài đặt hệ điều hành (Windows: Settings > Privacy & security > Camera).`
+      );
+    } else if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") {
+      toast.error(`Không tìm thấy thiết bị ${device} phù hợp trên máy này.`);
+    } else if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
+      toast.error(`Thiết bị ${device} đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.`);
+    } else if (name === "NotSupportedError") {
+      toast.error(`Trình duyệt không hỗ trợ ghi ${device === "camera" ? "video" : "âm"} ở định dạng này.`);
     } else {
-      toast.error(`Không thể truy cập ${device}. Vui lòng kiểm tra quyền truy cập.`);
+      toast.error(
+        `Không thể truy cập ${device}${name ? ` (${name})` : ""}: ${error?.message || "lỗi không xác định"}.`
+      );
     }
+  };
+
+  // Chọn định dạng ghi mà trình duyệt hỗ trợ (Safari không hỗ trợ webm).
+  const pickRecorderMimeType = (candidates: string[]): string | undefined =>
+    typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function"
+      ? candidates.find((type) => MediaRecorder.isTypeSupported(type))
+      : undefined;
+
+  const createRecorder = (stream: MediaStream, candidates: string[]): MediaRecorder => {
+    const mimeType = pickRecorderMimeType(candidates);
+    return mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
   };
 
   // Start voice recording
@@ -1333,7 +1362,14 @@ export default function ChatTab() {
     if (!(await ensureMediaPermissions(["microphone"]))) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      let recorder: MediaRecorder;
+      try {
+        recorder = createRecorder(stream, ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]);
+      } catch (recorderError) {
+        stream.getTracks().forEach((t) => t.stop());
+        showMediaError(recorderError, "micro");
+        return;
+      }
       audioChunksRef.current = [];
       mediaRecorderRef.current = recorder;
 
@@ -1358,8 +1394,10 @@ export default function ChatTab() {
     if (!recorder || !activeRoom) return;
 
     recorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-      const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: "audio/webm" });
+      const audioType = recorder.mimeType || "audio/webm";
+      const audioExt = audioType.includes("mp4") ? "m4a" : "webm";
+      const audioBlob = new Blob(audioChunksRef.current, { type: audioType });
+      const audioFile = new File([audioBlob], `voice-${Date.now()}.${audioExt}`, { type: audioType });
       try {
         setUploadingAudio(true);
         const attachment = await internalChatService.uploadAttachment(audioFile);
@@ -1415,12 +1453,24 @@ export default function ChatTab() {
     if (!(await ensureMediaPermissions(["camera", "microphone"]))) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: { facingMode: { ideal: "user" } },
         audio: true,
       });
       videoStreamRef.current = stream;
       videoChunksRef.current = [];
-      const recorder = new MediaRecorder(stream);
+      let recorder: MediaRecorder;
+      try {
+        recorder = createRecorder(stream, [
+          "video/webm;codecs=vp9,opus",
+          "video/webm;codecs=vp8,opus",
+          "video/webm",
+          "video/mp4",
+        ]);
+      } catch (recorderError) {
+        releaseVideoStream();
+        showMediaError(recorderError, "camera");
+        return;
+      }
       videoRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -1446,8 +1496,10 @@ export default function ChatTab() {
     const replyId = replyingMessage?._id;
 
     recorder.onstop = async () => {
-      const videoBlob = new Blob(videoChunksRef.current, { type: "video/webm" });
-      const videoFile = new File([videoBlob], `video-${Date.now()}.webm`, { type: "video/webm" });
+      const videoType = recorder.mimeType || "video/webm";
+      const videoExt = videoType.includes("mp4") ? "mp4" : "webm";
+      const videoBlob = new Blob(videoChunksRef.current, { type: videoType });
+      const videoFile = new File([videoBlob], `video-${Date.now()}.${videoExt}`, { type: videoType });
       try {
         setUploadingVideo(true);
         const attachment = await internalChatService.uploadAttachment(videoFile);

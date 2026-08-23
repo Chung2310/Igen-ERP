@@ -10,8 +10,17 @@ test("product lookup always keeps exact company and branch scope", () => {
 
   assert.equal(filter.scope.companyCode, "ACME");
   assert.equal(filter.scope.branchId, "branch-1");
-  assert.equal(filter.limit, 100);
+  assert.equal(filter.limit, 500);
   assert.equal(filter.search, "ao \\(do\\)");
+});
+
+test("product name search uses a case-insensitive escaped pattern", () => {
+  const filter = buildRetailProductFilter(
+    { companyCode: "ACME", branchId: "branch-1" },
+    { q: " ÁO (đỏ) " },
+  );
+
+  assert.deepEqual(filter.productNameFilter, { $regex: "ÁO \\(đỏ\\)", $options: "i" });
 });
 
 test("barcode lookup is exact and normalized", () => {

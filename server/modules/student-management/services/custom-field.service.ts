@@ -1,4 +1,4 @@
-import type { DynamicFieldType, IFieldDefinition, ModuleKey } from "../interfaces/custom-field.interface";
+﻿import type { DynamicFieldType, IFieldDefinition, ModuleKey } from "../interfaces/custom-field.interface";
 import { CustomFieldDefinition } from "../models/custom-field-definition.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
@@ -199,7 +199,7 @@ export class CustomFieldService {
     const operation: Record<string, unknown> = { $set: { ...update, updatedBy: context.actorId } };
     if (!options) operation.$unset = { options: 1 };
     try {
-      const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate({ _id: id, tenantId: context.tenantId, moduleKey }, operation, { new: true, runValidators: true });
+      const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate({ _id: id, tenantId: context.tenantId, moduleKey }, operation, { returnDocument: 'after', runValidators: true });
       if (!updated) throw new Error("Không tìm thấy trường tùy chỉnh.");
       return updated;
     } catch (error) {
@@ -212,7 +212,7 @@ export class CustomFieldService {
     const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate(
       { _id: id, tenantId: context.tenantId, moduleKey },
       { $set: { isArchived: true, isVisible: false, isRequired: false, updatedBy: context.actorId } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     if (!updated) throw new Error("Không tìm thấy trường tùy chỉnh.");
     return updated;
@@ -222,7 +222,7 @@ export class CustomFieldService {
     const updated = await this.dependencies.fieldDefinitions.findOneAndUpdate(
       { _id: id, tenantId: context.tenantId, moduleKey },
       { $set: { isArchived: false, isVisible: true, isRequired: false, updatedBy: context.actorId } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     if (!updated) throw new Error("Không tìm thấy trường tùy chỉnh.");
     return updated;
@@ -233,9 +233,9 @@ export class CustomFieldService {
     if (!field) throw new Error("Không tìm thấy trường tùy chỉnh.");
     const users = await this.dependencies.users.find({ companyCode: context.tenantId }).select("_id");
     const ownerIds = users.map(user => String(user._id));
-    const updateMany = this.dependencies.entityModels[moduleKey].updateMany;
-    if (updateMany && ownerIds.length) {
-      await updateMany(
+    const entityModel = this.dependencies.entityModels[moduleKey];
+    if (entityModel?.updateMany && ownerIds.length) {
+      await entityModel.updateMany(
         { ownerId: { $in: ownerIds } },
         { $unset: { [`customFields.${field.key}`]: 1 } },
       );

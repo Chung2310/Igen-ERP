@@ -16,6 +16,9 @@ export interface Customer {
   notes?: string;
   status: CustomerStatus;
   source: "manual" | "pos" | "import";
+  tier?: { code: string; name: string; minSpend: number };
+  tierTotalSales?: number;
+  tierUpdatedAt?: string;
   createdBy: string;
   createdByName: string;
   version: number;
@@ -35,3 +38,30 @@ export type CustomerListQuery = {
 export type PaginatedCustomers = { items: Customer[]; total: number; page: number; limit: number };
 export interface BillingProfile { _id: string; customerId: string; legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string; isDefault: boolean; status: CustomerStatus; version: number }
 export type BillingProfileInput = Pick<BillingProfile, "legalName" | "taxId" | "address" | "invoiceEmail"> & Partial<Pick<BillingProfile, "contactName" | "isDefault">>;
+
+export interface CustomerPurchaseHistorySummary {
+  orderCount: number;
+  totalPurchased: number;
+  totalPaid: number;
+  currentDebt: number;
+  lastPurchaseAt?: string;
+}
+
+export interface CustomerPurchaseHistoryItem {
+  _id: string;
+  orderCode?: string;
+  status?: string;
+  businessDate?: string;
+  grandTotal: number;
+  paidAmount: number;
+  dueAmount: number;
+  itemCount: number;
+  salespersonName?: string;
+}
+
+export interface CustomerPurchaseHistory {
+  summary: CustomerPurchaseHistorySummary;
+  items: CustomerPurchaseHistoryItem[];
+}
+
+export type CustomerPurchaseHistoryScope = { companyCode: string; branchId: string };

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
@@ -331,12 +331,12 @@ describe("payment lifecycle transitions", () => {
     expect(mocks.paymentFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "payment-1", ...scope, status: "draft" },
       { $set: expect.objectContaining({ status: "confirmed", confirmedBy: "cashier", confirmedAt: expect.any(Date), paymentDate: expect.any(Date) }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, status: "closed", version: 8 },
       { $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success", runStatus: "closed" }));
   });
@@ -351,7 +351,7 @@ describe("payment lifecycle transitions", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
       { _id: "run-a", ...scope, status: "closed", version: 9 },
       { $set: { status: "paid" } },
-      { new: true },
+      { returnDocument: 'after' },
     );
   });
 
@@ -370,7 +370,7 @@ describe("payment lifecycle transitions", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
       { _id: "run-a", ...scope, status: "closed", version: 9 },
       { $set: { status: "paid" } },
-      { new: true },
+      { returnDocument: 'after' },
     );
   });
 
@@ -382,12 +382,12 @@ describe("payment lifecycle transitions", () => {
     expect(mocks.paymentFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "payment-1", ...scope, status: "confirmed" },
       { $set: expect.objectContaining({ status: "reversed", reversedBy: "cashier", reversedAt: expect.any(Date) }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.runFindOneAndUpdate).toHaveBeenLastCalledWith(
       { _id: "run-a", ...scope, status: "paid", version: 9 },
       { $set: { status: "closed" } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       action: "payment",
@@ -426,7 +426,7 @@ describe("payment lifecycle transitions", () => {
     expect(mocks.paymentFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "payment-1", ...scope, status: "draft" },
       { $set: expect.objectContaining({ status: "cancelled", cancelledBy: "cashier", cancelledAt: expect.any(Date) }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.runFindOneAndUpdate).not.toHaveBeenCalled();
   });

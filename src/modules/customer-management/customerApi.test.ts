@@ -28,4 +28,12 @@ describe("customerApi", () => {
     expect(apiFetch).toHaveBeenNthCalledWith(1, "/customers/c1/billing-profiles", { params: { companyCode: "IGEN" } });
     expect(apiFetch).toHaveBeenNthCalledWith(2, "/customers/c1/billing-profiles", expect.objectContaining({ method: "POST" }));
   });
+
+  it("loads purchase history scoped to a company branch", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: { summary: {}, items: [] } });
+
+    await customerApi.purchaseHistory("c1", { companyCode: "IGEN", branchId: "B1" });
+
+    expect(apiFetch).toHaveBeenCalledWith("/customers/c1/purchase-history", { params: { companyCode: "IGEN", branchId: "B1" } });
+  });
 });

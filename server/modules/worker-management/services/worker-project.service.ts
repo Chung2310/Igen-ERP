@@ -1,4 +1,4 @@
-import { WorkerProjectModel } from "../models/worker-project.model";
+﻿import { WorkerProjectModel } from "../models/worker-project.model";
 import { WorkerScope, WorkerProjectInput } from "../interfaces/worker-project.interface";
 import { Types } from "mongoose";
 import { WorkerModel } from "../models/worker.model";
@@ -150,7 +150,7 @@ export const WorkerProjectService = {
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $set: normalized },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền chỉnh sửa.");
@@ -163,7 +163,7 @@ export const WorkerProjectService = {
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $set: { deletedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền xóa.");
@@ -182,7 +182,7 @@ export const WorkerProjectService = {
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $addToSet: { workerIds: new Types.ObjectId(workerId) } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền cập nhật.");
@@ -197,7 +197,7 @@ export const WorkerProjectService = {
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $addToSet: { workerIds: { $each: ids } } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền cập nhật.");
@@ -210,7 +210,7 @@ export const WorkerProjectService = {
     const project = await WorkerProjectModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), ...baseQuery },
       { $pull: { workerIds: new Types.ObjectId(workerId) } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!project) {
       throw new Error("Không tìm thấy dự án hoặc bạn không có quyền cập nhật.");

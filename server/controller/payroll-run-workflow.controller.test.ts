@@ -1,4 +1,4 @@
-// @ts-nocheck Legacy endpoint cases retained for migration reference.
+﻿// @ts-nocheck Legacy endpoint cases retained for migration reference.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
 
@@ -83,7 +83,7 @@ describe.skip("legacy payroll workflow endpoints", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, version: 3, status: "closed" },
       { $set: { status: "draft" }, $inc: { version: 1 }, $unset: { closedBy: "", closedAt: "" } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       ...scope, periodKey: "2026-07", action: "reopen", actorId: "approver",
@@ -102,7 +102,7 @@ describe.skip("legacy payroll workflow endpoints", () => {
     expect(mocks.runFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: "run-a", ...scope, version: 3, status: "reviewed" },
       { $set: { approvedBy: "approver", status: "approved" }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
       ...scope, periodKey: "2026-07", action: "approve", actorId: "approver",
@@ -168,7 +168,7 @@ describe.skip("legacy payroll workflow endpoints", () => {
         $inc: { version: 1 },
         $unset: { reviewedBy: "", approvedBy: "" },
       },
-      { new: true },
+      { returnDocument: 'after' },
     );
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success" }));
   });

@@ -18,6 +18,7 @@ import {
 } from "../../services/productCatalogService";
 import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../../hooks/useVariantMatrix";
 import { buildMatrixVariantInput } from "./productVariantPayload";
+import { shouldCreateInitialPrice } from "./productCatalogCreation";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 type Resources = { categories: ProductResource[]; brands: ProductResource[] };
@@ -512,7 +513,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
           }
           const created = await productCatalogService.createProduct({ ...payload, variant: { ...variant, sku, unitCode: variant.unitCode || form.baseUnitCode, trackingMode: form.productType === "service" ? "none" : variant.trackingMode } });
           const createdVariant = created.variants?.[0];
-          if (createdVariant) await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0));
+          if (createdVariant && shouldCreateInitialPrice(form.status)) await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0));
           toast.success("Đã tạo sản phẩm và SKU đầu tiên.");
         }
       }
@@ -777,9 +778,9 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
       const generatedSku = variant.sku.trim() || `${product.productCode || "SKU"}-${generateEAN13().slice(6)}`;
       const payload = { ...variant, sku: generatedSku, trackingMode: product.productType === "service" ? "none" : variant.trackingMode };
       if (initialVariant) {
-        const { sku: _sku, sellingPrice: _sellingPrice, _id: _id, productId: _productId, companyCode: _companyCode, createdAt: _createdAt, updatedAt: _updatedAt, createdBy: _createdBy, updatedBy: _updatedBy, ...update } = payload as any;
+        const { sellingPrice: _sellingPrice, _id: _id, productId: _productId, companyCode: _companyCode, createdAt: _createdAt, updatedAt: _updatedAt, createdBy: _createdBy, updatedBy: _updatedBy, ...update } = payload as any;
         await productCatalogService.updateVariant(initialVariant._id, update);
-        await productCatalogService.upsertPrice(initialVariant._id, Number(variant.sellingPrice || 0));
+        if (product.status === "active") await productCatalogService.upsertPrice(initialVariant._id, Number(variant.sellingPrice || 0));
         toast.success("Đã cập nhật SKU.");
       } else {
         const created = await productCatalogService.createVariant(product._id, payload);
@@ -801,7 +802,7 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
          <ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => setVariant((current) => ({ ...current, mediaIds: [url] }))} className="w-full aspect-square" />
       </div>
       <div className="flex-grow space-y-4">
-        <Field label="Mã SKU"><input readOnly={isEditing} value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName(isEditing ? "bg-slate-100" : "")} placeholder="Tự sinh nếu để trống" /></Field>
+        <Field label="Mã SKU"><input value={variant.sku} onChange={(event) => setVariant((current) => ({ ...current, sku: event.target.value }))} className={inputClassName()} placeholder="Tự sinh nếu để trống" /></Field>
         <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} /></Field>
       </div>
     </div>

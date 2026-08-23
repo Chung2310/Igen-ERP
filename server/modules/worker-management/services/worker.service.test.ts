@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
 import { Types } from "mongoose";
 import { WorkerModel } from "../models/worker.model";
 import { WorkerProjectModel } from "../models/worker-project.model";
@@ -36,7 +36,7 @@ describe("worker service", () => {
     expect(update).toHaveBeenCalledWith(
       { _id: "w1", companyCode: "ACME", branchId: "B1", deletedAt: null },
       { $set: expect.objectContaining({ fullName: "Worker", branchId: "B1" }) },
-      { new: true },
+      { returnDocument: 'after' },
     );
   });
 
@@ -47,7 +47,7 @@ describe("worker service", () => {
     expect(update).toHaveBeenCalledWith(
       { _id: "w1", companyCode: "ACME", branchId: "B1", deletedAt: null },
       { $set: { deletedAt: expect.any(Date) } },
-      { new: true },
+      { returnDocument: 'after' },
     );
   });
 

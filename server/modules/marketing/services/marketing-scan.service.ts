@@ -2,7 +2,6 @@ import { CompanyModel } from "../../../model/company.model";
 import { getModuleStateForCompany, resolveModuleAccess } from "../../../middleware/require-module";
 import { CustomerModel } from "../../customer-management/models/customer.model";
 import { RetailOrderModel } from "../../retail/models/retail-order.model";
-import { RetailCustomerTierHistoryModel } from "../../retail/models/retail-customer-tier-history.model";
 import { MarketingCampaignModel } from "../models/marketing-campaign.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import { MarketingRunModel } from "../models/marketing-run.model";
@@ -26,14 +25,10 @@ export const isSendTime = (now: Date, settings: Pick<ResolvedMarketingSettings, 
 /** Khách hàng nhận tin marketing: hồ sơ đang hoạt động. */
 const activeCustomerFilter = (companyCode: string): Record<string, unknown> => ({ companyCode: companyCode.toUpperCase(), status: "active" });
 
-/** Hạng hiện tại của từng khách, lấy từ lịch sử xếp hạng mới nhất của module Bán lẻ. */
+/** Hạng hiện tại của từng khách, đọc thẳng từ hồ sơ khách (module Bán lẻ ghi lại sau mỗi đơn). */
 export async function currentTierMap(companyCode: string): Promise<Map<string, string>> {
-  const rows = await RetailCustomerTierHistoryModel.aggregate<{ _id: string; toTierCode: string }>([
-    { $match: { companyCode: companyCode.toUpperCase() } },
-    { $sort: { changedAt: -1 } },
-    { $group: { _id: "$customerId", toTierCode: { $first: "$toTierCode" } } },
-  ]);
-  return new Map(rows.map((row) => [String(row._id), String(row.toTierCode)]));
+  const rows = await CustomerModel.find({ companyCode: companyCode.toUpperCase(), "tier.code": { $exists: true } }).select("tier.code").lean();
+  return new Map(rows.map((row: any) => [String(row._id), String(row.tier?.code || "")]));
 }
 
 /** Ngày mua gần nhất của từng khách (đơn đã xác nhận hoặc hoàn tất). */

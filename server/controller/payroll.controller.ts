@@ -1,4 +1,4 @@
-import type { Response } from "express";
+﻿import type { Response } from "express";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
@@ -484,7 +484,7 @@ export const payrollController = {
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }
       const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, lunchBreakStart: employee.lunchBreakStart, lunchBreakEnd: employee.lunchBreakEnd, logs: employeeLogs, paidLeaves: [], overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ ...periodScope, employeeId: employee.employeeId }, { $set: { ...periodScope, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ ...periodScope, employeeId: employee.employeeId }, { $set: { ...periodScope, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }));
       console.log(`[payroll.snapshot] ${employee.employeeName} (${employee.employeeId}) rawLogsMatched=${logs.filter((log) => log.uid === employee.employeeId).length} totalLogsInPeriod=${logs.length} presentDays=${employeeLogs.filter((l) => l.status !== "Absent").length} absentGenerated=${employeeLogs.filter((l) => l.status === "Absent").length} standardDailyMinutes=${employee.standardDailyMinutes} workingDays=${JSON.stringify(employee.workingDays)} workedMinutes=${summary.workedMinutes} shortageMinutes=${summary.shortageMinutes}`);
     }
     await audit(req, period, "snapshot", { count: results.length });
@@ -644,7 +644,7 @@ export const payrollController = {
           version: Number(existing.version ?? 0),
         },
         { $set: { lines }, $inc: { version: 1 } },
-        { new: true },
+        { returnDocument: 'after' },
       ).lean();
       if (!run) {
         return res.status(409).json({
@@ -705,12 +705,12 @@ export const payrollController = {
       : [...eligibleEmployeeIds];
     const employeeIds = [...new Set(requestedEmployeeIds.filter((employeeId: string) => eligibleEmployeeIds.has(employeeId)))];
     const revisionChecksum = effective.effectiveChecksum;
-    const docs = await Promise.all(employeeIds.map((employeeId: string) => PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: String(run._id), employeeId }, { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } }, { upsert: true, new: true, setDefaultsOnInsert: true })));
+    const docs = await Promise.all(employeeIds.map((employeeId: string) => PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: String(run._id), employeeId }, { $set: { ...scope, runId: String(run._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } }, { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true })));
     return res.json({ status: "success", data: docs });
   },
   async withdrawPayslip(req: AuthenticatedRequest, res: Response) {
     const scope = operationalScope(req); if (!scope) return validationFailure(res, "Authenticated company and branch are required");
-    const doc = await PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: req.params.id, employeeId: req.params.employeeId, status: "published" }, { $set: { status: "withdrawn", withdrawnBy: req.user!.id, withdrawnAt: new Date() } }, { new: true });
+    const doc = await PayslipPublicationModel.findOneAndUpdate({ ...scope, runId: req.params.id, employeeId: req.params.employeeId, status: "published" }, { $set: { status: "withdrawn", withdrawnBy: req.user!.id, withdrawnAt: new Date() } }, { returnDocument: 'after' });
     if (!doc) return res.status(404).json({ status: "error", code: "PAYSLIP_NOT_FOUND" }); return res.json({ status: "success", data: doc });
   },
   async listEmployeePayslips(req: AuthenticatedRequest, res: Response) {
@@ -805,7 +805,7 @@ export const payrollController = {
     const adjustment = await PayrollAdjustmentModel.findOneAndUpdate(
       { _id: req.params.adjustmentId, ...legacyPeriodScope(req), status: "pending" },
       { $set: { status: "approved", approvedBy: req.user!.id }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!adjustment) return res.status(409).json({ status: "error", message: "Dieu chinh khong ton tai hoac da duoc xu ly." });
     
@@ -912,7 +912,7 @@ export const payrollController = {
               version: Number(run.version ?? 0),
             },
             { $set: { lines }, $inc: { version: 1 } },
-            { new: true },
+            { returnDocument: 'after' },
           ).lean();
           if (!updated) throw new PayrollOperationError(
             "PAYROLL_VERSION_CONFLICT",
@@ -932,7 +932,7 @@ export const payrollController = {
     const adjustment = await PayrollAdjustmentModel.findOneAndUpdate(
       { _id: req.params.adjustmentId, ...legacyPeriodScope(req), status: "pending" },
       { $set: { status: "rejected", approvedBy: req.user!.id }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!adjustment) return res.status(409).json({ status: "error", message: "Dieu chinh khong ton tai hoac da duoc xu ly." });
     
@@ -1039,7 +1039,7 @@ export const payrollController = {
               version: Number(run.version ?? 0),
             },
             { $set: { lines }, $inc: { version: 1 } },
-            { new: true },
+            { returnDocument: 'after' },
           ).lean();
           if (!updated) throw new PayrollOperationError(
             "PAYROLL_VERSION_CONFLICT",
@@ -1079,7 +1079,7 @@ export const payrollController = {
         version: Number(current.version ?? 0),
       },
       { $set: { status: "review", reviewedBy: req.user!.id, effectiveSnapshot }, $inc: { version: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!run) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
 
@@ -1124,7 +1124,7 @@ export const payrollController = {
             version: Number(current.version ?? 0),
           },
           { $set: { status: "closed", closedBy: req.user!.id, closedAt: new Date(), effectiveSnapshot } },
-          { new: true, ...(session ? { session } : {}) },
+          { returnDocument: 'after', ...(session ? { session } : {}) },
         );
         if (!closedRun) return null;
         // Mongo transactions require sequential operations on one session.
@@ -1134,7 +1134,7 @@ export const payrollController = {
             { $set: { ...scope, runId: String(closedRun._id), employeeId, revisionChecksum, status: "published", publishedBy: req.user!.id, publishedAt: new Date() } },
             {
               upsert: true,
-              new: true,
+              returnDocument: 'after',
               setDefaultsOnInsert: true,
               ...(session ? { session } : {}),
             },

@@ -7,7 +7,7 @@ export interface RetailOrderRefund { method: RetailPaymentMethod; amount: number
 export interface RetailOrderCustomerSnapshot { customerId: string; customerCode?: string; name: string; phone?: string }
 export interface RetailOrderBillingSnapshot { legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string }
 export interface IRetailOrder {
-  orderCode?: string; companyCode: string; branchId: string; shiftId?: string; customerId?: string; customerName?: string; customerPhone?: string; billingProfileId?: string; customerSnapshot?: RetailOrderCustomerSnapshot; billingSnapshot?: RetailOrderBillingSnapshot;
+  orderCode?: string; paymentCode?: string; companyCode: string; branchId: string; shiftId?: string; customerId?: string; customerName?: string; customerPhone?: string; billingProfileId?: string; customerSnapshot?: RetailOrderCustomerSnapshot; billingSnapshot?: RetailOrderBillingSnapshot;
   items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; totalCost: number;
   payments: RetailOrderPayment[]; refunds: RetailOrderRefund[]; paidAmount: number; refundedAmount: number; dueAmount: number; paymentStatus: RetailPaymentStatus; dueDate?: Date;
   status: RetailOrderStatus; businessDate?: string; heldAt?: Date; heldSlot?: number; expiredBySystem?: boolean; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string;

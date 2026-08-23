@@ -17,6 +17,15 @@ const discountAmount = (discount: DiscountInput | undefined, base: number, name:
   return amount;
 };
 
+export function toDiscountInput(value: unknown): DiscountInput | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "object") {
+    const raw = value as any;
+    return { type: raw.type === "percent" ? "percent" : "amount", value: Number(raw.value) };
+  }
+  return { type: "amount", value: Number(value) };
+}
+
 export function calculateOrderTotals(input: PricingInput): PricingResult {
   if (!Array.isArray(input.items) || input.items.length === 0) throw new Error("Đơn hàng phải có ít nhất một sản phẩm.");
   const maxDiscountPercent = percentage(Number(input.maxDiscountPercent), "Hạn mức giảm giá");

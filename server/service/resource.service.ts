@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import { ResourceItemModel, IResourceItem } from "../model/resource-item.model";
 import { CompanyModel } from "../model/company.model";
 import { googleDriveService, DriveFile } from "./google-drive.service";
@@ -426,7 +426,7 @@ export const resourceService = {
     const updated = await ResourceItemModel.findOneAndUpdate(
       { _id: id, companyCode, isFixed: { $ne: true } },
       { name: name.trim() },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
     if (!updated) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
     return updated;
@@ -682,7 +682,7 @@ export const resourceService = {
     const updated = await ResourceItemModel.findOneAndUpdate(
       { _id: id, companyCode },
       { $set: updateFields },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!updated) throw new Error("Di chuyển thất bại.");
@@ -763,7 +763,7 @@ export const resourceService = {
     const updated = await ResourceItemModel.findOneAndUpdate(
       { _id: id, companyCode },
       { $set: { shares } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!updated) throw new Error("Cập nhật cấu hình chia sẻ thất bại.");

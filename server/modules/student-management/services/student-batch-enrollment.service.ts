@@ -1,4 +1,4 @@
-import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
+﻿import { StudentBatchEnrollment } from "../models/student-batch-enrollment.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
 
 type AttendanceBatch = {
@@ -61,7 +61,7 @@ export class StudentBatchEnrollmentService {
           history: [{ at: new Date(), action: "enrolled", actorId }],
         },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
     return StudentBatchEnrollment.findOneAndUpdate(
       {
@@ -80,7 +80,7 @@ export class StudentBatchEnrollmentService {
           attendedSessions: 0,
         },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
   }
 
@@ -97,7 +97,7 @@ export class StudentBatchEnrollmentService {
         $set: { status: "Không còn nhu cầu học", leftAt: new Date() },
         $push: { history: { at: new Date(), action: "removed", actorId: input.actorId || "system" } },
       },
-      { new: true },
+      { returnDocument: 'after' },
     );
     return StudentBatchEnrollment.findOneAndUpdate(
       {
@@ -107,7 +107,7 @@ export class StudentBatchEnrollmentService {
         studentId: input.studentId,
       },
       { $set: { status: "removed", leftAt: new Date(), updatedBy: input.actorId || "system" } },
-      { new: true },
+      { returnDocument: 'after' },
     );
   }
 

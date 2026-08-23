@@ -3,12 +3,18 @@ import { ArrowDownLeft, ArrowUpRight, Download, Eye, Pencil, Plus, Search, Trash
 import { ProductItem, StockLog, StockLogPurpose } from "../../types";
 import { inventoryReceivingService, type InventoryBalance, type Warehouse } from "../../services/inventoryReceivingService";
 import { inventorySerialService, type InventorySerialUnit } from "../../services/inventorySerialService";
+import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
+import { StockOperatorPicker } from "./StockOperatorPicker";
+import { toast } from "../../pages/Toast";
+import { parseFirebaseError } from "../../utils/firebaseErrorParser";
+
 
 type DraftLine = {
   productId: string;
   sku?: string;
   quantity: string;
   unitIdentifiers?: string[];
+  serialNumbers?: string[];
 };
 
 type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
@@ -17,12 +23,14 @@ type DraftPayload = {
   id?: string;
   type: "nhập" | "xuất";
   purpose?: StockLogPurpose;
+  customerId?: string;
   customerName?: string;
   title: string;
   operatorName: string;
   notes: string;
   status: TransactionStatus;
-  items: Array<{ productId: string; quantity: number; unitIdentifiers?: string[] }>;
+  items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+  warehouseId?: string;
 };
 
 type StockLogPanelProps = {
@@ -76,16 +84,17 @@ function getTypeKey(type: StockLog["type"]) {
   return String(type).toLowerCase().startsWith("x") ? "outbound" : "inbound";
 }
 
-function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number }> {
+function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
   const typedLog = log as StockLog & {
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number }>;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
     return typedLog.items;
   }
 
-  return [{ sku: log.sku, productName: log.productName, quantity: log.quantity }];
+  const legacyLog = log as any;
+  return [{ sku: log.sku, productName: log.productName, quantity: log.quantity, unitIdentifiers: legacyLog.unitIdentifiers }];
 }
 
 function getLogTitle(log: StockLog) {
@@ -121,6 +130,7 @@ export function StockLogPanel({
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [draftType, setDraftType] = useState<"nhập" | "xuất">(outboundOnly ? "xuất" : "nhập");
   const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
+  const [draftCustomerId, setDraftCustomerId] = useState<string | undefined>(undefined);
   const [draftCustomerName, setDraftCustomerName] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftOperator, setDraftOperator] = useState("");
@@ -258,6 +268,7 @@ export function StockLogPanel({
     setEditingLogId(null);
     setDraftType(outboundOnly ? "xuất" : "nhập");
     setDraftPurpose("bán");
+    setDraftCustomerId(undefined);
     setDraftCustomerName("");
     setDraftTitle("");
     setDraftOperator("");
@@ -292,6 +303,7 @@ export function StockLogPanel({
     setEditingLogId(log.id);
     setDraftType(log.type as "nhập" | "xuất");
     setDraftPurpose(log.purpose || "bán");
+    setDraftCustomerId((log as StockLog & { customerId?: string }).customerId || undefined);
     setDraftCustomerName(log.customerName || "");
     setDraftTitle(getLogTitle(log));
     setDraftOperator(log.operatorName);
@@ -301,8 +313,11 @@ export function StockLogPanel({
       items.map((item) => {
         const matchedProduct = products.find((product) => product.sku === item.sku);
         return {
-          productId: matchedProduct?.id || "",
+          productId: matchedProduct?.id || item.productId || "",
+          sku: item.sku,
           quantity: String(item.quantity),
+          unitIdentifiers: item.unitIdentifiers || [],
+          serialNumbers: item.serialNumbers || [],
         };
       })
     );
@@ -332,7 +347,7 @@ export function StockLogPanel({
     setUnitPickerQuery("");
     setUnitPickerLoading(true);
     try {
-      const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", limit: 100 });
+      const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
       setUnitPickerItems(result.items);
       setUnitItemsByLine((current) => ({ ...current, [index]: result.items }));
     } finally {
@@ -343,26 +358,41 @@ export function StockLogPanel({
   const submitDraft = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (outboundOnly && !sourceWarehouseId) {
+      toast.error("Vui lòng chọn kho xuất.");
+      return;
+    }
+
     if (outboundOnly) {
       const invalidLine = draftLines.find((line, index) => {
         const availableUnits = unitItemsByLine[index];
         return availableUnits?.length > 0 && (line.unitIdentifiers?.length || 0) !== Number(line.quantity);
       });
       if (invalidLine) {
-        window.alert("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
+        toast.error("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
         return;
       }
     }
 
     const normalizedItems = draftLines
-      .map((line) => ({
-        productId: line.productId,
-        quantity: Number(line.quantity),
-        unitIdentifiers: line.unitIdentifiers,
-      }))
+      .map((line, index) => {
+        const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
+        return {
+          productId: line.productId,
+          sku: line.sku || matchedProduct?.sku || "",
+          productName: matchedProduct?.name || line.sku || "",
+          quantity: Number(line.quantity),
+          unitIdentifiers: line.unitIdentifiers,
+          serialNumbers: (() => {
+            const selected = line.unitIdentifiers?.map((identifier) => unitItemsByLine[index]?.find((unit) => unit.normalizedInternalBarcode === identifier)?.serialNumber).filter(Boolean) || [];
+            return selected.length ? selected : line.serialNumbers;
+          })(),
+        };
+      })
       .filter((line, index) => line.productId && (!outboundOnly || Boolean(draftLines[index]?.sku)) && Number.isFinite(line.quantity) && line.quantity > 0);
 
     if (!draftTitle.trim() || !draftOperator.trim() || normalizedItems.length === 0) {
+      toast.error("Vui lòng nhập tên phiếu, chọn người phụ trách và thêm ít nhất một sản phẩm.");
       return;
     }
 
@@ -372,12 +402,14 @@ export function StockLogPanel({
       id: editingLogId || undefined,
       type: draftType,
       purpose: draftType === "xuất" ? draftPurpose : undefined,
+      customerId: draftType === "xuất" && draftPurpose === "bán" ? draftCustomerId : undefined,
       customerName: draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") ? draftCustomerName.trim() : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
       notes: draftNotes.trim(),
       status: draftStatus,
       items: normalizedItems,
+      warehouseId: sourceWarehouseId || undefined,
     };
 
     try {
@@ -388,6 +420,9 @@ export function StockLogPanel({
       }
       setShowCreateModal(false);
       resetDraft();
+    } catch (error) {
+      console.error("Lỗi khi lưu phiếu:", error);
+      toast.error(parseFirebaseError(error, "Không thể lưu phiếu. Vui lòng thử lại."));
     } finally {
       setSubmitting(false);
     }
@@ -526,6 +561,9 @@ export function StockLogPanel({
                             try {
                               setStatusUpdatingId(log.id);
                               await onUpdateStatus(log.id, nextStatus);
+                            } catch (error) {
+                              console.error("Lỗi khi cập nhật trạng thái:", error);
+                              toast.error(parseFirebaseError(error, "Không thể cập nhật trạng thái."));
                             } finally {
                               setStatusUpdatingId(null);
                             }
@@ -610,7 +648,7 @@ export function StockLogPanel({
               </button>
             </div>
 
-            <form className="space-y-5 p-6" onSubmit={submitDraft}>
+            <form noValidate className="space-y-5 p-6" onSubmit={submitDraft}>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 {!outboundOnly && <button
                   type="button"
@@ -675,7 +713,11 @@ export function StockLogPanel({
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Mục đích xuất kho</span>
                     <select
                       value={draftPurpose}
-                      onChange={(event) => setDraftPurpose(event.target.value as StockLogPurpose)}
+                      onChange={(event) => {
+                        setDraftPurpose(event.target.value as StockLogPurpose);
+                        setDraftCustomerId(undefined);
+                        setDraftCustomerName("");
+                      }}
                       required
                       className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                     >
@@ -689,13 +731,24 @@ export function StockLogPanel({
                 {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") && (
                   <label className="space-y-1.5 md:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{draftPurpose === "chuyển kho" ? "Kho / chi nhánh nhận" : "Khách hàng"}</span>
-                    <input
-                      type="text"
-                      value={draftCustomerName}
-                      onChange={(event) => setDraftCustomerName(event.target.value)}
-                      placeholder={draftPurpose === "chuyển kho" ? "Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1" : "Tên khách hàng hoặc đơn vị mua"}
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                    />
+                    {draftPurpose === "bán" ? (
+                      <StockOutCustomerPicker
+                        customerId={draftCustomerId}
+                        customerName={draftCustomerName}
+                        onChange={(next) => {
+                          setDraftCustomerId(next.customerId);
+                          setDraftCustomerName(next.customerName);
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={draftCustomerName}
+                        onChange={(event) => setDraftCustomerName(event.target.value)}
+                        placeholder="Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1"
+                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                      />
+                    )}
                   </label>
                 )}
                 <label className="space-y-1.5">
@@ -711,13 +764,7 @@ export function StockLogPanel({
 
                 <label className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Người phụ trách</span>
-                  <input
-                    type="text"
-                    value={draftOperator}
-                    onChange={(event) => setDraftOperator(event.target.value)}
-                    placeholder="Nhập tên người phụ trách"
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                  />
+                  <StockOperatorPicker value={draftOperator} onChange={setDraftOperator} />
                 </label>
               </div>
 
@@ -894,20 +941,49 @@ export function StockLogPanel({
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {getLogItems(selectedLog).map((item, index) => (
-                <div key={`${item.sku}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-3">
-                  <div>
-                    <div className="font-bold text-slate-800">{item.productName}</div>
-                    <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
-                  </div>
-                  <div className={`text-lg font-bold ${selectedLog.type === "nhập" ? "text-emerald-600" : "text-rose-600"}`}>
-                    {selectedLog.type === "nhập" ? "+" : "-"}
-                    {formatNumber(item.quantity)}
-                  </div>
+            {selectedLog.type === "xuất" ? (
+              <section className="mt-4">
+                <h4 className="mb-3 text-base font-bold text-slate-800">Hàng xuất</h4>
+                <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                  <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Sản phẩm</th>
+                        <th className="px-4 py-3">SKU</th>
+                        <th className="px-4 py-3 text-right">SL xuất</th>
+                        <th className="px-4 py-3">IMEI / Serial</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {getLogItems(selectedLog).map((item, index) => (
+                        <tr key={`${item.sku}-${index}`}>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{item.productName}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td>
+                          <td className="px-4 py-3 text-right font-bold text-rose-600">{formatNumber(item.quantity)}</td>
+                          <td className="px-4 py-3 text-xs text-cyan-800">
+                            {item.serialNumbers?.length ? item.serialNumbers.join(", ") : item.unitIdentifiers?.length ? <span className="text-slate-600">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</span> : <span className="text-slate-400">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
+              </section>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {getLogItems(selectedLog).map((item, index) => (
+                  <div key={`${item.sku}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-200 px-4 py-3">
+                    <div>
+                      <div className="font-bold text-slate-800">{item.productName}</div>
+                      <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
+                      {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / serial: {item.serialNumbers.join(", ")}</div> : null}
+                      {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-slate-500">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</div> : null}
+                    </div>
+                    <div className="text-lg font-bold text-emerald-600">+{formatNumber(item.quantity)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 rounded-2xl border border-gray-200 p-4 text-sm text-gray-600">
               <div className="font-semibold text-slate-800">Ghi chú</div>
@@ -919,4 +995,3 @@ export function StockLogPanel({
     </div>
   );
 }
-

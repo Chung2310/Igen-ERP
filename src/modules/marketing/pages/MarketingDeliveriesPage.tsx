@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 import { marketingApi, type MarketingDelivery } from "../api/marketing.api";
+import { toast } from "../../../pages/Toast";
 
 const TYPE_LABEL: Record<string, string> = {
   thank_you: "Cảm ơn",
@@ -22,15 +23,13 @@ export default function MarketingDeliveriesPage({ canManage }: { canManage: bool
   const [automationType, setAutomationType] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(undefined);
     try {
       setDeliveries(await marketingApi.listDeliveries({ automationType, status, limit: 100 }));
     } catch (err: any) {
-      setError(err?.message || "Không tải được nhật ký gửi.");
+      toast.error(err?.message || "Không tải được nhật ký gửi.");
     } finally {
       setLoading(false);
     }
@@ -58,8 +57,6 @@ export default function MarketingDeliveriesPage({ canManage }: { canManage: bool
         </select>
         <button type="button" onClick={load} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Tải lại</button>
       </div>
-
-      {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
 
       {loading ? (
         <div className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Đang tải…</div>

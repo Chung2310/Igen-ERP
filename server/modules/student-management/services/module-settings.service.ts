@@ -1,4 +1,4 @@
-import { EntityPreset, ModuleSettings } from "../models/module-settings.model";
+﻿import { EntityPreset, ModuleSettings } from "../models/module-settings.model";
 import mongoose from "mongoose";
 
 export type ModuleSettingsContext = { tenantId: string; actorId: string };
@@ -27,7 +27,7 @@ export class ModuleSettingsService {
     const updated = await ModuleSettings.findOneAndUpdate(
       { tenantId: context.tenantId },
       { $set: { entityPreset, updatedBy: context.actorId } },
-      { new: true, upsert: true, runValidators: true },
+      { returnDocument: 'after', upsert: true, runValidators: true },
     );
     return { tenantId: context.tenantId, entityPreset: updated!.entityPreset };
   }

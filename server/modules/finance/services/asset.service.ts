@@ -1,4 +1,4 @@
-import type { FinanceBranchScope, FinanceScope } from "../contracts";
+﻿import type { FinanceBranchScope, FinanceScope } from "../contracts";
 import type { IAssetLifecycleEvent } from "../interfaces/asset.interface";
 import { AssetDepreciationModel } from "../models/asset-depreciation.model";
 import { FixedAssetModel } from "../models/fixed-asset.model";
@@ -171,12 +171,12 @@ export const assetRepository: AssetRepository = {
   findById: (scope, id) => FixedAssetModel.findOne({ _id: id, ...scopeFilter(scope) }).lean(),
   findByCodeOrBarcode: (companyCode, assetCode, barcode) => FixedAssetModel.findOne({ companyCode, $or: [{ assetCode }, { barcode }] }).lean(),
   create: (values) => FixedAssetModel.create(values).then((document) => document.toObject()),
-  update: (scope, id, update) => FixedAssetModel.findOneAndUpdate({ _id: id, ...scopeFilter(scope) }, update, { new: true }).lean(),
+  update: (scope, id, update) => FixedAssetModel.findOneAndUpdate({ _id: id, ...scopeFilter(scope) }, update, { returnDocument: 'after' }).lean(),
   listDepreciable: (scope) => FixedAssetModel.find({ ...scopeFilter(scope), status: { $ne: "disposed" } }).lean(),
   findDepreciation: (assetId, period) => AssetDepreciationModel.findOne({ assetId, period }).lean(),
-  upsertDepreciation: (assetId, period, values) => AssetDepreciationModel.findOneAndUpdate({ assetId, period }, { $set: values }, { new: true, upsert: true }).lean(),
+  upsertDepreciation: (assetId, period, values) => AssetDepreciationModel.findOneAndUpdate({ assetId, period }, { $set: values }, { returnDocument: 'after', upsert: true }).lean(),
   listDepreciations: (scope, period) => AssetDepreciationModel.find({ ...scopeFilter(scope), period }).lean(),
-  markDepreciationPosted: (id, postedBy, postedAt) => AssetDepreciationModel.findOneAndUpdate({ _id: id }, { $set: { status: "posted", postedBy, postedAt } }, { new: true }).lean(),
+  markDepreciationPosted: (id, postedBy, postedAt) => AssetDepreciationModel.findOneAndUpdate({ _id: id }, { $set: { status: "posted", postedBy, postedAt } }, { returnDocument: 'after' }).lean(),
 };
 
 export const AssetService = createAssetService(assetRepository);

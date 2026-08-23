@@ -10,6 +10,7 @@ import {
   dropLegacyPayrollOperationJobIdempotencyIndex,
 } from "../model/payroll-branch-index-migration";
 import { dropLegacyStudentAttendanceUniqueIndex } from "../model/student-attendance-index-migration";
+import { dropLegacyWorkerAttendanceLogIndexes } from "../model/worker-attendance-index-migration";
 import { resetPermissionsForRegistryVersion } from "../model/permission-registry-reset";
 
 /**
@@ -150,6 +151,7 @@ export async function connectDB() {
     await dropLegacyPayrollOperationJobIdempotencyIndex();
     await dropLegacyAttendancePeriodResultUniqueIndex();
     await dropLegacyStudentAttendanceUniqueIndex();
+    await dropLegacyWorkerAttendanceLogIndexes();
     await seedSuperAdmin();
     await seedPermissions();
     const permissionReset = await resetPermissionsForRegistryVersion();

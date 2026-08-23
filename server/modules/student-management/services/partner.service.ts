@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from "../../../errors/app-error";
+﻿import { ConflictError, NotFoundError } from "../../../errors/app-error";
 import { Partner } from "../models/partner.model";
 import { Student } from "../models/student.model";
 import { CommissionLevel } from "../models/commission-level.model";
@@ -403,7 +403,7 @@ export class PartnerService {
     const saved = await Partner.findOneAndUpdate(
       { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
       { $set: writeData, $inc: { __v: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
     if (!saved) throw new CustomFieldWriteConflictError();
     await customFieldResourceService.finalizeEntity(targetContext, saved);
@@ -485,7 +485,7 @@ export class PartnerService {
     return CommissionLevel.findOneAndUpdate(
       { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(data.branchId) },
       { $set: { name: data.name.trim(), minTuition: data.minTuition, commissionRate: data.commissionRate } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
   }
 

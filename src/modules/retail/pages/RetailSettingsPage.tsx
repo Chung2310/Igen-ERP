@@ -5,14 +5,6 @@ import { retailSettingsApi } from "../api/retailSettings.api";
 import type { RetailSettings } from "../types";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 
-const DEFAULT_CUSTOMER_TIERS = [
-  { code: "standard", name: "Thành viên", minSpend: 0 },
-  { code: "silver", name: "Bạc", minSpend: 5_000_000 },
-  { code: "gold", name: "Vàng", minSpend: 20_000_000 },
-  { code: "vip", name: "VIP", minSpend: 50_000_000 },
-];
-const withCustomerTiers = (value: RetailSettings): RetailSettings => ({ ...value, customerTiers: value.customerTiers || DEFAULT_CUSTOMER_TIERS });
-
 export default function RetailSettingsPage() {
   const { userProfile } = useAuth();
   const { activeBranchId } = useBranch();
@@ -25,7 +17,7 @@ export default function RetailSettingsPage() {
     if (!companyCode || !activeBranchId) return;
     setError("");
     void retailSettingsApi.get({ companyCode, branchId: activeBranchId })
-      .then((value) => setSettings(withCustomerTiers(value)))
+      .then((value) => setSettings(value))
       .catch((cause) => setError(getApiErrorMessage(cause, "Không tải được cài đặt.")));
   }, [companyCode, activeBranchId]);
 
@@ -37,7 +29,7 @@ export default function RetailSettingsPage() {
     setSaving(true); setError("");
     try {
       const { companyCode: _companyCode, branchId: _branchId, ...input } = settings;
-      setSettings(withCustomerTiers(await retailSettingsApi.update(input, { companyCode, branchId: activeBranchId })));
+      setSettings(await retailSettingsApi.update(input, { companyCode, branchId: activeBranchId }));
     } catch (cause) { setError(getApiErrorMessage(cause, "Không lưu được cài đặt.")); }
     finally { setSaving(false); }
   };
@@ -54,13 +46,6 @@ export default function RetailSettingsPage() {
         <TextField label="Prefix hóa đơn" value={settings.invoicePrefix} onChange={(value) => update("invoicePrefix", value.toUpperCase())} />
         <SelectField label="Khổ giấy hóa đơn" value={settings.invoicePaperSize} options={[{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }, { value: "80mm", label: "80 mm" }]} onChange={(value) => update("invoicePaperSize", value as RetailSettings["invoicePaperSize"])} />
         <SelectField label="Mẫu hóa đơn" value={settings.invoiceTemplate} options={[{ value: "standard", label: "Tiêu chuẩn" }]} onChange={(value) => update("invoiceTemplate", value as RetailSettings["invoiceTemplate"])} />
-      </div>
-      <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
-        <div><h2 className="font-bold text-slate-900">Phân hạng khách hàng</h2><p className="text-xs text-slate-500">Hạng được tính theo doanh số thuần sau hoàn tiền.</p></div>
-        {settings.customerTiers.map((tier, index) => <div key={tier.code} className="grid gap-2 sm:grid-cols-[1fr_180px]">
-          <input aria-label={`Tên hạng ${index + 1}`} className="rounded-xl border border-slate-200 px-3 py-2" value={tier.name} onChange={(event) => update("customerTiers", settings.customerTiers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} />
-          <input aria-label={`Ngưỡng hạng ${tier.name}`} type="number" min="0" step="1" disabled={index === 0} className="rounded-xl border border-slate-200 px-3 py-2 disabled:bg-slate-50" value={tier.minSpend} onChange={(event) => update("customerTiers", settings.customerTiers.map((item, itemIndex) => itemIndex === index ? { ...item, minSpend: Number(event.target.value) } : item))} />
-        </div>)}
       </div>
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       <button type="button" disabled={saving} onClick={() => void save()} className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Đang lưu..." : "Lưu cài đặt"}</button>

@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollCustomVariableModel } from "../model/payroll-custom-variable.model";
@@ -138,7 +138,7 @@ async function claimDraftRun(
   runId: string,
   session?: ClientSession,
 ) {
-  const options = { new: true, ...(session ? { session } : {}) };
+  const options = { returnDocument: 'after' as const, ...(session ? { session } : {}) };
   const run = await withSession(PayrollRunModel.findOneAndUpdate(
     { _id: runId, ...scope, periodKey, type: "regular", status: "draft" },
     { $inc: { version: 1 } },
@@ -237,7 +237,7 @@ export function createPayrollLineOverrideOperations(
           { ...identity, version: expectedVersion },
           update,
           {
-            new: true,
+            returnDocument: 'after',
             upsert: expectedVersion === 0,
             runValidators: true,
             ...(session ? { session } : {}),

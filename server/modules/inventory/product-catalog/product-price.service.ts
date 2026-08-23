@@ -1,4 +1,4 @@
-import { ProductPriceModel } from "../../../model/product-price.model";
+﻿import { ProductPriceModel } from "../../../model/product-price.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 
@@ -20,7 +20,7 @@ export const ProductPriceService = {
     return ProductPriceModel.findOneAndUpdate(
       { companyCode, branchId, variantId: String(variant._id) },
       { $set: { productId: String(variant.productId), sku: variant.sku, sellingPrice, costPrice, status: "active", updatedBy: actor }, $setOnInsert: { companyCode, branchId, variantId: String(variant._id), createdBy: actor } },
-      { new: true, upsert: true, runValidators: true },
+      { returnDocument: 'after', upsert: true, runValidators: true },
     ).lean();
   },
 };
