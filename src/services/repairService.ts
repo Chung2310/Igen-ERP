@@ -21,7 +21,7 @@ export const repairService = {
 };
 
 export type RepairPartBilling = "customer" | "warranty_shop" | "warranty_supplier";
-export interface RepairPart { _id: string; sku: string; productName: string; quantity: number; unitCost: number; unitPrice: number; lineTotal: number; billing: RepairPartBilling; chargeable: boolean; status: string; issuedAt: string; issuedByName: string; returnReason?: string }
+export interface RepairPart { _id: string; sku: string; productName: string; quantity: number; unitCost: number; unitPrice: number; lineTotal: number; billing: RepairPartBilling; chargeable: boolean; manual?: boolean; status: string; issuedAt: string; issuedByName: string; returnReason?: string }
 export interface RepairNotification { _id: string; event: string; channel?: string; recipient?: string; status: "sent" | "failed" | "skipped"; reason?: string; sentAt: string }
 export interface RepairRevenueRow { key: string; branchId?: string; ticketCount: number; warrantyTicketCount: number; laborRevenue: number; partRevenue: number; revenue: number; collected: number; outstanding: number; technicianName?: string; partCost?: number; warrantyPartCost?: number; grossProfit?: number }
 export interface RepairTechnicianRow { technicianId: string; technicianName: string; ticketCount: number; revenue: number; averageMinutes: number; reworkCount: number; reworkRate: number; ratingCount: number; averageRating: number; criteria: { skill: number; attitude: number; speed: number } }
