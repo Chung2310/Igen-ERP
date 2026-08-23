@@ -4,7 +4,7 @@ import { ModuleKey } from "../config/module-keys";
 import { filterModulesForBusinessType, resolveBusinessType, type BusinessType } from "../config/business-types";
 import { createCompanyAdminUser } from "../utils/company-admin-user";
 import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
-import { ensureDefaultPayrollPolicy } from "../service/payroll-policy-operations.service";
+import { ensureDefaultPayrollPolicy } from "../modules/payroll/services/payroll-policy-operations.service";
 export type TenantLifecycleStatus = "active" | "suspended" | "archived" | "scheduled-deletion";
 export interface TenantRecord { code:string; name:string; ownerEmail:string; createdAt:Date; lifecycleStatus:TenantLifecycleStatus; lifecycleChangedAt?:Date; deletionScheduledAt?:Date|null; retentionEndsAt?:Date|null; deletionReason?:string; businessType?:BusinessType; enabledModules?:ModuleKey[]; }
 export interface TenantRepository { create(t:TenantRecord):Promise<TenantRecord>; list():Promise<TenantRecord[]>; get(c:string):Promise<TenantRecord|null>; update(c:string,u:Partial<TenantRecord>):Promise<TenantRecord|null>; }

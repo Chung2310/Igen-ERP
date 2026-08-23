@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { IPayslipPublication } from "../interface/payroll-payslip.interface";
+import type { IPayslipPublication } from "../modules/payroll/interfaces/payroll-payslip.interface";
 
 const schema = new Schema<IPayslipPublication>({
   companyCode: { type: String, required: true, index: true },

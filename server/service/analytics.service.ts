@@ -1,5 +1,5 @@
 import { StockLogModel } from "../model/stock-log.model";
-import { PayrollPaymentModel } from "../model/payroll-payment.model";
+import { PayrollPaymentModel } from "../modules/payroll/models/payroll-payment.model";
 import { Payment } from "../modules/student-management/models/payment.model";
 import { Partner } from "../modules/student-management/models/partner.model";
 import { Student } from "../modules/student-management/models/student.model";

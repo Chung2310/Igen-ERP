@@ -27,14 +27,14 @@ vi.mock("../middleware/auth", async (importOriginal) => {
   };
 });
 
-vi.mock("../model/payroll-run.model", () => ({
+vi.mock("../modules/payroll/models/payroll-run.model", () => ({
   PayrollRunModel: {
     findOne: mocks.runFindOne,
     findOneAndUpdate: mocks.runFindOneAndUpdate,
     create: mocks.runCreate,
   },
 }));
-vi.mock("../model/payroll-run-scope-reservation.model", () => ({
+vi.mock("../modules/payroll/models/payroll-run-scope-reservation.model", () => ({
   PayrollRunScopeReservationModel: {
     findOneAndUpdate: mocks.reservationFindOneAndUpdate,
   },
@@ -42,28 +42,28 @@ vi.mock("../model/payroll-run-scope-reservation.model", () => ({
 vi.mock("../model/attendance-period-result.model", () => ({
   AttendancePeriodResultModel: { find: mocks.attendanceFind },
 }));
-vi.mock("../model/payroll-attendance-snapshot.model", () => ({
+vi.mock("../modules/payroll/models/payroll-attendance-snapshot.model", () => ({
   PayrollAttendanceSnapshotModel: { create: mocks.snapshotCreate },
 }));
-vi.mock("../model/payroll-operation-job.model", () => ({
+vi.mock("../modules/payroll/models/payroll-operation-job.model", () => ({
   PayrollOperationJobModel: {
     findOne: mocks.jobFindOne,
     create: mocks.jobCreate,
     findOneAndUpdate: mocks.jobFindOneAndUpdate,
   },
 }));
-vi.mock("../model/payroll-audit.model", () => ({
+vi.mock("../modules/payroll/models/payroll-audit.model", () => ({
   PayrollAuditModel: { create: mocks.auditCreate },
 }));
 
-import { payrollController } from "../controller/payroll.controller";
-import { payrollRouter } from "./payroll.router";
+import { payrollController } from "../modules/payroll/controllers";
+import { payrollRouter } from "../modules/payroll/router";
 import {
   createRun,
   listIssues,
   lockAttendance,
   syncAttendance,
-} from "../service/payroll-run-operations.service";
+} from "../modules/payroll/services/payroll-run-operations.service";
 import {
   createOperationalRunSchema,
   lockAttendanceSchema,
@@ -89,8 +89,20 @@ const response = () => {
   res.json = vi.fn().mockReturnValue(res);
   return res;
 };
+const collectRouteLayers = (router: any): any[] => {
+  const layers: any[] = [];
+  for (const item of router.stack) {
+    if (item.route) {
+      layers.push(item);
+    } else if (item.handle?.stack) {
+      layers.push(...collectRouteLayers(item.handle));
+    }
+  }
+  return layers;
+};
+
 const permissionOf = (method: string, path: string) => {
-  const layer = (payrollRouter as any).stack.find((item: any) => (
+  const layer = collectRouteLayers(payrollRouter).find((item: any) => (
     item.route?.path === path && item.route?.methods?.[method.toLowerCase()]
   ));
   if (!layer) return undefined;
@@ -543,8 +555,7 @@ describe("operational payroll controller and routes", () => {
   });
 
   it("mounts the create, sync, issue, lock, and calculate routes", () => {
-    const mounted = (payrollRouter as any).stack
-      .filter((layer: any) => layer.route)
+    const mounted = collectRouteLayers(payrollRouter)
       .map((layer: any) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
 
     expect(mounted).toEqual(expect.arrayContaining([
@@ -567,7 +578,7 @@ describe("operational payroll controller and routes", () => {
   });
 
   it("never exposes a line override route without a permission guard", () => {
-    const lineOverrideRoutes = (payrollRouter as any).stack.filter((item: any) => (
+    const lineOverrideRoutes = collectRouteLayers(payrollRouter).filter((item: any) => (
       item.route?.path === "/periods/:periodKey/line-overrides"
     ));
 

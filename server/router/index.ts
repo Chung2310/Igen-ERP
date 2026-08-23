@@ -24,7 +24,7 @@ import { requireModule } from "../middleware/require-module";
 import { expensiveApiRateLimiter, publicApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
 import { faceManagementRouter } from "./face-management.router";
-import { payrollRouter } from "./payroll.router";
+import { payrollRouter } from "../modules/payroll/router";
 import { leaveRouter } from "./leave.router";
 import { hrContractRouter } from "./hr-contract.router";
 import { companyEmailRouter } from "./company-email.router";

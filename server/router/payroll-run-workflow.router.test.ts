@@ -14,10 +14,22 @@ vi.mock("../middleware/auth", async (importOriginal) => {
   };
 });
 
-import { payrollRouter } from "./payroll.router";
+import { payrollRouter } from "../modules/payroll/router";
+
+const collectRouteLayers = (router: any): any[] => {
+  const layers: any[] = [];
+  for (const item of router.stack) {
+    if (item.route) {
+      layers.push(item);
+    } else if (item.handle?.stack) {
+      layers.push(...collectRouteLayers(item.handle));
+    }
+  }
+  return layers;
+};
 
 const permissionOf = (method: string, path: string) => {
-  const layer = (payrollRouter as any).stack.find((item: any) => (
+  const layer = collectRouteLayers(payrollRouter).find((item: any) => (
     item.route?.path === path && item.route?.methods?.[method.toLowerCase()]
   ));
   if (!layer) return undefined;
@@ -81,7 +93,7 @@ describe("payroll workflow route guards", () => {
   });
 
   it("never exposes a workflow route without a permission guard", () => {
-    const unguarded = (payrollRouter as any).stack
+    const unguarded = collectRouteLayers(payrollRouter)
       .filter((item: any) => item.route?.path?.startsWith("/runs") || item.route?.path?.startsWith("/payments"))
       .filter((item: any) => ![
         "/runs/:id/lines/:employeeId",
