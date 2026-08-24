@@ -48,6 +48,7 @@ RUN --mount=type=cache,target=/root/.cache/yarn yarn install --production --froz
 # directory — it is never served over HTTP)
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server ./dist-server
+COPY --from=builder /app/server/assets/fonts ./server/assets/fonts
 
 # Expose Express server port
 EXPOSE 3000
