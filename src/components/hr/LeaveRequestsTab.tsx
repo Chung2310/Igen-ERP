@@ -57,7 +57,7 @@ export default function LeaveRequestsTab({
   onApproved,
 }: LeaveRequestsTabProps) {
   const isLeaveAdmin = canApprove;
-  const useCardLayout = useMediaQuery("(max-width: 999px)");
+  const useCardLayout = useMediaQuery("(max-width: 1699px)");
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);

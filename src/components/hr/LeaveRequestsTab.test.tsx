@@ -38,7 +38,7 @@ function mockFetch(applications: any[] = []) {
 
 function mockViewport(useCardLayout: boolean) {
   vi.stubGlobal("matchMedia", vi.fn().mockImplementation((query: string) => ({
-    matches: useCardLayout && query === "(max-width: 999px)",
+    matches: useCardLayout && query === "(max-width: 1699px)",
     media: query,
     onchange: null,
     addEventListener: vi.fn(),
@@ -121,7 +121,7 @@ describe("LeaveRequestsTab", () => {
     expect(within(dialog).getByText("Nhân sự")).toBeTruthy();
   });
 
-  it("renders complete request cards below 1000px", async () => {
+  it("renders complete request cards below 1700px", async () => {
     mockViewport(true);
     vi.stubGlobal("fetch", mockFetch([responsiveApplication]));
 
@@ -139,7 +139,7 @@ describe("LeaveRequestsTab", () => {
     expect(document.querySelector('[title="Xóa đơn"]')).toBeTruthy();
   });
 
-  it("keeps the request table at 1000px and wider", async () => {
+  it("keeps the request table at 1700px and wider", async () => {
     mockViewport(false);
     vi.stubGlobal("fetch", mockFetch([responsiveApplication]));
 
