@@ -8,7 +8,7 @@ import type { RetailStoreSnapshot } from "../interfaces/retail-invoice.interface
 import { BranchModel } from "../../../model/branch.model";
 import { CompanyModel } from "../../../model/company.model";
 import { UserModel } from "../../../model/user.model";
-export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf, resolveInvoiceFontPath } from "./retail-invoice-pdf.service";
+export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf } from "./retail-invoice-pdf.service";
 
 export function buildRetailInvoiceSnapshot(order: any, actor: any, store: RetailStoreSnapshot) {
   const vndValues = [order.grandTotal, order.paidAmount, order.dueAmount, ...(order.payments || []).map((payment: any) => payment.amount)];

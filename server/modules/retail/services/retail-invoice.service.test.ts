@@ -5,20 +5,12 @@ import * as invoiceService from "./retail-invoice.service";
 test("invoice PDF helpers map paper sizes and sanitize filenames", () => {
   const invoicePdfPageSize = (invoiceService as any).invoicePdfPageSize;
   const invoicePdfFilename = (invoiceService as any).invoicePdfFilename;
-  const resolveInvoiceFontPath = (invoiceService as any).resolveInvoiceFontPath;
   assert.equal(typeof invoicePdfPageSize, "function");
   assert.equal(typeof invoicePdfFilename, "function");
-  assert.equal(typeof resolveInvoiceFontPath, "function");
   assert.deepEqual(invoicePdfPageSize("A4"), "A4");
   assert.deepEqual(invoicePdfPageSize("A5"), "A5");
   assert.deepEqual(invoicePdfPageSize("80mm"), [226.77, 600]);
   assert.equal(invoicePdfFilename('../HD-01\r\n"'), "HD-01.pdf");
-  const fontPath = resolveInvoiceFontPath(
-    "Roboto-Bold.ttf",
-    (candidate: string) => candidate.replaceAll("\\", "/").endsWith("dist-server/server/assets/fonts/Roboto-Bold.ttf"),
-    "/app",
-  ).replaceAll("\\", "/");
-  assert.equal(fontPath, "/app/dist-server/server/assets/fonts/Roboto-Bold.ttf");
 });
 
 test("invoice PDF renderer returns a Unicode PDF buffer", async () => {
