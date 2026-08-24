@@ -105,6 +105,71 @@ describe("LeaveRequestsTab", () => {
     expect(backdrop.className).toContain("z-[100]");
   });
 
+  it("mounts the template list above the app stacking context", async () => {
+    render(
+      <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" usersList={[profile]} />
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+
+    const heading = await screen.findByText("Danh sách Biểu mẫu mẫu");
+    const backdrop = heading.closest("div.fixed") as HTMLDivElement;
+    expect(backdrop.parentElement).toBe(document.body);
+    expect(backdrop.className).toContain("inset-0");
+    expect(backdrop.className).toContain("z-[100]");
+  });
+
+  it("mounts the template-upload form above the app stacking context", async () => {
+    render(
+      <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /đăng biểu mẫu mới/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /đăng biểu mẫu mới/i }));
+
+    const heading = screen.getByText("Đăng tải biểu mẫu mẫu mới");
+    const backdrop = heading.closest("div.fixed") as HTMLDivElement;
+    expect(backdrop.parentElement).toBe(document.body);
+    expect(backdrop.className).toContain("fixed");
+    expect(backdrop.className).toContain("inset-0");
+    expect(backdrop.className).toContain("z-[100]");
+  });
+
+  it("mounts the delete-template confirmation above the app stacking context", async () => {
+    render(
+      <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^xóa$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: "Xóa biểu mẫu" });
+    const portalLayer = dialog.parentElement?.parentElement as HTMLDivElement;
+    expect(portalLayer.parentElement).toBe(document.body);
+    expect(portalLayer.className).toContain("fixed");
+    expect(portalLayer.className).toContain("inset-0");
+    expect(portalLayer.className).toContain("z-[100]");
+  });
+
+  it("mounts the delete-request confirmation above the app stacking context", async () => {
+    vi.stubGlobal("fetch", mockFetch([responsiveApplication]));
+    render(
+      <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
+    );
+
+    await waitFor(() => expect(document.querySelector('[title="Xóa đơn"]')).toBeTruthy());
+    fireEvent.click(document.querySelector('[title="Xóa đơn"]') as HTMLButtonElement);
+
+    const dialog = screen.getByRole("dialog", { name: "Xóa đơn xin nghỉ" });
+    const portalLayer = dialog.parentElement?.parentElement as HTMLDivElement;
+    expect(portalLayer.parentElement).toBe(document.body);
+    expect(portalLayer.className).toContain("fixed");
+    expect(portalLayer.className).toContain("inset-0");
+    expect(portalLayer.className).toContain("z-[100]");
+  });
+
   it("gives an approver the upload, delete and employee-select affordances", async () => {
     render(
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
