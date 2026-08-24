@@ -32,6 +32,9 @@ export async function sendThankYouForOrder(event: any): Promise<void> {
   const attachments = attachmentRef
     ? await resolveMarketingAttachments(companyCode, attachmentRef)
     : undefined;
+  if (attachmentRef && !attachments?.length) {
+    throw new Error("MARKETING_INVOICE_ATTACHMENT_NOT_READY");
+  }
 
   const outcome = await queueAndSend({
     companyCode,

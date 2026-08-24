@@ -1025,14 +1025,14 @@ export default function LeaveRequestsTab({
       )}
 
       {/* Modal Danh sách Biểu mẫu mẫu */}
-      {isTemplateListModalOpen && (() => {
+      {isTemplateListModalOpen && createPortal((() => {
         const tplPageSize = 5;
         const totalTplPages = Math.ceil(templates.length / tplPageSize) || 1;
         const activePage = Math.min(tplCurrentPage, totalTplPages);
         const currentTemplates = templates.slice((activePage - 1) * tplPageSize, activePage * tplPageSize);
 
         return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 text-left max-h-[90dvh] overscroll-contain">
               <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
                 <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
@@ -1139,11 +1139,11 @@ export default function LeaveRequestsTab({
             </div>
           </div>
         );
-      })()}
+      })(), document.body)}
 
       {/* Modal Tải Biểu Mẫu Mẫu (Admin/Manager) */}
-      {isTemplateFormOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+      {isTemplateFormOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
             <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
               <h3 className="font-extrabold text-slate-800 text-sm">Đăng tải biểu mẫu mẫu mới</h3>
@@ -1217,7 +1217,8 @@ export default function LeaveRequestsTab({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Lý do Từ chối đơn */}
@@ -1269,16 +1270,19 @@ export default function LeaveRequestsTab({
         </div>
       )}
 
-      {confirmState && (
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          onConfirm={confirmState.onConfirm}
-          onClose={() => setConfirmState(null)}
-        />
+      {confirmState && createPortal(
+        <div className="fixed inset-0 z-[100]">
+          <ConfirmDialog
+            isOpen={confirmState.isOpen}
+            title={confirmState.title}
+            description={confirmState.description}
+            confirmLabel={confirmState.confirmLabel}
+            cancelLabel={confirmState.cancelLabel}
+            onConfirm={confirmState.onConfirm}
+            onClose={() => setConfirmState(null)}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );
