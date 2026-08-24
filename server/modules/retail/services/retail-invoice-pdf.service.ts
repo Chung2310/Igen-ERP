@@ -2,6 +2,7 @@ import type { RetailInvoicePaperSize } from "../interfaces/retail-settings.inter
 import type { IRetailInvoice } from "../interfaces/retail-invoice.interface";
 import PDFDocument from "pdfkit";
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 export function invoicePdfPageSize(paperSize: RetailInvoicePaperSize): "A4" | "A5" | [number, number] {
   if (paperSize === "80mm") return [226.77, 600];
@@ -15,6 +16,14 @@ export function invoicePdfFilename(invoiceNo: string): string {
     .replace(/^\.+/, "")
     .trim() || "invoice";
   return `${safe}.pdf`;
+}
+
+export function resolveInvoiceFontPath(filename: string, exists: (candidate: string) => boolean = existsSync, cwd = process.cwd()): string {
+  const candidates = [
+    path.join(cwd, "server", "assets", "fonts", filename),
+    path.join(cwd, "dist-server", "server", "assets", "fonts", filename),
+  ];
+  return candidates.find(exists) || candidates[0];
 }
 
 export interface RetailInvoicePdfResult { buffer: Buffer; filename: string }
@@ -51,8 +60,8 @@ export async function renderRetailInvoicePdf(
   (doc as any).text = (value: unknown, ...args: unknown[]) =>
     writeText(typeof value === "string" ? value.normalize("NFC") : (value as any), ...(args as [any]));
 
-  const regularFont = path.join(process.cwd(), "server", "assets", "fonts", "Roboto-Regular.ttf");
-  const boldFont = path.join(process.cwd(), "server", "assets", "fonts", "Roboto-Bold.ttf");
+  const regularFont = resolveInvoiceFontPath("Roboto-Regular.ttf");
+  const boldFont = resolveInvoiceFontPath("Roboto-Bold.ttf");
   doc.registerFont("Roboto", regularFont);
   doc.registerFont("Roboto-Bold", boldFont);
 
