@@ -1395,15 +1395,15 @@ export default function KanbanTab({
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="hr_tab_content">
         <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-4 text-left text-slate-800 shadow-xs sm:space-y-6 sm:rounded-3xl sm:p-8" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-col gap-4 border-b border-gray-200 pb-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:gap-4">
               <h2 data-testid="kanban-header-title" className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
-              <div className="w-full min-w-0 select-none sm:w-auto">
+              <div className="w-full min-w-0 select-none min-[1200px]:w-auto">
                 <div
                   data-testid="kanban-view-tabs"
-                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-1 text-xs font-semibold scrollbar-none sm:w-auto"
+                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-1 text-xs font-semibold scrollbar-none min-[1200px]:w-auto"
                 >
                   {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
@@ -1427,13 +1427,13 @@ export default function KanbanTab({
             </div>
 
             {/* Filter and Add Task controls */}
-            <div data-testid="kanban-header-controls" className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-              <div data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 sm:w-auto">
+            <div data-testid="kanban-header-controls" className="flex w-full flex-col gap-3 min-[1200px]:w-auto min-[1200px]:flex-row min-[1200px]:flex-wrap min-[1200px]:items-center">
+              <div data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 min-[1200px]:w-auto">
                 <Filter className="h-4 w-4 text-gray-400" />
                 <select
                   value={kanbanFilter || ""}
                   onChange={(e) => setKanbanFilter(e.target.value || null)}
-                  className="w-full min-w-0 cursor-pointer rounded-xl border border-gray-200 bg-white p-2 text-xs outline-none sm:w-auto sm:p-1.5"
+                  className="w-full min-w-0 cursor-pointer rounded-xl border border-gray-200 bg-white p-2 text-xs outline-none min-[1200px]:w-auto min-[1200px]:p-1.5"
                 >
                   <option value="">Lọc nhân sự</option>
                   {employees.map(emp => (
@@ -1445,11 +1445,11 @@ export default function KanbanTab({
               </div>
 
               {isManager && (
-                <div data-testid="kanban-manager-actions" className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:w-auto sm:gap-3">
+                <div data-testid="kanban-manager-actions" className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[1200px]:flex min-[1200px]:w-auto min-[1200px]:gap-3">
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer sm:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Target className="h-4 w-4" />
                     Tạo Dự Án & Lĩnh vực
@@ -1482,7 +1482,7 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer sm:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Giao Việc Mới
