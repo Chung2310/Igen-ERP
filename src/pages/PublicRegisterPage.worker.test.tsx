@@ -28,7 +28,7 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("form đăng ký công khai", () => {
-  it("preset lao động: có ô mã đối tác, ẩn nguồn giới thiệu", async () => {
+  it("preset lao động: có ô mã đối tác, ẩn nguồn giới thiệu, hiển thị hồ sơ ảnh", async () => {
     setUrl("worker");
     mockConfig("worker");
     render(<PublicRegisterPage />);
@@ -36,14 +36,23 @@ describe("form đăng ký công khai", () => {
     await waitFor(() => expect(screen.getByText("Mã đối tác giới thiệu")).toBeTruthy());
     expect(screen.queryByText("Nguồn giới thiệu")).toBeNull();
     expect(screen.getByText("Họ và tên")).toBeTruthy();
+    expect(screen.getByText("Hồ sơ ảnh")).toBeTruthy();
   });
 
-  it("preset học viên: giữ nguồn giới thiệu, không có ô mã đối tác", async () => {
+  it("preset học viên: giữ nguồn giới thiệu, không có ô mã đối tác, không hiển thị hồ sơ ảnh, có 3 chế độ giới thiệu", async () => {
     setUrl("student");
     mockConfig("student");
     render(<PublicRegisterPage />);
 
     await waitFor(() => expect(screen.getByText("Nguồn giới thiệu")).toBeTruthy());
     expect(screen.queryByText("Mã đối tác giới thiệu")).toBeNull();
+    expect(screen.queryByText("Hồ sơ ảnh")).toBeNull();
+
+    const fullNameInput = screen.getByPlaceholderText("Nhập họ và tên...");
+    expect(fullNameInput).toBeTruthy();
+
+    expect(screen.getByText("Không có giới thiệu")).toBeTruthy();
+    expect(screen.getByText("Đối tác / CTV hệ thống")).toBeTruthy();
+    expect(screen.getByText("Nhập người giới thiệu khác")).toBeTruthy();
   });
 });

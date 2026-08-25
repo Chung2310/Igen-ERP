@@ -82,7 +82,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [isRegisterQROpen, setIsRegisterQROpen] = useState(false);
   const isUnassignedScope = listScope === 'unassigned';
   const { students, loading } = useStudents(resolvedCenter, listScope);
-  const { branches } = useBranch();
+  const { branches, activeBranchId } = useBranch();
   const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
   const { batches } = useBatches();
   const { courses } = useCourses(resolvedCenter);
@@ -990,7 +990,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                   </div>
                 </div>
               )}
-
               {bulkDeletePreview.deletableCount > 0 && (
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
                   <h3 className="text-xs font-bold text-emerald-700">Sẽ xóa</h3>
@@ -1013,8 +1012,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         </div>
       )}
 
-
-
       <AssignStudentBranchModal
         student={assigningStudent}
         branches={branches}
@@ -1033,17 +1030,22 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       />
 
       {/* Import Student Modal */}
-      {usesEducationBilling && isImportOpen && <ImportStudentModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSuccess={() => setIsImportOpen(false)}
-        selectedCenter={selectedCenter}
-      />}
+      {usesEducationBilling && isImportOpen && (
+        <ImportStudentModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={() => setIsImportOpen(false)}
+          selectedCenter={selectedCenter}
+        />
+      )}
 
       {/* QR để học viên tự đăng ký */}
       <RegisterQRModal
         isOpen={isRegisterQROpen}
         teacherId={userProfile?.uid || ''}
+        companyCode={selectedCenter && selectedCenter !== 'all' ? selectedCenter : ((userProfile as any)?.companyCode || (userProfile as any)?.centerId || '')}
+        branchId={activeBranchId || userProfile?.branchId || ''}
+        entityPreset={entityLabel.preset}
         onClose={() => setIsRegisterQROpen(false)}
       />
     </div>

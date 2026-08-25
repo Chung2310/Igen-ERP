@@ -177,7 +177,10 @@ export const WorkerQrAttendanceService = {
     if (fingerprint && cleanPhone) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== cleanPhone) {
-        throw new WorkerQrCheckinError("device_conflict", "Thiết bị này đã được dùng để chấm công cho lao động khác.");
+        throw new WorkerQrCheckinError(
+          "device_conflict",
+          "Thiết bị này đã được dùng để chấm công cho một lao động khác trong buổi làm việc này (mỗi thiết bị chỉ được chấm công 1 lao động)."
+        );
       }
     }
 
@@ -187,14 +190,20 @@ export const WorkerQrAttendanceService = {
         : { phone: cleanPhone, companyCode: session.companyCode, deletedAt: null }
     );
     if (!worker) {
-      throw new WorkerQrCheckinError("worker_not_found", "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
+      throw new WorkerQrCheckinError(
+        "worker_not_found",
+        `Số điện thoại ${cleanPhone ? `(${cleanPhone}) ` : ""}không có trong hệ thống hoặc không đúng cơ sở.`
+      );
     }
 
     const workerPhone = String(worker.phone || cleanPhone).replace(/\D/g, "");
     if (fingerprint) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== workerPhone) {
-        throw new WorkerQrCheckinError("device_conflict", "Thiết bị này đã được dùng để chấm công cho lao động khác.");
+        throw new WorkerQrCheckinError(
+          "device_conflict",
+          "Thiết bị này đã được dùng để chấm công cho một lao động khác trong buổi làm việc này (mỗi thiết bị chỉ được chấm công 1 lao động)."
+        );
       }
     }
 
@@ -205,7 +214,10 @@ export const WorkerQrAttendanceService = {
 
     const workerIdStr = worker._id!.toString();
     if (!project.workerIds.some((id) => id.toString() === workerIdStr)) {
-      throw new WorkerQrCheckinError("not_in_project", "Lao động không thuộc danh sách dự án này.");
+      throw new WorkerQrCheckinError(
+        "not_in_project",
+        `Lao động ${worker.fullName} không thuộc danh sách dự án này. Vui lòng liên hệ quản lý.`
+      );
     }
 
     // Kiểm tra bán kính do WorkerAttendanceService.mark đảm nhiệm — trước đây chỗ

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy, Share2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Phone, Loader2, Sparkles, Camera, MapPin, RotateCcw, ExternalLink, Copy, Share2, HelpCircle } from "lucide-react";
 
 const REASON_MESSAGES: Record<string, string> = {
   not_registered: "Học viên chưa đăng ký khuôn mặt. Vui lòng liên hệ giáo viên/admin để đăng ký trước.",
@@ -10,18 +10,21 @@ const REASON_MESSAGES: Record<string, string> = {
   spoof_detected: "Không xác nhận được khuôn mặt thật. Vui lòng chụp ảnh trực tiếp, không dùng ảnh/video khác.",
   face_mismatch: "Khuôn mặt không khớp với hồ sơ đã đăng ký.",
   outside_radius: "Bạn đang ở ngoài khu vực điểm danh cho phép.",
-  missing_image: "Vui lòng chụp ảnh khuôn mặt và cấp quyền định vị để điểm danh.",
+  missing_image: "Vui lòng cấp quyền định vị GPS cho trình duyệt để điểm danh.",
   session_invalid: "Phiên điểm danh đã kết thúc hoặc mã QR không hợp lệ.",
   replay: "Mã QR này đã được quét và sử dụng rồi.",
-  device_conflict: "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.",
-  student_not_found: "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.",
-  not_in_batch: "Học viên không nằm trong danh sách lớp học này.",
-  already_checked_in: "Bạn đã điểm danh thành công trước đó rồi.",
+  device_conflict: "Thiết bị này đã được sử dụng để điểm danh cho một học viên khác trong buổi học này (mỗi thiết bị chỉ được điểm danh 1 học viên).",
+  student_not_found: "Số điện thoại chưa có trong hệ thống hoặc không đúng cơ sở.",
+  not_in_batch: "Học viên không nằm trong danh sách lớp học này. Vui lòng liên hệ giáo viên.",
+  worker_not_found: "Số điện thoại chưa có trong hệ thống hoặc không đúng cơ sở.",
+  not_in_project: "Lao động không thuộc danh sách dự án này. Vui lòng liên hệ quản lý.",
+  already_checked_in: "Bạn đã được điểm danh thành công trước đó trong buổi học này rồi.",
 };
 
 function mapReasonCode(reasonCode?: string, fallback?: string): string {
+  if (fallback && fallback.trim()) return fallback.trim();
   if (reasonCode && REASON_MESSAGES[reasonCode]) return REASON_MESSAGES[reasonCode];
-  return fallback || "Điểm danh không thành công.";
+  return "Điểm danh không thành công. Vui lòng thử lại hoặc liên hệ quản trị viên.";
 }
 
 // Hàm hash đơn giản cho fingerprint
@@ -513,20 +516,43 @@ export default function QRCheckinPage() {
               <p className="text-[11px] text-slate-400 font-medium">Bạn có thể đóng trình duyệt bây giờ.</p>
             </div>
           ) : (
-            <div className="text-center space-y-6">
+            <div className="text-center space-y-5">
               <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 shadow-inner">
                 <AlertCircle className="w-10 h-10" />
               </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Điểm danh thất bại</h2>
-                <p className="text-slate-500 text-sm mt-2 font-medium">{result.error}</p>
+              <div className="space-y-2">
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Điểm danh không thành công</h2>
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-left">
+                  <p className="text-xs font-semibold leading-relaxed text-rose-700">{result.error}</p>
+                </div>
               </div>
-              <button
-                onClick={handleTryAgain}
-                className="w-full h-14 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all cursor-pointer"
-              >
-                Quay lại thử lại
-              </button>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5 text-left text-[11px] text-slate-500 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                  <HelpCircle className="w-3.5 h-3.5 text-cyan-600" /> Lưu ý quan trọng:
+                </div>
+                <p>• Nếu số điện thoại chưa có trong lớp: hãy liên hệ giáo viên để được thêm vào danh sách lớp.</p>
+                <p>• Nếu thiết bị đã được điểm danh: mỗi máy/trình duyệt chỉ được điểm danh cho 1 học viên trong buổi học.</p>
+                <p>• Bạn có thể bấm "Đổi số điện thoại" để nhập lại số điện thoại khác.</p>
+              </div>
+
+              <div className="space-y-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTryAgain}
+                  className="w-full h-13 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-98 transition-all cursor-pointer"
+                >
+                  Thử lại
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleForgetDevice()}
+                  className="w-full h-11 border border-slate-200 bg-white text-slate-700 rounded-2xl text-xs font-bold hover:bg-slate-50 active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Đổi số điện thoại / Đổi học viên
+                </button>
+              </div>
             </div>
           )
         ) : sessionInfo?.device?.recognized ? (
@@ -591,15 +617,27 @@ export default function QRCheckinPage() {
                     disabled={submitting}
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  * Mỗi thiết bị chỉ được điểm danh cho 1 học viên trong mỗi buổi học.
+                </p>
               </div>
 
               <button
                 type="submit"
-                disabled={!phone || phone.length < 8}
+                disabled={!phone || phone.length < 8 || submitting}
                 className="w-full h-14 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-98 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <MapPin className="w-4 h-4" />
-                Xác nhận điểm danh
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-4 h-4" />
+                    Xác nhận điểm danh
+                  </>
+                )}
               </button>
             </form>
           </div>
