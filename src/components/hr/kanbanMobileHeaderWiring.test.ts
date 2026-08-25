@@ -17,13 +17,15 @@ describe("Kanban mobile header wiring", () => {
     expect(source).not.toContain('aria-label="Cuộn tab sang phải"');
   });
 
-  it("uses full-width mobile controls and a responsive action grid", () => {
+  it("keeps the stacked responsive layout below 1200px", () => {
     expect(source).toContain('data-testid="kanban-header-controls"');
     expect(source).toContain("w-full flex-col");
     expect(source).toContain('data-testid="kanban-person-filter"');
-    expect(source).toContain('data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 sm:w-auto"');
+    expect(source).toContain('data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 min-[1200px]:w-auto"');
     expect(source).toContain('data-testid="kanban-manager-actions"');
-    expect(source).toContain("grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:w-auto");
+    expect(source).toContain("grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[1200px]:flex min-[1200px]:w-auto");
+    expect(source).toContain("min-[1200px]:flex-row");
+    expect(source).toContain("min-[1200px]:w-auto");
   });
 
   it("keeps the selected tab visible in the mobile scroller", () => {
