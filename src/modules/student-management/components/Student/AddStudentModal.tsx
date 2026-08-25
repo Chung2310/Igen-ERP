@@ -394,22 +394,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {isFieldVisible('referral') && (
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('referral')}
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
-                        {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
-                        {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
-                      </label>
-                      {referralMode === 'partner' && (
-                        <button
-                          type="button"
-                          onClick={() => setIsQuickAddPartnerOpen(true)}
-                          className="text-[11px] font-bold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 hover:underline transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Thêm nhanh đối tác mới</span>
-                        </button>
-                      )}
-                    </div>
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                      {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
+                      {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
+                    </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
                         <RoadmapPicker
