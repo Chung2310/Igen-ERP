@@ -4,6 +4,7 @@ import {
   type DepreciationScheduleLine,
   type FixedAsset,
 } from "../api/financeAssets.api";
+import { toast } from "../../../pages/Toast";
 
 const STATUS_LABELS: Record<string, string> = {
   in_use: "Đang dùng",
@@ -29,6 +30,35 @@ const EMPTY_FORM = {
   inServiceDate: "",
   usefulLifeMonths: "",
   location: "",
+};
+
+type CreateForm = typeof EMPTY_FORM;
+
+export const validateCreateForm = (form: CreateForm): string | undefined => {
+  if (!form.assetCode.trim()) return "Vui lòng nhập mã tài sản.";
+  if (!form.barcode.trim()) return "Vui lòng nhập mã vạch.";
+  if (!form.name.trim()) return "Vui lòng nhập tên tài sản.";
+  if (!form.group.trim()) return "Vui lòng nhập nhóm tài sản.";
+
+  const originalCost = Number(form.originalCost);
+  if (!Number.isSafeInteger(originalCost) || originalCost <= 0) {
+    return "Nguyên giá phải là số nguyên lớn hơn 0.";
+  }
+
+  const salvageValue = Number(form.salvageValue || 0);
+  if (!Number.isSafeInteger(salvageValue) || salvageValue < 0) {
+    return "Giá trị thu hồi phải là số nguyên không âm.";
+  }
+  if (salvageValue > originalCost) {
+    return "Giá trị thu hồi không được lớn hơn nguyên giá.";
+  }
+  if (!form.inServiceDate) return "Vui lòng chọn ngày đưa vào sử dụng.";
+
+  const usefulLifeMonths = Number(form.usefulLifeMonths);
+  if (!Number.isSafeInteger(usefulLifeMonths) || usefulLifeMonths <= 0) {
+    return "Số tháng khấu hao phải là số nguyên lớn hơn 0.";
+  }
+  return undefined;
 };
 
 const EDITABLE_FIELDS = ["name", "group", "location", "custodianName"] as const;
@@ -60,15 +90,13 @@ export default function FixedAssetsPage({
   const [editForm, setEditForm] = useState(() => editFormFrom({} as FixedAsset));
   const [transferForm, setTransferForm] = useState(EMPTY_TRANSFER);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const canManage = canManageAssets(permissions);
 
   const load = async () => {
     try {
       setItems(await financeAssetsApi.list({ status: status || undefined, search: search || undefined }));
-      setError("");
     } catch (reason) {
-      setError(message(reason, "Không tải được danh sách tài sản."));
+      toast.error(message(reason, "Không tải được danh sách tài sản."));
     }
   };
 
@@ -85,7 +113,7 @@ export default function FixedAssetsPage({
     try {
       setSchedule(await financeAssetsApi.schedule(asset._id));
     } catch (reason) {
-      setError(message(reason, "Không tải được lịch khấu hao."));
+      toast.error(message(reason, "Không tải được lịch khấu hao."));
     }
   };
 
@@ -98,24 +126,30 @@ export default function FixedAssetsPage({
   };
 
   const create = async () => {
+    const validationError = validateCreateForm(form);
+    if (validationError) {
+      toast.warning(validationError);
+      return;
+    }
     setBusy(true);
     try {
       await financeAssetsApi.create({
-        assetCode: form.assetCode,
-        barcode: form.barcode,
-        name: form.name,
-        group: form.group,
+        assetCode: form.assetCode.trim(),
+        barcode: form.barcode.trim(),
+        name: form.name.trim(),
+        group: form.group.trim(),
         originalCost: Number(form.originalCost),
         salvageValue: Number(form.salvageValue || 0),
         inServiceDate: toIso(form.inServiceDate),
         usefulLifeMonths: Number(form.usefulLifeMonths),
-        ...(form.location ? { location: form.location } : {}),
+        ...(form.location.trim() ? { location: form.location.trim() } : {}),
       });
       setForm(EMPTY_FORM);
       setCreating(false);
       await load();
+      toast.success("Đã thêm tài sản cố định thành công.");
     } catch (reason) {
-      setError(message(reason, "Không tạo được tài sản."));
+      toast.error(message(reason, "Không tạo được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -129,16 +163,16 @@ export default function FixedAssetsPage({
     for (const field of EDITABLE_FIELDS) if (editForm[field] !== current[field]) patch[field] = editForm[field];
     if (editForm.status !== current.status) patch.status = editForm.status;
     if (!Object.keys(patch).length) {
-      setError("Chưa có thay đổi nào để lưu.");
+      toast.warning("Chưa có thay đổi nào để lưu.");
       return;
     }
     setBusy(true);
     try {
       await financeAssetsApi.update(selected._id, { ...patch, ...(editForm.note ? { note: editForm.note } : {}) });
       await refresh(selected._id);
-      setError("");
+      toast.success("Đã cập nhật tài sản thành công.");
     } catch (reason) {
-      setError(message(reason, "Không cập nhật được tài sản."));
+      toast.error(message(reason, "Không cập nhật được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -147,7 +181,7 @@ export default function FixedAssetsPage({
   const submitTransfer = async () => {
     if (!selected) return;
     if (!transferForm.branchId.trim() || !transferForm.reason.trim()) {
-      setError("Cần chọn chi nhánh đến và nhập lý do điều chuyển.");
+      toast.warning("Vui lòng nhập chi nhánh đến và lý do điều chuyển.");
       return;
     }
     setBusy(true);
@@ -160,9 +194,9 @@ export default function FixedAssetsPage({
       });
       setTransferForm(EMPTY_TRANSFER);
       await refresh(selected._id);
-      setError("");
+      toast.success("Đã điều chuyển tài sản thành công.");
     } catch (reason) {
-      setError(message(reason, "Không điều chuyển được tài sản."));
+      toast.error(message(reason, "Không điều chuyển được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -170,18 +204,24 @@ export default function FixedAssetsPage({
 
   const dispose = async (asset: FixedAsset) => {
     const reason = window.prompt("Lý do thanh lý?");
-    if (!reason) return;
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      toast.warning("Vui lòng nhập lý do thanh lý.");
+      return;
+    }
     setBusy(true);
     try {
       await financeAssetsApi.dispose(asset._id, {
         disposedAt: new Date().toISOString(),
         disposalAmount: 0,
-        reason,
+        reason: trimmedReason,
       });
       setSelected(undefined);
       await load();
+      toast.success("Đã thanh lý tài sản thành công.");
     } catch (failure) {
-      setError(message(failure, "Không thanh lý được tài sản."));
+      toast.error(message(failure, "Không thanh lý được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -206,8 +246,6 @@ export default function FixedAssetsPage({
           </button>
         )}
       </div>
-
-      {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
 
       {creating && canManage && (
         <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
