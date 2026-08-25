@@ -57,10 +57,31 @@ const inputClass =
   "w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 transition placeholder-slate-300";
 const labelClass = "block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5";
 
+const DEFAULT_PLACEHOLDERS: Record<string, string> = {
+  fullName: "Nhập họ và tên...",
+  phone: "Nhập số điện thoại...",
+  email: "Nhập địa chỉ email...",
+  referral: "Nhập tên người giới thiệu...",
+  birthday: "DD/MM/YYYY",
+  idCard: "Nhập số CCCD (12 số)...",
+  enrollmentDate: "DD/MM/YYYY",
+  address: "Nhập địa chỉ...",
+};
+
+function placeholderFor(field: IPublicField): string {
+  return field.placeholder || DEFAULT_PLACEHOLDERS[field.key] || "";
+}
+
+interface IPublicPartner {
+  _id: string;
+  name: string;
+  phone?: string;
+}
+
 export default function PublicRegisterPage() {
   const requestedPreset = useMemo(() => {
     const value = new URLSearchParams(window.location.search).get("entityPreset");
-    return value === "worker" ? "worker" as const : null;
+    return value === "worker" ? ("worker" as const) : null;
   }, []);
   const teacherId = useMemo(
     () => new URLSearchParams(window.location.search).get("teacherId") || "",
@@ -78,7 +99,10 @@ export default function PublicRegisterPage() {
   const [loading, setLoading] = useState(Boolean(teacherId));
   const [configError, setConfigError] = useState("");
   const [fields, setFields] = useState<IPublicField[]>([]);
+  const [partners, setPartners] = useState<IPublicPartner[]>([]);
   const [preset, setPreset] = useState<EntityPreset>(requestedPreset || "student");
+  const [referralMode, setReferralMode] = useState<"none" | "partner" | "custom">("none");
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
 
   const [values, setValues] = useState<Record<string, string>>({ enrollmentDate: todayInputValue() });
   const [files, setFiles] = useState<Partial<Record<FileField, IUploadedFile>>>({});
@@ -103,8 +127,12 @@ export default function PublicRegisterPage() {
     let cancelled = false;
     (async () => {
       try {
+        const params = new URLSearchParams({ teacherId });
+        if (registrationCompanyCode) params.set("registrationCompanyCode", registrationCompanyCode);
+        if (registrationBranchId) params.set("registrationBranchId", registrationBranchId);
+        if (requestedPreset) params.set("entityPreset", requestedPreset);
         const response = await fetch(
-          `/api/v1/students/public-register-config?teacherId=${encodeURIComponent(teacherId)}`,
+          `/api/v1/students/public-register-config?${params.toString()}`,
         );
         const json = await response.json().catch(() => ({}));
         if (!response.ok || json.ok === false || json.success === false) {
@@ -115,6 +143,7 @@ export default function PublicRegisterPage() {
         }
         if (cancelled) return;
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
+        if (Array.isArray(json.data.partners)) setPartners(json.data.partners);
         setPreset(requestedPreset || json.data.entityPreset as EntityPreset);
       } catch (error) {
         if (!cancelled) setConfigError(getApiErrorMessage(error, "Không tải được biểu mẫu."));
@@ -123,7 +152,7 @@ export default function PublicRegisterPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [requestedPreset, teacherId]);
+  }, [requestedPreset, teacherId, registrationCompanyCode, registrationBranchId]);
 
   const handleUpload = async (field: FileField, file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -162,22 +191,23 @@ export default function PublicRegisterPage() {
     try {
       const payload: Record<string, unknown> = {
         teacherId,
-        ...(requestedPreset === "worker"
-          ? {
-              entityPreset: "worker",
-              ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
-              ...(registrationBranchId ? { registrationBranchId } : {}),
-              ...(partnerCode.trim() ? { partnerCode: partnerCode.trim().toUpperCase() } : {}),
-            }
-          : {}),
+        ...(requestedPreset ? { entityPreset: requestedPreset } : {}),
+        ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
+        ...(registrationBranchId ? { registrationBranchId } : {}),
+        ...(isWorkerForm && partnerCode.trim() ? { partnerCode: partnerCode.trim().toUpperCase() } : {}),
       };
       fields.forEach((field) => {
         const raw = (values[field.key] || "").trim();
         payload[field.key] = DATE_FIELDS.has(field.key) ? toServerDate(raw) : raw;
       });
-      FILE_FIELDS.forEach(({ key }) => {
-        if (files[key]) payload[key] = files[key];
-      });
+      if (!isWorkerForm && values.partnerId) {
+        payload.partnerId = values.partnerId;
+      }
+      if (isWorkerForm) {
+        FILE_FIELDS.forEach(({ key }) => {
+          if (files[key]) payload[key] = files[key];
+        });
+      }
 
       const response = await fetch("/api/v1/students/public-register", {
         method: "POST",
@@ -253,23 +283,109 @@ export default function PublicRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {visibleFields.map((field) => (
-              <div key={field.key} className={field.key === "address" ? "sm:col-span-2" : undefined}>
-                <label className={labelClass}>
-                  {field.label}
-                  {field.isRequired && <span className="ml-0.5 text-rose-500">*</span>}
-                </label>
-                <input
-                  type={inputTypeFor(field.key)}
-                  required={field.isRequired}
-                  value={values[field.key] || ""}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.placeholder || ""}
-                  maxLength={field.key === "idCard" ? 12 : undefined}
-                  className={inputClass}
-                />
-              </div>
-            ))}
+            {visibleFields.map((field) => {
+              if (field.key === "referral") {
+                return (
+                  <div key={field.key} className="sm:col-span-2">
+                    <label className={labelClass}>
+                      {field.label}
+                      {field.isRequired && <span className="ml-0.5 text-rose-500">*</span>}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <select
+                          value={referralMode}
+                          onChange={(e) => {
+                            const mode = e.target.value as "none" | "partner" | "custom";
+                            setReferralMode(mode);
+                            if (mode === "none") {
+                              setSelectedPartnerId("");
+                              setValues((prev) => ({ ...prev, referral: "", partnerId: "" }));
+                            } else if (mode === "custom") {
+                              setSelectedPartnerId("");
+                              setValues((prev) => ({ ...prev, partnerId: "" }));
+                            } else {
+                              const first = partners[0];
+                              setSelectedPartnerId(first?._id || "");
+                              setValues((prev) => ({
+                                ...prev,
+                                partnerId: first?._id || "",
+                                referral: first?.name || "",
+                              }));
+                            }
+                          }}
+                          className={inputClass}
+                        >
+                          <option value="none">Không có giới thiệu</option>
+                          <option value="partner">Đối tác / CTV hệ thống</option>
+                          <option value="custom">Nhập người giới thiệu khác</option>
+                        </select>
+                      </div>
+
+                      {referralMode === "partner" && (
+                        <div>
+                          <select
+                            value={selectedPartnerId}
+                            required={field.isRequired}
+                            onChange={(e) => {
+                              const pId = e.target.value;
+                              setSelectedPartnerId(pId);
+                              const pObj = partners.find((p) => p._id === pId);
+                              setValues((prev) => ({
+                                ...prev,
+                                partnerId: pId,
+                                referral: pObj ? pObj.name : "",
+                              }));
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">-- Chọn đối tác --</option>
+                            {partners.map((p) => (
+                              <option key={p._id} value={p._id}>
+                                {p.name} {p.phone ? `(${p.phone})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {referralMode === "custom" && (
+                        <div>
+                          <input
+                            type="text"
+                            required={field.isRequired}
+                            value={values.referral || ""}
+                            onChange={(e) =>
+                              setValues((prev) => ({ ...prev, referral: e.target.value, partnerId: "" }))
+                            }
+                            placeholder={placeholderFor(field) || "Nhập tên người giới thiệu..."}
+                            className={inputClass}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={field.key} className={field.key === "address" ? "sm:col-span-2" : undefined}>
+                  <label className={labelClass}>
+                    {field.label}
+                    {field.isRequired && <span className="ml-0.5 text-rose-500">*</span>}
+                  </label>
+                  <input
+                    type={inputTypeFor(field.key)}
+                    required={field.isRequired}
+                    value={values[field.key] || ""}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={placeholderFor(field)}
+                    maxLength={field.key === "idCard" ? 12 : undefined}
+                    className={inputClass}
+                  />
+                </div>
+              );
+            })}
             {isWorkerForm && (
               <div>
                 <label className={labelClass}>Mã đối tác giới thiệu</label>
@@ -288,60 +404,62 @@ export default function PublicRegisterPage() {
             )}
           </div>
 
-          <div>
-            <label className={labelClass}>Hồ sơ ảnh</label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {FILE_FIELDS.map(({ key, label }) => {
-                const uploaded = files[key];
-                const isUploading = uploadingField === key;
-                return (
-                  <div
-                    key={key}
-                    onClick={() => !isUploading && inputRefs.current[key]?.click()}
-                    className={`flex cursor-pointer select-none flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition ${
-                      uploaded
-                        ? "border-emerald-300 bg-emerald-50/40"
-                        : "border-slate-200 bg-white hover:border-cyan-400 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      ref={(el) => { inputRefs.current[key] = el; }}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleUpload(key, file);
-                      }}
-                    />
-                    {isUploading ? (
-                      <Loader2 className="mb-1.5 h-5 w-5 animate-spin text-cyan-600" />
-                    ) : uploaded ? (
-                      <CheckCircle className="mb-1.5 h-5 w-5 text-emerald-600" />
-                    ) : (
-                      <UploadCloud className="mb-1.5 h-5 w-5 text-cyan-600" />
-                    )}
-                    <span className="text-[11px] font-bold text-slate-700">{label}</span>
-                    <span className="mt-0.5 max-w-full truncate text-[10px] text-slate-400">
-                      {isUploading ? "Đang tải lên..." : uploaded ? uploaded.name : "JPG/PNG, tối đa 10MB"}
-                    </span>
-                    {uploaded && !isUploading && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFiles((prev) => ({ ...prev, [key]: undefined }));
+          {isWorkerForm && (
+            <div>
+              <label className={labelClass}>Hồ sơ ảnh</label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {FILE_FIELDS.map(({ key, label }) => {
+                  const uploaded = files[key];
+                  const isUploading = uploadingField === key;
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => !isUploading && inputRefs.current[key]?.click()}
+                      className={`flex cursor-pointer select-none flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition ${
+                        uploaded
+                          ? "border-emerald-300 bg-emerald-50/40"
+                          : "border-slate-200 bg-white hover:border-cyan-400 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        ref={(el) => { inputRefs.current[key] = el; }}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleUpload(key, file);
                         }}
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-3 w-3" /> Xóa
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                      />
+                      {isUploading ? (
+                        <Loader2 className="mb-1.5 h-5 w-5 animate-spin text-cyan-600" />
+                      ) : uploaded ? (
+                        <CheckCircle className="mb-1.5 h-5 w-5 text-emerald-600" />
+                      ) : (
+                        <UploadCloud className="mb-1.5 h-5 w-5 text-cyan-600" />
+                      )}
+                      <span className="text-[11px] font-bold text-slate-700">{label}</span>
+                      <span className="mt-0.5 max-w-full truncate text-[10px] text-slate-400">
+                        {isUploading ? "Đang tải lên..." : uploaded ? uploaded.name : "JPG/PNG, tối đa 10MB"}
+                      </span>
+                      {uploaded && !isUploading && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFiles((prev) => ({ ...prev, [key]: undefined }));
+                          }}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3 w-3" /> Xóa
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end border-t border-slate-100 pt-4">
             <button

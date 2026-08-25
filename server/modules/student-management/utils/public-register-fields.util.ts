@@ -24,15 +24,18 @@ export type PublicRegisterFieldKey = (typeof PUBLIC_REGISTER_FIELD_KEYS)[number]
  * (src/modules/student-management/hooks/useStandardFields.ts). Chỉ dùng để dựng
  * thông báo lỗi phía server khi công ty chưa tùy biến nhãn.
  */
-const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<PublicRegisterFieldKey, { label: string; isRequired: boolean }> = {
-  fullName: { label: "Họ và tên", isRequired: true },
-  phone: { label: "Số điện thoại", isRequired: true },
-  email: { label: "Email học viên", isRequired: true },
-  referral: { label: "Nguồn giới thiệu", isRequired: false },
-  birthday: { label: "Ngày sinh", isRequired: false },
-  idCard: { label: "CCCD / CMND", isRequired: false },
-  enrollmentDate: { label: "Ngày nhập học", isRequired: false },
-  address: { label: "Địa chỉ", isRequired: false },
+const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<
+  PublicRegisterFieldKey,
+  { label: string; placeholder: string; isRequired: boolean }
+> = {
+  fullName: { label: "Họ và tên", placeholder: "Nhập họ và tên...", isRequired: true },
+  phone: { label: "Số điện thoại", placeholder: "Nhập số điện thoại...", isRequired: true },
+  email: { label: "Email học viên", placeholder: "Nhập địa chỉ email...", isRequired: true },
+  referral: { label: "Nguồn giới thiệu", placeholder: "Nhập tên người giới thiệu...", isRequired: false },
+  birthday: { label: "Ngày sinh", placeholder: "DD/MM/YYYY", isRequired: false },
+  idCard: { label: "CCCD / CMND", placeholder: "Nhập số CCCD (12 số)...", isRequired: false },
+  enrollmentDate: { label: "Ngày nhập học", placeholder: "DD/MM/YYYY", isRequired: false },
+  address: { label: "Địa chỉ", placeholder: "Nhập địa chỉ...", isRequired: false },
 };
 
 export type ResolvedPublicField = {
@@ -59,7 +62,7 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
     return {
       key,
       label: override?.label || base.label,
-      placeholder: override?.placeholder,
+      placeholder: override?.placeholder || base.placeholder,
       // Trường bị ẩn thì không thể bắt buộc, nếu không học viên sẽ không bao giờ gửi được.
       isRequired: alwaysRequired || (isVisible ? (override ? override.isRequired : base.isRequired) : false),
       isVisible,

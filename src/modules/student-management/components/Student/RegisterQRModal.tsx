@@ -7,14 +7,29 @@ interface RegisterQRModalProps {
   isOpen: boolean;
   /** uid của người đang đăng nhập — học viên đăng ký qua link sẽ được gán về người này. */
   teacherId: string;
+  companyCode?: string;
+  branchId?: string;
+  entityPreset?: string;
   onClose: () => void;
 }
 
-export function RegisterQRModal({ isOpen, teacherId, onClose }: RegisterQRModalProps) {
+export function RegisterQRModal({
+  isOpen,
+  teacherId,
+  companyCode,
+  branchId,
+  entityPreset,
+  onClose,
+}: RegisterQRModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const registerUrl = `${window.location.origin}/public/dang-ky?teacherId=${encodeURIComponent(teacherId)}`;
+  const params = new URLSearchParams({ teacherId });
+  if (entityPreset && entityPreset !== "student") params.set("entityPreset", entityPreset);
+  if (companyCode && companyCode !== "all") params.set("registrationCompanyCode", companyCode);
+  if (branchId) params.set("registrationBranchId", branchId);
+
+  const registerUrl = `${window.location.origin}/public/dang-ky?${params.toString()}`;
 
   useEffect(() => {
     if (!isOpen || !teacherId) return;
