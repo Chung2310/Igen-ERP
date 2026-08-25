@@ -9,11 +9,12 @@ import { notificationService } from "../service/notification.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
 import { sourceUploadFinalizer } from "../service/source-upload-finalizer.service";
 import { calculateProjectProgress, deriveProjectLifecycle, newUploadAttachments, validateProjectPayload } from "../service/kanban-project.service";
+import { currentPeriodKey, getMonthlyKpiReport } from "../service/kanban-monthly-kpi.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
 
-const MANAGER_ROLES = new Set(["superadmin", "admin", "manager"]);
+const MANAGER_ROLES = new Set(["superadmin", "admin", "manager", "branch_owner"]);
 const STATUS_MAP: Record<string, string> = {
   todo: "Not Started",
   doing: "In Progress",
@@ -33,6 +34,10 @@ function normalizeStatus(value: unknown) {
 
 function isManager(role?: string) {
   return MANAGER_ROLES.has(role || "");
+}
+
+export function visibleMonthlyKpiRows<T extends { employeeId: string }>(rows: T[], user: { id?: string; role?: string }) {
+  return isManager(user.role) ? rows : rows.filter((row) => String(row.employeeId) === String(user.id || ""));
 }
 
 function companyFilter(req: AuthenticatedRequest) {
@@ -191,6 +196,18 @@ async function handleError(res: Response, error: any) {
 }
 
 kanbanRouter.use(requireAuth as any);
+
+kanbanRouter.get("/kpi/monthly", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyCode = req.user?.companyCode || "SYSTEM";
+    const branchId = req.user?.branchId || (req.query.branchId ? String(req.query.branchId) : undefined);
+    const periodKey = req.query.period ? String(req.query.period) : currentPeriodKey();
+    const report = await getMonthlyKpiReport({ companyCode, branchId }, periodKey);
+    return res.json({ status: "success", data: { ...report, rows: visibleMonthlyKpiRows(report.rows, req.user || {}) } });
+  } catch (error) {
+    return handleError(res, error);
+  }
+});
 
 kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
   try {

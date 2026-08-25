@@ -43,6 +43,7 @@ import { DateTimeInput24 } from "../common/TimeInput24";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 import { calculateEstimatedHours } from "./kanbanTaskTime";
+import KanbanMonthlyKpiView from "./KanbanMonthlyKpiView";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -629,7 +630,7 @@ export default function KanbanTab({
   const [tasks, setTasks] = useState<HRTask[]>([]);
   const tasksRef = React.useRef<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
+  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks" | "Monthly KPI">("By project");
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
   // Mở modal với trạng thái "Done" chọn sẵn (khi đổi trạng thái nhanh nhưng thiếu thông tin)
   const [presetDoneOnOpen, setPresetDoneOnOpen] = useState(false);
@@ -1410,7 +1411,7 @@ export default function KanbanTab({
                   ref={subTabsRef}
                   className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 overflow-x-auto scrollbar-none select-none -mb-px max-w-[50vw] sm:max-w-none"
                 >
-                  {(["By project", "Board", "All tasks"] as const).map((vt) => (
+                  {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
                       key={vt}
                       onClick={() => setKanbanViewTab(vt)}
@@ -1421,7 +1422,7 @@ export default function KanbanTab({
                       }`}
                     >
                       {vt === "By project" ? "Theo dự án" :
-                        vt === "Board" ? "Bảng công việc" : "Tất cả công việc"}
+                        vt === "Board" ? "Bảng công việc" : vt === "All tasks" ? "Tất cả công việc" : "KPI tháng"}
                     </button>
                   ))}
                 </div>
@@ -1715,6 +1716,10 @@ export default function KanbanTab({
               projects={projects}
               onSelectTask={setSelectedKanbanTask}
             />
+          )}
+
+          {kanbanViewTab === "Monthly KPI" && (
+            <KanbanMonthlyKpiView activeBranchId={activeBranchId} />
           )}
 
         </div>
