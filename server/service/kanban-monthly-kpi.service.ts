@@ -5,7 +5,13 @@ import { UserModel } from "../model/user.model";
 export const KPI_TIMEZONE = "Asia/Ho_Chi_Minh" as const;
 
 export type MonthlyKpiEmployee = { employeeId: string; employeeName: string; employeeAvatar: string };
-export type MonthlyKpiTask = { assigneeUid: string; dueDate: string; status: string };
+export type MonthlyKpiTask = {
+  assigneeUid: string;
+  dueDate: string;
+  status: string;
+  completedAt?: string;
+  endTime?: string;
+};
 export type MonthlyKpiRow = MonthlyKpiEmployee & {
   totalTasks: number;
   completedTasks: number;
@@ -55,7 +61,8 @@ export function aggregateMonthlyKpiRows(employees: MonthlyKpiEmployee[], tasks: 
     if (!due || due < start || due >= end) continue;
     const count = counts.get(String(task.assigneeUid)) || { total: 0, completed: 0 };
     count.total += 1;
-    if (status === "Done") count.completed += 1;
+    const completed = dueInstant(task.completedAt || task.endTime || "");
+    if (status === "Done" && completed && completed <= due) count.completed += 1;
     counts.set(String(task.assigneeUid), count);
   }
   return employees.map((employee) => {
@@ -76,7 +83,7 @@ async function calculateRows(scope: MonthlyKpiScope) {
   const filter = { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}) };
   const [users, tasks] = await Promise.all([
     UserModel.find({ ...filter, role: { $ne: "superadmin" }, isActive: { $ne: false } }).select("_id displayName email photoURL").lean(),
-    KanbanTaskModel.find(filter).select("assigneeUid dueDate status").lean(),
+    KanbanTaskModel.find(filter).select("assigneeUid dueDate status completedAt endTime").lean(),
   ]);
   return { users, tasks };
 }
