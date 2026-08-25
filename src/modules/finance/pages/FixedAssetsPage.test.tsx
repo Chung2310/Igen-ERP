@@ -39,6 +39,37 @@ beforeEach(() => {
 });
 
 describe("FixedAssetsPage", () => {
+  it("opens the create form in an accessible dialog", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
+
+    expect(screen.getByRole("dialog", { name: "Thêm tài sản cố định" })).toBeTruthy();
+  });
+
+  it("closes and resets the create dialog with its controls", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
+    fireEvent.change(screen.getByLabelText("Mã tài sản"), { target: { value: "TS-DRAFT" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đóng popup" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Thêm tài sản" }));
+    expect((screen.getByLabelText("Mã tài sản") as HTMLInputElement).value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the create dialog with Escape but not with a backdrop click", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(dialog.parentElement!);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("shows a Vietnamese toast and does not call the API when the create form is empty", async () => {
     render(<FixedAssetsPage permissions={["asset:manage"]} />);
     fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
@@ -46,6 +77,35 @@ describe("FixedAssetsPage", () => {
 
     expect(toastMocks.warning).toHaveBeenCalledWith("Vui lòng nhập mã tài sản.");
     expect(financeAssetsApi.create).not.toHaveBeenCalled();
+    for (const label of [
+      "Mã tài sản",
+      "Mã vạch",
+      "Tên tài sản",
+      "Nhóm",
+      "Nguyên giá",
+      "Ngày đưa vào dùng",
+      "Số tháng khấu hao",
+    ]) {
+      expect(screen.getByLabelText(label).getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getByLabelText(label).className).toContain("border-red-500");
+    }
+  });
+
+  it("clears only the edited field validation state", async () => {
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu tài sản" }));
+
+    const assetCode = screen.getByLabelText("Mã tài sản");
+    const barcode = screen.getByLabelText("Mã vạch");
+    expect(assetCode.getAttribute("aria-invalid")).toBe("true");
+    expect(barcode.getAttribute("aria-invalid")).toBe("true");
+
+    fireEvent.change(assetCode, { target: { value: "TS-NEW" } });
+
+    expect(assetCode.getAttribute("aria-invalid")).toBe("false");
+    expect(assetCode.className).not.toContain("border-red-500");
+    expect(barcode.getAttribute("aria-invalid")).toBe("true");
   });
 
   it.each([
@@ -156,6 +216,27 @@ describe("FixedAssetsPage", () => {
       usefulLifeMonths: 24, inServiceDate: "2026-02-01T00:00:00.000Z",
     });
     await vi.waitFor(() => expect(toastMocks.success).toHaveBeenCalledWith("Đã thêm tài sản cố định thành công."));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps the create dialog and entered values when the API rejects the request", async () => {
+    vi.mocked(financeAssetsApi.create).mockRejectedValueOnce(new Error("Mã tài sản đã tồn tại."));
+    render(<FixedAssetsPage permissions={["asset:manage"]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thêm tài sản" }));
+    const fill = (label: string, value: string) =>
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    fill("Mã tài sản", "TS-002");
+    fill("Mã vạch", "BC2");
+    fill("Tên tài sản", "Máy chiếu");
+    fill("Nhóm", "Thiết bị");
+    fill("Nguyên giá", "6000000");
+    fill("Ngày đưa vào dùng", "2026-02-01");
+    fill("Số tháng khấu hao", "24");
+    fireEvent.click(screen.getByRole("button", { name: "Lưu tài sản" }));
+
+    await vi.waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith("Mã tài sản đã tồn tại."));
+    expect(screen.getByRole("dialog", { name: "Thêm tài sản cố định" })).toBeTruthy();
+    expect((screen.getByLabelText("Mã tài sản") as HTMLInputElement).value).toBe("TS-002");
   });
 
   it("requires a reason before disposing and reloads the list afterwards", async () => {
