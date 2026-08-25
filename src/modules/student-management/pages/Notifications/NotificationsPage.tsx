@@ -518,8 +518,12 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
           const totalFee = parseInt(parseVND(s.fee) || '0');
           return (s.paidAmount || 0) < totalFee;
         });
+      case 'Học viên cần học lại':
       case 'Học viên cần thi lại':
-        return students.filter(s => s.status.includes('Thi lại'));
+        return students.filter(s => {
+          const statuses = Array.isArray(s.status) ? s.status : (s.status ? [s.status] : []);
+          return statuses.some(st => ['Thi lại', 'Học lại', 'Cần học lại'].includes(st));
+        });
       default:
         return [];
     }
@@ -853,7 +857,14 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
     'Tất cả học viên đang học': students.filter(s => s.status.includes('Đang học')).length,
     'Học viên sắp thi': students.filter(s => s.status.includes('Đang thi') || s.exams?.some(e => e.status === 'Sắp thi')).length,
     'Học viên còn nợ học phí': students.filter(s => (s.paidAmount || 0) < parseInt(parseVND(s.fee) || '0')).length,
-    'Học viên cần thi lại': students.filter(s => s.status.includes('Thi lại')).length,
+    'Học viên cần học lại': students.filter(s => {
+      const statuses = Array.isArray(s.status) ? s.status : (s.status ? [s.status] : []);
+      return statuses.some(st => ['Thi lại', 'Học lại', 'Cần học lại'].includes(st));
+    }).length,
+    'Học viên cần thi lại': students.filter(s => {
+      const statuses = Array.isArray(s.status) ? s.status : (s.status ? [s.status] : []);
+      return statuses.some(st => ['Thi lại', 'Học lại', 'Cần học lại'].includes(st));
+    }).length,
   };
 
   const currentRecipientCount = recipientCounts[recipientFilter as keyof typeof recipientCounts] || 0;
@@ -875,9 +886,9 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
       content: 'Kính gửi học viên {ten}, Trung tâm xin thông báo lịch thi sát hạch hạng {hang} của bạn đã có vào ngày {ngaythi}. Bạn vui lòng có mặt đúng giờ và mang theo CCCD bản gốc để làm thủ tục dự thi. Chúc bạn thi tốt.'
     },
     {
-      name: 'Thi lại',
-      title: 'LỊCH THI LẠI & ÔN TẬP - {ten}',
-      content: 'Kính gửi học viên {ten}, Trung tâm đã sắp xếp lịch ôn tập và thi lại cho bạn khóa hạng {hang} tại trung tâm. Vui lòng liên hệ văn phòng để xác nhận lịch thi dự kiến kế tiếp. Cố gắng lên bạn nhé.'
+      name: 'Học lại',
+      title: 'LỊCH HỌC LẠI & ÔN TẬP - {ten}',
+      content: 'Kính gửi học viên {ten}, Trung tâm đã sắp xếp lịch ôn tập và học lại cho bạn khóa học {hang} tại trung tâm. Vui lòng liên hệ văn phòng để xác nhận lịch học dự kiến kế tiếp. Cố gắng lên bạn nhé.'
     }
   ];
   const workerTemplates = [
@@ -1112,7 +1123,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                       <option>Tất cả học viên đang học</option>
                       <option>Học viên sắp thi</option>
                       <option>Học viên còn nợ học phí</option>
-                      <option>Học viên cần thi lại</option>
+                      <option>Học viên cần học lại</option>
                     </>
                   )}
                 </select>
