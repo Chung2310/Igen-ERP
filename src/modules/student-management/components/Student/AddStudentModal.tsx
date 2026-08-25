@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Plus } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
@@ -18,6 +18,7 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
+import { AddPartnerModal } from '../../pages/Partners/components/AddPartnerModal';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -93,8 +94,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
   };
   const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
-    // Student field settings are shared storage; do not let their education
-    // terminology override the worker-specific form copy.
     if (entityLabel.preset === 'worker' || entityLabel.preset === 'customer') return defaultLabel;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.label : defaultLabel;
@@ -105,7 +104,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
   };
   const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
-    if (entityLabel.preset === 'student') return ['fullName', 'phone', 'email'].includes(fieldKey);
+    if (entityLabel.preset === 'student') return ['fullName', 'phone'].includes(fieldKey);
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     return fieldConfig ? fieldConfig.isRequired : defaultRequired;
   };
@@ -132,23 +131,27 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   const [partners, setPartners] = useState<Partner[]>([]);
   const [faceBlob, setFaceBlob] = useState<Blob | null>(null);
 
-  useEffect(() => {
-    const fetchPartners = async () => {
-      try {
-        const ownerId = user?.role === 'superadmin' ? selectedCenterId : undefined;
-        const params = new URLSearchParams({ isActive: 'true' });
-        if (ownerId) params.append('ownerFilter', ownerId);
+  // Modal Thêm nhanh đối tác
+  const [isQuickAddPartnerOpen, setIsQuickAddPartnerOpen] = useState(false);
 
-        const res = await apiFetch(`/partners?${params.toString()}`);
-        if (res.success && res.partners) {
-          setPartners(res.partners);
-        }
-      } catch (error) {
-        console.error('Failed to fetch partners:', error);
+  const fetchPartners = async () => {
+    try {
+      const ownerId = user?.role === 'superadmin' ? selectedCenterId : undefined;
+      const params = new URLSearchParams({ isActive: 'true' });
+      if (ownerId) params.append('ownerFilter', ownerId);
+
+      const res = await apiFetch(`/partners?${params.toString()}`);
+      if (res.success && res.partners) {
+        setPartners(res.partners);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch partners:', error);
+    }
+  };
+
+  useEffect(() => {
     if (isOpen) {
-      fetchPartners();
+      void fetchPartners();
     }
   }, [isOpen, selectedCenterId, user]);
 
@@ -177,7 +180,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
-      const required = entityLabel.preset === 'student' ? ['fullName', 'phone', 'email'].includes(f.key) : f.isRequired;
+      const required = entityLabel.preset === 'student' ? ['fullName', 'phone'].includes(f.key) : f.isRequired;
       if (f.isVisible && !f.isArchived && required) {
         if (f.key === 'fullName' && !formData.fullName) missingFields.push(f.label);
         if (f.key === 'phone' && !formData.phone) missingFields.push(f.label);
@@ -391,13 +394,33 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {isFieldVisible('referral') && (
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('referral')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
-                      {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
-                      {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                        {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
+                        {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
+                      </label>
+                      {referralMode === 'partner' && (
+                        <button
+                          type="button"
+                          onClick={() => setIsQuickAddPartnerOpen(true)}
+                          className="text-[11px] font-bold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 hover:underline transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Thêm nhanh đối tác mới</span>
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
-                        <RoadmapPicker value={referralMode} options={[{ value: 'none', label: 'Không có giới thiệu' }, { value: 'partner', label: 'Đối tác / CTV hệ thống' }, { value: 'custom', label: 'Nhập người giới thiệu khác' }]} placeholder="Chọn nguồn giới thiệu" onChange={(value) => {
+                        <RoadmapPicker
+                          value={referralMode}
+                          options={[
+                            { value: 'none', label: 'Không có giới thiệu' },
+                            { value: 'partner', label: 'Đối tác / CTV hệ thống' },
+                            { value: 'custom', label: 'Nhập người giới thiệu khác' }
+                          ]}
+                          placeholder="Chọn nguồn giới thiệu"
+                          onChange={(value) => {
                             const mode = value as 'none' | 'partner' | 'custom';
                             setReferralMode(mode);
                             if (mode === 'none') {
@@ -405,17 +428,41 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                             } else if (mode === 'custom') {
                               setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
                             } else {
-                              setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
+                              setFormData(prev => ({
+                                ...prev,
+                                partnerId: partners[0]?._id || '',
+                                referral: partners[0]?.name || ''
+                              }));
                             }
-                          }} />
+                          }}
+                        />
                       </div>
 
                       {referralMode === 'partner' && (
-                        <div className="relative">
-                          <RoadmapPicker value={formData.partnerId} placeholder="-- Chọn đối tác --" options={partners.map((partner) => ({ value: partner._id, label: `${partner.name} (${partner.phone})` }))} onChange={(pId) => {
-                              const pObj = partners.find(p => p._id === pId);
-                              setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
-                            }} />
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <RoadmapPicker
+                              value={formData.partnerId}
+                              placeholder="-- Chọn đối tác --"
+                              options={partners.map((partner) => ({
+                                value: partner._id,
+                                label: `${partner.name} (${partner.phone})`
+                              }))}
+                              onChange={(pId) => {
+                                const pObj = partners.find(p => p._id === pId);
+                                setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsQuickAddPartnerOpen(true)}
+                            className="flex items-center justify-center h-10 px-3 bg-cyan-50 hover:bg-cyan-100/80 text-cyan-700 hover:text-cyan-800 border border-cyan-200/80 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 shadow-sm cursor-pointer"
+                            title="Thêm đối tác mới chưa có trong danh sách"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            <span>Thêm nhanh</span>
+                          </button>
                         </div>
                       )}
 
@@ -467,7 +514,26 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                       {isWorkerPreset ? 'Thêm vào dự án (tùy chọn)' : getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
                       {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <RoadmapPicker value={batchId} placeholder={isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'} options={batches.filter((batch) => String(batch.status) !== 'Đã kết thúc').map((batch) => ({ value: batch.id, label: `${batch.code} — ${batch.courseTitle}` }))} onChange={(value) => { setBatchId(value); const batch = batches.find((item) => item.id === value); if (!isWorkerPreset && batch?.status === 'Sắp khai giảng' && batch.startDate) setFormData((current) => ({ ...current, enrollmentDate: batch.startDate })); }} />
+                    <select
+                      name="batchId"
+                      value={batchId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setBatchId(value);
+                        const batch = batches.find((item) => item.id === value);
+                        if (!isWorkerPreset && batch?.status === 'Sắp khai giảng' && batch.startDate) {
+                          setFormData((current) => ({ ...current, enrollmentDate: batch.startDate }));
+                        }
+                      }}
+                      className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-cyan-600 focus:bg-white transition-all cursor-pointer"
+                    >
+                      <option value="">{isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'}</option>
+                      {batches.filter((batch) => String(batch.status) !== 'Đã kết thúc').map((batch) => (
+                        <option key={batch.id} value={batch.id}>
+                          {batch.code} — {batch.courseTitle}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
@@ -524,13 +590,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 )}
               </div>
 
-              {/* Tạm thời ẩn tính năng chụp ảnh khuôn mặt */}
-              {/* {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && (
-                <div className="pt-2 border-t border-slate-50">
-                  <FaceCaptureInput onCapture={setFaceBlob} disabled={isSubmitting} entityName={entityLabel.singular} />
-                </div>
-              )} */}
-
               <CustomFieldsSection
                 moduleKey="students"
                 values={formData.customFields}
@@ -585,6 +644,29 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
             </form>
           </motion.div>
         </div>
+      )}
+
+      {/* Modal Thêm nhanh đối tác / CTV đầy đủ từ trang Quản lý Đối tác */}
+      {isQuickAddPartnerOpen && (
+        <AddPartnerModal
+          isOpen={isQuickAddPartnerOpen}
+          zIndex="z-[60]"
+          defaultCenterId={selectedCenterId}
+          onClose={() => setIsQuickAddPartnerOpen(false)}
+          onSuccess={(newPartner) => {
+            setIsQuickAddPartnerOpen(false);
+            if (newPartner) {
+              setPartners((prev) => [newPartner, ...prev.filter((p) => p._id !== newPartner._id)]);
+              setFormData((prev) => ({
+                ...prev,
+                partnerId: newPartner._id,
+                referral: newPartner.name,
+              }));
+              setReferralMode('partner');
+            }
+            void fetchPartners();
+          }}
+        />
       )}
 
       <CustomFieldEditorModal

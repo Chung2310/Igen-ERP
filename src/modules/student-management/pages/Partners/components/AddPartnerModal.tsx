@@ -14,20 +14,23 @@ import { CustomFieldEditorModal } from '../../../../shared/custom-fields/CustomF
 import { canManageCustomFields } from '../../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../../shared/custom-fields/types';
 import { useEntityLabel } from '../../../hooks/useEntityLabel';
-import { useBranch } from '../../../../../context/BranchContext';
+import { useBranchOptional } from '../../../../../context/BranchContext';
 import { buildPartnerBranchHeaders } from '../partnerBranchScope';
 
 interface AddPartnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newPartner?: Partner) => void;
   partner?: Partner;
+  defaultCenterId?: string;
+  zIndex?: string;
 }
 
-export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPartnerModalProps) {
+export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCenterId, zIndex }: AddPartnerModalProps) {
   const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
-  const { activeBranchId } = useBranch();
+  const branchContext = useBranchOptional();
+  const activeBranchId = branchContext?.activeBranchId;
   const {
     fields: stdFields,
     activeFields: activeStdFields,
@@ -152,12 +155,12 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
           bankAccountName: '',
           isActive: true,
           notes: '',
-          centerId: '',
+          centerId: defaultCenterId || '',
           customFields: {},
         });
       }
     }, 0);
-  }, [partner, isOpen]);
+  }, [partner, isOpen, defaultCenterId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,7 +211,7 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
 
       if (res.success) {
         toast.success(partner ? 'Đã cập nhật thông tin đối tác thành công!' : 'Đã thêm đối tác mới thành công!');
-        onSuccess();
+        onSuccess(res.data);
         onClose();
       }
     } catch (error: unknown) {
@@ -231,7 +234,7 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
 
   return (
     <>
-      <ErpModal title={partner ? 'Cập nhật đối tác' : 'Thêm đối tác mới'} onClose={onClose} maxWidth="max-w-2xl">
+      <ErpModal title={partner ? 'Cập nhật đối tác' : 'Thêm đối tác mới'} onClose={onClose} maxWidth="max-w-2xl" zIndex={zIndex}>
       <form onSubmit={handleSubmit} className="space-y-4 text-left grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         {user?.role === 'superadmin' && !partner && (
           <div className="md:col-span-2">

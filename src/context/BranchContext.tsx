@@ -48,5 +48,5 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   const setActiveBranchId = (id: string) => { setActiveBranchIdState(id); if (userProfile?.companyCode) localStorage.setItem(`igen.activeBranch.${userProfile.companyCode}`, id); };
   const value = useMemo(() => ({ branches, activeBranchId, activeBranch: branches.find((b) => b._id === activeBranchId), setActiveBranchId, loading }), [branches, activeBranchId, loading]);
   return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
-}
 export function useBranch() { const value = useContext(BranchContext); if (!value) throw new Error("useBranch must be used within BranchProvider"); return value; }
+export function useBranchOptional() { return useContext(BranchContext); }

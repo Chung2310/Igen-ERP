@@ -137,15 +137,16 @@ export function ErpFilterRail({ children, className }: { children: React.ReactNo
   );
 }
 
-export function ErpModal({ title, onClose, children, maxWidth = "max-w-md" }: {
+export function ErpModal({ title, onClose, children, maxWidth = "max-w-md", zIndex = "z-50" }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: string;
+  zIndex?: string;
 }) {
   const { darkMode } = useErpTheme();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={cn("fixed inset-0 flex items-center justify-center p-4", zIndex)}>
       <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
         "relative w-full p-5 rounded-2xl border shadow-2xl space-y-4 transition-all duration-300 max-h-[90vh] overflow-y-auto",
