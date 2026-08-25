@@ -496,9 +496,9 @@ export class StudentController {
       let ownerId = teacherId;
       let teacherScope: string | string[] = "ALL";
       const teacherUser = {
-        uid: teacher.id || String(teacher._id) || teacherId,
+        uid: String(teacher._id || teacherId),
         role: teacher.role,
-        centerId: teacher.centerId || teacher.companyCode || teacherId,
+        centerId: teacher.companyCode || teacherId,
         companyCode: teacher.companyCode,
         branchId: teacher.branchId,
       };
