@@ -48,7 +48,7 @@ export default function KanbanMonthlyKpiView({ activeBranchId, initialPeriod }: 
             <h3 className="text-lg font-bold text-slate-900">KPI công việc theo tháng</h3>
             {report && <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${report.periodStatus === "closed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{report.periodStatus === "closed" ? "Đã chốt" : "Tạm tính"}</span>}
           </div>
-          <p className="mt-1 text-sm text-slate-500">Số công việc hoàn thành trên tổng công việc đến hạn trong tháng.</p>
+          <p className="mt-1 text-sm text-slate-500">Số công việc hoàn thành đúng hạn trên tổng công việc đến hạn trong tháng.</p>
         </div>
         <label className="text-sm font-semibold text-slate-700">Tháng
           <input aria-label="Chọn tháng KPI" type="month" value={period} max={localPeriod()} onChange={(event) => setPeriod(event.target.value)} className="ml-2 rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal" />
@@ -57,7 +57,7 @@ export default function KanbanMonthlyKpiView({ activeBranchId, initialPeriod }: 
       {loading ? <p className="p-8 text-center text-sm text-slate-500">Đang tải KPI...</p> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Nhân viên</th><th className="p-3 text-center">Hoàn thành</th><th className="p-3 text-center">Tổng công việc</th><th className="p-3 text-center">Chưa hoàn thành</th><th className="min-w-48 p-3">KPI</th></tr></thead>
+            <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Nhân viên</th><th className="p-3 text-center">Đúng hạn</th><th className="p-3 text-center">Tổng công việc</th><th className="p-3 text-center">Chưa đạt KPI</th><th className="min-w-48 p-3">KPI</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {report?.rows.map((row) => (
                 <tr key={row.employeeId}>
