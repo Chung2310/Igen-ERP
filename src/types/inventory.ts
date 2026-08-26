@@ -28,6 +28,7 @@ export interface ProductCategory {
 
 export interface StockLogItem {
   productId: string;
+  variantId?: string;
   sku: string;
   productName: string;
   quantity: number;

@@ -145,6 +145,7 @@ async function prepareStockLogPayload(
 
     return {
       productId: String(product._id),
+      ...(typeof item.variantId === "string" && item.variantId.trim() ? { variantId: item.variantId.trim() } : {}),
       // SKU biến thể do người dùng chọn mới là nguồn đúng; product.sku chỉ là mã sản phẩm cha dùng chung cho mọi biến thể.
       sku: (typeof item.sku === "string" && item.sku.trim()) || product.sku,
       productName: product.name || item.productName,
@@ -210,6 +211,7 @@ function sanitizeInventoryResult(modelName: string, item: any) {
       items: Array.isArray(plainItem.items)
         ? plainItem.items.map((entry: any) => ({
             productId: typeof entry?.productId === "string" ? entry.productId : "",
+            variantId: typeof entry?.variantId === "string" ? entry.variantId : undefined,
             sku: typeof entry?.sku === "string" ? entry.sku.trim().toUpperCase() : "",
             productName: typeof entry?.productName === "string" ? entry.productName.trim() : "",
             quantity: typeof entry?.quantity === "number" ? entry.quantity : Number(entry?.quantity || 0),
@@ -441,6 +443,7 @@ export const crudService = {
           operatorName: preparedData.operatorName,
           items: preparedData.items.map((item: any) => ({
             productId: item.productId,
+            variantId: item.variantId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,
@@ -596,6 +599,7 @@ export const crudService = {
           operatorName: preparedUpdatePayload.operatorName || existingLog.operatorName,
           items: (preparedUpdatePayload.items || existingLog.items || []).map((item: any) => ({
             productId: item.productId,
+            variantId: item.variantId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,

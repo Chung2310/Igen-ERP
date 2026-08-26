@@ -18,6 +18,7 @@ const lineUnitKey = (line: { productId: string; sku?: string }) => `${line.produ
 
 type DraftLine = {
   productId: string;
+  variantId?: string;
   sku?: string;
   productName?: string;
   quantity: string;
@@ -37,7 +38,7 @@ type DraftPayload = {
   operatorName: string;
   notes: string;
   status: TransactionStatus;
-  items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+  items: Array<{ productId: string; variantId?: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   warehouseId?: string;
 };
 
@@ -92,9 +93,9 @@ function getTypeKey(type: StockLog["type"]) {
   return String(type).toLowerCase().startsWith("x") ? "outbound" : "inbound";
 }
 
-function getLogItems(log: StockLog): Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
+function getLogItems(log: StockLog): Array<{ productId?: string; variantId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
   const typedLog = log as StockLog & {
-    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+    items?: Array<{ productId?: string; variantId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
 
   if (typedLog.items?.length) {
@@ -324,6 +325,7 @@ export function StockLogPanel({
         const matchedProduct = products.find((product) => product.sku === item.sku);
         return {
           productId: matchedProduct?.id || item.productId || "",
+          variantId: item.variantId,
           sku: item.sku,
           productName: item.productName || matchedProduct?.name || "",
           quantity: String(item.quantity),
@@ -393,6 +395,7 @@ export function StockLogPanel({
         const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
         return {
           productId: line.productId,
+          variantId: line.variantId,
           sku: line.sku || matchedProduct?.sku || "",
           productName: matchedProduct?.name || line.sku || "",
           quantity: Number(line.quantity),
@@ -824,10 +827,11 @@ export function StockLogPanel({
                           value={line.productId}
                           onChange={(event) => {
                             const productId = event.target.value;
-                            const firstSku = outboundOnly ? warehouseProductGroups.find((group) => group.productId === productId)?.variants[0]?.sku || "" : undefined;
+                            const firstVariant = outboundOnly ? warehouseProductGroups.find((group) => group.productId === productId)?.variants[0] : undefined;
+                            const firstSku = outboundOnly ? firstVariant?.sku || "" : undefined;
                             setDraftLines((current) => {
                               const duplicateIndex = outboundOnly ? current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === productId && item.sku === firstSku) : -1;
-                              if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, productId, sku: firstSku } : item);
+                              if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, productId, sku: firstSku, variantId: firstVariant?.variantId } : item);
 
                               const increment = Math.max(1, Number(line.quantity) || 0);
                               return current
@@ -857,9 +861,10 @@ export function StockLogPanel({
                             disabled={!line.productId}
                             onChange={(event) => {
                               const sku = event.target.value;
+                              const variantId = (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).find((variant) => variant.sku === sku)?.variantId;
                               setDraftLines((current) => {
                                 const duplicateIndex = current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === line.productId && item.sku === sku);
-                                if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, sku } : item);
+                                if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, sku, variantId } : item);
 
                                 const increment = Math.max(1, Number(line.quantity) || 0);
                                 return current
