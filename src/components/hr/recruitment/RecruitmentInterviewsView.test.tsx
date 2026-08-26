@@ -89,6 +89,25 @@ describe("RecruitmentInterviewsView", () => {
     expect(toast.success).toHaveBeenCalledWith("Đã cập nhật lịch phỏng vấn của Nguyễn An.");
   });
 
+  it("removes inactive interviewers from an existing interview before updating", async () => {
+    vi.mocked(authService.getUsersByCompany).mockResolvedValue([
+      { uid: "user-1", displayName: "Inactive interviewer", isActive: false },
+      { uid: "user-2", displayName: "Active interviewer", isActive: true },
+    ] as any);
+    render(<RecruitmentInterviewsView canManage />);
+    await screen.findByText("Nguyễn An");
+
+    await userEvent.click(screen.getByRole("button", { name: "Sửa lịch phỏng vấn Nguyễn An" }));
+    const dialog = screen.getByRole("dialog", { name: "Sửa lịch phỏng vấn" });
+    expect(within(dialog).queryByRole("option", { name: "Inactive interviewer" })).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
+
+    await waitFor(() => expect(recruitmentApi.updateInterview).toHaveBeenCalledWith(
+      "interview-1",
+      expect.objectContaining({ interviewerIds: [], version: 3 }),
+    ));
+  });
+
   it("continues creating interviews from the shared popup", async () => {
     render(<RecruitmentInterviewsView canManage />);
     await screen.findByText("Nguyễn An");
