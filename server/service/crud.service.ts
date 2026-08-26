@@ -17,6 +17,7 @@ import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
 import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
 import { writeStockMovement } from "../integrations/shared/stock-movement.service";
+import { ProductVariantModel } from "../model/product-variant.model";
 import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
 
@@ -92,6 +93,19 @@ async function prepareStockLogPayload(
   }).select("sku name price costPrice category").lean();
   const productsById = new Map(products.map((product: any) => [String(product._id), product]));
 
+  // SKU biến thể là thứ duy nhất định danh đúng dòng tồn kho. Nếu client không gửi
+  // variantId thì tự resolve từ SKU (ProductVariant có unique index companyCode+sku),
+  // nếu không writeStockMovement sẽ tra nhầm dòng InventoryBalance của biến thể khác.
+  const variantSkus = rawItems
+    .filter((item: any) => !(typeof item?.variantId === "string" && item.variantId.trim()))
+    .map((item: any) => String(item?.sku || "").trim().toUpperCase())
+    .filter(Boolean);
+  const variantIdBySku = new Map<string, string>();
+  if (variantSkus.length > 0) {
+    const variants = await ProductVariantModel.find({ companyCode, sku: { $in: [...new Set<string>(variantSkus)] } }).select("sku").lean();
+    for (const variant of variants) variantIdBySku.set(String(variant.sku).toUpperCase(), String(variant._id));
+  }
+
   const missingProductIds = productIds.filter(id => !productsById.has(String(id)));
   if (missingProductIds.length > 0) {
     const catalogProducts = await ProductCatalogModel.find({
@@ -145,7 +159,11 @@ async function prepareStockLogPayload(
 
     return {
       productId: String(product._id),
-      ...(typeof item.variantId === "string" && item.variantId.trim() ? { variantId: item.variantId.trim() } : {}),
+      ...(() => {
+        const explicit = typeof item.variantId === "string" && item.variantId.trim() ? item.variantId.trim() : "";
+        const resolved = explicit || variantIdBySku.get(String(item?.sku || "").trim().toUpperCase()) || "";
+        return resolved ? { variantId: resolved } : {};
+      })(),
       // SKU biến thể do người dùng chọn mới là nguồn đúng; product.sku chỉ là mã sản phẩm cha dùng chung cho mọi biến thể.
       sku: (typeof item.sku === "string" && item.sku.trim()) || product.sku,
       productName: product.name || item.productName,

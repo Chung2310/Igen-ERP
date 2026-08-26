@@ -23,7 +23,13 @@ import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment
  * "E11000 duplicate key error collection: igen-erp.categories index: companyCode_1_code_1 dup key: { companyCode: \"ABC\", code: \"ASA\" }"
  */
 function toClientError(error: any): { statusCode: number; message: string } {
-  if (error?.statusCode) return { statusCode: error.statusCode, message: error.message };
+  // Service layer ném lỗi nghiệp vụ bằng cả `statusCode` lẫn `status` (vd
+  // INSUFFICIENT_STOCK/INVENTORY_CONFLICT dùng `status: 409`). Chỉ đọc `statusCode`
+  // sẽ khiến các lỗi đó rơi xuống 500 mặc định.
+  const explicitStatus = error?.statusCode ?? error?.status;
+  if (typeof explicitStatus === "number" && explicitStatus >= 400 && explicitStatus <= 599) {
+    return { statusCode: explicitStatus, message: error.message };
+  }
   if (error?.code === 11000) {
     const dupFields = Object.keys(error.keyValue || {}).filter((key) => key !== "companyCode" && key !== "branchId");
     const dupValues = dupFields.map((key) => `${key}="${error.keyValue[key]}"`).join(", ");
