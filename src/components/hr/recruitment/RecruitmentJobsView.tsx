@@ -69,12 +69,12 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
       await recruitmentApi.changeJobStatus(job._id, job.version, next);
       await load();
     } catch (e: any) {
-      setError(
+      const message =
         e.status === 409
           ? "Dữ liệu đã thay đổi. Danh sách đã được tải lại."
-          : e.message,
-      );
+          : getApiErrorMessage(e, "Không thể cập nhật trạng thái tin tuyển dụng.");
       await load();
+      setError(message);
     } finally {
       setChangingStatusJobId(null);
     }
