@@ -215,6 +215,8 @@ function sanitizeInventoryResult(modelName: string, item: any) {
             unitPrice: typeof entry?.unitPrice === "number" ? entry.unitPrice : undefined,
             lineTotal: typeof entry?.lineTotal === "number" ? entry.lineTotal : undefined,
             unitCost: typeof entry?.unitCost === "number" ? entry.unitCost : undefined,
+            unitIdentifiers: Array.isArray(entry?.unitIdentifiers) ? entry.unitIdentifiers.map((value: any) => String(value)) : [],
+            serialNumbers: Array.isArray(entry?.serialNumbers) ? entry.serialNumbers.map((value: any) => String(value)) : [],
           }))
         : [],
       operatorName: typeof plainItem.operatorName === "string" ? plainItem.operatorName.trim() : "",
