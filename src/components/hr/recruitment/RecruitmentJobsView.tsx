@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Archive, Pencil, Plus } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
+import { toast } from "../../../pages/Toast";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type {
   RecruitmentJob,
@@ -19,6 +20,7 @@ import {
   validateRecruitmentFile,
 } from "./recruitmentFile";
 import { jobStatusLabels } from "./recruitmentLabels";
+import { ConfirmDialog } from "../../common/ConfirmDialog";
 
 const emptyJob = {
   code: "",
@@ -45,6 +47,8 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<RecruitmentJob | null | undefined>();
   const [changingStatusJobId, setChangingStatusJobId] = useState<string | null>(null);
+  const [pendingDeleteJob, setPendingDeleteJob] = useState<RecruitmentJob | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -68,21 +72,40 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
     try {
       await recruitmentApi.changeJobStatus(job._id, job.version, next);
       await load();
+      toast.success(`Đã chuyển tin ${job.code} sang ${statusLabel[next]}.`);
     } catch (e: any) {
       const message =
         e.status === 409
-          ? "Dữ liệu đã thay đổi. Danh sách đã được tải lại."
-          : getApiErrorMessage(e, "Không thể cập nhật trạng thái tin tuyển dụng.");
+          ? "Không thể cập nhật trạng thái vì tin tuyển dụng đã được thay đổi ở nơi khác. Danh sách đã được tải lại."
+          : getApiErrorMessage(e, "Không thể cập nhật trạng thái tin tuyển dụng. Vui lòng thử lại.");
       await load();
-      setError(message);
+      toast.error(message);
     } finally {
       setChangingStatusJobId(null);
     }
   };
-  const remove = async (job: RecruitmentJob) => {
-    if (!confirm(`Xóa tin ${job.code}?`)) return;
-    await recruitmentApi.deleteJob(job._id, job.version);
-    await load();
+  const confirmDelete = async () => {
+    if (!pendingDeleteJob || deleting) return;
+    const job = pendingDeleteJob;
+    setDeleting(true);
+    try {
+      await recruitmentApi.deleteJob(job._id, job.version);
+      setPendingDeleteJob(null);
+      await load();
+      toast.success(`Đã xóa tin tuyển dụng ${job.code}.`);
+    } catch (e: any) {
+      const isConflict = e.status === 409;
+      const message = isConflict
+        ? "Không thể xóa vì tin tuyển dụng đã được thay đổi ở nơi khác. Danh sách đã được tải lại."
+        : getApiErrorMessage(e, "Không thể xóa tin tuyển dụng. Vui lòng thử lại.");
+      if (isConflict) {
+        setPendingDeleteJob(null);
+        await load();
+      }
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
   };
   return (
     <div className="p-4 sm:p-5">
@@ -183,9 +206,11 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <button
+                          type="button"
                           title="Xóa"
+                          aria-label={`Xóa tin tuyển dụng ${job.code}`}
                           className={secondaryButton}
-                          onClick={() => remove(job)}
+                          onClick={() => setPendingDeleteJob(job)}
                         >
                           <Archive className="h-4 w-4" />
                         </button>
@@ -209,6 +234,19 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
           }}
         />
       )}
+      <ConfirmDialog
+        isOpen={pendingDeleteJob !== null}
+        title="Xóa tin tuyển dụng?"
+        description={pendingDeleteJob ? `Bạn có chắc muốn xóa tin ${pendingDeleteJob.code} - ${pendingDeleteJob.title || "Chưa đặt tên"}?` : ""}
+        cancelLabel="Hủy"
+        confirmLabel="Xóa tin"
+        tone="danger"
+        isSubmitting={deleting}
+        onClose={() => {
+          if (!deleting) setPendingDeleteJob(null);
+        }}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
