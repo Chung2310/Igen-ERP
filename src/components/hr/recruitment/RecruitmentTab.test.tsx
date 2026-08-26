@@ -20,7 +20,7 @@ vi.mock("../../../pages/Toast", () => ({ toast: {
 } }));
 
 const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0, companyCode: "ACME", branchId: "branch-a", createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
-const applicant = { _id: "app", jobId: "job", stageId: "new", fullName: "Nguyễn An", email: "an@example.com", phone: "", address: "", experience: "", education: "", skills: [], source: "", notes: "", outcome: "active", version: 0, createdAt: new Date().toISOString() } as any;
+const applicant = { _id: "app", companyCode: "ACME", branchId: "branch-a", jobId: "job", stageId: "new", fullName: "Nguyễn An", email: "an@example.com", normalizedEmail: "an@example.com", phone: "", normalizedPhone: "", address: "", experience: "", education: "", skills: [], source: "", notes: "", outcome: "active", version: 0, createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
 
 describe("RecruitmentTab", () => {
   afterEach(cleanup);
@@ -181,5 +181,19 @@ describe("RecruitmentTab", () => {
     const name = screen.getByLabelText("Họ tên"); await userEvent.clear(name); await userEvent.type(name, "Nguyễn An Updated");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(recruitmentApi.updateApplicant).toHaveBeenCalledWith("app", expect.objectContaining({ fullName: "Nguyễn An Updated", version: 0 })));
+    expect(vi.mocked(recruitmentApi.updateApplicant).mock.calls[0][1]).not.toEqual(expect.objectContaining({
+      _id: expect.anything(),
+      companyCode: expect.anything(),
+      branchId: expect.anything(),
+      stageId: expect.anything(),
+      normalizedEmail: expect.anything(),
+      normalizedPhone: expect.anything(),
+      outcome: expect.anything(),
+      createdBy: expect.anything(),
+      updatedBy: expect.anything(),
+      isDeleted: expect.anything(),
+      createdAt: expect.anything(),
+      updatedAt: expect.anything(),
+    }));
   });
 });
