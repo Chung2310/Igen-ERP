@@ -385,7 +385,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+    items: Array<{ productId: string; variantId?: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
     warehouseId?: string;
   }) => {
     const resolvedItems = payload.items.map((item) => {
@@ -406,12 +406,13 @@ export default function InventoryTab() {
             imageUrl: "",
           },
           quantity: item.quantity,
+          variantId: item.variantId,
           unitIdentifiers: item.unitIdentifiers,
           serialNumbers: item.serialNumbers,
           isFallback: true,
         };
       }
-      return { product, quantity: item.quantity, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
+      return { product, quantity: item.quantity, variantId: item.variantId, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     if (isCompletedTransactionStatus(payload.status)) {
@@ -424,6 +425,7 @@ export default function InventoryTab() {
 
     const logItems = resolvedItems.map((item) => ({
       productId: item.product.id,
+      variantId: item.variantId,
       sku: item.product.sku,
       productName: item.product.name,
       quantity: item.quantity,
@@ -461,7 +463,7 @@ export default function InventoryTab() {
     operatorName: string;
     notes: string;
     status: TransactionStatus;
-    items: Array<{ productId: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
+    items: Array<{ productId: string; variantId?: string; sku?: string; productName?: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
     warehouseId?: string;
   }) => {
     if (!payload.id) return;
@@ -521,12 +523,13 @@ export default function InventoryTab() {
           },
           quantity: item.quantity,
           type: payload.type,
+          variantId: item.variantId,
           unitIdentifiers: item.unitIdentifiers,
           serialNumbers: item.serialNumbers,
           isFallback: true,
         };
       }
-      return { product, quantity: item.quantity, type: payload.type, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
+      return { product, quantity: item.quantity, type: payload.type, variantId: item.variantId, unitIdentifiers: item.unitIdentifiers, serialNumbers: item.serialNumbers, isFallback: false };
     });
 
     const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);
@@ -556,6 +559,7 @@ export default function InventoryTab() {
 
     const logItems = normalizedNewItems.map((item) => ({
       productId: item.product.id,
+      variantId: item.variantId,
       sku: item.product.sku,
       productName: item.product.name,
       quantity: item.quantity,
@@ -592,9 +596,10 @@ export default function InventoryTab() {
     const items = getStockLogItems(existingLog).map((item) => {
       const product = products.find((entry) => entry.sku === item.sku || entry.id === item.productId);
       return {
-        productId: product?.id || item.productId || "",
-        sku: product?.sku || item.sku || "",
-        productName: product?.name || item.productName || "",
+        productId: item.productId || product?.id || "",
+        variantId: item.variantId,
+        sku: item.sku || product?.sku || "",
+        productName: item.productName || product?.name || "",
         quantity: item.quantity,
         unitIdentifiers: item.unitIdentifiers || [],
         serialNumbers: item.serialNumbers || [],

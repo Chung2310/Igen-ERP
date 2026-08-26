@@ -2,6 +2,7 @@ import { Document } from "mongoose";
 
 export interface IStockLogItem {
   productId: string;
+  variantId?: string;
   sku: string;
   productName: string;
   quantity: number;

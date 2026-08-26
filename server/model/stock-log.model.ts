@@ -4,6 +4,7 @@ import { IStockLog } from "../interface/stock-log.interface";
 const StockLogItemSchema = new Schema(
   {
     productId: { type: String, required: true, index: true },
+    variantId: { type: String, trim: true, index: true },
     sku: { type: String, required: true },
     productName: { type: String, required: true },
     quantity: { type: Number, required: true },
