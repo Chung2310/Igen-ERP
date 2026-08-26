@@ -3,6 +3,7 @@ import { Lock, Save, X } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { toDisplayDate, toIsoDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
+import { WorkerSearchSelect } from "./WorkerSearchSelect";
 import type {
   Worker,
   WorkerLaborContract,
@@ -127,7 +128,7 @@ export function WorkerContractFormModal({
     }
     setSubmitting(true);
     try {
-      await onSubmit({
+      const input: WorkerLaborContractInput = {
         workerId: form.workerId,
         code: form.code.trim().toUpperCase(),
         clientName: form.clientName.trim(),
@@ -135,7 +136,9 @@ export function WorkerContractFormModal({
         endDate,
         ...(mode === "create" ? { status: "active" as const } : {}),
         note: form.note.trim(),
-      });
+      };
+      if (mode === "edit") delete input.workerId;
+      await onSubmit(input);
       onClose();
     } catch (reason) {
       toast.error(reason instanceof Error ? reason.message : "Không thể lưu hợp đồng.");
@@ -192,22 +195,12 @@ export function WorkerContractFormModal({
             <label htmlFor="workerId" className={labelClass}>
               Người lao động
             </label>
-            <select
-              id="workerId"
-              name="workerId"
+            <WorkerSearchSelect
+              workers={workers}
               value={form.workerId}
-              onChange={update}
               disabled={submitting || mode !== "create" || Boolean(lockedWorkerId)}
-              className={inputClass}
-            >
-              <option value="">— Chọn người lao động —</option>
-              {workers.map((worker) => (
-                <option key={worker._id} value={worker._id}>
-                  {worker.fullName}
-                  {worker.phone ? ` · ${worker.phone}` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={(workerId) => setForm((current) => ({ ...current, workerId }))}
+            />
           </div>
 
           <Field

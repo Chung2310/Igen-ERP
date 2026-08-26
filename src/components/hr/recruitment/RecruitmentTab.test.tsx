@@ -117,6 +117,15 @@ describe("RecruitmentTab", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
     expect(within(screen.getByRole("dialog")).queryByLabelText("Trạng thái")).toBeNull();
   });
+  it("keeps the status validation message visible after refreshing the jobs list", async () => {
+    vi.mocked(recruitmentApi.changeJobStatus).mockRejectedValue(new Error("Tin tuyển dụng chưa đủ thông tin để mở tuyển."));
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /DEV/ }), "draft");
+
+    expect(await screen.findByText("Tin tuyển dụng chưa đủ thông tin để mở tuyển.")).toBeTruthy();
+  });
   it("edits an existing job with its version", async () => {
     render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
