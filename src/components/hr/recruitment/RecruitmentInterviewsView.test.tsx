@@ -97,11 +97,39 @@ describe("RecruitmentInterviewsView", () => {
     const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
     await userEvent.selectOptions(within(dialog).getByLabelText("Ứng viên"), "applicant-1");
     await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T09:00");
-    await userEvent.type(within(dialog).getByLabelText("Kết thúc"), "2030-02-01T10:00");
+    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).value).toBe("2030-02-01T10:00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Tạo lịch" }));
 
     await waitFor(() => expect(recruitmentApi.createInterview).toHaveBeenCalledWith(expect.objectContaining({ applicantId: "applicant-1", jobId: "job-1", status: "scheduled" })));
     expect(toast.success).toHaveBeenCalledWith("Đã tạo lịch phỏng vấn.");
+  });
+
+  it("defaults the interview end to one hour after the selected start", async () => {
+    render(<RecruitmentInterviewsView canManage />);
+    await screen.findByText("Nguyễn An");
+    await userEvent.click(screen.getByRole("button", { name: "Lên lịch phỏng vấn" }));
+    const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
+
+    await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T09:00");
+
+    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).value).toBe("2030-02-01T10:00");
+    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).min).toBe("2030-02-01T09:00");
+  });
+
+  it("stops an invalid interview time range before calling the API", async () => {
+    render(<RecruitmentInterviewsView canManage />);
+    await screen.findByText("Nguyễn An");
+    await userEvent.click(screen.getByRole("button", { name: "Lên lịch phỏng vấn" }));
+    const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
+    await userEvent.selectOptions(within(dialog).getByLabelText("Ứng viên"), "applicant-1");
+    await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T10:00");
+    await userEvent.clear(within(dialog).getByLabelText("Kết thúc"));
+    await userEvent.type(within(dialog).getByLabelText("Kết thúc"), "2030-02-01T09:00");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Tạo lịch" }));
+
+    expect(recruitmentApi.createInterview).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Thời gian kết thúc phải sau thời gian bắt đầu.");
   });
 
   it("requires confirmation before deleting an interview and reports success", async () => {
