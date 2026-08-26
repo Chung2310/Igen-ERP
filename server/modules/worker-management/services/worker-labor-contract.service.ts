@@ -42,6 +42,15 @@ export function daysUntil(endDate: string, today = new Date()): number | null {
   return Math.round((end - now) / 86_400_000);
 }
 
+export function contractBusinessDate(today = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(today);
+}
+
 export function resolveAlertLevel(
   endDate: string,
   status: WorkerLaborContractStatus,
@@ -83,6 +92,24 @@ export function normalizeWorkerLaborContractInput(input: WorkerLaborContractInpu
 async function assertWorkerInScope(scope: WorkerScope, workerId: Types.ObjectId) {
   const worker = await WorkerModel.findOne({ _id: workerId, ...buildWorkerQuery(scope) });
   if (!worker) throw new Error("Không tìm thấy người lao động trong phạm vi của bạn.");
+}
+
+async function assertWorkerHasNoCurrentContract(
+  scope: WorkerScope,
+  workerId: Types.ObjectId,
+  today: Date,
+) {
+  const existing = await WorkerLaborContractModel.findOne({
+    ...buildWorkerLaborContractQuery(scope),
+    workerId,
+    status: { $in: ["draft", "active"] },
+    endDate: { $gte: contractBusinessDate(today) },
+  });
+  if (existing) {
+    throw new Error(
+      "Người lao động đang có hợp đồng còn hiệu lực. Vui lòng gia hạn hoặc chấm dứt hợp đồng hiện tại trước khi tạo mới.",
+    );
+  }
 }
 
 async function assertCodeAvailable(
@@ -212,11 +239,12 @@ export const WorkerLaborContractService = {
     return items.map((item: any) => withAlertLevel(item));
   },
 
-  async create(scope: WorkerScope, input: WorkerLaborContractInput) {
+  async create(scope: WorkerScope, input: WorkerLaborContractInput, today = new Date()) {
     const normalized = normalizeWorkerLaborContractInput(input);
     const workerId = new Types.ObjectId(String(input.workerId || ""));
     await assertCodeAvailable(scope, normalized.code);
     await assertWorkerInScope(scope, workerId);
+    await assertWorkerHasNoCurrentContract(scope, workerId, today);
 
     const contract = new WorkerLaborContractModel({
       ...normalized,
