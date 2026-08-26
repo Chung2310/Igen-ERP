@@ -59,7 +59,15 @@ function validateInput(input: WriteStockMovementInput) {
 }
 
 async function ensureBalance(input: { companyCode: string; branchId: string; warehouseId: string; item: StockMovementItem; session: ClientSession }) {
-  const existing = await InventoryBalanceModel.findOne({ companyCode: input.companyCode, warehouseId: input.warehouseId, productId: input.item.productId, ...(input.item.variantId ? { variantId: input.item.variantId } : {}) }).session(input.session);
+  const variantFilter = input.item.variantId ? { variantId: input.item.variantId } : {};
+  // Thiếu variantId thì filter theo productId là chưa đủ: nó khớp bừa một dòng biến
+  // thể bất kỳ của cùng sản phẩm (thường là dòng tồn 0), nên phải ưu tiên tra theo
+  // SKU — SKU chính là mã biến thể.
+  if (!input.item.variantId) {
+    const bySku = await InventoryBalanceModel.findOne({ companyCode: input.companyCode, warehouseId: input.warehouseId, sku: normalizeCode(input.item.sku) }).session(input.session);
+    if (bySku) return bySku;
+  }
+  const existing = await InventoryBalanceModel.findOne({ companyCode: input.companyCode, warehouseId: input.warehouseId, productId: input.item.productId, ...variantFilter }).session(input.session);
   if (existing) return existing;
 
   const legacyProduct = input.item.legacyProductId
