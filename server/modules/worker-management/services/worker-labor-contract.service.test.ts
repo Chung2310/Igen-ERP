@@ -286,4 +286,39 @@ describe("worker labor contract service", () => {
     expect(findWorker).toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
   });
+
+  it("rejects creation when the worker has a draft or active contract that has not expired", async () => {
+    const branchId = new Types.ObjectId();
+    const workerId = new Types.ObjectId();
+    const existing = contractDoc({ workerId, endDate: "2026-12-31", status: "active" });
+    const findContract = vi.spyOn(WorkerLaborContractModel, "findOne").mockImplementation(
+      ((query: any) => Promise.resolve(query?.workerId ? existing : null)) as any,
+    );
+    vi.spyOn(WorkerModel, "findOne").mockResolvedValue({ _id: workerId } as any);
+    const save = vi.spyOn(WorkerLaborContractModel.prototype, "save").mockResolvedValue({} as any);
+
+    await expect(
+      (WorkerLaborContractService.create as any)(
+        { companyCode: "ACME", branchId: branchId.toString() },
+        {
+          workerId: workerId.toString(),
+          code: "HD-06",
+          clientName: "Công ty B",
+          startDate: "2026-09-01",
+          endDate: "2027-08-31",
+        },
+        TODAY,
+      ),
+    ).rejects.toThrow(/đang có hợp đồng còn hiệu lực/i);
+
+    expect(findContract).toHaveBeenCalledWith(expect.objectContaining({
+      companyCode: "ACME",
+      branchId,
+      workerId,
+      deletedAt: null,
+      status: { $in: ["draft", "active"] },
+      endDate: { $gte: "2026-08-13" },
+    }));
+    expect(save).not.toHaveBeenCalled();
+  });
 });

@@ -145,7 +145,8 @@ async function prepareStockLogPayload(
 
     return {
       productId: String(product._id),
-      sku: product.sku || item.sku,
+      // SKU biến thể do người dùng chọn mới là nguồn đúng; product.sku chỉ là mã sản phẩm cha dùng chung cho mọi biến thể.
+      sku: (typeof item.sku === "string" && item.sku.trim()) || product.sku,
       productName: product.name || item.productName,
       category: product.category || item.category || "Chưa phân loại",
       quantity,

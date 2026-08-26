@@ -9,6 +9,13 @@ import { toast } from "../../pages/Toast";
 import { parseFirebaseError } from "../../utils/firebaseErrorParser";
 
 
+/**
+ * Khoá định danh một dòng phiếu theo sản phẩm + SKU thay vì theo vị trí trong mảng:
+ * xoá một dòng ở giữa sẽ làm lệch chỉ số của các dòng sau và tra nhầm cache đơn vị.
+ * Form đã chặn trùng (productId, sku) nên khoá này là duy nhất.
+ */
+const lineUnitKey = (line: { productId: string; sku?: string }) => `${line.productId}::${line.sku || ""}`;
+
 type DraftLine = {
   productId: string;
   sku?: string;
@@ -148,7 +155,7 @@ export function StockLogPanel({
   const [warehouseProductsLoading, setWarehouseProductsLoading] = useState(false);
   const [unitPickerIndex, setUnitPickerIndex] = useState<number | null>(null);
   const [unitPickerItems, setUnitPickerItems] = useState<InventorySerialUnit[]>([]);
-  const [unitItemsByLine, setUnitItemsByLine] = useState<Record<number, InventorySerialUnit[]>>({});
+  const [unitItemsByLine, setUnitItemsByLine] = useState<Record<string, InventorySerialUnit[]>>({});
   const [unitPickerLoading, setUnitPickerLoading] = useState(false);
   const [unitPickerQuery, setUnitPickerQuery] = useState("");
 
@@ -351,9 +358,12 @@ export function StockLogPanel({
     setUnitPickerQuery("");
     setUnitPickerLoading(true);
     try {
-      const result = await inventorySerialService.list({ productId: line.productId, sku: line.sku, status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
+      // Phiếu cũ lưu mã sản phẩm cha thay vì SKU biến thể; lọc theo mã đó sẽ không ra đơn vị nào,
+      // nên khi SKU không thuộc danh sách biến thể của kho thì chỉ lọc theo sản phẩm để còn chọn lại được.
+      const knownVariant = (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).some((variant) => variant.sku === line.sku);
+      const result = await inventorySerialService.list({ productId: line.productId, ...(knownVariant ? { sku: line.sku } : {}), status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
       setUnitPickerItems(result.items);
-      setUnitItemsByLine((current) => ({ ...current, [index]: result.items }));
+      setUnitItemsByLine((current) => ({ ...current, [lineUnitKey(line)]: result.items }));
     } finally {
       setUnitPickerLoading(false);
     }
@@ -379,7 +389,7 @@ export function StockLogPanel({
     }
 
     const normalizedItems = draftLines
-      .map((line, index) => {
+      .map((line) => {
         const matchedProduct = selectableProducts.find((p) => p.id === line.productId);
         return {
           productId: line.productId,
@@ -388,7 +398,7 @@ export function StockLogPanel({
           quantity: Number(line.quantity),
           unitIdentifiers: line.unitIdentifiers,
           serialNumbers: (() => {
-            const selected = line.unitIdentifiers?.map((identifier) => unitItemsByLine[index]?.find((unit) => unit.normalizedInternalBarcode === identifier)?.serialNumber).filter(Boolean) || [];
+            const selected = line.unitIdentifiers?.map((identifier) => unitItemsByLine[lineUnitKey(line)]?.find((unit) => unit.normalizedInternalBarcode === identifier)?.serialNumber).filter(Boolean) || [];
             return selected.length ? selected : line.serialNumbers;
           })(),
         };
