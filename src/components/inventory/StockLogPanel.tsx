@@ -12,6 +12,7 @@ import { parseFirebaseError } from "../../utils/firebaseErrorParser";
 type DraftLine = {
   productId: string;
   sku?: string;
+  productName?: string;
   quantity: string;
   unitIdentifiers?: string[];
   serialNumbers?: string[];
@@ -309,12 +310,15 @@ export function StockLogPanel({
     setDraftOperator(log.operatorName);
     setDraftNotes(log.notes);
     setDraftStatus(getLogStatus(log));
+    const savedWarehouseId = (log as StockLog & { warehouseId?: string }).warehouseId;
+    if (savedWarehouseId) setSourceWarehouseId(savedWarehouseId);
     setDraftLines(
       items.map((item) => {
         const matchedProduct = products.find((product) => product.sku === item.sku);
         return {
           productId: matchedProduct?.id || item.productId || "",
           sku: item.sku,
+          productName: item.productName || matchedProduct?.name || "",
           quantity: String(item.quantity),
           unitIdentifiers: item.unitIdentifiers || [],
           serialNumbers: item.serialNumbers || [],
@@ -824,6 +828,9 @@ export function StockLogPanel({
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         >
                           <option value="">Chọn sản phẩm</option>
+                          {outboundOnly && line.productId && !warehouseProductGroups.some((group) => group.productId === line.productId) && (
+                            <option value={line.productId}>{line.productName || line.sku || "Sản phẩm đã lưu"} (hết tồn)</option>
+                          )}
                           {(outboundOnly ? warehouseProductGroups : selectableProducts).map((product) => (
                             <option key={outboundOnly ? product.productId : product.id} value={outboundOnly ? product.productId : product.id}>
                               {outboundOnly ? product.name : `${product.name} - ${product.sku} (${formatNumber(product.stock)})`}
@@ -853,6 +860,9 @@ export function StockLogPanel({
                             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
                           >
                             <option value="">Chọn SKU / biến thể</option>
+                            {line.sku && !(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).some((variant) => variant.sku === line.sku) && (
+                              <option value={line.sku}>{line.sku} (hết tồn)</option>
+                            )}
                             {(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).map((variant) => (
                               <option key={variant._id} value={variant.sku}>{variant.sku}{variant.variantName ? ` - ${variant.variantName}` : ""} (tồn {formatNumber(variant.quantity - variant.reservedQuantity)})</option>
                             ))}
@@ -884,7 +894,7 @@ export function StockLogPanel({
                     </div>
                   ))}
                 </div>
-                {unitPickerIndex !== null && <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4"><div className="mb-2 flex items-center justify-between"><h5 className="text-sm font-bold text-cyan-900">Chọn IMEI / mã vạch xuất kho</h5><button type="button" onClick={() => setUnitPickerIndex(null)} className="text-xs font-semibold text-slate-500">Đóng</button></div>{unitPickerLoading ? <p className="text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : <select multiple value={draftLines[unitPickerIndex]?.unitIdentifiers || []} onChange={(event) => updateDraftLine(unitPickerIndex, { ...draftLines[unitPickerIndex], unitIdentifiers: Array.from(event.target.selectedOptions).map((option) => option.value).slice(0, Number(draftLines[unitPickerIndex]?.quantity) || 0) })} className="min-h-28 w-full rounded-lg border border-cyan-200 bg-white p-2 text-sm">{unitPickerItems.map((item) => <option key={item._id} value={item.normalizedInternalBarcode}>{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</option>)}</select>}<p className="mt-2 text-xs text-cyan-800">Phải chọn đủ số lượng đơn vị trước khi lưu phiếu xuất.</p></div>}
+                {unitPickerIndex !== null && <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4"><div className="mb-2 flex items-center justify-between"><h5 className="text-sm font-bold text-cyan-900">Chọn IMEI / mã vạch xuất kho</h5><button type="button" onClick={() => setUnitPickerIndex(null)} className="text-xs font-semibold text-slate-500">Đóng</button></div>{unitPickerLoading ? <p className="text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : <select multiple value={draftLines[unitPickerIndex]?.unitIdentifiers || []} onChange={(event) => updateDraftLine(unitPickerIndex, { ...draftLines[unitPickerIndex], unitIdentifiers: Array.from(event.target.selectedOptions).map((option) => option.value).slice(0, Number(draftLines[unitPickerIndex]?.quantity) || 0) })} className="min-h-28 w-full rounded-lg border border-cyan-200 bg-white p-2 text-sm">{unitPickerItems.map((item) => <option key={item._id} value={item.normalizedInternalBarcode}>{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</option>)}{selectedUnitsForPicker.filter((identifier) => !unitPickerItems.some((item) => item.normalizedInternalBarcode === identifier)).map((identifier) => <option key={identifier} value={identifier}>{identifier} · không còn trong kho</option>)}</select>}{selectedUnitsForPicker.length > 0 && <p className="mt-2 text-xs font-semibold text-cyan-900">Đã chọn ({selectedUnitsForPicker.length}/{requiredUnitCount}): {selectedUnitsForPicker.map((identifier) => unitPickerItems.find((item) => item.normalizedInternalBarcode === identifier)?.serialNumber || identifier).join(", ")}</p>}<p className="mt-2 text-xs text-cyan-800">Phải chọn đủ số lượng đơn vị trước khi lưu phiếu xuất.</p></div>}
               </div>
 
               {unitPickerIndex !== null && <input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch trong danh sách..." className="mb-2 w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />}
