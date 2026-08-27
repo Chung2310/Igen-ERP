@@ -360,6 +360,7 @@ export class StudentController {
       }
 
       const requestedCompanyCode = String(req.query.registrationCompanyCode || req.query.companyCode || "").trim();
+      const requestedEntityPreset = req.query.entityPreset;
       const targetCompanyCode = requestedCompanyCode || teacher.companyCode || teacher.centerId || teacherId;
       const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
       const partnerOwnerIds = await getCenterOwnerIds({
@@ -368,9 +369,12 @@ export class StudentController {
         centerId: targetCompanyCode,
         companyCode: targetCompanyCode,
       });
-      const [fields, settings, partners] = await Promise.all([
-        resolvePublicRegisterFields(tenantId),
-        new ModuleSettingsService().get(tenantId),
+      const settings = await new ModuleSettingsService().get(tenantId);
+      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+        ? "worker"
+        : settings.entityPreset;
+      const [fields, partners] = await Promise.all([
+        resolvePublicRegisterFields(tenantId, entityPreset),
         Partner.find({
           ownerId: Array.isArray(partnerOwnerIds) ? { $in: partnerOwnerIds } : partnerOwnerIds,
           isActive: true,
@@ -384,7 +388,7 @@ export class StudentController {
         success: true,
         data: {
           fields,
-          entityPreset: settings.entityPreset,
+          entityPreset,
           partners: partners.map((p) => ({ _id: String(p._id), name: p.name, phone: p.phone })),
         },
       });
@@ -414,7 +418,11 @@ export class StudentController {
       const targetCompanyCode = requestedCompanyCode || teacherCompanyCode;
       const targetBranchId = requestedBranchId || teacher.branchId;
       const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
-      const missing = await findMissingPublicRegisterFields(tenantId, studentData);
+      const settings = await new ModuleSettingsService().get(tenantId);
+      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+        ? "worker"
+        : settings.entityPreset;
+      const missing = await findMissingPublicRegisterFields(tenantId, studentData, entityPreset);
       if (missing.length > 0) {
         return res.status(400).json({
           success: false,
@@ -422,8 +430,7 @@ export class StudentController {
         });
       }
 
-      const settings = await new ModuleSettingsService().get(tenantId);
-      if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
+      if (entityPreset === "worker") {
         // Mã đối tác giới thiệu do người đăng ký tự nhập nên phải đối chiếu trước khi
         // tạo hồ sơ, tránh để lại hồ sơ mồ côi khi mã sai.
         const referralPartnerCode = String(partnerCode || "").trim().toUpperCase();

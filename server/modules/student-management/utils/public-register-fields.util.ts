@@ -1,4 +1,5 @@
 import { StandardFieldConfig } from "../models/standard-field-config.model";
+import type { EntityPreset } from "../models/module-settings.model";
 
 /**
  * Các trường học viên tự khai được trên form đăng ký công khai.
@@ -38,6 +39,15 @@ const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<
   address: { label: "Địa chỉ", placeholder: "Nhập địa chỉ...", isRequired: false },
 };
 
+/** Các nhãn phụ thuộc loại hình, dùng khi công ty chưa tự đổi tên trường. */
+const PRESET_PUBLIC_REGISTER_FIELD_OVERRIDES: Partial<
+  Record<EntityPreset, Partial<Record<PublicRegisterFieldKey, Partial<(typeof DEFAULT_PUBLIC_REGISTER_FIELDS)[PublicRegisterFieldKey]>>>>
+> = {
+  worker: {
+    email: { label: "Email lao động" },
+  },
+};
+
 export type ResolvedPublicField = {
   key: PublicRegisterFieldKey;
   label: string;
@@ -47,7 +57,10 @@ export type ResolvedPublicField = {
 };
 
 /** Ghép phần công ty ghi đè lên bộ trường mặc định, đã lọc theo phạm vi công khai. */
-export async function resolvePublicRegisterFields(tenantId: string): Promise<ResolvedPublicField[]> {
+export async function resolvePublicRegisterFields(
+  tenantId: string,
+  entityPreset: EntityPreset = "student",
+): Promise<ResolvedPublicField[]> {
   const overrides = await StandardFieldConfig.find({
     tenantId,
     moduleKey: "students",
@@ -55,7 +68,10 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
   }).lean();
 
   return PUBLIC_REGISTER_FIELD_KEYS.map((key) => {
-    const base = DEFAULT_PUBLIC_REGISTER_FIELDS[key];
+    const base = {
+      ...DEFAULT_PUBLIC_REGISTER_FIELDS[key],
+      ...PRESET_PUBLIC_REGISTER_FIELD_OVERRIDES[entityPreset]?.[key],
+    };
     const override = overrides.find((row) => row.key === key);
     const alwaysRequired = key === "fullName" || key === "phone" || key === "email";
     const isVisible = alwaysRequired ? true : (override ? override.isVisible && !override.isArchived : true);
@@ -77,8 +93,9 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
 export async function findMissingPublicRegisterFields(
   tenantId: string,
   data: Record<string, unknown>,
+  entityPreset: EntityPreset = "student",
 ): Promise<string[]> {
-  const fields = await resolvePublicRegisterFields(tenantId);
+  const fields = await resolvePublicRegisterFields(tenantId, entityPreset);
   return fields
     .filter((field) => {
       const alwaysRequired = field.key === "fullName" || field.key === "phone" || field.key === "email";

@@ -88,6 +88,9 @@ const PRESET_STANDARD_FIELD_OVERRIDES: Partial<
   Record<EntityPreset, Partial<Record<ModuleKey, Record<string, Partial<StandardFieldConfig>>>>>
 > = {
   worker: {
+    students: {
+      email: { label: "Email lao động" },
+    },
     batches: {
       code: { label: "Mã dự án", placeholder: "Ví dụ: DA-001" },
       courseId: { label: "Tên dự án", placeholder: "Ví dụ: Tuyển 100 công nhân nhà máy Samsung" },
