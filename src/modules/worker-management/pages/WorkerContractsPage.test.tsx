@@ -26,7 +26,11 @@ const baseContract = {
   sequence: 1,
 };
 
-const renderPage = (contracts: any[], extra: Record<string, unknown> = {}) => {
+const renderPage = (
+  contracts: any[],
+  extra: Record<string, unknown> = {},
+  workers: any[] = [{ _id: "w1", fullName: "Nguyễn Văn A", status: "active" }],
+) => {
   contractHooks.useWorkerLaborContracts.mockReturnValue({
     contracts,
     loading: false,
@@ -51,9 +55,7 @@ const renderPage = (contracts: any[], extra: Record<string, unknown> = {}) => {
     reload: vi.fn(),
     ...extra,
   });
-  workerHooks.useWorkers.mockReturnValue({
-    workers: [{ _id: "w1", fullName: "Nguyễn Văn A", status: "active" }],
-  });
+  workerHooks.useWorkers.mockReturnValue({ workers });
   return render(<WorkerContractsPage selectedCenter="ACME" canManage />);
 };
 
@@ -119,6 +121,29 @@ describe("WorkerContractsPage", () => {
     expect(
       screen.queryByRole("button", { name: "Xóa hợp đồng HD-01" }),
     ).toBeNull();
+  });
+
+  it("hides workers with a current contract from the create-contract search", () => {
+    renderPage(
+      [
+        { ...baseContract, workerId: "w1", endDate: "2099-12-31", status: "active" },
+        { ...baseContract, _id: "c2", workerId: "w2", endDate: "2020-01-01", status: "active" },
+        { ...baseContract, _id: "c3", workerId: "w3", endDate: "2099-12-31", status: "terminated" },
+      ],
+      {},
+      [
+        { _id: "w1", fullName: "Đang có hợp đồng", status: "active" },
+        { _id: "w2", fullName: "Hợp đồng đã hết hạn", status: "active" },
+        { _id: "w3", fullName: "Hợp đồng đã chấm dứt", status: "active" },
+      ],
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Thêm hợp đồng" }));
+    fireEvent.focus(screen.getByRole("combobox", { name: "Người lao động" }));
+
+    expect(screen.queryByRole("option", { name: /Đang có hợp đồng/ })).toBeNull();
+    expect(screen.getByRole("option", { name: /Hợp đồng đã hết hạn/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /Hợp đồng đã chấm dứt/ })).toBeTruthy();
   });
 
   it("uses a visible cyan background for the selected desktop page", () => {

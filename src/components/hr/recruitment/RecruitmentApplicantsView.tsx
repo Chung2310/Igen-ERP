@@ -265,7 +265,24 @@ function ApplicantForm({
     setSaving(true);
     setError("");
     try {
-      const payload = { ...form, skills: String(form.skills || "").split(",").map((s) => s.trim()).filter(Boolean), expectedSalary: form.expectedSalary ? Number(form.expectedSalary) : null, birthDate: form.birthDate || null, availableDate: form.availableDate || null };
+      const payload = {
+        jobId: form.jobId,
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        birthDate: form.birthDate || null,
+        address: form.address,
+        experience: form.experience,
+        education: form.education,
+        skills: String(form.skills || "").split(",").map((skill) => skill.trim()).filter(Boolean),
+        expectedSalary: form.expectedSalary ? Number(form.expectedSalary) : null,
+        availableDate: form.availableDate || null,
+        source: form.source,
+        notes: form.notes,
+        recruiterId: form.recruiterId ?? null,
+        cvUrl: form.cvUrl || "",
+        cvPublicId: form.cvPublicId || "",
+      };
       if (applicant) await recruitmentApi.updateApplicant(applicant._id, { ...payload, version: applicant.version });
       else {
         const result = await recruitmentApi.createApplicant({ ...payload, confirmDuplicate });

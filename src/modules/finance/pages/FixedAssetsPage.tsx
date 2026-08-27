@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import {
   financeAssetsApi,
   type DepreciationScheduleLine,
   type FixedAsset,
 } from "../api/financeAssets.api";
+import { toast } from "../../../pages/Toast";
 
 const STATUS_LABELS: Record<string, string> = {
   in_use: "Đang dùng",
@@ -31,6 +33,37 @@ const EMPTY_FORM = {
   location: "",
 };
 
+type CreateForm = typeof EMPTY_FORM;
+type CreateFormField = keyof CreateForm;
+type CreateFormErrors = Partial<Record<CreateFormField, string>>;
+
+export const validateCreateForm = (form: CreateForm): CreateFormErrors => {
+  const errors: CreateFormErrors = {};
+  if (!form.assetCode.trim()) errors.assetCode = "Vui lòng nhập mã tài sản.";
+  if (!form.barcode.trim()) errors.barcode = "Vui lòng nhập mã vạch.";
+  if (!form.name.trim()) errors.name = "Vui lòng nhập tên tài sản.";
+  if (!form.group.trim()) errors.group = "Vui lòng nhập nhóm tài sản.";
+
+  const originalCost = Number(form.originalCost);
+  if (!Number.isSafeInteger(originalCost) || originalCost <= 0) {
+    errors.originalCost = "Nguyên giá phải là số nguyên lớn hơn 0.";
+  }
+
+  const salvageValue = Number(form.salvageValue || 0);
+  if (!Number.isSafeInteger(salvageValue) || salvageValue < 0) {
+    errors.salvageValue = "Giá trị thu hồi phải là số nguyên không âm.";
+  } else if (Number.isSafeInteger(originalCost) && originalCost > 0 && salvageValue > originalCost) {
+    errors.salvageValue = "Giá trị thu hồi không được lớn hơn nguyên giá.";
+  }
+  if (!form.inServiceDate) errors.inServiceDate = "Vui lòng chọn ngày đưa vào sử dụng.";
+
+  const usefulLifeMonths = Number(form.usefulLifeMonths);
+  if (!Number.isSafeInteger(usefulLifeMonths) || usefulLifeMonths <= 0) {
+    errors.usefulLifeMonths = "Số tháng khấu hao phải là số nguyên lớn hơn 0.";
+  }
+  return errors;
+};
+
 const EDITABLE_FIELDS = ["name", "group", "location", "custodianName"] as const;
 
 const editFormFrom = (asset: FixedAsset) => ({
@@ -55,20 +88,36 @@ export default function FixedAssetsPage({
   const [selected, setSelected] = useState<FixedAsset>();
   const [schedule, setSchedule] = useState<DepreciationScheduleLine[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState<CreateFormErrors>({});
   const [creating, setCreating] = useState(false);
   const [panel, setPanel] = useState<"edit" | "transfer">();
   const [editForm, setEditForm] = useState(() => editFormFrom({} as FixedAsset));
   const [transferForm, setTransferForm] = useState(EMPTY_TRANSFER);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const canManage = canManageAssets(permissions);
+
+  const closeCreateDialog = () => {
+    setCreating(false);
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+  };
+
+  useEffect(() => {
+    if (!creating) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCreateDialog();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+    // closeCreateDialog only writes local form state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating]);
 
   const load = async () => {
     try {
       setItems(await financeAssetsApi.list({ status: status || undefined, search: search || undefined }));
-      setError("");
     } catch (reason) {
-      setError(message(reason, "Không tải được danh sách tài sản."));
+      toast.error(message(reason, "Không tải được danh sách tài sản."));
     }
   };
 
@@ -85,7 +134,7 @@ export default function FixedAssetsPage({
     try {
       setSchedule(await financeAssetsApi.schedule(asset._id));
     } catch (reason) {
-      setError(message(reason, "Không tải được lịch khấu hao."));
+      toast.error(message(reason, "Không tải được lịch khấu hao."));
     }
   };
 
@@ -98,24 +147,31 @@ export default function FixedAssetsPage({
   };
 
   const create = async () => {
+    const validationErrors = validateCreateForm(form);
+    const firstValidationError = Object.values(validationErrors)[0];
+    if (firstValidationError) {
+      setFormErrors(validationErrors);
+      toast.warning(firstValidationError);
+      return;
+    }
     setBusy(true);
     try {
       await financeAssetsApi.create({
-        assetCode: form.assetCode,
-        barcode: form.barcode,
-        name: form.name,
-        group: form.group,
+        assetCode: form.assetCode.trim(),
+        barcode: form.barcode.trim(),
+        name: form.name.trim(),
+        group: form.group.trim(),
         originalCost: Number(form.originalCost),
         salvageValue: Number(form.salvageValue || 0),
         inServiceDate: toIso(form.inServiceDate),
         usefulLifeMonths: Number(form.usefulLifeMonths),
-        ...(form.location ? { location: form.location } : {}),
+        ...(form.location.trim() ? { location: form.location.trim() } : {}),
       });
-      setForm(EMPTY_FORM);
-      setCreating(false);
+      closeCreateDialog();
       await load();
+      toast.success("Đã thêm tài sản cố định thành công.");
     } catch (reason) {
-      setError(message(reason, "Không tạo được tài sản."));
+      toast.error(message(reason, "Không tạo được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -129,16 +185,16 @@ export default function FixedAssetsPage({
     for (const field of EDITABLE_FIELDS) if (editForm[field] !== current[field]) patch[field] = editForm[field];
     if (editForm.status !== current.status) patch.status = editForm.status;
     if (!Object.keys(patch).length) {
-      setError("Chưa có thay đổi nào để lưu.");
+      toast.warning("Chưa có thay đổi nào để lưu.");
       return;
     }
     setBusy(true);
     try {
       await financeAssetsApi.update(selected._id, { ...patch, ...(editForm.note ? { note: editForm.note } : {}) });
       await refresh(selected._id);
-      setError("");
+      toast.success("Đã cập nhật tài sản thành công.");
     } catch (reason) {
-      setError(message(reason, "Không cập nhật được tài sản."));
+      toast.error(message(reason, "Không cập nhật được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -147,7 +203,7 @@ export default function FixedAssetsPage({
   const submitTransfer = async () => {
     if (!selected) return;
     if (!transferForm.branchId.trim() || !transferForm.reason.trim()) {
-      setError("Cần chọn chi nhánh đến và nhập lý do điều chuyển.");
+      toast.warning("Vui lòng nhập chi nhánh đến và lý do điều chuyển.");
       return;
     }
     setBusy(true);
@@ -160,9 +216,9 @@ export default function FixedAssetsPage({
       });
       setTransferForm(EMPTY_TRANSFER);
       await refresh(selected._id);
-      setError("");
+      toast.success("Đã điều chuyển tài sản thành công.");
     } catch (reason) {
-      setError(message(reason, "Không điều chuyển được tài sản."));
+      toast.error(message(reason, "Không điều chuyển được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -170,18 +226,24 @@ export default function FixedAssetsPage({
 
   const dispose = async (asset: FixedAsset) => {
     const reason = window.prompt("Lý do thanh lý?");
-    if (!reason) return;
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      toast.warning("Vui lòng nhập lý do thanh lý.");
+      return;
+    }
     setBusy(true);
     try {
       await financeAssetsApi.dispose(asset._id, {
         disposedAt: new Date().toISOString(),
         disposalAmount: 0,
-        reason,
+        reason: trimmedReason,
       });
       setSelected(undefined);
       await load();
+      toast.success("Đã thanh lý tài sản thành công.");
     } catch (failure) {
-      setError(message(failure, "Không thanh lý được tài sản."));
+      toast.error(message(failure, "Không thanh lý được tài sản."));
     } finally {
       setBusy(false);
     }
@@ -199,7 +261,7 @@ export default function FixedAssetsPage({
         {canManage && (
           <button
             type="button"
-            onClick={() => setCreating((value) => !value)}
+            onClick={() => setCreating(true)}
             className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white"
           >
             Thêm tài sản
@@ -207,40 +269,84 @@ export default function FixedAssetsPage({
         )}
       </div>
 
-      {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-
       {creating && canManage && (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
-          {[
-            ["assetCode", "Mã tài sản", "text"],
-            ["barcode", "Mã vạch", "text"],
-            ["name", "Tên tài sản", "text"],
-            ["group", "Nhóm", "text"],
-            ["originalCost", "Nguyên giá", "number"],
-            ["salvageValue", "Giá trị thu hồi", "number"],
-            ["inServiceDate", "Ngày đưa vào dùng", "date"],
-            ["usefulLifeMonths", "Số tháng khấu hao", "number"],
-            ["location", "Vị trí", "text"],
-          ].map(([field, label, type]) => (
-            <label key={field} className="text-sm font-semibold text-slate-700">
-              {label}
-              <input
-                type={type}
-                aria-label={label}
-                value={(form as Record<string, string>)[field]}
-                onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
-              />
-            </label>
-          ))}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void create()}
-            className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fixed-asset-create-title"
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
           >
-            Lưu tài sản
-          </button>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h2 id="fixed-asset-create-title" className="text-lg font-bold text-slate-900">
+                Thêm tài sản cố định
+              </h2>
+              <button
+                type="button"
+                aria-label="Đóng popup"
+                onClick={closeCreateDialog}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["assetCode", "Mã tài sản", "text"],
+                ["barcode", "Mã vạch", "text"],
+                ["name", "Tên tài sản", "text"],
+                ["group", "Nhóm", "text"],
+                ["originalCost", "Nguyên giá", "number"],
+                ["salvageValue", "Giá trị thu hồi", "number"],
+                ["inServiceDate", "Ngày đưa vào dùng", "date"],
+                ["usefulLifeMonths", "Số tháng khấu hao", "number"],
+                ["location", "Vị trí", "text"],
+              ].map(([field, label, type]) => (
+                <label key={field} className="text-sm font-semibold text-slate-700">
+                  {label}
+                  <input
+                    type={type}
+                    aria-label={label}
+                    aria-invalid={Boolean(formErrors[field as CreateFormField])}
+                    value={(form as Record<string, string>)[field]}
+                    onChange={(event) => {
+                      const formField = field as CreateFormField;
+                      setForm((current) => ({ ...current, [formField]: event.target.value }));
+                      setFormErrors((current) => {
+                        if (!current[formField]) return current;
+                        const next = { ...current };
+                        delete next[formField];
+                        return next;
+                      });
+                    }}
+                    className={`mt-1 w-full rounded-xl border px-3 py-2 font-normal outline-none transition-colors focus:ring-2 ${
+                      formErrors[field as CreateFormField]
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                        : "border-slate-300 focus:border-cyan-500 focus:ring-cyan-100"
+                    }`}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeCreateDialog}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void create()}
+                className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {busy ? "Đang lưu..." : "Lưu tài sản"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -254,7 +254,10 @@ export class QRAttendanceService {
       : await Student.findOne({ phone: cleanPhone, ownerId: session.ownerId });
 
     if (!student) {
-      throw new QrCheckinError("student_not_found", "Số điện thoại không có trong hệ thống hoặc không đúng cơ sở.");
+      throw new QrCheckinError(
+        "student_not_found",
+        `Số điện thoại ${cleanPhone ? `(${cleanPhone}) ` : ""}chưa có trong hệ thống hoặc không đúng cơ sở. Vui lòng kiểm tra lại số điện thoại.`
+      );
     }
 
     const studentId = student._id.toString();
@@ -262,7 +265,10 @@ export class QRAttendanceService {
     if (fingerprint) {
       const registeredPhone = session.deviceMap.get(fingerprint);
       if (registeredPhone && registeredPhone !== resolvedPhone) {
-        throw new QrCheckinError("device_conflict", "Thiết bị này đã được sử dụng để điểm danh cho học viên khác.");
+        throw new QrCheckinError(
+          "device_conflict",
+          "Thiết bị này đã được sử dụng để điểm danh cho một học viên khác trong buổi học này (mỗi thiết bị chỉ được điểm danh 1 học viên)."
+        );
       }
     }
 
@@ -273,13 +279,19 @@ export class QRAttendanceService {
     }
 
     if (!batch.learnerIds.includes(student._id.toString())) {
-      throw new QrCheckinError("not_in_batch", "Học viên không nằm trong danh sách lớp học này.");
+      throw new QrCheckinError(
+        "not_in_batch",
+        `Học viên ${student.fullName} (${resolvedPhone}) không có tên trong danh sách lớp học này. Vui lòng liên hệ giáo viên để được thêm vào lớp.`
+      );
     }
 
     // E. Kiểm tra xem học viên đã điểm danh trong phiên này chưa. Phiên chấm
     // công lao động bỏ qua bước này vì lần quét thứ hai chính là giờ về.
     if (session.mode !== "worker" && session.checkins.has(studentId)) {
-      throw new QrCheckinError("already_checked_in", "Bạn đã điểm danh thành công trước đó rồi.");
+      throw new QrCheckinError(
+        "already_checked_in",
+        `Học viên ${student.fullName} đã được điểm danh thành công trước đó trong buổi học này rồi.`
+      );
     }
 
     const attemptBase = {

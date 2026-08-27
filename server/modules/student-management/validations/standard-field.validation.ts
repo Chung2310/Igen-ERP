@@ -31,4 +31,8 @@ export const publicRegisterConfigQuerySchema = Joi.object({
     "any.required": "Thiếu mã giáo viên trong đường dẫn đăng ký.",
     "string.empty": "Thiếu mã giáo viên trong đường dẫn đăng ký.",
   }),
+  registrationCompanyCode: Joi.string().trim().allow("").optional(),
+  companyCode: Joi.string().trim().allow("").optional(),
+  registrationBranchId: Joi.string().trim().allow("").optional(),
+  entityPreset: Joi.string().trim().allow("").optional(),
 });

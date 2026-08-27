@@ -4,6 +4,7 @@ import { IStockLog } from "../interface/stock-log.interface";
 const StockLogItemSchema = new Schema(
   {
     productId: { type: String, required: true, index: true },
+    variantId: { type: String, trim: true, index: true },
     sku: { type: String, required: true },
     productName: { type: String, required: true },
     quantity: { type: Number, required: true },
@@ -34,6 +35,7 @@ const StockLogSchema = new Schema<IStockLog>({
   status: { type: String, enum: ["Thành công", "Đang xử lý", "Đang chờ", "Hoàn thành"], default: "Thành công" },
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
+  warehouseId: { type: String, trim: true, index: true },
   refType: { type: String, enum: ["retail-order", "goods-receipt", "sales-return", "supplier-return"], index: true },
   refId: { type: String, index: true },
   idempotencyKey: { type: String, index: true },

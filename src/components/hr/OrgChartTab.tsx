@@ -1258,8 +1258,8 @@ export default function OrgChartTab({
   return (
     <>
       {/* Division filter and search bar for Org Chart tab */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50 p-3 md:p-4 border-b border-gray-200 shrink-0">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 w-full md:max-w-md">
+      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-gray-200 bg-slate-50 p-3 md:p-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+        <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
           <div className="relative w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -1270,7 +1270,7 @@ export default function OrgChartTab({
               className="w-full pl-9 pr-4 py-2 border border-gray-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 bg-white border border-gray-200 rounded-xl px-2.5 py-1.5">
+          <div data-testid="org-chart-department-filter" className="flex w-full items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5">
             <Filter className="h-3.5 w-3.5 text-gray-400" />
             <select
               value={filterDepartment}
@@ -1285,14 +1285,14 @@ export default function OrgChartTab({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 w-full md:w-auto">
-          <div className="flex items-center rounded-xl border border-gray-200 bg-white p-1">
-            <button type="button" onClick={() => setViewMode("tree")} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cây</button>
-            <button type="button" onClick={() => setViewMode("list")} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sách</button>
+        <div data-testid="org-chart-actions" className="grid w-full grid-cols-1 items-center gap-2 min-[420px]:grid-cols-2 min-[768px]:grid-cols-3 min-[1200px]:flex min-[1200px]:w-auto">
+          <div data-testid="org-chart-view-toggle" className="flex w-full items-center rounded-xl border border-gray-200 bg-white p-1 min-[1200px]:w-auto">
+            <button type="button" onClick={() => setViewMode("tree")} className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cây</button>
+            <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sách</button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-px bg-gray-200 mx-1" />
+          <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1.5 min-[1200px]:w-auto min-[1200px]:border-0 min-[1200px]:bg-transparent min-[1200px]:px-0">
+            <div className="hidden h-6 w-px bg-gray-200 mx-1 min-[1200px]:block" />
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
             <input
               type="range"
@@ -1311,15 +1311,15 @@ export default function OrgChartTab({
 
           {isManager && (
             <>
-              <div className="hidden sm:block h-6 w-px bg-gray-200 mx-1" />
+              <div className="hidden h-6 w-px bg-gray-200 mx-1 min-[1200px]:block" />
               <button
+                data-testid="org-chart-add-button"
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="px-3 py-1.5 md:px-4 md:py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer ml-auto sm:ml-0"
+                className="col-span-full flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer min-[768px]:col-span-1 min-[1200px]:w-auto"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Thêm Nhân Sự hoặc Phòng ban</span>
-                <span className="sm:hidden">Thêm</span>
+                <span>Thêm Nhân Sự hoặc Phòng ban</span>
               </button>
             </>
           )}

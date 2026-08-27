@@ -106,6 +106,25 @@ export default function WorkerContractsPage({
     mode: ContractFormMode;
     contract?: WorkerLaborContract | null;
   } | null>(null);
+
+  const workersAvailableForContract = React.useMemo(() => {
+    if (modal?.mode !== "create") return workers;
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const blockedWorkerIds = new Set(
+      contracts
+        .filter((contract) =>
+          (contract.status === "draft" || contract.status === "active") &&
+          contract.endDate >= today,
+        )
+        .map((contract) => contract.workerId),
+    );
+    return workers.filter((worker) => !blockedWorkerIds.has(worker._id));
+  }, [contracts, modal?.mode, workers]);
   const [historyOf, setHistoryOf] = React.useState<string | null>(null);
 
   const workerName = React.useCallback(
@@ -522,7 +541,7 @@ export default function WorkerContractsPage({
       <WorkerContractFormModal
         mode={modal?.mode || "create"}
         isOpen={Boolean(modal)}
-        workers={workers}
+        workers={workersAvailableForContract}
         contract={modal?.contract}
         onClose={() => setModal(null)}
         onSubmit={submitModal}

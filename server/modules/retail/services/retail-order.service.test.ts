@@ -52,6 +52,15 @@ test("new Retail order flow publishes Finance events instead of dual-writing the
   assert.match(source, /publishRetailOrderEvent\("cancelled"/);
 });
 
+test("confirmed order event is published after invoice is issued so email attachments can resolve", () => {
+  const source = readFileSync(new URL("./retail-order.service.ts", import.meta.url), "utf8");
+  const publishIndex = source.indexOf('publishRetailOrderEvent("confirmed"');
+  const issueIndex = source.indexOf("issueRetailInvoice(draft");
+  assert.notEqual(publishIndex, -1);
+  assert.notEqual(issueIndex, -1);
+  assert.ok(issueIndex < publishIndex);
+});
+
 test("order item snapshots keep brand and normalized category", () => {
   const snapshot = (orderService as any).snapshotRetailProductForPricing;
   assert.equal(typeof snapshot, "function");

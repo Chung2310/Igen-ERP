@@ -66,6 +66,16 @@ it("keeps full name, phone and email required even when the company hides them",
   assert.deepEqual(missing, ["Họ và tên", "Số điện thoại", "Email học viên"]);
 });
 
+it("uses the worker email label when no company override exists", async () => {
+  mockOverrides([]);
+
+  const fields = await resolvePublicRegisterFields("ACME", "worker");
+  const missing = await findMissingPublicRegisterFields("ACME", {}, "worker");
+
+  assert.equal(fields.find((field) => field.key === "email")?.label, "Email lao động");
+  assert.deepEqual(missing, ["Họ và tên", "Số điện thoại", "Email lao động"]);
+});
+
 it("passes when every required field is filled in", async () => {
   mockOverrides([]);
 

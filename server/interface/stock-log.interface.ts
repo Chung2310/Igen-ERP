@@ -2,6 +2,7 @@ import { Document } from "mongoose";
 
 export interface IStockLogItem {
   productId: string;
+  variantId?: string;
   sku: string;
   productName: string;
   quantity: number;
@@ -33,6 +34,7 @@ export interface IStockLog extends Document {
   status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
   companyCode: string;
   branchId?: string;
+  warehouseId?: string;
   refType?: StockLogRefType;
   refId?: string;
   idempotencyKey?: string;

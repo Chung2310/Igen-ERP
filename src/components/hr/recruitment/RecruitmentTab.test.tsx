@@ -4,22 +4,28 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { recruitmentApi } from "../../../services/recruitmentService";
+import { toast } from "../../../pages/Toast";
 import RecruitmentTab from "./RecruitmentTab";
 
 vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   listJobs: vi.fn(), getPipeline: vi.fn(), listApplicants: vi.fn(), listInterviews: vi.fn(),
-  createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
+  createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), deleteJob: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
   uploadPublicFile: vi.fn(), deleteTemporaryPublicFile: vi.fn(),
   applicantHistory: vi.fn(), getApplicantAttachment: vi.fn(),
   uploadApplicantAttachment: vi.fn(), deleteAttachment: vi.fn(),
 } }));
 
+vi.mock("../../../pages/Toast", () => ({ toast: {
+  success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(),
+} }));
+
 const job = { _id: "job", code: "DEV", title: "Developer", department: "IT", headcount: 2, description: "", requirements: "", benefits: "", showSalary: false, employmentType: "full_time", workplaceType: "onsite", location: "HCM", status: "open", version: 0, companyCode: "ACME", branchId: "branch-a", createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
-const applicant = { _id: "app", jobId: "job", stageId: "new", fullName: "Nguyễn An", email: "an@example.com", phone: "", address: "", experience: "", education: "", skills: [], source: "", notes: "", outcome: "active", version: 0, createdAt: new Date().toISOString() } as any;
+const applicant = { _id: "app", companyCode: "ACME", branchId: "branch-a", jobId: "job", stageId: "new", fullName: "Nguyễn An", email: "an@example.com", normalizedEmail: "an@example.com", phone: "", normalizedPhone: "", address: "", experience: "", education: "", skills: [], source: "", notes: "", outcome: "active", version: 0, createdBy: "creator", updatedBy: "updater", isDeleted: false, deletedAt: null, deletedBy: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any;
 
 describe("RecruitmentTab", () => {
   afterEach(cleanup);
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(recruitmentApi.listJobs).mockResolvedValue([job]);
     vi.mocked(recruitmentApi.getPipeline).mockResolvedValue({ _id: "pipe", version: 0, stages: [{ id: "new", name: "Hồ sơ mới", color: "#000", position: 0, isActive: true }] });
     vi.mocked(recruitmentApi.listApplicants).mockResolvedValue([]);
@@ -27,6 +33,7 @@ describe("RecruitmentTab", () => {
     vi.mocked(recruitmentApi.createJob).mockResolvedValue({ ...job, _id: "new-job" });
     vi.mocked(recruitmentApi.createApplicant).mockResolvedValue({ ...applicant, _id: "new-applicant" });
     vi.mocked(recruitmentApi.updateJob).mockResolvedValue({ ...job, title: "Senior Developer", version: 1 });
+    vi.mocked(recruitmentApi.deleteJob).mockResolvedValue({} as any);
     vi.mocked(recruitmentApi.updateApplicant).mockResolvedValue({ ...applicant, fullName: "Nguyễn An Updated", version: 1 });
     vi.mocked(recruitmentApi.uploadPublicFile).mockImplementation(async (file) => ({ url: `https://cloud.test/${file.name}`, publicId: `public/${file.name}`, originalName: file.name, size: file.size }));
     vi.mocked(recruitmentApi.applicantHistory).mockResolvedValue([]);
@@ -113,9 +120,49 @@ describe("RecruitmentTab", () => {
 
     await userEvent.selectOptions(statusSelect, "paused");
     await waitFor(() => expect(recruitmentApi.changeJobStatus).toHaveBeenCalledWith("job", 0, "paused"));
+    expect(toast.success).toHaveBeenCalledWith("Đã chuyển tin DEV sang Tạm dừng.");
 
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
     expect(within(screen.getByRole("dialog")).queryByLabelText("Trạng thái")).toBeNull();
+  });
+  it("shows the API reason in a Toast when changing job status fails", async () => {
+    vi.mocked(recruitmentApi.changeJobStatus).mockRejectedValue(new Error("Tin tuyển dụng chưa đủ thông tin để mở tuyển."));
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /DEV/ }), "draft");
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Tin tuyển dụng chưa đủ thông tin để mở tuyển."));
+  });
+  it("requires the confirmation popup before deleting a job and reports success by Toast", async () => {
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+
+    await userEvent.click(screen.getByRole("button", { name: "Xóa tin tuyển dụng DEV" }));
+    expect(recruitmentApi.deleteJob).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Xóa tin tuyển dụng?" })).toBeTruthy();
+    expect(screen.getByText(/DEV.*Developer/)).toBeTruthy();
+
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Hủy" }));
+    expect(screen.queryByRole("dialog", { name: "Xóa tin tuyển dụng?" })).toBeNull();
+    expect(recruitmentApi.deleteJob).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Xóa tin tuyển dụng DEV" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xóa tin" }));
+
+    await waitFor(() => expect(recruitmentApi.deleteJob).toHaveBeenCalledWith("job", 0));
+    expect(toast.success).toHaveBeenCalledWith("Đã xóa tin tuyển dụng DEV.");
+  });
+  it("shows the API reason in a Toast when deleting a job fails", async () => {
+    vi.mocked(recruitmentApi.deleteJob).mockRejectedValue(new Error("Không thể xóa vì tin đang có ứng viên."));
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+
+    await userEvent.click(screen.getByRole("button", { name: "Xóa tin tuyển dụng DEV" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xóa tin" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Không thể xóa vì tin đang có ứng viên."));
+    expect(screen.getByText("Developer")).toBeTruthy();
   });
   it("edits an existing job with its version", async () => {
     render(<RecruitmentTab canManage />); await screen.findByText("Developer");
@@ -134,5 +181,19 @@ describe("RecruitmentTab", () => {
     const name = screen.getByLabelText("Họ tên"); await userEvent.clear(name); await userEvent.type(name, "Nguyễn An Updated");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(recruitmentApi.updateApplicant).toHaveBeenCalledWith("app", expect.objectContaining({ fullName: "Nguyễn An Updated", version: 0 })));
+    expect(vi.mocked(recruitmentApi.updateApplicant).mock.calls[0][1]).not.toEqual(expect.objectContaining({
+      _id: expect.anything(),
+      companyCode: expect.anything(),
+      branchId: expect.anything(),
+      stageId: expect.anything(),
+      normalizedEmail: expect.anything(),
+      normalizedPhone: expect.anything(),
+      outcome: expect.anything(),
+      createdBy: expect.anything(),
+      updatedBy: expect.anything(),
+      isDeleted: expect.anything(),
+      createdAt: expect.anything(),
+      updatedAt: expect.anything(),
+    }));
   });
 });

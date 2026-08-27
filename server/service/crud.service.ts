@@ -17,6 +17,7 @@ import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
 import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
 import { writeStockMovement } from "../integrations/shared/stock-movement.service";
+import { ProductVariantModel } from "../model/product-variant.model";
 import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
 
@@ -92,6 +93,19 @@ async function prepareStockLogPayload(
   }).select("sku name price costPrice category").lean();
   const productsById = new Map(products.map((product: any) => [String(product._id), product]));
 
+  // SKU biến thể là thứ duy nhất định danh đúng dòng tồn kho. Nếu client không gửi
+  // variantId thì tự resolve từ SKU (ProductVariant có unique index companyCode+sku),
+  // nếu không writeStockMovement sẽ tra nhầm dòng InventoryBalance của biến thể khác.
+  const variantSkus = rawItems
+    .filter((item: any) => !(typeof item?.variantId === "string" && item.variantId.trim()))
+    .map((item: any) => String(item?.sku || "").trim().toUpperCase())
+    .filter(Boolean);
+  const variantIdBySku = new Map<string, string>();
+  if (variantSkus.length > 0) {
+    const variants = await ProductVariantModel.find({ companyCode, sku: { $in: [...new Set<string>(variantSkus)] } }).select("sku").lean();
+    for (const variant of variants) variantIdBySku.set(String(variant.sku).toUpperCase(), String(variant._id));
+  }
+
   const missingProductIds = productIds.filter(id => !productsById.has(String(id)));
   if (missingProductIds.length > 0) {
     const catalogProducts = await ProductCatalogModel.find({
@@ -145,7 +159,13 @@ async function prepareStockLogPayload(
 
     return {
       productId: String(product._id),
-      sku: product.sku || item.sku,
+      ...(() => {
+        const explicit = typeof item.variantId === "string" && item.variantId.trim() ? item.variantId.trim() : "";
+        const resolved = explicit || variantIdBySku.get(String(item?.sku || "").trim().toUpperCase()) || "";
+        return resolved ? { variantId: resolved } : {};
+      })(),
+      // SKU biến thể do người dùng chọn mới là nguồn đúng; product.sku chỉ là mã sản phẩm cha dùng chung cho mọi biến thể.
+      sku: (typeof item.sku === "string" && item.sku.trim()) || product.sku,
       productName: product.name || item.productName,
       category: product.category || item.category || "Chưa phân loại",
       quantity,
@@ -209,12 +229,15 @@ function sanitizeInventoryResult(modelName: string, item: any) {
       items: Array.isArray(plainItem.items)
         ? plainItem.items.map((entry: any) => ({
             productId: typeof entry?.productId === "string" ? entry.productId : "",
+            variantId: typeof entry?.variantId === "string" ? entry.variantId : undefined,
             sku: typeof entry?.sku === "string" ? entry.sku.trim().toUpperCase() : "",
             productName: typeof entry?.productName === "string" ? entry.productName.trim() : "",
             quantity: typeof entry?.quantity === "number" ? entry.quantity : Number(entry?.quantity || 0),
             unitPrice: typeof entry?.unitPrice === "number" ? entry.unitPrice : undefined,
             lineTotal: typeof entry?.lineTotal === "number" ? entry.lineTotal : undefined,
             unitCost: typeof entry?.unitCost === "number" ? entry.unitCost : undefined,
+            unitIdentifiers: Array.isArray(entry?.unitIdentifiers) ? entry.unitIdentifiers.map((value: any) => String(value)) : [],
+            serialNumbers: Array.isArray(entry?.serialNumbers) ? entry.serialNumbers.map((value: any) => String(value)) : [],
           }))
         : [],
       operatorName: typeof plainItem.operatorName === "string" ? plainItem.operatorName.trim() : "",
@@ -438,6 +461,7 @@ export const crudService = {
           operatorName: preparedData.operatorName,
           items: preparedData.items.map((item: any) => ({
             productId: item.productId,
+            variantId: item.variantId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,
@@ -593,6 +617,7 @@ export const crudService = {
           operatorName: preparedUpdatePayload.operatorName || existingLog.operatorName,
           items: (preparedUpdatePayload.items || existingLog.items || []).map((item: any) => ({
             productId: item.productId,
+            variantId: item.variantId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,

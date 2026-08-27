@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { BriefcaseBusiness, CalendarClock, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import RecruitmentJobsView from "./RecruitmentJobsView";
 import RecruitmentApplicantsView from "./RecruitmentApplicantsView";
-import RecruitmentInterviewsView from "./RecruitmentInterviewsView";
+import RecruitmentInterviewsView from "./RecruitmentInterviewsWorkspace";
 
 type View = "jobs" | "applicants" | "interviews";
 const tabs = [

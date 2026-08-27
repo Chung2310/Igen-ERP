@@ -146,9 +146,7 @@ export const publicRegisterStudentSchema = Joi.object({
   // Từ đây trở xuống chỉ kiểm tra ĐỊNH DẠNG. Trường nào bắt buộc là do cấu hình
   // trường của từng công ty quyết định, được kiểm ở controller (publicRegister)
   // để form công khai khớp đúng với popup thêm học viên.
-  email: Joi.string().email().optional().messages({
-    "any.required": "Email là bắt buộc.",
-    "string.empty": "Email không được để trống.",
+  email: Joi.string().email().allow("").optional().messages({
     "string.email": "Định dạng email không hợp lệ.",
   }),
   birthday: Joi.string().allow("").optional().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({
@@ -169,8 +167,9 @@ export const publicRegisterStudentSchema = Joi.object({
     "any.required": "ID giáo viên là bắt buộc.",
     "string.empty": "ID giáo viên không được để trống.",
   }),
-  entityPreset: Joi.string().valid("worker").optional(),
-  registrationCompanyCode: Joi.string().trim().max(100).optional(),
-  registrationBranchId: Joi.string().trim().max(100).optional(),
+  entityPreset: Joi.string().valid("student", "worker", "customer").optional(),
+  registrationCompanyCode: Joi.string().trim().allow("").max(100).optional(),
+  registrationBranchId: Joi.string().trim().allow("").max(100).optional(),
   partnerCode: Joi.string().trim().allow("").max(50).optional(),
+  partnerId: Joi.string().allow("").optional(),
 });

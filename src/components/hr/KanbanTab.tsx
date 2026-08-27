@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Clock,
   ExternalLink,
-  ChevronLeft,
   ChevronRight,
   Filter,
   Users,
@@ -43,6 +42,7 @@ import { DateTimeInput24 } from "../common/TimeInput24";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 import { calculateEstimatedHours } from "./kanbanTaskTime";
+import KanbanMonthlyKpiView from "./KanbanMonthlyKpiView";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -52,6 +52,8 @@ interface KanbanTabProps {
   usersList: UserProfile[];
   activeBranchId?: string;
 }
+
+type KanbanViewTab = "By project" | "Board" | "All tasks" | "Monthly KPI";
 
 const isUrl = (str?: string): boolean => {
   if (!str) return false;
@@ -629,7 +631,8 @@ export default function KanbanTab({
   const [tasks, setTasks] = useState<HRTask[]>([]);
   const tasksRef = React.useRef<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
+  const [kanbanViewTab, setKanbanViewTab] = useState<KanbanViewTab>("By project");
+  const tabRefs = React.useRef<Partial<Record<KanbanViewTab, HTMLButtonElement | null>>>({});
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
   // Mở modal với trạng thái "Done" chọn sẵn (khi đổi trạng thái nhanh nhưng thiếu thông tin)
   const [presetDoneOnOpen, setPresetDoneOnOpen] = useState(false);
@@ -660,17 +663,6 @@ export default function KanbanTab({
 
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const projectRequestGeneration = React.useRef(0);
-
-  const subTabsRef = React.useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => {
-    if (subTabsRef.current) {
-      const scrollAmount = 120;
-      subTabsRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
 
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -1387,33 +1379,39 @@ export default function KanbanTab({
     return list;
   }, [tasks, kanbanFilter]);
 
+  const selectKanbanViewTab = (view: KanbanViewTab) => {
+    setKanbanViewTab(view);
+    requestAnimationFrame(() => {
+      tabRefs.current[view]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    });
+  };
+
   return (
     <>
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="hr_tab_content">
         <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-4 text-left text-slate-800 shadow-xs sm:space-y-6 sm:rounded-3xl sm:p-8" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
+          <div className="flex flex-col gap-4 border-b border-gray-200 pb-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:gap-4">
+              <h2 data-testid="kanban-header-title" className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
-              <div className="flex items-center gap-1 select-none">
-                <button
-                  type="button"
-                  aria-label="Cuộn tab sang trái"
-                  onClick={() => scrollSubTabs("left")}
-                  className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
+              <div className="w-full min-w-0 select-none min-[1200px]:w-auto">
                 <div
-                  ref={subTabsRef}
-                  className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 overflow-x-auto scrollbar-none select-none -mb-px max-w-[50vw] sm:max-w-none"
+                  data-testid="kanban-view-tabs"
+                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-1 text-xs font-semibold scrollbar-none min-[1200px]:w-auto"
                 >
-                  {(["By project", "Board", "All tasks"] as const).map((vt) => (
+                  {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
                       key={vt}
-                      onClick={() => setKanbanViewTab(vt)}
+                      ref={(element) => {
+                        tabRefs.current[vt] = element;
+                      }}
+                      onClick={() => selectKanbanViewTab(vt)}
                       className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
                         kanbanViewTab === vt
                           ? "bg-white text-slate-850 shadow-xs font-bold"
@@ -1421,29 +1419,21 @@ export default function KanbanTab({
                       }`}
                     >
                       {vt === "By project" ? "Theo dự án" :
-                        vt === "Board" ? "Bảng công việc" : "Tất cả công việc"}
+                        vt === "Board" ? "Bảng công việc" : vt === "All tasks" ? "Tất cả công việc" : "KPI tháng"}
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  aria-label="Cuộn tab sang phải"
-                  onClick={() => scrollSubTabs("right")}
-                  className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
               </div>
             </div>
 
             {/* Filter and Add Task controls */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
+            <div data-testid="kanban-header-controls" className="flex w-full flex-col gap-3 min-[1200px]:w-auto min-[1200px]:flex-row min-[1200px]:flex-wrap min-[1200px]:items-center">
+              <div data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 min-[1200px]:w-auto">
                 <Filter className="h-4 w-4 text-gray-400" />
                 <select
                   value={kanbanFilter || ""}
                   onChange={(e) => setKanbanFilter(e.target.value || null)}
-                  className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
+                  className="w-full min-w-0 cursor-pointer rounded-xl border border-gray-200 bg-white p-2 text-xs outline-none min-[1200px]:w-auto min-[1200px]:p-1.5"
                 >
                   <option value="">Lọc nhân sự</option>
                   {employees.map(emp => (
@@ -1455,11 +1445,11 @@ export default function KanbanTab({
               </div>
 
               {isManager && (
-                <>
+                <div data-testid="kanban-manager-actions" className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[1200px]:flex min-[1200px]:w-auto min-[1200px]:gap-3">
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="px-4 py-2 border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Target className="h-4 w-4" />
                     Tạo Dự Án & Lĩnh vực
@@ -1492,12 +1482,12 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Giao Việc Mới
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -1715,6 +1705,10 @@ export default function KanbanTab({
               projects={projects}
               onSelectTask={setSelectedKanbanTask}
             />
+          )}
+
+          {kanbanViewTab === "Monthly KPI" && (
+            <KanbanMonthlyKpiView activeBranchId={activeBranchId} />
           )}
 
         </div>

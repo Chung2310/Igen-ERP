@@ -14,6 +14,7 @@ import { startResourceRetentionScheduler } from "./server/service/resource-reten
 import { startRetailDebtReminderScheduler } from "./server/modules/retail/services/retail-debt-reminder.service";
 import { startRetailReminderRetryScheduler } from "./server/modules/retail/services/retail-reminder-retry.service";
 import { startRetailCustomerTierScheduler } from "./server/modules/retail/services/retail-customer-tier.service";
+import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
@@ -231,6 +232,7 @@ async function startServer() {
   startRetailDebtReminderScheduler();
   startRetailReminderRetryScheduler();
   startRetailCustomerTierScheduler();
+  startMonthlyKpiScheduler();
 
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo

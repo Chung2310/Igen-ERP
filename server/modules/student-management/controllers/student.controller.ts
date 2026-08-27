@@ -13,6 +13,7 @@ import { sourceUploadFinalizer } from "../../../service/source-upload-finalizer.
 import { WorkerService } from "../../worker-management/services/worker.service";
 import { WorkerReferralService } from "../../worker-management/labor-partners/services/worker-referral.service";
 import { LaborPartnerModel } from "../../worker-management/labor-partners/models/labor-partner.model";
+import { Partner } from "../models/partner.model";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -358,13 +359,39 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Giáo viên không hợp lệ hoặc đã bị khóa." });
       }
 
-      const tenantId = await resolveCustomFieldTenantForOwner(teacher.companyCode || teacher.centerId || teacherId);
-      const [fields, settings] = await Promise.all([
-        resolvePublicRegisterFields(tenantId),
-        new ModuleSettingsService().get(tenantId),
+      const requestedCompanyCode = String(req.query.registrationCompanyCode || req.query.companyCode || "").trim();
+      const requestedEntityPreset = req.query.entityPreset;
+      const targetCompanyCode = requestedCompanyCode || teacher.companyCode || teacher.centerId || teacherId;
+      const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
+      const partnerOwnerIds = await getCenterOwnerIds({
+        uid: targetCompanyCode,
+        role: "admin",
+        centerId: targetCompanyCode,
+        companyCode: targetCompanyCode,
+      });
+      const settings = await new ModuleSettingsService().get(tenantId);
+      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+        ? "worker"
+        : settings.entityPreset;
+      const [fields, partners] = await Promise.all([
+        resolvePublicRegisterFields(tenantId, entityPreset),
+        Partner.find({
+          ownerId: Array.isArray(partnerOwnerIds) ? { $in: partnerOwnerIds } : partnerOwnerIds,
+          isActive: true,
+        })
+          .select("_id name phone")
+          .sort({ name: 1 })
+          .lean(),
       ]);
 
-      res.json({ success: true, data: { fields, entityPreset: settings.entityPreset } });
+      res.json({
+        success: true,
+        data: {
+          fields,
+          entityPreset,
+          partners: partners.map((p) => ({ _id: String(p._id), name: p.name, phone: p.phone })),
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -385,17 +412,17 @@ export class StudentController {
         return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
       }
 
-      const requestedWorkerCompanyCode = requestedEntityPreset === "worker"
-        ? String(registrationCompanyCode || "").trim()
-        : "";
-      const requestedWorkerBranchId = requestedEntityPreset === "worker"
-        ? String(registrationBranchId || "").trim()
-        : "";
+      const requestedCompanyCode = String(registrationCompanyCode || "").trim();
+      const requestedBranchId = String(registrationBranchId || "").trim();
       const teacherCompanyCode = teacher.companyCode || teacher.centerId || teacherId;
-      const workerCompanyCode = requestedWorkerCompanyCode || teacherCompanyCode;
-      const workerBranchId = requestedWorkerBranchId || teacher.branchId;
-      const tenantId = await resolveCustomFieldTenantForOwner(workerCompanyCode);
-      const missing = await findMissingPublicRegisterFields(tenantId, studentData);
+      const targetCompanyCode = requestedCompanyCode || teacherCompanyCode;
+      const targetBranchId = requestedBranchId || teacher.branchId;
+      const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
+      const settings = await new ModuleSettingsService().get(tenantId);
+      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+        ? "worker"
+        : settings.entityPreset;
+      const missing = await findMissingPublicRegisterFields(tenantId, studentData, entityPreset);
       if (missing.length > 0) {
         return res.status(400).json({
           success: false,
@@ -403,16 +430,15 @@ export class StudentController {
         });
       }
 
-      const settings = await new ModuleSettingsService().get(tenantId);
-      if (requestedEntityPreset === "worker" || settings.entityPreset === "worker") {
+      if (entityPreset === "worker") {
         // Mã đối tác giới thiệu do người đăng ký tự nhập nên phải đối chiếu trước khi
         // tạo hồ sơ, tránh để lại hồ sơ mồ côi khi mã sai.
         const referralPartnerCode = String(partnerCode || "").trim().toUpperCase();
         if (referralPartnerCode) {
           const partner = await LaborPartnerModel.exists({
             code: referralPartnerCode,
-            companyCode: workerCompanyCode,
-            ...(workerBranchId ? { branchId: workerBranchId } : {}),
+            companyCode: targetCompanyCode,
+            ...(targetBranchId ? { branchId: targetBranchId } : {}),
             status: "active",
             deletedAt: null,
           });
@@ -426,8 +452,8 @@ export class StudentController {
 
         const worker = await WorkerService.create(
           {
-            companyCode: workerCompanyCode,
-            ...(workerBranchId ? { branchId: workerBranchId } : {}),
+            companyCode: targetCompanyCode,
+            ...(targetBranchId ? { branchId: targetBranchId } : {}),
           },
           {
             ...studentData,
@@ -436,8 +462,8 @@ export class StudentController {
           },
         );
         await sourceUploadFinalizer.finalize({
-          companyCode: workerCompanyCode,
-          branchId: workerBranchId,
+          companyCode: targetCompanyCode,
+          branchId: targetBranchId,
           actorId: teacherId,
           actorName: teacher.displayName || teacher.email,
           trusted: true,
@@ -455,7 +481,7 @@ export class StudentController {
         if (referralPartnerCode) {
           try {
             await WorkerReferralService.createForImportedWorker(
-              { companyCode: workerCompanyCode, ...(workerBranchId ? { branchId: workerBranchId } : {}) } as any,
+              { companyCode: targetCompanyCode, ...(targetBranchId ? { branchId: targetBranchId } : {}) } as any,
               {
                 workerId: String(worker._id),
                 partnerCode: referralPartnerCode,
@@ -474,49 +500,64 @@ export class StudentController {
         return res.status(201).json({ success: true, data: worker, ...(referralWarning ? { warning: referralWarning } : {}) });
       }
 
+      let ownerId = teacherId;
+      let teacherScope: string | string[] = "ALL";
+      const teacherUser = {
+        uid: String(teacher._id || teacherId),
+        role: teacher.role,
+        centerId: teacher.companyCode || teacherId,
+        companyCode: teacher.companyCode,
+        branchId: teacher.branchId,
+      };
+      if (teacher.role === "superadmin") {
+        if (requestedCompanyCode) {
+          ownerId = await resolveCreateOwnerId(teacherUser, requestedCompanyCode);
+          teacherScope = await getCenterOwnerIds({ uid: requestedCompanyCode, role: "admin", centerId: requestedCompanyCode, companyCode: requestedCompanyCode });
+        }
+      } else {
+        ownerId = await resolveCreateOwnerId(teacherUser);
+        teacherScope = await getCenterOwnerIds(teacherUser);
+      }
+
       const payload = {
         ...studentData,
         registrationDate: new Date().toLocaleDateString("vi-VN"),
         fee: "0",
         paidAmount: 0,
-        status: "Dang hoc",
+        status: ["Đang học"],
+        centerId: requestedCompanyCode || teacher.companyCode || teacher.centerId || undefined,
+        partnerId: studentData.partnerId ? String(studentData.partnerId).trim() : undefined,
       };
-
-      const teacherScope =
-        teacher.role === "superadmin"
-          ? "ALL"
-          : await getCenterOwnerIds({
-              uid: teacherId,
-              role: teacher.role,
-              centerId: teacher.companyCode || teacher.centerId || "",
-              companyCode: teacher.companyCode || teacher.centerId,
-            });
 
       // Public registration has no dynamic-field UI and is intentionally exempt
       // from admin-form custom-field requirements.
       const student = await StudentService.createStudent(
-        teacherId,
+        ownerId,
         teacherScope,
-        { ...payload, branchId: teacher.branchId },
+        { ...payload, branchId: targetBranchId },
         undefined,
         { uid: teacherId, name: teacher.displayName || teacher.email || "" },
       );
-      await sourceUploadFinalizer.finalize({
-        companyCode: teacher.companyCode || teacher.centerId,
-        branchId: teacher.branchId,
-        actorId: teacherId,
-        actorName: teacher.displayName || teacher.email,
-        trusted: true,
-      }, {
-        entityType: "student",
-        entityId: String(student._id),
-        entityLabel: student.fullName || String(student._id),
-        sourceRecordId: String(student._id),
-        uploads: ["idCardFrontFile", "idCardBackFile", "portraitFile"].map((field) => ({
-          uploadToken: (studentData as any)[field]?.uploadToken,
-          sourceField: field,
-        })),
-      });
+
+      if ((studentData as any).idCardFrontFile || (studentData as any).idCardBackFile || (studentData as any).portraitFile) {
+        await sourceUploadFinalizer.finalize({
+          companyCode: targetCompanyCode,
+          branchId: targetBranchId,
+          actorId: teacherId,
+          actorName: teacher.displayName || teacher.email,
+          trusted: true,
+        }, {
+          entityType: "student",
+          entityId: String(student._id),
+          entityLabel: student.fullName || String(student._id),
+          sourceRecordId: String(student._id),
+          uploads: ["idCardFrontFile", "idCardBackFile", "portraitFile"].map((field) => ({
+            uploadToken: (studentData as any)[field]?.uploadToken,
+            sourceField: field,
+          })),
+        });
+      }
+
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";

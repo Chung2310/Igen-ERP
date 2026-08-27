@@ -1,4 +1,5 @@
 import { StandardFieldConfig } from "../models/standard-field-config.model";
+import type { EntityPreset } from "../models/module-settings.model";
 
 /**
  * Các trường học viên tự khai được trên form đăng ký công khai.
@@ -24,15 +25,27 @@ export type PublicRegisterFieldKey = (typeof PUBLIC_REGISTER_FIELD_KEYS)[number]
  * (src/modules/student-management/hooks/useStandardFields.ts). Chỉ dùng để dựng
  * thông báo lỗi phía server khi công ty chưa tùy biến nhãn.
  */
-const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<PublicRegisterFieldKey, { label: string; isRequired: boolean }> = {
-  fullName: { label: "Họ và tên", isRequired: true },
-  phone: { label: "Số điện thoại", isRequired: true },
-  email: { label: "Email học viên", isRequired: true },
-  referral: { label: "Nguồn giới thiệu", isRequired: false },
-  birthday: { label: "Ngày sinh", isRequired: false },
-  idCard: { label: "CCCD / CMND", isRequired: false },
-  enrollmentDate: { label: "Ngày nhập học", isRequired: false },
-  address: { label: "Địa chỉ", isRequired: false },
+const DEFAULT_PUBLIC_REGISTER_FIELDS: Record<
+  PublicRegisterFieldKey,
+  { label: string; placeholder: string; isRequired: boolean }
+> = {
+  fullName: { label: "Họ và tên", placeholder: "Nhập họ và tên...", isRequired: true },
+  phone: { label: "Số điện thoại", placeholder: "Nhập số điện thoại...", isRequired: true },
+  email: { label: "Email học viên", placeholder: "Nhập địa chỉ email...", isRequired: true },
+  referral: { label: "Nguồn giới thiệu", placeholder: "Nhập tên người giới thiệu...", isRequired: false },
+  birthday: { label: "Ngày sinh", placeholder: "DD/MM/YYYY", isRequired: false },
+  idCard: { label: "CCCD / CMND", placeholder: "Nhập số CCCD (12 số)...", isRequired: false },
+  enrollmentDate: { label: "Ngày nhập học", placeholder: "DD/MM/YYYY", isRequired: false },
+  address: { label: "Địa chỉ", placeholder: "Nhập địa chỉ...", isRequired: false },
+};
+
+/** Các nhãn phụ thuộc loại hình, dùng khi công ty chưa tự đổi tên trường. */
+const PRESET_PUBLIC_REGISTER_FIELD_OVERRIDES: Partial<
+  Record<EntityPreset, Partial<Record<PublicRegisterFieldKey, Partial<(typeof DEFAULT_PUBLIC_REGISTER_FIELDS)[PublicRegisterFieldKey]>>>>
+> = {
+  worker: {
+    email: { label: "Email lao động" },
+  },
 };
 
 export type ResolvedPublicField = {
@@ -44,7 +57,10 @@ export type ResolvedPublicField = {
 };
 
 /** Ghép phần công ty ghi đè lên bộ trường mặc định, đã lọc theo phạm vi công khai. */
-export async function resolvePublicRegisterFields(tenantId: string): Promise<ResolvedPublicField[]> {
+export async function resolvePublicRegisterFields(
+  tenantId: string,
+  entityPreset: EntityPreset = "student",
+): Promise<ResolvedPublicField[]> {
   const overrides = await StandardFieldConfig.find({
     tenantId,
     moduleKey: "students",
@@ -52,14 +68,17 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
   }).lean();
 
   return PUBLIC_REGISTER_FIELD_KEYS.map((key) => {
-    const base = DEFAULT_PUBLIC_REGISTER_FIELDS[key];
+    const base = {
+      ...DEFAULT_PUBLIC_REGISTER_FIELDS[key],
+      ...PRESET_PUBLIC_REGISTER_FIELD_OVERRIDES[entityPreset]?.[key],
+    };
     const override = overrides.find((row) => row.key === key);
     const alwaysRequired = key === "fullName" || key === "phone" || key === "email";
     const isVisible = alwaysRequired ? true : (override ? override.isVisible && !override.isArchived : true);
     return {
       key,
       label: override?.label || base.label,
-      placeholder: override?.placeholder,
+      placeholder: override?.placeholder || base.placeholder,
       // Trường bị ẩn thì không thể bắt buộc, nếu không học viên sẽ không bao giờ gửi được.
       isRequired: alwaysRequired || (isVisible ? (override ? override.isRequired : base.isRequired) : false),
       isVisible,
@@ -74,8 +93,9 @@ export async function resolvePublicRegisterFields(tenantId: string): Promise<Res
 export async function findMissingPublicRegisterFields(
   tenantId: string,
   data: Record<string, unknown>,
+  entityPreset: EntityPreset = "student",
 ): Promise<string[]> {
-  const fields = await resolvePublicRegisterFields(tenantId);
+  const fields = await resolvePublicRegisterFields(tenantId, entityPreset);
   return fields
     .filter((field) => {
       const alwaysRequired = field.key === "fullName" || field.key === "phone" || field.key === "email";
