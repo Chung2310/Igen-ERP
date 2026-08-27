@@ -41,14 +41,14 @@ async function waitFor(assertion: () => void) {
   throw lastError;
 }
 
-function renderStandardFields(tenantId: string) {
+function renderStandardFields(tenantId: string, preset?: "worker") {
   const container = document.createElement("div");
   const root = createRoot(container);
   mountedRoots.add(root);
   let current!: ReturnType<typeof useStandardFields>;
 
   function Harness({ tenant }: { tenant: string }) {
-    current = useStandardFields("students", undefined, tenant);
+    current = useStandardFields("students", preset, tenant);
     return null;
   }
 
@@ -74,6 +74,15 @@ afterEach(async () => {
 });
 
 describe("useStandardFields tenant transitions", () => {
+  it("uses the worker email label by default", async () => {
+    mockedApiFetch.mockResolvedValue({ data: [] });
+    const hook = renderStandardFields("COMPANY-A", "worker");
+
+    await hook.ready();
+
+    expect(hook.current.fields.find((item) => item.key === "email")?.label).toBe("Email lao động");
+  });
+
   it("hides the previous tenant's overrides while the next tenant loads", async () => {
     const companyB = deferred<{ data: StandardFieldOverride[] }>();
     mockedApiFetch.mockImplementation((_path, options: any) =>
