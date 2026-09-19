@@ -12,7 +12,9 @@ vi.mock("../service/company-work-calendar.service", () => ({
 
 vi.mock("../model/timekeeping.model", () => ({
   TimekeepingLogModel: {
-    findOne: vi.fn(() => ({ lean: vi.fn(async () => null) })),
+    findOne: vi.fn(() => ({
+      sort: vi.fn(() => ({ lean: vi.fn(async () => null) })),
+    })),
   },
 }));
 

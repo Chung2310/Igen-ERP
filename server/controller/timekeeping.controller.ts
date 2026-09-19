@@ -10,6 +10,7 @@ import { BranchModel } from "../model/branch.model";
 import { AttendanceAttemptModel } from "../model/attendance-attempt.model";
 import { BranchAttendanceGateError, validateBranchAttendance } from "../service/branch-attendance-gate.service";
 import { getRequestPublicIp } from "../utils/request-ip";
+import { isAttendanceLogActiveOnDate } from "../service/active-attendance-log.service";
 
 const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
 async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
@@ -166,7 +167,8 @@ export const timekeepingController = {
       }
 
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-      const log = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkOut: null }] }).sort({ date: -1 }).lean();
+      const candidate = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkOut: null }] }).sort({ date: -1 }).lean();
+      const log = isAttendanceLogActiveOnDate(candidate, todayStr) ? candidate : null;
       const dayContext = await getDayContext(companyCode, vietnamDate);
       return res.status(200).json({
         status: "success",
@@ -217,7 +219,8 @@ export const timekeepingController = {
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
 
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-      let log = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkIn: { $ne: null }, checkOut: null }] }).sort({ date: -1 });
+      const candidate = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkIn: { $ne: null }, checkOut: null }] }).sort({ date: -1 });
+      let log = isAttendanceLogActiveOnDate(candidate, todayStr) ? candidate : null;
       if (log && log.checkIn) {
         await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
@@ -313,7 +316,8 @@ export const timekeepingController = {
       const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "";
 
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-      const log = await TimekeepingLogModel.findOne({ uid, companyCode, date: { $in: [todayStr, yesterday] }, checkIn: { $ne: null }, checkOut: null }).sort({ date: -1 });
+      const candidate = await TimekeepingLogModel.findOne({ uid, companyCode, date: { $in: [todayStr, yesterday] }, checkIn: { $ne: null }, checkOut: null }).sort({ date: -1 });
+      const log = isAttendanceLogActiveOnDate(candidate, todayStr) ? candidate : null;
       if (!log || !log.checkIn) {
         await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "missing_check_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({

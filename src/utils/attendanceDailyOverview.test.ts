@@ -80,6 +80,31 @@ describe("buildAttendanceDailyOverview", () => {
     expect(result.counts.absent).toBe(1);
   });
 
+  it("marks a past unfinished log as forgotten checkout", () => {
+    const result = buildAttendanceDailyOverview({
+      date: "2026-08-27",
+      today: "2026-08-28",
+      employees: [{ uid: "missing", displayName: "Thiếu checkout" }],
+      logs: [{
+        uid: "missing",
+        date: "2026-08-27",
+        status: "Present",
+        checkIn: { time: "2026-08-27T01:00:00.000Z" },
+        checkOut: null,
+      }],
+      isWorkingDay: () => true,
+      isHoliday: () => false,
+    });
+
+    expect(result.counts.incomplete).toBe(1);
+    expect(result.errorCounts.forgot_checkout).toBe(1);
+    expect(result.errors.forgot_checkout[0]).toMatchObject({
+      uid: "missing",
+      action: "check-out",
+      reasonCode: "forgot_checkout",
+    });
+  });
+
   it("uses approved applications before inferring an absence", () => {
     const result = buildAttendanceDailyOverview({
       date: "2026-08-13",
