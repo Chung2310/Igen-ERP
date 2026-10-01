@@ -54,4 +54,10 @@ COPY --from=builder /app/server/assets/fonts ./server/assets/fonts
 EXPOSE 3000
 
 # Run the bundled production server
-CMD ["node", "dist-server/server.cjs"]
+# T?o thu m?c logs và gán quy?n cho user node
+RUN mkdir -p /app/logs && chown -R node:node /app
+
+USER node
+
+# Run the bundled production server v?i gi?i h?n heap d? ch?ng memory leak làm phình swap trên VPS
+CMD ["node", "--max-old-space-size=1536", "dist-server/server.cjs"]

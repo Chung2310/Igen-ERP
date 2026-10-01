@@ -5,12 +5,15 @@ services:
     image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
     container_name: ${CONTAINER_NAME:-igen-erp}
     restart: always
+    mem_limit: 1536m
+    mem_reservation: 512m
     ports:
       - "3000:3000"
     env_file:
       - .env
     volumes:
       - .env:/app/.env
+      - ./logs:/app/logs
     networks:
       - default_network
     dns:
