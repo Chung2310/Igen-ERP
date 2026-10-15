@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
-import { Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt, Search, RotateCcw } from "lucide-react";
+import { Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt, Search, RotateCcw } from "./DashboardIcons";
 import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
 import { formatDashboardCurrency } from "./dashboardUtils";
 import { ActionItemsWidget } from "./ActionItemsWidget";

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardList, PackageCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, PackageCheck } from "./DashboardIcons";
 import { DashboardActionItems } from "../../types/dashboard";
 import { OverviewComparisonChart } from "./OverviewCharts";
 import { DASHBOARD_CHART_PALETTE } from "./dashboardPalette";
@@ -29,7 +29,7 @@ export function ActionItemsWidget({
     return (
       <div className="flex items-center gap-2.5 rounded-2xl border border-[#B5E8FF] bg-[#E8F7FF] p-4 text-sm font-semibold text-[#007EB8]">
         <CheckCircle2 className="h-5 w-5" />
-        Không có việc gì cần xử lý gấp hôm nay. 🎉
+        Không có việc gì cần xử lý gấp hôm nay.
       </div>
     );
   }

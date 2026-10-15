@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BarChart3, PieChart, Calendar, TrendingUp, Loader2 } from "lucide-react";
+import { BarChart3, PieChart, Calendar, TrendingUp, Loader2 } from "./DashboardIcons";
 import { BarChart, DonutCard } from "./DashboardWidgets";
 import { formatDashboardCurrency } from "./dashboardUtils";
 import { analyticsService } from "../../services/analyticsService";

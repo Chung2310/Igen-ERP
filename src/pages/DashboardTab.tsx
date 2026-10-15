@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
-import { LayoutDashboard, TrendingUp } from "lucide-react";
+import { LayoutDashboard, TrendingUp } from "../components/dashboard/DashboardIcons";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { isModuleEnabled } from "../config/modules";
