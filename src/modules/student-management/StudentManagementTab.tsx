@@ -100,7 +100,8 @@ export default function StudentManagementTab() {
     return routes;
   }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions, userProfile?.role]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
-    return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
+    const centerId = userProfile && "centerId" in userProfile && typeof userProfile.centerId === "string" ? userProfile.centerId : undefined;
+    return userProfile?.role === "superadmin" ? "all" : centerId || userProfile?.companyCode || "all";
   });
 
   const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
@@ -212,7 +213,9 @@ export default function StudentManagementTab() {
                     : "text-slate-600 hover:text-[#008FCF] hover:bg-[#EAF8FF] font-medium"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8]">
+                  <Icon className="h-4 w-4" />
+                </span>
                 <span>{item.label}</span>
               </button>
             );
