@@ -557,11 +557,11 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
 
             {/* Headline: Original iGen text */}
-            <div data-landing-reveal className="max-w-4xl mx-auto space-y-2">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[42px] font-bold text-slate-900 tracking-tight leading-tight">
-                Tối ưu hóa Vận hành Doanh nghiệp của Bạn <br />
+            <div data-landing-reveal className="max-w-5xl mx-auto space-y-2">
+              <h1 className="text-[1.8rem] sm:text-[2.25rem] md:text-[2.7rem] lg:text-[3.15rem] font-bold text-slate-900 tracking-tight leading-tight">
+                Tối ưu hóa vận hành doanh nghiệp của bạn <br />
                 <span className="text-[#00ADFC]">
-                  với Nền tảng {BRAND_NAME}
+                  với nền tảng {BRAND_NAME}
                 </span>
               </h1>
 
