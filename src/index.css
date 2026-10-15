@@ -732,13 +732,21 @@ code, kbd, samp, pre {
   animation: landing-rainbow-spin 2.2s linear infinite;
 }
 
-.org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
+.org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
+.org-chart-edit-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
   font-weight: 400;
 }
 
-.org-chart-detail-popup .uppercase {
+.org-chart-detail-popup .uppercase,
+.org-chart-edit-popup .uppercase {
   text-transform: none;
   letter-spacing: normal;
+}
+
+.org-chart-edit-popup label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .org-chart-detail-popup__details .uppercase {
@@ -792,6 +800,52 @@ code, kbd, samp, pre {
   transform: translateY(0);
 }
 
+@keyframes landing-hero-enter {
+  from { opacity: 0; transform: translateY(18px); filter: blur(5px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes landing-hero-rule {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+.landing-hero-line--intro {
+  animation: landing-hero-enter 700ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+.landing-hero-line--brand {
+  background: linear-gradient(90deg, #007db8 0%, #00adfc 48%, #7567ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: landing-hero-enter 700ms cubic-bezier(0.2, 0.75, 0.2, 1) 150ms both;
+}
+
+.landing-hero-features {
+  animation: landing-hero-enter 650ms cubic-bezier(0.2, 0.75, 0.2, 1) 330ms both;
+}
+
+.landing-hero-features::after {
+  content: "";
+  display: block;
+  width: min(72%, 520px);
+  height: 2px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #00adfc, #7567ff, transparent);
+  transform-origin: center;
+  animation: landing-hero-rule 850ms ease-out 550ms both;
+}
+
+.landing-hero-cta-enter {
+  animation: landing-hero-enter 650ms cubic-bezier(0.2, 0.75, 0.2, 1) 580ms both;
+}
+
+.landing-hero-cta-enter:nth-child(2) {
+  animation-delay: 720ms;
+}
+
 .landing-hero-visual {
   transition: transform 400ms cubic-bezier(0.2, 0.75, 0.2, 1), box-shadow 400ms ease;
 }
@@ -801,18 +855,139 @@ code, kbd, samp, pre {
   overflow: hidden;
 }
 
+.landing-hero-composition {
+  background: linear-gradient(135deg, #f2faff, #e8f5ff 55%, #f8faff);
+}
+
+.landing-hero-workforce {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 8px;
+  padding: 12px 4px;
+}
+
+.landing-hero-worker {
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+}
+
+.landing-hero-worker-art {
+  width: 100%;
+  aspect-ratio: 1;
+  background-image: url('/hero-workforce-scenes.png');
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+}
+
+.landing-hero-worker--hrm .landing-hero-worker-art { background-position: 0 0; }
+.landing-hero-worker--pos .landing-hero-worker-art { background-position: 100% 0; }
+.landing-hero-worker--marketing .landing-hero-worker-art { background-position: 0 100%; }
+.landing-hero-worker--classroom .landing-hero-worker-art { background-position: 100% 100%; }
+
+.landing-hero-worker figcaption {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid #ccecff;
+  border-radius: 999px;
+  background: #ffffffed;
+  color: #17628c;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .landing-hero-composition .landing-hero-scene {
+    width: 76%;
+    margin-inline: auto;
+    mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  }
+
+  .landing-hero-workforce {
+    display: contents;
+  }
+
+  .landing-hero-worker {
+    position: absolute;
+    width: 18%;
+    z-index: 1;
+  }
+
+  .landing-hero-worker--hrm { left: 0; top: 4%; }
+  .landing-hero-worker--marketing { left: 0; bottom: 4%; }
+  .landing-hero-worker--pos { right: 0; top: 4%; }
+  .landing-hero-worker--classroom { right: 0; bottom: 4%; }
+}
+
 .landing-hero-background {
   display: block;
   width: 100%;
   height: auto;
 }
 
+.landing-hero-circuits {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.landing-hero-circuit path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.landing-hero-circuit-glow {
+  stroke: #1ebeff;
+  stroke-width: 14;
+  opacity: 0.75;
+}
+
+.landing-hero-circuit-base {
+  stroke: url(#landing-circuit-gradient);
+  stroke-width: 3;
+  opacity: 0.95;
+}
+
+.landing-hero-circuit-pulse {
+  stroke: #fff;
+  stroke-width: 8;
+  stroke-dasharray: 9 91;
+  stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 6px #00baff);
+  animation: landing-circuit-flow 3.5s linear infinite;
+  animation-delay: inherit;
+}
+
+.landing-hero-circuit-hub {
+  fill: #2bd4ff;
+  opacity: 0.55;
+  filter: drop-shadow(0 0 12px #00baff);
+  animation: landing-circuit-breathe 2s ease-in-out infinite;
+}
+
+.landing-hero-circuit-core {
+  fill: white;
+  filter: drop-shadow(0 0 6px #00baff);
+}
+
+@keyframes landing-circuit-flow {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes landing-circuit-breathe {
+  50% { opacity: 0.9; }
+}
+
 .landing-hero-robot {
   position: absolute;
-  width: 61%;
+  width: 45%;
   height: auto;
-  left: 19.5%;
-  top: 11.5%;
+  left: 24%;
+  top: 0;
   transform-origin: 50% 58%;
   animation: landing-robot-hover 2.4s ease-in-out infinite;
   will-change: transform;
@@ -866,6 +1041,16 @@ code, kbd, samp, pre {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .landing-hero-line,
+  .landing-hero-features,
+  .landing-hero-features::after,
+  .landing-hero-cta-enter {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
   .landing-rainbow-border:is(:hover, :focus-visible, :active),
   .landing-rainbow-card:is(:hover, :focus-within, :active),
   .landing-solution-enter,
@@ -891,5 +1076,15 @@ code, kbd, samp, pre {
 
   .landing-hero-robot {
     animation: none;
+  }
+
+  .landing-hero-circuit-pulse,
+  .landing-hero-circuit-hub {
+    animation: none;
+  }
+
+  .landing-hero-circuit-pulse {
+    stroke-dasharray: none;
+    opacity: 0.55;
   }
 }

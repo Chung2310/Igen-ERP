@@ -181,9 +181,7 @@ export default function OrgChartTab({
 }: OrgChartTabProps) {
   const isMobile = useIsMobile();
   const [zoomLevel, setZoomLevel] = useState<number>(0.65);
-  const [isFitted, setIsFitted] = useState<boolean>(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [preFitZoom, setPreFitZoom] = useState<number>(0.65);
   const [isSafari, setIsSafari] = useState<boolean>(false);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -232,51 +230,6 @@ export default function OrgChartTab({
       await document.exitFullscreen();
     } else if (chartViewportRef.current) {
       await chartViewportRef.current.requestFullscreen();
-    }
-  };
-
-  const toggleFitScreen = () => {
-    if (!containerRef.current) return;
-    const child = containerRef.current.firstElementChild as HTMLElement;
-    if (!child) return;
-
-    if (isFitted) {
-      setZoomLevel(preFitZoom);
-      setIsFitted(false);
-
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollLeft = (containerRef.current.scrollWidth - containerRef.current.clientWidth) / 2;
-          containerRef.current.scrollTop = (containerRef.current.scrollHeight - containerRef.current.clientHeight) / 2;
-        }
-      }, 50);
-    } else {
-      setPreFitZoom(zoomLevel);
-
-      const rect = child.getBoundingClientRect();
-      const unscaledWidth = rect.width / zoomLevel;
-      const unscaledHeight = rect.height / zoomLevel;
-
-      const padding = 40;
-      const viewWidth = containerRef.current.clientWidth - padding;
-      const viewHeight = containerRef.current.clientHeight - padding;
-
-      const fitWidthScale = viewWidth / unscaledWidth;
-      const fitHeightScale = viewHeight / unscaledHeight;
-      let targetZoom = Math.min(fitWidthScale, fitHeightScale);
-
-      targetZoom = Math.max(0.2, Math.min(1.5, targetZoom));
-      targetZoom = Number(targetZoom.toFixed(2));
-
-      setZoomLevel(targetZoom);
-      setIsFitted(true);
-
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollLeft = (containerRef.current.scrollWidth - containerRef.current.clientWidth) / 2;
-          containerRef.current.scrollTop = (containerRef.current.scrollHeight - containerRef.current.clientHeight) / 2;
-        }
-      }, 50);
     }
   };
 
@@ -329,7 +282,6 @@ export default function OrgChartTab({
       e.preventDefault();
       e.stopPropagation();
       const zoomFactor = e.deltaY < 0 ? 0.05 : -0.05;
-      setIsFitted(false);
       setZoomLevel((prev) => Math.max(0.3, Math.min(1.8, Number((prev + zoomFactor).toFixed(2)))));
     };
 
@@ -1316,7 +1268,6 @@ export default function OrgChartTab({
               value={zoomLevel}
               onChange={(e) => {
                 setZoomLevel(parseFloat(e.target.value));
-                setIsFitted(false);
               }}
               className="w-20 accent-[#00ADFC] cursor-pointer"
             />
@@ -1532,16 +1483,7 @@ export default function OrgChartTab({
 
           {/* Interactive Tree viewport diagram - full width */}
           <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl border border-[#E1EAF5] bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
-            <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleFitScreen}
-                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#DCE7F4] bg-white text-slate-700 shadow-2xs transition-all hover:bg-[#E8F7FF] hover:text-[#007EB8] active:scale-95"
-                title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
-                aria-label={isFitted ? "Phóng to mặc định" : "Vừa khung hình"}
-              >
-                {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-              </button>
+            <div className="absolute right-3 top-3 z-20">
               <button
                 type="button"
                 onClick={toggleChartFullscreen}
@@ -1600,10 +1542,11 @@ export default function OrgChartTab({
       {isDetailModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" id="employee_detail_modal">
           {isEditing ? (
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <div className="org-chart-edit-popup relative w-full max-w-4xl max-h-[calc(100dvh-2rem)] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl animate-in fade-in zoom-in-95 duration-200 md:p-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                  {renderAvatar(selectedEmp.avatar, "w-9 h-9", "text-base")}
                   <h4 className="font-bold text-slate-900 text-sm font-sans">Chỉnh sửa nhân sự</h4>
                 </div>
                 <button
@@ -1615,11 +1558,7 @@ export default function OrgChartTab({
                 </button>
               </div>
 
-              <div className="space-y-3.5 text-xs text-left">
-                <div className="flex justify-center pb-2">
-                  {renderAvatar(selectedEmp.avatar, "w-16 h-16", "text-3xl")}
-                </div>
-
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-left text-xs sm:grid-cols-2">
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
                   <input
@@ -1636,7 +1575,7 @@ export default function OrgChartTab({
                   <input type="text" value={editQualification} onChange={(e) => setEditQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Chức danh</label>
                     <input
@@ -1660,7 +1599,7 @@ export default function OrgChartTab({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
                     <input
@@ -1681,8 +1620,8 @@ export default function OrgChartTab({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" /></div>
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
@@ -1690,11 +1629,11 @@ export default function OrgChartTab({
                     type="email"
                     value={editEmail}
                     disabled
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none bg-slate-50 text-slate-800 cursor-not-allowed select-none"
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block font-bold text-gray-500 mb-1">Link mô tả công việc</label>
                   <div className="flex items-center gap-2">
                     <input
@@ -1736,7 +1675,7 @@ export default function OrgChartTab({
                   </div>
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp</label>
                   <select
                     value={editParentId}
@@ -1777,7 +1716,7 @@ export default function OrgChartTab({
                 </div>
               </div>
 
-              <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
                 <button
                   type="button"
                   disabled={isSaving}
@@ -1790,7 +1729,7 @@ export default function OrgChartTab({
                   type="button"
                   disabled={isSaving}
                   onClick={handleEditEmployeeSave}
-                  className="px-5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white font-semibold rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#00ADFC] px-5 py-2 text-white transition-all hover:bg-[#0095d9] active:scale-95 active:bg-[#0085c2] disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {isSaving ? (
                     <>

@@ -557,45 +557,89 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
 
             {/* Headline: Original iGen text */}
-            <div data-landing-reveal className="max-w-5xl mx-auto space-y-2">
+            <div className="max-w-5xl mx-auto space-y-2">
               <h1 className="text-[1.8rem] sm:text-[2.25rem] md:text-[2.7rem] lg:text-[3.15rem] font-bold text-slate-900 tracking-tight leading-tight">
-                Tối ưu hóa vận hành doanh nghiệp của bạn <br />
-                <span className="text-[#00ADFC]">
+                <span className="landing-hero-line landing-hero-line--intro block">Tối ưu hóa vận hành doanh nghiệp của bạn</span>
+                <span className="landing-hero-line landing-hero-line--brand block text-[#00ADFC]">
                   với nền tảng {BRAND_NAME}
                 </span>
               </h1>
 
-              <p className="text-xs sm:text-sm md:text-base font-semibold text-slate-700">
+              <p className="landing-hero-features text-xs sm:text-sm md:text-base font-semibold text-slate-700">
                 AI Marketing – Bán lẻ – Tuyển dụng – Quản lý học viên – HRM
               </p>
             </div>
 
             {/* Action Buttons: Original iGen Action Buttons */}
-            <div data-landing-reveal className="flex flex-wrap items-center justify-center gap-3 pt-1">
-              <a
-                href="/dang-nhap"
-                id="hero_btn_get_started"
-                className="landing-rainbow-border text-white font-semibold py-2.5 px-6 rounded-xl text-xs sm:text-sm shadow-md shadow-[#00ADFC]/25 hover:shadow-lg hover:shadow-[#00ADFC]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2"
-              >
-                <span>Bắt đầu ngay hôm nay</span>
-                <ArrowRight className="h-4 w-4" />
-              </a>
-              <a
-                href="#tich-hop-tiktok"
-                id="hero_btn_tiktok_features"
-                className="landing-rainbow-border landing-rainbow-border--light text-[#00ADFC] font-semibold py-2.5 px-6 rounded-xl text-xs sm:text-sm shadow-2xs hover:-translate-y-0.5 transition-all"
-              >
-                <span>Xem tích hợp TikTok Shop</span>
-              </a>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <div className="landing-hero-cta-enter">
+                <a
+                  href="/dang-nhap"
+                  id="hero_btn_get_started"
+                  className="landing-rainbow-border text-white font-semibold py-2.5 px-6 rounded-xl text-xs sm:text-sm shadow-md shadow-[#00ADFC]/25 hover:shadow-lg hover:shadow-[#00ADFC]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2"
+                >
+                  <span>Bắt đầu ngay hôm nay</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+              <div className="landing-hero-cta-enter">
+                <a
+                  href="#tich-hop-tiktok"
+                  id="hero_btn_tiktok_features"
+                  className="landing-rainbow-border landing-rainbow-border--light text-[#00ADFC] font-semibold py-2.5 px-6 rounded-xl text-xs sm:text-sm shadow-2xs hover:-translate-y-0.5 transition-all"
+                >
+                  <span>Xem tích hợp TikTok Shop</span>
+                </a>
+              </div>
             </div>
 
 
             {/* Layered hero illustration: the robot moves while the dashboard stays still */}
-            <div data-landing-reveal className="relative max-w-4xl mx-auto pt-4">
-              <div className="landing-hero-visual relative rounded-2xl border border-sky-100 bg-white/90 p-2 shadow-2xl shadow-[#00ADFC]/10 backdrop-blur-xs overflow-hidden">
-                <div className="landing-hero-scene rounded-xl" role="img" aria-label="Robot AI của iGen ERP bay trước các bảng quản lý nhân sự, bán lẻ và giáo dục">
-                  <img src="/hero-ai-agent-background-hrm-retail-edu.png" alt="" className="landing-hero-background" aria-hidden="true" />
-                  <img src="/hero-ai-agent-robot.png" alt="" className="landing-hero-robot" aria-hidden="true" />
+            <div data-landing-reveal className="relative max-w-6xl mx-auto pt-4">
+              <div className="landing-hero-visual landing-hero-composition relative rounded-2xl border border-sky-100 p-2 shadow-2xl shadow-[#00ADFC]/10 overflow-hidden">
+                <div className="landing-hero-scene rounded-xl" role="img" aria-label="Robot iGen kết nối các bảng biểu đồ và chỉ số quản trị ERP">
+                  <img src="/hero-erp-dashboard.png" alt="" className="landing-hero-background" aria-hidden="true" />
+                  <svg className="landing-hero-circuits" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="landing-circuit-gradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stopColor="#16cfff" />
+                        <stop offset="0.55" stopColor="#2794ff" />
+                        <stop offset="1" stopColor="#8d75ff" />
+                      </linearGradient>
+                      <filter id="landing-circuit-glow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="5" />
+                      </filter>
+                    </defs>
+                    {[
+                      'M 780 704 L 608 704 Q 572 704 558 670 L 510 548 Q 500 524 500 490',
+                      'M 780 704 L 630 756 Q 596 766 566 742 L 476 671 Q 454 653 438 646',
+                      'M 780 704 L 950 704 Q 987 704 1001 668 L 1054 508 Q 1064 480 1092 461',
+                      'M 780 704 L 991 759 Q 1021 768 1050 744 L 1158 656 Q 1175 640 1193 640',
+                      'M 780 704 L 1040 704 Q 1080 704 1110 680 L 1360 451',
+                    ].map((route, index) => (
+                      <g key={route} className="landing-hero-circuit" style={{ animationDelay: `${index * 260}ms` }}>
+                        <path className="landing-hero-circuit-glow" d={route} filter="url(#landing-circuit-glow)" />
+                        <path className="landing-hero-circuit-base" d={route} />
+                        <path className="landing-hero-circuit-pulse" d={route} pathLength="100" />
+                      </g>
+                    ))}
+                    <circle className="landing-hero-circuit-hub" cx="780" cy="704" r="13" />
+                    <circle className="landing-hero-circuit-core" cx="780" cy="704" r="5" />
+                  </svg>
+                  <img src="/hero-igen-robot.png" alt="" className="landing-hero-robot" aria-hidden="true" />
+                </div>
+                <div className="landing-hero-workforce">
+                  {[
+                    { key: 'hrm', label: 'HRM', description: 'Nhân sự đang trao đổi và quản lý hồ sơ nhân viên' },
+                    { key: 'pos', label: 'Bán lẻ POS', description: 'Nhân viên bán hàng sử dụng máy POS phục vụ khách' },
+                    { key: 'marketing', label: 'AI Marketing', description: 'Chuyên viên marketing đang xây dựng chiến dịch' },
+                    { key: 'classroom', label: 'Quản lý lớp học', description: 'Giáo viên quản lý lịch học và hỗ trợ học viên' },
+                  ].map(({ key, label, description }) => (
+                    <figure key={key} className={`landing-hero-worker landing-hero-worker--${key}`}>
+                      <div className="landing-hero-worker-art" role="img" aria-label={description} />
+                      <figcaption>{label}</figcaption>
+                    </figure>
+                  ))}
                 </div>
               </div>
             </div>
@@ -667,7 +711,7 @@ export default function LandingPage() {
                         <span className="grid h-6 w-6 place-items-center rounded-lg bg-[#00ADFC] text-white text-[10px] font-bold">iG</span>
                         <span className="text-[11px] font-semibold text-slate-800">iGen ERP</span>
                       </div>
-                      <span className="text-[9px] sm:text-[10px] text-slate-400">Giao diện minh họa</span>
+                      <span className="text-[9px] sm:text-[10px] text-slate-400"></span>
                     </div>
                     <div className="flex min-h-[292px] sm:min-h-[330px]">
                       <div className="w-12 sm:w-14 shrink-0 border-r border-slate-100 bg-[#f7fbff] p-2 flex flex-col items-center gap-3">
