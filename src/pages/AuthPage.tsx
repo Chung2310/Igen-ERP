@@ -101,10 +101,10 @@ export default function AuthPage() {
 
           <div className="relative flex flex-1 items-center justify-center pt-4">
             <img
-              src="/hero-igen-robot.png"
-              alt="Robot iGen"
-              width={1314}
-              height={1197}
+              src="/login-igen-operator.png"
+              alt="Robot iGen đang điều hành hệ thống qua bảng điều khiển và các biểu đồ"
+              width={1422}
+              height={1106}
               className="h-48 w-full max-w-[360px] object-contain drop-shadow-[0_16px_24px_rgba(0,35,110,0.25)] lg:h-[280px]"
             />
           </div>
