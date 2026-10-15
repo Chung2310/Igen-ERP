@@ -1185,9 +1185,9 @@ export default function OrgChartTab({
             setSelectedEmp(node);
           }}
           onMouseLeave={() => setActiveDropdownCardId(null)}
-          className={`relative w-44 cursor-pointer rounded-2xl border border-white bg-white p-2 text-center shadow-[0_8px_28px_rgba(57,87,132,0.10)] transition-all duration-200 sm:w-48 ${isSelected
+          className={`landing-rainbow-card relative w-44 cursor-pointer rounded-2xl p-2 text-center shadow-[0_8px_28px_rgba(57,87,132,0.10)] transition-all duration-200 sm:w-48 ${isSelected
             ? "z-10 ring-2 ring-[#00ADFC] shadow-[0_10px_30px_rgba(0,173,252,0.22)]"
-            : "hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_12px_30px_rgba(57,87,132,0.16)]"
+            : "hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(57,87,132,0.16)]"
             } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"}`}
           id={`org_node_${node.id}`}
         >
