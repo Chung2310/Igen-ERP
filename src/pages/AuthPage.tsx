@@ -85,7 +85,7 @@ export default function AuthPage() {
           <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.18)_1px,transparent_1px)] [background-size:36px_36px] [mask-image:linear-gradient(to_bottom,transparent,black)]" aria-hidden="true" />
 
           <div className="relative flex items-center gap-2.5 text-sm font-semibold tracking-wide">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f2e9ff] text-[#8053b9] shadow-sm">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200/45 bg-[#0758b8]/75 text-[#9cf3ff] shadow-[0_4px_12px_rgba(0,45,115,0.18)]">
               <Building2 className="h-5 w-5" aria-hidden="true" />
             </span>
             Nền tảng quản trị doanh nghiệp
