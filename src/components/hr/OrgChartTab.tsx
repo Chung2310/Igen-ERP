@@ -162,7 +162,7 @@ const getCategoryByDivision = (division: string) => {
   ) {
     return FUNCTIONAL_CATEGORIES[5];
   }
-  return FUNCTIONAL_CATEGORIES[5];
+  return FUNCTIONAL_CATEGORIES[6];
 };
 
 export default function OrgChartTab({
@@ -181,6 +181,7 @@ export default function OrgChartTab({
   const isMobile = useIsMobile();
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isFitted, setIsFitted] = useState<boolean>(false);
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [preFitZoom, setPreFitZoom] = useState<number>(1);
   const [isSafari, setIsSafari] = useState<boolean>(false);
   const [confirmState, setConfirmState] = useState<{
@@ -212,11 +213,26 @@ export default function OrgChartTab({
     });
   };
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartViewportRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [scrollLeftState, setScrollLeftState] = useState(0);
   const [scrollTopState, setScrollTopState] = useState(0);
+
+  useEffect(() => {
+    const syncFullscreen = () => setIsChartFullscreen(document.fullscreenElement === chartViewportRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  const toggleChartFullscreen = async () => {
+    if (document.fullscreenElement === chartViewportRef.current) {
+      await document.exitFullscreen();
+    } else if (chartViewportRef.current) {
+      await chartViewportRef.current.requestFullscreen();
+    }
+  };
 
   const toggleFitScreen = () => {
     if (!containerRef.current) return;
@@ -1120,7 +1136,6 @@ export default function OrgChartTab({
   const visibleEmployees = filterOrgChartEmployees(employees, searchQuery, filterDepartment);
   const paginatedEmployees = visibleEmployees.slice((listPage - 1) * listLimit, listPage * listLimit);
   const missingValue = "Chưa cập nhật";
-
   // Recursive Branch rendering component helper
   const renderBranch = (node: EmployeeNode) => {
     const children = arrangedEmployees.filter(e => e.parentId === node.id);
@@ -1130,29 +1145,30 @@ export default function OrgChartTab({
     const isCollapsed = collapsedNodes.has(node.id);
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
 
-    const category = getCategoryByDivision(node.division);
+    const category = getCategoryByDivision(`${node.division || ""} ${node.department || ""}`);
 
     const getCategoryBadgeStyles = (key: string) => {
       switch (key) {
-        case "governance": return "bg-slate-100 text-slate-800 border-slate-200";
-        case "finance": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-        case "tech": return "bg-indigo-50 text-indigo-700 border-indigo-200";
-        case "operations": return "bg-cyan-50 text-cyan-700 border-cyan-200";
-        case "sales": return "bg-amber-50 text-amber-700 border-amber-200";
-        case "hr": return "bg-rose-50 text-rose-700 border-rose-200";
-        default: return "bg-slate-50 text-slate-655 border-slate-200";
+        case "governance": return "bg-blue-50 text-blue-700";
+        case "finance": return "bg-[#E4F6EA] text-[#176B3A]";
+        case "tech": return "bg-violet-50 text-violet-700";
+        case "operations": return "bg-cyan-50 text-cyan-700";
+        case "sales": return "bg-[#E4F6EA] text-[#176B3A]";
+        case "hr": return "bg-rose-50 text-rose-700";
+        default: return "bg-slate-100 text-slate-700";
       }
     };
 
-    const renderCardIcon = (role: string) => {
-      const rLower = (role || "").toLowerCase();
-      if (rLower.includes("ceo") || rLower.includes("chủ tịch") || rLower.includes("coo") || rLower.includes("cfo") || rLower.includes("cmo") || rLower.includes("cso") || rLower.includes("director") || rLower.includes("giám đốc")) {
-        return "👑";
+    const getCategoryHeaderStyles = (key: string) => {
+      switch (key) {
+        case "governance": return "bg-blue-50";
+        case "finance": return "bg-[#F0FAF4]";
+        case "tech": return "bg-violet-50";
+        case "operations": return "bg-cyan-50";
+        case "sales": return "bg-[#F0FAF4]";
+        case "hr": return "bg-rose-50";
+        default: return "bg-slate-50";
       }
-      if (rLower.includes("trưởng phòng") || rLower.includes("manager") || rLower.includes("leader") || rLower.includes("trưởng nhóm")) {
-        return "💼";
-      }
-      return "👤";
     };
 
     return (
@@ -1163,50 +1179,47 @@ export default function OrgChartTab({
           onDragStart={(e) => handleDragStart(e, node.id)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, node.id)}
-          onClick={() => setSelectedEmp(node)}
+          onClick={async () => {
+            if (document.fullscreenElement === chartViewportRef.current) await document.exitFullscreen();
+            setSelectedEmp(node);
+          }}
           onMouseLeave={() => setActiveDropdownCardId(null)}
-          className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
-            ? "ring-2 ring-[#00ADFC] shadow-lg shadow-[#00ADFC]/20 border-transparent z-10"
-            : "hover:border-[#00ADFC]/50 hover:shadow-md"
-            } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"} w-48 sm:w-56`}
+          className={`relative w-44 cursor-pointer rounded-2xl border border-white bg-white p-2 text-center shadow-[0_8px_28px_rgba(57,87,132,0.10)] transition-all duration-200 sm:w-48 ${isSelected
+            ? "z-10 ring-2 ring-[#00ADFC] shadow-[0_10px_30px_rgba(0,173,252,0.22)]"
+            : "hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_12px_30px_rgba(57,87,132,0.16)]"
+            } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"}`}
           id={`org_node_${node.id}`}
         >
+          <div className={`absolute inset-x-1.5 top-1.5 h-14 rounded-xl ${getCategoryHeaderStyles(category.key)}`} />
+
           {/* Online/Offline Dot */}
-          <div className="absolute top-2 right-2 z-10 flex items-center justify-center">
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center justify-center">
             {node.status === "online" ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
+              <span className="block h-2 w-2 rounded-full border border-white bg-emerald-500 shadow-xs animate-pulse" title="Đang hoạt động" />
             ) : (
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
+              <span className="block h-2 w-2 rounded-full border border-white bg-slate-300" title="Ngoại tuyến" />
             )}
           </div>
 
-          <div className="space-y-2">
+          {node.isLeader && (
+            <span className="absolute left-2 top-2 z-10 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800" title="Trưởng nhóm">
+              👑
+            </span>
+          )}
 
-
-            {/* Middle row: Department (Main Title) */}
-            <div className="min-h-[32px] flex items-center flex-wrap gap-1.5">
-              <h4 className="font-bold text-xs text-slate-800 leading-snug font-sans line-clamp-2">
-                {node.department}
-              </h4>
-              {node.isLeader && (
-                <span className="bg-amber-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono shadow-sm flex items-center gap-0.5 shrink-0">
-                  👑 Leader
-                </span>
-              )}
+          <div className="relative z-[1] flex flex-col items-center pt-1">
+            <div className="rounded-full bg-white p-0.5 shadow-sm">
+              {renderAvatar(node.avatar, "w-12 h-12 sm:w-14 sm:h-14", "text-xl")}
             </div>
-
-            {/* Bottom row: Manager Info */}
-            <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
-              {renderAvatar(node.avatar, "w-6 h-6", "text-xs")}
-              <div className="min-w-0 flex-1">
-                <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider truncate font-mono">
-                  {renderCardIcon(node.role)} {node.role}
-                </span>
-                <span className="block text-[10px] font-bold text-slate-900 truncate">
-                  {node.name}
-                </span>
-              </div>
-            </div>
+            <h4 className="mt-1.5 line-clamp-2 min-h-8 px-1 text-xs font-bold leading-4 text-slate-900" title={node.name}>
+              {node.name || missingValue}
+            </h4>
+            <p className="w-full truncate px-1 text-[10px] leading-4 text-slate-600" title={node.role}>
+              {node.role || missingValue}
+            </p>
+            <span className={`mt-1.5 max-w-full truncate rounded-lg px-2.5 py-1 text-[9px] font-semibold ${getCategoryBadgeStyles(category.key)}`} title={node.department || node.division}>
+              {node.department || node.division || missingValue}
+            </span>
           </div>
 
           {/* Collapse/Expand toggle badge */}
@@ -1215,10 +1228,10 @@ export default function OrgChartTab({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
               title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
-              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${isCollapsed ? "bg-[#E8F7FF] text-[#007EB8] hover:bg-[#00ADFC] hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+              className={`absolute -bottom-2 right-2 flex h-5 w-5 cursor-pointer select-none items-center justify-center rounded-full border-2 border-white text-[10px] font-bold shadow-xs transition-all ${isCollapsed ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
             >
-              {isCollapsed ? `+${directReportsCount}` : "^"}
+              {isCollapsed ? `+${directReportsCount}` : "−"}
             </button>
           )}
         </div>
@@ -1226,7 +1239,7 @@ export default function OrgChartTab({
         {/* Children Render recursive block */}
         {children.length > 0 && !isCollapsed && (
           <>
-            <div className="w-0.5 h-6 bg-slate-300" />
+            <div className="h-5 w-px bg-[#B8C9E1]" />
             <div className="flex relative items-start">
               {children.map((child, index) => {
                 const isFirst = index === 0;
@@ -1234,15 +1247,15 @@ export default function OrgChartTab({
                 const hasSiblings = children.length > 1;
 
                 return (
-                  <div key={child.id} className="flex flex-col items-center px-4 relative">
+                  <div key={child.id} className="relative flex flex-col items-center px-2 sm:px-3">
                     {/* Horizontal Connector bar */}
                     {hasSiblings && (
-                      <div className="absolute top-0 left-0 right-0 h-0.5 flex">
-                        <div className={`w-1/2 ${isFirst ? '' : 'border-t-2 border-slate-300'}`} />
-                        <div className={`w-1/2 ${isLast ? '' : 'border-t-2 border-slate-300'}`} />
+                      <div className="absolute left-0 right-0 top-0 flex h-px">
+                        <div className={`w-1/2 ${isFirst ? '' : 'border-t border-[#B8C9E1]'}`} />
+                        <div className={`w-1/2 ${isLast ? '' : 'border-t border-[#B8C9E1]'}`} />
                       </div>
                     )}
-                    <div className="w-0.5 h-6 border-l-2 border-slate-300" />
+                    <div className="h-5 w-px bg-[#B8C9E1]" />
 
                     {renderBranch(child)}
                   </div>
@@ -1517,25 +1530,34 @@ export default function OrgChartTab({
           )}
 
           {/* Interactive Tree viewport diagram - full width */}
-          <div className={`col-span-1 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px] ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
-
-
-            {/* Nút icon Vừa khung hình / Mở rộng đặt góc trên bên phải trong khung sơ đồ */}
-            <button
-              type="button"
-              onClick={toggleFitScreen}
-              className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 border border-gray-200 text-slate-700 shadow-2xs hover:bg-white hover:text-indigo-655 active:scale-95 transition-all cursor-pointer"
-              title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
-            >
-              {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-            </button>
+          <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl border border-[#E1EAF5] bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
+            <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleFitScreen}
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#DCE7F4] bg-white text-slate-700 shadow-2xs transition-all hover:bg-[#E8F7FF] hover:text-[#007EB8] active:scale-95"
+                title={isFitted ? "Phóng to (Mặc định)" : "Vừa khung hình"}
+                aria-label={isFitted ? "Phóng to mặc định" : "Vừa khung hình"}
+              >
+                {isFitted ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={toggleChartFullscreen}
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#DCE7F4] bg-white text-slate-700 shadow-2xs transition-all hover:bg-[#E8F7FF] hover:text-[#007EB8] active:scale-95"
+                title={isChartFullscreen ? "Thoát toàn màn hình" : "Xem sơ đồ toàn màn hình"}
+                aria-label={isChartFullscreen ? "Thoát toàn màn hình" : "Xem sơ đồ toàn màn hình"}
+              >
+                {isChartFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
             <div
               ref={containerRef}
               onMouseDown={isMobile ? undefined : handleMouseDown}
               onMouseLeave={isMobile ? undefined : handleMouseLeaveOrUp}
               onMouseUp={isMobile ? undefined : handleMouseLeaveOrUp}
               onMouseMove={isMobile ? undefined : handleMouseMove}
-              className={`flex-1 overflow-auto flex items-start justify-start min-h-[440px] select-none overscroll-none p-4 sm:p-12 ${
+              className={`flex-1 overflow-auto flex items-start justify-start select-none overscroll-none p-4 pt-14 sm:p-8 sm:pt-14 ${isChartFullscreen ? "min-h-0" : "min-h-[500px]"} ${
                 isMobile ? "" : "cursor-grab"
               } ${isDragging && !isMobile ? "cursor-grabbing" : ""}`}
               id="interactive_org_chart"
