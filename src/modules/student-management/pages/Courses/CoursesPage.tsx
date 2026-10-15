@@ -231,7 +231,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const [editForm, setEditForm] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
   const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
 
-  const pageSize = viewMode === 'grid' ? 6 : 8;
+  const pageSize = 8;
 
   useEffect(() => {
     if (categories.length > 0 && !newCourse.category) {
@@ -542,22 +542,22 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         </ErpCard>
       ) : viewMode === 'grid' ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
             {paginatedCourses.map((course) => (
               <div
                 key={course.id}
                 className={cn(
-                  'p-5 rounded-[22px] border flex flex-col justify-between transition-all duration-300 group',
+                  'min-w-0 p-4 rounded-[22px] border flex flex-col justify-between transition-all duration-300 group',
                   darkMode
                     ? 'bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-brand-primary/20'
                     : 'bg-white border-[#DFECF5] hover:border-[#80D6FF] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#B8E8FF]/30 shadow-sm shadow-[#DCECF5]/50'
                 )}
               >
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className={cn('text-xs font-semibold tracking-wide', darkMode ? 'text-slate-500' : 'text-[#1687BE]')}>{course.code}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={cn('min-w-0 break-all text-xs font-semibold tracking-wide', darkMode ? 'text-slate-500' : 'text-[#1687BE]')}>{course.code}</span>
                     <span className={cn(
-                      'px-2 py-1 rounded-lg border text-[10px] font-medium',
+                      'max-w-[45%] shrink-0 truncate px-2 py-1 rounded-lg border text-[10px] font-medium',
                       getCategoryColor(course.category)
                     )}>
                       {course.category}
@@ -566,7 +566,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
                   <h4 className={cn('text-base font-semibold leading-snug line-clamp-2 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-800 group-hover:text-[#008FCF]')}>{course.title}</h4>
 
-                  <div className={cn('grid grid-cols-2 gap-y-3 gap-x-3 pt-3 text-xs font-normal border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
+                  <div className={cn('grid grid-cols-2 gap-y-2 gap-x-2 pt-3 text-xs font-normal border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
                     <div className="flex items-center gap-1.5"><CourseIcon name="duration" className="h-4 w-4 shrink-0" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
                       <div className="flex items-center gap-1.5"><CourseIcon name="fee" className="h-4 w-4 shrink-0" /> {course.fee}</div>
@@ -576,63 +576,63 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 </div>
 
-                <div className={cn('flex items-center justify-between gap-2 pt-3 mt-4 border-t', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
+                <div className={cn('flex flex-wrap items-center justify-between gap-1.5 pt-3 mt-3 border-t', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
                   <span className={cn(
-                    'px-2 py-1 rounded-lg text-[10px] font-medium border',
+                    'shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border',
                     course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
                   )}>
                     {course.status}
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleToggleStatus(course)}
                       title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
                       className={cn(
-                        'flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
+                        'flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
                           : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                       )}
                     >
                       {course.status === ACTIVE_COURSE_STATUS
-                        ? <><CourseIcon name="pause" className="h-4 w-4 shrink-0" /> Tạm dừng</>
-                        : <><CourseIcon name="play" className="h-4 w-4 shrink-0" /> Kích hoạt</>}
+                        ? <><CourseIcon name="pause" className="h-3.5 w-3.5 shrink-0" /> Tạm dừng</>
+                        : <><CourseIcon name="play" className="h-3.5 w-3.5 shrink-0" /> Kích hoạt</>}
                     </button>
                     <button
                       onClick={() => setViewingCourse(course)}
                       title="Xem chi tiết"
                       className={cn(
-                        'p-1.5 rounded-lg transition-all border cursor-pointer',
+                        'p-1 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
                           : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
                       )}
                     >
-                      <CourseIcon name="view" className="h-4 w-4" />
+                      <CourseIcon name="view" className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => setEditingCourse(course)}
                       title={copy.editTitle}
                       className={cn(
-                        'p-1.5 rounded-lg transition-all border cursor-pointer',
+                        'p-1 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-400 border-transparent'
                           : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
                       )}
                     >
-                      <CourseIcon name="edit" className="h-4 w-4" />
+                      <CourseIcon name="edit" className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(course)}
                       title={copy.deleteTitle}
                       className={cn(
-                        'p-1.5 rounded-lg transition-all border cursor-pointer',
+                        'p-1 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent'
                           : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                       )}
                     >
-                      <CourseIcon name="delete" className="h-4 w-4" />
+                      <CourseIcon name="delete" className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
