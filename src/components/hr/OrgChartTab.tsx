@@ -22,7 +22,8 @@ import {
   Eye,
   CalendarDays,
   List,
-  Network
+  Network,
+  Crown
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
@@ -1202,8 +1203,8 @@ export default function OrgChartTab({
           </div>
 
           {node.isLeader && (
-            <span className="absolute left-2 top-2 z-10 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800" title="Trưởng nhóm">
-              👑
+            <span className="absolute left-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 shadow-xs" title="Trưởng nhóm" aria-label="Trưởng nhóm">
+              <Crown className="h-3.5 w-3.5 fill-amber-400 stroke-amber-700" />
             </span>
           )}
 
@@ -1962,7 +1963,8 @@ export default function OrgChartTab({
                         : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
                       }`}
                   >
-                    👑 {selectedEmp.isLeader ? "Hủy chức vụ Trưởng nhóm (Leader)" : "Đặt làm Trưởng nhóm (Leader)"}
+                    <Crown className="h-4 w-4 fill-amber-400 stroke-amber-700" />
+                    {selectedEmp.isLeader ? "Hủy chức vụ Trưởng nhóm (Leader)" : "Đặt làm Trưởng nhóm (Leader)"}
                   </button>
                 )}
                 {canEditEmployee(selectedEmp.id) && (
