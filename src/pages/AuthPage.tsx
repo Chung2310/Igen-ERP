@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Building2,
   Eye,
   EyeOff,
   RefreshCw,
@@ -14,28 +15,6 @@ import {
   TERMS_OF_SERVICE_URL,
 } from "../config/brand";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
-
-type ManagementIconName = "office" | "people" | "learning" | "partners" | "report" | "secure";
-
-function ManagementIcon({ name, className = "h-5 w-5" }: { name: ManagementIconName; className?: string }) {
-  const shapes: Record<ManagementIconName, React.ReactNode> = {
-    office: <><path d="M4 20V7l8-3 8 3v13M2 20h20M8 10h1m6 0h1M8 14h1m6 0h1M10 20v-4h4v4" /></>,
-    people: <><circle cx="9" cy="8" r="3" /><path d="M3.5 20v-2.5A5.5 5.5 0 0 1 9 12a5.5 5.5 0 0 1 5.5 5.5V20M17 5a3 3 0 0 1 0 6m1 3a4.5 4.5 0 0 1 2.5 4v2" /></>,
-    learning: <><path d="M12 6c-2.4-1.5-5.1-1.7-9-1v13c3.9-.7 6.6-.5 9 1 2.4-1.5 5.1-1.7 9-1V5c-3.9-.7-6.6-.5-9 1ZM12 6v13" /><path d="M6 9h3m-3 3h3m6-3h3m-3 3h3" /></>,
-    partners: <><circle cx="6" cy="7" r="2.5" /><circle cx="18" cy="7" r="2.5" /><path d="M2.5 19v-2.5A3.5 3.5 0 0 1 6 13h2m13.5 6v-2.5A3.5 3.5 0 0 0 18 13h-2M9 15l2 2 4-4m-5-3h4" /></>,
-    report: <><path d="M4 20V4m0 16h16M8 16v-4m4 4V8m4 8v-6m4 6V6" /><path d="m7 8 4-3 4 2 4-4" /></>,
-    secure: <><path d="m12 2 8 4v6c0 5-3.2 8-8 10-4.8-2-8-5-8-10V6l8-4Z" /><path d="m8.5 12 2.4 2.4 4.6-5" /></>,
-  };
-
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>;
-}
-
-const managementAreas = [
-  { label: "Nhân sự", icon: "people", color: "bg-[#fff0e2] text-[#c85e27]" },
-  { label: "Học viên", icon: "learning", color: "bg-[#edfad9] text-[#4e8b27]" },
-  { label: "Đối tác", icon: "partners", color: "bg-[#f2e9ff] text-[#8053b9]" },
-  { label: "Báo cáo", icon: "report", color: "bg-[#fff5cf] text-[#ad7811]" },
-] as const;
 
 export default function AuthPage() {
   const { loginWithEmail } = useAuth();
@@ -107,37 +86,27 @@ export default function AuthPage() {
 
           <div className="relative flex items-center gap-2.5 text-sm font-semibold tracking-wide">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f2e9ff] text-[#8053b9] shadow-sm">
-              <ManagementIcon name="office" className="h-5 w-5" />
+              <Building2 className="h-5 w-5" aria-hidden="true" />
             </span>
             Nền tảng quản trị doanh nghiệp
           </div>
 
           <div className="relative mt-7 lg:mt-9">
-            <span className="inline-flex rounded-full border border-white/35 bg-white/10 px-3 py-1 text-xs font-semibold">
-              Một nền tảng, mọi hoạt động
-            </span>
-            <h1 className="mt-4 text-[22px] font-semibold uppercase leading-[1.24] tracking-[0.01em]" style={{ textShadow: "0 2px 0 rgba(0,48,135,0.75), 0 5px 12px rgba(0,31,97,0.45)" }}>
+            <h1 className="text-[22px] font-semibold uppercase leading-[1.24] tracking-[0.01em]" style={{ textShadow: "0 2px 0 rgba(0,48,135,0.75), 0 5px 12px rgba(0,31,97,0.45)" }}>
               <span className="block lg:whitespace-nowrap">Điều hành doanh nghiệp</span>
               <span className="block lg:whitespace-nowrap">trong một hệ thống</span>
             </h1>
-            <p className="mt-3 text-[13px] leading-6 text-blue-50/90">
-              Theo dõi nhân sự, học viên, đối tác và kết quả kinh doanh trên cùng một nền tảng.
-            </p>
+
           </div>
 
-          <div className="relative mt-7 grid grid-cols-2 gap-2.5 lg:mt-auto">
-            {managementAreas.map(({ label, icon, color }) => (
-              <div key={label} className="flex items-center gap-2.5 rounded-xl border border-white/25 bg-white/10 px-3 py-2.5 shadow-sm backdrop-blur-sm">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg shadow-sm ${color}`}>
-                  <ManagementIcon name={icon} className="h-5 w-5" />
-                </span>
-                <span className="text-[13px] font-semibold">{label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="relative mt-4 flex items-center gap-2 text-[11px] text-blue-50/90">
-            <ManagementIcon name="secure" className="h-4 w-4" />
-            Dữ liệu tập trung, truy cập theo quyền
+          <div className="relative flex flex-1 items-center justify-center pt-4">
+            <img
+              src="/hero-igen-robot.png"
+              alt="Robot iGen"
+              width={1314}
+              height={1197}
+              className="h-48 w-full max-w-[360px] object-contain drop-shadow-[0_16px_24px_rgba(0,35,110,0.25)] lg:h-[280px]"
+            />
           </div>
         </section>
 
