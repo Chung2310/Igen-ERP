@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { formatDashboardCurrency } from "./dashboardUtils";
 import { DASHBOARD_CHART_PALETTE, DASHBOARD_CHART_TRACK } from "./dashboardPalette";
+import { TrendingDown, TrendingUp } from "./DashboardIcons";
 
 export type OverviewChartItem = {
   label: string;
@@ -316,7 +317,8 @@ export function OverviewTimelineChart({
                 }`}
                 title={`Biến động so với tuần trước: ${diffVal >= 0 ? "+" : ""}${formatDashboardCurrency(diffVal, 1, false)} ₫`}
               >
-                {diffVal >= 0 ? "▲ Tăng +" : "▼ Giảm "}
+                {diffVal >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                {diffVal >= 0 ? "Tăng +" : "Giảm "}
                 {percentChange ? `${percentChange}%` : formatDashboardCurrency(Math.abs(diffVal), 1, true)}
                 <span className="font-normal opacity-80 text-[10px]">so với tuần trước</span>
               </span>
