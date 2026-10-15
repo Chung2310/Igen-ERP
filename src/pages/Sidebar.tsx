@@ -20,7 +20,7 @@ import {
   ContactRound,
 } from "lucide-react";
 import { StudentCap3DIcon } from "../components/StudentCap3DIcon";
-import { Menu3DIcon, type Menu3DIconPalette } from "../components/Menu3DIcon";
+import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
@@ -157,6 +157,24 @@ const menuIconPalettes: Partial<Record<TabType, Menu3DIconPalette>> = {
   "HƯỚNG DẪN": { light: "#F1CD89", dark: "#C59449", edge: "#987036" },
 };
 
+const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
+  "TỔNG QUAN": "overview",
+  "NHÂN SỰ": "people",
+  "ĐỐI TÁC": "partners",
+  "KHO & SẢN PHẨM": "warehouse",
+  "SỬA CHỮA & BẢO HÀNH": "repair",
+  "QUẢN LÝ LAO ĐỘNG": "work",
+  "QUẢN LÝ KHÁCH HÀNG": "customer",
+  "BÁN LẺ": "retail",
+  "TÀI CHÍNH": "finance",
+  "MARKETING": "marketing",
+  "QUẢN LÝ TÀI NGUYÊN": "folder",
+  "TRÒ CHUYỆN": "chat",
+  "QUẢN TRỊ USER": "shield",
+  "CÀI ĐẶT": "settings",
+  "HƯỚNG DẪN": "guide",
+};
+
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
@@ -268,6 +286,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                   const Icon = item.icon;
                   const isStudentIcon = item.label === "QUẢN LÝ HỌC VIÊN";
                   const iconPalette = menuIconPalettes[item.label];
+                  const iconShape = menuIconShapes[item.label];
 
                   return (
                     <button
@@ -297,8 +316,8 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
                         {isStudentIcon ? (
                           <Icon className="h-6 w-6 shrink-0 transition-transform group-hover:scale-105" />
-                        ) : iconPalette ? (
-                          <Menu3DIcon icon={Icon} palette={iconPalette} className="h-6 w-6" />
+                        ) : iconPalette && iconShape ? (
+                          <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
                         ) : (
                           <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
                         )}
