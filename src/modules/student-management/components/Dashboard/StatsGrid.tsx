@@ -49,7 +49,7 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
       return [
         { label: 'Tổng lao động', value: students.length, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
         { label: 'Mới đăng ký (30 ngày)', value: newWorkersCount, icon: BookOpen, color: 'text-sky-500', bg: 'bg-sky-50' },
-        { label: 'Đã tiếp nhận / Đi làm', value: students.filter(s => hasStatus(s, 'Đã đậu') || hasStatus(s, 'Đang học')).length, icon: UserCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Đã tiếp nhận / Đi làm', value: students.filter(s => hasStatus(s, 'Đã đậu') || hasStatus(s, 'Đang học')).length, icon: UserCheck, color: 'text-[#008FCB]', bg: 'bg-[#E8F7FF]' },
       ];
     }
 
@@ -127,16 +127,16 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
         <LuxuryCard
           key={idx}
           padding="none"
-          className={`p-2.5 px-3 flex items-center gap-2.5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer border border-slate-200 ${getItemClass(idx)}`}
+          className={`group flex cursor-pointer items-center gap-2.5 rounded-2xl border border-[#DFECF5] bg-white px-3.5 py-3 shadow-[0_8px_24px_-20px_rgba(0,105,165,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#8DDCFF] hover:shadow-md ${getItemClass(idx)}`}
         >
-          <div className={`p-2 rounded-lg ${stat.bg} ${stat.color} transition-transform duration-300 group-hover:scale-110 shrink-0`}>
+          <div className={`shrink-0 rounded-xl p-2 ${stat.bg} ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
             <stat.icon className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-bold text-slate-900 leading-tight tracking-tight">
+            <p className="text-lg font-semibold leading-tight tracking-tight text-slate-900">
               {loading && user ? '...' : stat.value}
             </p>
-            <p className="text-[10px] font-semibold text-slate-500 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis group-hover:text-slate-700 transition-colors">
+            <p className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-medium text-slate-500 transition-colors group-hover:text-[#007EB8]">
               {stat.label}
             </p>
           </div>

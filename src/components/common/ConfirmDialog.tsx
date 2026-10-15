@@ -70,10 +70,10 @@ export function ConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex h-11 w-11 items-center justify-center rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Đóng"
           >
-            <X className="h-4 w-4" />
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
 

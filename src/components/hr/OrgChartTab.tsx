@@ -1166,8 +1166,8 @@ export default function OrgChartTab({
           onClick={() => setSelectedEmp(node)}
           onMouseLeave={() => setActiveDropdownCardId(null)}
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
-            ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
-            : "hover:border-indigo-300 hover:shadow-md"
+            ? "ring-2 ring-[#00ADFC] shadow-lg shadow-[#00ADFC]/20 border-transparent z-10"
+            : "hover:border-[#00ADFC]/50 hover:shadow-md"
             } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"} w-48 sm:w-56`}
           id={`org_node_${node.id}`}
         >
@@ -1202,7 +1202,7 @@ export default function OrgChartTab({
                 <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider truncate font-mono">
                   {renderCardIcon(node.role)} {node.role}
                 </span>
-                <span className="block text-[10px] font-bold text-indigo-950 truncate">
+                <span className="block text-[10px] font-bold text-slate-900 truncate">
                   {node.name}
                 </span>
               </div>
@@ -1215,7 +1215,7 @@ export default function OrgChartTab({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
               title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
-              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${isCollapsed ? "bg-[#E8F7FF] text-[#007EB8] hover:bg-[#00ADFC] hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
                 }`}
             >
               {isCollapsed ? `+${directReportsCount}` : "^"}
@@ -1258,8 +1258,8 @@ export default function OrgChartTab({
   return (
     <>
       {/* Division filter and search bar for Org Chart tab */}
-      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-gray-200 bg-slate-50 p-3 md:p-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
-        <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
+      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+        <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2.5 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
           <div className="relative w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -1267,17 +1267,17 @@ export default function OrgChartTab({
               placeholder="Tìm theo tên hoặc chức danh..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200/80 bg-white rounded-xl text-xs focus:ring-2 focus:ring-[#00ADFC]/15 focus:border-[#00ADFC] outline-none text-slate-800 placeholder:text-slate-400 transition-all"
             />
           </div>
-          <div data-testid="org-chart-department-filter" className="flex w-full items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5">
-            <Filter className="h-3.5 w-3.5 text-gray-400" />
+          <div data-testid="org-chart-department-filter" className="flex w-full items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-slate-700 transition-all focus-within:border-[#00ADFC] focus-within:ring-2 focus-within:ring-[#00ADFC]/15">
+            <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="bg-transparent text-xs outline-none cursor-pointer font-medium w-full"
+              className="bg-transparent text-xs outline-none cursor-pointer font-medium w-full text-slate-800"
             >
-              <option value="Tất cả">Tất cả Phòng ban</option>
+              <option value="Tất cả">Tất cả phòng ban</option>
               {uniqueDepartments.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
@@ -1286,14 +1286,14 @@ export default function OrgChartTab({
         </div>
 
         <div data-testid="org-chart-actions" className="grid w-full grid-cols-1 items-center gap-2 min-[420px]:grid-cols-2 min-[768px]:grid-cols-3 min-[1200px]:flex min-[1200px]:w-auto">
-          <div data-testid="org-chart-view-toggle" className="flex w-full items-center rounded-xl border border-gray-200 bg-white p-1 min-[1200px]:w-auto">
-            <button type="button" onClick={() => setViewMode("tree")} className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "tree" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><Network className="h-3.5 w-3.5" /> Cây</button>
-            <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer ${viewMode === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}><List className="h-3.5 w-3.5" /> Danh sách</button>
+          <div data-testid="org-chart-view-toggle" className="flex w-full items-center rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 min-[1200px]:w-auto">
+            <button type="button" onClick={() => setViewMode("tree")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "tree" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><Network className="h-3.5 w-3.5 text-[#00ADFC]" /> Cây</button>
+            <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "list" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><List className="h-3.5 w-3.5 text-[#00ADFC]" /> Danh sách</button>
           </div>
 
-          <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1.5 min-[1200px]:w-auto min-[1200px]:border-0 min-[1200px]:bg-transparent min-[1200px]:px-0">
-            <div className="hidden h-6 w-px bg-gray-200 mx-1 min-[1200px]:block" />
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Thu Phóng:</span>
+          <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 min-[1200px]:w-auto min-[1200px]:border-0 min-[1200px]:bg-transparent min-[1200px]:px-0">
+            <div className="hidden h-6 w-px bg-slate-200 mx-1 min-[1200px]:block" />
+            <span className="text-xs font-medium text-slate-500 normal-case">Thu phóng:</span>
             <input
               type="range"
               min="0.5"
@@ -1304,22 +1304,22 @@ export default function OrgChartTab({
                 setZoomLevel(parseFloat(e.target.value));
                 setIsFitted(false);
               }}
-              className="w-20 accent-indigo-600 cursor-pointer"
+              className="w-20 accent-[#00ADFC] cursor-pointer"
             />
-            <span className="w-10 text-right text-[10px] font-bold text-slate-655 mr-1">{Math.round(zoomLevel * 100)}%</span>
+            <span className="w-10 text-right text-xs font-bold text-slate-800 tabular-nums mr-1">{Math.round(zoomLevel * 100)}%</span>
           </div>
 
           {isManager && (
             <>
-              <div className="hidden h-6 w-px bg-gray-200 mx-1 min-[1200px]:block" />
+              <div className="hidden h-6 w-px bg-slate-200 mx-1 min-[1200px]:block" />
               <button
                 data-testid="org-chart-add-button"
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="col-span-full flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer min-[768px]:col-span-1 min-[1200px]:w-auto"
+                className="col-span-full flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all active:scale-95 cursor-pointer normal-case min-[768px]:col-span-1 min-[1200px]:w-auto"
               >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Thêm Nhân Sự hoặc Phòng ban</span>
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                <span>Thêm nhân sự hoặc phòng ban</span>
               </button>
             </>
           )}
@@ -1393,7 +1393,7 @@ export default function OrgChartTab({
                           <tr
                             key={employee.id}
                             onClick={() => setSelectedEmp(employee)}
-                            className="border-b border-slate-100 hover:bg-indigo-50/50 cursor-pointer"
+                            className="border-b border-slate-100 hover:bg-[#E8F7FF]/40 cursor-pointer transition-colors"
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5">
@@ -1486,7 +1486,7 @@ export default function OrgChartTab({
                               onClick={() => setListPage(pageNum)}
                               className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
                                 listPage === pageNum
-                                  ? "z-10 bg-indigo-650 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-650"
+                                  ? "z-10 bg-[#00ADFC] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00ADFC]"
                                   : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
                               }`}
                             >
@@ -1578,10 +1578,17 @@ export default function OrgChartTab({
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" id="employee_detail_modal">
           {isEditing ? (
             <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-center pb-2 border-b">
-                <h4 className="font-bold text-slate-800 text-sm font-sans uppercase">Chỉnh Sửa Nhân Sự</h4>
-                <button type="button" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="h-4 w-4" />
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                  <h4 className="font-bold text-slate-900 text-sm font-sans">Chỉnh sửa nhân sự</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+                >
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
@@ -1597,13 +1604,13 @@ export default function OrgChartTab({
                     required
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Trình độ</label>
-                  <input type="text" value={editQualification} onChange={(e) => setEditQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white" />
+                  <input type="text" value={editQualification} onChange={(e) => setEditQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1613,7 +1620,7 @@ export default function OrgChartTab({
                       type="text"
                       value={editRoleText}
                       onChange={(e) => setEditRoleText(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
                     />
                   </div>
                   <div>
@@ -1621,7 +1628,7 @@ export default function OrgChartTab({
                     <select
                       value={editDivision}
                       onChange={(e) => setEditDivision(e.target.value)}
-                      className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer text-slate-700"
+                      className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer text-slate-700"
                     >
                       {uniqueDivisions.map(div => (
                         <option key={div} value={div}>{div}</option>
@@ -1637,7 +1644,7 @@ export default function OrgChartTab({
                       type="text"
                       value={editDepartment}
                       onChange={(e) => setEditDepartment(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
                     />
                   </div>
                   <div>
@@ -1646,13 +1653,13 @@ export default function OrgChartTab({
                       type="text"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" /></div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
@@ -1672,7 +1679,7 @@ export default function OrgChartTab({
                       placeholder="Dán link hoặc tải file lên"
                       value={editJobDescriptionLink}
                       onChange={(e) => setEditJobDescriptionLink(e.target.value)}
-                      className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                      className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
                     />
                     <input
                       ref={editJobDescriptionFileInputRef}
@@ -1698,7 +1705,7 @@ export default function OrgChartTab({
                         type="button"
                         onClick={() => setShowJobDescriptionPreview(true)}
                         title="Xem trước"
-                        className="shrink-0 p-2 px-2.5 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                        className="shrink-0 p-2 px-2.5 border border-[#00ADFC]/30 bg-[#E8F7FF] rounded-xl text-[#007EB8] hover:bg-[#00ADFC] hover:text-white transition-all cursor-pointer"
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
@@ -1711,7 +1718,7 @@ export default function OrgChartTab({
                   <select
                     value={editParentId}
                     onChange={(e) => setEditParentId(e.target.value)}
-                    className="w-full p-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer text-slate-700"
+                    className="w-full p-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer text-slate-700"
                   >
                     <option value="">Không phân công</option>
                     {employees
@@ -1760,7 +1767,7 @@ export default function OrgChartTab({
                   type="button"
                   disabled={isSaving}
                   onClick={handleEditEmployeeSave}
-                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white font-semibold rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
                 >
                   {isSaving ? (
                     <>
@@ -1775,17 +1782,24 @@ export default function OrgChartTab({
             </div>
           ) : (
             <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200 animate-out duration-150">
-              <div className="flex justify-between items-center pb-2 border-b">
-                <h4 className="font-extrabold text-slate-850 text-sm font-sans uppercase tracking-wide">Chi Tiết Nhân Sự</h4>
-                <button type="button" onClick={closeDetailModal} className="text-gray-400 hover:text-gray-650 cursor-pointer">
-                  <X className="h-4.5 w-4.5" />
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                  <h4 className="font-bold text-slate-900 text-sm font-sans">Chi tiết nhân sự</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDetailModal}
+                  className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+                >
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
               <div className="text-center pb-4 border-b border-gray-200">
                 <div className="mb-2.5 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-24 h-24", "text-5xl")}</div>
                 <h3 className="font-extrabold text-lg text-slate-900 font-sans leading-snug">{selectedEmp.name}</h3>
-                <p className="text-xs font-extrabold font-mono uppercase tracking-wide mt-1 text-indigo-600">{selectedEmp.role}</p>
+                <p className="text-xs font-bold font-mono uppercase tracking-wide mt-1 text-[#007EB8]">{selectedEmp.role}</p>
                 <span className={`inline-block text-[10px] font-bold border px-2.5 py-0.5 rounded-lg uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
                   {selectedEmp.division}
                 </span>
@@ -1842,7 +1856,7 @@ export default function OrgChartTab({
                           setShowJobDescriptionPreview(true);
                         }}
                         title="Xem trước"
-                        className="shrink-0 p-2 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                        className="shrink-0 p-2 border border-[#00ADFC]/30 bg-[#E8F7FF] rounded-xl text-[#007EB8] hover:bg-[#00ADFC] hover:text-white transition-all cursor-pointer"
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
@@ -1856,7 +1870,7 @@ export default function OrgChartTab({
                       <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                       <div>
                         <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                        <strong className="text-indigo-700 text-xs font-bold">
+                        <strong className="text-[#007EB8] text-xs font-bold">
                           {manager ? `${manager.name} (${manager.department})` : 'Quản lý cấp trên'}
                         </strong>
                       </div>
@@ -1880,7 +1894,7 @@ export default function OrgChartTab({
                                   type="button"
                                   key={sub.id}
                                   onClick={() => setSelectedEmp(sub)}
-                                  className="flex items-center gap-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-left active:scale-95 outline-none font-sans w-full"
+                                  className="flex items-center gap-3 bg-slate-50 hover:bg-[#E8F7FF]/50 border border-slate-100 hover:border-[#00ADFC]/30 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-left active:scale-95 outline-none font-sans w-full"
                                   title={`Bấm để xem chi tiết ${sub.name}`}
                                 >
                                   {renderAvatar(sub.avatar, "w-8 h-8", "text-xs")}
@@ -1933,10 +1947,10 @@ export default function OrgChartTab({
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full py-2.5 bg-[#E8F7FF] hover:bg-[#00ADFC] hover:text-white border border-[#00ADFC]/20 text-[#007EB8] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
-                    Chỉnh Sửa Thông Tin
+                    Chỉnh sửa thông tin
                   </button>
                 )}
                 {isManager && canDeleteEmployee(selectedEmp.id) && (
@@ -1946,10 +1960,10 @@ export default function OrgChartTab({
                       handleDeleteEmployeeSubmit(selectedEmp.id);
                       closeDetailModal();
                     }}
-                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Xóa Khỏi Hệ Thống
+                    Xóa khỏi hệ thống
                   </button>
                 )}
                 <button
@@ -1969,10 +1983,17 @@ export default function OrgChartTab({
 
         <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
           <form onSubmit={handleAddEmployee} className="bg-white border rounded-2xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b">
-              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase">Thêm Nhân Sự Mới</h4>
-              <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-650 cursor-pointer">
-                <X className="h-4 w-4" />
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                <h4 className="font-bold text-slate-900 text-sm font-sans">Thêm nhân sự mới</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
@@ -1985,7 +2006,7 @@ export default function OrgChartTab({
                   placeholder="Ví dụ: Lê Thị B"
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
-                  className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                 />
               </div>
 
@@ -1996,13 +2017,13 @@ export default function OrgChartTab({
                   placeholder="Ví dụ: TESOL, Cử nhân Sư phạm"
                   value={addQualification}
                   onChange={(e) => setAddQualification(e.target.value)}
-                  className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none" placeholder="26000000" /></div>
+                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" /></div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>
@@ -2012,7 +2033,7 @@ export default function OrgChartTab({
                     placeholder="b.lt@igen.vn"
                     value={addEmail}
                     onChange={(e) => setAddEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                   />
                 </div>
                 <div>
@@ -2022,7 +2043,7 @@ export default function OrgChartTab({
                     placeholder="090XXXXXXXX"
                     value={addPhone}
                     onChange={(e) => setAddPhone(e.target.value)}
-                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                   />
                 </div>
               </div>
@@ -2035,7 +2056,7 @@ export default function OrgChartTab({
                   placeholder="Tối thiểu 6 ký tự"
                   value={addPassword}
                   onChange={(e) => setAddPassword(e.target.value)}
-                  className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                 />
               </div>
 
@@ -2044,7 +2065,7 @@ export default function OrgChartTab({
                 <select
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as any)}
-                  className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+                  className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer"
                 >
                   <option value="user">USER (Nhân viên)</option>
                   <option value="manager">MANAGER (Quản lý)</option>
@@ -2058,7 +2079,7 @@ export default function OrgChartTab({
                   <select
                     value={addParentId}
                     onChange={(e) => setAddParentId(e.target.value)}
-                    className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+                    className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer"
                   >
                     <option value="">Không phân công</option>
                     {employees.filter(emp => {
@@ -2111,10 +2132,10 @@ export default function OrgChartTab({
                     placeholder="Ví dụ: Phòng Kỹ Thuật"
                     value={addDepartment}
                     onChange={(e) => setAddDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] disabled:bg-gray-50 disabled:text-gray-400"
                   />
                   {addRole === "user" && !!addParentId && (
-                    <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
+                    <p className="text-[10px] text-[#007EB8] font-mono mt-0.5">
                       Tự động điền theo phòng ban của quản lý trực tiếp.
                     </p>
                   )}
@@ -2129,7 +2150,7 @@ export default function OrgChartTab({
                     placeholder="Dán link hoặc tải file lên"
                     value={addJobDescriptionLink}
                     onChange={(e) => setAddJobDescriptionLink(e.target.value)}
-                    className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
                   />
                   <input
                     ref={addJobDescriptionFileInputRef}
@@ -2142,7 +2163,7 @@ export default function OrgChartTab({
                     onClick={() => addJobDescriptionFileInputRef.current?.click()}
                     disabled={uploadingAddJobDescription}
                     title="Tải file lên Google Drive"
-                    className="shrink-0 p-2 px-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                    className="shrink-0 p-2 px-2.5 border border-slate-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {uploadingAddJobDescription ? (
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -2159,14 +2180,14 @@ export default function OrgChartTab({
                 type="button"
                 disabled={isAddingEmployee}
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Hủy bỏ
               </button>
               <button
                 type="submit"
                 disabled={isAddingEmployee}
-                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                className="px-5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white font-semibold rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-xs"
               >
                 {isAddingEmployee ? (
                   <>
@@ -2199,26 +2220,29 @@ export default function OrgChartTab({
       {showJobDescriptionPreview && editJobDescriptionLink && (
         <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={() => setShowJobDescriptionPreview(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-3 border-b shrink-0">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Xem trước mô tả công việc</span>
+            <div className="flex items-center justify-between p-3.5 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2">
+                <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                <span className="text-xs font-bold text-slate-900">Xem trước mô tả công việc</span>
+              </div>
+              <div className="flex items-center gap-3">
                 <a
                   href={editJobDescriptionLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] font-bold text-indigo-650 hover:underline px-2"
+                  className="text-[11px] font-bold text-[#007EB8] hover:underline px-2"
                 >
                   Mở trong tab mới
                 </a>
                 <button
                   type="button"
                   onClick={() => setShowJobDescriptionPreview(false)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
+                  className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
                 >
-                  <X className="h-4 w-4 text-gray-500" />
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </div>

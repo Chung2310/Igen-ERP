@@ -1449,10 +1449,10 @@ export default function KanbanTab({
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer min-[1200px]:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Target className="h-4 w-4" />
-                    Tạo Dự Án & Lĩnh vực
+                    Tạo dự án & Lĩnh vực
                   </button>
 
                   <button
@@ -1482,10 +1482,10 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-indigo-700 active:scale-95 cursor-pointer min-[1200px]:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer min-[1200px]:w-auto"
                   >
                     <Plus className="h-4 w-4" />
-                    Giao Việc Mới
+                    Giao việc mới
                   </button>
                 </div>
               )}
@@ -1620,11 +1620,11 @@ export default function KanbanTab({
               {/* Column 2: In Progress */}
               <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
-                  <span className="text-xs font-bold text-indigo-650 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                    <RefreshCw className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+                  <span className="text-xs font-bold text-[#007EB8] font-mono uppercase tracking-wider flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
                     Đang thực hiện
                   </span>
-                  <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 bg-[#E8F7FF] text-[#007EB8] rounded-full font-mono text-[9px] font-bold">
                     {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").length}
                   </span>
                 </div>

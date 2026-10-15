@@ -193,13 +193,13 @@ export function WorkerOverviewDashboard({
     const main = statusList[0] || 'Chưa cập nhật';
     switch (main) {
       case 'Đã nộp HS':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-cyan-50 text-cyan-700 border border-cyan-200">Đã nộp HS</span>;
+        return <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[10px] font-medium text-cyan-700">Đã nộp HS</span>;
       case 'Đang học':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">{entityLabel.preset === 'student' ? 'Đang học' : 'Đang tuyển / Đào tạo'}</span>;
+        return <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">{entityLabel.preset === 'student' ? 'Đang học' : 'Đang tuyển / Đào tạo'}</span>;
       case 'Đã đậu':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">{entityLabel.preset === 'student' ? 'Đã tốt nghiệp' : 'Đã tiếp nhận'}</span>;
+        return <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-medium text-emerald-700">{entityLabel.preset === 'student' ? 'Đã tốt nghiệp' : 'Đã tiếp nhận'}</span>;
       default:
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-700 border border-slate-200">{main}</span>;
+        return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-700">{main}</span>;
     }
   };
 
@@ -208,32 +208,32 @@ export function WorkerOverviewDashboard({
   };
 
   return (
-    <div className="space-y-6 text-left animate-fade-in">
+    <div className="animate-fade-in space-y-5 text-left">
       
 
 
 
 
       {/* Row 1: Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         
         {/* Left (7 cols): Column Chart (Biểu đồ cột Đăng ký lao động theo Tháng) */}
-        <ErpCard className="lg:col-span-7 p-6 space-y-4 bg-white border border-slate-150 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <ErpCard className="space-y-4 rounded-[22px] border-[#DFECF5] bg-white p-5 shadow-[0_12px_32px_-24px_rgba(0,105,165,0.28)] sm:p-6 lg:col-span-7">
+          <div className="flex items-center justify-between border-b border-[#E8F2F8] pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <div className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]">
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-800 tracking-tight">
+                <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                   Đăng ký {isEducation ? 'học viên' : entityLabel.titleCase.toLocaleLowerCase('vi')} theo tháng · {currentYear}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <p className="text-[11px] font-medium tracking-wide text-slate-500">
                   Theo dõi xu hướng {isEducation ? 'đăng ký học' : 'đăng ký'} theo từng tháng
                 </p>
               </div>
             </div>
-            <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
+            <span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-xs font-semibold text-[#007EB8]">
               Tổng: {totalWorkersCount}
             </span>
           </div>
@@ -241,7 +241,7 @@ export function WorkerOverviewDashboard({
           <div className="pt-5 pb-2 overflow-x-auto scrollbar-thin">
             <div className="min-w-[600px] md:min-w-0">
               <div className="grid grid-cols-[30px_1fr] gap-2">
-                <div className="flex h-60 flex-col justify-between pb-7 text-right text-[9px] font-bold text-slate-400">
+                <div className="flex h-60 flex-col justify-between pb-7 text-right text-[10px] font-medium text-slate-400">
                   <span>{monthlyData.maxCount}</span><span>{Math.ceil(monthlyData.maxCount / 2)}</span><span>0</span>
                 </div>
                 <div>
@@ -250,12 +250,12 @@ export function WorkerOverviewDashboard({
                     {monthlyData.months.map((m, idx) => {
                       const heightPercent = m.count ? Math.max(10, Math.round((m.count / monthlyData.maxCount) * 100)) : 0;
                       return <div key={idx} className="group relative z-10 flex h-full flex-1 flex-col justify-end">
-                        {m.count > 0 && <span className="mb-1 text-center text-[10px] font-black text-indigo-700">{m.count}</span>}
-                        <div title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-all duration-500 group-hover:brightness-110", m.count ? "bg-gradient-to-t from-indigo-600 via-blue-500 to-cyan-400 shadow-[0_4px_12px_rgba(79,70,229,.22)]" : "bg-slate-100")} style={{ height: `${heightPercent}%` }} />
+                        {m.count > 0 && <span className="mb-1 text-center text-[10px] font-semibold text-[#007EB8]">{m.count}</span>}
+                        <div title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-all duration-500 group-hover:brightness-110", m.count ? "bg-gradient-to-t from-[#008FD7] via-[#00ADFC] to-[#72D8FF] shadow-[0_4px_12px_rgba(0,173,252,.2)]" : "bg-[#EDF5FA]")} style={{ height: `${heightPercent}%` }} />
                       </div>;
                     })}
                   </div>
-                  <div className="flex gap-2 px-2 pt-2">{monthlyData.months.map((m, idx) => <div key={idx} className="flex-1 text-center text-[10px] font-black text-slate-400">{m.monthLabel}</div>)}</div>
+                  <div className="flex gap-2 px-2 pt-2">{monthlyData.months.map((m, idx) => <div key={idx} className="flex-1 text-center text-[10px] font-medium text-slate-400">{m.monthLabel}</div>)}</div>
                 </div>
               </div>
             </div>
@@ -263,16 +263,16 @@ export function WorkerOverviewDashboard({
         </ErpCard>
 
         {/* Right (5 cols): Position / Rank Horizontal Distribution */}
-        <ErpCard className="lg:col-span-5 p-6 space-y-4 bg-white border border-slate-150 shadow-xs">
-          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-            <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
+        <ErpCard className="space-y-4 rounded-[22px] border-[#DFECF5] bg-white p-5 shadow-[0_12px_32px_-24px_rgba(0,105,165,0.28)] sm:p-6 lg:col-span-5">
+          <div className="flex items-center gap-2.5 border-b border-[#E8F2F8] pb-3">
+            <div className="rounded-xl bg-[#E5FAF8] p-2 text-[#009EB9]">
               <PieChart className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-800 tracking-tight">
+              <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                 {isEducation ? 'Phân bổ theo khóa học' : 'Phân bổ theo Vị trí Tuyển chọn (Rank)'}
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <p className="text-[11px] font-medium tracking-wide text-slate-500">
                 {isEducation ? 'Cơ cấu học viên theo khóa học hoặc lớp đã xếp' : 'Cơ cấu vị trí ứng tuyển của người lao động'}
               </p>
             </div>
@@ -280,19 +280,19 @@ export function WorkerOverviewDashboard({
 
           <div className="space-y-3.5 pt-2 max-h-[230px] overflow-y-auto pr-1">
             {rankDistribution.length === 0 ? (
-              <p className="text-xs text-slate-400 font-bold py-8 text-center italic">
+              <p className="py-8 text-center text-xs font-medium italic text-slate-400">
                 Chưa có dữ liệu vị trí ứng tuyển.
               </p>
             ) : (
               rankDistribution.map((item, idx) => (
                 <div key={idx} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-slate-700 truncate max-w-[180px] font-black">{item.rank}</span>
-                    <span className="text-slate-500 font-extrabold">{item.count} {entityLabel.singular} ({item.percent}%)</span>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="max-w-[180px] truncate font-semibold text-slate-700">{item.rank}</span>
+                    <span className="font-medium text-slate-500">{item.count} {entityLabel.singular} ({item.percent}%)</span>
                   </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAF4F9]">
                     <div
-                      className="h-full bg-gradient-to-r from-teal-500 to-indigo-500 rounded-full transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-[#00B9AD] to-[#00ADFC] transition-all duration-500"
                       style={{ width: `${item.percent}%` }}
                     />
                   </div>
@@ -305,24 +305,24 @@ export function WorkerOverviewDashboard({
       </div>
 
       {/* Row 2: Referral Sources Breakdown Card */}
-      <ErpCard className="p-6 space-y-4 bg-white border border-slate-150 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      <ErpCard className="space-y-4 rounded-[22px] border-[#DFECF5] bg-white p-5 shadow-[0_12px_32px_-24px_rgba(0,105,165,0.28)] sm:p-6">
+        <div className="flex items-center justify-between border-b border-[#E8F2F8] pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
+            <div className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-800 tracking-tight">
+              <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                 Phân bổ Nguồn tuyển dụng & Đối tác CTV
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <p className="text-[11px] font-medium tracking-wide text-slate-500">
                 Thống kê số lượng lao động tiếp nhận theo từng nguồn cung ứng
               </p>
             </div>
           </div>
           <button
             onClick={() => onNavigate('Partners')}
-            className="text-xs font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1 transition-colors cursor-pointer"
+            className="flex cursor-pointer items-center gap-1 text-xs font-medium text-[#008FCD] transition-colors hover:text-[#006D9D]"
           >
             Quản lý CTV / Đối tác <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -330,12 +330,12 @@ export function WorkerOverviewDashboard({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
           {referralSources.map((ref, idx) => (
-            <div key={idx} className="p-3.5 rounded-2xl border border-slate-150 bg-slate-50/50 space-y-1 hover:border-sky-300 transition-all">
-              <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Nguồn #{idx + 1}</span>
-              <p className="text-xs font-black text-slate-800 truncate" title={ref.source}>{ref.source}</p>
-              <div className="flex justify-between items-center pt-1 border-t border-slate-200/60">
-                <span className="text-sm font-black text-sky-700">{ref.count}</span>
-                <span className="text-[10px] font-bold text-slate-400">{ref.percent}%</span>
+            <div key={idx} className="space-y-1.5 rounded-2xl border border-[#DFECF5] bg-[#F8FCFF] p-3.5 transition-all hover:border-[#8DDCFF] hover:bg-white hover:shadow-sm">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Nguồn #{idx + 1}</span>
+              <p className="truncate text-xs font-semibold text-slate-800" title={ref.source}>{ref.source}</p>
+              <div className="flex items-center justify-between border-t border-[#E8F2F8] pt-1.5">
+                <span className="text-sm font-semibold text-[#007EB8]">{ref.count}</span>
+                <span className="text-[10px] font-medium text-slate-400">{ref.percent}%</span>
               </div>
             </div>
           ))}
@@ -343,17 +343,17 @@ export function WorkerOverviewDashboard({
       </ErpCard>
 
       {/* Row 3: Comprehensive Worker Data Table (Cột chi tiết theo các trường thực tế) */}
-      <ErpCard className="p-6 space-y-4 bg-white border border-slate-150 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <ErpCard className="space-y-4 rounded-[22px] border-[#DFECF5] bg-white p-5 shadow-[0_12px_32px_-24px_rgba(0,105,165,0.28)] sm:p-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-[#E8F2F8] pb-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <div className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-800 tracking-tight">
+              <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                 Danh sách Chi tiết {entityLabel.titleCase} ({tableWorkers.length})
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <p className="text-[11px] font-medium tracking-wide text-slate-500">
                 Hiển thị dữ liệu chuẩn theo đúng các trường thông tin {entityLabel.singular} trong hệ thống
               </p>
             </div>
@@ -367,14 +367,14 @@ export function WorkerOverviewDashboard({
                 placeholder={isEducation ? 'Tìm tên, SĐT, email...' : 'Tìm tên, SĐT, CCCD, Vị trí...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-3.5 pr-8 py-1.5 text-xs font-semibold border border-slate-200 rounded-xl outline-none focus:border-indigo-500 bg-slate-50 w-44 sm:w-60"
+                className="w-44 rounded-xl border border-[#DFECF5] bg-[#F8FCFF] py-1.5 pl-3.5 pr-8 text-xs font-medium text-slate-700 outline-none focus:border-[#00ADFC] focus:bg-white sm:w-60"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 outline-none cursor-pointer"
+              className="cursor-pointer rounded-xl border border-[#DFECF5] bg-[#F8FCFF] px-3 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-[#00ADFC]"
             >
               <option value="all">Tất cả trạng thái</option>
               {isEducation ? (
@@ -395,7 +395,7 @@ export function WorkerOverviewDashboard({
 
             <button
               onClick={() => onNavigate('Students')}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-3xs"
+              className="cursor-pointer rounded-xl bg-[#00ADFC] px-3.5 py-1.5 text-xs font-medium text-white shadow-sm shadow-sky-200 transition-all hover:bg-[#0096DF]"
             >
               Quản lý danh sách
             </button>
@@ -406,7 +406,7 @@ export function WorkerOverviewDashboard({
         <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full text-left text-xs min-w-[1000px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <tr className="border-b border-[#DFECF5] bg-[#F4FAFE] text-[10px] font-medium uppercase tracking-wider text-slate-500">
                 {isEducation ? (
                   <>
                     <th className="px-4 py-3">Họ và tên học viên</th>
@@ -431,7 +431,7 @@ export function WorkerOverviewDashboard({
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+            <tbody className="divide-y divide-[#EDF4F8] font-normal text-slate-700">
               {studentsLoading ? (
                 <tr>
                   <td colSpan={detailColumnCount} className="py-8 text-center text-slate-400 text-xs italic">
@@ -449,9 +449,9 @@ export function WorkerOverviewDashboard({
                   <tr
                     key={worker.id}
                     onClick={() => onSelectStudent(worker)}
-                    className="hover:bg-indigo-50/30 transition-colors cursor-pointer group"
+                    className="group cursor-pointer transition-colors hover:bg-[#F4FBFF]"
                   >
-                    <td className="px-4 py-3.5 font-black text-slate-800 group-hover:text-indigo-600 transition-colors">
+                    <td className="px-4 py-3.5 font-semibold text-slate-800 transition-colors group-hover:text-[#007EB8]">
                       {worker.fullName}
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">
@@ -464,17 +464,17 @@ export function WorkerOverviewDashboard({
                         <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[220px] truncate" title={getStudentCourseLabel(worker)}>
                           {getStudentCourseLabel(worker)}
                         </td>
-                        <td className="px-4 py-3.5 text-center text-[10px] font-bold text-slate-500">
+                        <td className="px-4 py-3.5 text-center text-[10px] font-medium text-slate-500">
                           {worker.enrollmentDate || worker.registrationDate || '-'}
                         </td>
                       </>
                     ) : (
                       <>
                         <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">{worker.idCard || '-'}</td>
-                        <td className="px-4 py-3.5 text-center"><span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[10px] font-bold">{worker.rank || 'Lao động phổ thông'}</span></td>
+                        <td className="px-4 py-3.5 text-center"><span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-[10px] font-medium text-[#007EB8]">{worker.rank || 'Lao động phổ thông'}</span></td>
                         <td className="px-4 py-3.5 text-slate-600 text-[11px]">{worker.referral || 'Trực tiếp'}</td>
                         <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[180px] truncate" title={worker.address}>{worker.address || '-'}</td>
-                        <td className="px-4 py-3.5 text-center text-[10px] font-bold text-slate-500">{worker.registrationDate || '-'}</td>
+                        <td className="px-4 py-3.5 text-center text-[10px] font-medium text-slate-500">{worker.registrationDate || '-'}</td>
                       </>
                     )}
                     <td className="px-4 py-3.5 text-center">
