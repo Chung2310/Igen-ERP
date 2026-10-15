@@ -20,6 +20,7 @@ import {
   ContactRound,
 } from "lucide-react";
 import { StudentCap3DIcon } from "../components/StudentCap3DIcon";
+import { Menu3DIcon, type Menu3DIconPalette } from "../components/Menu3DIcon";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
@@ -138,6 +139,24 @@ const groupTitles: Record<MenuItem["group"], string> = {
   system: "Hệ thống",
 };
 
+const menuIconPalettes: Partial<Record<TabType, Menu3DIconPalette>> = {
+  "TỔNG QUAN": { light: "#9BA7FC", dark: "#5969CE", edge: "#414EA5" },
+  "NHÂN SỰ": { light: "#FFA993", dark: "#DC6B65", edge: "#AD494A" },
+  "ĐỐI TÁC": { light: "#F8C77E", dark: "#CF8749", edge: "#9D5D32" },
+  "KHO & SẢN PHẨM": { light: "#70D4BA", dark: "#299C8D", edge: "#207367" },
+  "SỬA CHỮA & BẢO HÀNH": { light: "#ADBBDC", dark: "#6C7FAB", edge: "#4A5B82" },
+  "QUẢN LÝ LAO ĐỘNG": { light: "#CDA9E8", dark: "#9164BB", edge: "#68468D" },
+  "QUẢN LÝ KHÁCH HÀNG": { light: "#F1ADC3", dark: "#CF6D94", edge: "#A94B70" },
+  "BÁN LẺ": { light: "#FFC17D", dark: "#E4863D", edge: "#AF602C" },
+  "TÀI CHÍNH": { light: "#87D4A5", dark: "#3D9E6C", edge: "#2D754F" },
+  "MARKETING": { light: "#EFA8D7", dark: "#B65B9F", edge: "#893D78" },
+  "QUẢN LÝ TÀI NGUYÊN": { light: "#A3C9A2", dark: "#639568", edge: "#476E4C" },
+  "TRÒ CHUYỆN": { light: "#B7A5E2", dark: "#8068B3", edge: "#5E4C8A" },
+  "QUẢN TRỊ USER": { light: "#A7B5D2", dark: "#667DAB", edge: "#465C88" },
+  "CÀI ĐẶT": { light: "#B7AAEB", dark: "#7865B9", edge: "#584893" },
+  "HƯỚNG DẪN": { light: "#F1CD89", dark: "#C59449", edge: "#987036" },
+};
+
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
@@ -248,6 +267,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
                   const isStudentIcon = item.label === "QUẢN LÝ HỌC VIÊN";
+                  const iconPalette = menuIconPalettes[item.label];
 
                   return (
                     <button
@@ -275,17 +295,13 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <Icon
-                          className={`h-5 w-5 shrink-0 ${isStudentIcon ? "" : "transition-colors"} ${
-                            item.locked
-                              ? "text-slate-300"
-                              : isStudentIcon
-                              ? ""
-                              : isActive
-                              ? "text-[#00ADFC]"
-                              : "text-slate-400 group-hover:text-slate-600"
-                          }`}
-                        />
+                        {isStudentIcon ? (
+                          <Icon className="h-6 w-6 shrink-0 transition-transform group-hover:scale-105" />
+                        ) : iconPalette ? (
+                          <Menu3DIcon icon={Icon} palette={iconPalette} className="h-6 w-6" />
+                        ) : (
+                          <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        )}
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
