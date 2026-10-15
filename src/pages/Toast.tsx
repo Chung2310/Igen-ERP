@@ -91,10 +91,10 @@ export function ToastContainer() {
 
         switch (t.type) {
           case 'success':
-            bgColor = 'bg-emerald-50/95';
-            borderColor = 'border-emerald-200';
-            textColor = 'text-emerald-900';
-            icon = <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />;
+            bgColor = 'bg-sky-50/95';
+            borderColor = 'border-sky-200';
+            textColor = 'text-sky-950';
+            icon = <CheckCircle className="h-5 w-5 text-[#00ADFC] shrink-0" />;
             break;
           case 'error':
             if (t.message.includes("Số dư ví không đủ")) {

@@ -894,7 +894,7 @@ export default function UserAdminTab() {
                             {roleInfo.permissions.length === 0 ? (
                               <span className="text-[10px] text-gray-400 italic">Chưa cấu hình quyền nào</span>
                             ) : roleInfo.permissions.includes("*") ? (
-                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-[10px] font-bold flex items-center gap-1">
+                              <span className="px-2.5 py-1 bg-sky-50 text-[#00ADFC] border border-sky-200 rounded-xl text-[10px] font-bold flex items-center gap-1">
                                 ✓ Toàn quyền hệ thống
                               </span>
                             ) : (

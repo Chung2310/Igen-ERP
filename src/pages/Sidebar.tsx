@@ -21,6 +21,7 @@ import {
   ContactRound,
 } from "lucide-react";
 import {
+  BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
   BRAND_NAME,
   BRAND_TAGLINE,
@@ -210,22 +211,24 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
         id="sidebar_container"
       >
         {/* Brand Header */}
-        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-4" : "px-5 py-4.5"}`} id="sidebar_brand_header">
-          <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-3" : "justify-start pl-3.5 pr-2 pt-1.5 pb-2"}`} id="sidebar_brand_header">
+          {isCollapsed ? (
             <img
               src={BRAND_LOGO_PATH}
               alt={BRAND_NAME}
               onClick={() => setActiveTab("TỔNG QUAN")}
               title="Về trang Tổng quan"
-              className="h-10 w-10 shrink-0 rounded-xl border border-sky-100 object-cover shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              className="h-9 w-9 shrink-0 rounded-xl object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
             />
-            {!isCollapsed ? (
-              <div className="min-w-0">
-                <h2 className="truncate font-sans text-base font-bold tracking-tight text-sky-700">{BRAND_NAME}</h2>
-                <p className="truncate font-mono text-[10px] uppercase tracking-widest text-slate-400">{BRAND_TAGLINE}</p>
-              </div>
-            ) : null}
-          </div>
+          ) : (
+            <img
+              src={BRAND_FULL_LOGO_PATH}
+              alt={BRAND_NAME}
+              onClick={() => setActiveTab("TỔNG QUAN")}
+              title="Về trang Tổng quan"
+              className="h-[64px] w-auto max-w-[220px] shrink-0 object-contain object-left -translate-y-1 cursor-pointer transition-transform hover:scale-102 active:scale-98"
+            />
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -259,7 +262,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
                           : isActive
-                          ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
+                          ? "bg-sky-50 text-slate-900 font-semibold shadow-xs"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
@@ -277,7 +280,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                             item.locked
                               ? "text-slate-300"
                               : isActive
-                              ? "text-sky-600"
+                              ? "text-[#00ADFC]"
                               : "text-slate-400 group-hover:text-slate-600"
                           }`}
                         />
@@ -289,7 +292,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       {item.locked ? (
                         <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
                       ) : !isCollapsed && isActive ? (
-                        <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#00ADFC]" />
                       ) : null}
                     </button>
                   );

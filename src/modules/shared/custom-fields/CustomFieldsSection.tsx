@@ -16,6 +16,8 @@ export type CustomFieldsSectionProps = {
   tenantId?: string;
   isEditingFields?: boolean;
   onToggleEditingFields?(val: boolean): void;
+  compact?: boolean;
+  className?: string;
 };
 
 export function CustomFieldsSection({
@@ -27,7 +29,9 @@ export function CustomFieldsSection({
   disabled = false,
   tenantId,
   isEditingFields,
-  onToggleEditingFields
+  onToggleEditingFields,
+  compact = false,
+  className = "",
 }: CustomFieldsSectionProps) {
   const { userProfile } = useAuth();
   // Với tài khoản doanh nghiệp, tenant luôn phải lấy từ access token. Chỉ
@@ -68,19 +72,21 @@ export function CustomFieldsSection({
   };
 
   return (
-    <section className="pt-4 border-t border-slate-100 space-y-4" aria-label="Trường tùy chỉnh" data-mode={mode}>
+    <section className={compact ? `pt-2.5 border-t border-slate-100 space-y-2.5 ${className}` : `pt-4 border-t border-slate-100 space-y-4 ${className}`} aria-label="Trường tùy chỉnh" data-mode={mode}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Thông tin bổ sung</h3>
+        <h3 className="text-xs font-bold text-slate-900 normal-case">Thông tin bổ sung</h3>
         {manageable ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={disabled}
               onClick={toggleEditing}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
+              className={`rounded-xl border font-semibold transition-all disabled:opacity-50 normal-case ${
+                compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+              } ${
                 isEditing
-                  ? "border-cyan-600 bg-cyan-50 text-cyan-600 hover:bg-cyan-100/50"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  ? "border-[#00ADFC] bg-sky-50 text-[#007EB8]"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               {isEditing ? "Xong" : "Chỉnh sửa trường"}
@@ -89,7 +95,9 @@ export function CustomFieldsSection({
               type="button"
               disabled={disabled}
               onClick={openCreate}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all disabled:opacity-50"
+              className={`rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/20 transition-all disabled:opacity-50 normal-case ${
+                compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+              }`}
             >
               + Thêm trường
             </button>
@@ -98,14 +106,14 @@ export function CustomFieldsSection({
       </div>
       {error ? <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"><span>{error}</span><button type="button" className="font-semibold underline" onClick={() => void refresh()}>Thử lại</button></div> : null}
       {loading && !fields.length ? <p aria-live="polite" className="text-sm text-slate-500">Đang tải trường tùy chỉnh…</p> : null}
-      <div className="space-y-4">
+      <div className={compact ? "grid grid-cols-1 sm:grid-cols-2 gap-2.5" : "space-y-4"}>
         {activeFields.map((field) => (
           <div key={field.id} className="relative space-y-1">
             {manageable && isEditing ? (
               <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
-                <button type="button" disabled={disabled} aria-label={`Chỉnh sửa ${field.label}`} title="Chỉnh sửa" className="hover:text-cyan-600 transition-colors" onClick={() => openEdit(field)}>Sửa</button>
+                <button type="button" disabled={disabled} aria-label={`Chỉnh sửa ${field.label}`} title="Chỉnh sửa" className="hover:text-[#00ADFC] transition-colors" onClick={() => openEdit(field)}>Sửa</button>
                 <span>|</span>
-                <button type="button" disabled={disabled} aria-label={`Lưu trữ ${field.label}`} title="Lưu trữ" className="hover:text-cyan-600 transition-colors" onClick={() => void archive(field)}>Lưu trữ</button>
+                <button type="button" disabled={disabled} aria-label={`Lưu trữ ${field.label}`} title="Lưu trữ" className="hover:text-[#00ADFC] transition-colors" onClick={() => void archive(field)}>Lưu trữ</button>
                 <span>|</span>
                 <button type="button" disabled={disabled} aria-label={`Xóa ${field.label}`} title="Xóa" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => void remove(field)}>Xóa</button>
               </div>
@@ -116,7 +124,7 @@ export function CustomFieldsSection({
       </div>
       {manageable && archivedFields.length ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường đã lưu trữ</h4>
+          <h4 className="text-xs font-semibold text-slate-900 normal-case">Trường đã lưu trữ</h4>
           <ul className="mt-2 divide-y divide-slate-100">
             {archivedFields.map((field) => (
               <li key={field.id} className="flex items-center justify-between py-2 text-xs text-slate-600">

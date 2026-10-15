@@ -5,14 +5,14 @@
   --font-sans: "Inter", "Be Vietnam Pro", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --color-primary: #00aeca;
+  --color-primary: #00ADFC;
   --color-on-primary: #ffffff;
-  --color-primary-container: #d7f4ff;
-  --color-on-primary-container: #005c6d;
-  --color-primary-fixed: #e9f3ff;
+  --color-primary-container: #e0f2fe;
+  --color-on-primary-container: #004b73;
+  --color-primary-fixed: #f0f9ff;
   --color-primary-fixed-dim: #bfeaff;
   --color-on-primary-fixed: #052235;
-  --color-on-primary-fixed-variant: #00718a;
+  --color-on-primary-fixed-variant: #0077b3;
 
   --color-secondary: #64748b;
   --color-on-secondary: #ffffff;
@@ -54,8 +54,8 @@
   --color-outline-variant: #d8e2f0;
   --color-inverse-surface: #0f172a;
   --color-inverse-on-surface: #e8eef8;
-  --color-inverse-primary: #22d3ee;
-  --color-surface-tint: #00aeca;
+  --color-inverse-primary: #38bdf8;
+  --color-surface-tint: #00ADFC;
 
   --color-white: #ffffff;
   --color-black: #071629;
@@ -88,45 +88,45 @@
   --color-gray-850: #06111f;
   --color-gray-900: #020617;
 
-  --color-blue-50: #e6f6ff;
-  --color-blue-100: #d5edff;
-  --color-blue-200: #b8dcff;
-  --color-blue-300: #8cc7ff;
+  --color-blue-50: #f0f9ff;
+  --color-blue-100: #e0f2fe;
+  --color-blue-200: #bfeaff;
+  --color-blue-300: #7dd3fc;
   --color-blue-400: #38bdf8;
-  --color-blue-500: #06b6d4;
-  --color-blue-600: #008bad;
-  --color-blue-700: #006f8d;
-  --color-blue-800: #075985;
-  --color-blue-900: #0c4a6e;
+  --color-blue-500: #00ADFC;
+  --color-blue-600: #0095d9;
+  --color-blue-700: #0077b3;
+  --color-blue-800: #005d8c;
+  --color-blue-900: #00486c;
 
-  --color-cyan-50: #e6f6ff;
-  --color-cyan-100: #d7f4ff;
-  --color-cyan-200: #b8dcff;
-  --color-cyan-300: #8cc7ff;
+  --color-cyan-50: #f0f9ff;
+  --color-cyan-100: #e0f2fe;
+  --color-cyan-200: #bfeaff;
+  --color-cyan-300: #7dd3fc;
   --color-cyan-400: #38bdf8;
-  --color-cyan-500: #00aeca;
-  --color-cyan-600: #008bad;
-  --color-cyan-700: #006f8d;
-  --color-cyan-800: #075985;
-  --color-cyan-900: #0c4a6e;
-  --color-cyan-950: #082f49;
+  --color-cyan-500: #00ADFC;
+  --color-cyan-600: #0095d9;
+  --color-cyan-700: #0077b3;
+  --color-cyan-800: #005d8c;
+  --color-cyan-900: #00486c;
+  --color-cyan-950: #002c44;
 
-  --color-indigo-50: #e6f6ff;
-  --color-indigo-100: #d7f4ff;
-  --color-indigo-150: #d2ddfb;
-  --color-indigo-200: #b8dcff;
-  --color-indigo-300: #8cc7ff;
+  --color-indigo-50: #f0f9ff;
+  --color-indigo-100: #e0f2fe;
+  --color-indigo-150: #bfeaff;
+  --color-indigo-200: #bfeaff;
+  --color-indigo-300: #7dd3fc;
   --color-indigo-400: #38bdf8;
-  --color-indigo-500: #00aeca;
-  --color-indigo-550: #008bad;
-  --color-indigo-600: #008bad;
-  --color-indigo-650: #006f8d;
-  --color-indigo-655: #006f8d;
-  --color-indigo-700: #006f8d;
-  --color-indigo-750: #075985;
-  --color-indigo-800: #075985;
-  --color-indigo-900: #0c4a6e;
-  --color-indigo-950: #082f49;
+  --color-indigo-500: #00ADFC;
+  --color-indigo-550: #0095d9;
+  --color-indigo-600: #0095d9;
+  --color-indigo-650: #0077b3;
+  --color-indigo-655: #0077b3;
+  --color-indigo-700: #0077b3;
+  --color-indigo-750: #005d8c;
+  --color-indigo-800: #005d8c;
+  --color-indigo-900: #00486c;
+  --color-indigo-950: #002c44;
 
   --color-purple-50: #f3e8ff;
   --color-purple-100: #ead5ff;
@@ -151,28 +151,28 @@
   --color-amber-800: #663000;
   --color-amber-900: #431407;
 
-  --color-emerald-50: #e7fbff;
-  --color-emerald-100: #cdf4fb;
-  --color-emerald-200: #a5eaf4;
-  --color-emerald-300: #67dceb;
-  --color-emerald-400: #22c7d8;
-  --color-emerald-500: #06b6c7;
-  --color-emerald-600: #008da3;
-  --color-emerald-700: #00748a;
-  --color-emerald-800: #075e73;
-  --color-emerald-900: #0b4c5e;
+  --color-emerald-50: #f0f9ff;
+  --color-emerald-100: #e0f2fe;
+  --color-emerald-200: #bfeaff;
+  --color-emerald-300: #7dd3fc;
+  --color-emerald-400: #38bdf8;
+  --color-emerald-500: #00ADFC;
+  --color-emerald-600: #00ADFC;
+  --color-emerald-700: #008ed1;
+  --color-emerald-800: #0077b3;
+  --color-emerald-900: #005f8f;
 
-  --color-green-50: #e7fbff;
-  --color-green-100: #cdf4fb;
-  --color-green-200: #a5eaf4;
-  --color-green-300: #67dceb;
-  --color-green-400: #22c7d8;
-  --color-green-500: #06b6c7;
-  --color-green-600: #008da3;
-  --color-green-700: #00748a;
-  --color-green-800: #075e73;
-  --color-green-850: #06495a;
-  --color-green-900: #0b4c5e;
+  --color-green-50: #f0f9ff;
+  --color-green-100: #e0f2fe;
+  --color-green-200: #bfeaff;
+  --color-green-300: #7dd3fc;
+  --color-green-400: #38bdf8;
+  --color-green-500: #00ADFC;
+  --color-green-600: #00ADFC;
+  --color-green-700: #008ed1;
+  --color-green-800: #0077b3;
+  --color-green-850: #006c9e;
+  --color-green-900: #005f8f;
 
   --color-red-50: #ffdad6;
   --color-red-100: #ffdad6;
@@ -187,7 +187,7 @@
   --color-red-800: #690005;
   --color-red-900: #410002;
 
-  --color-brand-primary: var(--color-cyan-600);
+  --color-brand-primary: #00ADFC;
   --color-brand-sidebar: #08222f;
   --color-brand-bg: var(--color-background);
 }
@@ -211,6 +211,29 @@
   color: var(--color-on-surface);
 }
 
+/* Brand Color (#00ADFC) standard: override green / teal / emerald text to brand color */
+.text-emerald-500,
+.text-emerald-600,
+.text-green-500,
+.text-green-600,
+.text-teal-500,
+.text-teal-600 {
+  color: #00ADFC !important;
+}
+
+.text-emerald-700,
+.text-emerald-800,
+.text-emerald-900,
+.text-green-700,
+.text-green-800,
+.text-green-850,
+.text-green-900,
+.text-teal-700,
+.text-teal-800,
+.text-teal-900 {
+  color: #00ADFC !important;
+}
+
 html,
 body,
 #root {
@@ -219,7 +242,7 @@ body,
 
 html,
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .dark {
@@ -388,13 +411,13 @@ code, kbd, samp, pre {
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb {
-  background: #008bad !important;
+  background: #00ADFC !important;
   border-radius: 6px !important;
   border: 2px solid #e2e8f0 !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #006f8d !important;
+  background: #0095d9 !important;
 }
 
 /* Toast Animations */
@@ -549,11 +572,259 @@ code, kbd, samp, pre {
 
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
-    border-color: rgba(6, 182, 212, 0.3);
+    box-shadow: 0 0 8px rgba(0, 173, 252, 0.15);
+    border-color: rgba(0, 173, 252, 0.3);
   }
   50% {
-    box-shadow: 0 0 24px rgba(6, 182, 212, 0.4);
-    border-color: rgba(6, 182, 212, 0.7);
+    box-shadow: 0 0 24px rgba(0, 173, 252, 0.4);
+    border-color: rgba(0, 173, 252, 0.7);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes floatDelayed {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes brandPulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-float-gentle {
+  animation: floatGentle 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: floatDelayed 5s ease-in-out 1.5s infinite;
+}
+
+.animate-brand-pulse {
+  animation: brandPulse 3s ease-in-out infinite;
+}
+
+@property --landing-rainbow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes landing-rainbow-spin {
+  to {
+    --landing-rainbow-angle: 360deg;
+  }
+}
+
+.landing-rainbow-border {
+  --landing-cta-fill: #00adfc;
+  --landing-cta-fill-hover: #0096df;
+  --landing-cta-stroke: #00adfc;
+  border: 2px solid transparent !important;
+  background:
+    linear-gradient(var(--landing-cta-fill), var(--landing-cta-fill)) padding-box,
+    linear-gradient(var(--landing-cta-stroke), var(--landing-cta-stroke)) border-box;
+  touch-action: manipulation;
+}
+
+.landing-rainbow-border--light {
+  --landing-cta-fill: #fff;
+  --landing-cta-fill-hover: #f0f9ff;
+}
+
+.landing-rainbow-border:is(:hover, :focus-visible, :active) {
+  background:
+    linear-gradient(var(--landing-cta-fill-hover), var(--landing-cta-fill-hover)) padding-box,
+    conic-gradient(
+      from var(--landing-rainbow-angle),
+      #ff57b3,
+      #ff9d43,
+      #ffe66d,
+      #4ed9a2,
+      #00adfc,
+      #7567ff,
+      #ff57b3
+    ) border-box;
+  animation: landing-rainbow-spin 2.2s linear infinite;
+}
+
+.landing-rainbow-border:focus-visible {
+  outline: 2px solid #007db8;
+  outline-offset: 3px;
+}
+
+.landing-rainbow-card {
+  border: 2px solid transparent !important;
+  background:
+    linear-gradient(var(--landing-card-bg, #fff), var(--landing-card-bg, #fff)) padding-box,
+    linear-gradient(#e2e8f0, #e2e8f0) border-box;
+}
+
+.landing-rainbow-card--soft {
+  --landing-card-bg: #f6fbff;
+}
+
+.landing-rainbow-card:is(:hover, :focus-within, :active) {
+  background:
+    linear-gradient(var(--landing-card-bg, #fff), var(--landing-card-bg, #fff)) padding-box,
+    conic-gradient(
+      from var(--landing-rainbow-angle),
+      #ff57b3,
+      #ff9d43,
+      #ffe66d,
+      #4ed9a2,
+      #00adfc,
+      #7567ff,
+      #ff57b3
+    ) border-box;
+  animation: landing-rainbow-spin 2.2s linear infinite;
+}
+
+@keyframes landing-solution-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.landing-solution-enter {
+  animation: landing-solution-enter 360ms ease-out both;
+}
+
+.landing-industry-tabs {
+  scrollbar-width: none;
+}
+
+.landing-industry-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.landing-motion-ready [data-landing-reveal] {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 650ms ease, transform 650ms cubic-bezier(0.2, 0.75, 0.2, 1);
+  transition-delay: var(--landing-reveal-delay, 0ms);
+}
+
+.landing-motion-ready [data-landing-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-hero-visual {
+  transition: transform 400ms cubic-bezier(0.2, 0.75, 0.2, 1), box-shadow 400ms ease;
+}
+
+.landing-hero-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-hero-background {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.landing-hero-robot {
+  position: absolute;
+  width: 61%;
+  height: auto;
+  left: 19.5%;
+  top: 11.5%;
+  transform-origin: 50% 58%;
+  animation: landing-robot-hover 2.4s ease-in-out infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+
+@keyframes landing-robot-hover {
+  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
+  50% { transform: translateY(-2.4%) rotate(0.6deg); }
+}
+
+.landing-tiktok-illustration svg {
+  font-family: var(--font-sans);
+}
+
+.landing-tiktok-flow-dot,
+.landing-tiktok-flow-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: landing-tiktok-sync 2.4s ease-in-out infinite;
+}
+
+.landing-tiktok-flow-halo {
+  animation-delay: 120ms;
+}
+
+.landing-tiktok-card--shop {
+  animation: landing-tiktok-card-float 4s ease-in-out infinite;
+}
+
+.landing-tiktok-card--erp {
+  animation: landing-tiktok-card-float 4s ease-in-out -2s infinite;
+}
+
+@keyframes landing-tiktok-sync {
+  0%, 100% { transform: translateX(-28px); opacity: 0.3; }
+  50% { transform: translateX(28px); opacity: 1; }
+}
+
+@keyframes landing-tiktok-card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (hover: hover) {
+  .landing-hero-visual:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 28px 60px -24px rgba(0, 173, 252, 0.3);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rainbow-border:is(:hover, :focus-visible, :active),
+  .landing-rainbow-card:is(:hover, :focus-within, :active),
+  .landing-solution-enter,
+  .landing-tiktok-flow-dot,
+  .landing-tiktok-flow-halo,
+  .landing-tiktok-card--shop,
+  .landing-tiktok-card--erp,
+  .animate-float-gentle,
+  .animate-float-delayed,
+  .animate-brand-pulse {
+    animation: none !important;
+  }
+
+  .landing-motion-ready [data-landing-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .landing-hero-visual {
+    transition: none;
+  }
+
+  .landing-hero-robot {
+    animation: none;
   }
 }

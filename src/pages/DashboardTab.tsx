@@ -25,6 +25,7 @@ export default function DashboardTab() {
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [actionItems, setActionItems] = useState<DashboardActionItems | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Poll summary data
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function DashboardTab() {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid, activeBranchId, refreshKey]);
 
   // Poll action items
   useEffect(() => {
@@ -73,37 +74,34 @@ export default function DashboardTab() {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid, activeBranchId, refreshKey]);
 
   const todayLabel = new Date().toLocaleDateString("vi-VN", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    year: "numeric",
   });
 
   return (
-    <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto px-0.5 pb-4 text-left sm:pr-2" id="dashboard_tab_view">
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1.5 bg-cyan-600 rounded-full shrink-0" />
-            <div>
-              <h1 className="font-extrabold text-xl md:text-2xl tracking-tight text-cyan-700 dark:text-cyan-400">
-                Tổng quan Doanh nghiệp
-              </h1>
-              <p className="text-xs text-slate-500 font-medium">Hôm nay, {todayLabel}</p>
-            </div>
-          </div>
+    <div className="mx-auto max-h-[85vh] max-w-[1600px] overflow-y-auto px-0.5 pb-6 text-left sm:pr-2" id="dashboard_tab_view">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2.5">
+          <div className="h-5 w-1 shrink-0 self-center rounded-full bg-[#00ADFC]" />
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            Tổng quan
+          </h1>
+          <p className="text-xs font-medium text-slate-500">Hôm nay, {todayLabel}</p>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200/80 pb-0 md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-1.5 overflow-x-auto select-none pb-1">
+        <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-1 overflow-x-auto select-none rounded-xl bg-slate-100/70 p-1">
             <button
               onClick={() => setActiveView("overview")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                 activeView === "overview"
-                  ? "bg-cyan-600 text-white font-bold shadow-sm"
-                  : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                  ? "bg-[#00ADFC] text-white font-bold shadow-sm"
+                  : "text-slate-600 hover:text-[#007EB8] hover:bg-[#E8F7FF] font-semibold"
               }`}
             >
               <LayoutDashboard className={`h-4 w-4 ${activeView === "overview" ? "text-white" : "text-slate-400"}`} />
@@ -111,10 +109,10 @@ export default function DashboardTab() {
             </button>
             <button
               onClick={() => setActiveView("revenue")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                 activeView === "revenue"
-                  ? "bg-cyan-600 text-white font-bold shadow-sm"
-                  : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                  ? "bg-[#00ADFC] text-white font-bold shadow-sm"
+                  : "text-slate-600 hover:text-[#007EB8] hover:bg-[#E8F7FF] font-semibold"
               }`}
             >
               <TrendingUp className={`h-4 w-4 ${activeView === "revenue" ? "text-white" : "text-slate-400"}`} />
@@ -130,6 +128,8 @@ export default function DashboardTab() {
           actionItems={actionItems}
           canSeeHr={canSeeHr}
           canSeeStudent={canSeeStudent}
+          refreshKey={refreshKey}
+          onRefresh={() => setRefreshKey((key) => key + 1)}
         />
       ) : (
         <RevenueAnalysisPanel />

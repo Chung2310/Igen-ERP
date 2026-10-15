@@ -234,162 +234,165 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCe
 
   return (
     <>
-      <ErpModal title={partner ? 'Cập nhật đối tác' : 'Thêm đối tác mới'} onClose={onClose} maxWidth="max-w-2xl" zIndex={zIndex}>
-      <form onSubmit={handleSubmit} className="space-y-4 text-left grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-        {user?.role === 'superadmin' && !partner && (
-          <div className="md:col-span-2">
-            <ErpField label="Trung tâm quản lý *">
-              <ErpSelect name="centerId" value={formData.centerId} onChange={handleInputChange} required>
-                <option value="">-- Chọn trung tâm quản lý --</option>
-                {centers.map(center => (
-                  <option key={center.uid} value={center.uid}>
-                    {center.displayName} ({center.email})
-                  </option>
-                ))}
+      <ErpModal title={partner ? 'Cập nhật đối tác' : 'Thêm đối tác mới'} onClose={onClose} maxWidth="max-w-4xl" zIndex={zIndex}>
+      <form onSubmit={handleSubmit} className="text-left space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+          {/* Cột 1: Thông tin đối tác */}
+          <div className="space-y-2.5">
+            <div className="pb-1 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Thông tin đối tác / CTV</span>
+            </div>
+
+            {user?.role === 'superadmin' && !partner && (
+              <ErpField label="Trung tâm quản lý *">
+                <ErpSelect name="centerId" value={formData.centerId} onChange={handleInputChange} required>
+                  <option value="">-- Chọn trung tâm quản lý --</option>
+                  {centers.map(center => (
+                    <option key={center.uid} value={center.uid}>
+                      {center.displayName} ({center.email})
+                    </option>
+                  ))}
+                </ErpSelect>
+              </ErpField>
+            )}
+
+            {isFieldVisible('name') && (
+              <div className="relative group/std">
+                {renderFieldActions('name')}
+                <ErpField label={getFieldLabel('name', 'Tên đối tác / CTV')}>
+                  <ErpInput
+                    name="name"
+                    required={isFieldRequired('name', true)}
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder={getFieldPlaceholder('name', 'Nhập họ và tên...')}
+                  />
+                </ErpField>
+              </div>
+            )}
+
+            {isFieldVisible('phone') && (
+              <div className="relative group/std">
+                {renderFieldActions('phone')}
+                <ErpField label={getFieldLabel('phone', 'Số điện thoại')}>
+                  <ErpInput
+                    name="phone"
+                    required={isFieldRequired('phone', true)}
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder={getFieldPlaceholder('phone', 'Nhập số điện thoại...')}
+                  />
+                </ErpField>
+              </div>
+            )}
+
+            {isFieldVisible('email') && (
+              <div className="relative group/std">
+                {renderFieldActions('email')}
+                <ErpField label={getFieldLabel('email', 'Địa chỉ Email')}>
+                  <ErpInput
+                    name="email"
+                    type="email"
+                    required={isFieldRequired('email', false)}
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder={getFieldPlaceholder('email', 'Nhập địa chỉ email...')}
+                  />
+                </ErpField>
+              </div>
+            )}
+
+            <ErpField label="Trạng thái hoạt động">
+              <ErpSelect
+                name="isActive"
+                value={formData.isActive ? 'true' : 'false'}
+                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
+              >
+                <option value="true">Đang hoạt động</option>
+                <option value="false">Ngưng hoạt động</option>
               </ErpSelect>
             </ErpField>
           </div>
-        )}
 
-        {isFieldVisible('name') && (
-          <div className="relative group/std">
-            {renderFieldActions('name')}
-            <ErpField label={getFieldLabel('name', 'Tên đối tác / Cộng tác viên')}>
-              <ErpInput
-                name="name"
-                required={isFieldRequired('name', true)}
-                value={formData.name}
+          {/* Cột 2: Thông tin chi trả & ghi chú */}
+          <div className="space-y-2.5">
+            <div className="pb-1 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Tài khoản ngân hàng chi trả</span>
+            </div>
+
+            <ErpField label="Ngân hàng (VietQR)">
+              <ErpSelect
+                name="bankName"
+                value={formData.bankName}
                 onChange={handleInputChange}
-                placeholder={getFieldPlaceholder('name', 'Nhập tên đối tác...')}
+              >
+                <option value="">-- Chọn ngân hàng --</option>
+                <option value="mbbank">MBBank (MB)</option>
+                <option value="vietcombank">Vietcombank (VCB)</option>
+                <option value="techcombank">Techcombank (TCB)</option>
+                <option value="vietinbank">Vietinbank (CTG)</option>
+                <option value="bidv">BIDV</option>
+                <option value="agribank">Agribank (VBA)</option>
+                <option value="acb">ACB</option>
+                <option value="sacombank">Sacombank (STB)</option>
+                <option value="tpbank">TPBank (TPB)</option>
+                <option value="vpbank">VPBank (VPB)</option>
+              </ErpSelect>
+            </ErpField>
+
+            <ErpField label="Số tài khoản">
+              <ErpInput
+                name="bankAccountNo"
+                value={formData.bankAccountNo}
+                onChange={(e) => setFormData(prev => ({ ...prev, bankAccountNo: e.target.value.replace(/\D/g, '') }))}
+                placeholder="Nhập số tài khoản..."
+              />
+            </ErpField>
+
+            <ErpField label="Tên chủ tài khoản">
+              <ErpInput
+                name="bankAccountName"
+                value={formData.bankAccountName}
+                onChange={handleInputChange}
+                placeholder="Nhập tên chủ tài khoản (viết hoa không dấu)..."
+              />
+            </ErpField>
+
+            <ErpField label="Ghi chú">
+              <ErpInput
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                placeholder="Ghi chú thêm về đối tác này..."
               />
             </ErpField>
           </div>
-        )}
-
-        {isFieldVisible('phone') && (
-          <div className="relative group/std">
-            {renderFieldActions('phone')}
-            <ErpField label={getFieldLabel('phone', 'Số điện thoại')}>
-              <ErpInput
-                name="phone"
-                required={isFieldRequired('phone', true)}
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder={getFieldPlaceholder('phone', 'Nhập số điện thoại...')}
-              />
-            </ErpField>
-          </div>
-        )}
-
-        {isFieldVisible('email') && (
-          <div className="relative group/std">
-            {renderFieldActions('email')}
-            <ErpField label={getFieldLabel('email', 'Email')}>
-              <ErpInput
-                name="email"
-                type="email"
-                required={isFieldRequired('email', false)}
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder={getFieldPlaceholder('email', 'Nhập địa chỉ email...')}
-              />
-            </ErpField>
-          </div>
-        )}
-
-        <ErpField label="Trạng thái hoạt động">
-          <ErpSelect
-            name="isActive"
-            value={formData.isActive ? 'true' : 'false'}
-            onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
-          >
-            <option value="true">Đang hoạt động</option>
-            <option value="false">Ngưng hoạt động</option>
-          </ErpSelect>
-        </ErpField>
-
-        <div className="md:col-span-2 border-t border-slate-100 my-2 pt-2">
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Quy tắc tính hoa hồng</h4>
-          <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-            Hệ thống sẽ tự động xếp cấp bậc (Level) hoa hồng cho đối tác dựa trên tổng {entityLabel.preset === 'worker' ? 'giá trị tuyển dụng' : entityLabel.preset === 'customer' ? 'giá trị dịch vụ' : 'doanh số học phí'} tích lũy mà họ giới thiệu được. Tỷ lệ hoa hồng (%) sẽ thay đổi tương ứng theo từng mốc cấu hình chung.
-          </p>
         </div>
 
-        <div className="md:col-span-2 border-t border-slate-100 my-2 pt-2">
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Tài khoản ngân hàng chi trả</h4>
-        </div>
-
-        <ErpField label="Ngân hàng (VietQR)">
-          <ErpSelect
-            name="bankName"
-            value={formData.bankName}
-            onChange={handleInputChange}
-          >
-            <option value="">-- Chọn ngân hàng --</option>
-            <option value="mbbank">MBBank (MB)</option>
-            <option value="vietcombank">Vietcombank (VCB)</option>
-            <option value="techcombank">Techcombank (TCB)</option>
-            <option value="vietinbank">Vietinbank (CTG)</option>
-            <option value="bidv">BIDV</option>
-            <option value="agribank">Agribank (VBA)</option>
-            <option value="acb">ACB</option>
-            <option value="sacombank">Sacombank (STB)</option>
-            <option value="tpbank">TPBank (TPB)</option>
-            <option value="vpbank">VPBank (VPB)</option>
-          </ErpSelect>
-        </ErpField>
-
-        <ErpField label="Số tài khoản">
-          <ErpInput
-            name="bankAccountNo"
-            value={formData.bankAccountNo}
-            onChange={(e) => setFormData(prev => ({ ...prev, bankAccountNo: e.target.value.replace(/\D/g, '') }))}
-            placeholder="Nhập số tài khoản..."
-          />
-        </ErpField>
-
-        <ErpField label="Tên chủ tài khoản">
-          <ErpInput
-            name="bankAccountName"
-            value={formData.bankAccountName}
-            onChange={handleInputChange}
-            placeholder="Nhập tên chủ tài khoản (viết hoa không dấu)..."
-          />
-        </ErpField>
-
-        <ErpField label="Ghi chú">
-          <ErpInput
-            name="notes"
-            value={formData.notes}
-            onChange={handleInputChange}
-            placeholder="Ghi chú thêm về đối tác này..."
-          />
-        </ErpField>
-
-        <div className="md:col-span-2">
-          <CustomFieldsSection
-            moduleKey="partners"
-            values={formData.customFields}
-            onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
-            mode={partner ? 'edit' : 'create'}
-            disabled={isSubmitting}
-            tenantId={formData.centerId || partner?.ownerId}
-            isEditingFields={isEditingFields}
-            onToggleEditingFields={setIsEditingFields}
-          />
-        </div>
+        {/* Thông tin bổ sung */}
+        <CustomFieldsSection
+          moduleKey="partners"
+          values={formData.customFields}
+          onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+          mode={partner ? 'edit' : 'create'}
+          disabled={isSubmitting}
+          tenantId={formData.centerId || partner?.ownerId}
+          isEditingFields={isEditingFields}
+          onToggleEditingFields={setIsEditingFields}
+          compact={true}
+        />
 
         {manageable && archivedStdFields.length ? (
-          <div className="md:col-span-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
-            <ul className="mt-2 divide-y divide-slate-100">
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-2.5 text-left">
+            <h4 className="text-[11px] font-semibold text-slate-700">Trường mặc định đã lưu trữ</h4>
+            <ul className="mt-1.5 divide-y divide-slate-100">
               {archivedStdFields.map((field) => (
-                <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                <li key={field.key} className="flex items-center justify-between py-1 text-xs text-slate-600">
                   <span>{field.label}</span>
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                    className="font-semibold text-[#00ADFC] hover:text-[#0095d9] disabled:opacity-50 transition-colors cursor-pointer text-xs"
                     aria-label={`Khôi phục ${field.label}`}
                     onClick={() => restoreStdField(field.key)}
                   >
@@ -401,17 +404,30 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCe
           </div>
         ) : null}
 
-        <div className="md:col-span-2 mt-4">
-          <ErpSubmitButton disabled={isSubmitting}>
+        {/* Thanh nút hành động gọn gàng */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center justify-center gap-1.5 px-6 py-2 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white rounded-xl text-xs font-semibold shadow-xs active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          >
             {isSubmitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang lưu...
-              </span>
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Đang lưu...</span>
+              </>
             ) : (
               partner ? 'Cập nhật đối tác' : 'Khai báo đối tác'
             )}
-          </ErpSubmitButton>
+          </button>
         </div>
       </form>
     </ErpModal>

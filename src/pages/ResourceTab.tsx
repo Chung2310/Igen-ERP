@@ -1278,15 +1278,15 @@ export default function ResourceTab() {
           // Vẽ ảnh đang edit
           ctx.drawImage(editingImage.img, editingImage.x, editingImage.y, editingImage.w, editingImage.h);
 
-          // Vẽ khung nét đứt màu teal
+          // Vẽ khung nét đứt màu brand blue
           ctx.setLineDash([5, 5]);
-          ctx.strokeStyle = "#008bad";
+          ctx.strokeStyle = "#00ADFC";
           ctx.lineWidth = 1.5;
           ctx.strokeRect(editingImage.x, editingImage.y, editingImage.w, editingImage.h);
           ctx.setLineDash([]);
 
           // Vẽ nút tròn resize ở góc dưới bên phải
-          ctx.fillStyle = "#008bad";
+          ctx.fillStyle = "#00ADFC";
           ctx.beginPath();
           ctx.arc(editingImage.x + editingImage.w, editingImage.y + editingImage.h, 7, 0, 2 * Math.PI);
           ctx.fill();

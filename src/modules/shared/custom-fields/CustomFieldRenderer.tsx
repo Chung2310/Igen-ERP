@@ -229,7 +229,7 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
   const checkboxLike = fieldType === "checkbox" || fieldType === "switch";
   return (
     <div className="space-y-1" data-custom-field={field.key}>
-      <label className={`text-[10px] font-bold text-slate-800 uppercase tracking-wider ${checkboxLike ? "flex items-center gap-2" : "block"}`} htmlFor={inputId}>
+      <label className={`text-xs font-semibold text-slate-900 normal-case ${checkboxLike ? "flex items-center gap-2" : "block"}`} htmlFor={inputId}>
         {checkboxLike && control}
         <span>{field.label}{field.isRequired ? <span aria-hidden="true" className="ml-1 text-rose-500">*</span> : null}</span>
       </label>

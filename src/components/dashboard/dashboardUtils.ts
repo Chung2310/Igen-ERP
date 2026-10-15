@@ -5,7 +5,7 @@ export const toneClass: Record<Tone, { soft: string; text: string; fill: string;
   amber: { soft: "bg-amber-50", text: "text-amber-600", fill: "bg-amber-500", strong: "text-amber-700" },
   slate: { soft: "bg-slate-100", text: "text-slate-600", fill: "bg-slate-600", strong: "text-slate-700" },
   indigo: { soft: "bg-indigo-50", text: "text-indigo-650", fill: "bg-indigo-600", strong: "text-indigo-750" },
-  emerald: { soft: "bg-emerald-50/60", text: "text-emerald-600", fill: "bg-emerald-500", strong: "text-emerald-700" },
+  emerald: { soft: "bg-sky-50/60", text: "text-[#00ADFC]", fill: "bg-[#00ADFC]", strong: "text-sky-700" },
 };
 
 export const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {

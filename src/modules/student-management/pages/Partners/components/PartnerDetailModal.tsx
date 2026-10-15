@@ -81,16 +81,16 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
       ) : (
         <div className="space-y-6 text-left">
           {/* Header Stats Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-150/40">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Đối tác</span>
-              <h4 className="text-base font-black text-slate-800 truncate">{partner.name}</h4>
-              <p className="text-[10px] font-bold text-slate-500">{partner.phone}</p>
+              <span className="text-xs font-medium text-slate-500 block">Đối tác</span>
+              <h4 className="text-base font-bold text-slate-900 truncate">{partner.name}</h4>
+              <p className="text-xs text-slate-500 font-normal">{partner.phone}</p>
             </div>
-            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Giới thiệu</span>
-              <h4 className="text-base font-black text-slate-800">{partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}</h4>
-              <p className="text-[10px] font-bold text-slate-500">
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/80 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-xs font-medium text-slate-500 block">Giới thiệu</span>
+              <h4 className="text-base font-bold text-slate-900">{partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}</h4>
+              <p className="text-xs text-slate-500 font-normal">
                 Cấp bậc: {' '}
                 {partner.levelName === 'Mặc định'
                   ? 'Mặc định (1%)'
@@ -98,34 +98,34 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                 }
               </p>
             </div>
-            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Đã chi trả</span>
-              <h4 className="text-base font-black text-emerald-600">{formatVND(String(partner.totalPaid))}</h4>
-              <p className="text-[10px] font-bold text-slate-500">Tổng hoa hồng: {formatVND(String(partner.totalCommission))}</p>
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/80 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-xs font-medium text-slate-500 block">Đã chi trả</span>
+              <h4 className="text-base font-bold text-emerald-600">{formatVND(String(partner.totalPaid))}</h4>
+              <p className="text-xs text-slate-500 font-normal">Tổng hoa hồng: {formatVND(String(partner.totalCommission))}</p>
             </div>
-            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/60 pt-3 sm:pt-0 sm:pl-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Hoa hồng còn nợ</span>
-              <h4 className="text-base font-black text-rose-600">{formatVND(String(partner.unpaidBalance))}</h4>
+            <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-slate-200/80 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-xs font-medium text-slate-500 block">Hoa hồng còn nợ</span>
+              <h4 className="text-base font-bold text-rose-600">{formatVND(String(partner.unpaidBalance))}</h4>
               {partner.unpaidBalance > 0 && (
                 <button
                   onClick={() => setShowPayoutModal(true)}
-                  className="mt-1 flex items-center gap-1 text-[10px] font-black text-cyan-600 hover:text-cyan-700 transition-colors uppercase tracking-wider cursor-pointer"
+                  className="mt-1 flex items-center gap-1 text-xs font-semibold text-[#00ADFC] hover:text-[#0095d9] transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3 h-3" /> Chi trả ngay
+                  <Plus className="w-3.5 h-3.5" /> Chi trả ngay
                 </button>
               )}
             </div>
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-200/60 gap-4">
+          <div className="flex border-b border-slate-200/80 gap-4">
             <button
               onClick={() => setActiveTab('info')}
               className={cn(
-                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                "pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
                 activeTab === 'info'
-                  ? "border-cyan-600 text-cyan-600 font-bold"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
+                  ? "border-[#00ADFC] text-[#00ADFC]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
               )}
             >
               Hồ sơ & Thanh toán
@@ -133,10 +133,10 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
             <button
               onClick={() => setActiveTab('students')}
               className={cn(
-                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                "pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
                 activeTab === 'students'
-                  ? "border-cyan-600 text-cyan-600 font-bold"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
+                  ? "border-[#00ADFC] text-[#00ADFC]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
               )}
             >
               {entityLabel.titleCase} giới thiệu ({partner.referredStudentsCount})
@@ -144,10 +144,10 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
             <button
               onClick={() => setActiveTab('payouts')}
               className={cn(
-                "pb-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                "pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
                 activeTab === 'payouts'
-                  ? "border-cyan-600 text-cyan-600 font-bold"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
+                  ? "border-[#00ADFC] text-[#00ADFC]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
               )}
             >
               Lịch sử chi trả ({(partner.payoutHistory || []).length})
@@ -159,21 +159,21 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
             {activeTab === 'info' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-2">
-                    <Handshake className="w-4 h-4 text-cyan-600" />
+                  <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-1.5 flex items-center gap-2">
+                    <Handshake className="w-4 h-4 text-[#00ADFC]" />
                     Thông tin liên hệ
                   </h4>
                   <div className="space-y-2.5">
-                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                    <div className="flex items-center gap-3 text-xs text-slate-700">
                       <Phone className="w-4 h-4 text-slate-400" />
-                      <span>Số điện thoại: {partner.phone}</span>
+                      <span>Số điện thoại: <strong className="font-semibold text-slate-900">{partner.phone}</strong></span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                    <div className="flex items-center gap-3 text-xs text-slate-700">
                       <Mail className="w-4 h-4 text-slate-400" />
                       <span>Email: {partner.email || '(Chưa cung cấp)'}</span>
                     </div>
                     {partner.notes && (
-                      <div className="flex items-start gap-3 text-xs font-semibold text-slate-600">
+                      <div className="flex items-start gap-3 text-xs text-slate-700">
                         <FileText className="w-4 h-4 text-slate-400 mt-0.5" />
                         <span>Ghi chú: {partner.notes}</span>
                       </div>
@@ -182,27 +182,27 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5 flex items-center gap-2">
-                    <BankIcon className="w-4 h-4 text-cyan-600" />
+                  <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-1.5 flex items-center gap-2">
+                    <BankIcon className="w-4 h-4 text-[#00ADFC]" />
                     Tài khoản nhận hoa hồng
                   </h4>
                   {partner.bankAccountNo ? (
                     <div className="space-y-2.5">
-                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      <div className="flex items-center gap-3 text-xs text-slate-700">
                         <Landmark className="w-4 h-4 text-slate-400" />
-                        <span>Ngân hàng: <span className="font-bold text-slate-800">{getBankDisplayName(partner.bankName) || 'N/A'}</span></span>
+                        <span>Ngân hàng: <span className="font-semibold text-slate-900">{getBankDisplayName(partner.bankName) || 'N/A'}</span></span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      <div className="flex items-center gap-3 text-xs text-slate-700">
                         <CheckCircle className="w-4 h-4 text-slate-400" />
-                        <span>Số tài khoản: <span className="font-bold text-slate-800 tracking-wider">{partner.bankAccountNo}</span></span>
+                        <span>Số tài khoản: <span className="font-semibold text-slate-900 tracking-wider">{partner.bankAccountNo}</span></span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      <div className="flex items-center gap-3 text-xs text-slate-700">
                         <Users className="w-4 h-4 text-slate-400" />
-                        <span>Chủ tài khoản: <span className="font-bold text-slate-800 uppercase">{partner.bankAccountName || 'N/A'}</span></span>
+                        <span>Chủ tài khoản: <span className="font-semibold text-slate-900 uppercase">{partner.bankAccountName || 'N/A'}</span></span>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs font-bold text-slate-400 italic">Chưa bổ sung tài khoản ngân hàng chi trả.</p>
+                    <p className="text-xs text-slate-400 font-normal italic">Chưa bổ sung tài khoản ngân hàng chi trả.</p>
                   )}
                 </div>
                 <div className="md:col-span-2">
@@ -212,7 +212,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
             )}
 
             {activeTab === 'students' && (
-              <ErpCard className="overflow-hidden border border-slate-100">
+              <ErpCard className="overflow-hidden border border-slate-200/80">
                 {partner.referredStudents.length === 0 ? (
                   <ErpEmptyState
                     icon={Users}
@@ -221,24 +221,24 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                   />
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs font-semibold">
+                    <table className="w-full text-xs">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          <th className="py-4 px-6 text-left">Họ và tên</th>
-                          <th className="py-4 px-6 text-left">Số điện thoại</th>
-                          <th className="py-4 px-6 text-left">{entityPreset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityPreset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học'}</th>
-                          <th className="py-4 px-6 text-left">Trạng thái</th>
-                          <th className="py-4 px-6 text-right">Hoa hồng tích lũy</th>
+                        <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-semibold text-slate-600">
+                          <th className="py-3 px-4 text-left font-semibold text-slate-700">Họ và tên</th>
+                          <th className="py-3 px-4 text-left font-semibold text-slate-700">Số điện thoại</th>
+                          <th className="py-3 px-4 text-left font-semibold text-slate-700">{entityPreset === 'customer' ? 'Ngày bắt đầu sử dụng' : entityPreset === 'worker' ? 'Ngày tiếp nhận' : 'Ngày nhập học'}</th>
+                          <th className="py-3 px-4 text-left font-semibold text-slate-700">Trạng thái</th>
+                          <th className="py-3 px-4 text-right font-semibold text-slate-700">Hoa hồng tích lũy</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {partner.referredStudents.map((student: PartnerReferredStudent) => (
-                          <tr key={student._id} className="hover:bg-slate-50/50 transition-all text-slate-700">
-                            <td className="py-4 px-6 font-bold text-slate-900">{student.fullName}</td>
-                            <td className="py-4 px-6">{student.phone}</td>
-                            <td className="py-4 px-6">{formatDisplayDate(student.registrationDate)}</td>
-                            <td className="py-4 px-6">{getStatusBadge(student.status)}</td>
-                            <td className="py-4 px-6 text-right font-black text-cyan-600">
+                          <tr key={student._id} className="hover:bg-slate-50/60 transition-colors text-slate-700">
+                            <td className="py-3 px-4 font-semibold text-slate-900">{student.fullName}</td>
+                            <td className="py-3 px-4 font-normal text-slate-600">{student.phone}</td>
+                            <td className="py-3 px-4 font-normal text-slate-600">{formatDisplayDate(student.registrationDate)}</td>
+                            <td className="py-3 px-4">{getStatusBadge(student.status)}</td>
+                            <td className="py-3 px-4 text-right font-semibold tabular-nums text-[#007EB8]">
                               {formatVND(String(student.commission))}
                             </td>
                           </tr>
@@ -253,16 +253,16 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
             {activeTab === 'payouts' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Lịch sử thanh toán chi tiết</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Lịch sử thanh toán chi tiết</h4>
                   <button
                     onClick={() => setShowPayoutModal(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border border-cyan-100/50"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#00ADFC] hover:bg-[#0095d9] text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" /> Ghi nhận chi trả
                   </button>
                 </div>
 
-                <ErpCard className="overflow-hidden border border-slate-100">
+                <ErpCard className="overflow-hidden border border-slate-200/80">
                   {(!partner.payoutHistory || partner.payoutHistory.length === 0) ? (
                     <ErpEmptyState
                       icon={Landmark}
@@ -271,29 +271,29 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                     />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs font-semibold">
+                      <table className="w-full text-xs">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <th className="py-4 px-6 text-left">Ngày chi</th>
-                            <th className="py-4 px-6 text-left">Phương thức</th>
-                            <th className="py-4 px-6 text-left">Ghi chú giao dịch</th>
-                            <th className="py-4 px-6 text-right">Số tiền trả</th>
+                          <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-semibold text-slate-600">
+                            <th className="py-3 px-4 text-left font-semibold text-slate-700">Ngày chi</th>
+                            <th className="py-3 px-4 text-left font-semibold text-slate-700">Phương thức</th>
+                            <th className="py-3 px-4 text-left font-semibold text-slate-700">Ghi chú giao dịch</th>
+                            <th className="py-3 px-4 text-right font-semibold text-slate-700">Số tiền trả</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {partner.payoutHistory.map((payout: PartnerPayout) => (
-                            <tr key={payout.id} className="hover:bg-slate-50/50 transition-all text-slate-700">
-                              <td className="py-4 px-6 font-bold">{payout.date}</td>
-                              <td className="py-4 px-6">
+                            <tr key={payout.id} className="hover:bg-slate-50/60 transition-colors text-slate-700">
+                              <td className="py-3 px-4 font-semibold text-slate-900">{payout.date}</td>
+                              <td className="py-3 px-4">
                                 <span className={cn(
-                                  "px-2 py-0.5 rounded text-[10px] font-bold",
-                                  payout.method === 'Tiền mặt' ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"
+                                  "px-2.5 py-0.5 rounded-full text-xs font-semibold",
+                                  payout.method === 'Tiền mặt' ? "bg-amber-50 text-amber-700 border border-amber-100" : "bg-sky-50 text-[#007EB8] border border-sky-100"
                                 )}>
                                   {payout.method}
                                 </span>
                               </td>
-                              <td className="py-4 px-6 text-slate-500 italic max-w-xs truncate">{payout.note || '(Không có)'}</td>
-                              <td className="py-4 px-6 text-right font-black text-slate-900">{formatVND(String(payout.amount))}</td>
+                              <td className="py-3 px-4 text-slate-500 font-normal max-w-xs truncate">{payout.note || '(Không có)'}</td>
+                              <td className="py-3 px-4 text-right font-semibold tabular-nums text-slate-900">{formatVND(String(payout.amount))}</td>
                             </tr>
                           ))}
                         </tbody>

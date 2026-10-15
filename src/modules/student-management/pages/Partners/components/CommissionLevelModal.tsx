@@ -179,9 +179,9 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Form thêm mới */}
-          <div className="lg:col-span-2 bg-slate-50/50 p-5 rounded-2xl border border-slate-100/80 space-y-4">
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <Milestone className="w-4 h-4 text-brand-primary" />
+          <div className="lg:col-span-2 bg-slate-50/50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Milestone className="w-4 h-4 text-[#00ADFC]" />
               {editingId ? 'Chỉnh sửa cấp bậc' : 'Thêm Level mới'}
             </h4>
             
@@ -228,51 +228,51 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                   editingId ? 'Cập nhật cấp bậc' : 'Lưu cấp bậc'
                 )}
               </ErpSubmitButton>
-              {editingId ? <button type="button" onClick={cancelEdit} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 transition hover:bg-slate-50"><X className="h-4 w-4" /> Hủy chỉnh sửa</button> : null}
+              {editingId ? <button type="button" onClick={cancelEdit} className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 cursor-pointer"><X className="h-4 w-4" /> Hủy chỉnh sửa</button> : null}
             </form>
           </div>
 
           {/* Danh sách hiện tại */}
           <div className="lg:col-span-3 space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <Landmark className="w-4 h-4 text-sky-600" />
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Landmark className="w-4 h-4 text-[#00ADFC]" />
               Danh sách Cấp bậc hiện tại
             </h4>
 
             {loading ? (
               <div className="p-8 text-center text-slate-400">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-slate-350" />
-                <span className="text-xs font-bold uppercase tracking-wider">Đang tải danh sách...</span>
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#00ADFC]" />
+                <span className="text-xs font-medium text-slate-600">Đang tải danh sách...</span>
               </div>
             ) : levels.length === 0 ? (
               <div className="p-8 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 bg-white space-y-2">
-                <p className="text-xs font-black text-slate-800">Chưa cấu hình cấp bậc riêng</p>
-                <p className="text-[10px] text-slate-500 leading-relaxed max-w-[240px] mx-auto">
+                <p className="text-xs font-bold text-slate-900">Chưa cấu hình cấp bậc riêng</p>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-[240px] mx-auto font-normal">
                   Hệ thống đang tự động áp dụng 3 cấp bậc mặc định (5%, 8%, 10%). Hãy tạo thêm cấp bậc tùy chỉnh của riêng trung tâm bạn ở cột bên trái!
                 </p>
               </div>
             ) : (
-              <div className="border border-slate-100 rounded-2xl overflow-x-auto bg-white shadow-sm shadow-slate-100/50">
-                <table className="w-full min-w-[560px] text-xs text-left font-semibold">
+              <div className="border border-slate-200/80 rounded-2xl overflow-x-auto bg-white shadow-xs">
+                <table className="w-full min-w-[560px] text-xs text-left">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <th className="py-3 px-4">Tên cấp</th>
-                      <th className="py-3 px-4 text-right">Doanh số tối thiểu</th>
-                      <th className="py-3 px-4 text-center">Hoa hồng (%)</th>
-                      <th className="py-3 px-4 text-center">Thao tác</th>
+                    <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-semibold text-slate-600">
+                      <th className="py-2.5 px-4 font-semibold text-slate-700">Tên cấp</th>
+                      <th className="py-2.5 px-4 text-right font-semibold text-slate-700">Doanh số tối thiểu</th>
+                      <th className="py-2.5 px-4 text-center font-semibold text-slate-700">Hoa hồng (%)</th>
+                      <th className="py-2.5 px-4 text-center font-semibold text-slate-700">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {levels.map((lvl) => (
-                      <tr key={lvl._id} className="hover:bg-slate-55/20 text-slate-700">
-                        <td className="py-3 px-4 font-bold text-slate-900">{lvl.name}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-850">
+                      <tr key={lvl._id} className="hover:bg-slate-50/60 text-slate-700">
+                        <td className="py-2.5 px-4 font-semibold text-slate-900">{lvl.name}</td>
+                        <td className="py-2.5 px-4 text-right font-semibold text-slate-900 tabular-nums">
                           {formatVND(String(lvl.minTuition))}
                         </td>
-                        <td className="py-3 px-4 text-center font-black text-brand-primary">
+                        <td className="py-2.5 px-4 text-center font-semibold text-[#007EB8]">
                           {lvl.commissionRate}%
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-2.5 px-4 text-center">
                           <button onClick={() => handleEdit(lvl)} title="Chỉnh sửa cấp bậc" className="mr-1 p-1 rounded hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-all cursor-pointer"><Pencil className="w-3.5 h-3.5" /></button>
                           <button
                             onClick={() => handleDelete(lvl._id, lvl.name)}

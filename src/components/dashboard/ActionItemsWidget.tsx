@@ -1,5 +1,7 @@
 import { AlertTriangle, CheckCircle2, ClipboardList, PackageCheck } from "lucide-react";
 import { DashboardActionItems } from "../../types/dashboard";
+import { OverviewComparisonChart } from "./OverviewCharts";
+import { DASHBOARD_CHART_PALETTE } from "./dashboardPalette";
 
 function formatRelativeDate(iso: string) {
   const date = new Date(iso);
@@ -25,7 +27,7 @@ export function ActionItemsWidget({
 
   if (totalCount === 0) {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm font-semibold text-emerald-700">
+      <div className="flex items-center gap-2.5 rounded-2xl border border-[#B5E8FF] bg-[#E8F7FF] p-4 text-sm font-semibold text-[#007EB8]">
         <CheckCircle2 className="h-5 w-5" />
         Không có việc gì cần xử lý gấp hôm nay. 🎉
       </div>
@@ -35,7 +37,7 @@ export function ActionItemsWidget({
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-800">
-        <ClipboardList className="h-4 w-4 text-blue-600" />
+        <ClipboardList className="h-4 w-4 text-[#00ADFC]" />
         Việc cần xử lý hôm nay
       </h3>
 
@@ -83,6 +85,16 @@ export function ActionItemsWidget({
             <span className="truncate pl-2 text-xs text-blue-600">{lowStockAlerts[0].name}</span>
           </button>
         )}
+      </div>
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <OverviewComparisonChart
+          title="Việc cần xử lý theo loại"
+          items={[
+            { label: "Công việc quá hạn", value: overdueTasks.length, color: DASHBOARD_CHART_PALETTE[0] },
+            { label: "Phiếu chờ duyệt", value: pendingApprovals.length, color: DASHBOARD_CHART_PALETTE[1] },
+            { label: "Hàng sắp hết", value: lowStockAlerts.length, color: DASHBOARD_CHART_PALETTE[2] },
+          ]}
+        />
       </div>
     </div>
   );
