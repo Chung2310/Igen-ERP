@@ -2,19 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
   BriefcaseBusiness,
-  Calendar,
-  DollarSign,
-  Layers,
   LayoutGrid,
   List,
-  Pause,
-  Play,
   Plus,
   Tag,
   Trash2,
-  Users,
-  Pencil,
-  Eye,
 } from 'lucide-react';
 import { cn, formatVND } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -49,6 +41,7 @@ import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-f
 import { Pagination } from '../../components/ui/Pagination';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getCoursePageCopy } from '../../config/workerRecruitmentCopy';
+import { CourseIcon } from './CourseIcons';
 
 type CourseViewMode = 'list' | 'grid';
 
@@ -469,18 +462,18 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-4 text-left">
+    <div className="space-y-5 rounded-2xl bg-[#F8FBFF] px-3 py-5 text-left sm:px-5 sm:py-6 [&_h1]:font-semibold">
       <ErpPageHeader
         title={copy.pageTitle}
         action={canManage ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowCategoryModal(true)}
               className={cn(
-                'px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0 shadow-sm',
+                'px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer shrink-0 shadow-sm',
                 darkMode
                   ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  : 'bg-white hover:bg-[#EAF8FF] hover:text-[#0089C7] text-slate-700 border-[#DFECF5] hover:border-[#9CDFFF]'
               )}
             >
               {copy.categoryManagerButton}
@@ -492,7 +485,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         ) : undefined}
       />
 
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-2xl border border-[#DFECF5] bg-white p-3 shadow-sm shadow-[#DCECF5]/40 [&_input]:border-[#DFECF5]">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
         <div className="flex flex-wrap items-center gap-3">
           <ErpFilterRail>
@@ -506,14 +499,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             ))}
           </ErpFilterRail>
 
-          <div className={cn('flex items-center border p-0.5 rounded-lg gap-0.5 shrink-0 shadow-sm', darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50')}>
+          <div className={cn('flex items-center border p-0.5 rounded-xl gap-0.5 shrink-0', darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-[#DFECF5] bg-[#F4FAFE]')}>
             <button
               type="button"
               onClick={() => updateViewMode('list')}
               className={cn(
                 'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
                 viewMode === 'list'
-                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-855 shadow-sm')
+                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-[#008FCF] shadow-sm')
                   : 'text-slate-400 hover:text-slate-600'
               )}
               title="Hiển thị dạng danh sách"
@@ -526,7 +519,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               className={cn(
                 'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
                 viewMode === 'grid'
-                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-855 shadow-sm')
+                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-[#008FCF] shadow-sm')
                   : 'text-slate-400 hover:text-slate-600'
               )}
               title="Hiển thị dạng lưới"
@@ -538,9 +531,9 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       </div>
 
       {loading && courses.length === 0 ? (
-        <ErpCard><ErpLoadingState message={copy.loadingMessage} /></ErpCard>
+        <ErpCard className="border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40"><ErpLoadingState message={copy.loadingMessage} /></ErpCard>
       ) : filteredCourses.length === 0 ? (
-        <ErpCard>
+        <ErpCard className="border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
           <ErpEmptyState
             icon={entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? BriefcaseBusiness : BookOpen}
             title={copy.emptyTitle}
@@ -554,39 +547,39 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               <div
                 key={course.id}
                 className={cn(
-                  'p-4 rounded-2xl border flex flex-col justify-between transition-all duration-300 group',
+                  'p-5 rounded-[22px] border flex flex-col justify-between transition-all duration-300 group',
                   darkMode
                     ? 'bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-brand-primary/20'
-                    : 'bg-white border-slate-100 hover:border-brand-primary/20 shadow-sm shadow-slate-100/50'
+                    : 'bg-white border-[#DFECF5] hover:border-[#80D6FF] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#B8E8FF]/30 shadow-sm shadow-[#DCECF5]/50'
                 )}
               >
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className={cn('text-[10px] font-black uppercase tracking-widest', darkMode ? 'text-slate-500' : 'text-slate-400')}>{course.code}</span>
+                    <span className={cn('text-xs font-semibold tracking-wide', darkMode ? 'text-slate-500' : 'text-[#1687BE]')}>{course.code}</span>
                     <span className={cn(
-                      'px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider',
+                      'px-2 py-1 rounded-lg border text-[10px] font-medium',
                       getCategoryColor(course.category)
                     )}>
                       {course.category}
                     </span>
                   </div>
 
-                  <h4 className={cn('text-sm font-black line-clamp-1 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-850 group-hover:text-slate-950')}>{course.title}</h4>
+                  <h4 className={cn('text-base font-semibold leading-snug line-clamp-2 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-800 group-hover:text-[#008FCF]')}>{course.title}</h4>
 
-                  <div className={cn('grid grid-cols-2 gap-y-2.5 gap-x-2 pt-2 text-[10px] font-bold border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-550 border-slate-100')}>
-                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {course.duration} buổi</div>
+                  <div className={cn('grid grid-cols-2 gap-y-3 gap-x-3 pt-3 text-xs font-normal border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
+                    <div className="flex items-center gap-1.5"><CourseIcon name="duration" className="h-4 w-4 shrink-0" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
-                      <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-slate-400" /> {course.fee}</div>
+                      <div className="flex items-center gap-1.5"><CourseIcon name="fee" className="h-4 w-4 shrink-0" /> {course.fee}</div>
                     )}
-                    <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-400" /> {copy.capacitySummary(course.maxLearners)}</div>
-                    <div className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-slate-400" /> {course.activeBatches} {copy.activeBatchUnit}</div>
+                    <div className="flex items-center gap-1.5"><CourseIcon name="learners" className="h-4 w-4 shrink-0" /> {copy.capacitySummary(course.maxLearners)}</div>
+                    <div className="flex items-center gap-1.5"><CourseIcon name="batches" className="h-4 w-4 shrink-0" /> {course.activeBatches} {copy.activeBatchUnit}</div>
                   </div>
                 </div>
 
-                <div className={cn('flex items-center justify-between pt-3 mt-2 border-t', darkMode ? 'border-slate-800/30' : 'border-slate-100')}>
+                <div className={cn('flex items-center justify-between gap-2 pt-3 mt-4 border-t', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
                   <span className={cn(
-                    'px-1.5 py-0.5 rounded text-[9px] font-black uppercase border',
-                    course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                    'px-2 py-1 rounded-lg text-[10px] font-medium border',
+                    course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
                   )}>
                     {course.status}
                   </span>
@@ -595,58 +588,58 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                       onClick={() => handleToggleStatus(course)}
                       title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
                       className={cn(
-                        'flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase rounded-lg transition-all border cursor-pointer shadow-sm',
+                        'flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60'
+                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                       )}
                     >
                       {course.status === ACTIVE_COURSE_STATUS
-                        ? <><Pause className="w-3 h-3 text-amber-500" /> Tạm dừng</>
-                        : <><Play className="w-3 h-3 text-brand-primary" /> Kích hoạt</>}
+                        ? <><CourseIcon name="pause" className="h-4 w-4 shrink-0" /> Tạm dừng</>
+                        : <><CourseIcon name="play" className="h-4 w-4 shrink-0" /> Kích hoạt</>}
                     </button>
                     <button
                       onClick={() => setViewingCourse(course)}
                       title="Xem chi tiết"
                       className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        'p-1.5 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border-slate-200/60'
+                          : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
                       )}
                     >
-                      <Eye className="w-3 h-3" />
+                      <CourseIcon name="view" className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setEditingCourse(course)}
                       title={copy.editTitle}
                       className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        'p-1.5 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-400 border-transparent'
-                          : 'bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 border-slate-200/60'
+                          : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
                       )}
                     >
-                      <Pencil className="w-3 h-3" />
+                      <CourseIcon name="edit" className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(course)}
                       title={copy.deleteTitle}
                       className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
+                        'p-1.5 rounded-lg transition-all border cursor-pointer',
                         darkMode
                           ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent'
-                          : 'bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-550 border-slate-200/60'
+                          : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                       )}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <CourseIcon name="delete" className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <ErpCard className="overflow-hidden">
+          <ErpCard className="overflow-hidden border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -658,27 +651,27 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
           </ErpCard>
         </div>
       ) : (
-        <ErpCard className="overflow-hidden">
+        <ErpCard className="overflow-hidden border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
+            <table className="w-full text-xs text-left border-collapse [&_thead_tr]:border-[#DFECF5] [&_thead_tr]:bg-[#F4FAFE] [&_th]:font-medium [&_th]:text-slate-600">
               <ErpTableHead columns={['Mã', copy.tableTitleColumn, copy.categoryLabel, copy.durationLabel, courseFeeLabel, copy.tableCapacityColumn, 'Trạng thái', 'Thao tác']} />
-              <tbody className={cn('divide-y', darkMode ? 'divide-slate-800/30' : 'divide-slate-100')}>
+              <tbody className={cn('divide-y', darkMode ? 'divide-slate-800/30' : 'divide-[#E8F0F6]')}>
                 {paginatedCourses.map((course) => (
-                  <tr key={course.id} className={cn('transition-colors hover:bg-slate-50/50', darkMode ? 'text-slate-355 hover:bg-slate-800/10' : 'text-slate-600')}>
-                    <td className="py-2 px-4 font-black text-sm">{course.code}</td>
-                    <td className="py-2 px-4 font-bold">{course.title}</td>
+                  <tr key={course.id} className={cn('transition-colors', darkMode ? 'text-slate-355 hover:bg-slate-800/10' : 'text-slate-600 hover:bg-[#F7FCFF]')}>
+                    <td className="py-3 px-4 text-sm font-semibold text-[#1687BE]">{course.code}</td>
+                    <td className="py-3 px-4 font-medium text-slate-800">{course.title}</td>
                     <td className="py-2 px-4">
-                      <span className={cn('px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider', getCategoryColor(course.category))}>
+                      <span className={cn('px-2 py-1 rounded-lg border text-[10px] font-medium', getCategoryColor(course.category))}>
                         {course.category}
                       </span>
                     </td>
-                    <td className="py-2 px-4 font-bold">{course.duration} buổi</td>
-                    <td className="py-2 px-4 font-bold">{usesCourseFeePolicy ? course.fee : 'Không áp dụng'}</td>
-                    <td className="py-2 px-4 font-bold">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
+                    <td className="py-3 px-4 font-normal">{course.duration} buổi</td>
+                    <td className="py-3 px-4 font-normal">{usesCourseFeePolicy ? course.fee : 'Không áp dụng'}</td>
+                    <td className="py-3 px-4 font-normal">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
                     <td className="py-2 px-4">
                       <span className={cn(
-                        'px-1.5 py-0.5 rounded text-[9px] font-black uppercase border',
-                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                        'px-2 py-1 rounded-lg text-[10px] font-medium border',
+                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
                       )}>
                         {course.status}
                       </span>
@@ -688,41 +681,41 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                         <button
                           onClick={() => handleToggleStatus(course)}
                           className={cn(
-                            'flex items-center gap-1 px-2 py-1 text-[9px] font-black uppercase rounded-lg transition-all border cursor-pointer shadow-sm',
-                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60'
+                            'flex items-center gap-1 px-2 py-1.5 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
+                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                           )}
                         >
-                          {course.status === ACTIVE_COURSE_STATUS ? <Pause className="w-3 h-3 text-amber-500" /> : <Play className="w-3 h-3 text-brand-primary" />}
+                          {course.status === ACTIVE_COURSE_STATUS ? <CourseIcon name="pause" className="h-4 w-4" /> : <CourseIcon name="play" className="h-4 w-4" />}
                         </button>
                         <button
                           onClick={() => setViewingCourse(course)}
                           className={cn(
-                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
-                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border-slate-200/60'
+                            'p-1.5 rounded-lg transition-all border cursor-pointer',
+                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
                           )}
                           title="Xem chi tiết"
                         >
-                          <Eye className="w-3 h-3" />
+                          <CourseIcon name="view" className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setEditingCourse(course)}
                           className={cn(
-                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
-                            darkMode ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-455 border-transparent' : 'bg-slate-50 hover:bg-indigo-50 text-slate-450 hover:text-indigo-550 border-slate-200/60'
+                            'p-1.5 rounded-lg transition-all border cursor-pointer',
+                            darkMode ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-455 border-transparent' : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
                           )}
                           title={copy.editTitle}
                         >
-                          <Pencil className="w-3 h-3" />
+                          <CourseIcon name="edit" className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(course)}
                           className={cn(
-                            'p-1 rounded-lg transition-all border cursor-pointer shadow-sm',
-                            darkMode ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-455 border-transparent' : 'bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60'
+                            'p-1.5 rounded-lg transition-all border cursor-pointer',
+                            darkMode ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-455 border-transparent' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                           )}
                           title={copy.deleteTitle}
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <CourseIcon name="delete" className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

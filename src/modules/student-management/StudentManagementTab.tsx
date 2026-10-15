@@ -206,10 +206,10 @@ export default function StudentManagementTab() {
                 key={item.value}
                 type="button"
                 onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-sm"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                    ? "bg-[#00ADFC] text-white font-semibold shadow-sm"
+                    : "text-slate-600 hover:text-[#008FCF] hover:bg-[#EAF8FF] font-medium"
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
@@ -228,7 +228,7 @@ export default function StudentManagementTab() {
               <select
                 value={selectedCenter}
                 onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none appearance-none focus:border-cyan-600 transition-all cursor-pointer shadow-sm"
+                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none appearance-none focus:border-[#00ADFC] transition-all cursor-pointer shadow-sm"
               >
                 <option value="all">Tất cả cơ sở</option>
                 {centers.map((center) => (
