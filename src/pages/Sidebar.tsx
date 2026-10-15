@@ -8,7 +8,6 @@ import {
   Package,
   Settings,
   Shield,
-  GraduationCap,
   Users,
   BookOpen,
   Lock,
@@ -20,11 +19,11 @@ import {
   Wrench,
   ContactRound,
 } from "lucide-react";
+import { StudentCap3DIcon } from "../components/StudentCap3DIcon";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
   BRAND_NAME,
-  BRAND_TAGLINE,
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
   USER_DATA_DELETION_URL,
@@ -85,7 +84,7 @@ const baseMenuItems: MenuItem[] = [
   {
     label: "QUẢN LÝ HỌC VIÊN",
     title: "Học viên",
-    icon: GraduationCap,
+    icon: StudentCap3DIcon,
     group: "operations",
   },
   {
@@ -248,6 +247,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
+                  const isStudentIcon = item.label === "QUẢN LÝ HỌC VIÊN";
 
                   return (
                     <button
@@ -276,9 +276,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
                         <Icon
-                          className={`h-5 w-5 shrink-0 transition-colors ${
+                          className={`h-5 w-5 shrink-0 ${isStudentIcon ? "" : "transition-colors"} ${
                             item.locked
                               ? "text-slate-300"
+                              : isStudentIcon
+                              ? ""
                               : isActive
                               ? "text-[#00ADFC]"
                               : "text-slate-400 group-hover:text-slate-600"
