@@ -207,14 +207,14 @@ export default function StudentManagementTab() {
                 key={item.value}
                 type="button"
                 onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
                     ? "bg-[#00ADFC] text-white font-semibold shadow-sm"
                     : "text-slate-600 hover:text-[#008FCF] hover:bg-[#EAF8FF] font-medium"
                 }`}
               >
-                <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8]">
-                  <Icon className="h-4 w-4" />
+                <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E8F7FF] text-[#007EB8]">
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
                 <span>{item.label}</span>
               </button>
