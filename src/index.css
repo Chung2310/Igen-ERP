@@ -211,6 +211,40 @@
   color: var(--color-on-surface);
 }
 
+/* Keep management copy legible without changing placeholders or the dark theme. */
+html:not(.dark) #app_root_layout {
+  --color-on-surface: #000;
+  --color-on-surface-variant: #000;
+  --color-on-background: #000;
+  color: #000;
+}
+
+html:not(.dark) #app_root_layout :is(
+  .text-black,
+  .text-slate-300, .text-slate-350, .text-slate-355,
+  .text-slate-400, .text-slate-405, .text-slate-450,
+  .text-slate-500, .text-slate-550, .text-slate-600,
+  .text-slate-650, .text-slate-655, .text-slate-700,
+  .text-slate-705, .text-slate-750, .text-slate-800,
+  .text-slate-850, .text-slate-855, .text-slate-900,
+  .text-slate-950, [class~="text-slate-400/70"],
+  .text-gray-300, .text-gray-400, .text-gray-450,
+  .text-gray-500, .text-gray-550, .text-gray-600,
+  .text-gray-650, .text-gray-655, .text-gray-700,
+  .text-gray-800, .text-gray-850, .text-gray-900,
+  .text-zinc-300, .text-zinc-350, .text-zinc-400,
+  .text-zinc-450, .text-zinc-500, .text-zinc-550,
+  .text-zinc-600, .text-zinc-650, .text-zinc-700,
+  .text-neutral-300, .text-neutral-400
+):not(svg):not([data-placeholder]) {
+  color: #000;
+}
+
+html:not(.dark) #app_root_layout :is(input, textarea):not([class*="placeholder:"])::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
 /* Brand Color (#00ADFC) standard: override green / teal / emerald text to brand color */
 .text-emerald-500,
 .text-emerald-600,
