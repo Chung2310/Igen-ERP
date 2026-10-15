@@ -180,10 +180,10 @@ export default function OrgChartTab({
   activeBranchId,
 }: OrgChartTabProps) {
   const isMobile = useIsMobile();
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.6);
   const [isFitted, setIsFitted] = useState<boolean>(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [preFitZoom, setPreFitZoom] = useState<number>(1);
+  const [preFitZoom, setPreFitZoom] = useState<number>(0.6);
   const [isSafari, setIsSafari] = useState<boolean>(false);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
