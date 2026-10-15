@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Tone, toneClass, formatDashboardCurrency } from "./dashboardUtils";
 import { DASHBOARD_CHART_PALETTE, DASHBOARD_CHART_TRACK } from "./dashboardPalette";
@@ -187,9 +187,12 @@ export function DonutCard({
 }
 
 export function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }> }) {
+  const [chartType, setChartType] = useState<"line" | "bar">("line");
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
   const rawMax = Math.max(...data.map(d => d.value), 0);
   const hasData = rawMax > 0;
-  const maxVal = hasData ? rawMax : 1; // only used for bar heights when hasData
+  const maxVal = hasData ? rawMax : 1;
 
   if (!hasData) {
     return (
@@ -200,62 +203,274 @@ export function BarChart({ data = [] }: { data?: Array<{ label: string; value: n
   }
 
   const formatCurrencyShort = (val: number) => {
-    if (!hasData) return "₫0";
     return formatDashboardCurrency(val, 1, true);
   };
 
+  const SVG_W = 1000;
+  const SVG_H = 220;
+  const TOP_Y = 18;
+  const BASELINE_Y = 185;
+  const PLOT_H = BASELINE_Y - TOP_Y;
+  const LEFT_X = 50;
+  const RIGHT_X = 950;
+  const PLOT_W = RIGHT_X - LEFT_X;
+
+  const coords = data.map((item, i) => {
+    const x = data.length === 1 ? 500 : LEFT_X + (i / (data.length - 1)) * PLOT_W;
+    const y = BASELINE_Y - (item.value / maxVal) * PLOT_H;
+    return { x, y, label: item.label, value: item.value };
+  });
+
+  const getSmoothPath = (pts: Array<{ x: number; y: number }>) => {
+    if (pts.length === 0) return "";
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    if (pts.length === 2) {
+      return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+    }
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 5;
+      const cp1y = Math.min(BASELINE_Y, Math.max(TOP_Y, p1.y + (p2.y - p0.y) / 5));
+      const cp2x = p2.x - (p3.x - p1.x) / 5;
+      const cp2y = Math.min(BASELINE_Y, Math.max(TOP_Y, p2.y - (p3.y - p1.y) / 5));
+
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return d;
+  };
+
+  const linePath = getSmoothPath(coords);
+  const areaPath = coords.length > 1
+    ? `${linePath} L ${coords[coords.length - 1].x} ${BASELINE_Y} L ${coords[0].x} ${BASELINE_Y} Z`
+    : "";
+
+  const activeIdx = hoveredIdx !== null ? hoveredIdx : (coords.length > 0 ? coords.length - 1 : null);
+  const activeCoord = activeIdx !== null ? coords[activeIdx] : null;
+
   return (
-    <div className="relative h-[320px]">
-      <div className="absolute inset-x-0 bottom-10 top-0 flex flex-col justify-between text-xs font-semibold text-slate-400">
-        {[
-          formatCurrencyShort(rawMax),
-          formatCurrencyShort(rawMax * 2 / 3),
-          formatCurrencyShort(rawMax / 3),
-          "₫0"
-        ].map((y, idx) => (
-          <div key={idx} className="flex items-center gap-3 h-0">
-            <span className="w-12 shrink-0 text-left font-medium">{y}</span>
-            <span className="h-px flex-1 border-t border-dashed border-[#D9F3FF]" />
-          </div>
-        ))}
+    <div className="space-y-3">
+      {/* Nút chuyển đổi kiểu biểu đồ */}
+      <div className="flex items-center justify-end">
+        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] font-semibold text-slate-600">
+          <button
+            type="button"
+            onClick={() => setChartType("line")}
+            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+              chartType === "line" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "hover:text-slate-900"
+            }`}
+          >
+            Biểu đồ đường
+          </button>
+          <button
+            type="button"
+            onClick={() => setChartType("bar")}
+            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+              chartType === "bar" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "hover:text-slate-900"
+            }`}
+          >
+            Cột
+          </button>
+        </div>
       </div>
-      <div className="absolute bottom-0 left-16 right-4 top-6 flex items-end justify-between gap-4">
-        {data.map((item, i) => {
-          const h = (item.value / maxVal) * 80; // keep max at 80% to fit neatly
-          const isCurrent = i === data.length - 1;
-          return (
-            <div key={i} className="group/bar flex flex-1 flex-col items-center gap-2 h-full justify-end">
-              <div className="flex w-full flex-1 items-end justify-center">
-                <motion.div
-                  initial={{ height: 0, opacity: 0.2 }}
-                  animate={{ height: `${h}%`, opacity: 1 }}
-                  transition={{
-                    duration: 0.75,
-                    delay: i * 0.05,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  whileHover={{ scaleY: 1.05, filter: "brightness(1.1)" }}
-                  title={`${item.label}: ${item.value.toLocaleString("vi-VN")} ₫`}
-                  className={`w-full max-w-16 rounded-t-lg origin-bottom cursor-pointer transition-all ${
-                    isCurrent ? "shadow-lg shadow-[#00ADFC]/30 ring-1 ring-[#00ADFC]/40" : "hover:shadow-md hover:shadow-sky-100"
+
+      <div className="relative h-[290px]">
+        {/* Lưới ngang */}
+        <div className="absolute inset-x-0 bottom-8 top-0 flex flex-col justify-between text-xs font-semibold text-slate-400">
+          {[
+            formatCurrencyShort(rawMax),
+            formatCurrencyShort(rawMax * 2 / 3),
+            formatCurrencyShort(rawMax / 3),
+            "₫0"
+          ].map((y, idx) => (
+            <div key={idx} className="flex items-center gap-3 h-0">
+              <span className="w-12 shrink-0 text-left font-medium">{y}</span>
+              <span className="h-px flex-1 border-t border-dashed border-[#D9F3FF]" />
+            </div>
+          ))}
+        </div>
+
+        {chartType === "line" ? (
+          <div className="absolute bottom-8 left-16 right-2 top-0">
+            <svg
+              viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+              className="h-full w-full overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="widgetRevenueLineGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#00ADFC" stopOpacity="0.30" />
+                  <stop offset="70%" stopColor="#00ADFC" stopOpacity="0.06" />
+                  <stop offset="100%" stopColor="#00ADFC" stopOpacity="0.00" />
+                </linearGradient>
+                <filter id="widgetLineGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#00ADFC" floodOpacity="0.25" />
+                </filter>
+              </defs>
+
+              {areaPath && (
+                <motion.path
+                  d={areaPath}
+                  fill="url(#widgetRevenueLineGrad)"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8 }}
+                />
+              )}
+
+              {linePath && (
+                <motion.path
+                  d={linePath}
+                  fill="none"
+                  stroke="#00ADFC"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#widgetLineGlow)"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                />
+              )}
+
+              {activeCoord && (
+                <line
+                  x1={activeCoord.x}
+                  y1={TOP_Y}
+                  x2={activeCoord.x}
+                  y2={BASELINE_Y}
+                  stroke="#00ADFC"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  opacity="0.8"
+                />
+              )}
+
+              {coords.map((pt, idx) => {
+                const isHovered = hoveredIdx === idx;
+                const isLast = idx === coords.length - 1;
+                const isSelected = isHovered || (hoveredIdx === null && isLast);
+
+                return (
+                  <g
+                    key={`dot-${pt.label}-${idx}`}
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredIdx(idx)}
+                    onMouseLeave={() => setHoveredIdx(null)}
+                  >
+                    <circle cx={pt.x} cy={pt.y} r="20" fill="transparent" />
+
+                    {isSelected && (
+                      <motion.circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r="12"
+                        fill="#00ADFC"
+                        initial={{ opacity: 0.2, scale: 0.8 }}
+                        animate={{ opacity: [0.2, 0.45, 0.2], scale: [0.9, 1.35, 0.9] }}
+                        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                    )}
+
+                    <motion.circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={isSelected ? "6.5" : "5"}
+                      fill="#FFFFFF"
+                      stroke="#00ADFC"
+                      strokeWidth={isSelected ? "3.5" : "2.5"}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.15 + idx * 0.04, type: "spring" }}
+                      className="transition-all hover:scale-125"
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* Tooltip khi hover hoặc active */}
+            {activeCoord && (
+              <div
+                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full pb-2 transition-all duration-150"
+                style={{
+                  left: `${(activeCoord.x / SVG_W) * 100}%`,
+                  top: `${(activeCoord.y / SVG_H) * 100}%`,
+                }}
+              >
+                <div className="rounded-xl border border-[#B5E8FF] bg-white/95 px-3 py-1.5 shadow-lg shadow-sky-100/60 backdrop-blur-xs text-center min-w-[120px]">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{activeCoord.label}</p>
+                  <strong className="block text-xs font-bold text-slate-900 tabular-nums">
+                    {formatDashboardCurrency(activeCoord.value, 1, false)} ₫
+                  </strong>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="absolute bottom-8 left-16 right-4 top-4 flex items-end justify-between gap-4">
+            {data.map((item, i) => {
+              const h = (item.value / maxVal) * 80;
+              const isCurrent = i === data.length - 1;
+              return (
+                <div key={i} className="group/bar flex flex-1 flex-col items-center gap-2 h-full justify-end">
+                  <div className="flex w-full flex-1 items-end justify-center">
+                    <motion.div
+                      initial={{ height: 0, opacity: 0.2 }}
+                      animate={{ height: `${h}%`, opacity: 1 }}
+                      transition={{
+                        duration: 0.75,
+                        delay: i * 0.05,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
+                      whileHover={{ scaleY: 1.05, filter: "brightness(1.1)" }}
+                      title={`${item.label}: ${item.value.toLocaleString("vi-VN")} ₫`}
+                      className={`w-full max-w-16 rounded-t-lg origin-bottom cursor-pointer transition-all ${
+                        isCurrent ? "shadow-lg shadow-[#00ADFC]/30 ring-1 ring-[#00ADFC]/40" : "hover:shadow-md hover:shadow-sky-100"
+                      }`}
+                      style={{
+                        backgroundColor: isCurrent ? DASHBOARD_CHART_PALETTE[0] : DASHBOARD_CHART_PALETTE[1 + (i % 3)],
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Nhãn trục hoành */}
+        <div className="absolute bottom-0 left-16 right-2 flex items-center">
+          {coords.map((pt, idx) => {
+            const isSelected = (hoveredIdx === idx) || (hoveredIdx === null && idx === coords.length - 1);
+            return (
+              <div
+                key={`lbl-${pt.label}-${idx}`}
+                className="absolute -translate-x-1/2 cursor-pointer text-center transition-colors"
+                style={{ left: `${(pt.x / SVG_W) * 100}%` }}
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              >
+                <span
+                  className={`text-[10px] tabular-nums transition-all ${
+                    isSelected
+                      ? "font-bold text-[#007EB8] scale-105"
+                      : "font-semibold text-slate-500 hover:text-slate-900"
                   }`}
                   style={{
-                    backgroundColor: isCurrent ? DASHBOARD_CHART_PALETTE[0] : DASHBOARD_CHART_PALETTE[1 + (i % 3)],
+                    visibility: data.length >= 10 && idx % 2 !== 0 && idx !== data.length - 1 && !isSelected ? "hidden" : "visible"
                   }}
-                />
+                >
+                  {pt.label}
+                </span>
               </div>
-              <span
-                className={`text-[10px] font-bold mt-1 truncate max-w-full transition-colors ${
-                  isCurrent ? "text-[#007EB8]" : "text-slate-500 group-hover/bar:text-slate-900"
-                }`}
-                title={item.label}
-                style={{ visibility: data.length >= 8 && i % 2 !== 0 && i !== data.length - 1 ? "hidden" : "visible" }}
-              >
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

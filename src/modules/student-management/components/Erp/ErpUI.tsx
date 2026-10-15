@@ -139,12 +139,13 @@ export function ErpFilterRail({ children, className }: { children: React.ReactNo
   );
 }
 
-export function ErpModal({ title, onClose, children, maxWidth = "max-w-md", zIndex = "z-50" }: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-  maxWidth?: string;
-  zIndex?: string;
+export function ErpModal({
+  isOpen = true,
+  title,
+  onClose,
+  children,
+  maxWidth = "max-w-md",
+  zIndex = "z-50",
   className,
 }: {
   isOpen?: boolean;
