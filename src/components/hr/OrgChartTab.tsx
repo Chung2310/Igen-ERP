@@ -180,10 +180,10 @@ export default function OrgChartTab({
   activeBranchId,
 }: OrgChartTabProps) {
   const isMobile = useIsMobile();
-  const [zoomLevel, setZoomLevel] = useState<number>(0.6);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.65);
   const [isFitted, setIsFitted] = useState<boolean>(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [preFitZoom, setPreFitZoom] = useState<number>(0.6);
+  const [preFitZoom, setPreFitZoom] = useState<number>(0.65);
   const [isSafari, setIsSafari] = useState<boolean>(false);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -1312,7 +1312,7 @@ export default function OrgChartTab({
               type="range"
               min="0.5"
               max="1.5"
-              step="0.1"
+              step="0.05"
               value={zoomLevel}
               onChange={(e) => {
                 setZoomLevel(parseFloat(e.target.value));
@@ -1804,8 +1804,8 @@ export default function OrgChartTab({
               </div>
             </div>
           ) : (
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200 animate-out duration-150">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <div className="org-chart-detail-popup relative grid w-full max-w-4xl max-h-[calc(100dvh-2rem)] grid-cols-1 gap-3 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl animate-in fade-in zoom-in-95 duration-200 animate-out duration-150 md:grid-cols-[220px_minmax(0,1fr)] md:p-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 md:col-span-2">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
                   <h4 className="font-bold text-slate-900 text-sm font-sans">Chi tiết nhân sự</h4>
@@ -1819,28 +1819,28 @@ export default function OrgChartTab({
                 </button>
               </div>
 
-              <div className="text-center pb-4 border-b border-gray-200">
-                <div className="mb-2.5 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-24 h-24", "text-5xl")}</div>
-                <h3 className="font-extrabold text-lg text-slate-900 font-sans leading-snug">{selectedEmp.name}</h3>
-                <p className="text-xs font-bold font-mono uppercase tracking-wide mt-1 text-[#007EB8]">{selectedEmp.role}</p>
-                <span className={`inline-block text-[10px] font-bold border px-2.5 py-0.5 rounded-lg uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
+              <div className="self-start rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-center md:col-start-1 md:row-start-2">
+                <div className="mb-2 flex justify-center">{renderAvatar(selectedEmp.avatar, "w-16 h-16", "text-3xl")}</div>
+                <h3 className="text-base text-slate-900 leading-snug">{selectedEmp.name}</h3>
+                <p className="mt-1 text-xs text-[#007EB8]">{selectedEmp.role}</p>
+                <span className={`mt-2 inline-block rounded-lg border px-2.5 py-0.5 text-[11px] ${getDivisionBadgeStyles(selectedEmp.division)}`}>
                   {selectedEmp.division}
                 </span>
               </div>
 
               {selectedLeaveBalance && (
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-xs font-extrabold text-emerald-800"><CalendarDays className="h-4 w-4" /> Phép năm {selectedLeaveBalance.year}</div>
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div><div className="text-[9px] text-slate-500">Hạn mức</div><strong className="text-sm text-emerald-700">{selectedLeaveBalance.entitlement}</strong></div>
-                    <div><div className="text-[9px] text-slate-500">Đã dùng</div><strong className="text-sm text-slate-700">{selectedLeaveBalance.used}</strong></div>
-                    <div><div className="text-[9px] text-slate-500">Chờ duyệt</div><strong className="text-sm text-amber-600">{selectedLeaveBalance.pending}</strong></div>
-                    <div><div className="text-[9px] text-slate-500">Còn lại</div><strong className="text-sm text-cyan-700">{selectedLeaveBalance.remaining}</strong></div>
+                <div className="self-start rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 md:col-start-1 md:row-start-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs text-emerald-800"><CalendarDays className="h-4 w-4" /> Phép năm {selectedLeaveBalance.year}</div>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div><div className="text-[10px] text-slate-500">Hạn mức</div><span className="text-sm text-emerald-700">{selectedLeaveBalance.entitlement}</span></div>
+                    <div><div className="text-[10px] text-slate-500">Đã dùng</div><span className="text-sm text-slate-700">{selectedLeaveBalance.used}</span></div>
+                    <div><div className="text-[10px] text-slate-500">Chờ duyệt</div><span className="text-sm text-amber-600">{selectedLeaveBalance.pending}</span></div>
+                    <div><div className="text-[10px] text-slate-500">Còn lại</div><span className="text-sm text-cyan-700">{selectedLeaveBalance.remaining}</span></div>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-4 text-xs text-slate-655 text-slate-600">
+              <div className="org-chart-detail-popup__details grid grid-cols-1 content-start gap-2 text-xs text-slate-700 sm:grid-cols-2 md:col-start-2 md:row-span-2 md:row-start-2">
                 <div className="grid grid-cols-2 gap-3"><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Trạng thái</span><strong>{selectedEmp.status === "online" ? "Đang hoạt động" : "Ngoại tuyến"}</strong></div><div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Cấp nhân sự</span><strong>Cấp {selectedEmp.level || missingValue}</strong></div></div>
                 <div><span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Lương tháng</span><strong>{selectedEmp.monthlySalary != null ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(selectedEmp.monthlySalary)) : missingValue}</strong></div>
                 <div className="flex items-center gap-3">
@@ -1911,16 +1911,16 @@ export default function OrgChartTab({
                             <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
                               Nhân sự cấp dưới trực tiếp ({directSubs.length})
                             </span>
-                            <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pb-1 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                            <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2 xl:grid-cols-3">
                               {directSubs.map((sub) => (
                                 <button
                                   type="button"
                                   key={sub.id}
                                   onClick={() => setSelectedEmp(sub)}
-                                  className="flex items-center gap-3 bg-slate-50 hover:bg-[#E8F7FF]/50 border border-slate-100 hover:border-[#00ADFC]/30 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-left active:scale-95 outline-none font-sans w-full"
+                                  className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left font-sans transition-all duration-200 hover:border-[#00ADFC]/30 hover:bg-[#E8F7FF]/50 active:scale-95 outline-none cursor-pointer"
                                   title={`Bấm để xem chi tiết ${sub.name}`}
                                 >
-                                  {renderAvatar(sub.avatar, "w-8 h-8", "text-xs")}
+                                  {renderAvatar(sub.avatar, "w-7 h-7", "text-xs")}
                                   <div className="min-w-0">
                                     <span className="block text-xs font-bold text-slate-800 truncate">
                                       {sub.name}
@@ -1952,13 +1952,13 @@ export default function OrgChartTab({
                 })()}
               </div>
 
-              <div className="pt-4 border-t flex flex-col gap-2 font-sans font-bold">
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3 font-sans md:col-span-2">
                 {isManager && usersList.find(u => u.uid === selectedEmp.id)?.role === "user" && (
                   <button
                     type="button"
                     onClick={handleToggleLeader}
                     disabled={isSavingLeader}
-                    className={`w-full py-2.5 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 ${selectedEmp.isLeader
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50 ${selectedEmp.isLeader
                         ? "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800"
                         : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
                       }`}
@@ -1971,7 +1971,7 @@ export default function OrgChartTab({
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="w-full py-2.5 bg-[#E8F7FF] hover:bg-[#00ADFC] hover:text-white border border-[#00ADFC]/20 text-[#007EB8] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-[#00ADFC]/20 bg-[#E8F7FF] px-3 py-2 text-xs text-[#007EB8] transition-colors hover:bg-[#00ADFC] hover:text-white cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
                     Chỉnh sửa thông tin
@@ -1984,7 +1984,7 @@ export default function OrgChartTab({
                       handleDeleteEmployeeSubmit(selectedEmp.id);
                       closeDetailModal();
                     }}
-                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 transition-colors hover:bg-rose-100 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Xóa khỏi hệ thống
@@ -1993,7 +1993,7 @@ export default function OrgChartTab({
                 <button
                   type="button"
                   onClick={closeDetailModal}
-                  className="w-full py-2 border rounded-xl hover:bg-slate-50 text-gray-500 text-xs font-bold cursor-pointer text-center"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-center text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Đóng
                 </button>

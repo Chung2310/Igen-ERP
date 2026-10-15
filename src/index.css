@@ -732,6 +732,37 @@ code, kbd, samp, pre {
   animation: landing-rainbow-spin 2.2s linear infinite;
 }
 
+.org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
+  font-weight: 400;
+}
+
+.org-chart-detail-popup .uppercase {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.org-chart-detail-popup__details .uppercase {
+  color: #475569;
+  font-size: 11px;
+}
+
+.org-chart-detail-popup__details > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #e7edf5;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.org-chart-detail-popup__details > div:first-child,
+.org-chart-detail-popup__details > div:last-child {
+  grid-column: 1 / -1;
+}
+
+.org-chart-detail-popup__details strong {
+  overflow-wrap: anywhere;
+}
+
 @keyframes landing-solution-enter {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
