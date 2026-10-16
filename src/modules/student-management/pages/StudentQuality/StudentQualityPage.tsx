@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, BookOpenCheck, ChevronLeft, ChevronRight, ClipboardCheck, Eye, FileText, Loader2, Pencil, Plus, RefreshCw, Save, Search, Settings, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Eye, FileText, Loader2, Pencil, Plus, RefreshCw, Save, Search, Settings, Trash2, Users, X } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import { useBatches } from "../../hooks/useBatches";
 import { useCourses } from "../../hooks/useCourses";
@@ -20,6 +20,58 @@ const dateLabel = (value?: string | Date | null) => value ? new Date(value).toLo
 
 function Metric({ done, total, rate, tone = "cyan" }: { done: number; total: number; rate: number | null; tone?: "cyan" | "violet" }) {
   return <div className="min-w-[100px]"><div className="flex flex-wrap gap-x-1.5 text-xs leading-4 text-slate-700"><span className="font-medium">{done}/{total}</span><span className="text-slate-500">{percent(rate)}</span></div><div className="mt-1 h-1 overflow-hidden rounded-full bg-sky-50"><div className={`h-full rounded-full ${tone === "cyan" ? "bg-brand-primary" : "bg-sky-300"}`} style={{ width: `${Math.max(0, Math.min(100, rate || 0))}%` }} /></div></div>;
+}
+
+function QualityFilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return <div ref={rootRef} className="relative min-w-0">
+    <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} onKeyDown={(event) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setOpen(true);
+        requestAnimationFrame(() => {
+          const items = listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+          items?.[event.key === "ArrowDown" ? 0 : items.length - 1]?.focus();
+        });
+      }
+    }} className={`flex h-9 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 text-left text-sm font-normal outline-none transition-colors ${open ? "border-brand-primary ring-2 ring-brand-primary/10" : "border-slate-200 hover:border-sky-200"}`}>
+      <span className="truncate text-slate-700">{selected?.label || label}</span>
+      <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180 text-brand-primary" : ""}`} />
+    </button>
+    {open ? <div ref={listRef} role="listbox" aria-label={label} onKeyDown={(event) => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      const items = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') || []);
+      const index = items.indexOf(document.activeElement as HTMLButtonElement);
+      items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+    }} className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full min-w-48 overflow-y-auto rounded-xl border border-sky-100 bg-white p-1 shadow-lg shadow-slate-200/70">
+      {[{ value: "", label }, ...options].map((option) => <button key={option.value} type="button" role="option" aria-selected={option.value === value} onClick={() => { onChange(option.value); setOpen(false); }} className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors ${option.value === value ? "bg-sky-50 text-brand-primary" : "text-slate-700 hover:bg-sky-50/70"}`}>
+        <span className="min-w-0 break-words">{option.label}</span>
+        {option.value === value ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+      </button>)}
+    </div> : null}
+  </div>;
 }
 
 export function StudentQualityPage({ selectedCenter, canManage, onSelectStudent, onOpenBatches }: Props) {
@@ -72,9 +124,9 @@ export function StudentQualityPage({ selectedCenter, canManage, onSelectStudent,
     <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5"><Summary icon={Users} label="Học viên" value={summary.totalStudents} /><Summary icon={AlertTriangle} label="Cần can thiệp" value={summary.riskCount} tone="rose" /><Summary icon={AlertTriangle} label="Cần theo dõi" value={summary.watchCount} tone="amber" /><Summary icon={ClipboardCheck} label="Chuyên cần trung bình" value={percent(summary.averageAttendanceRate)} tone="cyan" /><Summary icon={BookOpenCheck} label="Bài tập trung bình" value={percent(summary.averageAssignmentRate)} tone="violet" /></div>
     <div className="grid gap-2 rounded-xl border border-sky-100 bg-slate-50/50 p-2 shadow-sm md:grid-cols-2 xl:grid-cols-[minmax(240px,2fr)_repeat(2,minmax(150px,1fr))_minmax(170px,1fr)]">
       <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Tìm tên hoặc số điện thoại" className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label>
-      <select aria-label="Lọc theo lớp" value={batchId} onChange={(event) => setBatchId(event.target.value)} className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none focus:border-brand-primary"><option value="">Tất cả lớp</option>{batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} - {batch.courseTitle}</option>)}</select>
-      <select aria-label="Lọc theo khóa học" value={courseId} onChange={(event) => setCourseId(event.target.value)} className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none focus:border-brand-primary"><option value="">Tất cả khóa học</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select>
-      <div className="flex min-w-0 gap-2"><select aria-label="Lọc theo mức đánh giá" value={warningLevel} onChange={(event) => setWarningLevel(event.target.value)} className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none focus:border-brand-primary"><option value="">Mọi mức đánh giá</option><option value="risk">Cần can thiệp</option><option value="watch">Cần theo dõi</option><option value="good">Ổn định</option><option value="unrated">Chưa đánh giá</option></select><button type="button" title="Xóa bộ lọc" aria-label="Xóa bộ lọc" onClick={() => { setDraft(""); setBatchId(""); setCourseId(""); setWarningLevel(""); }} className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><X className="mx-auto h-4 w-4" /></button></div>
+      <QualityFilterSelect label="Tất cả lớp" value={batchId} onChange={setBatchId} options={batches.map((batch) => ({ value: batch.id, label: `${batch.code} - ${batch.courseTitle}` }))} />
+      <QualityFilterSelect label="Tất cả khóa học" value={courseId} onChange={setCourseId} options={courses.map((course) => ({ value: course.id, label: course.title }))} />
+      <div className="flex min-w-0 gap-2"><div className="min-w-0 flex-1"><QualityFilterSelect label="Mọi mức đánh giá" value={warningLevel} onChange={setWarningLevel} options={[{ value: "risk", label: "Cần can thiệp" }, { value: "watch", label: "Cần theo dõi" }, { value: "good", label: "Ổn định" }, { value: "unrated", label: "Chưa đánh giá" }]} /></div><button type="button" title="Xóa bộ lọc" aria-label="Xóa bộ lọc" onClick={() => { setDraft(""); setBatchId(""); setCourseId(""); setWarningLevel(""); }} className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><X className="mx-auto h-4 w-4" /></button></div>
     </div>
     {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
     <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">{loading ? <Loading /> : !items.length ? <Empty /> : <><div className="hidden overflow-x-auto xl:block"><table className="w-full min-w-[900px] text-left"><thead className="border-b border-sky-100 bg-brand-primary/10 text-xs font-medium text-slate-700"><tr><th className="px-3 py-2.5 font-medium">Học viên</th><th className="px-3 py-2.5 font-medium">Lớp / Khóa</th><th className="px-3 py-2.5 font-medium">Chuyên cần</th><th className="px-3 py-2.5 font-medium">Bài tập</th><th className="px-3 py-2.5 font-medium">Thái độ</th><th className="px-3 py-2.5 font-medium">Mini test</th><th className="px-3 py-2.5 font-medium">Điểm thi</th><th className="px-3 py-2.5 font-medium">Đánh giá</th><th className="px-3 py-2.5 font-medium" /></tr></thead><tbody className="divide-y divide-slate-100">{items.map((row) => <QualityRow key={row.id} row={row} onView={() => setViewRow(row)} onEdit={() => setEditRow(row)} onProfile={() => void openProfile(row)} onBatches={onOpenBatches} />)}</tbody></table></div><div className="divide-y divide-slate-100 xl:hidden">{items.map((row) => <QualityMobileRow key={row.id} row={row} onView={() => setViewRow(row)} onEdit={() => setEditRow(row)} onProfile={() => void openProfile(row)} />)}</div></>}</div>
