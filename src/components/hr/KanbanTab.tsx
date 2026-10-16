@@ -287,7 +287,7 @@ export function AttachmentEditor({
               <span className="shrink-0">{ATTACHMENT_ICONS[att.type]}</span>
               {att.type === "audio" ? (
                 <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="truncate font-semibold text-slate-600 max-w-[40%]">{att.name}</span>
+                  <span className="truncate text-slate-600 max-w-[40%]">{att.name}</span>
                   <audio src={att.url} controls className="h-7 flex-1 min-w-0" />
                 </div>
               ) : (
@@ -295,7 +295,7 @@ export function AttachmentEditor({
                   href={att.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 truncate font-semibold text-slate-600 hover:text-indigo-600 hover:underline"
+                  className="flex-1 truncate text-slate-600 hover:text-[#007EB8] hover:underline"
                   title={att.name}
                 >
                   {att.name}
@@ -333,7 +333,7 @@ export function AttachmentEditor({
           <button
             type="button"
             onClick={addLink}
-            className="px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 text-xs font-bold cursor-pointer"
+            className="px-3 rounded-lg bg-[#00ADFC] text-white hover:bg-[#0095d9] text-xs font-normal cursor-pointer"
           >
             Thêm
           </button>
@@ -345,7 +345,7 @@ export function AttachmentEditor({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-1 rounded-lg border border-[#DCE7F4] px-2.5 py-1.5 text-xs font-normal text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50 cursor-pointer"
           title="Đính kèm hình ảnh, video, tài liệu…"
         >
           <Paperclip className="h-3.5 w-3.5" /> Tệp / Ảnh / Video
@@ -354,7 +354,7 @@ export function AttachmentEditor({
           <button
             type="button"
             onClick={stopRecording}
-            className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-600 animate-pulse cursor-pointer"
+            className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-normal text-red-600 animate-pulse cursor-pointer"
             title="Dừng và lưu bản ghi âm"
           >
             <Square className="h-3.5 w-3.5 fill-red-600" /> Dừng ghi âm
@@ -364,31 +364,32 @@ export function AttachmentEditor({
             type="button"
             onClick={startRecording}
             disabled={uploading}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1 rounded-lg border border-[#DCE7F4] px-2.5 py-1.5 text-xs font-normal text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50 cursor-pointer"
             title="Ghi âm trực tiếp"
           >
             <Mic className="h-3.5 w-3.5" /> Ghi âm
           </button>
         )}
         {videoRecorder ? (
-          <button type="button" onClick={() => { videoRecorder.stop(); setVideoRecorder(null); }} className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-600 animate-pulse cursor-pointer" title="Dừng và lưu bản ghi hình">
+          <button type="button" onClick={() => { videoRecorder.stop(); setVideoRecorder(null); }} className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-normal text-red-600 animate-pulse cursor-pointer" title="Dừng và lưu bản ghi hình">
             <Square className="h-3.5 w-3.5 fill-red-600" /> Dừng ghi hình
           </button>
         ) : (
-          <button type="button" onClick={startVideoRecording} disabled={uploading || !!recorder} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 cursor-pointer" title="Ghi hình trực tiếp bằng camera">
+          <button type="button" onClick={startVideoRecording} disabled={uploading || !!recorder} className="flex items-center gap-1 rounded-lg border border-[#DCE7F4] px-2.5 py-1.5 text-xs font-normal text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50 cursor-pointer" title="Ghi hình trực tiếp bằng camera">
             <Video className="h-3.5 w-3.5" /> Ghi hình
           </button>
-        )}        <button
+        )}
+        <button
           type="button"
           onClick={() => setLinkDraft(linkDraft === null ? "" : null)}
           disabled={uploading}
-          className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-1 rounded-lg border border-[#DCE7F4] px-2.5 py-1.5 text-xs font-normal text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50 cursor-pointer"
           title="Đính kèm đường dẫn tài liệu"
         >
           <Link2 className="h-3.5 w-3.5" /> Thêm link
         </button>
         {uploading && (
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+          <span className="flex items-center gap-1.5 text-xs text-slate-400">
             <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Đang tải lên…
           </span>
         )}
@@ -2074,7 +2075,7 @@ export default function KanbanTab({
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
           <form onSubmit={handleCreateProject} className="bg-white border border-[#DCE7F4] rounded-2xl shadow-xl w-full max-w-xl p-6 relative text-left space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="flex justify-between items-center pb-4 border-b border-[#E8F0F8]">
-              <h4 className="font-medium text-slate-800 text-lg font-sans flex items-center gap-2">
+              <h4 className="font-normal text-slate-800 text-lg font-sans flex items-center gap-2">
                 <Target className="h-5 w-5 text-[#00ADFC]" />
                 {editingProjectId ? "Cập nhật dự án" : "Tạo dự án mới"}
               </h4>
@@ -2110,7 +2111,7 @@ export default function KanbanTab({
               <div><label className="block text-slate-600 mb-1.5">Tài liệu</label><AttachmentEditor attachments={newProjectAttachments} onChange={setNewProjectAttachments} /></div>
             </div>
 
-            <div className="pt-4 border-t border-[#E8F0F8] flex justify-end gap-3 text-sm font-medium">
+            <div className="pt-4 border-t border-[#E8F0F8] flex justify-end gap-3 text-sm font-normal">
               <button
                 type="button"
                 onClick={() => setIsNewProjectModalOpen(false)}
