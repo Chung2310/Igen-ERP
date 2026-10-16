@@ -3,6 +3,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { canManageCustomFields } from "./permissions";
 import { CustomFieldEditorModal } from "./CustomFieldEditorModal";
 import { CustomFieldRenderer } from "./CustomFieldRenderer";
+import { FieldActionButtons } from "./FieldActionButtons";
 import type { CreateFieldInput, CustomFieldValues, FieldDefinition, ModuleKey } from "./types";
 import { useCustomFields } from "./useCustomFields";
 
@@ -109,16 +110,7 @@ export function CustomFieldsSection({
       <div className={compact ? "grid grid-cols-1 sm:grid-cols-2 gap-2.5" : "space-y-4"}>
         {activeFields.map((field) => (
           <div key={field.id} className="relative space-y-1">
-            {manageable && isEditing ? (
-              <div className="flex min-h-4 items-center justify-end gap-1.5 text-[10px] font-medium text-slate-500">
-                <button type="button" disabled={disabled} aria-label={`Chỉnh sửa ${field.label}`} title="Chỉnh sửa" className="hover:text-[#00ADFC] transition-colors" onClick={() => openEdit(field)}>Sửa</button>
-                <span>|</span>
-                <button type="button" disabled={disabled} aria-label={`Lưu trữ ${field.label}`} title="Lưu trữ" className="hover:text-[#00ADFC] transition-colors" onClick={() => void archive(field)}>Lưu trữ</button>
-                <span>|</span>
-                <button type="button" disabled={disabled} aria-label={`Xóa ${field.label}`} title="Xóa" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => void remove(field)}>Xóa</button>
-              </div>
-            ) : null}
-            <CustomFieldRenderer field={field} value={values[field.key] ?? (mode === "create" ? field.defaultValue : undefined)} onChange={(value) => onChange({ ...values, [field.key]: value })} error={errors[field.key]} disabled={disabled} />
+            <CustomFieldRenderer field={field} value={values[field.key] ?? (mode === "create" ? field.defaultValue : undefined)} onChange={(value) => onChange({ ...values, [field.key]: value })} error={errors[field.key]} disabled={disabled} actions={manageable && isEditing ? <FieldActionButtons label={field.label} disabled={disabled} onEdit={() => openEdit(field)} onArchive={() => void archive(field)} onDelete={() => void remove(field)} /> : undefined} />
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState, type ChangeEvent, type ReactNode } from "react";
 import type { CustomFieldValue, FieldDefinition, FileMetadata } from "./types";
 import { uploadCustomFieldFile } from "./api";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
@@ -9,6 +9,7 @@ export type CustomFieldRendererProps = {
   onChange(value: CustomFieldValue): void;
   error?: string;
   disabled?: boolean;
+  actions?: ReactNode;
 };
 
 const inputClass = "w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all text-slate-800 disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-default";
@@ -25,7 +26,7 @@ function toDateTimeLocalValue(value: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function CustomFieldRenderer({ field, value, onChange, error, disabled = false }: CustomFieldRendererProps) {
+export function CustomFieldRenderer({ field, value, onChange, error, disabled = false, actions }: CustomFieldRendererProps) {
   const fieldType = field.type as string;
   const generatedId = useId();
   const inputId = `custom-field-${field.key}-${generatedId.replace(/:/g, "")}`;
@@ -148,7 +149,7 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
               <button
                 type="button"
                 className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
-                onClick={() => onChange(null as any)}
+                onClick={() => onChange(null)}
               >
                 Gỡ bỏ
               </button>
@@ -176,7 +177,7 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
               <button
                 type="button"
                 className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
-                onClick={() => onChange(null as any)}
+                onClick={() => onChange(null)}
               >
                 Gỡ bỏ
               </button>
@@ -229,10 +230,13 @@ export function CustomFieldRenderer({ field, value, onChange, error, disabled = 
   const checkboxLike = fieldType === "checkbox" || fieldType === "switch";
   return (
     <div className="space-y-1" data-custom-field={field.key}>
-      <label className={`text-xs font-semibold text-slate-900 normal-case ${checkboxLike ? "flex items-center gap-2" : "block"}`} htmlFor={inputId}>
-        {checkboxLike && control}
-        <span>{field.label}{field.isRequired ? <span aria-hidden="true" className="ml-1 text-rose-500">*</span> : null}</span>
-      </label>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <label className={`min-w-[8rem] flex-1 text-xs font-semibold text-slate-900 normal-case ${checkboxLike ? "flex items-center gap-2" : "block"}`} htmlFor={inputId}>
+          {checkboxLike && control}
+          <span>{field.label}{field.isRequired ? <span aria-hidden="true" className="ml-1 text-rose-500">*</span> : null}</span>
+        </label>
+        {actions}
+      </div>
       {!checkboxLike && control}
       {uploading ? <p aria-live="polite" className="text-xs text-slate-500">Đang tải lên…</p> : null}
       {error || uploadError ? <div id={errorId} role="alert" className="flex items-center gap-2 text-xs text-red-600"><span>{error ?? uploadError}</span>{uploadError && pendingFiles ? <button type="button" className="underline" onClick={() => void upload(pendingFiles)}>Thử lại</button> : null}</div> : null}

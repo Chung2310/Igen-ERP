@@ -190,10 +190,13 @@ export function ErpModal({
   );
 }
 
-export function ErpField({ label, children, className }: { label: string; children: React.ReactNode; hint?: string; className?: string }) {
+export function ErpField({ label, children, actions, className }: { label: string; children: React.ReactNode; actions?: React.ReactNode; hint?: string; className?: string }) {
   return (
     <div className={cn("space-y-1 text-left", className)}>
-      <div className="text-xs font-semibold text-slate-900 block normal-case">{label}</div>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div className="min-w-[8rem] flex-1 text-xs font-semibold text-slate-900 normal-case">{label}</div>
+        {actions}
+      </div>
       {children}
     </div>
   );

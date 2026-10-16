@@ -37,6 +37,7 @@ import {
   ErpTableHead,
 } from '../../components/Erp/ErpUI';
 import { CustomFieldsSection } from '../../../shared/custom-fields/CustomFieldsSection';
+import { FieldActionButtons } from '../../../shared/custom-fields/FieldActionButtons';
 import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
@@ -178,15 +179,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
-    return (
-      <div className="flex min-h-4 items-center justify-end gap-1.5 text-[10px] font-medium text-slate-500">
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
-        <span>|</span>
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
-        <span>|</span>
-        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
-      </div>
-    );
+    return <FieldActionButtons label={fieldConfig.label} onEdit={() => openEditStdField(fieldConfig)} onArchive={() => archiveStd(fieldConfig)} onDelete={() => deleteStd(fieldConfig)} />;
   };
 
   const isFieldVisible = (fieldKey: string) => {
@@ -744,8 +737,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
           <form onSubmit={handleAddCourse} className="space-y-4">
             {isFieldVisible('code') && (
               <div className="relative group/std">
-                {renderFieldActions('code')}
-                <ErpField label={getFieldLabel('code', copy.codeLabel)}>
+                <ErpField label={getFieldLabel('code', copy.codeLabel)} actions={renderFieldActions('code')}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('code', true)}
@@ -759,8 +751,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
             {isFieldVisible('title') && (
               <div className="relative group/std">
-                {renderFieldActions('title')}
-                <ErpField label={getFieldLabel('title', copy.titleLabel)}>
+                <ErpField label={getFieldLabel('title', copy.titleLabel)} actions={renderFieldActions('title')}>
                   <ErpInput
                     type="text"
                     required={isFieldRequired('title', true)}
@@ -775,16 +766,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-2 gap-4">
               {isFieldVisible('category') && (
                 <div className="relative group/std">
-                  {renderFieldActions('category')}
-                  <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
+                  <ErpField label={getFieldLabel('category', copy.categoryLabel)} actions={renderFieldActions('category')}>
                     <RoadmapPicker value={newCourse.category} placeholder="-- Chọn phân loại --" options={categories.map((category) => ({ value: category.name, label: category.name }))} onChange={(value) => setNewCourse({ ...newCourse, category: value })} />
                   </ErpField>
                 </div>
               )}
               {isFieldVisible('duration') && (
                 <div className="relative group/std">
-                  {renderFieldActions('duration')}
-                  <ErpField label={getFieldLabel('duration', copy.durationLabel)}>
+                  <ErpField label={getFieldLabel('duration', copy.durationLabel)} actions={renderFieldActions('duration')}>
                     <ErpInput
                       type="number"
                       min="1"
@@ -801,8 +790,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-2 gap-4">
               {isFieldVisible('fee') && (
                 <div className="relative group/std">
-                  {renderFieldActions('fee')}
-                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
+                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)} actions={renderFieldActions('fee')}>
                     <ErpInput
                       type="text"
                       inputMode="numeric"
@@ -817,8 +805,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               )}
               {isFieldVisible('maxLearners') && (
                 <div className="relative group/std">
-                  {renderFieldActions('maxLearners')}
-                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)}>
+                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)} actions={renderFieldActions('maxLearners')}>
                     <ErpInput
                       type="number"
                       min={0}
@@ -889,8 +876,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('code') && (
                 <div className="relative group/std">
-                  {renderFieldActions('code')}
-                  <ErpField label={getFieldLabel('code', copy.codeLabel)}>
+                  <ErpField label={getFieldLabel('code', copy.codeLabel)} actions={renderFieldActions('code')}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('code', true)}
@@ -904,8 +890,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
               {isFieldVisible('title') && (
                 <div className="relative group/std">
-                  {renderFieldActions('title')}
-                  <ErpField label={getFieldLabel('title', copy.titleLabel)}>
+                  <ErpField label={getFieldLabel('title', copy.titleLabel)} actions={renderFieldActions('title')}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('title', true)}
@@ -921,16 +906,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('category') && (
                 <div className="relative group/std">
-                  {renderFieldActions('category')}
-                  <ErpField label={getFieldLabel('category', copy.categoryLabel)}>
+                  <ErpField label={getFieldLabel('category', copy.categoryLabel)} actions={renderFieldActions('category')}>
                     <RoadmapPicker value={editForm.category} placeholder="-- Chọn phân loại --" options={categories.map((category) => ({ value: category.name, label: category.name }))} onChange={(value) => setEditForm({ ...editForm, category: value })} />
                   </ErpField>
                 </div>
               )}
               {isFieldVisible('duration') && (
                 <div className="relative group/std">
-                  {renderFieldActions('duration')}
-                  <ErpField label={getFieldLabel('duration', copy.durationLabel)}>
+                  <ErpField label={getFieldLabel('duration', copy.durationLabel)} actions={renderFieldActions('duration')}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('duration', true)}
@@ -946,8 +929,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('fee') && (
                 <div className="relative group/std">
-                  {renderFieldActions('fee')}
-                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)}>
+                  <ErpField label={getFieldLabel('fee', `${copy.feeLabel} (VND)`)} actions={renderFieldActions('fee')}>
                     <ErpInput
                       type="text"
                       required={isFieldRequired('fee', true)}
@@ -960,8 +942,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               )}
               {isFieldVisible('maxLearners') && (
                 <div className="relative group/std">
-                  {renderFieldActions('maxLearners')}
-                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)}>
+                  <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)} actions={renderFieldActions('maxLearners')}>
                     <ErpInput
                       type="number"
                       min={0}
