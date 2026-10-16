@@ -307,60 +307,65 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
         <StatCard label="HV chưa có lịch" value={stats.unassignedStudents} icon={UsersIcon} color="text-purple-500" bgColor="bg-purple-50" />
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 sm:gap-4 border-b border-slate-200 mt-1 overflow-x-auto no-scrollbar no-print">
-        <button
-          onClick={() => setActiveTab('exams')}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
-            activeTab === 'exams' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <ClipboardList className="w-3.5 h-3.5" /> Đợt thi
-          {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
-        </button>
-        <button
-          onClick={() => setActiveTab('students')}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
-            activeTab === 'students' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <UsersIcon className="w-3.5 h-3.5" /> HV chưa có lịch
-          {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
-        </button>
+      {/* Tabs and filters */}
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-2 xl:flex-row xl:items-end xl:justify-between no-print">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setActiveTab('exams')}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              activeTab === 'exams' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <ClipboardList className="w-3.5 h-3.5" /> Đợt thi
+            {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+          </button>
+          <button
+            onClick={() => setActiveTab('students')}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              activeTab === 'students' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <UsersIcon className="w-3.5 h-3.5" /> HV chưa có lịch
+            {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+          </button>
+        </div>
+
+        {activeTab === 'exams' && (
+          <div className="flex flex-wrap items-end gap-2 xl:justify-end">
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterItem label="Từ ngày">
+                <VietnameseDatePicker ariaLabel="Từ ngày" value={fromDate} max={toDate || undefined} onChange={setFromDate} selectionOnly variant="filter" />
+              </FilterItem>
+            </div>
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterItem label="Đến ngày">
+                <VietnameseDatePicker ariaLabel="Đến ngày" value={toDate} min={fromDate || undefined} onChange={setToDate} selectionOnly variant="filter" />
+              </FilterItem>
+            </div>
+            {hasRankData && <div className="w-[160px] sm:w-[175px]"><FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} /></div>}
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterSelect label="Trạng thái" value={statusFilter} onChange={setStatusFilter} options={['Tất cả', 'Sắp diễn ra', 'Đã xác nhận', 'Đã hoàn thành']} />
+            </div>
+            <button
+              onClick={() => {
+                setRankFilter('Tất cả hạng');
+                setStatusFilter('Tất cả');
+                setSearchQuery('');
+                setFromDate('');
+                setToDate('');
+              }}
+              className="flex h-9 items-center gap-1 px-1 text-xs font-medium text-slate-500 transition-colors hover:text-brand-primary"
+            >
+              <X className="w-3 h-3" /> Xóa lọc
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'exams' ? (
         <>
-          {/* Filters */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 bg-white p-3 rounded-2xl border border-sky-100 shadow-sm no-print">
-            <FilterItem label="Từ ngày">
-              <VietnameseDatePicker ariaLabel="Từ ngày" value={fromDate} max={toDate || undefined} onChange={setFromDate} selectionOnly variant="filter" />
-            </FilterItem>
-            <FilterItem label="Đến ngày">
-              <VietnameseDatePicker ariaLabel="Đến ngày" value={toDate} min={fromDate || undefined} onChange={setToDate} selectionOnly variant="filter" />
-            </FilterItem>
-            {hasRankData && (
-              <FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} />
-            )}
-
-            <FilterSelect label="Trạng thái" value={statusFilter} onChange={setStatusFilter} options={['Tất cả', 'Sắp diễn ra', 'Đã xác nhận', 'Đã hoàn thành']} />
-            <div className="flex items-end col-span-2 sm:col-span-1">
-              <button
-                onClick={() => {
-                  setRankFilter('Tất cả hạng');
-                  setStatusFilter('Tất cả');
-                  setSearchQuery('');
-                  setFromDate('');
-                  setToDate('');
-                }}
-                className="text-xs font-medium text-slate-500 hover:text-brand-primary flex items-center gap-1 transition-colors h-10"
-              >
-                <X className="w-3 h-3" /> Xóa lọc
-              </button>
-            </div>
-          </div>
 
           {/* Exam List */}
           <div className="space-y-3">
