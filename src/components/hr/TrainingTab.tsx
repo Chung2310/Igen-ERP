@@ -62,10 +62,10 @@ function displayTrainingIcon(icon: string | undefined, className?: string) {
 }
 
 const courseCardThemes = [
-  { border: "border-violet-200 hover:border-violet-400", wash: "from-violet-200 via-violet-50 to-white", glow: "bg-fuchsia-300/70", icon: "bg-white/90 ring-violet-300", badge: "bg-violet-200 text-violet-800", line: "from-violet-500 to-fuchsia-400", action: "bg-violet-600 hover:bg-violet-700" },
-  { border: "border-teal-200 hover:border-teal-400", wash: "from-teal-200 via-cyan-50 to-white", glow: "bg-cyan-300/70", icon: "bg-white/90 ring-teal-300", badge: "bg-teal-200 text-teal-800", line: "from-teal-500 to-cyan-400", action: "bg-teal-600 hover:bg-teal-700" },
-  { border: "border-amber-200 hover:border-amber-400", wash: "from-amber-200 via-amber-50 to-white", glow: "bg-orange-300/70", icon: "bg-white/90 ring-amber-300", badge: "bg-amber-200 text-amber-900", line: "from-amber-500 to-orange-400", action: "bg-orange-600 hover:bg-orange-700" },
-  { border: "border-rose-200 hover:border-rose-400", wash: "from-rose-200 via-pink-50 to-white", glow: "bg-pink-300/70", icon: "bg-white/90 ring-rose-300", badge: "bg-rose-200 text-rose-800", line: "from-rose-500 to-pink-400", action: "bg-pink-600 hover:bg-pink-700" },
+  { border: "border-violet-200 hover:border-violet-400", wash: "from-violet-200 via-violet-50 to-white", glow: "bg-fuchsia-300/70", icon: "bg-white/90 ring-violet-300", badge: "bg-violet-200 text-violet-800", action: "bg-violet-600 hover:bg-violet-700" },
+  { border: "border-teal-200 hover:border-teal-400", wash: "from-teal-200 via-cyan-50 to-white", glow: "bg-cyan-300/70", icon: "bg-white/90 ring-teal-300", badge: "bg-teal-200 text-teal-800", action: "bg-teal-600 hover:bg-teal-700" },
+  { border: "border-amber-200 hover:border-amber-400", wash: "from-amber-200 via-amber-50 to-white", glow: "bg-orange-300/70", icon: "bg-white/90 ring-amber-300", badge: "bg-amber-200 text-amber-900", action: "bg-orange-600 hover:bg-orange-700" },
+  { border: "border-rose-200 hover:border-rose-400", wash: "from-rose-200 via-pink-50 to-white", glow: "bg-pink-300/70", icon: "bg-white/90 ring-rose-300", badge: "bg-rose-200 text-rose-800", action: "bg-pink-600 hover:bg-pink-700" },
 ] as const;
 
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
@@ -869,7 +869,6 @@ export default function TrainingTab({
                   <div key={course.id} className={`group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border bg-white p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
                     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${cardTheme.wash}`} aria-hidden="true" />
                     <div className={`pointer-events-none absolute -right-7 -top-10 h-28 w-28 rounded-full blur-xl ${cardTheme.glow}`} aria-hidden="true" />
-                    <div className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cardTheme.line}`} aria-hidden="true" />
                     <div className="relative space-y-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
