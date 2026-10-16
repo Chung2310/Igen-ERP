@@ -815,7 +815,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] border-collapse text-left text-xs">
+            <table className="w-full min-w-[1100px] border-collapse text-left text-xs [&_thead_tr]:border-brand-primary/15 [&_thead_tr]:bg-brand-primary/10">
               <ErpTableHead columns={[copy.entityName, copy.instructorLabel, 'Lịch học', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
                 {paginatedBatches.map((b) => (
