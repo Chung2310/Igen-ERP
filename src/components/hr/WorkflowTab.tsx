@@ -924,6 +924,7 @@ export function WorkflowReader({
 }) {
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
+  const [showStageBranches, setShowStageBranches] = useState(false);
 
   return (
     <>
@@ -950,7 +951,7 @@ export function WorkflowReader({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          <div className="mx-auto max-w-3xl">
+          <div className="mx-auto max-w-6xl">
             <div className="rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -958,7 +959,21 @@ export function WorkflowReader({
                   <h1 className="mt-2 text-xl font-medium text-slate-800">{workflow.name}</h1>
                   {workflow.category && <p className="mt-1 text-xs font-normal text-slate-500">{workflow.category}</p>}
                 </div>
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                <div className="flex items-center gap-2">
+                  {workflow.steps.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowStageBranches((current) => !current)}
+                      aria-label={showStageBranches ? "Ẩn chi tiết giai đoạn con" : "Xem chi tiết giai đoạn con"}
+                      aria-pressed={showStageBranches}
+                      title={showStageBranches ? "Ẩn giai đoạn con" : "Xem giai đoạn con"}
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${showStageBranches ? "border-[#00adfc] bg-[#e8f7ff] text-[#008dcc]" : "border-[#dce7f4] bg-white text-slate-500 hover:border-[#8edcff] hover:text-[#008dcc]"}`}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  )}
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                </div>
               </div>
               {workflow.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-600">{workflow.description}</p>}
             </div>
@@ -968,23 +983,34 @@ export function WorkflowReader({
                 Chưa có bước nào trong quy trình.
               </div>
             ) : (
-              <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {workflow.steps.map((step, index) => (
-                  <li
-                    key={step.id}
-                    onClick={() => setSelectedStep(step)}
-                    className="relative flex h-full min-h-24 cursor-pointer items-center rounded-2xl border border-[#dce7f4] bg-white p-5 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
-                  >
-                    {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-[#00adfc] sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
-                    <div className="flex w-full items-center gap-4">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00adfc] text-sm font-medium text-white">{index + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="break-words text-base font-medium leading-snug text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <div className="mt-5 overflow-x-auto rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-6" style={{ backgroundImage: "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }}>
+                <ol className="flex w-max min-w-full items-center justify-center py-8">
+                  {workflow.steps.map((step, index) => {
+                    const childStages = step.subTasks || [];
+                    const hasNext = index < workflow.steps.length - 1;
+                    return (
+                      <React.Fragment key={step.id}>
+                        <li
+                          onClick={() => setSelectedStep(step)}
+                          className="flex min-h-28 w-48 shrink-0 cursor-pointer flex-col justify-center rounded-2xl border border-[#dce7f4] bg-white p-4 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
+                        >
+                          <span className="text-[10px] text-[#008dcc]">Bước {index + 1}</span>
+                          <h2 className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
+                          {!showStageBranches && childStages.length > 0 && <span className="mt-2 text-[10px] text-slate-500">{childStages.length} giai đoạn con</span>}
+                        </li>
+                        {showStageBranches && childStages.length > 0 ? (
+                          <>
+                            <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} /></li>
+                            {!hasNext && <li className="flex min-h-28 w-48 shrink-0 items-center justify-center rounded-2xl border border-[#dce7f4] bg-white text-sm text-slate-700 shadow-sm">Kết thúc</li>}
+                          </>
+                        ) : hasNext ? (
+                          <li className="list-none" aria-hidden="true"><svg width="46" height="112" viewBox="0 0 46 112" fill="none" aria-hidden="true" className="shrink-0"><path d="M0 56h46m-6-5 6 5-6 5" stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></li>
+                        ) : null}
+                      </React.Fragment>
+                    );
+                  })}
+                </ol>
+              </div>
             )}
           </div>
         </div>

@@ -35,6 +35,11 @@ describe("WorkflowReader", () => {
     expect(screen.queryByRole("button", { name: /edit|delete|add/i })).toBeNull();
     expect(screen.queryByText(/Dự kiến|ngày/)).toBeNull();
     expect(document.querySelectorAll("svg[aria-hidden='true']").length).toBeGreaterThan(0);
+    expect(screen.queryByText("1.1 Verify identity")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Xem chi tiết giai đoạn con" }));
+    expect(screen.getByText("1.1 Verify identity")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ẩn chi tiết giai đoạn con" }));
+    expect(screen.queryByText("1.1 Verify identity")).toBeNull();
 
     const firstStepCard = screen.getByText("Receive documents").closest("li")!;
     fireEvent.click(firstStepCard);
