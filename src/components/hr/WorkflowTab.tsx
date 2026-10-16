@@ -1207,7 +1207,7 @@ function NewWorkflowWizard({
             type="button"
             onClick={onClose}
             aria-label="Đóng popup quy trình"
-            className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors ${isDark ? "border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700" : "border-[#dce7f4] bg-white text-slate-700 shadow-sm hover:bg-[#f3faff]"}`}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
           >
             <X className="h-4 w-4" />
           </button>
