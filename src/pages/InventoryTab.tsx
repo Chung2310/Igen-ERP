@@ -664,9 +664,9 @@ export default function InventoryTab() {
   };
 
   return (
-    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
+    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-[#f8fbff]" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#dce7f4] bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
           <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
           <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
@@ -687,8 +687,8 @@ export default function InventoryTab() {
                   onClick={() => setSubTab(tab.id as InventorySubTabType)}
                   className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
                     isActive
-                      ? "bg-cyan-600 text-white font-bold shadow-xs"
-                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      ? "bg-[#00adfc] text-white shadow-sm"
+                      : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
                   }`}
                 >
                   <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
@@ -701,7 +701,7 @@ export default function InventoryTab() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
+      <div className="flex-1 overflow-y-auto bg-[#f8fbff] p-3 sm:p-6" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section />
