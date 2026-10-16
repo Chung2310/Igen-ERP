@@ -56,6 +56,13 @@ function displayTrainingIcon(icon: string | undefined, className?: string) {
   return icon && icon !== "book" && !emojiIconPattern.test(icon) ? icon : <TrainingBookIcon className={className} />;
 }
 
+const courseCardThemes = [
+  { border: "hover:border-violet-300", wash: "from-violet-100 via-sky-50 to-white", glow: "bg-violet-200/60", icon: "bg-violet-100 ring-violet-200", badge: "bg-violet-100 text-violet-700", line: "from-violet-400 to-sky-400" },
+  { border: "hover:border-teal-300", wash: "from-teal-100 via-cyan-50 to-white", glow: "bg-teal-200/60", icon: "bg-teal-100 ring-teal-200", badge: "bg-teal-100 text-teal-700", line: "from-teal-400 to-cyan-400" },
+  { border: "hover:border-amber-300", wash: "from-amber-100 via-orange-50 to-white", glow: "bg-amber-200/60", icon: "bg-amber-100 ring-amber-200", badge: "bg-amber-100 text-amber-700", line: "from-amber-400 to-rose-400" },
+  { border: "hover:border-rose-300", wash: "from-rose-100 via-pink-50 to-white", glow: "bg-rose-200/60", icon: "bg-rose-100 ring-rose-200", badge: "bg-rose-100 text-rose-700", line: "from-rose-400 to-fuchsia-400" },
+] as const;
+
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
 
 function TrainingGlyph({ name, className = "h-4 w-4" }: { name: TrainingGlyphName; className?: string }) {
@@ -843,7 +850,8 @@ export default function TrainingTab({
                 Chưa có khóa học nào được đăng tải trên học viện.
               </div>
             ) : (
-              courses.map((course) => {
+              courses.map((course, courseIndex) => {
+                const cardTheme = courseCardThemes[courseIndex % courseCardThemes.length];
                 const targetUid = trainingFilter || userProfile?.uid || "";
 
                 const enrollList = trainingFilter ? supervisorEnrollments : enrollments;
@@ -853,13 +861,16 @@ export default function TrainingTab({
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
 
                 return (
-                  <div key={course.id} className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE7F4] bg-white p-3 shadow-2xs transition-all hover:border-[#8edcff] hover:shadow-md">
-                    <div className="space-y-2.5">
+                  <div key={course.id} className={`group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
+                    <div className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br ${cardTheme.wash}`} aria-hidden="true" />
+                    <div className={`pointer-events-none absolute -right-7 -top-10 h-28 w-28 rounded-full blur-2xl ${cardTheme.glow}`} aria-hidden="true" />
+                    <div className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cardTheme.line}`} aria-hidden="true" />
+                    <div className="relative space-y-2.5">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-100 bg-[#E8F7FF] text-xl select-none">{displayTrainingIcon(course.icon)}</span>
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="max-w-full truncate rounded-md border border-sky-100 bg-[#E8F7FF] px-1.5 py-0.5 text-[10px] text-[#007eb8]">{course.category || "Văn hóa"}</span>
+                            <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
                             {course.isRequired && <span className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700">Bắt buộc</span>}
                           </div>
                           <h4 className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-slate-900" title={course.title}>{course.title}</h4>
@@ -868,7 +879,7 @@ export default function TrainingTab({
 
                       {course.description && <p className="truncate text-xs text-slate-600" title={course.description}>{course.description}</p>}
 
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-lg border border-[#E1EAF5] bg-[#F8FBFF] px-2 py-1.5 text-[11px] text-slate-700 select-none">
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-white/80 bg-white/75 px-2.5 py-2 text-[11px] text-slate-700 shadow-sm ring-1 ring-slate-100 select-none">
                         <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
@@ -892,7 +903,7 @@ export default function TrainingTab({
                       )}
                     </div>
 
-                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E1EAF5] pt-2.5">
+                    <div className="relative mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-2.5">
                       {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter ? (
                         <div className="flex gap-1.5">
                           <button
@@ -923,7 +934,7 @@ export default function TrainingTab({
                           onClick={() => handleEnrollAndStart(course)}
                           className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
                               ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
-                              : "bg-[#00ADFC] hover:bg-[#0097dc] text-white"
+                              : "bg-gradient-to-r from-[#00ADFC] to-[#3186f6] text-white hover:from-[#0097dc] hover:to-[#236fe1] shadow-sm"
                             }`}
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
