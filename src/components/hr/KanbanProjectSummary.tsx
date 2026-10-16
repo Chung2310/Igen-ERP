@@ -1,6 +1,7 @@
 import type { Project } from "../../types/hr";
 
 const statusLabels = { not_started: "Chưa bắt đầu", in_progress: "Đang thực hiện", paused: "Tạm dừng", completed: "Hoàn thành", cancelled: "Đã hủy" };
+const statusColors = { not_started: "bg-slate-100 text-slate-700", in_progress: "bg-sky-100 text-sky-800", paused: "bg-amber-100 text-amber-800", completed: "bg-emerald-100 text-emerald-800", cancelled: "bg-rose-100 text-rose-800" };
 const priorityLabels = { low: "Thấp", medium: "Trung bình", high: "Cao", urgent: "Khẩn cấp" };
 const date = (value?: string | null) => value ? new Date(value).toLocaleString("vi-VN", { hour12: false }) : "Chưa thiết lập";
 
@@ -13,7 +14,7 @@ export function KanbanProjectSummary({ project, expanded = false }: { project: P
   const progress = project.progress || { completed: 0, total: 0, percent: 0 };
   return <div className="min-w-0 flex-1 text-xs">
     <div className="flex flex-wrap items-center gap-2 mt-1">
-      <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-[#007EB8]">{statusLabels[project.status || "not_started"]}</span>
+      <span className={`rounded-full px-2 py-0.5 ${statusColors[project.status || "not_started"]}`}>{statusLabels[project.status || "not_started"]}</span>
       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{priorityLabels[project.priority || "medium"]}</span>
       <span className="text-slate-600">{progress.completed}/{progress.total} · {progress.percent}%</span>
     </div>

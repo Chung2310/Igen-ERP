@@ -486,10 +486,10 @@ function TaskTable({
   onSelectTask: (task: HRTask) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#DCE7F4] bg-white">
-        <table className={`w-full border-collapse text-left text-[11px] [&_th]:border-r [&_td]:border-r [&_th]:border-[#E5EDF5] [&_td]:border-[#EAF0F6] [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1180px]" : "min-w-[1080px]"}`}>
+    <div className="overflow-x-auto rounded-xl border border-[#E7EEF5] bg-white">
+        <table className={`w-full border-collapse text-left text-[11px] [&_th]:border-r [&_td]:border-r [&_th]:border-[#EEF3F8] [&_td]:border-[#F0F4F8] [&_th]:font-normal [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1180px]" : "min-w-[1080px]"}`}>
         <thead>
-          <tr className="select-none border-b border-[#DCE7F4] bg-[#F5FAFE] font-medium text-slate-600">
+          <tr className="select-none border-b border-[#EEF3F8] bg-[#F8FBFE] text-slate-600">
             <th className="w-[146px] px-2 py-2.5">Công việc</th>
             {showProjectColumn && <th className="w-[96px] px-2 py-2.5">Dự án</th>}
             <th className="w-[86px] px-2 py-2.5">Phân loại</th>
@@ -504,7 +504,7 @@ function TaskTable({
             <th className="w-[96px] px-2 py-2.5">Đánh giá KPI</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#EAF0F6] bg-white">
+        <tbody className="divide-y divide-[#F0F4F8] bg-white">
           {tasks.length === 0 ? (
             <tr>
               <td colSpan={showProjectColumn ? 12 : 11} className="text-center py-8 text-gray-450 italic bg-white">
@@ -531,7 +531,7 @@ function TaskTable({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate font-medium text-[11px] text-slate-850" title={task.title}>
+                        <div className="truncate text-[11px] text-slate-850" title={task.title}>
                           {task.title}
                         </div>
                         <div className="text-[10px] text-gray-400 truncate mt-0.5" title={task.description}>
@@ -555,8 +555,8 @@ function TaskTable({
 
                   {/* Ưu tiên */}
                   <td className="select-none px-2 py-2">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                    <span className={`rounded-md px-2 py-0.5 text-[10px] whitespace-nowrap ${task.priority === "High" ? "bg-rose-100 text-rose-700" :
+                      task.priority === "Low" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
@@ -564,9 +564,9 @@ function TaskTable({
 
                   {/* Trạng thái */}
                   <td className="select-none px-2 py-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                        task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                    <span className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-100 text-emerald-800" :
+                      task.status === "Review/Testing" ? "bg-violet-100 text-violet-800" :
+                        task.status === "In Progress" || task.status === "doing" ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-700"
                       }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
                         task.status === "Review/Testing" ? "Kiểm tra" :
@@ -602,11 +602,11 @@ function TaskTable({
                     {!kpi ? (
                       <span className="text-gray-400 italic text-[10px]">-</span>
                     ) : kpi.status === "ontime" ? (
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded text-[10px]" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800" title={kpi.text}>
                         ✓ Đúng hạn
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold text-[10px]" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-2 py-0.5 text-[10px] text-rose-800" title={kpi.text}>
                         ⚠️ Trễ {kpi.diff}h
                       </span>
                     )}
@@ -1512,8 +1512,8 @@ export default function KanbanTab({
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             <Target className="h-4 w-4 text-[#00ADFC] shrink-0" />
-                            <div className="min-w-0 flex-1"><h3 className="font-medium text-slate-800 text-sm truncate">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
-                            <span className="px-2 py-0.5 bg-[#E8F7FF] border border-[#B8E8FF] text-[#007EB8] text-xs rounded-full">
+                            <div className="min-w-0 flex-1"><h3 className="truncate text-sm text-slate-800">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
+                            <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs text-[#007EB8]">
                               {projTasks.length} việc
                             </span>
                           </div>
