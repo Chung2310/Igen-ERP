@@ -1392,18 +1392,18 @@ export default function KanbanTab({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="hr_tab_content">
-        <div className="space-y-5 rounded-2xl bg-white p-4 text-left text-slate-800 sm:space-y-6 sm:p-6" id="job_delegation_kanban">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4" id="hr_tab_content">
+        <div className="space-y-4 rounded-2xl bg-white p-3 text-left text-slate-800 sm:p-4" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-[#DCE7F4] bg-white p-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:gap-4">
-              <h2 data-testid="kanban-header-title" className="text-xl font-semibold font-sans text-slate-800">Công việc</h2>
+          <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <h2 data-testid="kanban-header-title" className="shrink-0 whitespace-nowrap text-lg font-medium font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
-              <div className="w-full min-w-0 select-none min-[1200px]:w-auto">
+              <div className="min-w-0 select-none">
                 <div
                   data-testid="kanban-view-tabs"
-                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-1 text-sm font-normal scrollbar-none min-[1200px]:w-auto"
+                  className="flex min-w-0 gap-0.5 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-1 text-xs font-normal scrollbar-none"
                 >
                   {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
@@ -1412,7 +1412,7 @@ export default function KanbanTab({
                         tabRefs.current[vt] = element;
                       }}
                       onClick={() => selectKanbanViewTab(vt)}
-                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
+                      className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
                         kanbanViewTab === vt
                           ? "bg-white text-[#007EB8] shadow-xs font-medium"
                           : "text-slate-600 hover:text-[#007EB8]"
@@ -1427,8 +1427,8 @@ export default function KanbanTab({
             </div>
 
             {/* Filter and Add Task controls */}
-            <div data-testid="kanban-header-controls" className="flex w-full flex-col gap-3 min-[1200px]:w-auto min-[1200px]:flex-row min-[1200px]:flex-wrap min-[1200px]:items-center">
-              <div data-testid="kanban-person-filter" className="w-full text-sm min-[1200px]:w-44">
+            <div data-testid="kanban-header-controls" className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+              <div data-testid="kanban-person-filter" className="w-full min-w-40 text-xs sm:w-44">
                 <HrFormSelect
                   value={kanbanFilter || ""}
                   onChange={(value) => setKanbanFilter(value || null)}
@@ -1438,11 +1438,11 @@ export default function KanbanTab({
               </div>
 
               {isManager && (
-                <div data-testid="kanban-manager-actions" className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[1200px]:flex min-[1200px]:w-auto min-[1200px]:gap-3">
+                <div data-testid="kanban-manager-actions" className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm font-medium text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer min-[1200px]:w-auto"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-medium text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
                     Tạo dự án & lĩnh vực
@@ -1475,7 +1475,7 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-sm font-medium text-white shadow-xs transition-all cursor-pointer min-[1200px]:w-auto"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-3 py-2 text-xs font-medium text-white shadow-xs transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     Giao việc mới
@@ -1583,19 +1583,20 @@ export default function KanbanTab({
 
           {/* Tab 2: Standard Kanban Board grid */}
           {kanbanViewTab === "Board" && (
-            <div className="grid min-h-[400px] grid-cols-1 items-start gap-3 md:grid-cols-4 md:gap-5" id="kanban_board_columns">
+            <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 select-none">
+              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+                <div className="flex justify-between items-center mb-3 select-none">
                   <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-gray-400" />
                     Chưa bắt đầu
                   </span>
-                  <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-full font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-full text-xs font-medium">
                     {visibleTasks.filter(t => t.status === "Not Started" || t.status === "todo").length}
                   </span>
                 </div>
                 <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                  {!visibleTasks.some(t => t.status === "Not Started" || t.status === "todo") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Not Started" || t.status === "todo").map(task => (
                     <KanbanCard
                       key={task.id}
@@ -1611,17 +1612,18 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 select-none">
+              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+                <div className="flex justify-between items-center mb-3 select-none">
                   <span className="text-sm font-medium text-[#007EB8] flex items-center gap-1.5">
                     <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
                     Đang thực hiện
                   </span>
-                  <span className="px-2 py-0.5 bg-[#E8F7FF] text-[#007EB8] rounded-full font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 bg-[#E8F7FF] text-[#007EB8] rounded-full text-xs font-medium">
                     {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").length}
                   </span>
                 </div>
                 <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                  {!visibleTasks.some(t => t.status === "In Progress" || t.status === "doing") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").map(task => (
                     <KanbanCard
                       key={task.id}
@@ -1637,17 +1639,18 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 select-none">
+              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+                <div className="flex justify-between items-center mb-3 select-none">
                   <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                     Đang kiểm thử
                   </span>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
                     {visibleTasks.filter(t => t.status === "Review/Testing").length}
                   </span>
                 </div>
                 <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                  {!visibleTasks.some(t => t.status === "Review/Testing") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Review/Testing").map(task => (
                     <KanbanCard
                       key={task.id}
@@ -1663,17 +1666,18 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 select-none">
+              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+                <div className="flex justify-between items-center mb-3 select-none">
                   <span className="text-sm font-medium text-emerald-700 flex items-center gap-1.5">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                     Đã hoàn thành
                   </span>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-705 text-emerald-700 rounded-full font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                     {visibleTasks.filter(t => t.status === "Done" || t.status === "done").length}
                   </span>
                 </div>
                 <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                  {!visibleTasks.some(t => t.status === "Done" || t.status === "done") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Done" || t.status === "done").map(task => (
                     <KanbanCard
                       key={task.id}
