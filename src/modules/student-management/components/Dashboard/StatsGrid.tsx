@@ -133,10 +133,10 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
             <stat.icon className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-semibold leading-tight tracking-tight text-slate-900">
+            <p className="text-lg font-medium leading-tight tracking-tight text-slate-900">
               {loading && user ? '...' : stat.value}
             </p>
-            <p className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-medium text-slate-500 transition-colors group-hover:text-[#007EB8]">
+            <p className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-normal text-slate-500 transition-colors group-hover:text-[#007EB8]">
               {stat.label}
             </p>
           </div>

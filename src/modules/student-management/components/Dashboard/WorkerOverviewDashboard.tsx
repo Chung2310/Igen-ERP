@@ -228,12 +228,12 @@ export function WorkerOverviewDashboard({
                 <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                   Đăng ký {isEducation ? 'học viên' : entityLabel.titleCase.toLocaleLowerCase('vi')} theo tháng · {currentYear}
                 </h3>
-                <p className="text-[11px] font-medium tracking-wide text-slate-500">
+                <p className="text-[11px] font-normal tracking-wide text-slate-500">
                   Theo dõi xu hướng {isEducation ? 'đăng ký học' : 'đăng ký'} theo từng tháng
                 </p>
               </div>
             </div>
-            <span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-xs font-semibold text-[#007EB8]">
+            <span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-xs font-medium text-[#007EB8]">
               Tổng: {totalWorkersCount}
             </span>
           </div>
@@ -250,8 +250,8 @@ export function WorkerOverviewDashboard({
                     {monthlyData.months.map((m, idx) => {
                       const heightPercent = m.count ? Math.max(10, Math.round((m.count / monthlyData.maxCount) * 100)) : 0;
                       return <div key={idx} className="group relative z-10 flex h-full flex-1 flex-col justify-end">
-                        {m.count > 0 && <span className="mb-1 text-center text-[10px] font-semibold text-[#007EB8]">{m.count}</span>}
-                        <div title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-all duration-500 group-hover:brightness-110", m.count ? "bg-gradient-to-t from-[#008FD7] via-[#00ADFC] to-[#72D8FF] shadow-[0_4px_12px_rgba(0,173,252,.2)]" : "bg-[#EDF5FA]")} style={{ height: `${heightPercent}%` }} />
+                        {m.count > 0 && <span className="mb-1 text-center text-[10px] font-medium text-[#007EB8]">{m.count}</span>}
+                        <div key={`${m.count}-${timeRange}-${selectedCenter}`} title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-[filter] duration-300 group-hover:brightness-105", m.count ? "student-chart-column bg-gradient-to-t from-[#00ADFC] via-[#63CFFF] to-[#C8F0FF] shadow-[0_4px_12px_rgba(0,173,252,.14)]" : "bg-[#EDF5FA]")} style={{ height: `${heightPercent}%`, animationDelay: `${idx * 45}ms` }} />
                       </div>;
                     })}
                   </div>
@@ -272,7 +272,7 @@ export function WorkerOverviewDashboard({
               <h3 className="text-sm font-semibold tracking-tight text-slate-800">
                 {isEducation ? 'Phân bổ theo khóa học' : 'Phân bổ theo Vị trí Tuyển chọn (Rank)'}
               </h3>
-              <p className="text-[11px] font-medium tracking-wide text-slate-500">
+              <p className="text-[11px] font-normal tracking-wide text-slate-500">
                 {isEducation ? 'Cơ cấu học viên theo khóa học hoặc lớp đã xếp' : 'Cơ cấu vị trí ứng tuyển của người lao động'}
               </p>
             </div>
@@ -287,13 +287,14 @@ export function WorkerOverviewDashboard({
               rankDistribution.map((item, idx) => (
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="max-w-[180px] truncate font-semibold text-slate-700">{item.rank}</span>
+                    <span className="max-w-[180px] truncate font-medium text-slate-700">{item.rank}</span>
                     <span className="font-medium text-slate-500">{item.count} {entityLabel.singular} ({item.percent}%)</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAF4F9]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#00B9AD] to-[#00ADFC] transition-all duration-500"
-                      style={{ width: `${item.percent}%` }}
+                      key={`${item.count}-${item.percent}-${timeRange}-${selectedCenter}`}
+                      className="student-chart-progress h-full rounded-full bg-gradient-to-r from-[#00ADFC] via-[#5BCBFF] to-[#B9E9FC]"
+                      style={{ width: `${item.percent}%`, animationDelay: `${idx * 90}ms` }}
                     />
                   </div>
                 </div>
@@ -332,9 +333,9 @@ export function WorkerOverviewDashboard({
           {referralSources.map((ref, idx) => (
             <div key={idx} className="space-y-1.5 rounded-2xl border border-[#DFECF5] bg-[#F8FCFF] p-3.5 transition-all hover:border-[#8DDCFF] hover:bg-white hover:shadow-sm">
               <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Nguồn #{idx + 1}</span>
-              <p className="truncate text-xs font-semibold text-slate-800" title={ref.source}>{ref.source}</p>
+              <p className="truncate text-xs font-medium text-slate-800" title={ref.source}>{ref.source}</p>
               <div className="flex items-center justify-between border-t border-[#E8F2F8] pt-1.5">
-                <span className="text-sm font-semibold text-[#007EB8]">{ref.count}</span>
+                <span className="text-sm font-medium text-[#007EB8]">{ref.count}</span>
                 <span className="text-[10px] font-medium text-slate-400">{ref.percent}%</span>
               </div>
             </div>
@@ -451,7 +452,7 @@ export function WorkerOverviewDashboard({
                     onClick={() => onSelectStudent(worker)}
                     className="group cursor-pointer transition-colors hover:bg-[#F4FBFF]"
                   >
-                    <td className="px-4 py-3.5 font-semibold text-slate-800 transition-colors group-hover:text-[#007EB8]">
+                    <td className="px-4 py-3.5 font-medium text-slate-800 transition-colors group-hover:text-[#007EB8]">
                       {worker.fullName}
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 font-mono text-[11px]">
