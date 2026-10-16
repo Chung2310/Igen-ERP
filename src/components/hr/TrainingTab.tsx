@@ -1347,13 +1347,13 @@ export default function TrainingTab({
                   <div className="text-left select-none">
                     <span className="block text-sm text-slate-800">Tiến độ hoàn thành</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="flex-1 bg-gray-250 h-2 rounded-full overflow-hidden border">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#DDF7FF] shadow-[0_0_8px_rgba(0,173,252,0.22)]">
                         <div
-                          className="bg-[#00ADFC] h-full rounded-full transition-all duration-300"
+                          className="h-full rounded-full bg-gradient-to-r from-[#00DFFF] to-[#00ADFC] transition-all duration-300"
                           style={{ width: `${enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-xs font-extrabold font-mono text-[#006b9d]">
+                      <span className="text-xs text-[#007eb8]">
                         {enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%
                       </span>
                     </div>
@@ -1513,7 +1513,7 @@ export default function TrainingTab({
                     <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4 w-full">
                       <div className="space-y-5 flex-1 overflow-y-auto pr-1">
                         <div className="pb-4 border-b">
-                          <span className="text-[10px] font-bold text-gray-450 uppercase tracking-widest font-mono">BÀI GIẢNG {activeLessonIndex + 1} / {activeStudyCourse.lessons?.length}</span>
+                          <span className="text-xs text-slate-600">Bài giảng {activeLessonIndex + 1} / {activeStudyCourse.lessons?.length}</span>
                           <h3 className="text-lg font-bold text-slate-800 mt-1 font-sans leading-snug">{les.title}</h3>
                         </div>
 
