@@ -953,9 +953,11 @@ export default function TrainingTab({
               <button
                 type="button"
                 onClick={() => setTrainingFilter(null)}
-                className="shrink-0 self-end rounded-lg border border-[#beeaff] bg-white px-2.5 py-1.5 text-xs text-[#007eb8] shadow-xs transition-all hover:bg-[#f5fbff] cursor-pointer sm:self-auto"
+                aria-label="Đóng giám sát"
+                title="Đóng giám sát"
+                className="flex h-8 w-8 shrink-0 self-end items-center justify-center rounded-full bg-rose-500 text-white shadow-xs transition-colors hover:bg-rose-600 cursor-pointer sm:self-auto"
               >
-                Đóng giám sát
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -1015,7 +1017,7 @@ export default function TrainingTab({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng học (ước lượng)</label>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng học</label>
                   <input
                     type="text"
                     placeholder="Ví dụ: 2 giờ 30 phút"
