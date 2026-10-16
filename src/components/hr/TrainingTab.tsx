@@ -1345,7 +1345,7 @@ export default function TrainingTab({
               <div className="flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-[#E1EAF5] bg-[#F8FBFF] p-4 md:max-h-none md:w-56 md:border-b-0 md:border-r">
                 <div className="space-y-4">
                   <div className="text-left select-none">
-                    <span className="block text-[8px] font-extrabold text-gray-400 uppercase tracking-widest font-mono">TIẾN ĐỘ HOÀN THÀNH:</span>
+                    <span className="block text-sm text-slate-800">Tiến độ hoàn thành</span>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 bg-gray-250 h-2 rounded-full overflow-hidden border">
                         <div
@@ -1360,7 +1360,7 @@ export default function TrainingTab({
                   </div>
 
                   <div className="space-y-2 border-t pt-3">
-                    <span className="block text-[9px] font-bold text-gray-400 uppercase select-none tracking-wider text-left font-mono">DANH SÁCH BÀI HỌC:</span>
+                    <span className="block text-left text-sm text-slate-800 select-none">Danh sách bài học</span>
                     <div className="space-y-1 text-xs">
                       {/* Course Overview / Introduction */}
                       <button
