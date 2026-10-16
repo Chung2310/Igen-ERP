@@ -849,7 +849,7 @@ export default function TrainingTab({
           </div>
 
           {/* Course Catalog list */}
-          <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid auto-rows-min grid-cols-1 items-start gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {courses.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-dashed border-[#DCE7F4] bg-white py-12 text-center text-sm text-slate-600 select-none">
                 Chưa có khóa học nào được đăng tải trên học viện.
@@ -866,10 +866,10 @@ export default function TrainingTab({
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
 
                 return (
-                  <div key={course.id} className={`group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border bg-white p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
-                    <div className="relative space-y-2.5">
-                      <div className={`-mx-3.5 -mt-3.5 flex items-center gap-2.5 px-3.5 py-3.5 ${cardTheme.header}`}>
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
+                  <div key={course.id} className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
+                    <div className="relative space-y-2">
+                      <div className={`-mx-2.5 -mt-2.5 flex items-center gap-2 px-2.5 py-2.5 ${cardTheme.header}`}>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-center gap-1.5">
                             <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
@@ -903,7 +903,7 @@ export default function TrainingTab({
 
                       {course.description && <p className="truncate text-xs text-slate-700" title={course.description}>{course.description}</p>}
 
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-slate-100 bg-white px-2.5 py-2 text-[11px] text-slate-800 shadow-sm select-none">
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl border border-slate-100 bg-white px-2 py-1.5 text-[11px] text-slate-800 shadow-sm select-none">
                         <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
@@ -912,7 +912,7 @@ export default function TrainingTab({
 
                     </div>
 
-                    <div className="relative mt-2.5 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2.5">
+                    <div className="relative mt-2 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2">
                       {myEnrollment && (
                         <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
                           <div
