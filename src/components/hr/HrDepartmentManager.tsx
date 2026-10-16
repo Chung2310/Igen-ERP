@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Building2, Check, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../../pages/Toast";
 import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
@@ -13,10 +13,13 @@ type Props = {
 
 export function HrDepartmentManager({ companyCode, departments, onClose, onChanged }: Props) {
   const [newName, setNewName] = useState("");
+  const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<HrDepartment | null>(null);
+  const normalizeSearch = (value: string) => value.trim().toLocaleLowerCase("vi").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+  const filteredDepartments = departments.filter(department => normalizeSearch(department.name).includes(normalizeSearch(search)));
 
   const add = async () => {
     const name = newName.trim();
@@ -78,11 +81,23 @@ export function HrDepartmentManager({ companyCode, departments, onClose, onChang
 
             <div className="mt-6 flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-sm font-medium text-slate-800">Danh sách phòng ban</h3>
-              <span className="text-xs font-normal text-slate-500">{departments.length} phòng ban</span>
+              <span className="text-xs font-normal text-slate-500">{search.trim() ? `${filteredDepartments.length}/${departments.length}` : departments.length} phòng ban</span>
             </div>
+            {departments.length > 0 && <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#008ACB]" aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Tìm phòng ban"
+                placeholder="Tìm phòng ban..."
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
+              />
+            </div>}
             <div className="mt-2 space-y-1.5">
               {departments.length === 0 && <p className="rounded-xl bg-[#00ADFC]/5 px-4 py-5 text-center text-sm font-normal text-slate-500">Chưa có phòng ban. Hãy thêm phòng ban đầu tiên.</p>}
-              {departments.map(department => (
+              {departments.length > 0 && filteredDepartments.length === 0 && <p className="rounded-xl bg-[#00ADFC]/5 px-4 py-5 text-center text-sm font-normal text-slate-500">Không tìm thấy phòng ban phù hợp.</p>}
+              {filteredDepartments.map(department => (
                 <div key={department.id} className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 hover:border-[#00ADFC]/30 hover:bg-[#00ADFC]/[0.03]">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00ADFC]/10 text-[#008ACB]"><Building2 className="h-4 w-4" /></span>
                   {editingId === department.id ? (
